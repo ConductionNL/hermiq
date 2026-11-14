@@ -19,7 +19,7 @@
  *   - The user-facing reads (`listForCaller()`, `statusForScope()`) are tenant-scoped
  *     (RBAC/multitenancy ON, the default) — a caller-supplied `organisation`/`agentId`
  *     never itself grants visibility; OpenRegister's own tenant filtering is the boundary
- *     (mirrors `AnalyticsController`/`TenantOpsController`).
+ *     (mirrors `AnalyticsController`/`OrganisationOpsController`).
  *
  * This is a recognised ADR-031 imperative exception: a side-effecting governance service,
  * not a derived value or declarative lifecycle. All persistence flows through
@@ -47,7 +47,9 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\BudgetServiceInterface;
+use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
@@ -64,7 +66,7 @@ use Throwable;
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   Coordinates several OR/Hermiq services.
  * @SuppressWarnings(PHPMD.ExcessiveClassLength)     One cohesive guardrail surface (status
  *   computation, gate check, warning delivery, CRUD, estimate) intentionally kept in one
- *   service rather than split, mirroring TenantOpsService's single-surface shape.
+ *   service rather than split, mirroring OrganisationOpsService's single-surface shape.
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Same single-surface trade-off: the
  *   token/EUR dual-dimension checks and period windowing each add branches to one class.
  * @SuppressWarnings(PHPMD.TooManyPublicMethods)     The guardrail surface exposes status,
@@ -72,31 +74,7 @@ use Throwable;
  *
  * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-2-budgetservice-status-hard-cap-check-soft-threshold-warn-estimate
  */
-class BudgetService {
-
-	/**
-	 * OpenRegister register slug that holds Hermiq objects.
-	 *
-	 * Public because `BudgetController::destroy()` addresses the same register when
-	 * it deletes a Budget through OpenRegister directly (ADR-022: no app-local CRUD
-	 * wrapper) — the slug is declared once, here.
-	 *
-	 * @var string
-	 */
-	public const REGISTER_SLUG = 'hermiq';
-
-	/**
-	 * OpenRegister schema slug for Budget objects. Namespaced (`agentbudget`, not
-	 * `budget`) because OpenRegister resolves schema slugs GLOBALLY across all
-	 * registers — the generic `budget` slug collided with another app's Budget
-	 * schema, making every write fail validation against foreign required
-	 * properties (same fix as `agentsession`/`agentskill`).
-	 *
-	 * Public for the same reason as REGISTER_SLUG above.
-	 *
-	 * @var string
-	 */
-	public const BUDGET_SCHEMA = 'agentbudget';
+class BudgetService implements BudgetServiceInterface {
 
 	/**
 	 * OpenRegister schema slug for schedule objects.
@@ -146,7 +124,7 @@ class BudgetService {
 	 *
 	 * @var int
 	 */
-	private const DEFAULT_SOFT_THRESHOLD = 80;
+	private const DEFAULT_SOFT_THRESHOLD = BudgetLimits::DEFAULT_SOFT_THRESHOLD;
 
 	/**
 	 * Constructor.
@@ -232,22 +210,35 @@ class BudgetService {
 		}
 
 		foreach ($budgets as $budget) {
-			try {
-				$recipient = $this->recordWarningIfDue(budget: $budget);
-				if ($recipient === null || $recipient === '') {
-					continue;
-				}
-
-				$this->deliveryService->deliverBudgetWarning(budget: $budget, recipientUids: [$recipient]);
-			} catch (Throwable $e) {
-				$this->logger->warning(
-					'Hermiq could not deliver a budget soft-threshold warning: ' . $e->getMessage(),
-					['exception' => $e]
-				);
-			}
+			$this->deliverWarningIfDue(budget: $budget);
 		}
 
 	}//end checkAndDeliverWarnings()
+
+	/**
+	 * Deliver one budget's soft-threshold warning when it is due; a failure is logged,
+	 * never thrown.
+	 *
+	 * @param ObjectEntity $budget The budget.
+	 *
+	 * @return void
+	 */
+	private function deliverWarningIfDue(ObjectEntity $budget): void {
+		try {
+			$recipient = $this->recordWarningIfDue(budget: $budget);
+			if ($recipient === null || $recipient === '') {
+				return;
+			}
+
+			$this->deliveryService->deliverBudgetWarning(budget: $budget, recipientUids: [$recipient]);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq could not deliver a budget soft-threshold warning: ' . $e->getMessage(),
+				['exception' => $e]
+			);
+		}
+
+	}//end deliverWarningIfDue()
 
 	/**
 	 * Idempotently (once per period) record + return the recipient for a Budget that
@@ -309,93 +300,62 @@ class BudgetService {
 	 * @return array<string, mixed> The status payload (scope/agentId/period/periodKey/
 	 *                              tokens/eur/softThresholdReached/hardCapReached).
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Single-pass threshold evaluation
-	 *   across the token AND (optional) EUR dimensions; splitting would duplicate the
-	 *   period-window/usage computation.
-	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same: the optional tokenLimit/eurLimit/
-	 *   rate guards are independent, multiplying paths without adding real branching depth.
-	 *
 	 * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-2-budgetservice-status-hard-cap-check-soft-threshold-warn-estimate
 	 */
 	public function status(ObjectEntity $budget): array {
 		$data = $budget->getObject();
-		$scope = (string)($data['scope'] ?? 'organisation');
 		$period = (string)($data['period'] ?? 'monthly');
-		$organisation = (string)($budget->getOrganisation() ?? '');
-		$agentId = (string)($data['agentId'] ?? '');
-
-		$now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
-		$window = $this->periodWindow(period: $period, now: $now);
-
-		$scheduleUuids = $this->loadScheduleUuidsForScope(scope: $scope, organisation: $organisation, agentId: $agentId);
-		$tokensUsed = $this->currentUsageTokens(scheduleUuids: $scheduleUuids, start: $window['start'], end: $window['end']);
-
-		// `isset()` is already false for null, so the `!== null` conjunct these
-		// two conditions used to carry was unreachable.
-		$tokenLimit = null;
-		if (isset($data['tokenLimit']) === true && $data['tokenLimit'] !== '') {
-			$tokenLimit = (int)$data['tokenLimit'];
-		}
-
-		$eurLimit = null;
-		if (isset($data['eurLimit']) === true && $data['eurLimit'] !== '') {
-			$eurLimit = (float)$data['eurLimit'];
-		}
-
-		$softThresholdPercent = (int)($data['softThresholdPercent'] ?? self::DEFAULT_SOFT_THRESHOLD);
-
-		$tokenPercent = null;
-		if ($tokenLimit !== null && $tokenLimit > 0) {
-			$tokenPercent = round((($tokensUsed / $tokenLimit) * 100), 1);
-		}
-
-		$hardCapReached = ($tokenLimit !== null && $tokenLimit > 0 && $tokensUsed >= $tokenLimit);
-		$softReached = ($tokenPercent !== null && $tokenPercent >= $softThresholdPercent);
-
-		$rate = $this->eurRate();
-		$eurAvailable = ($rate !== null);
-		$eurUsed = null;
-		$eurPercent = null;
-		if ($eurAvailable === true) {
-			$eurUsed = round((($tokensUsed * $rate) / 1000), 4);
-			if ($eurLimit !== null && $eurLimit > 0) {
-				$eurPercent = round((($eurUsed / $eurLimit) * 100), 1);
-				if ($eurUsed >= $eurLimit) {
-					$hardCapReached = true;
-				}
-
-				if ($eurPercent >= $softThresholdPercent) {
-					$softReached = true;
-				}
-			}
-		}
-
-		$agentIdOrNull = null;
-		if ($agentId !== '') {
-			$agentIdOrNull = $agentId;
-		}
+		$window = $this->periodWindow(period: $period, now: new DateTimeImmutable('now', new DateTimeZone('UTC')));
+		$tokensUsed = $this->currentUsageTokens(scheduleUuids: $this->loadScheduleUuidsForScope(budget: $budget), window: $window);
 
 		return [
-			'scope' => $scope,
-			'agentId' => $agentIdOrNull,
+			'scope' => (string)($data['scope'] ?? 'organisation'),
+			'agentId' => $this->agentIdOrNull(data: $data),
 			'period' => $period,
 			'periodKey' => $window['key'],
-			'tokens' => [
-				'used' => $tokensUsed,
-				'limit' => $tokenLimit,
-				'percent' => $tokenPercent,
-			],
-			'eur' => [
-				'available' => $eurAvailable,
-				'used' => $eurUsed,
-				'limit' => $eurLimit,
-				'percent' => $eurPercent,
-			],
-			'softThresholdReached' => $softReached,
-			'hardCapReached' => $hardCapReached,
-		];
+		] + $this->usageFields(data: $data, tokensUsed: $tokensUsed);
 
 	}//end status()
+
+	/**
+	 * A budget's agent id, or null for an organisation budget.
+	 *
+	 * @param array<string, mixed> $data The budget's fields.
+	 *
+	 * @return string|null The agent id, or null.
+	 */
+	private function agentIdOrNull(array $data): ?string {
+		$agentId = (string)($data['agentId'] ?? '');
+		if ($agentId === '') {
+			return null;
+		}
+
+		return $agentId;
+
+	}//end agentIdOrNull()
+
+	/**
+	 * The token and EUR usage of a budget's limits, and whether either reached its
+	 * soft threshold or hard cap.
+	 *
+	 * @param array<string, mixed> $data The budget's fields.
+	 * @param int $tokensUsed The tokens used in the period.
+	 *
+	 * @return array<string, mixed> The tokens, eur, softThresholdReached and hardCapReached fields.
+	 */
+	private function usageFields(array $data, int $tokensUsed): array {
+		$limits = new BudgetLimits(data: $data);
+		$tokens = $limits->tokenUsage(used: $tokensUsed);
+		$eur = $limits->eurUsage(tokensUsed: $tokensUsed, rate: $this->eurRate());
+
+		return [
+			'tokens' => $tokens['usage'],
+			'eur' => $eur['usage'],
+			'softThresholdReached' => ($tokens['soft'] || $eur['soft']),
+			'hardCapReached' => ($tokens['hard'] || $eur['hard']),
+		];
+
+	}//end usageFields()
 
 	/**
 	 * Pre-run rough cost estimate for one agent — the trailing average tokens per run,
@@ -578,7 +538,7 @@ class BudgetService {
 		];
 
 		// Pin the budget to the TARGET organisation, not the actor's active organisation
-		// (mirrors TenantControlService::toggle()'s @self.organisation trick).
+		// (mirrors OrganisationControlService::toggle()'s @self.organisation trick).
 		$data['@self'] = ['organisation' => $organisation];
 
 		$budget = $this->objectService->saveObject(
@@ -680,6 +640,23 @@ class BudgetService {
 	 * @throws InvalidArgumentException When scope/agentId/period/limits are invalid.
 	 */
 	private function validatePayload(array $payload): void {
+		$this->validateScope(payload: $payload);
+		$this->validatePeriod(payload: $payload);
+		$this->validateLimits(payload: $payload);
+
+	}//end validatePayload()
+
+	/**
+	 * Refuse a scope other than `organisation` or `agent`, and an agent scope without
+	 * an agentId.
+	 *
+	 * @param array<string, mixed> $payload The budget payload.
+	 *
+	 * @return void
+	 *
+	 * @throws InvalidArgumentException When the scope is invalid.
+	 */
+	private function validateScope(array $payload): void {
 		$scope = (string)($payload['scope'] ?? '');
 		if (in_array($scope, ['organisation', 'agent'], true) === false) {
 			throw new InvalidArgumentException('scope must be "organisation" or "agent"');
@@ -689,20 +666,54 @@ class BudgetService {
 			throw new InvalidArgumentException('agentId is required when scope=agent');
 		}
 
+	}//end validateScope()
+
+	/**
+	 * Refuse a period other than daily, weekly or monthly.
+	 *
+	 * @param array<string, mixed> $payload The budget payload.
+	 *
+	 * @return void
+	 *
+	 * @throws InvalidArgumentException When the period is invalid.
+	 */
+	private function validatePeriod(array $payload): void {
 		$period = (string)($payload['period'] ?? '');
 		if (in_array($period, ['daily', 'weekly', 'monthly'], true) === false) {
 			throw new InvalidArgumentException('period must be "daily", "weekly" or "monthly"');
 		}
 
-		$tokenLimit = ($payload['tokenLimit'] ?? null);
-		$eurLimit = ($payload['eurLimit'] ?? null);
-		$hasToken = ($tokenLimit !== null && $tokenLimit !== '');
-		$hasEur = ($eurLimit !== null && $eurLimit !== '');
+	}//end validatePeriod()
+
+	/**
+	 * Refuse a payload that sets neither a token nor a EUR limit.
+	 *
+	 * @param array<string, mixed> $payload The budget payload.
+	 *
+	 * @return void
+	 *
+	 * @throws InvalidArgumentException When no limit is set.
+	 */
+	private function validateLimits(array $payload): void {
+		$hasToken = $this->isLimitSet(limit: ($payload['tokenLimit'] ?? null));
+		$hasEur = $this->isLimitSet(limit: ($payload['eurLimit'] ?? null));
 		if ($hasToken === false && $hasEur === false) {
 			throw new InvalidArgumentException('At least one of tokenLimit or eurLimit is required');
 		}
 
-	}//end validatePayload()
+	}//end validateLimits()
+
+	/**
+	 * Whether a limit value is set: anything but null or the empty string (zero counts).
+	 *
+	 * @param mixed $limit The limit value.
+	 *
+	 * @return bool True when set.
+	 */
+	private function isLimitSet(mixed $limit): bool {
+		return ($limit !== null && $limit !== '');
+
+	}//end isLimitSet()
 
 	/**
 	 * Load enabled budgets matching a scope, system-wide (dispatch-path posture).
@@ -713,6 +724,25 @@ class BudgetService {
 	 * @return array<int, ObjectEntity> The matching, enabled budgets.
 	 */
 	private function matchingBudgetsSystemWide(string $organisation, ?string $agentId): array {
+		$budgets = $this->enabledBudgetsSystemWide();
+
+		$scopes = new BudgetScopes();
+		$matches = [];
+		foreach ($budgets as $budget) {
+			if ($scopes->matches(budget: $budget, organisation: $organisation, agentId: $agentId) === true) {
+				$matches[] = $budget;
+			}
+		}
+
+		return $matches;
+	}//end matchingBudgetsSystemWide()
+
+	/**
+	 * Every enabled budget, system-wide (RBAC and multitenancy off), in read order.
+	 *
+	 * @return array<int, ObjectEntity> The enabled budgets.
+	 */
+	private function enabledBudgetsSystemWide(): array {
 		$objects = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema(self::BUDGET_SCHEMA)
@@ -722,94 +752,68 @@ class BudgetService {
 				_multitenancy: false
 			);
 
-		$matches = [];
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
+		return array_values(array_filter($objects, fn (mixed $object): bool => $this->isEnabledBudget(object: $object)));
 
-			// Defensive re-check in PHP (mirrors loadEngagedOrganisations()'s own
-			// pattern): the 'enabled' filter above is an OR-side hint, not a guarantee.
-			$data = $object->getObject();
-			if (($data['enabled'] ?? true) === false) {
-				continue;
-			}
+	}//end enabledBudgetsSystemWide()
 
-			if ($this->matchesScope(budget: $object, organisation: $organisation, agentId: $agentId) === true) {
-				$matches[] = $object;
-			}
+	/**
+	 * Whether a read object is a budget that is not switched off.
+	 *
+	 * A defensive re-check in PHP (mirrors loadEngagedOrganisations()'s own pattern):
+	 * the 'enabled' filter on the read is an OR-side hint, not a guarantee.
+	 *
+	 * @param mixed $object One read object.
+	 *
+	 * @return bool True for an enabled budget.
+	 */
+	private function isEnabledBudget(mixed $object): bool {
+		if (($object instanceof ObjectEntity) === false) {
+			return false;
 		}
 
-		return $matches;
-	}//end matchingBudgetsSystemWide()
+		return ($object->getObject()['enabled'] ?? true) !== false;
+
+	}//end isEnabledBudget()
 
 	/**
 	 * Find the caller's own budget for a scope, tenant-scoped (RBAC/multitenancy ON).
 	 * Prefers an agent-scoped budget over the organisation-scoped one when both exist
-	 * and an agentId was supplied.
+	 * and an agentId was supplied; within each kind the last one read wins.
 	 *
-	 * @param string $organisation The organisation identifier.
+	 * @param string $organisation The organisation identifier ('' = any the caller sees).
 	 * @param string|null $agentId Optional agent UUID.
 	 *
 	 * @return ObjectEntity|null The matching budget, or null when none is configured.
-	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) One linear filter loop whose guards
-	 *   (entity type, organisation, agent-vs-organisation scope preference) are each a
-	 *   single condition; extracting them would obscure the preference order.
 	 */
 	private function findBudgetTenantScoped(string $organisation, ?string $agentId): ?ObjectEntity {
+		$budgets = $this->tenantBudgets(organisation: $organisation);
+
+		$scopes = new BudgetScopes();
+
+		return ($scopes->lastAgentBudget(budgets: $budgets, agentId: $agentId) ?? $scopes->lastOrganisationBudget(budgets: $budgets));
+	}//end findBudgetTenantScoped()
+
+	/**
+	 * The budgets the caller sees (RBAC/multitenancy ON), of one organisation when given.
+	 *
+	 * @param string $organisation The organisation identifier ('' = every organisation the caller sees).
+	 *
+	 * @return array<int, ObjectEntity> The budgets, in read order.
+	 */
+	private function tenantBudgets(string $organisation): array {
 		$objects = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema(self::BUDGET_SCHEMA)
 			->findAll(config: ['limit' => 1000]);
 
-		$agentMatch = null;
-		$orgMatch = null;
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			$data = $object->getObject();
-			$scope = (string)($data['scope'] ?? '');
-
-			if ($organisation !== '' && (string)($object->getOrganisation() ?? '') !== $organisation) {
-				continue;
-			}
-
-			if ($agentId !== null && $agentId !== '' && $scope === 'agent' && (string)($data['agentId'] ?? '') === $agentId) {
-				$agentMatch = $object;
-			} elseif ($scope === 'organisation') {
-				$orgMatch = $object;
-			}
-		}
-
-		return ($agentMatch ?? $orgMatch);
-	}//end findBudgetTenantScoped()
-
-	/**
-	 * Whether a budget object matches the given organisation/agent scope.
-	 *
-	 * @param ObjectEntity $budget The budget object.
-	 * @param string $organisation The organisation identifier.
-	 * @param string|null $agentId The bound agent UUID, when known.
-	 *
-	 * @return bool
-	 */
-	private function matchesScope(ObjectEntity $budget, string $organisation, ?string $agentId): bool {
-		$data = $budget->getObject();
-		$scope = (string)($data['scope'] ?? '');
-
-		if ($scope === 'organisation') {
-			return ($organisation !== '' && (string)($budget->getOrganisation() ?? '') === $organisation);
-		}
-
-		if ($scope === 'agent') {
-			return ($agentId !== null && $agentId !== '' && (string)($data['agentId'] ?? '') === $agentId);
-		}
-
-		return false;
-	}//end matchesScope()
+		return array_values(
+			array_filter(
+				$objects,
+				static fn (mixed $object): bool => ($object instanceof ObjectEntity) === true
+					&& ($organisation === '' || (string)($object->getOrganisation() ?? '') === $organisation)
+			)
+		);
+	}//end tenantBudgets()
 
 	/**
 	 * Best-effort persist of `lastHardBlockAt` for admin visibility. Never fatal to the
@@ -852,38 +856,19 @@ class BudgetService {
 	 * meter (proposal.md Risk 1). Additive: when no EvalRun exists yet (or the
 	 * schema is absent) this returns exactly the Schedule-only UUID set as before.
 	 *
-	 * @param string $scope `organisation`|`agent`.
-	 * @param string $organisation The organisation identifier.
-	 * @param string $agentId The agent UUID (scope=agent only).
+	 * @param ObjectEntity $budget The budget whose scope (organisation, or agent) to match.
 	 *
 	 * @return array<int, string> The matching schedule + eval-run UUIDs.
 	 */
-	private function loadScheduleUuidsForScope(string $scope, string $organisation, string $agentId): array {
-		$uuids = $this->loadInScopeUuidsForSchema(
-			schema: self::SCHEDULE_SCHEMA,
-			scope: $scope,
-			organisation: $organisation,
-			agentId: $agentId
+	private function loadScheduleUuidsForScope(ObjectEntity $budget): array {
+		return array_merge(
+			$this->loadInScopeUuidsForSchema(schema: self::SCHEDULE_SCHEMA, budget: $budget),
+			$this->loadInScopeUuidsForSchema(schema: self::EVALRUN_SCHEMA, budget: $budget),
+			// Skill-self-improvement: consolidation drafts join the union so the
+			// consolidation LLM pass's `action='run'` usage rolls into the SAME budget
+			// total (the agent-evals precedent). Additive: no drafts ⇒ unchanged set.
+			$this->loadInScopeUuidsForSchema(schema: self::SKILLDRAFT_SCHEMA, budget: $budget)
 		);
-
-		$evalRunUuids = $this->loadInScopeUuidsForSchema(
-			schema: self::EVALRUN_SCHEMA,
-			scope: $scope,
-			organisation: $organisation,
-			agentId: $agentId
-		);
-
-		// Skill-self-improvement: consolidation drafts join the union so the
-		// consolidation LLM pass's `action='run'` usage rolls into the SAME budget
-		// total (the agent-evals precedent). Additive: no drafts ⇒ unchanged set.
-		$draftUuids = $this->loadInScopeUuidsForSchema(
-			schema: self::SKILLDRAFT_SCHEMA,
-			scope: $scope,
-			organisation: $organisation,
-			agentId: $agentId
-		);
-
-		return array_merge($uuids, $evalRunUuids, $draftUuids);
 	}//end loadScheduleUuidsForScope()
 
 	/**
@@ -896,46 +881,14 @@ class BudgetService {
 	 * EvalRun share the identical matching logic instead of two near-duplicate loops.
 	 *
 	 * @param string $schema The OpenRegister schema slug to scan.
-	 * @param string $scope `organisation`|`agent`.
-	 * @param string $organisation The organisation identifier.
-	 * @param string $agentId The agent UUID (scope=agent only).
+	 * @param ObjectEntity $budget The budget whose scope to match.
 	 *
 	 * @return array<int, string> The matching object UUIDs.
 	 */
-	private function loadInScopeUuidsForSchema(string $schema, string $scope, string $organisation, string $agentId): array {
-		try {
-			$objects = $this->objectService
-				->setRegister(self::REGISTER_SLUG)
-				->setSchema($schema)
-				->findAll(config: ['limit' => 1000], _rbac: false, _multitenancy: false);
-		} catch (Throwable $e) {
-			// Fails open (empty scope) rather than breaking budget resolution for every
-			// OTHER schema — e.g. an 'evalrun' scan on an instance whose register
-			// re-import has not yet landed the agent-evals schema must never take down
-			// the pre-existing Schedule-only budget gate.
-			$this->logger->warning(
-				sprintf("Hermiq could not load '%s' objects for the budget scope scan: %s", $schema, $e->getMessage()),
-				['exception' => $e]
-			);
-			return [];
-		}
-
+	private function loadInScopeUuidsForSchema(string $schema, ObjectEntity $budget): array {
 		$uuids = [];
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ($scope === 'organisation') {
-				if ($organisation !== '' && (string)($object->getOrganisation() ?? '') === $organisation) {
-					$uuids[] = (string)$object->getUuid();
-				}
-
-				continue;
-			}
-
-			$data = $object->getObject();
-			if ($agentId !== '' && (string)($data['agentId'] ?? '') === $agentId) {
+		foreach ($this->scopeScanObjects(schema: $schema) as $object) {
+			if ($object instanceof ObjectEntity && $this->isInBudgetScope(object: $object, budget: $budget) === true) {
 				$uuids[] = (string)$object->getUuid();
 			}
 		}
@@ -944,16 +897,65 @@ class BudgetService {
 	}//end loadInScopeUuidsForSchema()
 
 	/**
+	 * Every object of one schema in the `hermiq` register, system-wide; a failed read
+	 * is logged and yields none.
+	 *
+	 * Fails open (empty scope) rather than breaking budget resolution for every
+	 * OTHER schema — e.g. an 'evalrun' scan on an instance whose register re-import
+	 * has not yet landed the agent-evals schema must never take down the
+	 * pre-existing Schedule-only budget gate.
+	 *
+	 * @param string $schema The OpenRegister schema slug to scan.
+	 *
+	 * @return array<int, mixed> The objects read.
+	 */
+	private function scopeScanObjects(string $schema): array {
+		try {
+			return $this->objectService
+				->setRegister(self::REGISTER_SLUG)
+				->setSchema($schema)
+				->findAll(config: ['limit' => 1000], _rbac: false, _multitenancy: false);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				sprintf("Hermiq could not load '%s' objects for the budget scope scan: %s", $schema, $e->getMessage()),
+				['exception' => $e]
+			);
+			return [];
+		}
+
+	}//end scopeScanObjects()
+
+	/**
+	 * Whether an object falls in a budget's scope: in the budget's organisation for an
+	 * organisation budget, else bound to the budget's agent via its `agentId` field.
+	 *
+	 * @param ObjectEntity $object The scanned object.
+	 * @param ObjectEntity $budget The budget.
+	 *
+	 * @return bool True when the object's usage counts toward the budget.
+	 */
+	private function isInBudgetScope(ObjectEntity $object, ObjectEntity $budget): bool {
+		$data = $budget->getObject();
+		if ((string)($data['scope'] ?? 'organisation') === 'organisation') {
+			$organisation = (string)($budget->getOrganisation() ?? '');
+			return $organisation !== '' && (string)($object->getOrganisation() ?? '') === $organisation;
+		}
+
+		$agentId = (string)($data['agentId'] ?? '');
+		return $agentId !== '' && (string)($object->getObject()['agentId'] ?? '') === $agentId;
+
+	}//end isInBudgetScope()
+
+	/**
 	 * Sum recorded token usage (`action='run'` AuditTrail entries) for a set of
 	 * schedule UUIDs within a period window.
 	 *
 	 * @param array<int, string> $scheduleUuids The in-scope schedule UUIDs.
-	 * @param DateTimeImmutable $start The period start (inclusive, UTC).
-	 * @param DateTimeImmutable $end The period end (exclusive, UTC).
+	 * @param array{start: DateTimeImmutable, end: DateTimeImmutable, key: string} $window The period window.
 	 *
 	 * @return int Total prompt+completion tokens recorded in the window.
 	 */
-	private function currentUsageTokens(array $scheduleUuids, DateTimeImmutable $start, DateTimeImmutable $end): int {
+	private function currentUsageTokens(array $scheduleUuids, array $window): int {
 		if ($scheduleUuids === []) {
 			return 0;
 		}
@@ -963,28 +965,44 @@ class BudgetService {
 
 		$total = 0;
 		foreach ($logs as $log) {
-			$objectUuid = (string)$log->getObjectUuid();
-			if (isset($inScope[$objectUuid]) === false) {
-				continue;
+			if (isset($inScope[(string)$log->getObjectUuid()]) === true && $this->isInWindow(log: $log, window: $window) === true) {
+				$total += $this->runTokens(log: $log);
 			}
-
-			$created = $log->getCreated();
-			if ($created === null || $created < $start || $created >= $end) {
-				continue;
-			}
-
-			$context = ($log->getChanged() ?? []);
-			$usage = ($context['usage'] ?? null);
-			if (is_array($usage) === false) {
-				continue;
-			}
-
-			$total += (int)($usage['promptTokens'] ?? 0);
-			$total += (int)($usage['completionTokens'] ?? 0);
 		}
 
 		return $total;
 	}//end currentUsageTokens()
+
+	/**
+	 * Whether a run entry was created inside a period window (start inclusive, end exclusive).
+	 *
+	 * @param AuditTrail $log The run entry.
+	 * @param array{start: DateTimeImmutable, end: DateTimeImmutable, key: string} $window The period window.
+	 *
+	 * @return bool True when inside the window.
+	 */
+	private function isInWindow(AuditTrail $log, array $window): bool {
+		$created = $log->getCreated();
+		return $created !== null && $created >= $window['start'] && $created < $window['end'];
+
+	}//end isInWindow()
+
+	/**
+	 * The prompt plus completion tokens a run entry recorded; none without a usage record.
+	 *
+	 * @param AuditTrail $log The run entry.
+	 *
+	 * @return int The tokens.
+	 */
+	private function runTokens(AuditTrail $log): int {
+		$usage = (($log->getChanged() ?? [])['usage'] ?? null);
+		if (is_array($usage) === false) {
+			return 0;
+		}
+
+		return (int)($usage['promptTokens'] ?? 0) + (int)($usage['completionTokens'] ?? 0);
+
+	}//end runTokens()
 
 	/**
 	 * Compute the [start, end) UTC window and period key for a period kind, anchored
@@ -1031,7 +1049,7 @@ class BudgetService {
 	 * @return float|null
 	 */
 	private function eurRate(): ?float {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, self::EUR_RATE_KEY, '');
+		$raw = $this->appConfig->getValueString(AppIdentity::APP_ID, self::EUR_RATE_KEY, '');
 		if ($raw === '' || is_numeric($raw) === false) {
 			return null;
 		}

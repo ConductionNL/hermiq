@@ -67,6 +67,12 @@
 							<th scope="col">
 								{{ t('hermiq', 'Success') }}
 							</th>
+							<th scope="col">
+								{{ t('hermiq', 'Thumbs up') }}
+							</th>
+							<th scope="col">
+								{{ t('hermiq', 'Thumbs down') }}
+							</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -74,6 +80,8 @@
 							<td>{{ agentName(row) }}</td>
 							<td>{{ row.runs }}</td>
 							<td>{{ row.success }}</td>
+							<td>{{ row.positive || 0 }}</td>
+							<td>{{ row.negative || 0 }}</td>
 						</tr>
 					</tbody>
 				</table>
@@ -110,6 +118,7 @@ import { NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import ChartIcon from 'vue-material-design-icons/ChartBar.vue'
 import { getAnalytics } from '../api/analytics.js'
 import { useAgentStore } from '../store/store.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'AnalyticsBreakdownWidget',
@@ -167,10 +176,7 @@ export default {
 				this.metrics = metrics
 				this.agents = Array.isArray(agents) ? agents : []
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.loading = false
 			}

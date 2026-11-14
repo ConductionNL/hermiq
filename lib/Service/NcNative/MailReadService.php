@@ -50,7 +50,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\NcNative;
 
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Kernel\Contracts\MailReadServiceInterface;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -63,7 +64,7 @@ use Throwable;
  *
  * @spec openspec/specs/nc-native-tools/spec.md#requirement-per-object-idor-guard-on-every-provider
  */
-class MailReadService {
+class MailReadService implements MailReadServiceInterface {
 
 	use ErrorEnvelopeTrait;
 
@@ -77,16 +78,6 @@ class MailReadService {
 	 * @var string
 	 */
 	public const FEATURE_SLUG = 'mail-reading';
-
-	/**
-	 * The hard server-side maximum envelopes one call may return.
-	 *
-	 * Not a token-cost bound. An unbounded listing is the difference between an
-	 * assistant reading a thread and an assistant enumerating an inbox.
-	 *
-	 * @var int
-	 */
-	public const MAX_PAGE_SIZE = 50;
 
 	/**
 	 * Mail's internal classes, resolved lazily and only if present.
@@ -103,12 +94,12 @@ class MailReadService {
 	/**
 	 * Constructor.
 	 *
-	 * @param AiFeatureService $features The AI-feature governance register.
+	 * @param AiFeatureLookup $features The AI-feature governance register.
 	 * @param ContainerInterface $container Lazy Mail service resolution.
 	 * @param LoggerInterface $logger Diagnostics.
 	 */
 	public function __construct(
-		private readonly AiFeatureService $features,
+		private readonly AiFeatureLookup $features,
 		private readonly ContainerInterface $container,
 		private readonly LoggerInterface $logger,
 	) {
@@ -170,51 +161,102 @@ class MailReadService {
 	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-per-object-idor-guard-on-every-provider
 	 */
 	public function listMessages(string $uid, array $arguments): array {
-		$refusal = $this->gate();
+		$refusal = ($this->gate() ?? $this->missingId(arguments: $arguments, key: 'mailboxId'));
 		if ($refusal !== null) {
 			return $refusal;
 		}
 
-		$mailboxId = (int)($arguments['mailboxId'] ?? 0);
-		if ($mailboxId <= 0) {
-			return $this->err(code: 'invalid_argument', message: 'A mailboxId is required.');
-		}
-
-		$manager = $this->mail(key: 'manager');
-		$messages = $this->mail(key: 'messages');
-		if ($manager === null || $messages === null) {
+		$listing = $this->listing(arguments: $arguments);
+		if ($listing === null) {
 			return $this->mailAbsent();
 		}
 
-		// The page size is clamped server-side and cannot be raised by argument.
-		$pageSize = min(self::MAX_PAGE_SIZE, max(1, (int)($arguments['pageSize'] ?? 20)));
-		$page = max(1, (int)($arguments['page'] ?? 1));
-
-		try {
-			// IDOR: getMailbox() is scoped to $uid, so another user's mailbox id
-			// resolves to a not-found rather than to their mailbox.
-			$mailbox = $manager->getMailbox($uid, $mailboxId);
-			$ids = $messages->findAllIds($mailbox);
-			$slice = array_slice($ids, (($page - 1) * $pageSize), $pageSize);
-
-			$found = [];
-			if ($slice !== []) {
-				$found = $messages->findByIds($uid, $slice, 'DESC');
-			}
-		} catch (Throwable $e) {
-			$this->logger->warning('Hermiq: listing mail messages failed', ['exception' => $e]);
-
+		$found = $this->fetchPage(listing: $listing, uid: $uid);
+		if ($found === null) {
 			return $this->err(code: 'mailbox_not_found', message: 'That mailbox could not be read.');
 		}
 
 		return [
-			'mailboxId' => $mailboxId,
-			'page' => $page,
-			'pageSize' => $pageSize,
+			'mailboxId' => $listing->mailboxId,
+			'page' => $listing->page,
+			'pageSize' => $listing->pageSize,
 			'messages' => array_map([$this, 'envelope'], $found),
 		];
 
 	}//end listMessages()
+
+	/**
+	 * The refusal for a missing or non-positive id argument, or null when it is there.
+	 *
+	 * @param array<string, mixed> $arguments The tool arguments.
+	 * @param string $key `mailboxId` or `id`.
+	 *
+	 * @return array<string, mixed>|null The error envelope, or null.
+	 */
+	private function missingId(array $arguments, string $key): ?array {
+		if ((int)($arguments[$key] ?? 0) > 0) {
+			return null;
+		}
+
+		if ($key === 'mailboxId') {
+			return $this->err(code: 'invalid_argument', message: 'A mailboxId is required.');
+		}
+
+		return $this->err(code: 'invalid_argument', message: 'A message id is required.');
+
+	}//end missingId()
+
+	/**
+	 * The listing for the arguments, or null when Mail's services are absent.
+	 *
+	 * @param array<string, mixed> $arguments mailboxId, page, pageSize.
+	 *
+	 * @return MailListing|null The listing.
+	 */
+	private function listing(array $arguments): ?MailListing {
+		$manager = $this->mail(key: 'manager');
+		$messages = $this->mail(key: 'messages');
+		if ($manager === null || $messages === null) {
+			return null;
+		}
+
+		$listing = new MailListing(manager: $manager, messages: $messages);
+		$listing->mailboxId = (int)($arguments['mailboxId'] ?? 0);
+		// The page size is clamped server-side and cannot be raised by argument.
+		$listing->pageSize = min(self::MAX_PAGE_SIZE, max(1, (int)($arguments['pageSize'] ?? 20)));
+		$listing->page = max(1, (int)($arguments['page'] ?? 1));
+
+		return $listing;
+
+	}//end listing()
+
+	/**
+	 * The page's messages, newest first; a failure is logged and is null.
+	 *
+	 * @param MailListing $listing The listing.
+	 * @param string $uid The acting user id.
+	 *
+	 * @return array<int, object>|null The messages, or null when the mailbox could not be read.
+	 */
+	private function fetchPage(MailListing $listing, string $uid): ?array {
+		try {
+			// IDOR: getMailbox() is scoped to $uid, so another user's mailbox id
+			// resolves to a not-found rather than to their mailbox.
+			$mailbox = $listing->manager->getMailbox($uid, $listing->mailboxId);
+			$ids = $listing->messages->findAllIds($mailbox);
+			$slice = array_slice($ids, (($listing->page - 1) * $listing->pageSize), $listing->pageSize);
+			if ($slice === []) {
+				return [];
+			}
+
+			return $listing->messages->findByIds($uid, $slice, 'DESC');
+		} catch (Throwable $e) {
+			$this->logger->warning('Hermiq: listing mail messages failed', ['exception' => $e]);
+
+			return null;
+		}
+
+	}//end fetchPage()
 
 	/**
 	 * Read one message: headers, text body, attachment METADATA.
@@ -235,52 +277,131 @@ class MailReadService {
 	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-per-object-idor-guard-on-every-provider
 	 */
 	public function readMessage(string $uid, array $arguments): array {
-		$refusal = $this->gate();
+		$refusal = ($this->gate() ?? $this->missingId(arguments: $arguments, key: 'id'));
 		if ($refusal !== null) {
 			return $refusal;
 		}
 
-		$id = (int)($arguments['id'] ?? 0);
-		if ($id <= 0) {
-			return $this->err(code: 'invalid_argument', message: 'A message id is required.');
+		$read = $this->messageRead(arguments: $arguments);
+		if ($read === null) {
+			return $this->mailAbsent();
 		}
 
+		$imap = $this->openMessage(read: $read, uid: $uid);
+		if ($imap === null) {
+			return $this->err(code: 'message_not_found', message: 'That message could not be read.');
+		}
+
+		return $this->messageResult(read: $read, imap: $imap);
+
+	}//end readMessage()
+
+	/**
+	 * The read for the arguments, or null when Mail's services are absent.
+	 *
+	 * @param array<string, mixed> $arguments id, includeHtml.
+	 *
+	 * @return MailMessageRead|null The read.
+	 */
+	private function messageRead(array $arguments): ?MailMessageRead {
 		$manager = $this->mail(key: 'manager');
 		$accounts = $this->mail(key: 'accounts');
 		$clients = $this->mail(key: 'clients');
 		if ($manager === null || $accounts === null || $clients === null) {
-			return $this->mailAbsent();
+			return null;
 		}
 
+		$read = new MailMessageRead(manager: $manager, id: (int)($arguments['id'] ?? 0));
+		$read->accounts = $accounts;
+		$read->clients = $clients;
+		$read->includeHtml = (($arguments['includeHtml'] ?? false) === true);
+
+		return $read;
+
+	}//end messageRead()
+
+	/**
+	 * Find the user's message and fetch it from IMAP; a failure is logged and is null.
+	 *
+	 * @param MailMessageRead $read The read; its message is set once found.
+	 * @param string $uid The acting user id.
+	 *
+	 * @return object|null The IMAP message, or null when it could not be read.
+	 */
+	private function openMessage(MailMessageRead $read, string $uid): ?object {
 		try {
 			// IDOR: scoped to $uid by Mail's own API.
-			$message = $manager->getMessage($uid, $id);
+			$manager = $read->manager;
+			$message = $manager->getMessage($uid, $read->id);
+			$read->message = $message;
 			$mailbox = $manager->getMailbox($uid, $message->getMailboxId());
-			$account = $accounts->find($uid, $mailbox->getAccountId());
+			$account = $read->accounts->find($uid, $mailbox->getAccountId());
 
-			$client = $clients->getClient($account);
-			$imap = $manager->getImapMessage($client, $account, $mailbox, $message->getUid(), true);
+			$client = $read->clients->getClient($account);
+			return $manager->getImapMessage($client, $account, $mailbox, $message->getUid(), true);
 		} catch (Throwable $e) {
 			$this->logger->warning('Hermiq: reading a mail message failed', ['exception' => $e]);
 
-			return $this->err(code: 'message_not_found', message: 'That message could not be read.');
+			return null;
 		}
 
-		$result = $this->envelope(message: $message);
+	}//end openMessage()
+
+	/**
+	 * The message's envelope, text body and attachment metadata, and the HTML body only when asked.
+	 *
+	 * @param MailMessageRead $read The read, with its message found.
+	 * @param object $imap The IMAP message.
+	 *
+	 * @return array<string, mixed> The message.
+	 */
+	private function messageResult(MailMessageRead $read, object $imap): array {
+		$result = $this->envelope(message: $read->message);
 		$result['body'] = $imap->getPlainBody();
 		$result['attachments'] = $this->attachmentMetadata(imap: $imap);
 
-		if (($arguments['includeHtml'] ?? false) === true) {
+		if ($read->includeHtml === true) {
 			// Returned UNSANITISED and marked as such. We do not own an HTML
 			// sanitiser and should not acquire one for a secondary use case; what
 			// we can guarantee is that no consumer receives HTML that looks vetted.
-			$result['htmlBody'] = $imap->getHtmlBody($id);
+			$result['htmlBody'] = $imap->getHtmlBody($read->id);
 			$result['htmlBodyIsUnsanitised'] = true;
 		}
 
 		return $result;
 
-	}//end readMessage()
+	}//end messageResult()
+
+	/**
+	 * Whether the user can open one message, without reading it.
+	 *
+	 * The knowledge graph asks this before it shows a node that points at a mail
+	 * message: Mail's own user-scoped lookup decides, and anything but a found
+	 * message (feature off, Mail absent, no such id, not the user's message) is false.
+	 *
+	 * @param string $uid The acting user id.
+	 * @param int $messageId The Mail message id.
+	 *
+	 * @return bool True when the message is the user's.
+	 *
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+	 */
+	public function canRead(string $uid, int $messageId): bool {
+		$manager = $this->mail(key: 'manager');
+		if ($manager === null || $this->gate() !== null) {
+			return false;
+		}
+
+		try {
+			// IDOR: scoped to $uid by Mail's own API.
+			$manager->getMessage($uid, $messageId);
+		} catch (Throwable) {
+			return false;
+		}
+
+		return true;
+
+	}//end canRead()
 
 	/**
 	 * Reduce a message to its envelope — never its body.

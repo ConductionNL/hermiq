@@ -186,4 +186,82 @@ class TalkRoomBindingSyncTest extends TestCase {
 		$this->assertSame($session, $binding->syncParticipants($session, ['alice', 'bob']));
 
 	}//end testAFailedSyncReturnsTheSessionUnchanged()
+	/**
+	 * A room member who is not yet on the roster still finds the room's session.
+	 *
+	 * The Session read rule admits only the owner and listed participants
+	 * (hermiq#976). If the room lookup ran under it, a late joiner would find
+	 * no session, and the listener would bind a second session to the room
+	 * instead of syncing the roster. The room token is the key, so the lookup
+	 * goes around RBAC and keeps tenancy; the participation check follows.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
+	 */
+	public function testTheRoomLookupIsNotLimitedToTheCallersOwnSessions(): void {
+		$flags = null;
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('setRegister')->willReturnSelf();
+		$objectService->method('setSchema')->willReturnSelf();
+		$objectService->method('findAll')->willReturnCallback(
+			function (array $config, bool $_rbac = true, bool $_multitenancy = true) use (&$flags): array {
+				$flags = ['rbac' => $_rbac, 'multitenancy' => $_multitenancy, 'filters' => $config['filters']];
+				return [$this->session([])];
+			}
+		);
+
+		$binding = new TalkRoomBinding($objectService, $this->createMock(LoggerInterface::class));
+
+		$this->assertNotNull($binding->findByRoomToken(roomToken: 'room-1'));
+		$this->assertSame(['rbac' => false, 'multitenancy' => true, 'filters' => ['talkRoomToken' => 'room-1']], $flags);
+
+	}//end testTheRoomLookupIsNotLimitedToTheCallersOwnSessions()
+
+	/**
+	 * The room lookup: an empty token reads nothing; the newest single match is asked
+	 * for; the first object entity is returned; a failed read is logged and finds none.
+	 *
+	 * @return void
+	 */
+	public function testTheRoomLookupReadsTheNewestBoundSession(): void {
+		$configs = [];
+		$results = [['not-an-entity', $this->session([])], [], new \RuntimeException('store down')];
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('setRegister')->willReturnSelf();
+		$objectService->method('setSchema')->willReturnSelf();
+		$objectService->method('findAll')->willReturnCallback(
+			function (array $config) use (&$configs, &$results): array {
+				$configs[] = $config;
+				$result = array_shift($results);
+				if ($result instanceof \Throwable) {
+					throw $result;
+				}
+
+				return $result;
+			}
+		);
+		$logged = [];
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->method('warning')->willReturnCallback(
+			static function (string $message, array $context) use (&$logged): void {
+				unset($context['file'], $context['line']);
+				$logged[] = [$message, $context];
+			}
+		);
+		$binding = new TalkRoomBinding($objectService, $logger);
+
+		$this->assertNull($binding->findByRoomToken(roomToken: ''));
+		$this->assertSame('conv-1', $binding->findByRoomToken(roomToken: 'room-1')?->getUuid());
+		$this->assertNull($binding->findByRoomToken(roomToken: 'room-2'));
+		$this->assertNull($binding->findByRoomToken(roomToken: 'room-3'));
+
+		$config = static fn (string $token): array => ['filters' => ['talkRoomToken' => $token], 'sort' => ['created' => 'DESC'], 'limit' => 1];
+		$this->assertSame([$config('room-1'), $config('room-2'), $config('room-3')], $configs);
+		$this->assertSame(
+			[['[TalkRoomBinding] Could not resolve the conversation bound to the room', ['roomToken' => 'room-3', 'error' => 'store down']]],
+			$logged
+		);
+
+	}//end testTheRoomLookupReadsTheNewestBoundSession()
 }//end class

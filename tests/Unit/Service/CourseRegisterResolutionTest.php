@@ -24,7 +24,7 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\LearnerSignalReader;
 use OCA\Hermiq\Service\LearnerSignalRegister;
@@ -240,7 +240,7 @@ class CourseRegisterResolutionTest extends TestCase {
 	private function recommend(array $presentSlugs, bool $appInstalled = true): array {
 		$now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 
-		$aiFeatureService = $this->createMock(AiFeatureService::class);
+		$aiFeatureService = $this->createMock(AiFeatureLookup::class);
 		$aiFeatureService->method('findBySlug')->willReturn(
 			$this->entity('feat-1', ['slug' => 'course-recommendations', 'lifecycle' => 'enabled'])
 		);
@@ -380,6 +380,9 @@ class CourseRegisterResolutionTest extends TestCase {
 				// dies before it runs.
 				bool $failIfExists = false,
 				bool $_unowned = false,
+				// Added by openregister (duplicate detection), seen 2026-09-16.
+				bool $_dedupOverride = false,
+				?string $_owner = null,
 			): ObjectEntity {
 				$payload = is_array($object) ? $object : $object->getObject();
 				$entity = new ObjectEntity();

@@ -155,6 +155,33 @@ class AgentTemplateSerializerTest extends TestCase {
 	}//end testFromPackageToleratesMissingFields()
 
 	/**
+	 * A schedule hint keeps only its four known fields, cast and in a fixed order;
+	 * a null field is absent and a non-object hint is empty.
+	 *
+	 * @return void
+	 */
+	public function testTheScheduleHintKeepsItsFourFieldsCast(): void {
+		$serializer = new AgentTemplateSerializer();
+
+		$hints = [];
+		foreach (
+			[
+				'{"suggestedSchedule": {"deliver": 5, "intervalMinutes": "15", "extra": 1, "cronExpr": null, "kind": "interval"}}',
+				'{"suggestedSchedule": {"cronExpr": "* * * * *", "intervalMinutes": 2.9}}',
+				'{"suggestedSchedule": "daily"}',
+			] as $package
+		) {
+			$hints[] = $serializer->fromPackage(package: $package)['suggestedSchedule'];
+		}
+
+		$this->assertSame(
+			expected: [['kind' => 'interval', 'intervalMinutes' => 15, 'deliver' => '5'], ['cronExpr' => '* * * * *', 'intervalMinutes' => 2], []],
+			actual: $hints
+		);
+
+	}//end testTheScheduleHintKeepsItsFourFieldsCast()
+
+	/**
 	 * fromPackage() never throws on malformed JSON — it falls back to a well-shaped,
 	 * empty template instead of a fatal error.
 	 *

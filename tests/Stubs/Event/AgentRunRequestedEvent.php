@@ -61,10 +61,9 @@ class AgentRunRequestedEvent extends Event {
 		private readonly bool $requiresApproval,
 		private readonly string $mode,
 		private readonly string $flowName,
-		?string $correlationId = null,
 	) {
 		parent::__construct();
-		$this->correlationId = ($correlationId ?? 'test-correlation-id');
+		$this->correlationId = 'test-correlation-id';
 	}//end __construct()
 
 	/**

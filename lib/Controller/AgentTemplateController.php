@@ -58,13 +58,13 @@ namespace OCA\Hermiq\Controller;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\ActionAuthService;
-use OCA\Hermiq\Service\AgentAccessService;
-use OCA\Hermiq\Service\AgentTemplateService;
-use OCA\Hermiq\Service\GitHubTemplateCatalogService;
-use OCA\Hermiq\Service\GitHubTemplatePushService;
-use OCA\Hermiq\Service\SeedCustodyService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\AgentTemplateServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\GitHubTemplateCatalogServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\GitHubTemplatePushServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SeedCustodyServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCA\OpenRegister\Service\ObjectService;
@@ -73,6 +73,7 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCS\OCSForbiddenException;
 use OCP\IRequest;
+use OCP\IUser;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -116,15 +117,15 @@ class AgentTemplateController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param AgentTemplateService $templateService The template read/write/gallery path.
-	 * @param ActionAuthService $actionAuth The ADR-023 action-authorization service.
+	 * @param AgentTemplateServiceInterface $templateService The template read/write/gallery path.
+	 * @param ActionAuthServiceInterface $actionAuth The ADR-023 action-authorization service.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param OrganisationMapper $organisationMapper OpenRegister organisation lookup (instantiate's org resolution).
 	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param GitHubTemplateCatalogService $catalogService GitHub search/fetch (agent-template-github-store).
-	 * @param GitHubTemplatePushService $pushService GitHub publish (agent-template-github-store).
-	 * @param SeedCustodyService $seedCustody Owner-or-seed-custodian check (update/destroy guard).
-	 * @param AgentAccessService $agentAccess Per-agent authorization (export guard).
+	 * @param GitHubTemplateCatalogServiceInterface $catalogService GitHub search/fetch (agent-template-github-store).
+	 * @param GitHubTemplatePushServiceInterface $pushService GitHub publish (agent-template-github-store).
+	 * @param SeedCustodyServiceInterface $seedCustody Owner-or-seed-custodian check (update/destroy guard).
+	 * @param AgentAccessServiceInterface $agentAccess Per-agent authorization (export guard).
 	 * @param ObjectService $objectService OpenRegister object read/write — the ownership guard
 	 *   reads, and `destroy()` deletes, through OpenRegister directly (ADR-022/ADR-083: no
 	 *   app-local CRUD wrapper).
@@ -134,18 +135,18 @@ class AgentTemplateController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly AgentTemplateService $templateService,
-		private readonly ActionAuthService $actionAuth,
+		private readonly AgentTemplateServiceInterface $templateService,
+		private readonly ActionAuthServiceInterface $actionAuth,
 		private readonly IUserSession $userSession,
 		private readonly OrganisationMapper $organisationMapper,
 		private readonly LoggerInterface $logger,
-		private readonly GitHubTemplateCatalogService $catalogService,
-		private readonly GitHubTemplatePushService $pushService,
-		private readonly SeedCustodyService $seedCustody,
-		private readonly AgentAccessService $agentAccess,
+		private readonly GitHubTemplateCatalogServiceInterface $catalogService,
+		private readonly GitHubTemplatePushServiceInterface $pushService,
+		private readonly SeedCustodyServiceInterface $seedCustody,
+		private readonly AgentAccessServiceInterface $agentAccess,
 		private readonly ObjectService $objectService,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -261,8 +262,8 @@ class AgentTemplateController extends Controller {
 			// call. The authority to run it is the ownership guard four lines up.
 			$this->objectService->deleteObject(
 				uuid: $id,
-				register: AgentTemplateService::REGISTER_SLUG,
-				schema: AgentTemplateService::TEMPLATE_SCHEMA
+				register: AgentTemplateServiceInterface::REGISTER_SLUG,
+				schema: AgentTemplateServiceInterface::TEMPLATE_SCHEMA
 			);
 			return new JSONResponse([]);
 		} catch (Throwable $e) {
@@ -306,6 +307,80 @@ class AgentTemplateController extends Controller {
 		}
 
 	}//end export()
+
+	/**
+	 * "Save as template" on the agent page: the owner turns the agent into an
+	 * active template in the Store. 404 when the caller cannot read the agent, 403
+	 * when they can but do not own it.
+	 *
+	 * @param string $agentId The Agent UUID.
+	 *
+	 * @return JSONResponse The new template (201), or an error status.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agent-can-be-saved-as-a-reusable-template-req-agexp-003
+	 */
+	public function saveFromAgent(string $agentId): JSONResponse {
+		$user = $this->userSession->getUser();
+		if ($user === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		$refusal = $this->saveFromAgentRefusal(agentId: $agentId, userId: $user->getUID());
+		if ($refusal !== null) {
+			return $refusal;
+		}
+
+		return $this->saveAgentAsTemplate(agentId: $agentId, userId: $user->getUID());
+
+	}//end saveFromAgent()
+
+	/**
+	 * Refuse "save as template" for an agent the caller cannot read (404) or does not
+	 * own (403).
+	 *
+	 * @param string $agentId The Agent UUID.
+	 * @param string $userId The caller's UID.
+	 *
+	 * @return JSONResponse|null The refusal, or null when the caller owns the agent.
+	 */
+	private function saveFromAgentRefusal(string $agentId, string $userId): ?JSONResponse {
+		$agent = $this->agentAccess->loadAccessibleAgent(agentId: $agentId, userId: $userId);
+		if ($agent === null) {
+			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		}
+
+		if ($this->agentAccess->canUserModifyAgent(agent: $agent, userId: $userId) === false) {
+			return new JSONResponse(['error' => 'Only the owner of this agent can save it as a template'], Http::STATUS_FORBIDDEN);
+		}
+
+		return null;
+
+	}//end saveFromAgentRefusal()
+
+	/**
+	 * Save the caller's agent as an active template.
+	 *
+	 * @param string $agentId The Agent UUID.
+	 * @param string $userId The caller's UID.
+	 *
+	 * @return JSONResponse The new template (201), 404 when it could not be created, 500 on failure.
+	 */
+	private function saveAgentAsTemplate(string $agentId, string $userId): JSONResponse {
+		try {
+			$template = $this->templateService->saveAgentAsTemplate(agentId: $agentId, createdBy: $userId);
+			if ($template === null) {
+				return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+			}
+
+			return new JSONResponse($this->shape(object: $template), Http::STATUS_CREATED);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq save-as-template failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not save the agent as a template'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+
+	}//end saveAgentAsTemplate()
 
 	/**
 	 * Export a template's own portable fields to a shareable JSON package.
@@ -395,7 +470,26 @@ class AgentTemplateController extends Controller {
 		}
 
 		$force = (bool)$this->request->getParam('force', false);
+		$refusal = $this->approvalRefusal(user: $user, force: $force);
+		if ($refusal !== null) {
+			return $refusal;
+		}
 
+		return $this->approveTemplate(id: $id, force: $force);
+
+	}//end approve()
+
+	/**
+	 * Refuse an approval the caller may not give: approving needs
+	 * `agenttemplate.approve-quarantined`, and forcing past a dangerous scan verdict
+	 * additionally needs `agenttemplate.override-scan-verdict`.
+	 *
+	 * @param IUser $user The caller.
+	 * @param bool $force Whether the caller overrides the scan verdict.
+	 *
+	 * @return JSONResponse|null The 403 refusal, or null when the caller may approve.
+	 */
+	private function approvalRefusal(IUser $user, bool $force): ?JSONResponse {
 		try {
 			$this->actionAuth->requireAction(user: $user, action: 'agenttemplate.approve-quarantined');
 			if ($force === true) {
@@ -407,36 +501,60 @@ class AgentTemplateController extends Controller {
 			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
 		}
 
+		return null;
+
+	}//end approvalRefusal()
+
+	/**
+	 * Approve a quarantined template through the service.
+	 *
+	 * @param string $id The AgentTemplate UUID.
+	 * @param bool $force Whether the caller overrides the scan verdict.
+	 *
+	 * @return JSONResponse The updated template, 409 when the scan kept it quarantined, 404 or 500.
+	 */
+	private function approveTemplate(string $id, bool $force): JSONResponse {
 		try {
 			$template = $this->templateService->approveQuarantined(templateId: $id, force: $force);
 			if ($template === null) {
 				return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
 			}
 
-			$shaped = $this->shape(object: $template);
-
-			// A non-forced approve leaves the template quarantined ONLY when the content
-			// scanner blocked it (a dangerous verdict) — signal 409 so the UI can present
-			// the findings and offer an explicit override (mirrors SkillMarketplaceController).
-			if (($shaped['state'] ?? '') === 'quarantined' && $force === false) {
-				return new JSONResponse(
-					[
-						'error' => 'Approval blocked: content scan flagged dangerous patterns.',
-						'scanReport' => ($shaped['scanReport'] ?? []),
-						'quarantineReason' => ($shaped['quarantineReason'] ?? ''),
-						'template' => $shaped,
-					],
-					Http::STATUS_CONFLICT
-				);
-			}
-
-			return new JSONResponse($shaped);
+			return $this->approvalResponse(shaped: $this->shape(object: $template), force: $force);
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq agent-template approve failed: ' . $e->getMessage(), ['exception' => $e]);
 			return new JSONResponse(['error' => 'Approve failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
-		}//end try
+		}
 
-	}//end approve()
+	}//end approveTemplate()
+
+	/**
+	 * The response to an approval: a non-forced approve leaves the template
+	 * quarantined ONLY when the content scanner blocked it (a dangerous verdict), which
+	 * is signalled as 409 so the UI can present the findings and offer an explicit
+	 * override (mirrors SkillMarketplaceController).
+	 *
+	 * @param array<string, mixed> $shaped The shaped template.
+	 * @param bool $force Whether the caller overrode the scan verdict.
+	 *
+	 * @return JSONResponse The template, or the 409 with the scan findings.
+	 */
+	private function approvalResponse(array $shaped, bool $force): JSONResponse {
+		if (($shaped['state'] ?? '') === 'quarantined' && $force === false) {
+			return new JSONResponse(
+				[
+					'error' => 'Approval blocked: content scan flagged dangerous patterns.',
+					'scanReport' => ($shaped['scanReport'] ?? []),
+					'quarantineReason' => ($shaped['quarantineReason'] ?? ''),
+					'template' => $shaped,
+				],
+				Http::STATUS_CONFLICT
+			);
+		}
+
+		return new JSONResponse($shaped);
+
+	}//end approvalResponse()
 
 	/**
 	 * "Use this template" — instantiate a template into a real Agent in the caller's
@@ -512,7 +630,7 @@ class AgentTemplateController extends Controller {
 			$this->logger->error('Hermiq agent-template github search failed: ' . $e->getMessage(), ['exception' => $e]);
 			return new JSONResponse(
 				[
-					'outcome' => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE,
+					'outcome' => GitHubTemplateCatalogServiceInterface::OUTCOME_UNREACHABLE,
 					'cards' => [],
 					'brokerCredentialAvailable' => $this->catalogService->isBrokerAvailable(),
 					'brokerUsed' => false,
@@ -549,10 +667,6 @@ class AgentTemplateController extends Controller {
 	 *
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-template-through-the-existing-quarantine-gate
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-validate-repo-coordinates-before-any-github-call
-	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Sequential input-validation guards
-	 *   (auth, owner/repo/ref patterns, fetch outcome) each add a branch; the flow
-	 *   itself is a straight guard-then-delegate path.
 	 */
 	public function githubInstall(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -560,15 +674,26 @@ class AgentTemplateController extends Controller {
 			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
 		}
 
-		$owner = (string)($this->request->getParam('owner') ?? '');
-		$repo = (string)($this->request->getParam('repo') ?? '');
-		$refRaw = $this->request->getParam('ref');
-		$ref = null;
-		if (is_string($refRaw) === true && $refRaw !== '') {
-			$ref = $refRaw;
+		$refusal = $this->githubCoordinatesRefusal();
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
-		if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
+		return $this->installFromGithub(userId: $user->getUID());
+
+	}//end githubInstall()
+
+	/**
+	 * Refuse GitHub coordinates (owner, repo, optional ref) that do not match the
+	 * allowed patterns, before any GitHub call.
+	 *
+	 * @return JSONResponse|null The 400 refusal, or null when the coordinates are valid.
+	 */
+	private function githubCoordinatesRefusal(): ?JSONResponse {
+		$owner = $this->stringParam(key: 'owner');
+		$repo = $this->stringParam(key: 'repo');
+		$ref = $this->nonEmptyStringParam(key: 'ref');
+		if ($this->isValidRepo(owner: $owner, repo: $repo) === false) {
 			return new JSONResponse(['error' => 'invalid_repo'], Http::STATUS_BAD_REQUEST);
 		}
 
@@ -576,26 +701,52 @@ class AgentTemplateController extends Controller {
 			return new JSONResponse(['error' => 'invalid_ref'], Http::STATUS_BAD_REQUEST);
 		}
 
+		return null;
+
+	}//end githubCoordinatesRefusal()
+
+	/**
+	 * Fetch the requested repository's template package and import it.
+	 *
+	 * @param string $userId The caller's UID.
+	 *
+	 * @return JSONResponse 201 with the created (quarantined) template; 404 or 500 on failure.
+	 */
+	private function installFromGithub(string $userId): JSONResponse {
 		try {
 			$package = $this->catalogService->fetchTemplateFile(
-				owner: $owner,
-				repo: $repo,
-				ref: $ref,
-				actingUserId: $user->getUID(),
+				owner: $this->stringParam(key: 'owner'),
+				repo: $this->stringParam(key: 'repo'),
+				ref: $this->nonEmptyStringParam(key: 'ref'),
+				actingUserId: $userId,
 				credentialId: $this->credentialParam()
 			);
-			if ($package === null) {
-				return new JSONResponse(['error' => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE], Http::STATUS_NOT_FOUND);
-			}
-
-			$template = $this->templateService->importPackage(package: $package, source: 'hub', createdBy: $user->getUID());
-			return new JSONResponse($this->shape(object: $template), Http::STATUS_CREATED);
+			return $this->importGithubPackage(package: $package, userId: $userId);
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq agent-template github install failed: ' . $e->getMessage(), ['exception' => $e]);
 			return new JSONResponse(['error' => 'Install failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
-		}//end try
+		}
 
-	}//end githubInstall()
+	}//end installFromGithub()
+
+	/**
+	 * Import a fetched package through the unchanged hub import path, so it lands
+	 * quarantined and content-scanned.
+	 *
+	 * @param string|null $package The fetched package, or null when it was unreachable.
+	 * @param string $userId The caller's UID.
+	 *
+	 * @return JSONResponse 201 with the created template, or 404 when nothing was fetched.
+	 */
+	private function importGithubPackage(?string $package, string $userId): JSONResponse {
+		if ($package === null) {
+			return new JSONResponse(['error' => GitHubTemplateCatalogServiceInterface::OUTCOME_UNREACHABLE], Http::STATUS_NOT_FOUND);
+		}
+
+		$template = $this->templateService->importPackage(package: $package, source: 'hub', createdBy: $userId);
+		return new JSONResponse($this->shape(object: $template), Http::STATUS_CREATED);
+
+	}//end importGithubPackage()
 
 	/**
 	 * Publish an existing template to a NEW GitHub repository tagged
@@ -619,12 +770,6 @@ class AgentTemplateController extends Controller {
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-refuse-to-overwrite-an-existing-github-repository
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-record-github-publish-provenance-without-leaking-it-into-packages
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-scope-publish-to-templates-the-caller-can-already-see
-	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Sequential spec-mandated guards
-	 *   (auth, repo pattern, visibility, credential, tenant-scoped 404, broker
-	 *   availability) each add a branch on one linear publish path.
-	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning: independent
-	 *   early-return guards multiply paths without nested logic.
 	 */
 	public function publishGithub(string $id): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -632,26 +777,46 @@ class AgentTemplateController extends Controller {
 			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
 		}
 
-		$owner = (string)($this->request->getParam('owner') ?? '');
-		$repo = (string)($this->request->getParam('repo') ?? '');
-		$visibility = (string)($this->request->getParam('visibility') ?? 'private');
-		$credentialId = (string)($this->request->getParam('credentialId') ?? '');
+		$refusal = $this->publishRequestRefusal();
+		if ($refusal !== null) {
+			return $refusal;
+		}
 
-		if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
+		return $this->publishTemplate(id: $id, userId: $user->getUID());
+	}//end publishGithub()
+
+	/**
+	 * Refuse a publish request whose target repository does not match the allowed
+	 * pattern (400) or that names no broker credential (422).
+	 *
+	 * @return JSONResponse|null The refusal, or null when the request is complete.
+	 */
+	private function publishRequestRefusal(): ?JSONResponse {
+		if ($this->isValidRepo(owner: $this->stringParam(key: 'owner'), repo: $this->stringParam(key: 'repo')) === false) {
 			return new JSONResponse(['error' => 'invalid_repo'], Http::STATUS_BAD_REQUEST);
 		}
 
-		if (in_array($visibility, ['public', 'private'], true) === false) {
-			$visibility = 'private';
-		}
-
-		if ($credentialId === '') {
+		if ($this->stringParam(key: 'credentialId') === '') {
 			return new JSONResponse(['error' => 'A broker credentialId is required to publish'], Http::STATUS_UNPROCESSABLE_ENTITY);
 		}
 
-		// Tenant-scoped read: a template outside the caller's organisation's visibility
-		// is 404, identical to show()/update()'s existing behaviour (never a 403 that
-		// would confirm existence).
+		return null;
+
+	}//end publishRequestRefusal()
+
+	/**
+	 * Publish a template the caller can see and record the provenance on success.
+	 *
+	 * Tenant-scoped read: a template outside the caller's organisation's visibility
+	 * is 404, identical to show()/update()'s existing behaviour (never a 403 that
+	 * would confirm existence).
+	 *
+	 * @param string $id The AgentTemplate UUID.
+	 * @param string $userId The caller's UID.
+	 *
+	 * @return JSONResponse 201 with `{repoUrl, commitSha}`; 404/422/500/503 on failure.
+	 */
+	private function publishTemplate(string $id, string $userId): JSONResponse {
 		$package = $this->templateService->exportTemplate(templateId: $id);
 		if ($package === null) {
 			return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
@@ -661,34 +826,134 @@ class AgentTemplateController extends Controller {
 			return new JSONResponse(['error' => 'The GitHub credential broker is not available'], Http::STATUS_SERVICE_UNAVAILABLE);
 		}
 
+		$pushed = $this->pushPackage(package: $package, userId: $userId);
+		if ($pushed instanceof JSONResponse) {
+			return $pushed;
+		}
+
+		$this->recordGithubProvenance(id: $id);
+		return new JSONResponse($pushed, Http::STATUS_CREATED);
+
+	}//end publishTemplate()
+
+	/**
+	 * Push a package to the requested new repository; a refusal from the push service
+	 * is answered with its own message (422), any other failure with 500.
+	 *
+	 * @param string $package The exported package.
+	 * @param string $userId The caller's UID.
+	 *
+	 * @return array<string, mixed>|JSONResponse The push result, or the failure response.
+	 */
+	private function pushPackage(string $package, string $userId): array|JSONResponse {
 		try {
-			$result = $this->pushService->push(
-				package: $package,
-				owner: $owner,
-				repo: $repo,
-				visibility: $visibility,
-				credentialId: $credentialId,
-				actingUserId: $user->getUID()
-			);
+			return $this->pushToGithub(package: $package, userId: $userId);
 		} catch (RuntimeException $e) {
 			$this->logger->warning('Hermiq agent-template github publish refused: ' . $e->getMessage());
 			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_UNPROCESSABLE_ENTITY);
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq agent-template github publish failed: ' . $e->getMessage(), ['exception' => $e]);
 			return new JSONResponse(['error' => 'Publish failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
-		}//end try
+		}
 
+	}//end pushPackage()
+
+	/**
+	 * Push a package to the repository, visibility and credential the request names.
+	 *
+	 * @param string $package The exported package.
+	 * @param string $userId The caller's UID.
+	 *
+	 * @return array<string, mixed> The push result (`{repoUrl, commitSha}`).
+	 */
+	private function pushToGithub(string $package, string $userId): array {
+		return $this->pushService->push(
+			package: $package,
+			owner: $this->stringParam(key: 'owner'),
+			repo: $this->stringParam(key: 'repo'),
+			visibility: $this->visibilityParam(),
+			credentialId: $this->stringParam(key: 'credentialId'),
+			actingUserId: $userId
+		);
+
+	}//end pushToGithub()
+
+	/**
+	 * Record `githubOwner`/`githubRepo`/`publishedAt` on a published template —
+	 * provenance only, never round-tripped through the exported package.
+	 *
+	 * @param string $id The AgentTemplate UUID.
+	 *
+	 * @return void
+	 */
+	private function recordGithubProvenance(string $id): void {
 		$this->templateService->update(
 			templateId: $id,
 			payload: [
-				'githubOwner' => $owner,
-				'githubRepo' => $repo,
+				'githubOwner' => $this->stringParam(key: 'owner'),
+				'githubRepo' => $this->stringParam(key: 'repo'),
 				'publishedAt' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
 			]
 		);
 
-		return new JSONResponse($result, Http::STATUS_CREATED);
-	}//end publishGithub()
+	}//end recordGithubProvenance()
+
+	/**
+	 * The requested repository visibility: `public` or `private`, `private` otherwise.
+	 *
+	 * @return string The visibility.
+	 */
+	private function visibilityParam(): string {
+		$visibility = (string)($this->request->getParam('visibility') ?? 'private');
+		if (in_array($visibility, ['public', 'private'], true) === false) {
+			return 'private';
+		}
+
+		return $visibility;
+
+	}//end visibilityParam()
+
+	/**
+	 * Whether a GitHub owner and repository name both match the allowed pattern.
+	 *
+	 * @param string $owner The GitHub owner.
+	 * @param string $repo The repository name.
+	 *
+	 * @return bool True when both are valid.
+	 */
+	private function isValidRepo(string $owner, string $repo): bool {
+		return preg_match(self::OWNER_REPO_PATTERN, $owner) === 1 && preg_match(self::OWNER_REPO_PATTERN, $repo) === 1;
+
+	}//end isValidRepo()
+
+	/**
+	 * A request parameter as a string, `''` when absent.
+	 *
+	 * @param string $key The parameter name.
+	 *
+	 * @return string The parameter value.
+	 */
+	private function stringParam(string $key): string {
+		return (string)($this->request->getParam($key) ?? '');
+
+	}//end stringParam()
+
+	/**
+	 * A request parameter when it is a non-empty string, null otherwise.
+	 *
+	 * @param string $key The parameter name.
+	 *
+	 * @return string|null The parameter value, or null.
+	 */
+	private function nonEmptyStringParam(string $key): ?string {
+		$value = $this->request->getParam($key);
+		if (is_string($value) === true && $value !== '') {
+			return $value;
+		}
+
+		return null;
+
+	}//end nonEmptyStringParam()
 
 	/**
 	 * IDOR guard for `update()`/`destroy()`: the caller must own the template, or
@@ -718,8 +983,8 @@ class AgentTemplateController extends Controller {
 			// caller's tenant never reaches the ownership comparison below.
 			$template = $this->objectService->find(
 				id: $templateId,
-				register: AgentTemplateService::REGISTER_SLUG,
-				schema: AgentTemplateService::TEMPLATE_SCHEMA
+				register: AgentTemplateServiceInterface::REGISTER_SLUG,
+				schema: AgentTemplateServiceInterface::TEMPLATE_SCHEMA
 			);
 		} catch (Throwable $e) {
 			// `ObjectService::find()` throws when the object is absent and this
@@ -770,12 +1035,7 @@ class AgentTemplateController extends Controller {
 	 * @return string|null The credential UUID, or null when absent.
 	 */
 	private function credentialParam(): ?string {
-		$credentialId = $this->request->getParam('credentialId');
-		if (is_string($credentialId) === true && $credentialId !== '') {
-			return $credentialId;
-		}
-
-		return null;
+		return $this->nonEmptyStringParam(key: 'credentialId');
 	}//end credentialParam()
 
 	/**

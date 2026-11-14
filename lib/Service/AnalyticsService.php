@@ -60,13 +60,14 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/run-analytics/tasks.md#1-analyticsservice
+ * @spec openspec/changes/archive/2026-09-06-run-analytics/tasks.md#1-analyticsservice
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\AnalyticsServiceInterface;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -75,9 +76,9 @@ use OCA\OpenRegister\Service\ObjectService;
 /**
  * Computes run metrics from Hermiq's OpenRegister run audit entries (tenant-scoped).
  *
- * @spec openspec/changes/run-analytics/tasks.md#1-analyticsservice
+ * @spec openspec/changes/archive/2026-09-06-run-analytics/tasks.md#1-analyticsservice
  */
-class AnalyticsService
+class AnalyticsService implements AnalyticsServiceInterface
 {
 
     /**
@@ -106,6 +107,20 @@ class AnalyticsService
     private const RUN_ACTIONS = 'run,agent-run';
 
     /**
+     * The trigger a run row shows per audit action; any other action is a flow run.
+     *
+     * @var array<string, string>
+     */
+    private const RUN_TRIGGERS = ['run' => 'schedule'];
+
+    /**
+     * The provider-disclosure labels a run row carries; anything else on the record is dropped.
+     *
+     * @var array<int, string>
+     */
+    private const DISCLOSURE_LABELS = ['provider', 'model', 'residency', 'location', 'dataUse', 'termsReference'];
+
+    /**
      * Page size for the visible-agent scan (paged to exhaustion, never a cap).
      *
      * @var integer
@@ -113,11 +128,34 @@ class AnalyticsService
     private const AGENT_PAGE_SIZE = 500;
 
     /**
+     * The ratings read, on the same object service and so the same boundary.
+     *
+     * @var AgentFeedbackStats
+     */
+    private readonly AgentFeedbackStats $feedbackStats;
+
+    /**
      * The status value that counts as a successful run.
      *
      * @var string
      */
     private const STATUS_OK = 'ok';
+
+    /**
+     * The run totals before any run is counted.
+     *
+     * @var array<string, mixed>
+     */
+    private const EMPTY_TOTALS = [
+        'totalRuns'        => 0,
+        'successRuns'      => 0,
+        'statusBreakdown'  => [],
+        'durations'        => [],
+        'perAgent'         => [],
+        'promptTokens'     => 0,
+        'completionTokens' => 0,
+        'tokensRecorded'   => false,
+    ];
 
     /**
      * Constructor.
@@ -129,6 +167,8 @@ class AnalyticsService
         private readonly ObjectService $objectService,
         private readonly AuditTrailMapper $auditTrailMapper,
     ) {
+        $this->feedbackStats = new AgentFeedbackStats(objectService: $objectService);
+
     }//end __construct()
 
     /**
@@ -138,18 +178,7 @@ class AnalyticsService
      *
      * @return array<string, mixed> The metrics payload.
      *
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity) Single aggregation pass over the
-     * audit-trail rows (status/usage/duration/agent buckets); splitting the pass would
-     * iterate the same rows multiple times.
-     * @SuppressWarnings(PHPMD.NPathComplexity)      Same single-pass aggregation rationale.
-     * @SuppressWarnings(PHPMD.ExcessiveMethodLength) Same rationale again, and the same
-     * trade: the length is seven metric buckets filled from one loop over the rows. Each
-     * bucket could be its own method, but only by handing every one of them the same row
-     * and iterating seven times, or by threading seven accumulators through seven calls.
-     * The tenant check that bounds the whole thing lives in this method too, and moving
-     * it away from the loop it guards is the change most likely to break it quietly.
-     *
-     * @spec openspec/changes/run-analytics/tasks.md#task-1-3
+     * @spec openspec/changes/archive/2026-09-06-run-analytics/tasks.md#task-1-3
      */
     public function computeAnalytics(?string $agentId=null): array
     {
@@ -157,84 +186,10 @@ class AnalyticsService
         // RBAC + multitenancy ON (see loadVisibleAgents()). A run whose agent is absent
         // from this map is not the caller's to see and is never counted.
         $visibleAgents = $this->loadVisibleAgents(agentId: $agentId);
+        $totals        = $this->tallyRuns(visibleAgents: $visibleAgents);
 
-        $totalRuns        = 0;
-        $successRuns      = 0;
-        $statusBreakdown  = [];
-        $durations        = [];
-        $perAgent         = [];
-        $promptTokens     = 0;
-        $completionTokens = 0;
-        $tokensRecorded   = false;
-
-        if ($visibleAgents !== []) {
-            // Deliberately unlimited: a truncating limit would turn every metric on this
-            // page into a floor silently indistinguishable from a total. The filter is
-            // already narrow (two actions), and the per-row tenant check below is what
-            // bounds the result to the caller.
-            $logs = $this->auditTrailMapper->findAll(filters: ['action' => self::RUN_ACTIONS]);
-
-            foreach ($logs as $log) {
-                $context = ($log->getChanged() ?? []);
-
-                // TENANT BOUNDARY. The run's agent — not the object the entry hangs on —
-                // decides whether this run is the caller's to count. `agent-run` entries
-                // hang on the flow's triggering object, which routinely lives in another
-                // register entirely, so `object_uuid` cannot serve as the scope key for
-                // both channels; `agentId` is recorded by both writers and can.
-                $runAgent = trim((string) ($context['agentId'] ?? ''));
-                if ($runAgent === '' || isset($visibleAgents[$runAgent]) === false) {
-                    continue;
-                }
-
-                // Run-replay-and-dry-run: a dry-run/replay preview must never inflate the
-                // agent's real status/success-rate breakdown (or this aggregate's own
-                // token/latency figures, computed on the same pass) — it is excluded here
-                // entirely. Its token usage still counts toward BudgetService's spend total
-                // (a wholly separate service/read path, unaffected by this skip) because a
-                // real LLM call was made; only THIS analytics surface excludes it.
-                if (($context['dryRun'] ?? false) === true) {
-                    continue;
-                }
-
-                $status = (string) ($context['status'] ?? 'unknown');
-
-                $totalRuns++;
-                if ($status === self::STATUS_OK) {
-                    $successRuns++;
-                }
-
-                $statusBreakdown[$status] = (($statusBreakdown[$status] ?? 0) + 1);
-
-                if (isset($context['durationMs']) === true && is_numeric($context['durationMs']) === true) {
-                    $durations[] = (int) $context['durationMs'];
-                }
-
-                // Accumulate LLM token usage when OpenRegister recorded it (run-cost).
-                $usage = ($context['usage'] ?? null);
-                if (is_array($usage) === true && (isset($usage['promptTokens']) === true || isset($usage['completionTokens']) === true)) {
-                    $promptTokens     += (int) ($usage['promptTokens'] ?? 0);
-                    $completionTokens += (int) ($usage['completionTokens'] ?? 0);
-                    $tokensRecorded    = true;
-                }
-
-                if (isset($perAgent[$runAgent]) === false) {
-                    // Fall back to the UUID only when the agent carries no name — a bar
-                    // chart labelled with UUIDs is unreadable, but a blank label is worse.
-                    $label = $visibleAgents[$runAgent];
-                    if ($label === '') {
-                        $label = $runAgent;
-                    }
-
-                    $perAgent[$runAgent] = ['agentId' => $runAgent, 'name' => $label, 'runs' => 0, 'success' => 0];
-                }
-
-                $perAgent[$runAgent]['runs']++;
-                if ($status === self::STATUS_OK) {
-                    $perAgent[$runAgent]['success']++;
-                }
-            }//end foreach
-        }//end if
+        // Ratings on the same boundary: only feedback on a visible agent counts.
+        $rated = $this->feedbackStats->tally(visibleAgents: $visibleAgents, agentId: $agentId, perAgent: $totals['perAgent']);
 
         $scope = 'organisation';
         if ($agentId !== null && $agentId !== '') {
@@ -244,20 +199,167 @@ class AnalyticsService
         return [
             'scope'           => $scope,
             'agentId'         => $agentId,
-            'totalRuns'       => $totalRuns,
-            'successRuns'     => $successRuns,
-            'successRate'     => $this->rate(numerator: $successRuns, denominator: $totalRuns),
-            'statusBreakdown' => $statusBreakdown,
-            'latency'         => $this->latency(durations: $durations),
-            'perAgent'        => array_values($perAgent),
+            'totalRuns'       => $totals['totalRuns'],
+            'successRuns'     => $totals['successRuns'],
+            'successRate'     => $this->rate(numerator: $totals['successRuns'], denominator: $totals['totalRuns']),
+            'statusBreakdown' => $totals['statusBreakdown'],
+            'latency'         => $this->latency(durations: $totals['durations']),
+            'perAgent'        => array_values($rated['perAgent']),
+            'feedback'        => $rated['feedback'],
             'tokens'          => $this->tokens(
-                recorded: $tokensRecorded,
-                prompt: $promptTokens,
-                completion: $completionTokens
+                recorded: $totals['tokensRecorded'],
+                prompt: $totals['promptTokens'],
+                completion: $totals['completionTokens']
             ),
         ];
 
     }//end computeAnalytics()
+
+    /**
+     * Count the run entries of the visible agents.
+     *
+     * @param array<string, string> $visibleAgents Map of visible agent UUID to display name.
+     *
+     * @return array<string, mixed> The run totals, durations, token sums and per-agent rows.
+     */
+    private function tallyRuns(array $visibleAgents): array
+    {
+        $totals = self::EMPTY_TOTALS;
+        if ($visibleAgents === []) {
+            return $totals;
+        }
+
+        foreach ($this->visibleRuns(visibleAgents: $visibleAgents) as $run) {
+            $runAgent  = $run['agentId'];
+            $succeeded = $this->countRun(totals: $totals, context: $run['context']);
+
+            if (isset($totals['perAgent'][$runAgent]) === false) {
+                $totals['perAgent'][$runAgent] = $this->agentRow(agentId: $runAgent, name: $visibleAgents[$runAgent]);
+            }
+
+            $totals['perAgent'][$runAgent]['runs']++;
+            $totals['perAgent'][$runAgent]['success'] += (int) $succeeded;
+        }
+
+        return $totals;
+
+    }//end tallyRuns()
+
+    /**
+     * The run entries of the visible agents, dry runs left out, in audit order.
+     *
+     * This is the tenant boundary computeAnalytics() and listRuns() share, so the
+     * metrics and the list always count the same set.
+     *
+     * @param array<string, string> $visibleAgents Map of visible agent UUID to display name.
+     *
+     * @return array<int, array{log: AuditTrail, context: array<string, mixed>, agentId: string}> The visible runs.
+     */
+    private function visibleRuns(array $visibleAgents): array
+    {
+        // Deliberately unlimited: a truncating limit would turn every metric on the
+        // page into a floor silently indistinguishable from a total, and a limit
+        // applied BEFORE the per-row tenant check below would page over rows the
+        // caller cannot see. The filter is already narrow (two actions).
+        $logs = $this->auditTrailMapper->findAll(filters: ['action' => self::RUN_ACTIONS]);
+
+        $runs = [];
+        foreach ($logs as $log) {
+            $context = ($log->getChanged() ?? []);
+
+            // TENANT BOUNDARY. The run's agent — not the object the entry hangs on —
+            // decides whether this run is the caller's to see. `agent-run` entries
+            // hang on the flow's triggering object, which routinely lives in another
+            // register entirely, so `object_uuid` cannot serve as the scope key for
+            // both channels; `agentId` is recorded by both writers and can.
+            $runAgent = trim((string) ($context['agentId'] ?? ''));
+            if ($runAgent === '' || isset($visibleAgents[$runAgent]) === false) {
+                continue;
+            }
+
+            // Run-replay-and-dry-run: a dry-run/replay preview must never inflate the
+            // agent's real status/success-rate breakdown or token/latency figures, nor
+            // show in the list beside them. Its token usage still counts toward
+            // BudgetService's spend total (a wholly separate read path) because a real
+            // LLM call was made; only this analytics surface excludes it.
+            if (($context['dryRun'] ?? false) === true) {
+                continue;
+            }
+
+            $runs[] = ['log' => $log, 'context' => $context, 'agentId' => $runAgent];
+        }//end foreach
+
+        return $runs;
+
+    }//end visibleRuns()
+
+    /**
+     * Add one counted run to the status, latency and token totals.
+     *
+     * @param array<string, mixed> $totals  The running totals, updated in place.
+     * @param array<string, mixed> $context The run entry's context.
+     *
+     * @return bool Whether the run succeeded.
+     */
+    private function countRun(array &$totals, array $context): bool
+    {
+        $status = (string) ($context['status'] ?? 'unknown');
+
+        $totals['totalRuns']++;
+        $succeeded = ($status === self::STATUS_OK);
+        $totals['successRuns'] += (int) $succeeded;
+
+        $totals['statusBreakdown'][$status] = (($totals['statusBreakdown'][$status] ?? 0) + 1);
+
+        if (isset($context['durationMs']) === true && is_numeric($context['durationMs']) === true) {
+            $totals['durations'][] = (int) $context['durationMs'];
+        }
+
+        // Accumulate LLM token usage when OpenRegister recorded it (run-cost).
+        $usage = ($context['usage'] ?? null);
+        if (is_array($usage) === true && (isset($usage['promptTokens']) === true || isset($usage['completionTokens']) === true)) {
+            $totals['promptTokens']     += (int) ($usage['promptTokens'] ?? 0);
+            $totals['completionTokens'] += (int) ($usage['completionTokens'] ?? 0);
+            $totals['tokensRecorded']    = true;
+        }
+
+        return $succeeded;
+
+    }//end countRun()
+
+    /**
+     * A fresh per-agent row, labelled with the agent's name.
+     *
+     * @param string $agentId The agent UUID.
+     * @param string $name    The agent's display name (may be '').
+     *
+     * @return array<string, mixed> The row with zero runs.
+     */
+    private function agentRow(string $agentId, string $name): array
+    {
+        return ['agentId' => $agentId, 'name' => $this->displayName(agentId: $agentId, name: $name), 'runs' => 0, 'success' => 0];
+
+    }//end agentRow()
+
+    /**
+     * The label an agent is shown under: its name, or its UUID when it carries none.
+     *
+     * A chart or row labelled with a UUID is hard to read; a blank label is worse.
+     *
+     * @param string $agentId The agent UUID.
+     * @param string $name    The agent's display name (may be '').
+     *
+     * @return string The label.
+     */
+    private function displayName(string $agentId, string $name): string
+    {
+        if ($name === '') {
+            return $agentId;
+        }
+
+        return $name;
+
+    }//end displayName()
 
     /**
      * List the caller's runs across every agent, newest first.
@@ -309,45 +411,7 @@ class AnalyticsService
             ];
         }
 
-        // Unlimited for the same reason computeAnalytics() reads unlimited: the
-        // per-row tenant check below is what bounds the result, and a limit applied
-        // BEFORE it would page over rows the caller cannot see, making page two
-        // shorter than page one for no reason a user could understand.
-        $logs = $this->auditTrailMapper->findAll(filters: ['action' => self::RUN_ACTIONS]);
-
-        $rows = [];
-        foreach ($logs as $log) {
-            $context = ($log->getChanged() ?? []);
-
-            $runAgent = trim((string) ($context['agentId'] ?? ''));
-            if ($runAgent === '' || isset($visibleAgents[$runAgent]) === false) {
-                continue;
-            }
-
-            if (($context['dryRun'] ?? false) === true) {
-                continue;
-            }
-
-            $rowStatus = (string) ($context['status'] ?? 'unknown');
-            if ($status !== null && $status !== '' && $rowStatus !== $status) {
-                continue;
-            }
-
-            $rows[] = $this->toRunRow(
-                log: $log,
-                context: $context,
-                agentId: $runAgent,
-                agentName: $visibleAgents[$runAgent],
-                status: $rowStatus
-            );
-        }//end foreach
-
-        usort(
-            $rows,
-            static function (array $a, array $b): int {
-                return ($b['createdSort'] <=> $a['createdSort']);
-            }
-        );
+        $rows = $this->newestFirst(rows: $this->runRows(visibleAgents: $visibleAgents, status: $status));
 
         // `total` is the count BEFORE paging, so a pager can say "51 to 100 of 340".
         // Counting the page instead is how a list quietly claims it is complete.
@@ -371,73 +435,170 @@ class AnalyticsService
     }//end listRuns()
 
     /**
-     * Shape one audit entry into a run row for the list.
+     * The run rows of every visible run, optionally only those with one status.
      *
-     * Split out of `listRuns()` so that method stays the tenant filter and the paging,
-     * which is the part worth reading closely. Every value here comes from the entry
-     * that has already passed that filter.
+     * @param array<string, string> $visibleAgents The caller's visible agents (uuid => name).
+     * @param string|null           $status        Status to keep (exact match); null or '' keeps all.
+     *
+     * @return array<int, array<string, mixed>> The rows, unsorted, with the internal sort key.
+     */
+    private function runRows(array $visibleAgents, ?string $status): array
+    {
+        $status = (string) $status;
+        $rows   = [];
+        foreach ($this->visibleRuns(visibleAgents: $visibleAgents) as $run) {
+            $row = $this->toRunRow(run: $run, agentName: $visibleAgents[$run['agentId']]);
+            if ($status === '' || $row['status'] === $status) {
+                $rows[] = $row;
+            }
+        }
+
+        return $rows;
+
+    }//end runRows()
+
+    /**
+     * Run rows ordered newest first, on the epoch sort key.
+     *
+     * @param array<int, array<string, mixed>> $rows The rows, each with `createdSort`.
+     *
+     * @return array<int, array<string, mixed>> The rows, newest first.
+     */
+    private function newestFirst(array $rows): array
+    {
+        usort(
+            $rows,
+            static function (array $a, array $b): int {
+                return ($b['createdSort'] <=> $a['createdSort']);
+            }
+        );
+
+        return $rows;
+
+    }//end newestFirst()
+
+    /**
+     * Compare two runs the caller may see, on the run list's own boundary.
+     *
+     * The visible agent set is the one `listRuns()` filters on; RunCompareService
+     * answers a run outside it exactly like a run that does not exist.
+     *
+     * @param string $leftId  The left run's audit entry uuid.
+     * @param string $rightId The right run's audit entry uuid.
+     *
+     * @return array{left: ?array, right: ?array, sameAgent: bool, comparison: ?array}
+     *
+     * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+     */
+    public function compareRuns(string $leftId, string $rightId): array
+    {
+        return (new RunCompareService(auditTrailMapper: $this->auditTrailMapper))->compare(
+            leftId: $leftId,
+            rightId: $rightId,
+            visibleAgents: $this->loadVisibleAgents(agentId: null),
+            toRunRow: $this->toRunRow(...)
+        );
+
+    }//end compareRuns()
+
+    /**
+     * Shape one visible run into a run row for the list.
+     *
+     * Every value here comes from an entry that has already passed `visibleRuns()`'s
+     * tenant filter. RunCompareService shapes a compared run through this same method
+     * (handed over as a callable).
      *
      * `createdSort` rides along as an epoch-seconds sort key and is dropped before the
      * page is returned. Sorting on the ISO string would order `2026-09-06T09:00:00+02:00`
      * against `2026-09-06T08:30:00Z` by text, which is the wrong answer whenever an
      * instance has ever changed offset.
      *
-     * @param AuditTrail           $log       The audit entry.
-     * @param array<string, mixed> $context   The entry's recorded `changed` payload.
-     * @param string               $agentId   The run's agent UUID.
-     * @param string               $agentName The agent's display name (may be '').
-     * @param string               $status    The run's recorded status.
+     * The trigger is the channel this run arrived on, so a reader can tell a scheduled
+     * run from a flow-triggered one. `run` hangs on the schedule; `agent-run` hangs on
+     * whatever object triggered the flow.
+     *
+     * @param array{log: AuditTrail, context: array<string, mixed>, agentId: string} $run       The run.
+     * @param string                                                                $agentName The agent's display name (may be '').
      *
      * @return array<string, mixed> The run row, including the internal sort key.
      */
-    private function toRunRow(
-        AuditTrail $log,
-        array $context,
-        string $agentId,
-        string $agentName,
-        string $status
-    ): array {
-        $created     = $log->getCreated();
-        $createdIso  = null;
-        $createdSort = 0;
-        if ($created !== null) {
-            $createdIso  = $created->format('c');
-            $createdSort = (int) $created->format('U');
-        }
-
-        // Fall back to the UUID only when the agent carries no name. A row labelled
-        // with a UUID is hard to read; a blank label is worse.
-        $label = $agentName;
-        if ($label === '') {
-            $label = $agentId;
-        }
-
-        // The channel this run arrived on, so a reader can tell a scheduled run from a
-        // flow-triggered one. `run` hangs on the schedule; `agent-run` hangs on whatever
-        // object triggered the flow.
-        $trigger = 'flow';
-        if ($log->getAction() === 'run') {
-            $trigger = 'schedule';
-        }
+    private function toRunRow(array $run, string $agentName): array
+    {
+        $log = $run['log'];
 
         return [
-            'id'          => $log->getUuid(),
-            'agentId'     => $agentId,
-            'agentName'   => $label,
-            'status'      => $status,
-            'trigger'     => $trigger,
-            'objectId'    => $log->getObjectUuid(),
-            'startedAt'   => ($context['startedAt'] ?? null),
-            'endedAt'     => ($context['endedAt'] ?? null),
-            'durationMs'  => ($context['durationMs'] ?? null),
-            'summary'     => ($context['summary'] ?? null),
-            'attempt'     => ($context['attempt'] ?? null),
-            'user'        => $log->getUser(),
-            'created'     => $createdIso,
-            'createdSort' => $createdSort,
-        ];
+            'id'        => $log->getUuid(),
+            'agentId'   => $run['agentId'],
+            'agentName' => $this->displayName(agentId: $run['agentId'], name: $agentName),
+            'status'    => (string) ($run['context']['status'] ?? 'unknown'),
+            'trigger'   => self::RUN_TRIGGERS[$log->getAction()] ?? 'flow',
+            'objectId'  => $log->getObjectUuid(),
+        ] + $this->runFacts(context: $run['context']) + $this->entryStamps(log: $log);
 
     }//end toRunRow()
+
+    /**
+     * The facts a run recorded about itself, as the run row shows them.
+     *
+     * Models-no-training-guarantee: `providerDisclosure` is which provider saw this run
+     * and the data-use term in force then, as written onto the run record. Labels
+     * only, and an empty list for a run recorded before it was written.
+     *
+     * @param array<string, mixed> $context The entry's recorded `changed` payload.
+     *
+     * @return array<string, mixed> The recorded facts, null where not recorded.
+     */
+    private function runFacts(array $context): array
+    {
+        return [
+            'startedAt'          => ($context['startedAt'] ?? null),
+            'endedAt'            => ($context['endedAt'] ?? null),
+            'durationMs'         => ($context['durationMs'] ?? null),
+            'summary'            => ($context['summary'] ?? null),
+            'attempt'            => ($context['attempt'] ?? null),
+            'providerDisclosure' => array_intersect_key(
+                (array) ($context['providerDisclosure'] ?? []),
+                array_flip(self::DISCLOSURE_LABELS)
+            ),
+        ];
+
+    }//end runFacts()
+
+    /**
+     * Who wrote a run entry and when, with the epoch sort key the list orders on.
+     *
+     * @param AuditTrail $log The audit entry.
+     *
+     * @return array{user: mixed, created: ?string, createdSort: int} The stamps; created is null when not recorded.
+     */
+    private function entryStamps(AuditTrail $log): array
+    {
+        $created = $log->getCreated();
+
+        return [
+            'user'        => $log->getUser(),
+            'created'     => $created?->format('c'),
+            'createdSort' => (int) $created?->format('U'),
+        ];
+
+    }//end entryStamps()
+
+    /**
+     * The latest thumbs-down ratings with a comment on one agent, newest first.
+     *
+     * The caller checks read access on the agent first; see AgentFeedbackStats.
+     *
+     * @param string $agentId The agent UUID.
+     *
+     * @return array<int, array{comment: string, date: string|null, conversationId: string}> At most ten rows.
+     *
+     * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
+     */
+    public function latestLowRatings(string $agentId): array
+    {
+        return $this->feedbackStats->latestLowRatings(agentId: $agentId);
+
+    }//end latestLowRatings()
 
     /**
      * Load the caller's visible agent UUIDs mapped to their display name.
@@ -506,25 +667,8 @@ class AnalyticsService
                 ]
             );
 
-            $page = ($result['results'] ?? []);
-            foreach ($page as $object) {
-                if (($object instanceof ObjectEntity) === false) {
-                    continue;
-                }
-
-                $uuid = (string) $object->getUuid();
-
-                // Narrowing to one agent happens HERE, against the visible set, rather
-                // than by trusting the caller-supplied id: an agentId the caller may not
-                // see simply finds no match and yields an empty map, so the agent-scoped
-                // detail page cannot be used to read another tenant's run metrics.
-                if ($agentId !== null && $agentId !== '' && $uuid !== $agentId) {
-                    continue;
-                }
-
-                $data          = $object->getObject();
-                $agents[$uuid] = trim((string) ($data['name'] ?? ''));
-            }
+            $page   = ($result['results'] ?? []);
+            $agents = array_replace($agents, $this->visibleAgentsOn(page: $page, agentId: $agentId));
 
             $offset += self::AGENT_PAGE_SIZE;
             $total   = (int) ($result['total'] ?? 0);
@@ -533,6 +677,40 @@ class AnalyticsService
         return $agents;
 
     }//end loadVisibleAgents()
+
+    /**
+     * The agents on one page, as uuid => display name, narrowed to one agent when asked.
+     *
+     * @param array<int, mixed> $page    The page's objects.
+     * @param string|null       $agentId Optional agent UUID to narrow to.
+     *
+     * @return array<string, string>
+     */
+    private function visibleAgentsOn(array $page, ?string $agentId): array
+    {
+        $agents = [];
+        foreach ($page as $object) {
+            if (($object instanceof ObjectEntity) === false) {
+                continue;
+            }
+
+            $uuid = (string) $object->getUuid();
+
+        // Narrowing to one agent happens HERE, against the visible set, rather
+        // than by trusting the caller-supplied id: an agentId the caller may not
+        // see simply finds no match and yields an empty map, so the agent-scoped
+        // detail page cannot be used to read another tenant's run metrics.
+            if ($agentId !== null && $agentId !== '' && $uuid !== $agentId) {
+                continue;
+            }
+
+            $data          = $object->getObject();
+            $agents[$uuid] = trim((string) ($data['name'] ?? ''));
+        }
+
+        return $agents;
+
+    }//end visibleAgentsOn()
 
     /**
      * A percentage rate rounded to one decimal (0 when the denominator is 0).
@@ -569,7 +747,7 @@ class AnalyticsService
      *
      * @return array<string, mixed> The tokens block.
      *
-     * @spec openspec/changes/run-analytics/tasks.md#task-1-3
+     * @spec openspec/changes/archive/2026-09-06-run-analytics/tasks.md#task-1-3
      */
     private function tokens(bool $recorded, int $prompt, int $completion): array
     {

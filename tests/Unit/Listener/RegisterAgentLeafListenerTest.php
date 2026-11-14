@@ -39,7 +39,18 @@ use Psr\Log\LoggerInterface;
 class RegisterAgentLeafListenerTest extends TestCase {
 
 	/**
-	 * Build the listener with an identity l10n and a null logger.
+	 * Warnings the listener logged during the test, in order.
+	 *
+	 * @var array<int, string>
+	 */
+	private array $warnings = [];
+
+	/**
+	 * Build the listener with an identity l10n and a logger that REMEMBERS.
+	 *
+	 * The listener turns a registration failure into a warning, so the logger
+	 * keeps them and the first assertion can name the cause when the leaf did
+	 * not register.
 	 *
 	 * @return RegisterAgentLeafListener
 	 */
@@ -47,7 +58,14 @@ class RegisterAgentLeafListenerTest extends TestCase {
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text): string => $text);
 
-		return new RegisterAgentLeafListener($l10n, $this->createMock(LoggerInterface::class));
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->method('warning')->willReturnCallback(
+			function (string|\Stringable $message): void {
+				$this->warnings[] = (string)$message;
+			}
+		);
+
+		return new RegisterAgentLeafListener($l10n, $logger);
 	}//end listener()
 
 	/**
@@ -61,7 +79,12 @@ class RegisterAgentLeafListenerTest extends TestCase {
 		$this->listener()->handle($event);
 
 		$leaves = $event->getLeaves();
-		$this->assertCount(1, $leaves);
+		$this->assertCount(
+			1,
+			$leaves,
+			'the leaf did not register; the listener said: '
+				. (($this->warnings === []) ? '(nothing)' : implode(' | ', $this->warnings))
+		);
 
 		/** @var LeafDescriptor $descriptor */
 		$descriptor = $leaves[0]['descriptor'];
@@ -76,6 +99,12 @@ class RegisterAgentLeafListenerTest extends TestCase {
 		// hand-off, so the server descriptor declares renderMode 'mount' to match
 		// the JS registration under the shared id (openregister#2127, gate-24).
 		$this->assertSame(LeafDescriptor::RENDER_MODE_MOUNT, $descriptor->getRenderMode());
+
+		// Hermiq loads its own bundle on every page (Util::addInitScript) and ships
+		// no `hermiq-leaves.js`, so the descriptor declares that Hermiq loads its
+		// own script. Whether the registry reports a leaf without a shared bundle
+		// is the registry's decision; it needs this declaration to make it.
+		$this->assertSame(LeafDescriptor::LOADS_VIA_OWN_SCRIPT, $descriptor->getLoadStrategy());
 
 		// Render-only: no data provider.
 		$this->assertNull($leaves[0]['provider']);

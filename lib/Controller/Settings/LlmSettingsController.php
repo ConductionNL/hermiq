@@ -33,8 +33,11 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller\Settings;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
+use InvalidArgumentException;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\LlmSettingsHandlerInterface;
+use OCA\Hermiq\Kernel\Contracts\ModelCapabilityRegistryInterface;
+use OCA\Hermiq\Service\Connection\LlmConnectionReport;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -54,17 +57,24 @@ class LlmSettingsController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request.
-	 * @param LlmSettingsHandler $settingsHandler Reads/writes `hermiq.llm`.
+	 * @param LlmSettingsHandlerInterface $settingsHandler Reads/writes `hermiq.llm`.
 	 * @param LoggerInterface $logger Logger.
+	 * @param ModelCapabilityRegistryInterface $modelCapabilities The declared native inputs per model.
+	 * @param LlmConnectionReport|null $connectionReport Reports the saved provider to integriq's connection
+	 *                                                  registry; null when built by hand in a test.
 	 *
 	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly LlmSettingsHandler $settingsHandler,
+		private readonly LlmSettingsHandlerInterface $settingsHandler,
 		private readonly LoggerInterface $logger,
+		private readonly ModelCapabilityRegistryInterface $modelCapabilities,
+		private readonly ?LlmConnectionReport $connectionReport = null,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 
@@ -77,6 +87,7 @@ class LlmSettingsController extends Controller {
 	 *                      `*Set` flag so the raw key is never returned to the browser.
 	 *
 	 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-1-2
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function get(): JSONResponse {
@@ -90,7 +101,10 @@ class LlmSettingsController extends Controller {
 			return new JSONResponse(['error' => 'Failed to read LLM configuration'], Http::STATUS_INTERNAL_SERVER_ERROR);
 		}
 
-		return new JSONResponse($this->maskCredentials(config: $config));
+		$masked = $this->maskCredentials(config: $config);
+		$masked['modelCapabilities'] = $this->modelCapabilities->all();
+
+		return new JSONResponse($masked);
 	}//end get()
 
 	/**
@@ -103,24 +117,152 @@ class LlmSettingsController extends Controller {
 	 *                      an unsupported provider.
 	 *
 	 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-1-3
+	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function update(): JSONResponse {
-		$data = $this->request->getParam('llm');
-		if (is_array($data) === false) {
-			// Accept a flat body too (the whole request as the llm patch).
-			$data = $this->request->getParams();
-			unset($data['_route']);
+		$data = $this->readPatch();
+		$refusal = $this->refusalFor(data: $data);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
+		// Declared native inputs per model live in their own key
+		// (`hermiq.modelCapabilities`), never in the llm blob. Validated before
+		// anything is saved, written only after the llm save succeeded.
+		$capabilities = $this->declaredCapabilities(data: $data);
+		if ($capabilities instanceof JSONResponse) {
+			return $capabilities;
+		}
+
+		unset($data['modelCapabilities']);
+
+		return $this->save(patch: $this->dropBlankCredentials(data: $data), capabilities: $capabilities);
+
+	}//end update()
+
+	/**
+	 * The llm patch: the `llm` parameter, or the whole request without its route name.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-1-3
+	 */
+	private function readPatch(): array {
+		$data = $this->request->getParam('llm');
+		if (is_array($data) === true) {
+			return $data;
+		}
+
+		// Accept a flat body too (the whole request as the llm patch).
+		$data = $this->request->getParams();
+		unset($data['_route']);
+
+		return $data;
+
+	}//end readPatch()
+
+	/**
+	 * Persist the patch, report it, write the declarations, and answer the masked result.
+	 *
+	 * @param array<string, mixed>             $patch        The validated llm patch.
+	 * @param array<string, list<string>>|null $capabilities The declarations, or null when none were sent.
+	 *
+	 * @return JSONResponse
+	 *
+	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+	 */
+	private function save(array $patch, ?array $capabilities): JSONResponse {
+		$merged = $this->persist(patch: $patch);
+		if ($merged === null) {
+			return new JSONResponse(['error' => 'Failed to save LLM configuration'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+
+		// Tell integriq what the saved provider means for the AI provider and runner
+		// rows. Never throws; a failed save above reports nothing.
+		$this->connectionReport?->reportSaved(config: $merged);
+
+		if ($capabilities !== null) {
+			$this->modelCapabilities->declareMany(declarations: $capabilities);
+		}
+
+		return new JSONResponse(
+			[
+				'success' => true,
+				'config' => $this->maskCredentials(config: $merged),
+				'modelCapabilities' => $this->modelCapabilities->all(),
+			]
+		);
+
+	}//end save()
+
+	/**
+	 * Merge the patch into the stored llm config, or log the failure.
+	 *
+	 * @param array<string, mixed> $patch The validated llm patch.
+	 *
+	 * @return array<string, mixed>|null The merged config, or null when the save failed.
+	 *
+	 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-1-3
+	 */
+	private function persist(array $patch): ?array {
+		try {
+			return $this->settingsHandler->updateLLMSettingsOnly($patch);
+		} catch (Throwable $e) {
+			$this->logger->error(
+				message: '[LlmSettingsController] Failed to persist hermiq.llm config',
+				context: ['file' => __FILE__, 'line' => __LINE__, 'error' => $e->getMessage()]
+			);
+			return null;
+		}
+
+	}//end persist()
+
+	/**
+	 * The patch's declared model capabilities, normalised; null when the patch names none.
+	 *
+	 * @param array<string, mixed> $data The llm patch.
+	 *
+	 * @return array<string, list<string>>|JSONResponse|null The declarations, or the 422 answer.
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 */
+	private function declaredCapabilities(array $data): array|JSONResponse|null {
+		if (array_key_exists('modelCapabilities', $data) === false) {
+			return null;
+		}
+
+		try {
+			return $this->modelCapabilities->normalizeDeclarations(
+				declarations: (array)$data['modelCapabilities']
+			);
+		} catch (InvalidArgumentException $e) {
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_UNPROCESSABLE_ENTITY);
+		}
+	}//end declaredCapabilities()
+
+	/**
+	 * The refusal for a patch hermiq never saves, or null when it may be saved.
+	 *
+	 * An unsupported chat provider, and an Anthropic subscription (OAuth) set at
+	 * organisation scope, are refused before anything is written.
+	 *
+	 * @param array<string, mixed> $data The llm patch.
+	 *
+	 * @return JSONResponse|null The 422 answer, or null.
+	 *
+	 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-1-3
+	 */
+	private function refusalFor(array $data): ?JSONResponse {
 		$provider = $data['chatProvider'] ?? null;
 		if ($provider !== null
-			&& in_array($provider, LlmSettingsHandler::ALLOWED_CHAT_PROVIDERS, true) === false
+			&& in_array($provider, LlmSettingsHandlerInterface::ALLOWED_CHAT_PROVIDERS, true) === false
 		) {
 			return new JSONResponse(
 				[
 					'error' => 'Unsupported chat provider',
-					'allowed' => LlmSettingsHandler::ALLOWED_CHAT_PROVIDERS,
+					'allowed' => LlmSettingsHandlerInterface::ALLOWED_CHAT_PROVIDERS,
 				],
 				Http::STATUS_UNPROCESSABLE_ENTITY
 			);
@@ -145,26 +287,8 @@ class LlmSettingsController extends Controller {
 			);
 		}
 
-		$data = $this->dropBlankCredentials(data: $data);
-
-		try {
-			$merged = $this->settingsHandler->updateLLMSettingsOnly($data);
-		} catch (Throwable $e) {
-			$this->logger->error(
-				message: '[LlmSettingsController] Failed to persist hermiq.llm config',
-				context: ['file' => __FILE__, 'line' => __LINE__, 'error' => $e->getMessage()]
-			);
-			return new JSONResponse(['error' => 'Failed to save LLM configuration'], Http::STATUS_INTERNAL_SERVER_ERROR);
-		}
-
-		return new JSONResponse(
-			[
-				'success' => true,
-				'config' => $this->maskCredentials(config: $merged),
-			]
-		);
-
-	}//end update()
+		return null;
+	}//end refusalFor()
 
 	/**
 	 * Strip any secret from the config before it reaches the browser.

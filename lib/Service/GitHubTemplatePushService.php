@@ -42,6 +42,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\GitHubTemplatePushServiceInterface;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -59,34 +60,7 @@ use RuntimeException;
  *
  * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
  */
-class GitHubTemplatePushService {
-	/**
-	 * OpenRegister's credential broker (resolved lazily; may be absent).
-	 *
-	 * @var string
-	 */
-	private const BROKER_CLASS = 'OCA\\OpenRegister\\Service\\Credential\\CredentialBrokerService';
-
-	/**
-	 * The broker `appId` Hermiq identifies itself with.
-	 *
-	 * @var string
-	 */
-	private const APP_ID = 'hermiq';
-
-	/**
-	 * The `AgentTemplate` kind — the original (and default) publish kind.
-	 *
-	 * @var string
-	 */
-	public const KIND_AGENT_TEMPLATE = 'agent-template';
-
-	/**
-	 * The `Skill` kind (hermiq-github-store) — agentskills.io packages.
-	 *
-	 * @var string
-	 */
-	public const KIND_SKILL = 'skill';
+class GitHubTemplatePushService implements GitHubTemplatePushServiceInterface {
 
 	/**
 	 * Per-kind discovery topic (hermiq-github-store: generalised from the single
@@ -115,25 +89,6 @@ class GitHubTemplatePushService {
 	public const KIND_SKILL_BUNDLE = 'skill-bundle';
 
 	/**
-	 * Per-kind repo-root file name the committed package is written to (mirrors
-	 * `GitHubTemplateCatalogService::PACKAGE_FILES` — the same convention on both
-	 * sides of the publish/install round-trip).
-	 *
-	 * @var array<string,string>
-	 */
-	private const PACKAGE_FILES = [
-		self::KIND_AGENT_TEMPLATE => 'hermiq-agent-template.json',
-		self::KIND_SKILL => 'hermiq-skill.md',
-	];
-
-	/**
-	 * Safe owner/repo pattern (GitHub allows alnum, `-`, `_`, `.`).
-	 *
-	 * @var string
-	 */
-	private const OWNER_REPO_PATTERN = '/^[A-Za-z0-9._-]{1,100}$/';
-
-	/**
 	 * Constructor.
 	 *
 	 * No HTTP client: this service makes no outbound call of its own — every
@@ -151,30 +106,22 @@ class GitHubTemplatePushService {
 	}//end __construct()
 
 	/**
-	 * The container the optional OpenRegister credential broker is resolved from.
+	 * The brokered GitHub API over this service's logger and container.
 	 *
-	 * The broker is another app's class, feature-detected by class-string, so it can
-	 * never be a constructor type here. It used to come from the global server, which
-	 * outside a booted Nextcloud autowires from scratch and can recurse through a
-	 * constructor cycle until memory runs out. The container is nullable because the
-	 * unit tests build this service with a logger alone and never reach a brokered
-	 * call; a null is the same dead end as the broker being absent, and the caller
-	 * already treats that as a failed call.
-	 *
-	 * @return ContainerInterface The injected container.
-	 *
-	 * @throws RuntimeException When the service was built without one.
+	 * @return GitHubBrokerClient The client.
 	 */
-	private function serviceContainer(): ContainerInterface {
-		if ($this->container === null) {
-			throw new RuntimeException(
-				'Hermiq GitHub template publish: this service was constructed without a container, '
-				. 'so the OpenRegister credential broker cannot be resolved.'
-			);
-		}
+	private function brokerClient(): GitHubBrokerClient {
+		return new GitHubBrokerClient(logger: $this->logger, container: $this->container);
+	}//end brokerClient()
 
-		return $this->container;
-	}//end serviceContainer()
+	/**
+	 * The Git-Data commit writer over this service's broker client.
+	 *
+	 * @return GitHubCommitWriter The writer.
+	 */
+	private function commitWriter(): GitHubCommitWriter {
+		return new GitHubCommitWriter(broker: $this->brokerClient(), logger: $this->logger);
+	}//end commitWriter()
 
 	/**
 	 * Whether OpenRegister's credential broker is installed.
@@ -184,7 +131,7 @@ class GitHubTemplatePushService {
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
 	 */
 	public function isBrokerAvailable(): bool {
-		return class_exists(self::BROKER_CLASS) === true;
+		return class_exists(GitHubBrokerClient::BROKER_CLASS) === true;
 	}//end isBrokerAvailable()
 
 	/**
@@ -236,50 +183,37 @@ class GitHubTemplatePushService {
 			['owner' => $owner, 'repo' => $repo, 'kind' => $kind]
 		);
 
-		if ($this->isBrokerAvailable() === false) {
-			// Fail closed. There is deliberately no token-bearing fallback.
-			throw new RuntimeException(
-				'GitHub publish requires the OpenRegister credential broker, which is not available.'
-			);
-		}
-
-		if ($credentialId === '') {
-			throw new RuntimeException('GitHub publish requires a broker credential.');
-		}
-
-		if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
-			throw new RuntimeException('GitHub publish requires a valid owner and repository name.');
-		}
-
-		$this->assertRepoAbsent(owner: $owner, repo: $repo, credentialId: $credentialId, actingUserId: $actingUserId);
-		$repoData = $this->createRepo(
-			owner: $owner,
-			repo: $repo,
-			visibility: $visibility,
-			credentialId: $credentialId,
-			actingUserId: $actingUserId,
-			kind: $kind
+		$run = new GitHubPublishRun(
+			target: new GitHubRepoTarget(owner: $owner, repo: $repo),
+			credential: new BrokerCredential(credentialId: $credentialId, actingUserId: $actingUserId)
 		);
+		$run->kind = $kind;
+		$run->visibility = $visibility;
 
-		$defaultBranch = (string)($repoData['default_branch'] ?? 'main');
-		$this->setTopics(owner: $owner, repo: $repo, credentialId: $credentialId, actingUserId: $actingUserId, kind: $kind);
+		return $this->publishToNewRepository(run: $run, payload: new PackagePayload(package: $package, auxFiles: $auxFiles));
+	}//end push()
 
-		$commitSha = $this->commitPackage(
-			owner: $owner,
-			repo: $repo,
-			branch: $defaultBranch,
-			package: $package,
-			credentialId: $credentialId,
-			actingUserId: $actingUserId,
-			kind: $kind,
-			auxFiles: $auxFiles
-		);
+	/**
+	 * Create the repository, tag it and commit the package onto its default branch.
+	 *
+	 * @param GitHubPublishRun $run The publish.
+	 * @param PackagePayload $payload The package and its auxiliary files.
+	 *
+	 * @return array{repoUrl:string,commitSha:string} The repo URL and the commit SHA.
+	 *
+	 * @throws RuntimeException On any refusal or GitHub API failure.
+	 */
+	private function publishToNewRepository(GitHubPublishRun $run, PackagePayload $payload): array {
+		$this->assertPublishable(run: $run);
+		$this->assertRepoAbsent(run: $run);
+		$this->adoptRepository(run: $run, repoData: $this->createRepo(run: $run));
+		$this->setTopics(run: $run);
 
 		return [
-			'repoUrl' => (string)($repoData['html_url'] ?? ('https://github.com/' . $owner . '/' . $repo)),
-			'commitSha' => $commitSha,
+			'repoUrl' => $run->repoUrl,
+			'commitSha' => $this->commitWriter()->commitPackage(run: $run, payload: $payload),
 		];
-	}//end push()
+	}//end publishToNewRepository()
 
 	/**
 	 * REPUBLISH: update-mode push to an EXISTING repository (skill-self-improvement) —
@@ -316,57 +250,51 @@ class GitHubTemplatePushService {
 		string $kind = self::KIND_SKILL,
 		array $auxFiles = [],
 	): array {
+		$run = new GitHubPublishRun(
+			target: new GitHubRepoTarget(owner: $owner, repo: $repo),
+			credential: new BrokerCredential(credentialId: $credentialId, actingUserId: $actingUserId)
+		);
+		$run->operation = 'GitHub republish';
+		$run->kind = $kind;
+
 		$this->logger->info(
 			'Hermiq GitHub republish: updating repository',
 			['owner' => $owner, 'repo' => $repo, 'kind' => $kind]
 		);
 
-		if ($this->isBrokerAvailable() === false) {
-			// Fail closed. There is deliberately no token-bearing fallback.
-			throw new RuntimeException(
-				'GitHub republish requires the OpenRegister credential broker, which is not available.'
-			);
-		}
+		return $this->republishToExistingRepository(run: $run, payload: new PackagePayload(package: $package, auxFiles: $auxFiles));
+	}//end pushUpdate()
 
-		if ($credentialId === '') {
-			throw new RuntimeException('GitHub republish requires a broker credential.');
-		}
-
-		if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
-			throw new RuntimeException('GitHub republish requires a valid owner and repository name.');
-		}
+	/**
+	 * Commit the package onto the default branch of the repository the run names,
+	 * which must already exist.
+	 *
+	 * @param GitHubPublishRun $run The republish.
+	 * @param PackagePayload $payload The package and its auxiliary files.
+	 *
+	 * @return array{repoUrl:string,commitSha:string} The repo URL and the update commit SHA.
+	 *
+	 * @throws RuntimeException On any refusal or GitHub API failure.
+	 */
+	private function republishToExistingRepository(GitHubPublishRun $run, PackagePayload $payload): array {
+		$this->assertPublishable(run: $run);
 
 		// The provenance repo must EXIST — a vanished repo is a refusal, never a
 		// silent re-create (that would be a first publish, which has its own path).
-		$repoData = $this->brokerCall(
-			method: 'GET',
-			path: '/repos/' . rawurlencode($owner) . '/' . rawurlencode($repo),
-			body: null,
-			credentialId: $credentialId,
-			actingUserId: $actingUserId
-		);
+		$repoData = $this->brokerClient()->call(run: $run, call: new GitHubCall(method: 'GET', path: $run->target->apiPath()));
 		if ($repoData === null) {
-			throw new RuntimeException(sprintf('Repository %s/%s does not exist — cannot republish.', $owner, $repo));
+			throw new RuntimeException(
+				sprintf('Repository %s/%s does not exist — cannot republish.', $run->target->owner, $run->target->repo)
+			);
 		}
 
-		$defaultBranch = (string)($repoData['default_branch'] ?? 'main');
-
-		$commitSha = $this->commitPackage(
-			owner: $owner,
-			repo: $repo,
-			branch: $defaultBranch,
-			package: $package,
-			credentialId: $credentialId,
-			actingUserId: $actingUserId,
-			kind: $kind,
-			auxFiles: $auxFiles
-		);
+		$this->adoptRepository(run: $run, repoData: $repoData);
 
 		return [
-			'repoUrl' => (string)($repoData['html_url'] ?? ('https://github.com/' . $owner . '/' . $repo)),
-			'commitSha' => $commitSha,
+			'repoUrl' => $run->repoUrl,
+			'commitSha' => $this->commitWriter()->commitPackage(run: $run, payload: $payload),
 		];
-	}//end pushUpdate()
+	}//end republishToExistingRepository()
 
 	/**
 	 * BUNDLE PUBLISH (skill-bundle-publish): commit a whole `path => contents` tree
@@ -395,7 +323,7 @@ class GitHubTemplatePushService {
 	 *
 	 * @throws RuntimeException On a missing broker, bad coordinates, or API failure.
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	public function publishBundle(
 		array $files,
@@ -405,295 +333,154 @@ class GitHubTemplatePushService {
 		string $credentialId,
 		?string $actingUserId = null,
 	): array {
-		if ($this->isBrokerAvailable() === false) {
-			// Fail closed — there is deliberately no token-bearing fallback.
-			throw new RuntimeException(
-				'GitHub bundle publish requires the OpenRegister credential broker, which is not available.'
-			);
-		}
+		$run = new GitHubPublishRun(
+			target: new GitHubRepoTarget(owner: $owner, repo: $repo),
+			credential: new BrokerCredential(credentialId: $credentialId, actingUserId: $actingUserId)
+		);
+		$run->operation = 'GitHub bundle publish';
+		$run->commitLabel = 'GitHub bundle publish';
+		$run->kind = self::KIND_SKILL_BUNDLE;
+		$run->visibility = $visibility;
 
-		if ($credentialId === '') {
-			throw new RuntimeException('GitHub bundle publish requires a broker credential.');
-		}
+		return $this->publishBundleTree(run: $run, files: $files);
+	}//end publishBundle()
 
-		if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
-			throw new RuntimeException('GitHub bundle publish requires a valid owner and repository name.');
-		}
-
+	/**
+	 * Create-or-update the bundle repository, tag it, commit the tree and log the outcome.
+	 *
+	 * @param GitHubPublishRun $run The bundle publish.
+	 * @param array<string,string> $files The `path => contents` tree to commit.
+	 *
+	 * @return array{repoUrl:string,commitSha:string,created:bool} The publish outcome.
+	 *
+	 * @throws RuntimeException On any refusal or GitHub API failure.
+	 */
+	private function publishBundleTree(GitHubPublishRun $run, array $files): array {
+		$this->assertPublishable(run: $run);
 		if ($files === []) {
 			throw new RuntimeException('GitHub bundle publish requires a non-empty tree.');
 		}
 
-		// Absent → create; present → update. A broker denial/404 here means absent,
-		// exactly as assertRepoAbsent() treats it.
-		$repoData = $this->brokerCall(
-			method: 'GET',
-			path: '/repos/' . rawurlencode($owner) . '/' . rawurlencode($repo),
-			body: null,
-			credentialId: $credentialId,
-			actingUserId: $actingUserId,
-			failQuietly: true
-		);
-
-		$created = false;
-		if ($repoData === null) {
-			$repoData = $this->createRepo(
-				owner: $owner,
-				repo: $repo,
-				visibility: $visibility,
-				credentialId: $credentialId,
-				actingUserId: $actingUserId,
-				kind: self::KIND_SKILL_BUNDLE
-			);
-			$created = true;
-		}
-
-		$this->setTopics(
-			owner: $owner,
-			repo: $repo,
-			credentialId: $credentialId,
-			actingUserId: $actingUserId,
-			kind: self::KIND_SKILL_BUNDLE
-		);
-
-		$commitSha = $this->commitTree(
-			owner: $owner,
-			repo: $repo,
-			branch: (string)($repoData['default_branch'] ?? 'main'),
-			files: $files,
-			credentialId: $credentialId,
-			actingUserId: $actingUserId
-		);
-
-		$this->logger->info(
-			'Hermiq GitHub bundle publish complete',
-			['owner' => $owner, 'repo' => $repo, 'created' => $created, 'entries' => count($files)]
-		);
+		$this->adoptRepository(run: $run, repoData: $this->bundleRepository(run: $run));
+		$this->setTopics(run: $run);
+		$commitSha = $this->commitWriter()->commitTree(run: $run, files: $files);
+		$this->logBundlePublished(run: $run, entries: count($files));
 
 		return [
-			'repoUrl' => (string)($repoData['html_url'] ?? ('https://github.com/' . $owner . '/' . $repo)),
+			'repoUrl' => $run->repoUrl,
 			'commitSha' => $commitSha,
-			'created' => $created,
+			'created' => $run->created,
 		];
-
-	}//end publishBundle()
-
-	/**
-	 * Commit an arbitrary `path => contents` tree in ONE commit.
-	 *
-	 * The map-based sibling of commitPackage(): same Git-Data sequence (ref → base
-	 * commit → blobs → tree → commit → ref update), but the caller supplies the
-	 * whole tree rather than a package plus auxiliaries. Kept as a single method
-	 * for the same reason commitPackage() is — splitting it would scatter the
-	 * commit-chain invariants across helpers.
-	 *
-	 * @param string $owner Repo owner.
-	 * @param string $repo Repo name.
-	 * @param string $branch Branch to advance.
-	 * @param array<string,string> $files The tree to commit.
-	 * @param string $credentialId Broker credential UUID.
-	 * @param string|null $actingUserId Credential owner.
-	 *
-	 * @return string The new commit SHA.
-	 *
-	 * @throws RuntimeException On API failure.
-	 */
-	private function commitTree(
-		string $owner,
-		string $repo,
-		string $branch,
-		array $files,
-		string $credentialId,
-		?string $actingUserId,
-	): string {
-		$base = '/repos/' . rawurlencode($owner) . '/' . rawurlencode($repo);
-
-		$ref = $this->getJson(
-			path: $base . '/git/refs/heads/' . rawurlencode($branch),
-			credentialId: $credentialId,
-			actingUserId: $actingUserId
-		);
-		$baseCommitSha = (string)($ref['object']['sha'] ?? '');
-		if ($baseCommitSha === '') {
-			throw new RuntimeException('GitHub bundle publish: could not resolve the default branch tip.');
-		}
-
-		$baseCommit = $this->getJson(
-			path: $base . '/git/commits/' . rawurlencode($baseCommitSha),
-			credentialId: $credentialId,
-			actingUserId: $actingUserId
-		);
-		$baseTreeSha = (string)($baseCommit['tree']['sha'] ?? '');
-
-		$treeEntries = $this->uploadBlobs(
-			base: $base,
-			files: $files,
-			credentialId: $credentialId,
-			actingUserId: $actingUserId
-		);
-
-		if ($treeEntries === []) {
-			throw new RuntimeException('GitHub bundle publish: no publishable entries after path validation.');
-		}
-
-		// Base_tree preserves every path this bundle does not own — the property
-		// that makes updating an existing repository safe rather than truncating.
-		$tree = $this->postJson(
-			path: $base . '/git/trees',
-			body: ['base_tree' => $baseTreeSha, 'tree' => $treeEntries],
-			credentialId: $credentialId,
-			actingUserId: $actingUserId
-		);
-		$treeSha = (string)($tree['sha'] ?? '');
-
-		$commit = $this->postJson(
-			path: $base . '/git/commits',
-			body: [
-				'message' => 'chore: publish agent skill bundle from Hermiq',
-				'tree' => $treeSha,
-				'parents' => [$baseCommitSha],
-			],
-			credentialId: $credentialId,
-			actingUserId: $actingUserId
-		);
-		$commitSha = (string)($commit['sha'] ?? '');
-		if ($commitSha === '') {
-			throw new RuntimeException('GitHub bundle publish: commit creation failed.');
-		}
-
-		$this->brokerCall(
-			method: 'PATCH',
-			path: $base . '/git/refs/heads/' . rawurlencode($branch),
-			body: ['sha' => $commitSha],
-			credentialId: $credentialId,
-			actingUserId: $actingUserId
-		);
-
-		return $commitSha;
-	}//end commitTree()
+	}//end publishBundleTree()
 
 	/**
-	 * Upload every file as a blob and return the resulting tree entries.
+	 * Log a completed bundle publish: where to, whether the repository was created, how many entries.
 	 *
-	 * @param string $base The `/repos/{owner}/{repo}` API base.
-	 * @param array<string,string> $files The `path => contents` map.
-	 * @param string $credentialId Broker credential UUID.
-	 * @param string|null $actingUserId Credential owner.
+	 * @param GitHubPublishRun $run The bundle publish.
+	 * @param int $entries The number of paths in the tree that was asked for.
 	 *
-	 * @return array<int,array<string,string>> The tree entries.
-	 *
-	 * @throws RuntimeException When a blob upload returns no sha.
+	 * @return void
 	 */
-	private function uploadBlobs(string $base, array $files, string $credentialId, ?string $actingUserId): array {
-		$treeEntries = [];
+	private function logBundlePublished(GitHubPublishRun $run, int $entries): void {
+		$this->logger->info(
+			'Hermiq GitHub bundle publish complete',
+			['owner' => $run->target->owner, 'repo' => $run->target->repo, 'created' => $run->created, 'entries' => $entries]
+		);
+	}//end logBundlePublished()
 
-		foreach ($files as $path => $contents) {
-			$path = (string)$path;
-			if ($path === '' || $this->isSafeRepoPath(path: $path) === false) {
-				$this->logger->warning('Hermiq bundle publish: skipped unsafe path.', ['path' => $path]);
-				continue;
-			}
+	/**
+	 * The bundle repository: the existing one, or a freshly created one when absent.
+	 *
+	 * Absent → create; present → update. A broker denial/404 here means absent,
+	 * exactly as assertRepoAbsent() treats it.
+	 *
+	 * @param GitHubPublishRun $run The bundle publish; `created` is recorded here.
+	 *
+	 * @return array<string,mixed> The repository's GitHub data.
+	 *
+	 * @throws RuntimeException When creating the repository fails.
+	 */
+	private function bundleRepository(GitHubPublishRun $run): array {
+		$repoData = $this->brokerClient()->call(run: $run, call: (new GitHubCall(method: 'GET', path: $run->target->apiPath()))->quietly());
+		if ($repoData !== null) {
+			return $repoData;
+		}
 
-			$blob = $this->postJson(
-				path: $base . '/git/blobs',
-				body: ['content' => base64_encode((string)$contents), 'encoding' => 'base64'],
-				credentialId: $credentialId,
-				actingUserId: $actingUserId
-			);
-			$blobSha = (string)($blob['sha'] ?? '');
+		$run->created = true;
+		return $this->createRepo(run: $run);
+	}//end bundleRepository()
 
-			// A blob whose sha did not come back MUST NOT reach the tree. GitHub
-			// rejects the WHOLE create-tree request with a 422 for one bad entry,
-			// so a single silently-empty sha discards every other blob uploaded in
-			// this run — hundreds of successful uploads lost to an error message
-			// that names no file. Failing here names the path instead.
-			if ($blobSha === '') {
-				throw new RuntimeException(
-					'GitHub bundle publish: blob upload returned no sha for "' . $path . '".'
-				);
-			}
+	/**
+	 * Record the repository's default branch and web URL on the run.
+	 *
+	 * @param GitHubPublishRun $run The publish.
+	 * @param array<string,mixed> $repoData The repository's GitHub data.
+	 *
+	 * @return void
+	 */
+	private function adoptRepository(GitHubPublishRun $run, array $repoData): void {
+		$run->branch = (string)($repoData['default_branch'] ?? 'main');
+		$run->repoUrl = (string)($repoData['html_url'] ?? $run->target->defaultUrl());
+	}//end adoptRepository()
 
-			$treeEntries[] = [
-				'path' => $path,
-				'mode' => '100644',
-				'type' => 'blob',
-				'sha' => $blobSha,
-			];
-		}//end foreach
+	/**
+	 * Refuse a publish that cannot be made: no broker, no credential, or an invalid owner or repository name.
+	 *
+	 * @param GitHubPublishRun $run The publish.
+	 *
+	 * @return void
+	 *
+	 * @throws RuntimeException Worded after the run's operation.
+	 */
+	private function assertPublishable(GitHubPublishRun $run): void {
+		if ($this->isBrokerAvailable() === false) {
+			// Fail closed. There is deliberately no token-bearing fallback.
+			throw new RuntimeException($run->operation . ' requires the OpenRegister credential broker, which is not available.');
+		}
 
-		return $treeEntries;
-	}//end uploadBlobs()
+		if ($run->credential->credentialId === '') {
+			throw new RuntimeException($run->operation . ' requires a broker credential.');
+		}
+
+		if ($run->target->hasValidNames() === false) {
+			throw new RuntimeException($run->operation . ' requires a valid owner and repository name.');
+		}
+	}//end assertPublishable()
 
 	/**
 	 * Fail fast when the target repository already exists.
 	 *
-	 * @param string $owner Owner/organisation.
-	 * @param string $repo Repository name.
-	 * @param string $credentialId Broker credential UUID.
-	 * @param string|null $actingUserId Owner of the credential.
+	 * Absent is the desired outcome, so a broker denial/404 here is NOT an error —
+	 * only a successful 200 means the repo already exists.
+	 *
+	 * @param GitHubPublishRun $run The publish.
 	 *
 	 * @return void
 	 *
-	 * @throws RuntimeException When the repo already exists.
+	 * @throws RuntimeException When the repository already exists.
 	 *
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-refuse-to-overwrite-an-existing-github-repository
 	 */
-	private function assertRepoAbsent(
-		string $owner,
-		string $repo,
-		string $credentialId,
-		?string $actingUserId,
-	): void {
-		// Absent is the desired outcome, so a broker denial/404 here is NOT an error —
-		// only a successful 200 means the repo already exists.
-		$existing = $this->brokerCall(
-			method: 'GET',
-			path: '/repos/' . rawurlencode($owner) . '/' . rawurlencode($repo),
-			body: null,
-			credentialId: $credentialId,
-			actingUserId: $actingUserId,
-			failQuietly: true
-		);
+	private function assertRepoAbsent(GitHubPublishRun $run): void {
+		$existing = $this->brokerClient()->call(run: $run, call: (new GitHubCall(method: 'GET', path: $run->target->apiPath()))->quietly());
 
 		if ($existing !== null) {
-			throw new RuntimeException(sprintf('Repository %s/%s already exists', $owner, $repo));
+			throw new RuntimeException(sprintf('Repository %s/%s already exists', $run->target->owner, $run->target->repo));
 		}
 	}//end assertRepoAbsent()
 
 	/**
-	 * Create a new GitHub repository under the given owner.
+	 * Create a new GitHub repository under the run's owner, with the run's
+	 * visibility and the description of its kind.
 	 *
-	 * @param string $owner Owner/organisation.
-	 * @param string $repo Repository name.
-	 * @param string $visibility `public`|`private`.
-	 * @param string $credentialId Broker credential UUID.
-	 * @param string|null $actingUserId Owner of the credential.
-	 * @param string $kind The publish kind (`KIND_AGENT_TEMPLATE`|`KIND_SKILL`).
+	 * @param GitHubPublishRun $run The publish.
 	 *
-	 * @return array<string,mixed> Decoded repo payload.
+	 * @return array<string,mixed> The created repository's data.
 	 *
 	 * @throws RuntimeException On API failure.
 	 */
-	private function createRepo(
-		string $owner,
-		string $repo,
-		string $visibility,
-		string $credentialId,
-		?string $actingUserId,
-		string $kind,
-	): array {
-		$created = $this->brokerCall(
-			method: 'POST',
-			path: '/orgs/' . rawurlencode($owner) . '/repos',
-			body: [
-				'name' => $repo,
-				'private' => ($visibility === 'private'),
-				'auto_init' => true,
-				'description' => $this->descriptionFor(kind: $kind),
-			],
-			credentialId: $credentialId,
-			actingUserId: $actingUserId
-		);
+	private function createRepo(GitHubPublishRun $run): array {
+		$created = $this->brokerClient()->call(run: $run, call: $this->createRepoCall(run: $run));
 
 		if ($created === null) {
 			throw new RuntimeException('GitHub create-repo failed.');
@@ -703,333 +490,91 @@ class GitHubTemplatePushService {
 	}//end createRepo()
 
 	/**
-	 * Tag the repository with the kind's discovery topic
-	 * (`hermiq-agent-template`|`hermiq-skill`).
+	 * The call that creates the run's repository, auto-initialised so it has a branch to commit on.
 	 *
-	 * @param string $owner Owner/organisation.
-	 * @param string $repo Repository name.
-	 * @param string $credentialId Broker credential UUID.
-	 * @param string|null $actingUserId Owner of the credential.
-	 * @param string $kind The publish kind (`KIND_AGENT_TEMPLATE`|`KIND_SKILL`).
+	 * @param GitHubPublishRun $run The publish.
 	 *
-	 * @return void
+	 * @return GitHubCall The POST /orgs/<owner>/repos call.
+	 */
+	private function createRepoCall(GitHubPublishRun $run): GitHubCall {
+		return (new GitHubCall(method: 'POST', path: '/orgs/' . rawurlencode($run->target->owner) . '/repos'))->withBody(
+			[
+				'name' => $run->target->repo,
+				'private' => ($run->visibility === 'private'),
+				'auto_init' => true,
+				'description' => $this->descriptionFor(kind: $run->kind),
+			]
+		);
+	}//end createRepoCall()
+
+	/**
+	 * Tag the repository with the kind's discovery topic, keeping its other topics.
 	 *
 	 * Deliberately does not throw on failure: the repo already exists at this
-	 * point (created by createRepo()), and a topic-tagging hiccup should not
-	 * turn an otherwise-successful publish into an error the caller cannot
-	 * recover from without re-publishing under a new name.
+	 * point, and a topic-tagging hiccup should not turn an otherwise-successful
+	 * publish into an error the caller cannot recover from without re-publishing
+	 * under a new name.
+	 *
+	 * GitHub's PUT /topics REPLACES the whole list. On a fresh repo that is
+	 * fine, but publishBundle() is create-or-UPDATE: publishing a skill bundle
+	 * into an existing app repository would drop that repo's own discovery
+	 * topic, making it invisible to the catalogue that published it. Merge
+	 * instead — observed on buildiq-hydra, where the bundle push replaced
+	 * `openbuild-app` with `hermiq-skill-bundle`.
+	 *
+	 * @param GitHubPublishRun $run The publish.
+	 *
+	 * @return void
 	 */
-	private function setTopics(string $owner, string $repo, string $credentialId, ?string $actingUserId, string $kind): void {
-		$base = '/repos/' . rawurlencode($owner) . '/' . rawurlencode($repo) . '/topics';
-		$topic = $this->topicFor(kind: $kind);
+	private function setTopics(GitHubPublishRun $run): void {
+		$path = $run->target->apiPath() . '/topics';
+		$topic = $this->topicFor(kind: $run->kind);
 
-		// GitHub's PUT /topics REPLACES the whole list. On a fresh repo that is
-		// fine, but publishBundle() is create-or-UPDATE: publishing a skill bundle
-		// into an existing app repository would drop that repo's own discovery
-		// topic, making it invisible to the catalogue that published it. Merge
-		// instead — observed on buildiq-hydra, where the bundle push replaced
-		// `openbuild-app` with `hermiq-skill-bundle`.
-		$names = [$topic];
+		$existing = $this->brokerClient()->call(run: $run, call: (new GitHubCall(method: 'GET', path: $path))->quietly());
 
-		$existing = $this->brokerCall(
-			method: 'GET',
-			path: $base,
-			body: null,
-			credentialId: $credentialId,
-			actingUserId: $actingUserId,
-			failQuietly: true
-		);
-
-		if (is_array($existing) === true && is_array($existing['names'] ?? null) === true) {
-			foreach ($existing['names'] as $name) {
-				$name = (string)$name;
-				if ($name !== '' && in_array($name, $names, true) === false) {
-					$names[] = $name;
-				}
-			}
-		}
-
-		sort($names);
-
-		$this->brokerCall(
-			method: 'PUT',
-			path: $base,
-			body: ['names' => $names],
-			credentialId: $credentialId,
-			actingUserId: $actingUserId,
-			failQuietly: true
+		$this->brokerClient()->call(
+			run: $run,
+			call: (new GitHubCall(method: 'PUT', path: $path))
+				->withBody(['names' => $this->mergedTopics(topic: $topic, existing: $this->topicNames(topics: $existing))])
+				->quietly()
 		);
 	}//end setTopics()
 
 	/**
-	 * Commit the serialized package as a single blob on the repo's default branch
-	 * (created by `auto_init: true`, which already carries one README commit).
+	 * The topic names a GET /topics answer carries, [] when it carries none.
 	 *
-	 * @param string $owner Owner/organisation.
-	 * @param string $repo Repository name.
-	 * @param string $branch The default branch to commit onto.
-	 * @param string $package The JSON package string.
-	 * @param string $credentialId Broker credential UUID.
-	 * @param string|null $actingUserId Owner of the credential.
-	 * @param string $kind The publish kind (`KIND_AGENT_TEMPLATE`|`KIND_SKILL`).
-	 * @param array $auxFiles Additional `{name, content}` files committed
-	 *                        alongside the package (already selection-filtered
-	 *                        by the caller — `learning-candidates.md` never
-	 *                        reaches this boundary).
+	 * @param array<string,mixed>|null $topics The answer, or null when the call failed.
 	 *
-	 * @return string Commit SHA.
-	 *
-	 * @throws RuntimeException On API failure.
-	 *
-	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) One linear GitHub git-data
-	 *   sequence (ref → base commit → blobs → tree → commit → ref update); splitting
-	 *   it would scatter the commit-chain invariants across helpers.
+	 * @return array<int,mixed> The names.
 	 */
-	private function commitPackage(
-		string $owner,
-		string $repo,
-		string $branch,
-		string $package,
-		string $credentialId,
-		?string $actingUserId,
-		string $kind,
-		array $auxFiles = [],
-	): string {
-		$base = '/repos/' . rawurlencode($owner) . '/' . rawurlencode($repo);
-
-		$ref = $this->getJson(
-			path: $base . '/git/refs/heads/' . rawurlencode($branch),
-			credentialId: $credentialId,
-			actingUserId: $actingUserId
-		);
-		$baseCommitSha = (string)($ref['object']['sha'] ?? '');
-		if ($baseCommitSha === '') {
-			throw new RuntimeException('GitHub publish: could not resolve the default branch tip.');
+	private function topicNames(?array $topics): array {
+		if (is_array($topics) === true && is_array($topics['names'] ?? null) === true) {
+			return $topics['names'];
 		}
 
-		$baseCommit = $this->getJson(
-			path: $base . '/git/commits/' . rawurlencode($baseCommitSha),
-			credentialId: $credentialId,
-			actingUserId: $actingUserId
-		);
-		$baseTreeSha = (string)($baseCommit['tree']['sha'] ?? '');
-
-		$blob = $this->postJson(
-			path: $base . '/git/blobs',
-			body: ['content' => base64_encode($package), 'encoding' => 'base64'],
-			credentialId: $credentialId,
-			actingUserId: $actingUserId
-		);
-		$blobSha = (string)($blob['sha'] ?? '');
-
-		$treeEntries = [
-			[
-				'path' => $this->packageFileFor(kind: $kind),
-				'mode' => '100644',
-				'type' => 'blob',
-				'sha' => $blobSha,
-			],
-		];
-
-		// Skill-self-improvement: auxiliary skill files (learnings.md included, the
-		// learning-candidates.md strip already applied by the caller's selection)
-		// ride the SAME commit as additional blobs at their own paths.
-		foreach ($auxFiles as $auxFile) {
-			if (is_array($auxFile) === false) {
-				continue;
-			}
-
-			$auxName = (string)($auxFile['name'] ?? '');
-			if ($auxName === '' || $this->isSafeRepoPath(path: $auxName) === false) {
-				continue;
-			}
-
-			$auxBlob = $this->postJson(
-				path: $base . '/git/blobs',
-				body: ['content' => base64_encode((string)($auxFile['content'] ?? '')), 'encoding' => 'base64'],
-				credentialId: $credentialId,
-				actingUserId: $actingUserId
-			);
-
-			$treeEntries[] = [
-				'path' => $auxName,
-				'mode' => '100644',
-				'type' => 'blob',
-				'sha' => (string)($auxBlob['sha'] ?? ''),
-			];
-		}//end foreach
-
-		$tree = $this->postJson(
-			path: $base . '/git/trees',
-			body: [
-				'base_tree' => $baseTreeSha,
-				'tree' => $treeEntries,
-			],
-			credentialId: $credentialId,
-			actingUserId: $actingUserId
-		);
-		$treeSha = (string)($tree['sha'] ?? '');
-
-		$commit = $this->postJson(
-			path: $base . '/git/commits',
-			body: [
-				'message' => $this->commitMessageFor(kind: $kind),
-				'tree' => $treeSha,
-				'parents' => [$baseCommitSha],
-			],
-			credentialId: $credentialId,
-			actingUserId: $actingUserId
-		);
-		$commitSha = (string)($commit['sha'] ?? '');
-		if ($commitSha === '') {
-			throw new RuntimeException('GitHub publish: commit creation failed.');
-		}
-
-		$this->brokerCall(
-			method: 'PATCH',
-			path: $base . '/git/refs/heads/' . rawurlencode($branch),
-			body: ['sha' => $commitSha],
-			credentialId: $credentialId,
-			actingUserId: $actingUserId
-		);
-
-		return $commitSha;
-	}//end commitPackage()
+		return [];
+	}//end topicNames()
 
 	/**
-	 * GET a JSON body through the broker and decode the response.
+	 * The kind's topic plus every other non-empty existing topic, once each, sorted.
 	 *
-	 * @param string $path GitHub-relative path.
-	 * @param string $credentialId Broker credential UUID.
-	 * @param string|null $actingUserId Owner of the credential.
+	 * @param string $topic The kind's discovery topic.
+	 * @param array<int,mixed> $existing The repository's existing topic names.
 	 *
-	 * @return array<string,mixed> Decoded response payload.
-	 *
-	 * @throws RuntimeException On API failure.
+	 * @return array<int,string> The merged names.
 	 */
-	private function getJson(string $path, string $credentialId, ?string $actingUserId): array {
-		$decoded = $this->brokerCall(
-			method: 'GET',
-			path: $path,
-			body: null,
-			credentialId: $credentialId,
-			actingUserId: $actingUserId
-		);
-
-		if ($decoded === null) {
-			throw new RuntimeException('GitHub API call failed: GET ' . $path);
-		}
-
-		return $decoded;
-	}//end getJson()
-
-	/**
-	 * POST a JSON body through the broker and decode the response.
-	 *
-	 * @param string $path GitHub-relative path.
-	 * @param array<string,mixed> $body Request body.
-	 * @param string $credentialId Broker credential UUID.
-	 * @param string|null $actingUserId Owner of the credential.
-	 *
-	 * @return array<string,mixed> Decoded response payload.
-	 *
-	 * @throws RuntimeException On API failure.
-	 */
-	private function postJson(string $path, array $body, string $credentialId, ?string $actingUserId): array {
-		$decoded = $this->brokerCall(
-			method: 'POST',
-			path: $path,
-			body: $body,
-			credentialId: $credentialId,
-			actingUserId: $actingUserId
-		);
-
-		if ($decoded === null) {
-			throw new RuntimeException('GitHub API call failed: POST ' . $path);
-		}
-
-		return $decoded;
-	}//end postJson()
-
-	/**
-	 * Route one GitHub call through OpenRegister's credential broker.
-	 *
-	 * We send only {method, path, body}: the base URL is the broker's host-lock and
-	 * the Authorization header is injected there from the vault. This process never
-	 * sees the token, so there is nothing here to leak into a log or an exception.
-	 *
-	 * A non-2xx (including a broker 403 for an unlisted method/path) returns `null`
-	 * rather than throwing, because `assertRepoAbsent()` treats absence as the happy
-	 * path. Every other caller turns `null` into a RuntimeException.
-	 *
-	 * @param string $method HTTP method.
-	 * @param string $path GitHub-relative path.
-	 * @param array<string,mixed>|null $body Optional JSON body.
-	 * @param string $credentialId Broker credential UUID.
-	 * @param string|null $actingUserId Owner of the credential.
-	 * @param bool $failQuietly Suppress the error log on failure.
-	 *
-	 * @return array<string,mixed>|null Decoded payload, or null on any non-2xx.
-	 *
-	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) $failQuietly is a genuine two-mode
-	 *   logging input: setTopics() treats failure as cosmetic while every other caller
-	 *   wants the scrubbed warning.
-	 * @SuppressWarnings(PHPMD.StaticAccess)        The optional OpenRegister broker is
-	 *   named by class-string and resolved through the injected container, so this class
-	 *   stays constructible when the broker is absent.
-	 *
-	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
-	 */
-	private function brokerCall(
-		string $method,
-		string $path,
-		?array $body,
-		string $credentialId,
-		?string $actingUserId,
-		bool $failQuietly = false,
-	): ?array {
-		$encoded = null;
-		if ($body !== null) {
-			$encoded = (string)json_encode($body);
-		}
-
-		try {
-			$broker = $this->serviceContainer()->get(self::BROKER_CLASS);
-			$response = $broker->request(
-				$credentialId,
-				self::APP_ID,
-				$method,
-				$path,
-				['Accept' => 'application/vnd.github+json', 'Content-Type' => 'application/json'],
-				$encoded,
-				$actingUserId
-			);
-		} catch (\Throwable $e) {
-			if ($failQuietly === false) {
-				// Never log the body — it may carry the package contents, which can
-				// carry anything the author typed. Method and path only.
-				$this->logger->warning(
-					'Hermiq GitHub template publish: broker call failed for ' . $method . ' ' . $path
-					. ': ' . $this->scrub(message: $e->getMessage())
-				);
+	private function mergedTopics(string $topic, array $existing): array {
+		$names = [$topic];
+		foreach ($existing as $name) {
+			$name = (string)$name;
+			if ($name !== '' && in_array($name, $names, true) === false) {
+				$names[] = $name;
 			}
-
-			return null;
-		}//end try
-
-		$status = (int)($response['status'] ?? 0);
-		if ($status < 200 || $status >= 300) {
-			if ($failQuietly === false) {
-				$this->logger->warning(
-					'Hermiq GitHub template publish: ' . $method . ' ' . $path . ' returned HTTP ' . $status
-				);
-			}
-
-			return null;
 		}
 
-		return $this->decode(body: (string)($response['body'] ?? ''));
-	}//end brokerCall()
+		sort($names);
+		return $names;
+	}//end mergedTopics()
 
 	/**
 	 * Resolve a kind's discovery topic (hermiq-github-store), falling back to
@@ -1042,18 +587,6 @@ class GitHubTemplatePushService {
 	private function topicFor(string $kind): string {
 		return self::DISCOVERY_TOPICS[$kind] ?? self::DISCOVERY_TOPICS[self::KIND_AGENT_TEMPLATE];
 	}//end topicFor()
-
-	/**
-	 * Resolve a kind's repo-root package file name (hermiq-github-store),
-	 * falling back to `KIND_AGENT_TEMPLATE`'s file name for an unrecognised kind.
-	 *
-	 * @param string $kind The publish kind.
-	 *
-	 * @return string The repo-relative package file name.
-	 */
-	private function packageFileFor(string $kind): string {
-		return self::PACKAGE_FILES[$kind] ?? self::PACKAGE_FILES[self::KIND_AGENT_TEMPLATE];
-	}//end packageFileFor()
 
 	/**
 	 * Kind-appropriate new-repo description (hermiq-github-store).
@@ -1070,72 +603,4 @@ class GitHubTemplatePushService {
 		return 'Published from Hermiq — a portable Hermiq agent template.';
 	}//end descriptionFor()
 
-	/**
-	 * Kind-appropriate commit message (hermiq-github-store).
-	 *
-	 * @param string $kind The publish kind.
-	 *
-	 * @return string The commit message.
-	 */
-	private function commitMessageFor(string $kind): string {
-		if ($kind === self::KIND_SKILL) {
-			return 'chore: publish agent skill from Hermiq';
-		}
-
-		return 'chore: publish agent template from Hermiq';
-	}//end commitMessageFor()
-
-	/**
-	 * Whether an auxiliary file name is a safe repo-relative path: no absolute
-	 * paths, no `..` traversal, no backslashes, sane length.
-	 *
-	 * @param string $path The candidate repo path.
-	 *
-	 * @return bool True when safe to commit.
-	 *
-	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
-	 */
-	private function isSafeRepoPath(string $path): bool {
-		if (strlen($path) > 200 || str_starts_with($path, '/') === true || str_contains($path, '\\') === true) {
-			return false;
-		}
-
-		foreach (explode('/', $path) as $segment) {
-			if ($segment === '' || $segment === '.' || $segment === '..') {
-				return false;
-			}
-		}
-
-		return true;
-	}//end isSafeRepoPath()
-
-	/**
-	 * Decode a JSON response body into an array.
-	 *
-	 * @param string $body Raw response body.
-	 *
-	 * @return array<string,mixed> Decoded payload (empty on non-array).
-	 */
-	private function decode(string $body): array {
-		$decoded = json_decode($body, true);
-		if (is_array($decoded) === true) {
-			return $decoded;
-		}
-
-		return [];
-	}//end decode()
-
-	/**
-	 * Remove any leaked PAT-shaped tokens from an error message before it is
-	 * surfaced into logs (defence in depth).
-	 *
-	 * @param string $message Raw error message.
-	 *
-	 * @return string Scrubbed message.
-	 *
-	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
-	 */
-	private function scrub(string $message): string {
-		return (string)preg_replace('/gh[pousr]_[A-Za-z0-9]{20,}/', '[redacted-token]', $message);
-	}//end scrub()
 }//end class

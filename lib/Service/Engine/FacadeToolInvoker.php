@@ -119,14 +119,14 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
- * @spec openspec/changes/run-trace-observability/tasks.md#task-2-thread-the-collector-through-enginetoolloopfacadetoolinvoker
- * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
- * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-4
- * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
- * @spec openspec/changes/agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
- * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps
- * @spec openspec/changes/web-research-tool/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
+ * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-2-thread-the-collector-through-enginetoolloopfacadetoolinvoker
+ * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-3
+ * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-4
+ * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
+ * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
+ * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps
+ * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
  * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#requirement-argument-constraints-on-a-grant-are-enforced-at-invocation
  * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#requirement-a-flow-invoked-as-an-agent-tool-is-attributed-to-an-owning-uid
  */
@@ -135,10 +135,12 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
 
+use Closure;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ToolClassificationService;
 use OCA\Hermiq\Service\ToolSearchService;
+use OCA\OpenRegister\Db\ObjectEntity;
 // 🔴 THESE TWO USED TO NEED NO IMPORT. `ToolGrantResolver` and
 // `ToolReachResolver` lived in this very namespace until ADR-099 §5 moved the
 // capability grammar to OpenRegister, so PHP resolved them for free. A
@@ -148,7 +150,7 @@ use OCA\Hermiq\Service\ToolSearchService;
 // the middle of a tool call rather than a failure to load.
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 
 /**
  * Dispatches LLPhant tool calls onto the OR tool-registry facade.
@@ -167,7 +169,7 @@ use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
  *   where it does, which is the only place that reasoning is recorded. Splitting the class
  *   to satisfy the metric would create the second dispatch path this class exists to prevent.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
  */
 class FacadeToolInvoker {
 
@@ -208,6 +210,31 @@ class FacadeToolInvoker {
 	private const DELEGATE_AGENT_TOOL_ID = 'hermiq.delegateAgent';
 
 	/**
+	 * `hermiq.delegateAgents` (delegation-runs-in-parallel): the same trusted
+	 * calling-agent identity as `DELEGATE_AGENT_TOOL_ID`.
+	 *
+	 * @var string
+	 */
+	private const DELEGATE_AGENTS_TOOL_ID = 'hermiq.delegateAgents';
+
+	/**
+	 * The six integriq agent tools (approval-verification-contract, hermiq#1045)
+	 * that get the running agent's id as `agentId`, overwriting whatever the model
+	 * sent: integriq records it on a staged batch and names it as `actingAgent`
+	 * when it asks Hermiq for a verdict.
+	 *
+	 * @var array<int, string>
+	 */
+	private const INTEGRIQ_AGENT_TOOL_IDS = [
+		'integriq.runSynchronization',
+		'integriq.replayDeadLetters',
+		'integriq.discardDeadLetters',
+		'integriq.testSynchronization',
+		'integriq.testSource',
+		'integriq.listDeadLetters',
+	];
+
+	/**
 	 * The two web-research-tool ids whose trace step carries an additional redacted
 	 * `target` (see class docblock and `resolveWebResearchTarget()`).
 	 *
@@ -232,6 +259,8 @@ class FacadeToolInvoker {
 	private const ARTEFACT_WRITE_TOOL_IDS = [
 		'hermiq.createCalendarEvent',
 		'hermiq.upsertContact',
+		'hermiq.createTask',
+		'hermiq.completeTask',
 	];
 
 	/**
@@ -271,6 +300,13 @@ class FacadeToolInvoker {
 	 * @var string
 	 */
 	private const FLOW_OWNER_ARGUMENT = 'triggeredBy';
+
+	/**
+	 * The stop rule of this turn (agents-switch-off-and-stop).
+	 *
+	 * @var TurnGuard
+	 */
+	private readonly TurnGuard $turnGuard;
 
 	/**
 	 * Constructor.
@@ -387,6 +423,13 @@ class FacadeToolInvoker {
 	 *                                                             identically so the same pure checker
 	 *                                                             decides conformance. Empty (every
 	 *                                                             pre-existing caller) waives nothing.
+	 * @param int|null     $maxToolCalls Tool calls this turn may make (agents-switch-off-and-stop);
+	 *                                   null, every pre-existing caller, is no cap.
+	 * @param Closure|null $agentStillOn Fresh read of the agent's switch before each call;
+	 *                                   null is always on.
+	 * @param array<int,string> $askFirst Registry ids the person who started the run asks to
+	 *                                    approve first (personal-preferences, ask before sending);
+	 *                                    empty, every pre-existing caller, asks nothing extra.
 	 *
 	 * @return void
 	 *
@@ -396,12 +439,12 @@ class FacadeToolInvoker {
 	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag)    Dry-run preview (run-replay-and-dry-run)
 	 *   is a cross-cutting mode threaded through the engine as a flag by design.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-4
-	 * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
-	 * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-3
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-4
+	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
+	 * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps
 	 */
 	public function __construct(
 		private readonly ToolRegistryFacade $facade,
@@ -419,8 +462,33 @@ class FacadeToolInvoker {
 		private readonly array $argumentConstraints = [],
 		private readonly ?string $ownerUid = null,
 		private readonly array $waivedConstraintSets = [],
+		?int $maxToolCalls = null,
+		?Closure $agentStillOn = null,
+		private readonly array $askFirst = [],
 	) {
+		$this->turnGuard = new TurnGuard(maxToolCalls: $maxToolCalls, agentStillOn: $agentStillOn);
 	}//end __construct()
+
+	/**
+	 * Whether this turn was stopped: its agent was switched off, or it used every
+	 * tool call its owner allows (agents-switch-off-and-stop).
+	 *
+	 * @return bool True once a tool call was refused for either reason.
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-run-in-progress-stops-when-its-agent-is-switched-off-req-agoff-003
+	 */
+	public function isStopped(): bool {
+		return $this->turnGuard->isStopped();
+	}//end isStopped()
+
+	/**
+	 * How this run refuses a tool call: traced, shown on the stream, and returned to the model.
+	 *
+	 * @return ToolRefusals The refusals over this run's trace and stream.
+	 */
+	private function refusals(): ToolRefusals {
+		return new ToolRefusals(trace: $this->trace, channel: $this->channel);
+	}//end refusals()
 
 	/**
 	 * Catch LLPhant's `$instance->{$functionName}(...$args)` dispatch and route
@@ -438,15 +506,38 @@ class FacadeToolInvoker {
 	 *
 	 * @return string JSON-encoded tool result for the follow-up LLM turn.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-4
-	 * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
-	 * @spec openspec/changes/agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-3
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-4
+	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
+	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
 	 */
 	public function __call(string $name, array $arguments): string {
-		if ($this->toolSearchService !== null && in_array($name, self::SEARCH_TOOLS_NAMES, true) === true) {
+		// Agents-switch-off-and-stop: before anything else, the turn may be over.
+		$stopReason = $this->turnGuard->admit();
+		if ($stopReason !== null) {
+			$this->trace?->recordStop(reason: $stopReason);
+			return $this->turnGuard->refusal(reason: $stopReason);
+		}
+
+		return $this->route(name: $name, arguments: $arguments);
+	}//end __call()
+
+	/**
+	 * Route one admitted tool call through the governance gates to the facade.
+	 *
+	 * @param string $name The tool function name the LLM called.
+	 * @param array<string, mixed> $arguments Decoded arguments object.
+	 *
+	 * @return string JSON-encoded tool result for the follow-up LLM turn.
+	 *
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-3
+	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
+	 */
+	private function route(string $name, array $arguments): string {
+		if ($this->isSearchToolsCall(name: $name) === true) {
 			return $this->handleSearchTools(arguments: $arguments);
 		}
 
@@ -454,33 +545,76 @@ class FacadeToolInvoker {
 		// checked BEFORE the pre-existing grant/approval-gate check below — a
 		// `deny`/`confirm` classification takes precedence over whatever the
 		// tool's write/destructive grant status would otherwise allow.
-		$classification = $this->classifyTool(name: $name);
-		if ($classification === 'deny') {
+		if ($this->classifyTool(name: $name) === 'deny') {
 			return $this->handleDeniedByPolicy(name: $name, arguments: $arguments);
 		}
 
-		// Hydra-console-agent-leaves: an argument-scoped grant's constraints are
-		// checked here — after guardrail `deny` (so a denied tool is still denied
-		// for the usual reason) and before every remaining gate, so a
-		// permitted-but-misparameterised call is refused with its OWN error and
-		// never creates a pointless pending approval for a command it may not make.
+		return $this->routeUndenied(name: $name, arguments: $arguments);
+	}//end route()
+
+	/**
+	 * Whether a call is the tool-search tool and tool search is available.
+	 *
+	 * @param string $name The tool function name the LLM called.
+	 *
+	 * @return bool True for a tool-search call.
+	 */
+	private function isSearchToolsCall(string $name): bool {
+		return $this->toolSearchService !== null && in_array($name, self::SEARCH_TOOLS_NAMES, true) === true;
+
+	}//end isSearchToolsCall()
+
+	/**
+	 * Route a call the organisation does not deny through the grant gates: its
+	 * argument constraints, then the flow owner.
+	 *
+	 * Hydra-console-agent-leaves: an argument-scoped grant's constraints are
+	 * checked here — after guardrail `deny` (so a denied tool is still denied
+	 * for the usual reason) and before every remaining gate, so a
+	 * permitted-but-misparameterised call is refused with its OWN error and
+	 * never creates a pointless pending approval for a command it may not make.
+	 *
+	 * @param string $name The tool function name the LLM called.
+	 * @param array<string, mixed> $arguments Decoded arguments object.
+	 *
+	 * @return string JSON-encoded tool result for the follow-up LLM turn.
+	 */
+	private function routeUndenied(string $name, array $arguments): string {
 		$violation = $this->constraintViolationFor(name: $name, arguments: $arguments);
 		if ($violation !== null) {
-			return $this->handleConstraintViolation(name: $name, arguments: $arguments, violation: $violation);
+			return $this->handleConstraintViolation(
+				call: new ToolCall(toolId: $this->resolveToolId(name: $name), arguments: $arguments),
+				violation: $violation
+			);
 		}
 
 		if ($this->refusesForUnresolvedOwner(name: $name) === true) {
 			return $this->handleOwnerUnresolved(name: $name, arguments: $arguments);
 		}
 
-		// Agent-capability-reach: an owner may waive the human confirmation for
-		// ONE grant entry with a `#noapproval` fragment. It is consulted HERE
-		// and nowhere earlier — after `deny` (a waiver never overrides an
-		// organisation's hard refusal), after the constraint check (so the
-		// invocation has already been shown to fall inside the exact grant that
-		// carries the waiver), and after the owner check. Everything a waiver
-		// could weaken has already been decided by the time it is read.
-		if ($classification === 'confirm' && $this->isWaived(name: $name, arguments: $arguments) === false) {
+		return $this->routeGranted(name: $name, arguments: $arguments);
+
+	}//end routeUndenied()
+
+	/**
+	 * Route a granted call through the human gates — `confirm` unless waived, then the
+	 * approval gate, then the person's own ask-before-sending — to the facade.
+	 *
+	 * Agent-capability-reach: an owner may waive the human confirmation for
+	 * ONE grant entry with a `#noapproval` fragment. It is consulted HERE
+	 * and nowhere earlier — after `deny` (a waiver never overrides an
+	 * organisation's hard refusal), after the constraint check (so the
+	 * invocation has already been shown to fall inside the exact grant that
+	 * carries the waiver), and after the owner check. Everything a waiver
+	 * could weaken has already been decided by the time it is read.
+	 *
+	 * @param string $name The tool function name the LLM called.
+	 * @param array<string, mixed> $arguments Decoded arguments object.
+	 *
+	 * @return string JSON-encoded tool result for the follow-up LLM turn.
+	 */
+	private function routeGranted(string $name, array $arguments): string {
+		if ($this->classifyTool(name: $name) === 'confirm' && $this->isWaived(name: $name, arguments: $arguments) === false) {
 			return $this->handleConfirmClassifiedInvocation(name: $name, arguments: $arguments);
 		}
 
@@ -488,8 +622,16 @@ class FacadeToolInvoker {
 			return $this->handleGatedInvocation(name: $name, arguments: $arguments);
 		}
 
-		return $this->dispatchToFacade(name: $name, arguments: $arguments);
-	}//end __call()
+		// The person who started the run asked to approve anything sent on their
+		// behalf. Read after every other gate: it only adds a question, and an
+		// owner's waiver never answers it for them (personal-preferences).
+		if (in_array($this->resolveToolId(name: $name), $this->askFirst, true) === true) {
+			return $this->handleConfirmClassifiedInvocation(name: $name, arguments: $arguments);
+		}
+
+		return $this->dispatchToFacade(name: $name, call: new FacadeCall(arguments: $arguments));
+
+	}//end routeGranted()
 
 	/**
 	 * The argument constraint this call violates, if any (hydra-console-agent-leaves).
@@ -537,8 +679,7 @@ class FacadeToolInvoker {
 	 * They are the grant's own configured vocabulary, never user data, so there is
 	 * nothing here to redact.
 	 *
-	 * @param string $name The LLPhant-side name.
-	 * @param array<string, mixed> $arguments Decoded arguments.
+	 * @param ToolCall $call The refused call.
 	 * @param array{argument:string, mode:string, values:array<int,string>} $violation The violated constraint.
 	 *
 	 * @return string JSON-encoded refusal for the follow-up LLM turn.
@@ -546,45 +687,27 @@ class FacadeToolInvoker {
 	 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#scenario-a-pinned-argument-that-differs-is-refused-before-dispatch
 	 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#scenario-text-the-model-read-cannot-widen-the-constraint
 	 */
-	private function handleConstraintViolation(string $name, array $arguments, array $violation): string {
-		$toolId = $this->resolveToolId(name: $name);
+	private function handleConstraintViolation(ToolCall $call, array $violation): string {
 		$argument = $violation['argument'];
 
-		$traceToken = null;
-		if ($this->trace !== null) {
-			$traceToken = $this->trace->startStep(type: 'tool', name: $toolId);
-		}
-
-		$envelope = [
-			'ok' => false,
-			'isError' => true,
+		$refusal = new ToolRefusal(
+			call: $call,
+			envelope: [
+				'ok' => false,
+				'isError' => true,
+				'error' => 'grant_constraint_violated',
+				'toolId' => $call->toolId,
+				'argument' => $argument,
+				'message' => "Argument '" . $argument . "' is not permitted by this agent's grant.",
+			]
+		);
+		$refusal->traceExtra = [
 			'error' => 'grant_constraint_violated',
-			'toolId' => $toolId,
 			'argument' => $argument,
-			'message' => "Argument '" . $argument . "' is not permitted by this agent's grant.",
+			'constraint' => ['mode' => $violation['mode'], 'permitted' => $violation['values']],
 		];
 
-		if ($this->trace !== null && $traceToken !== null) {
-			$this->trace->endStep(
-				token: $traceToken,
-				outcome: 'refused',
-				extra: [
-					'error' => 'grant_constraint_violated',
-					'argument' => $argument,
-					'constraint' => ['mode' => $violation['mode'], 'permitted' => $violation['values']],
-				]
-			);
-		}
-
-		$this->channel?->emitToolCall(payload: ['toolId' => $toolId, 'arguments' => $arguments]);
-		$this->channel?->emitToolResult(payload: ['toolId' => $toolId, 'result' => $envelope, 'isError' => true]);
-
-		$encoded = json_encode($envelope);
-		if (is_string($encoded) === false) {
-			return '{"ok":false,"isError":true,"error":"grant_constraint_violated"}';
-		}
-
-		return $encoded;
+		return $this->refusals()->refuse(refusal: $refusal);
 	}//end handleConstraintViolation()
 
 	/**
@@ -631,32 +754,19 @@ class FacadeToolInvoker {
 	private function handleOwnerUnresolved(string $name, array $arguments): string {
 		$toolId = $this->resolveToolId(name: $name);
 
-		$traceToken = null;
-		if ($this->trace !== null) {
-			$traceToken = $this->trace->startStep(type: 'tool', name: $toolId);
-		}
+		$refusal = new ToolRefusal(
+			call: new ToolCall(toolId: $toolId, arguments: $arguments),
+			envelope: [
+				'ok' => false,
+				'isError' => true,
+				'error' => 'owner_unresolved',
+				'toolId' => $toolId,
+				'message' => 'This run has no identified owner, so it cannot queue a flow run on anyone\'s behalf.',
+			]
+		);
+		$refusal->traceExtra = ['error' => 'owner_unresolved'];
 
-		$envelope = [
-			'ok' => false,
-			'isError' => true,
-			'error' => 'owner_unresolved',
-			'toolId' => $toolId,
-			'message' => 'This run has no identified owner, so it cannot queue a flow run on anyone\'s behalf.',
-		];
-
-		if ($this->trace !== null && $traceToken !== null) {
-			$this->trace->endStep(token: $traceToken, outcome: 'refused', extra: ['error' => 'owner_unresolved']);
-		}
-
-		$this->channel?->emitToolCall(payload: ['toolId' => $toolId, 'arguments' => $arguments]);
-		$this->channel?->emitToolResult(payload: ['toolId' => $toolId, 'result' => $envelope, 'isError' => true]);
-
-		$encoded = json_encode($envelope);
-		if (is_string($encoded) === false) {
-			return '{"ok":false,"isError":true,"error":"owner_unresolved"}';
-		}
-
-		return $encoded;
+		return $this->refusals()->refuse(refusal: $refusal);
 	}//end handleOwnerUnresolved()
 
 	/**
@@ -700,7 +810,7 @@ class FacadeToolInvoker {
 	 *
 	 * @return string One of `auto`, `confirm`, `deny`.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
 	 */
 	private function classifyTool(string $name): string {
 		if ($this->toolPolicy === []) {
@@ -727,31 +837,19 @@ class FacadeToolInvoker {
 	private function handleDeniedByPolicy(string $name, array $arguments): string {
 		$toolId = $this->resolveToolId(name: $name);
 
-		$traceToken = null;
-		if ($this->trace !== null) {
-			$traceToken = $this->trace->startStep(type: 'tool', name: $name);
-		}
+		$refusal = new ToolRefusal(
+			call: new ToolCall(toolId: $toolId, arguments: $arguments),
+			envelope: [
+				'isError' => true,
+				'error' => 'tool_denied_by_policy',
+				'toolId' => $toolId,
+				'message' => 'This action is denied by the organisation\'s guardrail policy and cannot be run.',
+			]
+		);
+		$refusal->outcome = 'denied';
+		$refusal->traceName = $name;
 
-		$envelope = [
-			'isError' => true,
-			'error' => 'tool_denied_by_policy',
-			'toolId' => $toolId,
-			'message' => 'This action is denied by the organisation\'s guardrail policy and cannot be run.',
-		];
-
-		if ($this->trace !== null && $traceToken !== null) {
-			$this->trace->endStep(token: $traceToken, outcome: 'denied');
-		}
-
-		$this->channel?->emitToolCall(payload: ['toolId' => $toolId, 'arguments' => $arguments]);
-		$this->channel?->emitToolResult(payload: ['toolId' => $toolId, 'result' => $envelope, 'isError' => true]);
-
-		$encoded = json_encode($envelope);
-		if (is_string($encoded) === false) {
-			return '{"isError":true,"error":"tool_denied_by_policy"}';
-		}
-
-		return $encoded;
+		return $this->refusals()->refuse(refusal: $refusal);
 	}//end handleDeniedByPolicy()
 
 	/**
@@ -779,114 +877,50 @@ class FacadeToolInvoker {
 	 *
 	 * @return string JSON-encoded outcome for the follow-up LLM turn.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-a-confirm-classified-tool-call-reuses-the-existing-human-approval-gate
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-a-confirm-classified-tool-call-reuses-the-existing-human-approval-gate
 	 */
 	private function handleConfirmClassifiedInvocation(string $name, array $arguments): string {
-		$toolId = $this->resolveToolId(name: $name);
+		$call = new ToolCall(toolId: $this->resolveToolId(name: $name), arguments: $arguments);
 
 		if ($this->approvalService === null || $this->agentId === null) {
-			return $this->refuseConfirmTool(
-				toolId: $toolId,
-				arguments: $arguments,
-				status: 'unavailable',
-				outcome: 'denied',
-				message: 'This action requires human approval, but no agent context is available to route it — refused.'
-			);
+			return $this->refusals()->unavailable(call: $call);
 		}
 
-		$correlationId = $this->toolCallCorrelationId(agentId: $this->agentId, toolId: $toolId, arguments: $arguments);
+		$correlationId = $this->toolCallCorrelationId(agentId: $this->agentId, toolId: $call->toolId, arguments: $arguments);
 
 		$approvedUnconsumed = $this->approvalService->findApprovedUnconsumedToolCallApproval(correlationId: $correlationId);
 		if ($approvedUnconsumed !== null) {
 			$this->approvalService->markToolCallApprovalConsumed(approval: $approvedUnconsumed);
-			return $this->dispatchToFacade(name: $name, arguments: $arguments, outcomeOverride: 'invoked_after_approval');
+			return $this->dispatchToFacade(
+				name: $name,
+				call: new FacadeCall(
+					arguments: $arguments,
+					outcomeOverride: 'invoked_after_approval'
+				)
+			);
 		}
 
 		$pending = $this->approvalService->findPendingApprovalForToolCall(correlationId: $correlationId);
 		if ($pending !== null) {
-			return $this->refuseConfirmTool(
-				toolId: $toolId,
-				arguments: $arguments,
-				status: 'pending',
-				outcome: 'awaiting_approval',
-				message: 'This action is still awaiting human approval.',
-				approvalId: (string)$pending->getUuid()
+			return $this->refusals()->confirm(
+				call: $call,
+				confirm: $this->refusals()->awaiting(message: 'This action is still awaiting human approval.', approval: $pending)
 			);
 		}
 
 		$approval = $this->approvalService->ensurePendingApprovalForToolCall(
 			agentId: $this->agentId,
-			toolId: $toolId,
+			toolId: $call->toolId,
 			arguments: $arguments,
 			correlationId: $correlationId
 		);
 
-		return $this->refuseConfirmTool(
-			toolId: $toolId,
-			arguments: $arguments,
-			status: 'pending',
-			outcome: 'awaiting_approval',
-			message: 'This action requires human approval before it can run.',
-			approvalId: (string)$approval->getUuid()
+		return $this->refusals()->confirm(
+			call: $call,
+			confirm: $this->refusals()->awaiting(message: 'This action requires human approval before it can run.', approval: $approval)
 		);
 
 	}//end handleConfirmClassifiedInvocation()
-
-	/**
-	 * Refuse a `confirm`-classified tool call, recording a `tool` trace step
-	 * with the given outcome (spec: "record every ... tool confirm-request ...
-	 * as a trace step") and emitting the streaming channel's frames.
-	 *
-	 * @param string $toolId The dotted tool id.
-	 * @param array<string, mixed> $arguments Decoded arguments object.
-	 * @param string $status The envelope's `status` field.
-	 * @param string $outcome The trace step outcome.
-	 * @param string $message A human-readable refusal message for the LLM.
-	 * @param string|null $approvalId The pending Approval's UUID, when one exists.
-	 *
-	 * @return string JSON-encoded refusal for the follow-up LLM turn.
-	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
-	 */
-	private function refuseConfirmTool(
-		string $toolId,
-		array $arguments,
-		string $status,
-		string $outcome,
-		string $message,
-		?string $approvalId = null,
-	): string {
-		$traceToken = null;
-		if ($this->trace !== null) {
-			$traceToken = $this->trace->startStep(type: 'tool', name: $toolId);
-		}
-
-		$envelope = [
-			'isError' => true,
-			'error' => 'approval_required',
-			'toolId' => $toolId,
-			'status' => $status,
-			'message' => $message,
-		];
-
-		if ($approvalId !== null) {
-			$envelope['approvalId'] = $approvalId;
-		}
-
-		if ($this->trace !== null && $traceToken !== null) {
-			$this->trace->endStep(token: $traceToken, outcome: $outcome);
-		}
-
-		$this->channel?->emitToolCall(payload: ['toolId' => $toolId, 'arguments' => $arguments]);
-		$this->channel?->emitToolResult(payload: ['toolId' => $toolId, 'result' => $envelope, 'isError' => true]);
-
-		$encoded = json_encode($envelope);
-		if (is_string($encoded) === false) {
-			return '{"isError":true,"error":"approval_required"}';
-		}
-
-		return $encoded;
-	}//end refuseConfirmTool()
 
 	/**
 	 * Compute the `confirm`-classified tool call's idempotency/authorization
@@ -921,7 +955,7 @@ class FacadeToolInvoker {
 	 *
 	 * @return string JSON-encoded `{matches, count}`.
 	 *
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#scenario-the-model-searches-for-and-then-invokes-a-deferred-tool
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-the-model-searches-for-and-then-invokes-a-deferred-tool
 	 */
 	private function handleSearchTools(array $arguments): string {
 		$query = (string)($arguments['query'] ?? '');
@@ -970,7 +1004,7 @@ class FacadeToolInvoker {
 	 *
 	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-un-granted-destructive-tool-invocation-routes-through-the-approval-gate
 	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-hint-less-curated-tool-fails-closed
-	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-default-deny-and-the-approval-gate-key-off-reach-in-union-with-the-existing-rule
+	 * @spec openspec/specs/agent-capability-reach/spec.md#requirement-default-deny-and-the-approval-gate-key-off-reach-in-union-with-the-existing-rule
 	 */
 	private function requiresApprovalGate(string $name): bool {
 		if ($this->approvalService === null || $this->agentId === null || $this->toolSearchService === null) {
@@ -1022,21 +1056,27 @@ class FacadeToolInvoker {
 	 *
 	 * @return bool
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) `ToolGrantResolver::waives()` is a PURE
+	 * @SuppressWarnings(PHPMD.StaticAccess) `ToolGrantResolver::waivedBy()` / `waives()` is a PURE
 	 *   decision over the grant grammar, exactly like `violationFor()` beside it.
 	 *
-	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-the-waiver-suppresses-the-approval-gate-and-nothing-else
+	 * @spec openspec/specs/agent-capability-reach/spec.md#requirement-the-waiver-suppresses-the-approval-gate-and-nothing-else
 	 */
 	private function isWaived(string $name, array $arguments): bool {
 		if ($this->waivedConstraintSets === []) {
 			return false;
 		}
 
-		return ToolGrantResolver::waives(
-			$this->waivedConstraintSets,
-			$this->resolveToolId(name: $name),
-			$arguments
-		);
+		$toolId = $this->resolveToolId(name: $name);
+		// OpenRegister releases up to v2.1.0 ship waives(); main renamed it to
+		// waivedBy(), which takes the invoked tool's alternatives directly.
+		if (method_exists(ToolGrantResolver::class, 'waivedBy') === true) {
+			return ToolGrantResolver::waivedBy(
+				($this->waivedConstraintSets[$toolId] ?? []),
+				$arguments
+			);
+		}
+
+		return ToolGrantResolver::waives($this->waivedConstraintSets, $toolId, $arguments);
 
 	}//end isWaived()
 
@@ -1073,8 +1113,8 @@ class FacadeToolInvoker {
 	 * @SuppressWarnings(PHPMD.StaticAccess) `ToolReachResolver::resolve()` is a PURE
 	 *   classification function — see `requiresApprovalGate()`.
 	 *
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/human-approval-gate/spec.md#scenario-an-agent-attempts-an-un-granted-destructive-tool-call
-	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-default-deny-and-the-approval-gate-key-off-reach-in-union-with-the-existing-rule
+	 * @spec openspec/specs/human-approval-gate/spec.md#scenario-an-agent-attempts-an-un-granted-destructive-tool-call
+	 * @spec openspec/specs/agent-capability-reach/spec.md#requirement-default-deny-and-the-approval-gate-key-off-reach-in-union-with-the-existing-rule
 	 */
 	private function handleGatedInvocation(string $name, array $arguments): string {
 		$toolId = $this->resolveToolId(name: $name);
@@ -1085,7 +1125,16 @@ class FacadeToolInvoker {
 		);
 
 		if ($decided !== null && (string)($decided->getObject()['status'] ?? '') === 'approved') {
-			return $this->dispatchToFacade(name: $name, arguments: $arguments);
+			return $this->dispatchToFacade(name: $name, call: new FacadeCall(arguments: $arguments));
+		}
+
+		$pending = null;
+		if ($decided === null) {
+			$pending = $this->approvalService->ensurePendingApprovalForToolInvocation(
+				agentId: (string)$this->agentId,
+				toolId: $toolId,
+				arguments: $arguments
+			);
 		}
 
 		// Name the reach that triggered the gate. A run trace otherwise cannot
@@ -1102,33 +1151,11 @@ class FacadeToolInvoker {
 				toolId: $toolId,
 				descriptor: $this->descriptorFor(name: $name)
 			),
-		];
-		if ($decided !== null) {
-			$envelope['status'] = 'denied';
-			$envelope['approvalId'] = (string)$decided->getUuid();
-			$envelope['message'] = 'This action was denied by a reviewer and cannot be run.';
-		}
-
-		if ($decided === null) {
-			$approval = $this->approvalService->ensurePendingApprovalForToolInvocation(
-				agentId: (string)$this->agentId,
-				toolId: $toolId,
-				arguments: $arguments
-			);
-
-			$envelope['status'] = 'pending';
-			$envelope['approvalId'] = (string)$approval->getUuid();
-			$envelope['message'] = 'This action requires human approval before it can run.';
-		}
+		] + $this->refusals()->gateVerdict(decided: $decided, pending: $pending);
 
 		$this->channel?->emitToolResult(payload: ['toolId' => $toolId, 'result' => $envelope, 'isError' => true]);
 
-		$encoded = json_encode($envelope);
-		if (is_string($encoded) === false) {
-			return '{"isError":true,"error":"approval_required"}';
-		}
-
-		return $encoded;
+		return $this->refusals()->encoded(envelope: $envelope);
 	}//end handleGatedInvocation()
 
 	/**
@@ -1164,19 +1191,16 @@ class FacadeToolInvoker {
 	 *
 	 * @return array<string, mixed> Arguments, with `agentId` set when applicable.
 	 *
-	 * @spec openspec/changes/agent-memory-tools/tasks.md#task-5
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
+	 * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-5
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-passes-the-acting-agent-to-integriqs-agent-tools-req-apver-003
 	 */
 	private function withAgentId(string $name, array $arguments): array {
 		if ($this->agentId === null) {
 			return $arguments;
 		}
 
-		$toolId = $this->resolveToolId(name: $name);
-		if (in_array($toolId, self::MEMORY_TOOL_IDS, true) === false
-			&& in_array($toolId, self::ARTEFACT_WRITE_TOOL_IDS, true) === false
-			&& $toolId !== self::DELEGATE_AGENT_TOOL_ID
-		) {
+		if ($this->needsAgentId(toolId: $this->resolveToolId(name: $name)) === false) {
 			return $arguments;
 		}
 
@@ -1186,42 +1210,42 @@ class FacadeToolInvoker {
 	}//end withAgentId()
 
 	/**
+	 * Whether a tool acts for the run's agent: the memory, artefact-write and integriq
+	 * agent tools, and delegation.
+	 *
+	 * @param string $toolId The registry tool id.
+	 *
+	 * @return bool True when the tool receives the agent id.
+	 */
+	private function needsAgentId(string $toolId): bool {
+		return in_array($toolId, self::MEMORY_TOOL_IDS, true) === true
+			|| in_array($toolId, self::ARTEFACT_WRITE_TOOL_IDS, true) === true
+			|| in_array($toolId, self::INTEGRIQ_AGENT_TOOL_IDS, true) === true
+			|| $toolId === self::DELEGATE_AGENT_TOOL_ID
+			|| $toolId === self::DELEGATE_AGENTS_TOOL_ID;
+
+	}//end needsAgentId()
+
+	/**
 	 * The pre-existing plain dispatch: forward the call to
 	 * `ToolRegistryFacade::invokeTool()`, emitting channel frames / trace step.
 	 *
 	 * @param string $name The tool function name the LLM called.
-	 * @param array<string, mixed> $arguments Decoded arguments object.
-	 * @param string|null $outcomeOverride A fixed trace-step outcome to record
-	 *                                     instead of the facade's own ok/error
-	 *                                     (agent-guardrails): `invoked_after_approval`
-	 *                                     for a `confirm`-classified tool's authorised
-	 *                                     retry, so the run history distinguishes it
-	 *                                     from an ordinary `auto` invocation. Null
-	 *                                     (every pre-existing caller) keeps the
-	 *                                     original ok/error derivation unchanged.
+	 * @param FacadeCall $call The arguments a facade tool is called with, and any outcome that overrides it.
 	 *
 	 * @return string JSON-encoded tool result for the follow-up LLM turn.
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) The single dispatch chokepoint carries
-	 *   every optional per-run concern (channel frames, trace step, dry-run neutralisation,
-	 *   outcome override, encode fallback) as one flat nullable-guard each — splitting it
-	 *   would re-scatter the dry-run interception across governance branches.
-	 *
-	 * @spec openspec/changes/agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
-	 * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps
+	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
+	 * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
 	 */
-	private function dispatchToFacade(string $name, array $arguments, ?string $outcomeOverride = null): string {
-		$this->channel?->emitToolCall(
-			payload: [
-				'toolId' => $name,
-				'arguments' => $arguments,
-			]
-		);
-
-		$traceToken = null;
-		if ($this->trace !== null) {
-			$traceToken = $this->trace->startStep(type: 'tool', name: $name);
-		}
+	private function dispatchToFacade(string $name, FacadeCall $call): string {
+		$arguments = $call->arguments;
+		$outcomeOverride = $call->outcomeOverride;
+		$dispatch = new ToolDispatch(name: $name, arguments: $arguments);
+		$dispatch->outcomeOverride = $outcomeOverride;
+		$reporter = new ToolCallReporter(channel: $this->channel, trace: $this->trace);
+		$reporter->started(dispatch: $dispatch);
 
 		// Run-replay-and-dry-run: this is the ONLY place `invokeTool()` is ever
 		// actually called, so intercepting here (rather than earlier in __call())
@@ -1230,51 +1254,77 @@ class FacadeToolInvoker {
 		// retry, or an already-approved gated invocation) — a single chokepoint,
 		// never duplicated per branch.
 		if ($this->dryRun === true && $this->isSideEffecting(name: $name) === true) {
-			return $this->recordWouldHaveCalled(name: $name, arguments: $arguments, traceToken: $traceToken);
+			return $this->recordWouldHaveCalled(
+				name: $name,
+				call: new WouldHaveCalled(
+					arguments: $arguments,
+					traceToken: $dispatch->traceToken
+				)
+			);
 		}
 
 		// The facade's return shape is a documented contract:
 		// {result: array, isError: bool} (ai-mcp REQ-006).
-		$envelope = $this->facade->invokeTool(
+		$dispatch->envelope = $this->facade->invokeTool(
 			toolId: $name,
 			arguments: $this->withFlowOwner(
 				name: $name,
 				arguments: $this->withAgentId(name: $name, arguments: $arguments)
 			)
 		);
-
-		if ($this->trace !== null && $traceToken !== null) {
-			$outcome = 'ok';
-			if ($envelope['isError'] === true) {
-				$outcome = 'error';
-			}
-
-			if ($outcomeOverride !== null && $envelope['isError'] !== true) {
-				$outcome = $outcomeOverride;
-			}
-
-			$this->trace->endStep(
-				token: $traceToken,
-				outcome: $outcome,
-				extra: $this->traceExtraFor(name: $name, arguments: $arguments, result: $envelope['result'])
-			);
-		}
-
-		$this->channel?->emitToolResult(
-			payload: [
-				'toolId' => $name,
-				'result' => $envelope['result'],
-				'isError' => $envelope['isError'],
-			]
+		$dispatch->envelope['result'] = $this->withStagedBatchApproval(
+			name: $name,
+			result: $dispatch->envelope['result'],
+			isError: $dispatch->envelope['isError']
 		);
 
-		$encoded = json_encode($envelope['result']);
-		if (is_string($encoded) === false) {
-			return '{"error":"Tool result could not be encoded"}';
+		$reporter->finished(
+			dispatch: $dispatch,
+			traceExtra: $this->traceExtraFor(name: $name, arguments: $arguments, result: $dispatch->envelope['result'])
+		);
+
+		return $dispatch->encodedResult();
+	}//end dispatchToFacade()
+
+	/**
+	 * When an integriq agent tool staged a batch (`status: staged` with a proposal
+	 * and a binding), raise the pending approval that keeps the binding and hand its
+	 * id back to the agent as `approvalId`. Every other result is returned as is.
+	 *
+	 * @param string $name    The LLPhant-side function name.
+	 * @param mixed  $result  The facade's result.
+	 * @param bool   $isError Whether the facade reported an error.
+	 *
+	 * @return mixed The result, with `approvalId` on a staged batch.
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
+	 */
+	private function withStagedBatchApproval(string $name, mixed $result, bool $isError): mixed {
+		$toolId = $this->resolveToolId(name: $name);
+		if ($isError === true
+			|| $this->approvalService === null
+			|| $this->agentId === null
+			|| str_starts_with($toolId, 'integriq.') === false
+			|| is_array($result) === false
+			|| ($result['status'] ?? null) !== 'staged'
+			|| is_string($result['binding'] ?? null) === false
+			|| $result['binding'] === ''
+		) {
+			return $result;
 		}
 
-		return $encoded;
-	}//end dispatchToFacade()
+		$targetIds = array_values(array_filter((array)($result['targetIds'] ?? []), 'is_string'));
+		$approval = $this->approvalService->ensurePendingApprovalForStagedBatch(
+			agentId: $this->agentId,
+			toolId: $toolId,
+			proposalId: (string)($result['proposal'] ?? ''),
+			binding: $result['binding'],
+			targetIds: $targetIds
+		);
+		$result['approvalId'] = (string)$approval->getUuid();
+
+		return $result;
+	}//end withStagedBatchApproval()
 
 	/**
 	 * The `endStep()` `$extra` payload for `$name`'s trace step — `['target' =>
@@ -1290,7 +1340,7 @@ class FacadeToolInvoker {
 	 *
 	 * @return array<string, mixed> `['target' => string]` and/or `['artefact' => ...]`, or `[]`.
 	 *
-	 * @spec openspec/changes/web-research-tool/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
 	 */
 	private function traceExtraFor(string $name, array $arguments, mixed $result = null): array {
 		$toolId = $this->resolveToolId(name: $name);
@@ -1332,18 +1382,10 @@ class FacadeToolInvoker {
 	 *
 	 * @return array<string, mixed> The trace extra fragment.
 	 *
-	 * @spec openspec/changes/nc-native-write-tools/specs/nc-native-tools/spec.md#requirement-every-write-is-recorded-with-the-objects-identity-and-without-its-content
+	 * @spec openspec/changes/archive/2026-08-15-nc-native-write-tools/specs/nc-native-tools/spec.md#requirement-every-write-is-recorded-with-the-objects-identity-and-without-its-content
 	 */
 	private function resolveArtefactDescriptor(mixed $result): array {
-		if (is_array($result) === false || isset($result['artefact']) === false) {
-			return [];
-		}
-
-		$artefact = $result['artefact'];
-		if (is_array($artefact) === false) {
-			return [];
-		}
-
+		$artefact = $this->artefactOf(result: $result);
 		$type = ($artefact['type'] ?? null);
 		$id = ($artefact['id'] ?? null);
 		if (is_scalar($type) === false || is_scalar($id) === false) {
@@ -1352,6 +1394,22 @@ class FacadeToolInvoker {
 
 		return ['artefact' => ['type' => (string)$type, 'id' => (string)$id]];
 	}//end resolveArtefactDescriptor()
+
+	/**
+	 * The `artefact` map a tool result names, or none.
+	 *
+	 * @param mixed $result The tool's result payload.
+	 *
+	 * @return array<string, mixed> The artefact map, empty when the result names none.
+	 */
+	private function artefactOf(mixed $result): array {
+		if (is_array($result) === false || is_array($result['artefact'] ?? null) === false) {
+			return [];
+		}
+
+		return $result['artefact'];
+
+	}//end artefactOf()
 
 	/**
 	 * Reduce a web-research tool call's arguments to its auditable target:
@@ -1366,7 +1424,7 @@ class FacadeToolInvoker {
 	 *
 	 * @return string|null The target, or null when the relevant argument is absent/empty.
 	 *
-	 * @spec openspec/changes/web-research-tool/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
 	 */
 	private function resolveWebResearchTarget(string $toolId, array $arguments): ?string {
 		if ($toolId === 'hermiq.webFetch') {
@@ -1413,7 +1471,7 @@ class FacadeToolInvoker {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
 	 */
 	private function isSideEffecting(string $name): bool {
 		if ($this->classifier === null) {
@@ -1434,17 +1492,16 @@ class FacadeToolInvoker {
 	 * result so the LLM's multi-step plan can keep reasoning realistically.
 	 *
 	 * @param string $name The LLPhant-side function name.
-	 * @param array<string, mixed> $arguments Decoded arguments object.
-	 * @param int|null $traceToken The trace step token already started
-	 *                             by `dispatchToFacade()`, or null when
-	 *                             no collector is attached.
+	 * @param WouldHaveCalled $call The arguments a dry run would have called a tool with.
 	 *
 	 * @return string JSON-encoded preview envelope for the follow-up LLM turn.
 	 *
-	 * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
-	 * @spec openspec/changes/run-replay-and-dry-run/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
+	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+	 * @spec openspec/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
 	 */
-	private function recordWouldHaveCalled(string $name, array $arguments, ?int $traceToken): string {
+	private function recordWouldHaveCalled(string $name, WouldHaveCalled $call): string {
+		$arguments = $call->arguments;
+		$traceToken = $call->traceToken;
 		$toolId = $this->resolveToolId(name: $name);
 		$redactedArguments = $this->redactArguments(arguments: $arguments);
 
@@ -1494,7 +1551,7 @@ class FacadeToolInvoker {
 	 *                              placeholder key when redaction could not be
 	 *                              round-tripped as JSON — never the raw values).
 	 *
-	 * @spec openspec/changes/run-replay-and-dry-run/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
+	 * @spec openspec/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
 	 */
 	private function redactArguments(array $arguments): array {
 		if ($this->redactionService === null) {

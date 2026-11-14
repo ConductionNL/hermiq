@@ -23,14 +23,14 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/ai-feature-governance-register/tasks.md#5-seed-data-adr-001-adr-003-single-write-path
+ * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#5-seed-data-adr-001-adr-003-single-write-path
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\Hermiq\Repair\Support\AiFeatureRows;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -41,7 +41,7 @@ use Throwable;
 /**
  * Seed the realistic AiFeature governance objects via ObjectService (idempotent).
  *
- * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
+ * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-5-1
  */
 class SeedAiFeatures implements IRepairStep {
 	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
@@ -77,7 +77,7 @@ class SeedAiFeatures implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-5-1
 	 */
 	public function getName(): string {
 		return 'Seed AI-feature governance register (ai-feature-governance-register)';
@@ -90,7 +90,7 @@ class SeedAiFeatures implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-5-1
 	 */
 	public function run(IOutput $output): void {
 		try {
@@ -154,7 +154,7 @@ class SeedAiFeatures implements IRepairStep {
 	 *
 	 * @return array<int, array<string, mixed>> The seed objects.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-5-1
 	 */
 	private function seedFeatures(): array {
 		return [
@@ -182,6 +182,30 @@ class SeedAiFeatures implements IRepairStep {
 				'lifecycle' => 'disabled',
 				'tenantId' => '',
 			],
+			[
+				// Registered separately from the chat companion on purpose. That one
+				// helps the person behind the desk; this one stands in front of it and
+				// files on a citizen's behalf, which is not a minimal-risk act and the
+				// register has to be able to say so independently.
+				'slug' => 'conversational-intake',
+				'name' => 'Conversational intake',
+				'description' => 'A conversation with a citizen who has no record yet, which either answers them '
+					. 'or files a request on their behalf through the owning app.',
+				'riskCategory' => 'high',
+				'lifecycle' => 'disabled',
+				'tenantId' => '',
+			],
+			[
+				// Chat-attachments-and-images D7: off until the organisation's DPO
+				// acknowledges it, like every other seeded feature.
+				'slug' => 'image-generation',
+				'name' => 'Create images in chat',
+				'description' => 'Creates an image from a description through the instance\'s text-to-image provider. '
+					. 'Every image is saved in the requester\'s Files and tagged Agent authored.',
+				'riskCategory' => 'limited',
+				'lifecycle' => 'disabled',
+				'tenantId' => '',
+			],
 		];
 
 	}//end seedFeatures()
@@ -194,28 +218,9 @@ class SeedAiFeatures implements IRepairStep {
 	 *
 	 * @return bool True when a matching object exists.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-5-1
 	 */
 	private function slugExists(ObjectService $objectService, string $slug): bool {
-		$objects = $objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema(self::AIFEATURE_SCHEMA)
-			->findAll(
-				config: ['filters' => ['slug' => $slug], 'limit' => 200],
-				_rbac: false,
-				_multitenancy: false
-			);
-
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ((string)($object->getObject()['slug'] ?? '') === $slug) {
-				return true;
-			}
-		}
-
-		return false;
+		return (new AiFeatureRows(objectService: $objectService))->exists(slug: $slug);
 	}//end slugExists()
 }//end class

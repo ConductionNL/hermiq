@@ -39,17 +39,19 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\BudgetService;
+use OCA\Hermiq\Service\DeliveryResult;
 use OCA\Hermiq\Service\DeliveryService;
 use OCA\Hermiq\Service\EvalRunService;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\RedactionService;
-use OCA\Hermiq\Service\ScheduleService;
 use OCA\Hermiq\Service\SkillConsolidationService;
 use OCA\Hermiq\Service\SkillLearningsCaptureService;
 use OCA\Hermiq\Service\SkillLearningsPromotionService;
 use OCA\Hermiq\Service\SkillMaturityService;
 use OCA\Hermiq\Service\SkillVersionService;
-use OCA\OpenRegister\Db\AgentMapper;
+use OCA\Hermiq\Service\TenantKillSwitch;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
+use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
@@ -90,11 +92,11 @@ class SkillConsolidationServiceTest extends TestCase {
 	private ProviderFactory&MockObject $providerFactory;
 
 	/**
-	 * The prepared ScheduleService mock (kill-switch).
+	 * The ObjectService mock the kill-switch reads TenantControl objects from.
 	 *
-	 * @var ScheduleService&MockObject
+	 * @var ObjectService&MockObject
 	 */
-	private ScheduleService&MockObject $scheduleService;
+	private ObjectService&MockObject $killSwitchControls;
 
 	/**
 	 * The prepared BudgetService mock.
@@ -167,6 +169,13 @@ class SkillConsolidationServiceTest extends TestCase {
 	private array $auditEntries = [];
 
 	/**
+	 * Whether the audit mapper throws on every write.
+	 *
+	 * @var boolean
+	 */
+	private bool $auditFails = false;
+
+	/**
 	 * The last schema selected via setSchema() (routes findAll responses).
 	 *
 	 * @var string
@@ -197,7 +206,9 @@ class SkillConsolidationServiceTest extends TestCase {
 	private function service(): SkillConsolidationService {
 		$this->objectService = $this->createMock(ObjectService::class);
 		$this->providerFactory = $this->createMock(ProviderFactory::class);
-		$this->scheduleService = $this->createMock(ScheduleService::class);
+		$this->killSwitchControls = $this->createMock(ObjectService::class);
+		$this->killSwitchControls->method('setRegister')->willReturnSelf();
+		$this->killSwitchControls->method('setSchema')->willReturnSelf();
 		$this->budgetService = $this->createMock(BudgetService::class);
 		$this->contentScanService = $this->createMock(ContentScanService::class);
 		$this->evalRunService = $this->createMock(EvalRunService::class);
@@ -208,6 +219,7 @@ class SkillConsolidationServiceTest extends TestCase {
 		$this->agentMapper = $this->createMock(AgentMapper::class);
 		$this->savedObjects = [];
 		$this->auditEntries = [];
+		$this->auditFails = false;
 		$this->lastSchema = '';
 		$this->collections = [];
 		$this->found = [];
@@ -264,12 +276,15 @@ class SkillConsolidationServiceTest extends TestCase {
 			}
 		);
 
-		$this->auditTrailMapper->method('createAuditTrailEntry')->willReturnCallback(
-			function (ObjectEntity $object, string $action, array $context = []): \OCA\OpenRegister\Db\AuditTrail {
-				unset($object);
+		$this->auditTrailMapper->method('recordObjectEvent')->willReturnCallback(
+			function (ObjectAuditEvent $event): \OCA\OpenRegister\Db\AuditTrail {
+				if ($this->auditFails === true) {
+					throw new RuntimeException('audit store down');
+				}
+
 				$this->auditEntries[] = [
-					$action,
-					$context,
+					$event->action,
+					$event->context,
 				];
 				return new \OCA\OpenRegister\Db\AuditTrail();
 			}
@@ -299,7 +314,7 @@ class SkillConsolidationServiceTest extends TestCase {
 			promotionService: new SkillLearningsPromotionService($this->objectService, $captureService, new NullLogger()),
 			captureService: $captureService,
 			providerFactory: $this->providerFactory,
-			scheduleService: $this->scheduleService,
+			tenantKillSwitch: new TenantKillSwitch($this->killSwitchControls, new NullLogger()),
 			budgetService: $this->budgetService,
 			contentScanService: $this->contentScanService,
 			evalRunService: $this->evalRunService,
@@ -481,7 +496,10 @@ class SkillConsolidationServiceTest extends TestCase {
 		$service = $this->service();
 		$skill = $this->skill(entryCount: 25);
 
-		$this->scheduleService->method('isOrganisationEngaged')->willReturn(true);
+		$control = new ObjectEntity();
+		$control->setOrganisation('org-1');
+		$control->setObject(['engaged' => true]);
+		$this->killSwitchControls->method('findAll')->willReturn([$control]);
 		$this->providerFactory->expects($this->never())->method('generateText');
 
 		$result = $service->proposeForSkill(skill: $skill, trigger: 'threshold');
@@ -852,9 +870,7 @@ class SkillConsolidationServiceTest extends TestCase {
 
 		$edited = $service->editDraftContent(
 			draft: $draft,
-			frontmatter: null,
-			body: 'HUMAN-EDITED BODY',
-			files: null,
+			replacement: ['body' => 'HUMAN-EDITED BODY'],
 			editorUid: 'reviewer'
 		);
 
@@ -913,9 +929,7 @@ class SkillConsolidationServiceTest extends TestCase {
 
 		$edited = $service->editDraftContent(
 			draft: $draft,
-			frontmatter: null,
-			body: 'HUMAN-EDITED BODY',
-			files: null,
+			replacement: ['body' => 'HUMAN-EDITED BODY'],
 			editorUid: 'reviewer'
 		);
 
@@ -1096,6 +1110,452 @@ class SkillConsolidationServiceTest extends TestCase {
 	}//end testBlockedPairedEvalKeepsDraftProposed()
 
 	/**
+	 * A pass over no skills scans nothing and reports an all-zero summary.
+	 *
+	 * @return void
+	 */
+	public function testRunPassOverNoSkillsReportsAnEmptySummary(): void {
+		$service = $this->service();
+
+		$this->assertSame(
+			['scanned' => 0, 'proposed' => 0, 'advanced' => 0, 'reconciled' => 0, 'failures' => 0],
+			$service->runPass()
+		);
+
+	}//end testRunPassOverNoSkillsReportsAnEmptySummary()
+
+	/**
+	 * A skill over the learnings threshold with no open draft is proposed in the pass.
+	 *
+	 * @return void
+	 */
+	public function testRunPassProposesASkillOverTheThreshold(): void {
+		$service = $this->service();
+		$this->skill(entryCount: 21);
+
+		$this->providerFactory->expects($this->once())->method('generateText')->willReturn('IMPROVED BODY');
+		$this->versionService->method('currentVersionId')->willReturn('base-v1');
+		$this->contentScanService->method('scan')->willReturn($this->cleanScan());
+		$approval = new ObjectEntity();
+		$approval->setUuid('approval-1');
+		$this->approvalService->method('ensurePendingApprovalForSkillDraft')->willReturn($approval);
+
+		$summary = $service->runPass();
+
+		$this->assertSame(1, $summary['scanned']);
+		$this->assertSame(1, $summary['proposed']);
+		$this->assertSame(0, $summary['failures']);
+		$draft = $this->found['agentskilldraft:generated-0']->getObject();
+		$this->assertSame('threshold', $draft['trigger']);
+
+	}//end testRunPassProposesASkillOverTheThreshold()
+
+	/**
+	 * A skill under the threshold with no open draft and no regression is left alone.
+	 *
+	 * @return void
+	 */
+	public function testRunPassLeavesASkillUnderTheThresholdAlone(): void {
+		$service = $this->service();
+		$this->skill(entryCount: 2);
+
+		$this->providerFactory->expects($this->never())->method('generateText');
+		$this->deliveryService->expects($this->never())->method('deliverSkillRollbackSuggestion');
+
+		$summary = $service->runPass();
+
+		$this->assertSame(1, $summary['scanned']);
+		$this->assertSame(0, $summary['proposed']);
+		$this->assertSame([], $this->savedObjects);
+
+	}//end testRunPassLeavesASkillUnderTheThresholdAlone()
+
+	/**
+	 * A still-proposed open draft is pre-qualified and counted as advanced.
+	 *
+	 * @return void
+	 */
+	public function testRunPassAdvancesAProposedDraft(): void {
+		$service = $this->service();
+		$this->skill(entryCount: 25);
+		$this->draft();
+
+		$this->providerFactory->expects($this->never())->method('generateText');
+		$this->contentScanService->expects($this->once())->method('scan')->willReturn($this->cleanScan());
+
+		$summary = $service->runPass();
+
+		$this->assertSame(1, $summary['advanced']);
+		$this->assertSame(0, $summary['proposed']);
+
+	}//end testRunPassAdvancesAProposedDraft()
+
+	/**
+	 * An awaiting draft without an Approval gets one created and its id stamped.
+	 *
+	 * @return void
+	 */
+	public function testRunPassRecreatesAMissingApproval(): void {
+		$service = $this->service();
+		$this->skill();
+		$this->draft(['status' => SkillConsolidationService::STATUS_AWAITING_APPROVAL]);
+
+		$approval = new ObjectEntity();
+		$approval->setUuid('approval-9');
+		$this->approvalService->expects($this->once())
+			->method('ensurePendingApprovalForSkillDraft')
+			->willReturn($approval);
+
+		$summary = $service->runPass();
+
+		$this->assertSame(0, $summary['reconciled']);
+		$this->assertSame('approval-9', $this->found['agentskilldraft:draft-1']->getObject()['approvalId']);
+
+	}//end testRunPassRecreatesAMissingApproval()
+
+	/**
+	 * An invalid Approval request leaves the awaiting draft without an approval id.
+	 *
+	 * @return void
+	 */
+	public function testRunPassKeepsTheDraftWhenTheApprovalIsRejectedAsInvalid(): void {
+		$service = $this->service();
+		$this->skill();
+		$this->draft(['status' => SkillConsolidationService::STATUS_AWAITING_APPROVAL]);
+
+		$this->approvalService->method('ensurePendingApprovalForSkillDraft')
+			->willThrowException(new \InvalidArgumentException('missing evidence'));
+
+		$summary = $service->runPass();
+
+		$this->assertSame(0, $summary['failures']);
+		$this->assertSame([], $this->savedObjects);
+		$this->assertSame('', $this->found['agentskilldraft:draft-1']->getObject()['approvalId']);
+
+	}//end testRunPassKeepsTheDraftWhenTheApprovalIsRejectedAsInvalid()
+
+	/**
+	 * A missed approval decision is reconciled in the pass and counted.
+	 *
+	 * @return void
+	 */
+	public function testRunPassReconcilesAMissedApproval(): void {
+		$service = $this->service();
+		$this->skill();
+		$this->draft(
+			[
+				'status' => SkillConsolidationService::STATUS_AWAITING_APPROVAL,
+				'scanVerdict' => 'clean',
+				'noEvalEvidence' => true,
+				'approvalId' => 'approval-1',
+			]
+		);
+		$approval = new ObjectEntity();
+		$approval->setUuid('approval-1');
+		$approval->setObject(['status' => 'approved', 'decidedBy' => 'inbox-reviewer']);
+		$this->approvalService->method('loadApproval')->willReturn($approval);
+		$this->versionService->method('currentVersionId')->willReturn('v-new');
+
+		$summary = $service->runPass();
+
+		$this->assertSame(1, $summary['reconciled']);
+		$this->assertSame(
+			SkillConsolidationService::STATUS_ACCEPTED,
+			$this->found['agentskilldraft:draft-1']->getObject()['status']
+		);
+
+	}//end testRunPassReconcilesAMissedApproval()
+
+	/**
+	 * A still-pending approval is not counted as reconciled.
+	 *
+	 * @return void
+	 */
+	public function testRunPassDoesNotCountAPendingApproval(): void {
+		$service = $this->service();
+		$this->skill();
+		$this->draft(
+			[
+				'status' => SkillConsolidationService::STATUS_AWAITING_APPROVAL,
+				'approvalId' => 'approval-1',
+			]
+		);
+		$approval = new ObjectEntity();
+		$approval->setUuid('approval-1');
+		$approval->setObject(['status' => 'pending']);
+		$this->approvalService->method('loadApproval')->willReturn($approval);
+
+		$summary = $service->runPass();
+
+		$this->assertSame(0, $summary['reconciled']);
+		$this->assertSame([], $this->savedObjects);
+
+	}//end testRunPassDoesNotCountAPendingApproval()
+
+	/**
+	 * A failure for one skill is counted and does not abort the pass.
+	 *
+	 * @return void
+	 */
+	public function testRunPassCountsAFailureWithoutAborting(): void {
+		$service = $this->service();
+		$this->skill();
+		$this->draft(
+			[
+				'status' => SkillConsolidationService::STATUS_AWAITING_APPROVAL,
+				'approvalId' => 'approval-1',
+			]
+		);
+		$this->approvalService->method('loadApproval')->willThrowException(new RuntimeException('store down'));
+
+		$summary = $service->runPass();
+
+		$this->assertSame(1, $summary['scanned']);
+		$this->assertSame(1, $summary['failures']);
+
+	}//end testRunPassCountsAFailureWithoutAborting()
+
+	/**
+	 * A failed regression gate on the linked dataset triggers a regression proposal
+	 * carrying the failing run, even under the learnings threshold.
+	 *
+	 * @return void
+	 */
+	public function testRunPassProposesOnALinkedRegression(): void {
+		$service = $this->service();
+		$this->skill(entryCount: 2);
+		$this->linkDataset();
+		$this->evalRuns(
+			[
+				['uuid' => 'run-old', 'regressionGateResult' => 'failed', 'endedAt' => '2026-10-01T00:00:00+00:00'],
+				['uuid' => 'run-new', 'regressionGateResult' => 'failed', 'endedAt' => '2026-11-01T00:00:00+00:00'],
+				['uuid' => 'run-pass', 'regressionGateResult' => 'passed', 'endedAt' => '2026-11-05T00:00:00+00:00'],
+				['uuid' => 'run-other', 'regressionGateResult' => 'failed', 'endedAt' => '2026-11-09T00:00:00+00:00', 'datasetId' => 'dataset-2'],
+			]
+		);
+
+		$this->providerFactory->method('generateText')->willReturn('IMPROVED BODY');
+		$this->versionService->method('currentVersionId')->willReturn('base-v1');
+		$this->contentScanService->method('scan')->willReturn($this->cleanScan());
+
+		$summary = $service->runPass();
+
+		$this->assertSame(1, $summary['proposed']);
+		$draft = $this->found['agentskilldraft:generated-0']->getObject();
+		$this->assertSame('regression', $draft['trigger']);
+		$this->assertSame('run-new', $draft['provenance']['triggerEvalRunId']);
+
+	}//end testRunPassProposesOnALinkedRegression()
+
+	/**
+	 * A regression that already drove a draft never re-proposes.
+	 *
+	 * @return void
+	 */
+	public function testRunPassNeverReproposesFromTheSameRegression(): void {
+		$service = $this->service();
+		$this->skill(entryCount: 2);
+		$this->linkDataset();
+		$this->evalRuns(
+			[
+				['uuid' => 'run-new', 'regressionGateResult' => 'failed', 'endedAt' => '2026-11-01T00:00:00+00:00'],
+			]
+		);
+		$this->draft(
+			[
+				'status' => SkillConsolidationService::STATUS_REJECTED,
+				'provenance' => ['triggerEvalRunId' => 'run-new'],
+			]
+		);
+
+		$this->providerFactory->expects($this->never())->method('generateText');
+
+		$summary = $service->runPass();
+
+		$this->assertSame(0, $summary['proposed']);
+
+	}//end testRunPassNeverReproposesFromTheSameRegression()
+
+	/**
+	 * A regression after acceptance notifies the accepting reviewer once per run,
+	 * records the run on the draft and audits the advisory.
+	 *
+	 * @return void
+	 */
+	public function testPostAcceptanceRegressionNotifiesTheReviewerOncePerRun(): void {
+		$service = $this->service();
+		$skill = $this->skill(entryCount: 2);
+		$this->linkDataset();
+		$this->draft(
+			[
+				'status' => SkillConsolidationService::STATUS_ACCEPTED,
+				'decidedAt' => '2026-11-01T00:00:00+00:00',
+				'decidedBy' => 'reviewer',
+			]
+		);
+		$this->evalRuns(
+			[
+				['uuid' => 'run-before', 'regressionGateResult' => 'failed', 'endedAt' => '2026-10-30T00:00:00+00:00'],
+				['uuid' => 'run-after', 'regressionGateResult' => 'failed', 'endedAt' => '2026-11-02T00:00:00+00:00'],
+			]
+		);
+
+		$this->deliveryService->expects($this->once())
+			->method('deliverSkillRollbackSuggestion')
+			->with('skill-1', 'tender-summary', 'reviewer')
+			->willReturn(new DeliveryResult(delivered: true, channel: 'notification', fellBack: false, warning: null));
+
+		$service->watchPostAcceptanceRegression(skill: $skill);
+		$service->watchPostAcceptanceRegression(skill: $skill);
+
+		$this->assertSame('run-after', $this->found['agentskilldraft:draft-1']->getObject()['regressionNotifiedRunId']);
+		$watch = array_values(
+			array_filter(
+				$this->auditEntries,
+				static fn (array $entry): bool => ($entry[1]['transition'] ?? '') === 'regression-watch'
+			)
+		);
+		$this->assertCount(1, $watch);
+		$this->assertSame('run-after', $watch[0][1]['evalRunId']);
+		$this->assertSame('system:skill-consolidation-task', $watch[0][1]['actor']);
+
+	}//end testPostAcceptanceRegressionNotifiesTheReviewerOncePerRun()
+
+	/**
+	 * No notification without an acceptance time, a linked dataset or a later failure.
+	 *
+	 * @return void
+	 */
+	public function testPostAcceptanceWatchStaysQuietWithoutEvidence(): void {
+		$service = $this->service();
+		$skill = $this->skill(entryCount: 2);
+		$this->deliveryService->expects($this->never())->method('deliverSkillRollbackSuggestion');
+
+		// No accepted draft at all.
+		$service->watchPostAcceptanceRegression(skill: $skill);
+
+		// Accepted but undated.
+		$this->draft(['status' => SkillConsolidationService::STATUS_ACCEPTED]);
+		$service->watchPostAcceptanceRegression(skill: $skill);
+
+		// Dated, but no linked dataset.
+		$this->draft(['status' => SkillConsolidationService::STATUS_ACCEPTED, 'decidedAt' => '2026-11-01T00:00:00+00:00']);
+		$service->watchPostAcceptanceRegression(skill: $skill);
+
+		// Linked, but the only failure predates the acceptance.
+		$this->linkDataset();
+		$this->evalRuns(
+			[
+				['uuid' => 'run-before', 'regressionGateResult' => 'failed', 'endedAt' => '2026-10-30T00:00:00+00:00'],
+			]
+		);
+		$service->watchPostAcceptanceRegression(skill: $skill);
+
+		$this->assertSame([], $this->savedObjects);
+
+	}//end testPostAcceptanceWatchStaysQuietWithoutEvidence()
+
+	/**
+	 * Marked refs merge into the draft's stored refs, deduplicated, blanks dropped.
+	 *
+	 * @return void
+	 */
+	public function testMarkRejectedLearningRefsMergesAndDeduplicates(): void {
+		$service = $this->service();
+		$draft = $this->draft(['rejectedLearningRefs' => ['2026-07-20-aaaaaaaa', '']]);
+
+		$result = $service->markRejectedLearningRefs(
+			draft: $draft,
+			refs: ['2026-07-20-aaaaaaaa', '2026-07-21-bbbbbbbb', '', 7]
+		);
+
+		$this->assertSame(
+			['2026-07-20-aaaaaaaa', '2026-07-21-bbbbbbbb'],
+			$result->getObject()['rejectedLearningRefs']
+		);
+		$this->assertSame('draft-1', $this->savedObjects[0][1]);
+
+	}//end testMarkRejectedLearningRefsMergesAndDeduplicates()
+
+	/**
+	 * A non-list stored value is replaced by the marked refs.
+	 *
+	 * @return void
+	 */
+	public function testMarkRejectedLearningRefsReplacesANonListValue(): void {
+		$service = $this->service();
+		$draft = $this->draft(['rejectedLearningRefs' => 'corrupt']);
+
+		$result = $service->markRejectedLearningRefs(draft: $draft, refs: ['2026-07-21-bbbbbbbb']);
+
+		$this->assertSame(['2026-07-21-bbbbbbbb'], $result->getObject()['rejectedLearningRefs']);
+
+	}//end testMarkRejectedLearningRefsReplacesANonListValue()
+
+	/**
+	 * An unwritable audit trail never fails a proposal: the draft and its usage
+	 * still land.
+	 *
+	 * @return void
+	 */
+	public function testAuditFailuresNeverFailAProposal(): void {
+		$service = $this->service();
+		$skill = $this->skill(entryCount: 21);
+		$this->auditFails = true;
+
+		$this->providerFactory->method('generateText')->willReturn('IMPROVED BODY');
+		$this->versionService->method('currentVersionId')->willReturn('base-v1');
+		$this->contentScanService->method('scan')->willReturn($this->cleanScan());
+		$this->auditTrailMapper->expects($this->atLeast(2))->method('recordObjectEvent');
+
+		$result = $service->proposeForSkill(skill: $skill, trigger: 'threshold');
+
+		$this->assertTrue($result['created']);
+		$this->assertSame('IMPROVED BODY', $this->found['agentskilldraft:generated-0']->getObject()['proposedBody']);
+
+	}//end testAuditFailuresNeverFailAProposal()
+
+	/**
+	 * A blocked attempt whose audit write fails still reports the block.
+	 *
+	 * @return void
+	 */
+	public function testBlockedAttemptSurvivesAnAuditFailure(): void {
+		$service = $this->service();
+		$skill = $this->skill(entryCount: 25);
+		$this->auditFails = true;
+		$this->budgetService->method('isBlocked')->willReturn(true);
+		$this->auditTrailMapper->expects($this->once())->method('recordObjectEvent');
+
+		$result = $service->proposeForSkill(skill: $skill, trigger: 'threshold');
+
+		$this->assertSame('blocked_budget', $result['status']);
+		$this->assertSame([], $this->savedObjects);
+
+	}//end testBlockedAttemptSurvivesAnAuditFailure()
+
+	/**
+	 * Register EvalRuns for dataset-1 (or the dataset each row names).
+	 *
+	 * @param array<int, array<string, string>> $rows The run payloads, each with a `uuid`.
+	 *
+	 * @return void
+	 */
+	private function evalRuns(array $rows): void {
+		$runs = [];
+		foreach ($rows as $row) {
+			$run = new ObjectEntity();
+			$run->setUuid($row['uuid']);
+			unset($row['uuid']);
+			$run->setObject(array_merge(['datasetId' => 'dataset-1'], $row));
+			$runs[] = $run;
+		}
+
+		$this->collections['evalrun'] = $runs;
+
+	}//end evalRuns()
+
+	/**
 	 * Register an EvalDataset whose skillRefs link skill-1.
 	 *
 	 * @return void
@@ -1121,7 +1581,7 @@ class SkillConsolidationServiceTest extends TestCase {
 	 * @return void
 	 */
 	private function resolveAgent(): void {
-		$agent = new \OCA\OpenRegister\Db\Agent();
+		$agent = new \OCA\OpenRegister\Mcp\Db\Agent();
 		$agent->setUuid('agent-1');
 		$agent->setOwner('alice');
 		$agent->setOrganisation('org-1');

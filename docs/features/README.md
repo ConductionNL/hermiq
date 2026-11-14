@@ -37,6 +37,13 @@ live under Settings.
 | [AI oversight](ai-oversight.md) | Review advisory decisions an agent made | `ai-oversight-advisory-approvals` |
 | [Tenant ops](tenant-ops.md) | Set budgets and quotas per organisation | `multi-tenant-ops` |
 
+## What other apps call
+
+| Page | What it covers | Spec |
+|------|----------------|------|
+| [Lesson authoring](lesson-authoring.md) | AI drafts for learniq's lesson editor, off until your DPO acknowledges it | `lesson-authoring` |
+| [Message translation](message-translation.md) | Translated messages that say AI made them, off until your DPO acknowledges it | `message-translation` |
+
 ## How the answers reach you
 
 | Page | What it covers | Spec |

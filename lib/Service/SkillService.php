@@ -22,13 +22,14 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
+ * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#3-skillservice
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -37,9 +38,9 @@ use Throwable;
 /**
  * Reads and writes agent skills (Skill objects) via OpenRegister.
  *
- * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
+ * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#3-skillservice
  */
-class SkillService {
+class SkillService implements SkillServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -90,8 +91,8 @@ class SkillService {
 	 *
 	 * @return ObjectEntity The persisted Skill object.
 	 *
-	 * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
-	 * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#3-skillservice
+	 * @spec openspec/changes/archive/2026-09-06-skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
 	 */
 	public function importSkill(string $package, string $createdBy, array $auxFiles = []): ObjectEntity {
 		$parsed = $this->skillSerializer->fromPackageFiles(
@@ -127,7 +128,7 @@ class SkillService {
 	 *
 	 * @return string|null The package string, or null when the skill is not found.
 	 *
-	 * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
+	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#3-skillservice
 	 */
 	public function exportSkill(string $skillId): ?string {
 		$skill = $this->getSkill(skillId: $skillId);
@@ -302,7 +303,7 @@ class SkillService {
 	 *
 	 * @return array<int, ObjectEntity> The Skill objects.
 	 *
-	 * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
+	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#3-skillservice
 	 */
 	public function listSkills(): array {
 		$objects = $this->objectService
@@ -327,7 +328,7 @@ class SkillService {
 	 *
 	 * @return ObjectEntity|null The Skill object, or null.
 	 *
-	 * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
+	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#3-skillservice
 	 */
 	public function getSkill(string $skillId): ?ObjectEntity {
 		// Fetch by UUID via find() (a uuid is metadata, not an object-property filter).
@@ -350,8 +351,8 @@ class SkillService {
 	 *
 	 * @return ObjectEntity|null The updated Skill object, or null when not found.
 	 *
-	 * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
-	 * @spec openspec/changes/agent-capability-profile/tasks.md#4-skillservice-bidirectional-install-join
+	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#3-skillservice
+	 * @spec openspec/changes/archive/2026-09-06-agent-capability-profile/tasks.md#4-skillservice-bidirectional-install-join
 	 */
 	public function installOnAgent(string $skillId, string $agentId): ?ObjectEntity {
 		$skill = $this->getSkill(skillId: $skillId);
@@ -394,7 +395,7 @@ class SkillService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-capability-profile/tasks.md#4-skillservice-bidirectional-install-join
+	 * @spec openspec/changes/archive/2026-09-06-agent-capability-profile/tasks.md#4-skillservice-bidirectional-install-join
 	 */
 	private function syncAgentSkillInstalls(string $agentId, string $skillId): void {
 		try {
@@ -454,7 +455,7 @@ class SkillService {
 	 *
 	 * @return ObjectEntity|null The updated Skill object, or null when not found.
 	 *
-	 * @spec openspec/changes/agent-capability-detail-surface/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
+	 * @spec openspec/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
 	 */
 	public function uninstallFromAgent(string $skillId, string $agentId): ?ObjectEntity {
 		$skill = $this->getSkill(skillId: $skillId);
@@ -495,7 +496,7 @@ class SkillService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-capability-detail-surface/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
+	 * @spec openspec/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
 	 */
 	private function desyncAgentSkillInstalls(string $agentId, string $skillId): void {
 		try {

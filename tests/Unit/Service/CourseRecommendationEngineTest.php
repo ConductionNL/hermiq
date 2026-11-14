@@ -31,7 +31,7 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\LearnerSignalReader;
 use OCA\Hermiq\Service\LearnerSignalRegister;
@@ -129,6 +129,9 @@ class CourseRecommendationEngineTest extends TestCase {
 				// suite dies before it runs.
 				bool $failIfExists = false,
 				bool $_unowned = false,
+				// Added by openregister (duplicate detection), seen 2026-09-16.
+				bool $_dedupOverride = false,
+				?string $_owner = null,
 			): ObjectEntity {
 				$payload = is_array($object) ? $object : $object->getObject();
 				$this->saved[] = $payload;
@@ -244,7 +247,7 @@ class CourseRecommendationEngineTest extends TestCase {
 		?string $installedAppId = null,
 		array $presentRegisterSlugs = ['learniq'],
 	): CourseRecommendationEngine {
-		$aiFeatureService = $this->createMock(AiFeatureService::class);
+		$aiFeatureService = $this->createMock(AiFeatureLookup::class);
 		$aiFeatureService->method('findBySlug')->willReturn($feature);
 
 		$appManager = $this->createMock(IAppManager::class);
@@ -671,7 +674,10 @@ class CourseRecommendationEngineTest extends TestCase {
 	 * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md#scenario-llm-phrasing-does-not-change-which-courses-are-recommended
 	 */
 	public function testLlmPromptIsScopedToASingleCandidateAndNeverAltersRanking(): void {
-		$now = new DateTimeImmutable('2026-07-13T12:00:00+00:00');
+		// The engine reads the real clock inside getOrRegenerate(), so the
+		// fixture is built on the real clock too: a fixed date ages out of the
+		// engine's signal window and the two rankings drift apart.
+		$now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 		$bySchema = $this->fiveSignalBySchema($now);
 
 		$saved = [];

@@ -8,7 +8,7 @@ import { useSettingsStore } from './modules/settings.js'
  * through this createObjectStore — no bespoke Pinia store, no bespoke CRUD
  * backend (ADR-001, ADR-022).
  *
- * @spec openspec/changes/agent-management-ui/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-2-1
  */
 export const useScheduleStore = createObjectStore('schedule', {
 	register: 'hermiq',
@@ -32,7 +32,7 @@ export const useScheduleStore = createObjectStore('schedule', {
  * "same as every other Hermiq schema object" wins. No hermiq-side objects
  * proxy is added (it would trip gate-17 redundant-controller).
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-5-2
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-5-2
  */
 export const useAgentStore = createObjectStore('agent', {
 	register: 'hermiq',
@@ -95,3 +95,15 @@ export const useSkillStore = createObjectStore('agentskill', {
 })
 
 export { useSettingsStore }
+
+/**
+ * Canonical OpenRegister object store for the 'context' schema
+ * (hermiq-context-documents): ContextFormModal creates and edits Context bundles
+ * through the generic object write path.
+ *
+ * @spec openspec/specs/context-documents/spec.md#requirement-a-context-editor-authors-documents-with-a-markdown-editor-per-entry
+ */
+export const useContextStore = createObjectStore('context', {
+	register: 'hermiq',
+	schema: 'context',
+})

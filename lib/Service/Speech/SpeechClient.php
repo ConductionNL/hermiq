@@ -37,6 +37,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Speech;
 
+use OCA\Hermiq\Kernel\Contracts\SpeechClientInterface;
 use OCP\Http\Client\IClientService;
 use OCP\IAppConfig;
 use Psr\Log\LoggerInterface;
@@ -51,7 +52,7 @@ use Throwable;
  *
  * @spec openspec/specs/nc-native-tools/spec.md#requirement-remote-systems-route-through-openconnector
  */
-class SpeechClient {
+class SpeechClient implements SpeechClientInterface {
 
 	/**
 	 * The app-config key holding the sidecar's base URL.

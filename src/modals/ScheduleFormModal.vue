@@ -23,10 +23,10 @@
   ADR-004 modal-isolation) — only reachable once the schedule has been saved
   (it needs a persisted schedule id).
 
-  @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
-  @spec openspec/changes/agent-management-ui/specs/agent-management-ui/spec.md
-  @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
-  @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
+  @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-5-2
+  @spec openspec/changes/archive/2026-09-06-agent-management-ui/specs/agent-management-ui/spec.md
+  @spec openspec/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+  @spec openspec/changes/archive/2026-07-13-delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
 -->
 <template>
 	<NcModal :show="show" size="normal" :name="heading" @close="$emit('close')">
@@ -45,21 +45,12 @@
 			<!-- Pre-run cost estimate (cost-guardrails): trailing average, clearly
 			     labelled an estimate — never a fabricated figure without history. -->
 			<p v-if="estimate && estimate.available" class="schedule-form__estimate">
-				{{
-					t(
-						'hermiq',
-						'Estimate: ~{tokens} tokens per run (average of the last {count} runs)',
-						{
-							tokens: estimate.avgTotalTokens,
-							count: estimate.sampleSize,
-						},
-					)
-				}}
+				{{ estimateLine(estimate) }}
 			</p>
 			<p
 				v-else-if="estimate"
 				class="schedule-form__estimate schedule-form__estimate--empty">
-				{{ t('hermiq', 'Not enough run history yet for a cost estimate.') }}
+				{{ estimateLine(estimate) }}
 			</p>
 
 			<NcTextField
@@ -251,6 +242,7 @@ import {
 import ScheduleWebhookSecretDialog from './ScheduleWebhookSecretDialog.vue'
 import { getBudgetEstimate } from '../api/budgets.js'
 import { useScheduleStore } from '../store/store.js'
+import { estimateLine } from '../utils/costEstimate.js'
 
 export default {
 	name: 'ScheduleFormModal',
@@ -326,10 +318,11 @@ export default {
 		 * Modal heading — differs for attach vs edit.
 		 *
 		 * @return {string} The localised heading.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-5-2
 		 */
 		heading() {
-			return this.schedule
+			// A schedule without an id is a proposal to attach (agents-plain-language-builder).
+			return this.schedule?.id
 				? this.t('hermiq', 'Edit schedule')
 				: this.t('hermiq', 'Attach schedule')
 		},
@@ -339,7 +332,7 @@ export default {
 		 */
 		kindOption: {
 			/**
-			 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+			 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-5-2
 			 */
 			get() {
 				return (
@@ -350,7 +343,7 @@ export default {
 			},
 
 			/**
-			 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+			 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-5-2
 			 */
 			set(option) {
 				this.form.kind = option ? option.value : 'once'
@@ -394,7 +387,7 @@ export default {
 
 	watch: {
 		/**
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-5-2
 		 */
 		show(open) {
 			if (open) {
@@ -405,7 +398,7 @@ export default {
 	},
 
 	/**
-	 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-5-2
 	 */
 	created() {
 		// Register the 'schedule' OpenRegister object type once (idempotent):
@@ -416,12 +409,14 @@ export default {
 	},
 
 	methods: {
+		estimateLine,
+
 		/**
 		 * Load the agent's pre-run cost estimate (cost-guardrails). Non-fatal:
 		 * the estimate line simply stays hidden when the request fails.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-5-2
 		 */
 		async loadEstimate() {
 			this.estimate = await getBudgetEstimate(this.agentId).catch(() => null)
@@ -431,7 +426,7 @@ export default {
 		 * An empty schedule form.
 		 *
 		 * @return {object} The blank form model.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-5-2
 		 */
 		blankForm() {
 			return {
@@ -459,7 +454,7 @@ export default {
 		 * Seed the form from the `schedule` prop (edit) or blank (attach).
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-5-2
 		 */
 		resetForm() {
 			this.error = ''
@@ -495,7 +490,7 @@ export default {
 		 * Build the OpenRegister schedule payload from the form model.
 		 *
 		 * @return {object} The schedule object body.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-5-2
 		 */
 		buildPayload() {
 			const payload = {
@@ -556,7 +551,7 @@ export default {
 		 * Persist the schedule via the createObjectStore and notify the parent.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-5-2
 		 */
 		async save() {
 			this.saving = true

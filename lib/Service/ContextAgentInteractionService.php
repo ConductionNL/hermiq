@@ -48,8 +48,12 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ContextAgentInteractionServiceInterface;
+use OCA\Hermiq\Service\Approval\ApprovalInbox;
+use OCA\Hermiq\Service\ContextAgent\ConfirmationActor;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -67,7 +71,7 @@ use Throwable;
  *
  * @spec openspec/changes/contextagent-provider/tasks.md#task-2-1
  */
-class ContextAgentInteractionService {
+class ContextAgentInteractionService implements ContextAgentInteractionServiceInterface {
 	/**
 	 * OpenRegister register slug holding Hermiq agent-engine objects.
 	 *
@@ -87,7 +91,14 @@ class ContextAgentInteractionService {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
+
+	/**
+	 * How many active agents the fallback looks through for one the user may use.
+	 *
+	 * @var int
+	 */
+	private const FALLBACK_AGENT_PAGE = 50;
 
 	/**
 	 * IAppConfig key naming the agent that serves ContextAgent interactions.
@@ -102,7 +113,7 @@ class ContextAgentInteractionService {
 	 * @param ObjectService $objectService OR object read/write.
 	 * @param Engine $engine Hermiq agent engine (runs the turn).
 	 * @param ApprovalService $approvalService Approval-gate decisions (confirmation mapping).
-	 * @param ScheduleService $scheduleService Kill-switch source (isOrganisationEngaged).
+	 * @param TenantKillSwitch $tenantKillSwitch Kill-switch source (isOrganisationEngaged).
 	 * @param AuditTrailMapper $auditTrailMapper Redacted per-interaction audit write-path.
 	 * @param RedactionService $redactionService Masks secrets/PII before the audit write.
 	 * @param IAppConfig $appConfig Reads the configured ContextAgent agent id.
@@ -110,19 +121,26 @@ class ContextAgentInteractionService {
 	 * @param AgentVersionService $agentVersionService Resolves the serving agent's current version
 	 *                                                 identifier, pinned onto the interaction audit
 	 *                                                 context (agent-versioning).
+	 * @param AgentAccessService $agentAccess Decides whether the task user may use a fallback agent.
+	 * @param ApprovalInbox $approvalInbox The approvals routed to the task user.
 	 *
 	 * @return void
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
+	 *   distinct injected collaborator, not a logic-bearing argument list.
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
 		private readonly Engine $engine,
 		private readonly ApprovalService $approvalService,
-		private readonly ScheduleService $scheduleService,
+		private readonly TenantKillSwitch $tenantKillSwitch,
 		private readonly AuditTrailMapper $auditTrailMapper,
 		private readonly RedactionService $redactionService,
 		private readonly IAppConfig $appConfig,
 		private readonly LoggerInterface $logger,
 		private readonly AgentVersionService $agentVersionService,
+		private readonly AgentAccessService $agentAccess,
+		private readonly ApprovalInbox $approvalInbox,
 	) {
 	}//end __construct()
 
@@ -155,10 +173,10 @@ class ContextAgentInteractionService {
 			throw new ProcessingException('Hermiq ContextAgent requires a non-empty message.');
 		}
 
-		$agent = $this->resolveAgent();
+		$agent = $this->resolveAgent(userId: $userId);
 		if ($agent === null) {
 			throw new ProcessingException(
-				'No Hermiq agent is available to serve ContextAgent. Configure one via the `contextagent_agent` app setting.'
+				'No Hermiq agent is available to you for ContextAgent. An administrator can name one for every user in the `contextagent_agent` app setting.'
 			);
 		}
 
@@ -166,7 +184,7 @@ class ContextAgentInteractionService {
 
 		// GATE — org kill-switch (EU-AI-Act Art. 14 / governance differentiator).
 		$organisation = (string)($agent->getOrganisation() ?? '');
-		if ($this->scheduleService->isOrganisationEngaged(organisation: $organisation) === true) {
+		if ($this->tenantKillSwitch->isOrganisationEngaged(organisation: $organisation) === true) {
 			$this->audit(object: $agent, status: 'skipped_killswitch', summary: '', agentId: $agentId);
 			throw new ProcessingException('Hermiq kill-switch is engaged for this organisation; the agent will not run.');
 		}
@@ -183,8 +201,10 @@ class ContextAgentInteractionService {
 		// exists (the common single-turn case).
 		$confirmationOutcome = $this->applyConfirmation(
 			confirmation: $confirmation,
-			userId: $userId,
-			agentId: $agentId
+			actor: new ConfirmationActor(
+				userId: $userId,
+				agentId: $agentId
+			)
 		);
 
 		// Run one governed turn through Hermiq's engine (its own allowlist-gated tool
@@ -224,30 +244,43 @@ class ContextAgentInteractionService {
 	/**
 	 * Resolve the agent that serves ContextAgent interactions: the configured
 	 * `contextagent_agent` UUID when set and resolvable, otherwise the first active
-	 * agent in the hermiq register.
+	 * agent in the hermiq register that the task user may use.
+	 *
+	 * @param string $userId The task user.
 	 *
 	 * @return ObjectEntity|null The agent, or null when none is available.
 	 */
-	private function resolveAgent(): ?ObjectEntity {
-		$configured = $this->appConfig->getValueString(Application::APP_ID, self::AGENT_CONFIG_KEY, '');
+	private function resolveAgent(string $userId): ?ObjectEntity {
+		$configured = $this->appConfig->getValueString(AppIdentity::APP_ID, self::AGENT_CONFIG_KEY, '');
 		if ($configured !== '') {
+			// _rbac false: this agent was named in app configuration for every user,
+			// and new agents are private by default, so the Agent read rule
+			// (hermiq#976) would hide it from everyone but its owner. The fallback
+			// below stays under the caller's own read rule.
 			$agent = $this->objectService->find(
 				id: $configured,
 				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				schema: self::AGENT_SCHEMA,
+				_rbac: false
 			);
 			if ($agent instanceof ObjectEntity) {
 				return $agent;
 			}
 		}
 
+		// The fallback is decided by AgentAccessService::canUserAccessAgent(), not by
+		// the read rule alone (REQ-AGSHARE-002): a task usually runs in the background
+		// without a user session, so there is no caller for the read rule to apply
+		// to, and the session saved below binds this agent to the task user.
 		$agents = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema(self::AGENT_SCHEMA)
-			->findAll(config: ['filters' => ['active' => true], 'limit' => 1]);
+			->findAll(config: ['filters' => ['active' => true], 'limit' => self::FALLBACK_AGENT_PAGE]);
 
 		foreach ($agents as $agent) {
-			if ($agent instanceof ObjectEntity) {
+			if ($agent instanceof ObjectEntity
+				&& $this->agentAccess->canUserAccessAgent(agent: $agent, userId: $userId) === true
+			) {
 				return $agent;
 			}
 		}
@@ -280,6 +313,14 @@ class ContextAgentInteractionService {
 			}
 		}
 
+		// 🔑 WHO MAY START A SESSION IS DECIDED HERE, NOT IN THE REGISTER (hermiq#1088).
+		// The Session schema lists no `create`, on purpose (hermiq#319,
+		// PrivateSchemaReadRulesTest::testWriteActionsStayOmitted), so the default
+		// `_rbac: true` save refuses every non-admin, and everyone when the task runs
+		// without a user session. The guard is interact(): the task has a user, and
+		// the agent is either the one an administrator named for every user
+		// (`contextagent_agent`, design.md) or a fallback the user may use
+		// (resolveAgent()). `userId` is always the task user.
 		return $this->objectService->saveObject(
 			object: [
 				'userId' => $userId,
@@ -288,7 +329,8 @@ class ContextAgentInteractionService {
 				'metadata' => ['source' => 'contextagent'],
 			],
 			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA
+			schema: self::CONVERSATION_SCHEMA,
+			_rbac: false
 		);
 
 	}//end resolveConversation()
@@ -299,18 +341,19 @@ class ContextAgentInteractionService {
 	 * summary of what happened (for the audit line).
 	 *
 	 * @param int|null $confirmation The confirmation value (1 confirm, 0 deny, null absent).
-	 * @param string $userId The confirming user (must be the approval's reviewer).
-	 * @param string $agentId The agent the approval must belong to.
+	 * @param ConfirmationActor $actor The person and agent a confirmation is applied for.
 	 *
 	 * @return string A summary: 'no-confirmation', 'confirmation:no-pending',
 	 *                'confirmation:approved' or 'confirmation:denied'.
 	 */
-	private function applyConfirmation(?int $confirmation, string $userId, string $agentId): string {
+	private function applyConfirmation(?int $confirmation, ConfirmationActor $actor): string {
+		$userId = $actor->userId;
+		$agentId = $actor->agentId;
 		if ($confirmation === null) {
 			return 'no-confirmation';
 		}
 
-		$pending = $this->approvalService->listPendingForReviewer(uid: $userId);
+		$pending = $this->approvalInbox->listPendingForReviewer(uid: $userId);
 		$match = null;
 		foreach ($pending as $record) {
 			if (($record['agentId'] ?? '') === $agentId) {
@@ -383,18 +426,20 @@ class ContextAgentInteractionService {
 	 */
 	private function audit(ObjectEntity $object, string $status, string $summary, string $agentId): void {
 		try {
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $object,
-				action: 'contextagent-interaction',
-				context: [
-					'status' => $status,
-					'agentId' => $agentId,
-					'summary' => $this->redactionService->redact($summary),
-					// Agent-versioning: the version of the serving agent's config at
-					// the time of this interaction (null when unresolvable — never
-					// fatal to the interaction).
-					'agentVersion' => $this->agentVersionService->currentVersionId(agentUuid: $agentId),
-				]
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $object,
+					action: 'contextagent-interaction',
+					context: [
+						'status' => $status,
+						'agentId' => $agentId,
+						'summary' => $this->redactionService->redact($summary),
+						// Agent-versioning: the version of the serving agent's config at
+						// the time of this interaction (null when unresolvable — never
+						// fatal to the interaction).
+						'agentVersion' => $this->agentVersionService->currentVersionId(agentUuid: $agentId),
+					]
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(

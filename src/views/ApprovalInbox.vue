@@ -16,8 +16,8 @@
   kill-switch (KillSwitchToggle) sits in the header, shown only to org sub-admins /
   instance admins via a backend capability flag.
 
-  @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
-  @spec openspec/changes/human-approval-gate-ui/specs/human-approval-gate-ui/spec.md
+  @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
+  @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/specs/human-approval-gate-ui/spec.md
 -->
 <template>
 	<div class="approval-inbox">
@@ -84,7 +84,13 @@
 					<td>{{ formatDate(approval.requestedAt) }}</td>
 					<td class="approval-inbox__row-actions">
 						<NcButton
-							type="primary"
+							variant="secondary"
+							:aria-label="t('hermiq', 'What this will do')"
+							@click="previewTarget = approval">
+							{{ t('hermiq', 'Details') }}
+						</NcButton>
+						<NcButton
+							variant="primary"
 							:disabled="actioningId === approval.id"
 							:aria-label="t('hermiq', 'Approve run')"
 							@click="approve(approval)">
@@ -94,7 +100,7 @@
 							{{ t('hermiq', 'Approve') }}
 						</NcButton>
 						<NcButton
-							type="error"
+							variant="error"
 							:disabled="actioningId === approval.id"
 							:aria-label="t('hermiq', 'Deny run')"
 							@click="openDeny(approval)">
@@ -105,6 +111,12 @@
 			</tbody>
 		</table>
 
+		<ApprovalPreviewModal
+			v-if="previewTarget"
+			:approval="previewTarget"
+			@close="previewTarget = null"
+			@approve="approveFromPreview"
+			@deny="denyFromPreview" />
 		<ApprovalDenyModal
 			:show="showDeny"
 			:approval="denyTarget"
@@ -118,14 +130,18 @@ import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/
 import CheckDecagram from 'vue-material-design-icons/CheckDecagram.vue'
 import KillSwitchToggle from '../components/KillSwitchToggle.vue'
 import ApprovalDenyModal from '../modals/ApprovalDenyModal.vue'
+import ApprovalPreviewModal from '../modals/ApprovalPreviewModal.vue'
 import { approveApproval, listPendingApprovals } from '../api/approvals.js'
 import { useAgentStore, useScheduleStore } from '../store/store.js'
+import { dateOrText } from '../utils/displayDate.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'ApprovalInbox',
 
 	components: {
 		ApprovalDenyModal,
+		ApprovalPreviewModal,
 		CheckDecagram,
 		KillSwitchToggle,
 		NcButton,
@@ -144,11 +160,12 @@ export default {
 			showDeny: false,
 			denyTarget: null,
 			actioningId: '',
+			previewTarget: null,
 		}
 	},
 
 	/**
-	 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 	 */
 	created() {
 		this.store = useScheduleStore()
@@ -163,7 +180,7 @@ export default {
 		 * Load pending approvals plus the schedule + agent name lookups in parallel.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		async load() {
 			this.loading = true
@@ -180,10 +197,7 @@ export default {
 				)
 				this.agentMap = this.byUuid(Array.isArray(agents) ? agents : [])
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.loading = false
 			}
@@ -194,7 +208,7 @@ export default {
 		 *
 		 * @param {Array<object>} items The objects to index.
 		 * @return {object} A uuid → object map.
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		byUuid(items) {
 			const map = {}
@@ -212,7 +226,7 @@ export default {
 		 *
 		 * @param {object} approval The approval record.
 		 * @return {string} The schedule name (falls back to the id).
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		scheduleName(approval) {
 			const schedule = this.scheduleMap[String(approval.scheduleId)]
@@ -224,7 +238,7 @@ export default {
 		 *
 		 * @param {object} approval The approval record.
 		 * @return {string} The agent name (falls back to the id).
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		agentName(approval) {
 			const agent = this.agentMap[String(approval.agentId)]
@@ -236,17 +250,32 @@ export default {
 		 *
 		 * @param {string} value The ISO timestamp.
 		 * @return {string} The formatted date, or a dash.
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
-		formatDate(value) {
-			if (!value) {
-				return '—'
-			}
-			const date = new Date(value)
-			if (Number.isNaN(date.getTime())) {
-				return String(value)
-			}
-			return date.toLocaleString()
+		formatDate: dateOrText,
+
+		/**
+		 * Approve from the details dialog.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+		 */
+		async approveFromPreview() {
+			const approval = this.previewTarget
+			this.previewTarget = null
+			await this.approve(approval)
+		},
+
+		/**
+		 * Deny from the details dialog: opens the deny dialog for a reason.
+		 *
+		 * @return {void}
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+		 */
+		denyFromPreview() {
+			const approval = this.previewTarget
+			this.previewTarget = null
+			this.openDeny(approval)
 		},
 
 		/**
@@ -254,7 +283,7 @@ export default {
 		 *
 		 * @param {object} approval The approval record.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		async approve(approval) {
 			this.actioningId = approval.id
@@ -263,10 +292,7 @@ export default {
 				await approveApproval(approval.id)
 				await this.load()
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.actioningId = ''
 			}
@@ -277,7 +303,7 @@ export default {
 		 *
 		 * @param {object} approval The approval record.
 		 * @return {void}
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		openDeny(approval) {
 			this.denyTarget = approval
@@ -288,7 +314,7 @@ export default {
 		 * Reload after a decision (deny) clears a row.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		async onDecided() {
 			await this.load()

@@ -231,7 +231,9 @@ class EngineTest extends TestCase {
 				return $this->entity('msg-' . $role, ['role' => $role, 'content' => $content]);
 			}
 		);
-		$historyHandler->method('buildMessageHistory')->willReturn(['history']);
+		$historyHandler->method('buildTurnHistory')->willReturnCallback(
+			static fn (string $conversationId, ObjectEntity $turn, string $text): array => ['history' => ['history'], 'turnText' => $text]
+		);
 
 		$engine = $this->engine(
 			$objectService,
@@ -359,7 +361,9 @@ class EngineTest extends TestCase {
 				return $this->entity('msg-' . $role, ['role' => $role, 'content' => $content]);
 			}
 		);
-		$historyHandler->method('buildMessageHistory')->willReturn([]);
+		$historyHandler->method('buildTurnHistory')->willReturnCallback(
+			static fn (string $conversationId, ObjectEntity $turn, string $text): array => ['history' => [], 'turnText' => $text]
+		);
 
 		$guardrailPolicy = $this->createMock(GuardrailPolicyService::class);
 		$guardrailPolicy->method('effectivePolicyFor')->willReturn(
@@ -491,7 +495,9 @@ class EngineTest extends TestCase {
 
 		$historyHandler = $this->createMock(MessageHistoryHandler::class);
 		$historyHandler->method('storeMessage')->willReturn(new ObjectEntity());
-		$historyHandler->method('buildMessageHistory')->willReturn([]);
+		$historyHandler->method('buildTurnHistory')->willReturnCallback(
+			static fn (string $conversationId, ObjectEntity $turn, string $text): array => ['history' => [], 'turnText' => $text]
+		);
 
 		$queued = null;
 		$jobList = $this->createMock(IJobList::class);
@@ -621,7 +627,9 @@ class EngineTest extends TestCase {
 		$conversationHandler = $this->createMock(ConversationManagementHandler::class);
 		$historyHandler = $this->createMock(MessageHistoryHandler::class);
 		$historyHandler->method('storeMessage')->willReturn($this->entity('msg-1', []));
-		$historyHandler->method('buildMessageHistory')->willReturn([]);
+		$historyHandler->method('buildTurnHistory')->willReturnCallback(
+			static fn (string $conversationId, ObjectEntity $turn, string $text): array => ['history' => [], 'turnText' => $text]
+		);
 
 		$engine = $this->engine(
 			$objectService,
@@ -676,7 +684,9 @@ class EngineTest extends TestCase {
 		$conversationHandler = $this->createMock(ConversationManagementHandler::class);
 		$historyHandler = $this->createMock(MessageHistoryHandler::class);
 		$historyHandler->method('storeMessage')->willReturn($this->entity('msg-1', []));
-		$historyHandler->method('buildMessageHistory')->willReturn([]);
+		$historyHandler->method('buildTurnHistory')->willReturnCallback(
+			static fn (string $conversationId, ObjectEntity $turn, string $text): array => ['history' => [], 'turnText' => $text]
+		);
 
 		$engine = $this->engine(
 			$objectService,
@@ -737,7 +747,9 @@ class EngineTest extends TestCase {
 		$conversationHandler = $this->createMock(ConversationManagementHandler::class);
 		$historyHandler = $this->createMock(MessageHistoryHandler::class);
 		$historyHandler->method('storeMessage')->willReturn($this->entity('msg-1', []));
-		$historyHandler->method('buildMessageHistory')->willReturn([]);
+		$historyHandler->method('buildTurnHistory')->willReturnCallback(
+			static fn (string $conversationId, ObjectEntity $turn, string $text): array => ['history' => [], 'turnText' => $text]
+		);
 
 		$engine = $this->engine(
 			$objectService,

@@ -4,7 +4,7 @@
  * Hermiq Chat Message History Handler.
  *
  * Handler for message storage and conversation history building. Ported from
- * `OCA\OpenRegister\Service\Chat\MessageHistoryHandler`, re-pointed at the
+ * `OCA\OpenRegister\Mcp\Service\Chat\MessageHistoryHandler`, re-pointed at the
  * `Message` OR object (agent-engine-schemas) via `ObjectService` instead of
  * OR's `MessageMapper`/`ConversationMapper` QBMapper entities.
  *
@@ -20,8 +20,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-2
  */
 
 declare(strict_types=1);
@@ -29,6 +29,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Engine;
 
 use LLPhant\Chat\Message as LLPhantMessage;
+use OCA\Hermiq\Kernel\Contracts\MessageHistoryHandlerInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -37,9 +38,9 @@ use Psr\Log\LoggerInterface;
  * Handles message storage and conversation history building against the
  * hermiq-register `Message` object.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
  */
-class MessageHistoryHandler {
+class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	use SanitizesForSaveTrait;
 
 	/**
@@ -54,7 +55,7 @@ class MessageHistoryHandler {
 	 *
 	 * @var string
 	 */
-	private const MESSAGE_SCHEMA = 'message';
+	private const MESSAGE_SCHEMA = 'agentsessionturn';
 
 	/**
 	 * Number of recent messages to keep in context.
@@ -71,7 +72,7 @@ class MessageHistoryHandler {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
@@ -83,32 +84,94 @@ class MessageHistoryHandler {
 	 * Build message history array for the LLM.
 	 *
 	 * Converts the most recent Message objects for the conversation into
-	 * LLPhant `Message` instances, oldest-first.
+	 * LLPhant `Message` instances, oldest-first. A caller that has just stored the
+	 * turn it is about to answer uses buildTurnHistory() instead, so that turn is
+	 * not sent twice.
 	 *
 	 * @param string $conversationId Conversation UUID.
 	 *
 	 * @return array<int, LLPhantMessage> Array of LLPhant Message objects.
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) LLPhant's Message role factories
-	 * (Message::user()/assistant()/system()) are the library's public API —
-	 * there is no injectable seam.
-	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function buildMessageHistory(string $conversationId): array {
+		$messages = $this->recentMessages(conversationId: $conversationId);
+
+		return $this->toLlmHistory(messages: $messages, isMultiSpeaker: $this->hasMultipleHumanAuthors(messages: $messages));
+	}//end buildMessageHistory()
+
+	/**
+	 * The history before a stored turn, and the text that turn is sent as.
+	 *
+	 * The engine stores the person's turn before it builds the history, so the
+	 * stored history already ends with it. `ResponseGenerationHandler::generateResponse()`
+	 * is the single place the current turn joins the messages (with its attachments),
+	 * so the history returned here leaves it out, and the model reads it once.
+	 *
+	 * `turnText` is what the response handler sends as the current turn: the given
+	 * text, labelled with the turn's author when the session has several speakers,
+	 * exactly as the history would have labelled it. Whether a session has several
+	 * speakers is decided over the same recent turns as before, current turn included.
+	 *
+	 * @param string $conversationId Conversation UUID.
+	 * @param ObjectEntity $currentTurn The stored turn being answered.
+	 * @param string $turnText The text of that turn as stored (after any redaction).
+	 *
+	 * @return array{history: array<int, LLPhantMessage>, turnText: string}
+	 *
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 */
+	public function buildTurnHistory(string $conversationId, ObjectEntity $currentTurn, string $turnText): array {
+		$messages = $this->recentMessages(conversationId: $conversationId);
+		$isMultiSpeaker = $this->hasMultipleHumanAuthors(messages: array_merge($messages, [$currentTurn]));
+
+		$currentId = $currentTurn->getUuid();
+		$earlier = array_values(
+			array_filter(
+				$messages,
+				static fn (ObjectEntity $message): bool => $currentId === null || $message->getUuid() !== $currentId
+			)
+		);
+
+		if ($isMultiSpeaker === true) {
+			$turnText = $this->labelWithAuthor(content: $turnText, data: $currentTurn->getObject());
+		}
+
+		return [
+			'history' => $this->toLlmHistory(messages: $earlier, isMultiSpeaker: $isMultiSpeaker),
+			'turnText' => $turnText,
+		];
+	}//end buildTurnHistory()
+
+	/**
+	 * The session's most recent turns, oldest-first.
+	 *
+	 * @param string $conversationId Conversation UUID.
+	 *
+	 * @return list<ObjectEntity>
+	 *
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 */
+	private function recentMessages(string $conversationId): array {
+		// _rbac false: a SessionTurn is readable by its owner only (hermiq#976), and in
+		// a shared session the other participants' turns are owned by them, while the
+		// model needs the whole thread. Engine::processMessage() runs the
+		// owner-or-participant check on the session before it asks for this history.
 		$recent = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema(self::MESSAGE_SCHEMA)
 			->findAll(
 				config: [
-					'filters' => ['conversationId' => $conversationId],
+					'filters' => ['sessionId' => $conversationId],
 					'sort' => ['created' => 'DESC'],
 					'limit' => self::RECENT_MESSAGES_COUNT,
-				]
+				],
+				_rbac: false
 			);
 
 		// The findAll() fetch is most-recent-first; the LLM needs chronological order.
-		$messages = array_reverse(array_filter($recent, static fn ($object): bool => $object instanceof ObjectEntity));
+		$messages = array_values(array_reverse(array_filter($recent, static fn ($object): bool => $object instanceof ObjectEntity)));
 
 		$this->logger->debug(
 			message: '[MessageHistoryHandler] Building message history',
@@ -120,64 +183,178 @@ class MessageHistoryHandler {
 			]
 		);
 
-		// A conversation is "shared" when its human turns come from more than
-		// one author. Only then is speaker labelling added — a single-speaker
-		// session keeps byte-identical prompts to before talk-shared-sessions.
-		$isMultiSpeaker = $this->hasMultipleHumanAuthors(messages: $messages);
+		return $messages;
+	}//end recentMessages()
 
+	/**
+	 * Stored turns as LLPhant messages, speaker-labelled in a shared session.
+	 *
+	 * A conversation is "shared" when its human turns come from more than one
+	 * author. Only then is speaker labelling added; a single-speaker session keeps
+	 * byte-identical prompts to before talk-shared-sessions.
+	 *
+	 * @param list<ObjectEntity> $messages Stored turns, oldest-first.
+	 * @param bool $isMultiSpeaker Whether to label human turns with their author.
+	 *
+	 * @return array<int, LLPhantMessage> Array of LLPhant Message objects.
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) LLPhant's Message role factories
+	 * (Message::user()/assistant()/system()) are the library's public API;
+	 * there is no injectable seam.
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Labelling is decided once over the
+	 * whole recent window, so it is handed in rather than recomputed per subset.
+	 *
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 */
+	private function toLlmHistory(array $messages, bool $isMultiSpeaker): array {
 		$history = [];
 		foreach ($messages as $message) {
-			$data = $message->getObject();
-			$role = $data['role'] ?? null;
-			$content = $data['content'] ?? null;
-
-			if (empty($role) === true || empty($content) === true) {
-				$this->logger->warning(
-					message: '[MessageHistoryHandler] Skipping message with missing role or content',
-					context: [
-						'file' => __FILE__,
-						'line' => __LINE__,
-						'hasRole' => empty($role) === false,
-						'hasContent' => empty($content) === false,
-					]
-				);
-				continue;
+			$llmMessage = $this->toLlmMessage(data: $message->getObject(), isMultiSpeaker: $isMultiSpeaker);
+			if ($llmMessage !== null) {
+				$history[] = $llmMessage;
 			}
+		}
 
-			if (in_array($role, ['user', 'assistant', 'system'], true) === false) {
-				$this->logger->warning(
-					message: '[MessageHistoryHandler] Unknown message role',
-					context: [
-						'file' => __FILE__,
-						'line' => __LINE__,
-						'role' => $role,
-					]
-				);
-				continue;
-			}
+		$this->logHistoryBuilt(historyCount: count($history));
 
-			if ($role === 'user' && $isMultiSpeaker === true) {
-				$content = $this->labelWithAuthor(content: $content, data: $data);
-			}
+		return $history;
+	}//end toLlmHistory()
 
-			$history[] = match ($role) {
-				'user' => LLPhantMessage::user($content),
-				'assistant' => LLPhantMessage::assistant($content),
-				'system' => LLPhantMessage::system($content),
-			};
-		}//end foreach
+	/**
+	 * One stored turn as an LLPhant message; a turn without a role or content, or
+	 * with an unknown role, is skipped.
+	 *
+	 * @param array<string, mixed> $data The stored turn.
+	 * @param bool $isMultiSpeaker Whether to label human turns with their author.
+	 *
+	 * @return LLPhantMessage|null The message, or null when the turn is skipped.
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) LLPhant's Message role factories
+	 * (Message::user()/assistant()/system()) are the library's public API;
+	 * there is no injectable seam.
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Labelling is decided once over the
+	 * whole recent window, so it is handed in rather than recomputed per turn.
+	 */
+	private function toLlmMessage(array $data, bool $isMultiSpeaker): ?LLPhantMessage {
+		$role = $this->usableRole(data: $data);
+		if ($role === null) {
+			return null;
+		}
 
+		return match ($role) {
+			'user' => LLPhantMessage::user($this->userTurnContent(data: $data, isMultiSpeaker: $isMultiSpeaker)),
+			'assistant' => LLPhantMessage::assistant($data['content']),
+			'system' => LLPhantMessage::system($data['content']),
+		};
+
+	}//end toLlmMessage()
+
+	/**
+	 * The role of a stored turn that has a role and content and a role the model
+	 * knows; a turn that does not is logged.
+	 *
+	 * @param array<string, mixed> $data The stored turn.
+	 *
+	 * @return 'user'|'assistant'|'system'|null The role, or null when the turn is skipped.
+	 */
+	private function usableRole(array $data): ?string {
+		$role = $data['role'] ?? null;
+		$content = $data['content'] ?? null;
+		if (empty($role) === true || empty($content) === true) {
+			$this->logMissingRoleOrContent(role: $role, content: $content);
+			return null;
+		}
+
+		if (in_array($role, ['user', 'assistant', 'system'], true) === false) {
+			$this->logUnknownRole(role: $role);
+			return null;
+		}
+
+		return $role;
+
+	}//end usableRole()
+
+	/**
+	 * The text of a human turn: labelled with its author in a shared session, then
+	 * followed by its attachment lines.
+	 *
+	 * @param array<string, mixed> $data The stored turn.
+	 * @param bool $isMultiSpeaker Whether to label human turns with their author.
+	 *
+	 * @return string The turn's text.
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Labelling is decided once over the
+	 * whole recent window, so it is handed in rather than recomputed per turn.
+	 */
+	private function userTurnContent(array $data, bool $isMultiSpeaker): string {
+		$content = $data['content'];
+		if ($isMultiSpeaker === true) {
+			$content = $this->labelWithAuthor(content: $content, data: $data);
+		}
+
+		return $this->withAttachmentLines(content: (string)$content, data: $data);
+
+	}//end userTurnContent()
+
+	/**
+	 * Log a stored turn skipped for a missing role or content.
+	 *
+	 * @param mixed $role The turn's role.
+	 * @param mixed $content The turn's content.
+	 *
+	 * @return void
+	 */
+	private function logMissingRoleOrContent(mixed $role, mixed $content): void {
+		$this->logger->warning(
+			message: '[MessageHistoryHandler] Skipping message with missing role or content',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'hasRole' => empty($role) === false,
+				'hasContent' => empty($content) === false,
+			]
+		);
+
+	}//end logMissingRoleOrContent()
+
+	/**
+	 * Log a stored turn skipped for a role the model does not know.
+	 *
+	 * @param mixed $role The turn's role.
+	 *
+	 * @return void
+	 */
+	private function logUnknownRole(mixed $role): void {
+		$this->logger->warning(
+			message: '[MessageHistoryHandler] Unknown message role',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'role' => $role,
+			]
+		);
+
+	}//end logUnknownRole()
+
+	/**
+	 * Log the size of a built history.
+	 *
+	 * @param int $historyCount The number of messages in the history.
+	 *
+	 * @return void
+	 */
+	private function logHistoryBuilt(int $historyCount): void {
 		$this->logger->info(
 			message: '[MessageHistoryHandler] Message history built',
 			context: [
 				'file' => __FILE__,
 				'line' => __LINE__,
-				'historyCount' => count($history),
+				'historyCount' => $historyCount,
 			]
 		);
 
-		return $history;
-	}//end buildMessageHistory()
+	}//end logHistoryBuilt()
 
 	/**
 	 * Attach authorship to a message payload, for human turns only.
@@ -193,7 +370,7 @@ class MessageHistoryHandler {
 	 *
 	 * @return array The payload, with authorship attached where applicable.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
 	 */
 	private function withAuthorship(array $payload, string $role, ?string $authorId, ?string $authorDisplayName): array {
 		if ($role !== 'user') {
@@ -222,18 +399,13 @@ class MessageHistoryHandler {
 	 *
 	 * @return bool True when two or more distinct human authors are present.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-the-model-can-tell-speakers-apart
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-the-model-can-tell-speakers-apart
 	 */
 	private function hasMultipleHumanAuthors(array $messages): bool {
 		$authors = [];
 		foreach ($messages as $message) {
-			$data = $message->getObject();
-			if (($data['role'] ?? null) !== 'user') {
-				continue;
-			}
-
-			$authorId = ($data['authorId'] ?? null);
-			if (is_string($authorId) === true && $authorId !== '' && in_array($authorId, $authors, true) === false) {
+			$authorId = $this->humanAuthorOf(data: $message->getObject());
+			if ($authorId !== null && in_array($authorId, $authors, true) === false) {
 				$authors[] = $authorId;
 				if (count($authors) > 1) {
 					return true;
@@ -243,6 +415,27 @@ class MessageHistoryHandler {
 
 		return false;
 	}//end hasMultipleHumanAuthors()
+
+	/**
+	 * The author uid of a human turn.
+	 *
+	 * @param array<string, mixed> $data The stored turn.
+	 *
+	 * @return string|null The author uid, or null for another role or no author.
+	 */
+	private function humanAuthorOf(array $data): ?string {
+		if (($data['role'] ?? null) !== 'user') {
+			return null;
+		}
+
+		$authorId = ($data['authorId'] ?? null);
+		if (is_string($authorId) === true && $authorId !== '') {
+			return $authorId;
+		}
+
+		return null;
+
+	}//end humanAuthorOf()
 
 	/**
 	 * Prefix a human turn with its author so the model can attribute it.
@@ -257,7 +450,7 @@ class MessageHistoryHandler {
 	 *
 	 * @return string The content, attributed where possible.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-the-model-can-tell-speakers-apart
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-the-model-can-tell-speakers-apart
 	 */
 	private function labelWithAuthor(string $content, array $data): string {
 		$label = ($data['authorDisplayName'] ?? null);
@@ -273,6 +466,50 @@ class MessageHistoryHandler {
 	}//end labelWithAuthor()
 
 	/**
+	 * Name a turn's attachments in one line each, so a later turn knows what was
+	 * attached without the file being sent again; the agent can read it again by
+	 * its id with hermiq.readFile (chat-attachments-and-images, D3).
+	 *
+	 * @param string               $content The turn's text.
+	 * @param array<string, mixed> $data    The stored turn.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 */
+	private function withAttachmentLines(string $content, array $data): string {
+		$lines = $this->attachmentLines(attachments: ($data['attachments'] ?? []));
+		if ($lines === []) {
+			return $content;
+		}
+
+		return $content . "\n\n" . implode("\n", $lines);
+	}//end withAttachmentLines()
+
+	/**
+	 * One `Attached earlier:` line per stored attachment that has a file id.
+	 *
+	 * @param mixed $attachments The stored turn's `attachments` value.
+	 *
+	 * @return array<int, string> The lines.
+	 */
+	private function attachmentLines(mixed $attachments): array {
+		if (is_array($attachments) === false) {
+			return [];
+		}
+
+		$lines = [];
+		foreach ($attachments as $attachment) {
+			if (is_array($attachment) === true && isset($attachment['fileId']) === true) {
+				$lines[] = sprintf('Attached earlier: %s, file %s', (string)($attachment['name'] ?? ''), (string)$attachment['fileId']);
+			}
+		}
+
+		return $lines;
+
+	}//end attachmentLines()
+
+	/**
 	 * Store a message as a `Message` OR object.
 	 *
 	 * @param string $conversationId Conversation UUID.
@@ -282,12 +519,18 @@ class MessageHistoryHandler {
 	 * @param array|null $context Optional AI Chat Companion context snapshot.
 	 * @param string|null $authorId Uid of the human who produced this turn — `role=user` only.
 	 * @param string|null $authorDisplayName That human's display name AT SEND TIME (talk-shared-sessions).
+	 * @param array $attachments The turn's attachments as references (fileId, name, mimeType,
+	 *                           size, origin), resolved as the speaker; never bytes or text.
+	 * @param array|null $provenance How an assistant answer came about: model, sources and step
+	 *                               outcomes, never content (chat-how-an-answer-came-about).
 	 *
 	 * @return ObjectEntity The persisted Message object.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-2
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
 	 */
 	public function storeMessage(
 		string $conversationId,
@@ -297,9 +540,11 @@ class MessageHistoryHandler {
 		?array $context = null,
 		?string $authorId = null,
 		?string $authorDisplayName = null,
+		array $attachments = [],
+		?array $provenance = null,
 	): ObjectEntity {
 		$payload = [
-			'conversationId' => $conversationId,
+			'sessionId' => $conversationId,
 			'role' => $role,
 			'content' => $content,
 		];
@@ -312,6 +557,14 @@ class MessageHistoryHandler {
 			$payload['context'] = $context;
 		}
 
+		if ($attachments !== []) {
+			$payload['attachments'] = array_values($attachments);
+		}
+
+		if ($provenance !== null) {
+			$payload['provenance'] = $provenance;
+		}
+
 		$payload = $this->withAuthorship(
 			payload: $payload,
 			role: $role,
@@ -319,10 +572,18 @@ class MessageHistoryHandler {
 			authorDisplayName: $authorDisplayName
 		);
 
+		// `_rbac: false`: SessionTurn grants an owner-only `read` and lists no
+		// `create`, on purpose (hermiq#319): a create grant would let anyone POST a
+		// turn into somebody else's sessionId through the object API, and a thread
+		// is read by sessionId. So the default save refuses every non-admin
+		// (hermiq#1086), and every caller of this method reaches it only after its
+		// own session guard (the chat controllers' ownership and participation
+		// checks). OpenRegister still stamps `_owner` from the user session.
 		$stored = $this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $payload),
 			register: self::REGISTER_SLUG,
-			schema: self::MESSAGE_SCHEMA
+			schema: self::MESSAGE_SCHEMA,
+			_rbac: false
 		);
 
 		$this->logger->debug(

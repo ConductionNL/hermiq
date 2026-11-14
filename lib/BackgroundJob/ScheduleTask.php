@@ -19,15 +19,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#2-scheduletask-timedjob-wrapper
+ * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#2-scheduletask-timedjob-wrapper
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\BackgroundJob;
 
-use OCA\Hermiq\Service\Schedule\ScheduleFlowBridge;
-use OCA\Hermiq\Service\ScheduleService;
+use OCA\Hermiq\Kernel\Contracts\GoalServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\ScheduleFlowBridgeInterface;
+use OCA\Hermiq\Kernel\Contracts\ScheduleServiceInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJob;
 use OCP\BackgroundJob\TimedJob;
@@ -43,7 +44,7 @@ use Throwable;
  * @psalm-api
  * @SuppressWarnings(PHPMD.UnusedFormalParameter)
  *
- * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#2-scheduletask-timedjob-wrapper
+ * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#2-scheduletask-timedjob-wrapper
  */
 class ScheduleTask extends TimedJob {
 	/**
@@ -52,19 +53,22 @@ class ScheduleTask extends TimedJob {
 	 * Configures the polling cadence and delegates execution to the service.
 	 *
 	 * @param ITimeFactory $time Time factory for TimedJob scheduling.
-	 * @param ScheduleService $scheduleService Service that dispatches due schedules.
-	 * @param ScheduleFlowBridge $flowBridge Arms eligible schedules on the engine's
+	 * @param ScheduleServiceInterface $scheduleService Service that dispatches due schedules.
+	 * @param ScheduleFlowBridgeInterface $flowBridge Arms eligible schedules on the engine's
 	 *                                       schedule trigger before each tick
 	 *                                       (schedules-onto-engine-triggers).
+	 * @param GoalServiceInterface $goals Takes the due standing goals' turns (agents-standing-goal).
 	 * @param LoggerInterface $logger Isolates a bridge failure from the tick.
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-2-2
 	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
+	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
 	 */
 	public function __construct(
 		ITimeFactory $time,
-		private readonly ScheduleService $scheduleService,
-		private readonly ScheduleFlowBridge $flowBridge,
+		private readonly ScheduleServiceInterface $scheduleService,
+		private readonly ScheduleFlowBridgeInterface $flowBridge,
+		private readonly GoalServiceInterface $goals,
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct(time: $time);
@@ -94,8 +98,9 @@ class ScheduleTask extends TimedJob {
 	 *
 	 * @phpstan-param mixed $argument
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-2-2
 	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
+	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
 	 */
 	public function run(mixed $argument): void {
 		// Arm first: a schedule created since the last tick delegates its clock
@@ -112,6 +117,14 @@ class ScheduleTask extends TimedJob {
 		}
 
 		$this->scheduleService->run();
+
+		// Agents-standing-goal: due goals take their next turn on the same tick,
+		// after the schedules. Failure-isolated like the bridge above.
+		try {
+			$this->goals->run();
+		} catch (Throwable $e) {
+			$this->logger->error('[hermiq] Standing goal turns failed this tick: ' . $e->getMessage(), ['exception' => $e]);
+		}
 
 	}//end run()
 }//end class

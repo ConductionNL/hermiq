@@ -8,15 +8,17 @@
  * a streaming LLM call. Heartbeats are not one of them — see the note at the
  * foot of the class.
  *
- * The channel is pure forwarding: it does not buffer, format, or filter
- * events. Buffering of partial tool-call frames lives in
- * `ResponseGenerationHandler`; SSE framing + heartbeat interleaving lives in
- * the (later-chunk) stream controller. Multiple callbacks per event type are
+ * The channel forwards events as they arrive, with one exception: after
+ * `holdTokens()` it keeps token deltas back until `releaseTokens()` hands it
+ * the text that may be shown, so an answer that still has to pass the output
+ * guardrail reaches the client only in its reviewed form. Buffering of
+ * partial tool-call frames lives in `ResponseGenerationHandler`; SSE framing
+ * + heartbeat interleaving lives in the (later-chunk) stream controller. Multiple callbacks per event type are
  * allowed (future-proofs for telemetry / logging interceptors). Late
  * registration after a prior emit is allowed; the new callback only sees
  * subsequent events (no replay).
  *
- * Ported verbatim from `OCA\OpenRegister\Service\Chat\StreamYieldChannel` — pure
+ * Ported verbatim from `OCA\OpenRegister\Mcp\Service\Chat\StreamYieldChannel` — pure
  * streaming plumbing with no persistence and no OR-specific dependency, so no
  * adaptation beyond the namespace was needed.
  *
@@ -32,12 +34,14 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
+
+use Closure;
 
 /**
  * StreamYieldChannel
@@ -48,9 +52,17 @@ namespace OCA\Hermiq\Service\Engine;
  * @category Service
  * @package  OCA\Hermiq\Service\Engine
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
  */
 class StreamYieldChannel {
+
+	/**
+	 * Screens the `arguments` of a tool-call payload and the `result` of a
+	 * tool-result payload before any callback sees them; null forwards them as given.
+	 *
+	 * @var Closure|null
+	 */
+	private ?Closure $toolDetailScreen = null;
 
 	/**
 	 * Registered token callbacks. Each receives the new token delta as a
@@ -77,6 +89,20 @@ class StreamYieldChannel {
 	 * @var array<int, callable>
 	 */
 	private array $toolResultCallbacks = [];
+
+	/**
+	 * Whether token deltas are kept back until `releaseTokens()`.
+	 *
+	 * @var boolean
+	 */
+	private bool $holdingTokens = false;
+
+	/**
+	 * Token deltas kept back while holding, in arrival order.
+	 *
+	 * @var array<int, string>
+	 */
+	private array $heldTokens = [];
 
 	/**
 	 * Register a callback invoked for each token delta emitted by the LLM
@@ -132,13 +158,72 @@ class StreamYieldChannel {
 	 *
 	 * @return void
 	 *
-	 * @spec exclude Pure pub-sub forwarder plumbing — loops registered callbacks; carries no business logic.
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
 	 */
 	public function emitToken(string $delta): void {
+		if ($this->holdingTokens === true) {
+			$this->heldTokens[] = $delta;
+			return;
+		}
+
+		$this->forwardToken(delta: $delta);
+	}//end emitToken()
+
+	/**
+	 * Keep every later token delta back until `releaseTokens()`.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	public function holdTokens(): void {
+		$this->holdingTokens = true;
+	}//end holdTokens()
+
+	/**
+	 * Stop holding and forward the reviewed text in place of the held deltas.
+	 *
+	 * When the reviewed text equals the held deltas joined, the deltas are
+	 * forwarded as they arrived; otherwise the reviewed text is forwarded as
+	 * one delta. Nothing is forwarded when no delta was held, so a provider
+	 * that did not stream still sends no token frame. A no-op when not holding.
+	 *
+	 * @param string $reviewed The answer text the output guardrail let through.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	public function releaseTokens(string $reviewed): void {
+		$held = $this->heldTokens;
+		$this->holdingTokens = false;
+		$this->heldTokens = [];
+
+		if ($held === []) {
+			return;
+		}
+
+		if (implode('', $held) !== $reviewed) {
+			$held = [$reviewed];
+		}
+
+		foreach ($held as $delta) {
+			$this->forwardToken(delta: $delta);
+		}
+	}//end releaseTokens()
+
+	/**
+	 * Hand one token delta to every registered token callback.
+	 *
+	 * @param string $delta The token delta.
+	 *
+	 * @return void
+	 */
+	private function forwardToken(string $delta): void {
 		foreach ($this->tokenCallbacks as $callback) {
 			$callback($delta);
 		}
-	}//end emitToken()
+	}//end forwardToken()
 
 	/**
 	 * Emit one assembled tool-call payload to every registered tool-call
@@ -149,9 +234,10 @@ class StreamYieldChannel {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function emitToolCall(array $payload): void {
+		$payload = $this->screenToolDetail(payload: $payload, key: 'arguments');
 		foreach ($this->toolCallCallbacks as $callback) {
 			$callback($payload);
 		}
@@ -166,13 +252,49 @@ class StreamYieldChannel {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function emitToolResult(array $payload): void {
+		$payload = $this->screenToolDetail(payload: $payload, key: 'result');
 		foreach ($this->toolResultCallbacks as $callback) {
 			$callback($payload);
 		}
 	}//end emitToolResult()
+
+	/**
+	 * Screen what tool-call and tool-result frames show from now on.
+	 *
+	 * The screen receives a frame's `arguments` or `result` and returns what the
+	 * callbacks see instead. The payload is a copy, so the tool still runs with
+	 * its own arguments and the model still reads the real result.
+	 *
+	 * @param callable $screen Function from the value to the value to show.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	public function screenToolDetails(callable $screen): void {
+		$this->toolDetailScreen = $screen(...);
+	}//end screenToolDetails()
+
+	/**
+	 * The payload with its `$key` entry passed through the tool detail screen.
+	 *
+	 * @param array<string, mixed> $payload The frame payload.
+	 * @param string               $key     `arguments` or `result`.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function screenToolDetail(array $payload, string $key): array {
+		if ($this->toolDetailScreen === null || array_key_exists($key, $payload) === false) {
+			return $payload;
+		}
+
+		$payload[$key] = ($this->toolDetailScreen)($payload[$key]);
+
+		return $payload;
+	}//end screenToolDetail()
 
 	/*
 	 * NO HEARTBEAT PUB/SUB HERE, AND THERE CANNOT BE ONE.

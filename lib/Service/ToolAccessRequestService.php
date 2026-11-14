@@ -31,18 +31,20 @@
  *
  * @link https://hermiq.conduction.nl
  *
- * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
+ * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
-use OCP\Notification\IManager as INotificationManager;
 use DateTime;
 use DateTimeImmutable;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
+use OCA\Hermiq\Service\ToolAccess\AccessMatchQuery;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
+use OCP\Notification\IManager as INotificationManager;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -59,7 +61,7 @@ use Throwable;
  *   right move — do it when that provider's constructor is next opened, not by
  *   raising this number again.
  */
-class ToolAccessRequestService {
+class ToolAccessRequestService implements ToolAccessRequestServiceInterface {
 
 	/**
 	 * Matches returned by a single discovery call.
@@ -128,7 +130,7 @@ class ToolAccessRequestService {
 	 *
 	 * @return array<string, mixed> Tool metadata — never anything dispatchable.
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
 	 */
 	public function listAvailable(string $uid, ?string $agentId, string $query = ''): array {
 		$catalog = $this->catalog();
@@ -140,9 +142,11 @@ class ToolAccessRequestService {
 
 		$found = $this->collectMatches(
 			catalog: $catalog,
-			uid: $uid,
-			held: $held,
-			tokens: $this->tokenise(query: $query)
+			query: new AccessMatchQuery(
+				uid: $uid,
+				held: $held,
+				tokens: $this->tokenise(query: $query)
+			)
 		);
 
 		$shown = count($found['tools']);
@@ -211,13 +215,14 @@ class ToolAccessRequestService {
 	 * descriptor for an id wins; they are copies of one another.
 	 *
 	 * @param array<int, array<string, mixed>> $catalog The tool catalogue.
-	 * @param string $uid The acting user.
-	 * @param array<string, mixed> $held The ids the agent already holds.
-	 * @param array<int, string> $tokens The query tokens; [] matches everything.
+	 * @param AccessMatchQuery $query Who asks for tool access, what they hold, and the search terms.
 	 *
 	 * @return array{tools: array<int, array<string, mixed>>, matched: int, distinct: int}
 	 */
-	private function collectMatches(array $catalog, string $uid, array $held, array $tokens): array {
+	private function collectMatches(array $catalog, AccessMatchQuery $query): array {
+		$uid = $query->uid;
+		$held = $query->held;
+		$tokens = $query->tokens;
 		$out = [];
 		$matched = 0;
 		$seen = [];
@@ -343,7 +348,7 @@ class ToolAccessRequestService {
 	 *
 	 * @return array<string, mixed> The pending request, or an error.
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
 	 */
 	public function request(string $uid, ?string $agentId, string $toolId, string $reason): array {
 		if ($agentId === null || $agentId === '') {
@@ -402,7 +407,7 @@ class ToolAccessRequestService {
 	 */
 	private function catalog(): array {
 		try {
-			$facade = $this->container->get('OCA\OpenRegister\Service\Mcp\ToolRegistryFacade');
+			$facade = $this->container->get('OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade');
 
 			return $facade->listTools(toolWhitelist: []);
 		} catch (Throwable $e) {
@@ -447,7 +452,7 @@ class ToolAccessRequestService {
 	 */
 	private function userMaySee(string $uid, string $toolId): bool {
 		$app = $this->appOf(toolId: $toolId);
-		if ($app === '' || $app === Application::APP_ID) {
+		if ($app === '' || $app === AppIdentity::APP_ID) {
 			return true;
 		}
 
@@ -612,7 +617,7 @@ class ToolAccessRequestService {
 	 *
 	 * @return array<int, array<string, mixed>> Pending approvals, oldest first.
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
 	 */
 	public function pendingApprovals(?string $agentId): array {
 		if ($agentId === null || $agentId === '') {
@@ -629,50 +634,151 @@ class ToolAccessRequestService {
 			return [];
 		}
 
+		return $this->collectPendingApprovals(agentId: $agentId);
+
+	}//end pendingApprovals()
+
+	/**
+	 * The agent's pending requests as approvals; a failure part-way is logged and
+	 * keeps the approvals already collected.
+	 *
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return array<int, array<string, string>> The pending approvals.
+	 */
+	private function collectPendingApprovals(string $agentId): array {
 		$out = [];
 		try {
-			$objectService = $this->container->get('OCA\OpenRegister\Service\ObjectService');
-			$results = $objectService->findAll([
-				'filters' => [
-					'register' => self::REGISTER_SLUG,
-					'schema' => self::REQUEST_SCHEMA,
-					'agentId' => $agentId,
-					'status' => 'pending',
-				],
-			]);
-
-			foreach ($results as $row) {
-				$record = $this->asRecord(value: $row);
-				$id = (string)($record['id'] ?? ($record['@self']['id'] ?? ''));
-				$toolId = (string)($record['toolId'] ?? '');
-				if ($id === '' || $toolId === '') {
-					continue;
+			foreach ($this->findPendingRequests(agentId: $agentId) as $row) {
+				$approval = $this->pendingApproval(record: $this->asRecord(value: $row), agentId: $agentId);
+				if ($approval !== null) {
+					$out[] = $approval;
 				}
-
-				$out[] = [
-					'id' => $id,
-					'kind' => 'tool-access',
-					// What the owner is deciding, in their words rather than the
-					// model's: the tool's identity and reach are facts, the
-					// reason beside them is agent-authored.
-					'title' => $toolId,
-					'app' => $this->appOf(toolId: $toolId),
-					'reach' => (string)($record['reach'] ?? 'read'),
-					'reason' => (string)($record['reason'] ?? ''),
-					'agentId' => $agentId,
-					'resolveUrl' => '/index.php/apps/hermiq/api/agents/'
-						. rawurlencode($agentId) . '/tool-access-requests/' . rawurlencode($id),
-				];
 			}
 		} catch (Throwable $e) {
-			$this->logger->warning(
-				'[ToolAccessRequestService] pending approvals lookup failed: ' . $e->getMessage()
-			);
-		}//end try
+			$this->logPendingApprovalsFailure(error: $e);
+		}
 
 		return $out;
 
-	}//end pendingApprovals()
+	}//end collectPendingApprovals()
+
+	/**
+	 * Read the agent's pending request records from OpenRegister.
+	 *
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return array<int, mixed> The request rows.
+	 */
+	private function findPendingRequests(string $agentId): array {
+		$objectService = $this->container->get('OCA\OpenRegister\Service\ObjectService');
+		return $objectService->findAll([
+			'filters' => [
+				'register' => self::REGISTER_SLUG,
+				'schema' => self::REQUEST_SCHEMA,
+				'agentId' => $agentId,
+				'status' => 'pending',
+			],
+		]);
+
+	}//end findPendingRequests()
+
+	/**
+	 * One request record as an approval; a record without an id or a tool yields none.
+	 *
+	 * @param array<string, mixed> $record The request record.
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return array<string, string>|null The approval, or null when the record is skipped.
+	 */
+	private function pendingApproval(array $record, string $agentId): ?array {
+		if ($this->requestIdOf(record: $record) === '' || $this->requestToolOf(record: $record) === '') {
+			return null;
+		}
+
+		return $this->approvalEntry(record: $record, agentId: $agentId);
+
+	}//end pendingApproval()
+
+	/**
+	 * The approval the chat shows for one request record.
+	 *
+	 * @param array<string, mixed> $record The request record (with an id and a tool).
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return array<string, string> The approval.
+	 */
+	private function approvalEntry(array $record, string $agentId): array {
+		$id = $this->requestIdOf(record: $record);
+		$toolId = $this->requestToolOf(record: $record);
+		return [
+			'id' => $id,
+			'kind' => 'tool-access',
+			// What the owner is deciding, in their words rather than the
+			// model's: the tool's identity and reach are facts, the
+			// reason beside them is agent-authored.
+			'title' => $toolId,
+			'toolId' => $toolId,
+			'app' => $this->appOf(toolId: $toolId),
+			'reach' => (string)($record['reach'] ?? 'read'),
+			'reason' => (string)($record['reason'] ?? ''),
+			'agentId' => $agentId,
+			// The tool rides along, so the decision is about the tool shown.
+			'resolveUrl' => $this->resolvePath(agentId: $agentId, requestId: $id) . '?toolId=' . rawurlencode($toolId),
+		];
+
+	}//end approvalEntry()
+
+	/**
+	 * The id of a request record, from the record or its `@self` metadata.
+	 *
+	 * @param array<string, mixed> $record The request record.
+	 *
+	 * @return string The id, or `''`.
+	 */
+	private function requestIdOf(array $record): string {
+		return (string)($record['id'] ?? ($record['@self']['id'] ?? ''));
+
+	}//end requestIdOf()
+
+	/**
+	 * The tool a request record asks for.
+	 *
+	 * @param array<string, mixed> $record The request record.
+	 *
+	 * @return string The tool id, or `''`.
+	 */
+	private function requestToolOf(array $record): string {
+		return (string)($record['toolId'] ?? '');
+
+	}//end requestToolOf()
+
+	/**
+	 * The path the owner posts a decision on one request to.
+	 *
+	 * @param string $agentId The agent UUID.
+	 * @param string $requestId The request id.
+	 *
+	 * @return string The path.
+	 */
+	private function resolvePath(string $agentId, string $requestId): string {
+		return '/index.php/apps/hermiq/api/agents/' . rawurlencode($agentId) . '/tool-access-requests/' . rawurlencode($requestId);
+
+	}//end resolvePath()
+
+	/**
+	 * Log a failed pending approvals lookup.
+	 *
+	 * @param Throwable $error The failure.
+	 *
+	 * @return void
+	 */
+	private function logPendingApprovalsFailure(Throwable $error): void {
+		$this->logger->warning(
+			'[ToolAccessRequestService] pending approvals lookup failed: ' . $error->getMessage()
+		);
+
+	}//end logPendingApprovalsFailure()
 
 	/**
 	 * Whether OpenRegister is installed on this instance.
@@ -710,10 +816,15 @@ class ToolAccessRequestService {
 	private function save(array $data): array {
 		try {
 			$objectService = $this->container->get('OCA\OpenRegister\Service\ObjectService');
+			// System path, system-owned: status, toolId, agentId and requestedBy are
+			// admin-only through the object API, and OpenRegister admits an owner
+			// before every rule, so the requester must not own the request.
 			$saved = $objectService->saveObject(
 				object: $data,
 				register: self::REGISTER_SLUG,
-				schema: self::REQUEST_SCHEMA
+				schema: self::REQUEST_SCHEMA,
+				_rbac: false,
+				_unowned: true
 			);
 
 			return $this->asRecord(value: $saved);
@@ -738,7 +849,7 @@ class ToolAccessRequestService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
 	 */
 	public function notifyOwner(string $agentId, string $toolId, string $subject): void {
 		$agent = $this->loadAgent(agentId: $agentId);
@@ -756,7 +867,7 @@ class ToolAccessRequestService {
 
 		try {
 			$notification = $this->notifications->createNotification();
-			$notification->setApp(Application::APP_ID)
+			$notification->setApp(AppIdentity::APP_ID)
 				->setUser($owner)
 				->setDateTime(new DateTime())
 				->setObject('toolaccess', $agentId . ':' . $toolId)

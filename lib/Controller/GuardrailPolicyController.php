@@ -7,7 +7,7 @@
  * (agent-guardrails): read the caller's effective policy (any authenticated user,
  * to inform the chat UI of which controls are active), list the caller-visible
  * policies, and create/update them. Mirrors
- * `TenantModelPolicyController` exactly — same authorization shape, same
+ * `OrganisationModelPolicyController` exactly — same authorization shape, same
  * effective/index/create/update method split — because this is the same kind of
  * per-organisation governance object (`ObjectEntity.organisation`, `_rbac: false,
  * _multitenancy: false`) with the same admin/owner-gated write surface.
@@ -32,7 +32,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
+ * @spec openspec/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
  */
 
 declare(strict_types=1);
@@ -40,8 +40,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\GuardrailPolicyService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\GuardrailPolicyServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\AppFramework\Controller;
@@ -49,7 +49,6 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IGroupManager;
 use OCP\IRequest;
-use OCP\IUser;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -64,14 +63,14 @@ use Throwable;
  *   (policy service, user session, group manager, org mapper, logger) plus the HTTP
  *   response/exception types every endpoint returns.
  *
- * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
+ * @spec openspec/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
  */
 class GuardrailPolicyController extends Controller {
 	/**
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param GuardrailPolicyService $guardrailPolicy The guardrail-policy read/write path.
+	 * @param GuardrailPolicyServiceInterface $guardrailPolicy The guardrail-policy read/write path.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IGroupManager $groupManager Instance-admin check.
 	 * @param OrganisationMapper $organisationMapper OpenRegister organisation lookup
@@ -81,13 +80,13 @@ class GuardrailPolicyController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly GuardrailPolicyService $guardrailPolicy,
+		private readonly GuardrailPolicyServiceInterface $guardrailPolicy,
 		private readonly IUserSession $userSession,
 		private readonly IGroupManager $groupManager,
 		private readonly OrganisationMapper $organisationMapper,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -100,7 +99,7 @@ class GuardrailPolicyController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
 	 */
 	public function effective(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -110,7 +109,7 @@ class GuardrailPolicyController extends Controller {
 
 		try {
 			$uid = $user->getUID();
-			$organisation = (string)$this->request->getParam('organisation', $this->resolveActiveOrganisation(uid: $uid));
+			$organisation = (string)$this->request->getParam('organisation', $this->policyGate()->activeOrganisation(uid: $uid, logger: $this->logger));
 
 			// The `organisation` parameter OVERRIDES the caller's own, and the
 			// lookup behind it (GuardrailPolicyService::getForOrganisation)
@@ -135,7 +134,7 @@ class GuardrailPolicyController extends Controller {
 			// widening on top of it, and the empty organisation is the instance
 			// default that effectivePolicyFor() falls back to for everyone.
 			$mayRead = ($organisation === ''
-				|| $this->ownsOrganisation(organisation: $organisation, uid: $uid) === true
+				|| $this->policyGate()->ownsOrganisation(organisation: $organisation, uid: $uid) === true
 				|| $this->groupManager->isAdmin($uid) === true);
 
 			if ($mayRead === false) {
@@ -163,7 +162,7 @@ class GuardrailPolicyController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
 	 */
 	public function index(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -172,15 +171,7 @@ class GuardrailPolicyController extends Controller {
 		}
 
 		try {
-			$isAdmin = $this->groupManager->isAdmin($user->getUID());
-
-			$visible = [];
-			foreach ($this->guardrailPolicy->listAll() as $policy) {
-				$organisation = (string)($policy->getOrganisation() ?? '');
-				if ($isAdmin === true || $this->ownsOrganisation(organisation: $organisation, uid: $user->getUID()) === true) {
-					$visible[] = $policy;
-				}
-			}
+			$visible = $this->policyGate()->visiblePolicies(user: $user, listAll: fn (): array => $this->guardrailPolicy->listAll());
 
 			$shaped = array_map(
 				function (ObjectEntity $policy) {
@@ -208,7 +199,7 @@ class GuardrailPolicyController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
 	 */
 	public function create(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -217,7 +208,7 @@ class GuardrailPolicyController extends Controller {
 		}
 
 		$organisation = (string)$this->request->getParam('organisation', '');
-		if ($this->mayAdminister(organisation: $organisation, user: $user) === false) {
+		if ($this->policyGate()->mayAdminister(organisation: $organisation, user: $user) === false) {
 			return new JSONResponse(['error' => 'Forbidden'], Http::STATUS_FORBIDDEN);
 		}
 
@@ -246,7 +237,7 @@ class GuardrailPolicyController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
 	 */
 	public function update(string $policyId): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -260,7 +251,7 @@ class GuardrailPolicyController extends Controller {
 		}
 
 		$organisation = (string)($existing->getOrganisation() ?? '');
-		if ($this->mayAdminister(organisation: $organisation, user: $user) === false) {
+		if ($this->policyGate()->mayAdminister(organisation: $organisation, user: $user) === false) {
 			return new JSONResponse(['error' => 'Forbidden'], Http::STATUS_FORBIDDEN);
 		}
 
@@ -279,78 +270,11 @@ class GuardrailPolicyController extends Controller {
 	}//end update()
 
 	/**
-	 * Whether the user may administer the GuardrailPolicy for the given
-	 * organisation scope. An empty `$organisation` (the instance-wide default) is
-	 * admitted ONLY for an instance admin — there is no "owner" of no
-	 * organisation. A non-empty organisation is admitted for an instance admin OR
-	 * the owner of that OpenRegister organisation.
+	 * Who may read and administer this controller's policies.
 	 *
-	 * @param string $organisation The organisation identifier, or '' for the instance default.
-	 * @param IUser $user The requesting user.
-	 *
-	 * @return bool
-	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
+	 * @return OrganisationPolicyGate The gate over this controller's group manager and organisation mapper.
 	 */
-	private function mayAdminister(string $organisation, IUser $user): bool {
-		$isAdmin = $this->groupManager->isAdmin($user->getUID());
-
-		if ($organisation === '') {
-			return $isAdmin;
-		}
-
-		if ($isAdmin === true) {
-			return true;
-		}
-
-		return $this->ownsOrganisation(organisation: $organisation, uid: $user->getUID());
-	}//end mayAdminister()
-
-	/**
-	 * Whether the given user owns the given OpenRegister organisation.
-	 *
-	 * @param string $organisation The organisation identifier.
-	 * @param string $uid The user id.
-	 *
-	 * @return bool
-	 */
-	private function ownsOrganisation(string $organisation, string $uid): bool {
-		if ($organisation === '') {
-			return false;
-		}
-
-		try {
-			$org = $this->organisationMapper->findByUuid($organisation);
-		} catch (Throwable $e) {
-			return false;
-		}
-
-		return (string)($org->getOwner() ?? '') === $uid;
-	}//end ownsOrganisation()
-
-	/**
-	 * Resolve the calling user's active organisation for the `effective()` read
-	 * (identity from session — no request parameter required). Falls back to ''
-	 * (the instance-wide default scope) when the user has no active/default
-	 * organisation, so the read never errors for a user outside any organisation.
-	 *
-	 * @param string $uid The requesting user's id.
-	 *
-	 * @return string The organisation identifier, or '' when none resolves.
-	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
-	 */
-	private function resolveActiveOrganisation(string $uid): string {
-		try {
-			// OpenRegister's OrganisationMapper declares
-			// getActiveOrganisationWithFallback() on both `main` and
-			// `development`, so the method_exists() probe this replaces could
-			// never be false.
-			return (string)($this->organisationMapper->getActiveOrganisationWithFallback($uid) ?? '');
-		} catch (Throwable $e) {
-			$this->logger->warning('Hermiq could not resolve active organisation: ' . $e->getMessage(), ['exception' => $e]);
-		}
-
-		return '';
-	}//end resolveActiveOrganisation()
+	private function policyGate(): OrganisationPolicyGate {
+		return new OrganisationPolicyGate(groupManager: $this->groupManager, organisationMapper: $this->organisationMapper);
+	}//end policyGate()
 }//end class

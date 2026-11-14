@@ -46,11 +46,14 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\SkillConsolidationServiceInterface;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
-use OCA\OpenRegister\Db\AgentMapper;
+use OCA\Hermiq\Service\SkillConsolidation\DraftEvalSubject;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
@@ -81,7 +84,7 @@ use Throwable;
  *
  * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-proposes-a-draft-version-and-never-edits-the-active-skill
  */
-class SkillConsolidationService {
+class SkillConsolidationService implements SkillConsolidationServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -150,11 +153,31 @@ class SkillConsolidationService {
 	public const STATUS_PROPOSED = 'proposed';
 
 	/**
-	 * Awaiting the human decision on the linked Approval.
+	 * The text fields an edit may replace: edit key => draft field.
 	 *
-	 * @var string
+	 * @var array<string, string>
 	 */
-	public const STATUS_AWAITING_APPROVAL = 'awaiting-approval';
+	private const EDITABLE_TEXT = ['frontmatter' => 'proposedFrontmatter', 'body' => 'proposedBody'];
+
+	/**
+	 * What an edit resets on the draft, besides marking it edited and by whom.
+	 *
+	 * The edit invalidates ALL prior gate evidence — nothing unscanned can be approved
+	 * anywhere; re-qualification re-earns it over the new content. TOCTOU hardening:
+	 * the link to the pre-edit Approval is severed too, so a decision recorded on the
+	 * OLD Approval (raced in around the edit) never applies the edited content; the
+	 * re-qualification pass links a fresh Approval.
+	 *
+	 * @var array<string, mixed>
+	 */
+	private const EDIT_INVALIDATES = [
+		'scanVerdict' => '',
+		'scanReport' => [],
+		'evalEvidence' => [],
+		'noEvalEvidence' => false,
+		'approvalId' => '',
+		'status' => self::STATUS_PROPOSED,
+	];
 
 	/**
 	 * Applied onto the Skill as a new version (terminal).
@@ -195,7 +218,7 @@ class SkillConsolidationService {
 	 * @param SkillLearningsPromotionService $promotionService Learnings grammar owner (entry counting, file name).
 	 * @param SkillLearningsCaptureService $captureService `files` map helpers (fileContent).
 	 * @param ProviderFactory $providerFactory The governed LLM chokepoint (ONE pass per proposal).
-	 * @param ScheduleService $scheduleService Org kill-switch check (same gate as a schedule tick).
+	 * @param TenantKillSwitch $tenantKillSwitch Org kill-switch check (same gate as a schedule tick).
 	 * @param BudgetService $budgetService Budget hard-cap gate (same gate as a schedule tick).
 	 * @param ContentScanService $contentScanService OpenRegister heuristic content scanner.
 	 * @param EvalRunService $evalRunService Paired draft-vs-active comparison (skill-evals seam).
@@ -220,7 +243,7 @@ class SkillConsolidationService {
 		private readonly SkillLearningsPromotionService $promotionService,
 		private readonly SkillLearningsCaptureService $captureService,
 		private readonly ProviderFactory $providerFactory,
-		private readonly ScheduleService $scheduleService,
+		private readonly TenantKillSwitch $tenantKillSwitch,
 		private readonly BudgetService $budgetService,
 		private readonly ContentScanService $contentScanService,
 		private readonly EvalRunService $evalRunService,
@@ -380,7 +403,7 @@ class SkillConsolidationService {
 		$organisation = (string)($skill->getOrganisation() ?? '');
 
 		// GATE — KILL-SWITCH (exactly as a schedule tick / eval run is gated).
-		if ($organisation !== '' && $this->scheduleService->isOrganisationEngaged(organisation: $organisation) === true) {
+		if ($organisation !== '' && $this->tenantKillSwitch->isOrganisationEngaged(organisation: $organisation) === true) {
 			$this->auditSkill(skill: $skill, context: ['transition' => 'blocked', 'reason' => 'killswitch', 'trigger' => $trigger]);
 			return [
 				'created' => false,
@@ -568,7 +591,7 @@ class SkillConsolidationService {
 		}
 
 		if ($dataset !== null) {
-			$evalOutcome = $this->runDraftEval(dataset: $dataset, skill: $skill, data: $data);
+			$evalOutcome = $this->runDraftEval(dataset: $dataset, subject: new DraftEvalSubject(skill: $skill, data: $data));
 			if ($evalOutcome === null) {
 				// Eval engine unavailable / blocked / failed — evidence, not bypass:
 				// persist any scan evidence gathered and stay `proposed`.
@@ -766,46 +789,12 @@ class SkillConsolidationService {
 		}
 
 		$live = $skill->getObject();
-		$payload = $live;
-		$payload['frontmatter'] = (string)($data['proposedFrontmatter'] ?? '');
-		$payload['body'] = (string)($data['proposedBody'] ?? '');
-		$payload['files'] = $this->normalisedFiles(files: ($data['proposedFiles'] ?? []));
-
 		$behindBefore = $this->isBehind(data: $live);
 
-		// Stamp acceptance in the SAME versioned write; the computed-maturity guard
-		// keeps client-forgeable evidence fields at their stored values.
-		$payload['lastAcceptedVersionAt'] = $this->now();
-		$payload = $this->maturityService->preserveComputedFields(incoming: $payload, stored: $live);
-		unset($payload['id'], $payload['uuid'], $payload['@self']);
-
-		$this->objectService->saveObject(
-			object: $payload,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: $skillId,
-			_rbac: false,
-			_multitenancy: false
-		);
+		$this->writeDraftOntoSkill(draftData: $data, live: $live);
 
 		$versionId = (string)($this->versionService->currentVersionId(skillUuid: $skillId) ?? '');
-
-		$data['status'] = self::STATUS_ACCEPTED;
-		$data['decidedBy'] = $deciderUid;
-		$data['decidedAt'] = $this->now();
-		$data['auditNote'] = 'Accepted — applied as skill version ' . $versionId . '.';
-
-		$draft = $this->persistDraft(data: $data, uuid: (string)$draft->getUuid(), owner: (string)($draft->getOwner() ?? ''));
-
-		$this->auditDraft(
-			draft: $draft,
-			context: [
-				'transition' => self::STATUS_ACCEPTED,
-				'actor' => $deciderUid,
-				'versionId' => $versionId,
-				'editedBeforeAccept' => (bool)($data['editedBeforeAccept'] ?? false),
-			]
-		);
+		$this->recordAcceptance(draft: $draft, decision: ['data' => $data, 'decider' => $deciderUid, 'versionId' => $versionId]);
 
 		// Republish signal: notify the publisher once per NEWLY-behind transition —
 		// acceptance always postdates publishedAt, so "newly" means it was not
@@ -820,6 +809,73 @@ class SkillConsolidationService {
 
 		return $versionId;
 	}//end applyDraft()
+
+	/**
+	 * Write a draft's proposed content onto its skill through the versioned write path.
+	 *
+	 * The payload starts from the live skill and replaces only `frontmatter`/`body`/
+	 * `files`, stamps `lastAcceptedVersionAt`, and keeps the computed maturity fields
+	 * at their stored values.
+	 *
+	 * @param array<string, mixed> $draftData The draft payload (its `skillId` names the skill).
+	 * @param array<string, mixed> $live The live skill payload.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
+	 */
+	private function writeDraftOntoSkill(array $draftData, array $live): void {
+		$payload = $live;
+		$payload['frontmatter'] = (string)($draftData['proposedFrontmatter'] ?? '');
+		$payload['body'] = (string)($draftData['proposedBody'] ?? '');
+		$payload['files'] = $this->normalisedFiles(files: ($draftData['proposedFiles'] ?? []));
+
+		// Stamp acceptance in the SAME versioned write; the computed-maturity guard
+		// keeps client-forgeable evidence fields at their stored values.
+		$payload['lastAcceptedVersionAt'] = $this->now();
+		$payload = $this->maturityService->preserveComputedFields(incoming: $payload, stored: $live);
+		unset($payload['id'], $payload['uuid'], $payload['@self']);
+
+		$this->objectService->saveObject(
+			object: $payload,
+			register: self::REGISTER_SLUG,
+			schema: self::SKILL_SCHEMA,
+			uuid: (string)($draftData['skillId'] ?? ''),
+			_rbac: false,
+			_multitenancy: false
+		);
+	}//end writeDraftOntoSkill()
+
+	/**
+	 * Mark a draft accepted by its decider and audit the transition.
+	 *
+	 * @param ObjectEntity $draft The draft.
+	 * @param array{data: array<string, mixed>, decider: string, versionId: string} $decision The draft payload, the approving
+	 *                                                                                       uid and the applied version id.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-every-draft-state-transition-is-audited
+	 */
+	private function recordAcceptance(ObjectEntity $draft, array $decision): void {
+		$data = $decision['data'];
+		$data['status'] = self::STATUS_ACCEPTED;
+		$data['decidedBy'] = $decision['decider'];
+		$data['decidedAt'] = $this->now();
+		$data['auditNote'] = 'Accepted — applied as skill version ' . $decision['versionId'] . '.';
+
+		$draft = $this->persistDraft(data: $data, uuid: (string)$draft->getUuid(), owner: (string)($draft->getOwner() ?? ''));
+
+		$this->auditDraft(
+			draft: $draft,
+			context: [
+				'transition' => self::STATUS_ACCEPTED,
+				'actor' => $decision['decider'],
+				'versionId' => $decision['versionId'],
+				'editedBeforeAccept' => (bool)($data['editedBeforeAccept'] ?? false),
+			]
+		);
+	}//end recordAcceptance()
 
 	/**
 	 * Reconcile a draft to `rejected` — fired by the linked Approval's `denied`
@@ -926,9 +982,8 @@ class SkillConsolidationService {
 	 * `isDraftApprovable()` gate every approve path consults).
 	 *
 	 * @param ObjectEntity $draft The draft in `awaiting-approval`.
-	 * @param string|null $frontmatter Replacement frontmatter (null = keep).
-	 * @param string|null $body Replacement body (null = keep).
-	 * @param array<int, mixed>|null $files Replacement files (null = keep).
+	 * @param array<string, mixed> $replacement `frontmatter` and `body` (strings) and `files` (a list);
+	 *                                          a missing or other-typed value keeps the current one.
 	 * @param string $editorUid The editing reviewer's uid.
 	 *
 	 * @return ObjectEntity The draft after re-qualification ran.
@@ -937,46 +992,29 @@ class SkillConsolidationService {
 	 *
 	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
 	 */
-	public function editDraftContent(
-		ObjectEntity $draft,
-		?string $frontmatter,
-		?string $body,
-		?array $files,
-		string $editorUid,
-	): ObjectEntity {
+	public function editDraftContent(ObjectEntity $draft, array $replacement, string $editorUid): ObjectEntity {
 		$data = $draft->getObject();
 		if ((string)($data['status'] ?? '') !== self::STATUS_AWAITING_APPROVAL) {
 			throw new InvalidArgumentException('Only a draft awaiting approval can be edited.');
 		}
 
-		if ($frontmatter !== null) {
-			$data['proposedFrontmatter'] = $frontmatter;
-		}
-
-		if ($body !== null) {
-			$data['proposedBody'] = $body;
-		}
-
-		if ($files !== null) {
-			$data['proposedFiles'] = $this->normalisedFiles(files: $files);
-		}
-
-		// The edit invalidates ALL prior gate evidence — nothing unscanned can be
-		// approved anywhere; re-qualification below re-earns it over the new content.
-		$data['editedBeforeAccept'] = true;
-		$data['editedBy'] = $editorUid;
-		$data['scanVerdict'] = '';
-		$data['scanReport'] = [];
-		$data['evalEvidence'] = [];
-		$data['noEvalEvidence'] = false;
-		// TOCTOU hardening: sever the link to the pre-edit Approval too — a decision
-		// recorded on the OLD Approval (raced in around the edit) must never apply
-		// the edited content; the re-qualification pass links a fresh Approval.
-		$data['approvalId'] = '';
-		$data['status'] = self::STATUS_PROPOSED;
-
+		$data = $this->withReplacedContent(data: $data, replacement: $replacement);
+		$data = array_merge($data, ['editedBeforeAccept' => true, 'editedBy' => $editorUid], self::EDIT_INVALIDATES);
 		$draft = $this->persistDraft(data: $data, uuid: (string)$draft->getUuid(), owner: (string)($draft->getOwner() ?? ''));
+		$this->auditEdit(draft: $draft, editorUid: $editorUid);
 
+		return $this->prequalifyDraft(draft: $draft);
+	}//end editDraftContent()
+
+	/**
+	 * Record the edit-before-accept on the draft's audit trail.
+	 *
+	 * @param ObjectEntity $draft The edited draft, as stored.
+	 * @param string $editorUid The editing reviewer's uid.
+	 *
+	 * @return void
+	 */
+	private function auditEdit(ObjectEntity $draft, string $editorUid): void {
 		$this->auditDraft(
 			draft: $draft,
 			context: [
@@ -985,9 +1023,29 @@ class SkillConsolidationService {
 				'note' => 'Content edited before accept — scan and eval evidence invalidated; re-qualification required.',
 			]
 		);
+	}//end auditEdit()
 
-		return $this->prequalifyDraft(draft: $draft);
-	}//end editDraftContent()
+	/**
+	 * A draft payload with the proposed content replaced where the edit supplies it.
+	 *
+	 * @param array<string, mixed> $data The draft payload.
+	 * @param array<string, mixed> $replacement The edit: `frontmatter`/`body` strings, a `files` list.
+	 *
+	 * @return array<string, mixed> The payload with the supplied content in place.
+	 */
+	private function withReplacedContent(array $data, array $replacement): array {
+		foreach (self::EDITABLE_TEXT as $key => $field) {
+			if (is_string($replacement[$key] ?? null) === true) {
+				$data[$field] = $replacement[$key];
+			}
+		}
+
+		if (is_array($replacement['files'] ?? null) === true) {
+			$data['proposedFiles'] = $this->normalisedFiles(files: $replacement['files']);
+		}
+
+		return $data;
+	}//end withReplacedContent()
 
 	/**
 	 * Idempotently reconcile a draft whose linked Approval was decided on a surface
@@ -1206,7 +1264,7 @@ class SkillConsolidationService {
 	 */
 	public function threshold(): int {
 		return $this->appConfig->getValueInt(
-			Application::APP_ID,
+			AppIdentity::APP_ID,
 			self::THRESHOLD_KEY,
 			self::DEFAULT_LEARNINGS_THRESHOLD
 		);
@@ -1240,14 +1298,15 @@ class SkillConsolidationService {
 	 * agent, gates blocked, infra failure) — fail closed, the draft stays `proposed`.
 	 *
 	 * @param ObjectEntity $dataset The linked EvalDataset.
-	 * @param ObjectEntity $skill The skill under comparison.
-	 * @param array<string, mixed> $data The draft payload (proposed content source).
+	 * @param DraftEvalSubject $subject The skill and draft content an eval runs against.
 	 *
 	 * @return array<string, mixed>|null The `evalEvidence` map, or null.
 	 *
 	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-a-paired-draft-vs-active-eval-gates-the-draft-and-a-worse-draft-is-auto-discarded
 	 */
-	private function runDraftEval(ObjectEntity $dataset, ObjectEntity $skill, array $data): ?array {
+	private function runDraftEval(ObjectEntity $dataset, DraftEvalSubject $subject): ?array {
+		$skill = $subject->skill;
+		$data = $subject->data;
 		$agent = $this->resolveEvalAgent(skill: $skill);
 		if ($agent === null) {
 			$this->logger->info(
@@ -1305,11 +1364,11 @@ class SkillConsolidationService {
 	 *
 	 * @param ObjectEntity $skill The skill.
 	 *
-	 * @return \OCA\OpenRegister\Db\Agent|null The agent, or null.
+	 * @return \OCA\OpenRegister\Mcp\Db\Agent|null The agent, or null.
 	 *
 	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-a-paired-draft-vs-active-eval-gates-the-draft-and-a-worse-draft-is-auto-discarded
 	 */
-	private function resolveEvalAgent(ObjectEntity $skill): ?\OCA\OpenRegister\Db\Agent {
+	private function resolveEvalAgent(ObjectEntity $skill): ?\OCA\OpenRegister\Mcp\Db\Agent {
 		$installed = ($skill->getObject()['installedOn'] ?? []);
 		if (is_array($installed) === false) {
 			return null;
@@ -1878,10 +1937,12 @@ class SkillConsolidationService {
 	private function auditDraft(ObjectEntity $draft, array $context): void {
 		try {
 			$context['at'] = $this->now();
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $draft,
-				action: self::AUDIT_ACTION,
-				context: $context
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $draft,
+					action: self::AUDIT_ACTION,
+					context: $context
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(
@@ -1908,10 +1969,12 @@ class SkillConsolidationService {
 	private function auditSkill(ObjectEntity $skill, array $context): void {
 		try {
 			$context['at'] = $this->now();
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $skill,
-				action: self::AUDIT_ACTION,
-				context: $context
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $skill,
+					action: self::AUDIT_ACTION,
+					context: $context
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(
@@ -1938,17 +2001,19 @@ class SkillConsolidationService {
 	 */
 	private function recordConsolidationUsage(ObjectEntity $draft, string $prompt, string $response): void {
 		try {
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $draft,
-				action: 'run',
-				context: [
-					'status' => 'consolidation',
-					'usage' => [
-						'promptTokens' => (int)ceil(strlen($prompt) / self::CHARS_PER_TOKEN),
-						'completionTokens' => (int)ceil(strlen($response) / self::CHARS_PER_TOKEN),
-					],
-					'summary' => 'Skill consolidation LLM pass (skill-self-improvement).',
-				]
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $draft,
+					action: 'run',
+					context: [
+						'status' => 'consolidation',
+						'usage' => [
+							'promptTokens' => (int)ceil(strlen($prompt) / self::CHARS_PER_TOKEN),
+							'completionTokens' => (int)ceil(strlen($response) / self::CHARS_PER_TOKEN),
+						],
+						'summary' => 'Skill consolidation LLM pass (skill-self-improvement).',
+					]
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(

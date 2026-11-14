@@ -20,7 +20,7 @@
   - distinguishable in the surface, and a reply produced with no context is marked
   - as not grounded in the object rather than presented as if it were.
   -
-  - @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-object-scoped-agent-chat-reuses-the-tool-free-surface
+  - @spec openspec/specs/agent-object-leaf/spec.md#requirement-object-scoped-agent-chat-reuses-the-tool-free-surface
   - @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-declarative-bounded-agent-context-allowlist
 -->
 <template>
@@ -29,7 +29,7 @@
 			{{ t('hermiq', 'The agent assistant is not available on this object.') }}
 		</NcNoteCard>
 
-		<div v-else class="cn-agent-chat-tab__conversation">
+		<div v-else class="cn-agent-chat-tab__session">
 			<NcNoteCard
 				v-if="contextResolved && !hasBoundedContext"
 				type="warning"
@@ -77,6 +77,22 @@
 				</li>
 			</ul>
 
+			<div
+				v-if="readyMadePrompts.length > 0"
+				class="cn-agent-chat-tab__prompts"
+				role="group"
+				:aria-label="t('hermiq', 'Ready-made prompts')"
+				data-testid="cn-agent-chat-tab-prompts">
+				<NcButton
+					v-for="prompt in readyMadePrompts"
+					:key="prompt.id"
+					variant="tertiary"
+					:disabled="sending"
+					@click="pickPrompt(prompt)">
+					{{ prompt.label }}
+				</NcButton>
+			</div>
+
 			<form class="cn-agent-chat-tab__composer" @submit.prevent="send">
 				<NcTextArea
 					v-model="draft"
@@ -109,6 +125,7 @@ import { translate as t } from '@nextcloud/l10n'
 import { generateUrl } from '@nextcloud/router'
 import { NcButton, NcLoadingIcon, NcNoteCard, NcTextArea } from '@nextcloud/vue'
 import { buildAgentContext } from '../../utils/agentContext.js'
+import { loadReadyMadePrompts, withPrompt } from '../../utils/readyMadePrompts.js'
 
 export default {
 	name: 'CnAgentChatTab',
@@ -137,6 +154,8 @@ export default {
 			// so the "no context" notice never flashes during the initial load and
 			// is never shown for an object that simply has not been read yet.
 			contextResolved: false,
+			// record-chat-ready-made-prompts: the library's prompts for this record type.
+			readyMadePrompts: [],
 		}
 	},
 
@@ -168,6 +187,10 @@ export default {
 	methods: {
 		t,
 		/**
+		 * The label shown beside a turn, from its role.
+		 *
+		 * @param {string} role The turn's role, 'user' or otherwise.
+		 * @return {string} The translated label.
 		 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-the-user-is-told-the-object-contributed-no-context
 		 */
 		roleLabel(role) {
@@ -185,10 +208,25 @@ export default {
 			this.unavailable = false
 			this.boundedContext = {}
 			this.contextResolved = false
+			this.readyMadePrompts = []
 			if (this.objectId === '') {
 				return
 			}
 			await this.loadBoundedContext()
+			this.readyMadePrompts = await loadReadyMadePrompts(
+				this.objectType || this.schema,
+			)
+		},
+
+		/**
+		 * Put a ready-made prompt's text in the message box. It is not sent: the
+		 * person reads it, may change it, and sends it.
+		 *
+		 * @param {{prompt: string}} prompt The picked prompt.
+		 * @spec openspec/specs/ai-feature-admin-surface/spec.md#requirement-the-record-chat-offers-the-ready-made-prompts-for-its-record-type-req-rcprompt-001
+		 */
+		pickPrompt(prompt) {
+			this.draft = withPrompt(this.draft, prompt.prompt)
 		},
 
 		/**
@@ -268,6 +306,24 @@ export default {
 			this.messages.push({ role: 'user', text: message })
 			this.draft = ''
 
+			try {
+				await this.takeReply(await this.postConverse(this.conversePayload(message)))
+			} catch (e) {
+				this.error = t('hermiq', 'The agent service is unreachable.')
+			} finally {
+				this.sending = false
+			}
+		},
+
+		/**
+		 * The converse request for one message: the message, the object it is
+		 * about, and the session it continues.
+		 *
+		 * @param {string} message The trimmed message.
+		 * @return {object} The payload.
+		 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-the-user-is-told-the-object-contributed-no-context
+		 */
+		conversePayload(message) {
 			const payload = {
 				message,
 				context: {
@@ -280,43 +336,56 @@ export default {
 			if (this.sessionId) {
 				payload.sessionId = this.sessionId
 			}
+			return payload
+		},
 
-			try {
-				const res = await fetch(
-					generateUrl('/apps/hermiq/api/assistant/converse'),
-					{
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json',
-							requesttoken: getRequestToken(),
-						},
-						body: JSON.stringify(payload),
+		/**
+		 * POST a converse request.
+		 *
+		 * @param {object} payload The payload.
+		 * @return {Promise<Response>} The response.
+		 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-the-user-is-told-the-object-contributed-no-context
+		 */
+		postConverse(payload) {
+			return fetch(
+				generateUrl('/apps/hermiq/api/assistant/converse'),
+				{
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						requesttoken: getRequestToken(),
 					},
-				)
-				const body = await res.json()
-				if (res.status === 503) {
-					this.unavailable = true
-					return
-				}
-				if (!res.ok) {
-					this.error =
-						body?.message || t('hermiq', 'The agent could not answer.')
-					return
-				}
-				this.sessionId = body?.sessionId || this.sessionId
-				// Carry the grounding fact onto the reply itself, not just onto the
-				// tab: a reply scrolled away from the notice must still be readable
-				// as ungrounded.
-				this.messages.push({
-					role: 'agent',
-					text: body?.reply || '',
-					grounded: this.hasBoundedContext,
-				})
-			} catch (e) {
-				this.error = t('hermiq', 'The agent service is unreachable.')
-			} finally {
-				this.sending = false
+					body: JSON.stringify(payload),
+				},
+			)
+		},
+
+		/**
+		 * Land the converse answer on the tab: an unavailable agent, a refusal, or
+		 * the reply. The reply carries the grounding fact itself, not just the tab:
+		 * a reply scrolled away from the notice must still be readable as
+		 * ungrounded.
+		 *
+		 * @param {Response} res The converse response.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-the-user-is-told-the-object-contributed-no-context
+		 */
+		async takeReply(res) {
+			const body = await res.json()
+			if (res.status === 503) {
+				this.unavailable = true
+				return
 			}
+			if (!res.ok) {
+				this.error = body?.message || t('hermiq', 'The agent could not answer.')
+				return
+			}
+			this.sessionId = body?.sessionId || this.sessionId
+			this.messages.push({
+				role: 'agent',
+				text: body?.reply || '',
+				grounded: this.hasBoundedContext,
+			})
 		},
 	},
 }
@@ -372,6 +441,12 @@ export default {
 	font-size: 0.8em;
 	font-style: italic;
 	color: var(--color-text-maxcontrast);
+}
+
+.cn-agent-chat-tab__prompts {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
 }
 
 .cn-agent-chat-tab__composer {

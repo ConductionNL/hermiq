@@ -1,0 +1,6 @@
+- [x] T01 The first turn of a new session stores `metadata.subject` from a page context that names `objectUuid` (stream and non-streaming send)
+- [x] T02 `SessionController::index` takes `subject`, filters the readable sessions on `metadata.subject.objectUuid`, and sorts by last activity when it is given
+- [x] T03 `serializeConversation` returns `subject`
+- [x] T04 `SessionController::messages` returns `pendingApprovals` for the session's agent
+- [x] T05 PHPUnit, red first: subject recorded on the first turn and kept after; filter returns only the caller's sessions about the record; another user's session about the record is not listed; messages carry the pending approvals; no agent gives an empty list
+- [x] T06 Example-set fragment: a session about a demo case with a question, an answer and one pending approval

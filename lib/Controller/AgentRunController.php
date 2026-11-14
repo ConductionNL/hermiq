@@ -47,20 +47,20 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-scoped-run-on-object-endpoint
+ * @spec openspec/specs/agent-object-leaf/spec.md#requirement-scoped-run-on-object-endpoint
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\Agent\AgentContextBuilder;
-use OCA\OpenRegister\Db\Agent;
-use OCA\OpenRegister\Db\AgentMapper;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AgentContextBuilderInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\SchemaMapper;
 use OCA\OpenRegister\Event\AgentRunRequestedEvent;
+use OCA\OpenRegister\Mcp\Db\Agent;
+use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -81,7 +81,7 @@ use Throwable;
  *   collaborators (object/schema resolution, agent resolution, context building,
  *   event dispatch) — DI wiring, not logic-bearing coupling.
  *
- * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-scoped-run-on-object-endpoint
+ * @spec openspec/specs/agent-object-leaf/spec.md#requirement-scoped-run-on-object-endpoint
  */
 class AgentRunController extends Controller {
 
@@ -100,7 +100,7 @@ class AgentRunController extends Controller {
 	 * @param AgentMapper $agentMapper Resolves + validates the named agent (mirrors
 	 *                                 FlowAgentRunService::resolveAgent()).
 	 * @param SchemaMapper $schemaMapper Resolves the target schema to read its context allowlist.
-	 * @param AgentContextBuilder $contextBuilder Builds the bounded, fail-closed prompt context.
+	 * @param AgentContextBuilderInterface $contextBuilder Builds the bounded, fail-closed prompt context.
 	 * @param IEventDispatcher $eventDispatcher Dispatches the governed AgentRunRequestedEvent recipe.
 	 * @param IUserSession $userSession The requesting user (authentication).
 	 * @param IL10N $l10n Localisation.
@@ -114,13 +114,13 @@ class AgentRunController extends Controller {
 		private readonly ObjectService $objectService,
 		private readonly AgentMapper $agentMapper,
 		private readonly SchemaMapper $schemaMapper,
-		private readonly AgentContextBuilder $contextBuilder,
+		private readonly AgentContextBuilderInterface $contextBuilder,
 		private readonly IEventDispatcher $eventDispatcher,
 		private readonly IUserSession $userSession,
 		private readonly IL10N $l10n,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -135,9 +135,9 @@ class AgentRunController extends Controller {
 	 *                      required field; 404 when the object is not readable in the caller's
 	 *                      scope or the agent cannot be resolved.
 	 *
-	 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-scoped-run-on-object-endpoint
-	 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-run-on-object-authorization-is-object-permission-scoped
-	 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-run-on-object-rides-the-existing-governed-recipe
+	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-scoped-run-on-object-endpoint
+	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-run-on-object-authorization-is-object-permission-scoped
+	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-run-on-object-rides-the-existing-governed-recipe
 	 */
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
@@ -249,7 +249,7 @@ class AgentRunController extends Controller {
 	 *
 	 * @return ObjectEntity|null The object, or null when not readable / not found.
 	 *
-	 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-run-on-object-authorization-is-object-permission-scoped
+	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-run-on-object-authorization-is-object-permission-scoped
 	 */
 	private function resolveReadableObject(string $register, string $schema, string $objectId): ?ObjectEntity {
 		try {
@@ -291,8 +291,8 @@ class AgentRunController extends Controller {
 	 *
 	 * @return Agent|null The resolved, caller-accessible agent, or null.
 	 *
-	 * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-1-3
-	 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-run-on-object-authorization-is-object-permission-scoped
+	 * @spec openspec/changes/archive/2026-09-06-hermiq-agent-leaf/tasks.md#task-1-3
+	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-run-on-object-authorization-is-object-permission-scoped
 	 */
 	private function resolveAccessibleAgent(string $ref, string $userId): ?Agent {
 		if ($ref === '' || $userId === '') {
@@ -325,7 +325,7 @@ class AgentRunController extends Controller {
 	 *
 	 * @return array<string,mixed> The bounded context.
 	 *
-	 * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-1-4
+	 * @spec openspec/changes/archive/2026-09-06-hermiq-agent-leaf/tasks.md#task-1-4
 	 */
 	private function buildBoundedContext(ObjectEntity $object, string $schemaRef): array {
 		$configuration = [];
@@ -350,7 +350,7 @@ class AgentRunController extends Controller {
 	 *
 	 * @return string The prompt handed to the governed run.
 	 *
-	 * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-1-4
+	 * @spec openspec/changes/archive/2026-09-06-hermiq-agent-leaf/tasks.md#task-1-4
 	 */
 	private function renderPrompt(string $prompt, array $context): string {
 		if ($context === []) {
@@ -380,7 +380,7 @@ class AgentRunController extends Controller {
 	 *
 	 * @return bool True when the agent's policy requires approval.
 	 *
-	 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-run-on-object-rides-the-existing-governed-recipe
+	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-run-on-object-rides-the-existing-governed-recipe
 	 */
 	private function agentRequiresApproval(Agent $agent): bool {
 		$configuration = ($agent->getConfiguration() ?? []);
@@ -394,7 +394,7 @@ class AgentRunController extends Controller {
 	 *
 	 * @return string|null The trimmed value, or null when absent/empty.
 	 *
-	 * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-hermiq-agent-leaf/tasks.md#task-1-1
 	 */
 	private function optionalString(string $param): ?string {
 		$value = $this->request->getParam($param);

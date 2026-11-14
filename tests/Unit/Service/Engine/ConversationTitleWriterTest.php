@@ -451,6 +451,43 @@ class ConversationTitleWriterTest extends TestCase {
 	}//end testTheLowercasePlaceholderIsRecognisedAsUntitled()
 
 	/**
+	 * The current placeholder is recognised too.
+	 *
+	 * The create path writes `New session` since the session rename. The older
+	 * `New conversation` rows keep their own test above, and both must pass: a
+	 * check that recognised only one spelling would leave the other set of
+	 * sessions permanently unnamed, and nothing about a row renders differently
+	 * when that happens.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
+	 */
+	public function testTheSessionPlaceholderIsRecognisedAsUntitled(): void {
+		$conversation = $this->conversation(
+			payload: [
+				'title' => 'New session',
+				'userId' => 'alice',
+			]
+		);
+
+		$objectService = $this->objectService(conversation: $conversation);
+		$objectService->expects($this->once())->method('saveObject')->willReturn(new ObjectEntity());
+
+		$handler = $this->createMock(originalClassName: ConversationManagementHandler::class);
+		$handler->expects($this->once())->method('generateConversationTitle')->willReturn('Leave policy');
+		$handler->method('ensureUniqueTitle')->willReturn('Leave policy');
+
+		$this->writer(objectService: $objectService, handler: $handler)->write(
+			conversationId: 'conv-1',
+			userMessage: 'What is our leave policy?',
+			userId: 'alice'
+		);
+
+	}//end testTheSessionPlaceholderIsRecognisedAsUntitled()
+
+
+	/**
 	 * A failed generation leaves the placeholder and does not throw.
 	 *
 	 * The reply has already been delivered; a naming hiccup must not surface as a
@@ -507,4 +544,91 @@ class ConversationTitleWriterTest extends TestCase {
 		$this->addToAssertionCount(1);
 
 	}//end testAMissingConversationIsANoOp()
+	/**
+	 * A conversation deleted before the job ran is left alone: nothing is
+	 * generated, nothing is written, and the session is still released.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
+	 */
+	public function testAConversationGoneBeforeTheJobIsLeftAlone(): void {
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('find')->willThrowException(new RuntimeException('not found'));
+		$objectService->expects($this->never())->method('saveObject');
+
+		$handler = $this->createMock(ConversationManagementHandler::class);
+		$handler->expects($this->never())->method('generateConversationTitle');
+
+		$this->writer($objectService, $handler)->write(
+			conversationId: 'conv-1',
+			userMessage: 'What is our leave policy?',
+			userId: 'alice'
+		);
+
+		$this->assertSame(['setUser:alice', 'setUser:null'], $this->calls);
+	}//end testAConversationGoneBeforeTheJobIsLeftAlone()
+
+	/**
+	 * A conversation with an empty title wants one, and gets the generated
+	 * title written with the rest of its object kept.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
+	 */
+	public function testAnEmptyTitleIsGenerated(): void {
+		$objectService = $this->objectService(
+			$this->conversation(['title' => '', 'userId' => 'alice', 'summary' => 'kept'])
+		);
+		$saved = [];
+		$objectService->method('saveObject')->willReturnCallback(
+			function (...$args) use (&$saved): ObjectEntity {
+				$saved[] = ($args['object'] ?? $args[0]);
+				return new ObjectEntity();
+			}
+		);
+
+		$handler = $this->createMock(ConversationManagementHandler::class);
+		$handler->expects($this->once())->method('generateConversationTitle')->willReturn('Leave policy');
+		$handler->expects($this->never())->method('ensureUniqueTitle');
+
+		$this->writer($objectService, $handler)->write(
+			conversationId: 'conv-1',
+			userMessage: 'What is our leave policy?',
+			userId: 'alice'
+		);
+
+		$this->assertCount(1, $saved);
+		$this->assertSame('Leave policy', $saved[0]['title']);
+		$this->assertSame('kept', $saved[0]['summary']);
+	}//end testAnEmptyTitleIsGenerated()
+
+	/**
+	 * A conversation whose read throws (deleted, or no longer readable) is a
+	 * no-op too, and the owner's session is still released.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
+	 */
+	public function testAConversationThatCannotBeReadIsANoOp(): void {
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->expects($this->once())->method('find')
+			->with('gone', [], false, 'hermiq', 'agentsession')
+			->willThrowException(new \RuntimeException('Object not found'));
+		$objectService->expects($this->never())->method('saveObject');
+
+		$handler = $this->createMock(ConversationManagementHandler::class);
+		$handler->expects($this->never())->method('generateConversationTitle');
+
+		$this->writer($objectService, $handler)->write(
+			conversationId: 'gone',
+			userMessage: 'anything',
+			userId: 'alice'
+		);
+
+		$this->assertSame(['setUser:alice', 'setUser:null'], $this->calls);
+
+	}//end testAConversationThatCannotBeReadIsANoOp()
 }//end class

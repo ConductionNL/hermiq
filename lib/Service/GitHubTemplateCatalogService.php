@@ -49,6 +49,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\GitHubTemplateCatalogServiceInterface;
+use OCA\Hermiq\Service\Connection\ConnectionReporter;
 use OCP\Http\Client\IClientService;
 use OCP\ICache;
 use OCP\ICacheFactory;
@@ -70,27 +72,13 @@ use Throwable;
  *
  * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
  */
-class GitHubTemplateCatalogService {
+class GitHubTemplateCatalogService implements GitHubTemplateCatalogServiceInterface {
 	/**
 	 * The fixed GitHub API host — compile-time constant, no SSRF surface.
 	 *
 	 * @var string
 	 */
 	private const API_BASE = 'https://api.github.com';
-
-	/**
-	 * The `AgentTemplate` kind — the original (and default) discovery kind.
-	 *
-	 * @var string
-	 */
-	public const KIND_AGENT_TEMPLATE = 'agent-template';
-
-	/**
-	 * The `Skill` kind (hermiq-github-store) — agentskills.io packages.
-	 *
-	 * @var string
-	 */
-	public const KIND_SKILL = 'skill';
 
 	/**
 	 * Per-kind discovery topic (hermiq-github-store: generalised from the single
@@ -250,18 +238,18 @@ class GitHubTemplateCatalogService {
 	public const OUTCOME_RATE_LIMITED = 'github_rate_limited';
 
 	/**
-	 * Outcome: transport failure / non-2xx that is not a rate limit.
-	 *
-	 * @var string
-	 */
-	public const OUTCOME_UNREACHABLE = 'github_unreachable';
-
-	/**
 	 * The distributed cache, or null when no cache backend is available.
 	 *
 	 * @var ICache|null
 	 */
 	private readonly ?ICache $cache;
+
+	/**
+	 * Reader over the GitHub response bodies (no outbound calls).
+	 *
+	 * @var GitHubCatalogPayload
+	 */
+	private readonly GitHubCatalogPayload $payload;
 
 	/**
 	 * Constructor.
@@ -273,6 +261,9 @@ class GitHubTemplateCatalogService {
 	 * @param ContainerInterface|null $container The app container the optional cross-app
 	 *                                           classes are resolved from; null when the
 	 *                                           class is built by hand in a test.
+	 * @param ConnectionReporter|null $connectionReporter Tells integriq's connection registry what a
+	 *                                                    live store search met; null when built by
+	 *                                                    hand in a test.
 	 */
 	public function __construct(
 		private readonly IClientService $clientService,
@@ -280,6 +271,7 @@ class GitHubTemplateCatalogService {
 		private readonly LoggerInterface $logger,
 		private readonly GitHubArchiveExtractor $archiveExtractor,
 		private readonly ?ContainerInterface $container = null,
+		private readonly ?ConnectionReporter $connectionReporter = null,
 	) {
 		$cache = null;
 		if ($cacheFactory->isAvailable() === true) {
@@ -287,6 +279,7 @@ class GitHubTemplateCatalogService {
 		}
 
 		$this->cache = $cache;
+		$this->payload = new GitHubCatalogPayload();
 	}//end __construct()
 
 	/**
@@ -344,76 +337,123 @@ class GitHubTemplateCatalogService {
 	 *
 	 * @return array{outcome:string,cards:array<int,array<string,mixed>>,brokerUsed:bool,rateLimited:bool}
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Cache hit, rate-limit/unreachable
-	 *   degradation and card filtering are the spec's own outcome branches, kept in
-	 *   one linear search path.
-	 *
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-degrade-gracefully-when-github-is-rate-limited-or-unreachable
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 */
 	public function search(?string $query, ?string $actingUserId, ?string $credentialId = null, string $kind = self::KIND_AGENT_TEMPLATE): array {
-		$term = trim((string)$query);
-		$normalise = strtolower($term);
-		$cacheKey = 'search:' . $kind . ':' . md5($normalise . '|' . ((string)$credentialId));
+		$search = new CatalogSearch(kind: $kind, caller: new CatalogCaller(actingUserId: $actingUserId, credentialId: $credentialId));
 
+		return $this->searchCatalog(term: trim((string)$query), search: $search);
+	}//end search()
+
+	/**
+	 * Answer a search from the cache, or from GitHub and cache the answer.
+	 *
+	 * @param string        $term   The trimmed free-text term, '' for none.
+	 * @param CatalogSearch $search The search.
+	 *
+	 * @return array{outcome:string,cards:array<int,array<string,mixed>>,brokerUsed:bool,rateLimited:bool}
+	 *
+	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-degrade-gracefully-when-github-is-rate-limited-or-unreachable
+	 */
+	private function searchCatalog(string $term, CatalogSearch $search): array {
+		$cacheKey = $this->searchCacheKey(term: $term, search: $search);
 		$cached = $this->cacheGet(key: $cacheKey);
 		if (is_array($cached) === true) {
 			return $cached;
 		}
 
-		$queryString = $this->topicFor(kind: $kind);
-		if ($term !== '') {
-			$queryString .= ' ' . $term;
-		}
-
-		$path = '/search/repositories?q=' . rawurlencode($queryString) . '&per_page=' . self::MAX_HITS;
-
-		$result = $this->get(path: $path, actingUserId: $actingUserId, credentialId: $credentialId);
+		$result = $this->get(path: $this->searchPath(kind: $search->kind, term: $term), caller: $search->caller);
+		// A live answer is the one moment hermiq meets GitHub; a cached one met nothing.
+		$this->reportSearchOutcome(result: $result);
 		if ($result['ok'] === false) {
 			// Rate-limited/unreachable with no fresh result — surface a generic outcome,
 			// never a 5xx (the caller — githubSearch() — always returns HTTP 200).
-			$failure = self::OUTCOME_UNREACHABLE;
-			if ($result['rateLimited'] === true) {
-				$failure = self::OUTCOME_RATE_LIMITED;
-			}
-
-			return [
-				'outcome' => $failure,
-				'cards' => [],
-				'brokerUsed' => $result['brokerUsed'],
-				'rateLimited' => $result['rateLimited'],
-			];
+			return $this->payload->searchFailure(result: $result);
 		}
 
-		$decoded = json_decode($result['body'], true);
-		$items = [];
-		if (is_array($decoded) === true && is_array($decoded['items'] ?? null) === true) {
-			$items = $decoded['items'];
-		}
+		$payload = $this->searchAnswer(cards: $this->searchCards(result: $result, search: $search), result: $result);
+		$this->cacheSet(key: $cacheKey, value: $payload);
 
+		return $payload;
+	}//end searchCatalog()
+
+	/**
+	 * The cache key of a search: its kind, its lower-cased term and its credential.
+	 *
+	 * @param string        $term   The trimmed free-text term.
+	 * @param CatalogSearch $search The search.
+	 *
+	 * @return string The key.
+	 */
+	private function searchCacheKey(string $term, CatalogSearch $search): string {
+		return 'search:' . $search->kind . ':' . md5(strtolower($term) . '|' . ((string)$search->caller->credentialId));
+	}//end searchCacheKey()
+
+	/**
+	 * The cards built from a search answer's hits (a hit that is not a list entry is skipped).
+	 *
+	 * @param array{ok:bool,status:int,body:string,rateLimited:bool,brokerUsed:bool} $result The GET result.
+	 * @param CatalogSearch $search The search.
+	 *
+	 * @return array<int,array<string,mixed>> The cards.
+	 */
+	private function searchCards(array $result, CatalogSearch $search): array {
 		$cards = [];
-		foreach (array_slice($items, 0, self::MAX_HITS) as $item) {
+		foreach ($this->payload->searchItems(body: $result['body'], max: self::MAX_HITS) as $item) {
 			if (is_array($item) === false) {
 				continue;
 			}
 
-			$card = $this->buildCard(item: $item, kind: $kind, actingUserId: $actingUserId, credentialId: $credentialId);
+			$card = $this->buildCard(item: $item, search: $search);
 			if ($card !== null) {
 				$cards[] = $card;
 			}
 		}
 
-		$payload = [
+		return $cards;
+	}//end searchCards()
+
+	/**
+	 * The repository-search API path for a kind's topic, with the term appended when given.
+	 *
+	 * @param string $kind The discovery kind.
+	 * @param string $term The trimmed free-text term, '' for none.
+	 *
+	 * @return string The path.
+	 *
+	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+	 */
+	private function searchPath(string $kind, string $term): string {
+		$queryString = $this->topicFor(kind: $kind);
+		if ($term !== '') {
+			$queryString .= ' ' . $term;
+		}
+
+		return '/search/repositories?q=' . rawurlencode($queryString) . '&per_page=' . self::MAX_HITS;
+	}//end searchPath()
+
+	/**
+	 * The answer of a search GitHub served: its cards and whether the broker carried it.
+	 *
+	 * @param array<int,array<string,mixed>> $cards The cards built from the hits.
+	 * @param array{ok:bool,status:int,body:string,rateLimited:bool,brokerUsed:bool} $result The GET result.
+	 *
+	 * @return array{outcome:string,cards:array<int,array<string,mixed>>,brokerUsed:bool,rateLimited:bool}
+	 *
+	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+	 */
+	private function searchAnswer(array $cards, array $result): array {
+		return [
 			'outcome' => self::OUTCOME_OK,
 			'cards' => $cards,
 			'brokerUsed' => $result['brokerUsed'],
 			'rateLimited' => false,
 		];
-		$this->cacheSet(key: $cacheKey, value: $payload, ttl: self::SEARCH_TTL);
-
-		return $payload;
-	}//end search()
+	}//end searchAnswer()
 
 	/**
 	 * Fetch a repo's portable template package file (raw JSON string, unparsed) —
@@ -483,14 +523,12 @@ class GitHubTemplateCatalogService {
 			return null;
 		}
 
-		return $this->fetchFileContents(
-			owner: $owner,
-			repo: $repo,
-			path: $this->packageFileFor(kind: $kind),
-			ref: $ref,
-			actingUserId: $actingUserId,
-			credentialId: $credentialId
-		);
+		$fetch = new CatalogFetch(owner: $owner, repo: $repo);
+		$fetch->ref = $ref;
+		$fetch->actingUserId = $actingUserId;
+		$fetch->credentialId = $credentialId;
+
+		return $this->fetchFileContents(fetch: $fetch, path: $this->packageFileFor(kind: $kind));
 	}//end fetchPackageFile()
 
 	/**
@@ -516,7 +554,7 @@ class GitHubTemplateCatalogService {
 	 *
 	 * @return array<int, array{name: string, content: string}> The auxiliary files.
 	 *
-	 * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+	 * @spec openspec/changes/archive/2026-09-06-skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
 	 */
 	public function fetchAuxFiles(
 		string $kind,
@@ -527,37 +565,50 @@ class GitHubTemplateCatalogService {
 		?string $credentialId = null,
 	): array {
 		$packageFile = $this->packageFileFor(kind: $kind);
+		if ($this->validRepo(owner: $owner, repo: $repo, ref: $ref) === false) {
+			return [];
+		}
 
-		$collected = $this->collectTreeBlobs(
-			owner: $owner,
-			repo: $repo,
-			ref: $ref,
-			actingUserId: $actingUserId,
-			credentialId: $credentialId,
+		$fetch = new CatalogFetch(owner: $owner, repo: $repo);
+		$fetch->ref = $ref;
+		$fetch->actingUserId = $actingUserId;
+		$fetch->credentialId = $credentialId;
+		$fetch->maxFiles = self::MAX_AUX_FILES;
+		$fetch->maxBytes = self::MAX_AUX_BYTES;
+		$this->collectTreeBlobs(
+			fetch: $fetch,
 			accept: static function (string $path) use ($packageFile): bool {
 				return ($path !== $packageFile);
-			},
-			maxFiles: self::MAX_AUX_FILES,
-			maxBytes: self::MAX_AUX_BYTES
+			}
 		);
 
-		if ($collected['truncated'] === true) {
+		return $this->auxFilesOf(fetch: $fetch);
+	}//end fetchAuxFiles()
+
+	/**
+	 * The collected auxiliary blobs as `{name, content}` entries, logging when the
+	 * collection stopped at a bound.
+	 *
+	 * @param CatalogFetch $fetch The read, collected.
+	 *
+	 * @return array<int, array{name: string, content: string}> The auxiliary files.
+	 *
+	 * @spec openspec/changes/archive/2026-09-06-skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+	 */
+	private function auxFilesOf(CatalogFetch $fetch): array {
+		if ($fetch->truncated === true) {
 			$this->logger->warning(
 				'Hermiq skill install: auxiliary file set truncated — the installed skill is INCOMPLETE.',
-				['owner' => $owner, 'repo' => $repo, 'limit' => self::MAX_AUX_FILES]
+				['owner' => $fetch->owner, 'repo' => $fetch->repo, 'limit' => self::MAX_AUX_FILES]
 			);
 		}
 
-		$files = [];
-		foreach ($collected['files'] as $path => $contents) {
-			$files[] = [
-				'name' => $path,
-				'content' => $contents,
-			];
-		}
-
-		return $files;
-	}//end fetchAuxFiles()
+		return array_map(
+			static fn (string $path, string $contents): array => ['name' => $path, 'content' => $contents],
+			array_keys($fetch->files),
+			$fetch->files
+		);
+	}//end auxFilesOf()
 
 	/**
 	 * Walk a repository tree ONCE and fetch the blobs an `accept` predicate keeps.
@@ -567,76 +618,49 @@ class GitHubTemplateCatalogService {
 	 * truncation accounting is two places for those to drift apart — and the
 	 * bounds are a resource-amplification guard, so drift there matters.
 	 *
-	 * @param string $owner Repo owner.
-	 * @param string $repo Repo name.
-	 * @param string|null $ref Optional git ref.
-	 * @param string|null $actingUserId The session UID (broker identity), or null.
-	 * @param string|null $credentialId Optional allowed `github` credential.
+	 * The bounds are the read's `maxFiles`/`maxBytes`; the blobs read, their bytes
+	 * and the truncation are recorded on the read itself.
+	 *
+	 * @param CatalogFetch $fetch The read, with its bounds set.
 	 * @param callable $accept Predicate deciding whether a blob path is wanted.
-	 * @param int $maxFiles Maximum blobs to fetch.
-	 * @param int $maxBytes Maximum total bytes to fetch.
 	 *
-	 * @return array{files:array<string,string>,truncated:bool} The collected blobs.
-	 *
-	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Repo coordinates + broker identity
-	 *   + the two bounds; each is a distinct input, not a logic-bearing argument list.
+	 * @return void
 	 */
-	private function collectTreeBlobs(
-		string $owner,
-		string $repo,
-		?string $ref,
-		?string $actingUserId,
-		?string $credentialId,
-		callable $accept,
-		int $maxFiles,
-		int $maxBytes,
-	): array {
-		$empty = ['files' => [], 'truncated' => false];
-
-		$tree = $this->fetchTree(
-			owner: $owner,
-			repo: $repo,
-			ref: $ref,
-			actingUserId: $actingUserId,
-			credentialId: $credentialId
-		);
+	private function collectTreeBlobs(CatalogFetch $fetch, callable $accept): void {
+		$tree = $this->fetchTree(fetch: $fetch);
 		if ($tree === null) {
-			return $empty;
+			return;
 		}
 
-		$files = [];
-		$bytes = 0;
-		$truncated = false;
-
-		foreach ($tree as $entry) {
-			$path = $this->blobPathOf(entry: $entry);
-			if ($path === null || $accept($path) === false) {
-				continue;
-			}
-
-			if (count($files) >= $maxFiles || $bytes >= $maxBytes) {
-				$truncated = true;
-				continue;
-			}
-
-			$contents = $this->fetchFileContents(
-				owner: $owner,
-				repo: $repo,
-				path: $path,
-				ref: $ref,
-				actingUserId: $actingUserId,
-				credentialId: $credentialId
-			);
-			if ($contents === null) {
-				continue;
-			}
-
-			$bytes += strlen($contents);
-			$files[$path] = $contents;
-		}//end foreach
-
-		return ['files' => $files, 'truncated' => $truncated];
+		foreach ($this->payload->wantedBlobPaths(tree: $tree, accept: $accept) as $path) {
+			$this->collectBlob(fetch: $fetch, path: $path);
+		}
 	}//end collectTreeBlobs()
+
+	/**
+	 * Read one wanted blob into the read, or mark the read truncated once a bound is reached.
+	 *
+	 * A blob that cannot be read is skipped and counts against neither bound.
+	 *
+	 * @param CatalogFetch $fetch The read in progress.
+	 * @param string $path The blob path.
+	 *
+	 * @return void
+	 */
+	private function collectBlob(CatalogFetch $fetch, string $path): void {
+		if ($fetch->isFull() === true) {
+			$fetch->truncated = true;
+			return;
+		}
+
+		$contents = $this->fetchFileContents(fetch: $fetch, path: $path);
+		if ($contents === null) {
+			return;
+		}
+
+		$fetch->bytes += strlen($contents);
+		$fetch->files[$path] = $contents;
+	}//end collectBlob()
 
 	/**
 	 * Collect blobs under a prefix via ONE archive download instead of one HTTP
@@ -664,11 +688,7 @@ class GitHubTemplateCatalogService {
 	 * therefore subject to this class's fixed-host invariant. Unpacking the bytes
 	 * makes no outbound call, so it lives in {@see GitHubArchiveExtractor}.
 	 *
-	 * @param string $owner Repo owner.
-	 * @param string $repo Repo name.
-	 * @param string|null $ref Optional git ref.
-	 * @param string|null $actingUserId The session UID (broker identity), or null.
-	 * @param string|null $credentialId Optional allowed `github` credential.
+	 * @param CatalogFetch $fetch The read.
 	 * @param callable $accept Predicate deciding whether an archive entry's path (with the
 	 *                         archive's own `{owner}-{repo}-{sha}/` root stripped) is wanted.
 	 *
@@ -676,23 +696,10 @@ class GitHubTemplateCatalogService {
 	 *                                    never partial: an extraction that fails partway is
 	 *                                    discarded whole, so the caller's fallback is a clean
 	 *                                    do-over, not a merge of two partial sets.
-	 *
-	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Repo coordinates + broker identity + the filter predicate; each is a distinct input.
 	 */
-	private function fetchArchiveBlobs(
-		string $owner,
-		string $repo,
-		?string $ref,
-		?string $actingUserId,
-		?string $credentialId,
-		callable $accept,
-	): ?array {
-		$treeRef = ($ref ?? 'HEAD');
-		$result = $this->get(
-			path: '/repos/' . rawurlencode($owner) . '/' . rawurlencode($repo) . '/tarball/' . rawurlencode($treeRef),
-			actingUserId: $actingUserId,
-			credentialId: $credentialId
-		);
+	private function fetchArchiveBlobs(CatalogFetch $fetch, callable $accept): ?array {
+		$treeRef = ($fetch->ref ?? 'HEAD');
+		$result = $this->fetchGet(fetch: $fetch, path: '/tarball/' . rawurlencode($treeRef));
 		if ($result['ok'] === false) {
 			return null;
 		}
@@ -707,67 +714,41 @@ class GitHubTemplateCatalogService {
 	/**
 	 * Fetch a repository's recursive git tree.
 	 *
-	 * @param string $owner Repo owner.
-	 * @param string $repo Repo name.
-	 * @param string|null $ref Optional git ref.
-	 * @param string|null $actingUserId The session UID, or null.
-	 * @param string|null $credentialId Optional allowed `github` credential.
+	 * Every caller has validated the read's coordinates before it got here.
+	 *
+	 * @param CatalogFetch $fetch The read.
 	 *
 	 * @return array<int,mixed>|null The tree entries, or null when unreachable.
 	 */
-	private function fetchTree(
-		string $owner,
-		string $repo,
-		?string $ref,
-		?string $actingUserId,
-		?string $credentialId,
-	): ?array {
-		if ($this->validRepo(owner: $owner, repo: $repo, ref: $ref) === false) {
-			return null;
-		}
-
-		$treeRef = ($ref ?? '');
+	private function fetchTree(CatalogFetch $fetch): ?array {
+		$treeRef = ($fetch->ref ?? '');
 		if ($treeRef === '') {
 			$treeRef = 'HEAD';
 		}
 
-		$result = $this->get(
-			path: '/repos/' . rawurlencode($owner) . '/' . rawurlencode($repo)
-				. '/git/trees/' . rawurlencode($treeRef) . '?recursive=1',
-			actingUserId: $actingUserId,
-			credentialId: $credentialId
-		);
+		$result = $this->fetchGet(fetch: $fetch, path: '/git/trees/' . rawurlencode($treeRef) . '?recursive=1');
 		if ($result['ok'] === false) {
 			return null;
 		}
 
-		$decoded = json_decode($result['body'], true);
+		return $this->treeEntries(body: $result['body']);
+	}//end fetchTree()
+
+	/**
+	 * The entries of a git-tree answer, or null when it holds no tree list.
+	 *
+	 * @param string $body The answer body.
+	 *
+	 * @return array<int,mixed>|null The tree entries.
+	 */
+	private function treeEntries(string $body): ?array {
+		$decoded = json_decode($body, true);
 		if (is_array($decoded) === false || is_array($decoded['tree'] ?? null) === false) {
 			return null;
 		}
 
 		return $decoded['tree'];
-	}//end fetchTree()
-
-	/**
-	 * The path of a tree entry when it is a usable blob, else null.
-	 *
-	 * @param mixed $entry A raw git-tree entry.
-	 *
-	 * @return string|null The blob path, or null when the entry is not a blob.
-	 */
-	private function blobPathOf(mixed $entry): ?string {
-		if (is_array($entry) === false || (string)($entry['type'] ?? '') !== 'blob') {
-			return null;
-		}
-
-		$path = (string)($entry['path'] ?? '');
-		if ($path === '') {
-			return null;
-		}
-
-		return $path;
-	}//end blobPathOf()
+	}//end treeEntries()
 
 	/**
 	 * Fetch a BUNDLE repository as a `path => contents` map (skill-bundle-publish).
@@ -790,7 +771,7 @@ class GitHubTemplateCatalogService {
 	 * @return array{files:array<string,string>,truncated:bool}|null The bundle tree,
 	 *                                                               or null when the repo is not a bundle / unreachable.
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	public function fetchBundle(
 		string $owner,
@@ -802,6 +783,11 @@ class GitHubTemplateCatalogService {
 		if ($this->validRepo(owner: $owner, repo: $repo, ref: $ref) === false) {
 			return null;
 		}
+
+		$fetch = new CatalogFetch(owner: $owner, repo: $repo);
+		$fetch->ref = $ref;
+		$fetch->actingUserId = $actingUserId;
+		$fetch->credentialId = $credentialId;
 
 		// Only the manifest, plus blobs under `skills/` or `agents/`, are
 		// wanted; anything else in the repository is ignored, so a bundle can
@@ -822,14 +808,7 @@ class GitHubTemplateCatalogService {
 		// quota by request PATTERN, not just count). Tried first, covering the
 		// manifest fetch too, so a bundle install never has to touch the
 		// per-file endpoint at all in the common case.
-		$archiveFiles = $this->fetchArchiveBlobs(
-			owner: $owner,
-			repo: $repo,
-			ref: $ref,
-			actingUserId: $actingUserId,
-			credentialId: $credentialId,
-			accept: $accept
-		);
+		$archiveFiles = $this->fetchArchiveBlobs(fetch: $fetch, accept: $accept);
 
 		if ($archiveFiles !== null && isset($archiveFiles[self::BUNDLE_MANIFEST_FILE]) === true) {
 			return ['files' => $archiveFiles, 'truncated' => false];
@@ -839,179 +818,108 @@ class GitHubTemplateCatalogService {
 		// failure (network, extraction, unexpected shape, or a bundle whose
 		// manifest the archive filter somehow missed) degrades gracefully
 		// rather than failing the install outright.
-		$manifest = $this->fetchFileContents(
-			owner: $owner,
-			repo: $repo,
-			path: self::BUNDLE_MANIFEST_FILE,
-			ref: $ref,
-			actingUserId: $actingUserId,
-			credentialId: $credentialId
-		);
+		return $this->fetchBundlePerFile(fetch: $fetch);
+	}//end fetchBundle()
+
+	/**
+	 * Fetch a bundle file by file: the manifest first, then every blob under
+	 * `skills/` or `agents/`, bounded by MAX_BUNDLE_BYTES with truncation reported.
+	 *
+	 * @param CatalogFetch $fetch The read: the validated repository and the caller's broker identity.
+	 *
+	 * @return array{files:array<string,string>,truncated:bool}|null The bundle tree,
+	 *                                                               or null when the repo has no readable manifest.
+	 *
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 */
+	private function fetchBundlePerFile(CatalogFetch $fetch): ?array {
+		$manifest = $this->fetchFileContents(fetch: $fetch, path: self::BUNDLE_MANIFEST_FILE);
 		if ($manifest === null) {
 			return null;
 		}
 
 		// The manifest's own bytes count against the bound because it is part
 		// of what was fetched.
-		$collected = $this->collectTreeBlobs(
-			owner: $owner,
-			repo: $repo,
-			ref: $ref,
-			actingUserId: $actingUserId,
-			credentialId: $credentialId,
+		$fetch->maxFiles = self::MAX_SKILLS_BLOBS;
+		$fetch->maxBytes = (self::MAX_BUNDLE_BYTES - strlen($manifest));
+		$this->collectTreeBlobs(
+			fetch: $fetch,
 			accept: static function (string $path): bool {
 				return str_starts_with($path, self::BUNDLE_SKILLS_PREFIX)
 					|| str_starts_with($path, self::BUNDLE_AGENTS_PREFIX);
-			},
-			maxFiles: self::MAX_SKILLS_BLOBS,
-			maxBytes: (self::MAX_BUNDLE_BYTES - strlen($manifest))
+			}
 		);
 
-		if ($collected['truncated'] === true) {
+		if ($fetch->truncated === true) {
 			$this->logger->warning(
 				'Hermiq bundle fetch: truncated at the bound — the installed set is INCOMPLETE.',
-				['owner' => $owner, 'repo' => $repo, 'limitBytes' => self::MAX_BUNDLE_BYTES]
+				['owner' => $fetch->owner, 'repo' => $fetch->repo, 'limitBytes' => self::MAX_BUNDLE_BYTES]
 			);
 		}
 
 		return [
-			'files' => array_merge([self::BUNDLE_MANIFEST_FILE => $manifest], $collected['files']),
-			'truncated' => $collected['truncated'],
+			'files' => array_merge([self::BUNDLE_MANIFEST_FILE => $manifest], $fetch->files),
+			'truncated' => $fetch->truncated,
 		];
-
-	}//end fetchBundle()
+	}//end fetchBundlePerFile()
 
 	/**
 	 * Build a card from a search hit's package file (non-installable when the
 	 * file is missing/unparseable — the hit is surfaced, never dropped). Every
 	 * card is tagged with its `kind` (hermiq-github-store).
 	 *
-	 * @param array<string,mixed> $item A GitHub search-result item.
-	 * @param string $kind The discovery kind (`KIND_AGENT_TEMPLATE`|`KIND_SKILL`).
-	 * @param string|null $actingUserId The session UID (broker identity), or null.
-	 * @param string|null $credentialId Optional allowed `github` credential.
+	 * @param array<string,mixed> $item   A GitHub search-result item.
+	 * @param CatalogSearch       $search The search: its kind and caller.
 	 *
 	 * @return array<string,mixed>|null The card, or null when the item lacks an owner/name.
 	 */
-	private function buildCard(array $item, string $kind, ?string $actingUserId, ?string $credentialId): ?array {
-		$fullName = (string)($item['full_name'] ?? '');
-		$nameParts = explode('/', $fullName);
-		$owner = (string)($item['owner']['login'] ?? '');
-		if ($owner === '') {
-			$owner = (string)($nameParts[0] ?? '');
-		}
-
-		$repo = (string)($item['name'] ?? '');
-		if ($repo === '') {
-			$repo = (string)($nameParts[1] ?? '');
-		}
-
-		if ($owner === '' || $repo === '') {
+	private function buildCard(array $item, CatalogSearch $search): ?array {
+		$coordinates = $this->payload->hitCoordinates(item: $item);
+		if ($coordinates === null) {
 			return null;
 		}
 
-		$stars = (int)($item['stargazers_count'] ?? 0);
-		$contents = $this->fetchPackageFile(
-			kind: $kind,
-			owner: $owner,
-			repo: $repo,
-			ref: null,
-			actingUserId: $actingUserId,
-			credentialId: $credentialId
-		);
+		$contents = $this->hitPackageFile(coordinates: $coordinates, search: $search);
 
-		if ($contents === null) {
-			return [
-				'owner' => $owner,
-				'repo' => $repo,
-				'stars' => $stars,
-				'kind' => $kind,
-				'installable' => false,
-				'unparseable' => true,
-			];
-		}
-
-		if ($kind === self::KIND_SKILL) {
-			// Agentskills.io packages (SkillSerializer::fromPackage()) never fail to
-			// parse — a missing fence just yields an empty frontmatter/name, so the
-			// only "unparseable" case for a skill is the fetch failure handled above.
-			// SkillSerializer is stateless (no constructor deps) — instantiated
-			// locally rather than injected, so this service's constructor stays
-			// unchanged (regression-safe for every existing test that constructs it
-			// positionally).
-			$parsed = (new SkillSerializer())->fromPackage(package: $contents);
-			$name = $parsed['name'];
-			if ($name === '') {
-				$name = $repo;
-			}
-
-			return [
-				'owner' => $owner,
-				'repo' => $repo,
-				'stars' => $stars,
-				'kind' => $kind,
-				'installable' => true,
-				'unparseable' => false,
-				'name' => $name,
-				'description' => $parsed['description'],
-				'category' => '',
-				'version' => '',
-			];
-		}//end if
-
-		$decoded = json_decode($contents, true);
-		if (is_array($decoded) === false) {
-			return [
-				'owner' => $owner,
-				'repo' => $repo,
-				'stars' => $stars,
-				'kind' => $kind,
-				'installable' => false,
-				'unparseable' => true,
-			];
-		}
-
-		return [
-			'owner' => $owner,
-			'repo' => $repo,
-			'stars' => $stars,
-			'kind' => $kind,
-			'installable' => true,
-			'unparseable' => false,
-			'name' => (string)($decoded['name'] ?? $repo),
-			'description' => (string)($decoded['description'] ?? ''),
-			'category' => (string)($decoded['category'] ?? ''),
-			'version' => (string)($decoded['version'] ?? ''),
+		$base = $coordinates + [
+			'stars' => (int)($item['stargazers_count'] ?? 0),
+			'kind' => $search->kind,
 		];
+
+		return $this->payload->card(base: $base, contents: $contents);
 	}//end buildCard()
+
+	/**
+	 * A search hit's package file, read for the search's caller at the default branch.
+	 *
+	 * @param array{owner:string,repo:string} $coordinates The hit's repository.
+	 * @param CatalogSearch                   $search      The search.
+	 *
+	 * @return string|null The raw package string, or null when missing/unreadable/invalid.
+	 */
+	private function hitPackageFile(array $coordinates, CatalogSearch $search): ?string {
+		return $this->fetchPackageFile(
+			kind: $search->kind,
+			owner: $coordinates['owner'],
+			repo: $coordinates['repo'],
+			ref: null,
+			actingUserId: $search->caller->actingUserId,
+			credentialId: $search->caller->credentialId
+		);
+	}//end hitPackageFile()
 
 	/**
 	 * Fetch a single file's decoded contents via the GitHub contents API.
 	 *
-	 * @param string $owner Repo owner.
-	 * @param string $repo Repo name.
+	 * @param CatalogFetch $fetch The read: repository, ref and caller.
 	 * @param string $path Repo-relative file path.
-	 * @param string|null $ref Optional git ref.
-	 * @param string|null $actingUserId The session UID (broker identity), or null.
-	 * @param string|null $credentialId Optional allowed `github` credential.
 	 *
 	 * @return string|null The decoded file contents, or null when absent/unreadable.
 	 */
-	private function fetchFileContents(
-		string $owner,
-		string $repo,
-		string $path,
-		?string $ref,
-		?string $actingUserId,
-		?string $credentialId,
-	): ?string {
-		$apiPath = '/repos/' . rawurlencode($owner) . '/' . rawurlencode($repo) . '/contents/'
-			. implode('/', array_map('rawurlencode', explode('/', $path)));
-		if ($ref !== null && $ref !== '') {
-			$apiPath .= '?ref=' . rawurlencode($ref);
-		}
+	private function fetchFileContents(CatalogFetch $fetch, string $path): ?string {
+		$apiPath = $this->contentsPath(fetch: $fetch, path: $path);
 
-		$result = $this->get(path: $apiPath, actingUserId: $actingUserId, credentialId: $credentialId);
+		$result = $this->get(path: $apiPath, caller: $this->callerOf(fetch: $fetch));
 		if ($result['ok'] === false) {
 			// Rate-limit exhaustion specifically flagged: a failed per-file fetch
 			// silently reads to a caller as "file absent", not "fetch failed" —
@@ -1033,42 +941,75 @@ class GitHubTemplateCatalogService {
 			return null;
 		}
 
-		$decoded = json_decode($result['body'], true);
-		if (is_array($decoded) === false) {
-			return null;
-		}
-
-		$content = (string)($decoded['content'] ?? '');
-		$encoding = (string)($decoded['encoding'] ?? '');
-		if ($encoding === 'base64') {
-			$raw = base64_decode(str_replace("\n", '', $content), true);
-			if ($raw === false) {
-				return null;
-			}
-
-			return $raw;
-		}
-
-		if ($content === '') {
-			return null;
-		}
-
-		return $content;
+		return $this->payload->fileContents(body: $result['body']);
 	}//end fetchFileContents()
+
+	/**
+	 * The contents-API path of a repo-relative file at the read's ref.
+	 *
+	 * @param CatalogFetch $fetch The read: repository and ref.
+	 * @param string       $path  Repo-relative file path.
+	 *
+	 * @return string The API path.
+	 */
+	private function contentsPath(CatalogFetch $fetch, string $path): string {
+		$apiPath = $fetch->apiPath() . '/contents/' . implode('/', array_map('rawurlencode', explode('/', $path)));
+		if ($fetch->ref !== null && $fetch->ref !== '') {
+			$apiPath .= '?ref=' . rawurlencode($fetch->ref);
+		}
+
+		return $apiPath;
+	}//end contentsPath()
+
+	/**
+	 * Tell integriq what a live store search met, at most once an hour per status.
+	 *
+	 * Throttled, because a search runs whenever someone opens the store
+	 * (adopt-connection-registry design D4). A rate limit reads Limited: the
+	 * store still works from cache and with a credential.
+	 *
+	 * @param array{ok:bool,status:int,body:string,rateLimited:bool,brokerUsed:bool} $result The GET result.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+	 */
+	private function reportSearchOutcome(array $result): void {
+		if ($this->connectionReporter === null) {
+			return;
+		}
+
+		$status  = 'error';
+		$message = 'GitHub could not be reached on the last store search.';
+		if ($result['ok'] === true) {
+			$status  = 'configured';
+			$message = 'GitHub answered the last store search without a credential. Anonymous calls get a low rate limit.';
+			if ($result['brokerUsed'] === true) {
+				$message = 'GitHub answered the last store search with a credential.';
+			}
+		} else if ($result['rateLimited'] === true) {
+			$status  = 'limited';
+			$message = 'GitHub rate-limited the last store search. Add a GitHub credential under Organisation credentials to raise the limit.';
+		} else if ($result['status'] > 0) {
+			$message = 'GitHub answered HTTP ' . $result['status'] . ' on the last store search.';
+		}
+
+		$this->connectionReporter->reportThrottled(key: 'github-templates', status: $status, message: $message);
+	}//end reportSearchOutcome()
 
 	/**
 	 * Perform a GET — via the broker when a credential is supplied and the broker
 	 * admits the call, else anonymously (feature-detect + fall back).
 	 *
-	 * @param string $path The GitHub-relative path (starts with `/`).
-	 * @param string|null $actingUserId The session UID (broker owner-guard identity), or null.
-	 * @param string|null $credentialId Optional allowed `github` credential.
+	 * @param string        $path   The GitHub-relative path (starts with `/`).
+	 * @param CatalogCaller $caller The session UID (broker owner-guard identity) and
+	 *                              the optional allowed `github` credential.
 	 *
 	 * @return array{ok:bool,status:int,body:string,rateLimited:bool,brokerUsed:bool}
 	 */
-	private function get(string $path, ?string $actingUserId, ?string $credentialId): array {
-		if ($credentialId !== null && $credentialId !== '' && $this->isBrokerAvailable() === true) {
-			$brokered = $this->brokerGet(path: $path, credentialId: $credentialId, actingUserId: $actingUserId);
+	private function get(string $path, CatalogCaller $caller): array {
+		if ($caller->hasCredential() === true && $this->isBrokerAvailable() === true) {
+			$brokered = $this->brokerGet(path: $path, caller: $caller);
 			if ($brokered !== null) {
 				return $brokered;
 			}
@@ -1080,47 +1021,93 @@ class GitHubTemplateCatalogService {
 	}//end get()
 
 	/**
+	 * A GET of a path under the read's repository, for the read's caller.
+	 *
+	 * @param CatalogFetch $fetch The read.
+	 * @param string       $path  The path below `/repos/<owner>/<repo>`.
+	 *
+	 * @return array{ok:bool,status:int,body:string,rateLimited:bool,brokerUsed:bool}
+	 */
+	private function fetchGet(CatalogFetch $fetch, string $path): array {
+		return $this->get(path: $fetch->apiPath() . $path, caller: $this->callerOf(fetch: $fetch));
+	}//end fetchGet()
+
+	/**
+	 * The caller a read was assigned.
+	 *
+	 * @param CatalogFetch $fetch The read.
+	 *
+	 * @return CatalogCaller
+	 */
+	private function callerOf(CatalogFetch $fetch): CatalogCaller {
+		return new CatalogCaller(actingUserId: $fetch->actingUserId, credentialId: $fetch->credentialId);
+	}//end callerOf()
+
+	/**
 	 * Route a GET through the OpenRegister credential broker.
 	 *
-	 * @param string $path The GitHub-relative path.
-	 * @param string $credentialId The `github` credential UUID.
-	 * @param string|null $actingUserId The session UID for the broker owner guard.
+	 * @param string        $path   The GitHub-relative path.
+	 * @param CatalogCaller $caller The `github` credential and the session UID for the
+	 *                              broker owner guard.
 	 *
 	 * @return array{ok:bool,status:int,body:string,rateLimited:bool,brokerUsed:bool}|null Null when the broker
 	 *                                                                                     denies the call (caller falls back to anonymous).
-	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) The optional OpenRegister broker is named by
-	 *   class-string and resolved through the injected container, so this class stays
-	 *   constructible when the broker is absent (feature-detected via class_exists).
 	 */
-	private function brokerGet(string $path, string $credentialId, ?string $actingUserId): ?array {
+	private function brokerGet(string $path, CatalogCaller $caller): ?array {
 		try {
-			$broker = $this->serviceContainer()->get(self::BROKER_CLASS);
-			$response = $broker->request(
-				$credentialId,
-				self::APP_ID,
-				'GET',
-				$path,
-				['Accept' => 'application/vnd.github+json'],
-				null,
-				$actingUserId
-			);
+			$response = $this->brokerRequest(path: $path, caller: $caller);
 		} catch (Throwable $e) {
 			$this->logger->debug('Hermiq GitHub template catalog: broker call not admitted, falling back to anonymous.');
 			return null;
 		}
 
+		return $this->brokerResult(response: $response);
+	}//end brokerGet()
+
+	/**
+	 * The GET result of a broker answer.
+	 *
+	 * @param mixed $response The broker's answer (`status`, `body`).
+	 *
+	 * @return array{ok:bool,status:int,body:string,rateLimited:bool,brokerUsed:bool}
+	 */
+	private function brokerResult(mixed $response): array {
 		$status = (int)($response['status'] ?? 0);
-		$body = (string)($response['body'] ?? '');
 
 		return [
 			'ok' => ($status >= 200 && $status < 300),
 			'status' => $status,
-			'body' => $body,
+			'body' => (string)($response['body'] ?? ''),
 			'rateLimited' => ($status === 403 || $status === 429),
 			'brokerUsed' => true,
 		];
-	}//end brokerGet()
+	}//end brokerResult()
+
+	/**
+	 * Ask the broker to make the GET with the caller's credential, as hermiq.
+	 *
+	 * @param string        $path   The GitHub-relative path.
+	 * @param CatalogCaller $caller The credential and the acting user.
+	 *
+	 * @return mixed The broker's answer (`status`, `body`).
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) The optional OpenRegister broker is named by
+	 *   class-string and resolved through the injected container, so this class stays
+	 *   constructible when the broker is absent (feature-detected via class_exists).
+	 */
+	private function brokerRequest(string $path, CatalogCaller $caller): mixed {
+		$broker = $this->serviceContainer()->get(self::BROKER_CLASS);
+
+		return $broker->request(
+			(string)$caller->credentialId,
+			self::APP_ID,
+			'GET',
+			$path,
+			['Accept' => 'application/vnd.github+json'],
+			null,
+			$caller->actingUserId
+		);
+	}//end brokerRequest()
 
 	/**
 	 * Perform an anonymous GET against the fixed GitHub host.
@@ -1221,19 +1208,19 @@ class GitHubTemplateCatalogService {
 	}//end cacheGet()
 
 	/**
-	 * Write a value to the short-TTL cache (no-op when no cache backend).
+	 * Write a search answer to the short-TTL cache for SEARCH_TTL seconds (no-op
+	 * when no cache backend).
 	 *
 	 * @param string $key The cache key.
 	 * @param mixed $value The value to cache.
-	 * @param int $ttl The TTL in seconds.
 	 *
 	 * @return void
 	 */
-	private function cacheSet(string $key, mixed $value, int $ttl): void {
+	private function cacheSet(string $key, mixed $value): void {
 		if ($this->cache === null) {
 			return;
 		}
 
-		$this->cache->set($key, $value, $ttl);
+		$this->cache->set($key, $value, self::SEARCH_TTL);
 	}//end cacheSet()
 }//end class

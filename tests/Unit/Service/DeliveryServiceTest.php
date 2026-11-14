@@ -29,7 +29,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-delivery/tasks.md#4-tests
+ * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#4-tests
  * @spec openspec/changes/delivery-channels/tasks.md#task-4-deliveryservicedeliveremail-redact-resolve-recipient-send-via-imailer
  * @spec openspec/changes/delivery-channels/tasks.md#task-5-deliveryservicedeliverwebhook-hmac-sign-bounded-retry-size-cap
  */
@@ -102,7 +102,7 @@ class DeliveryServiceTestable extends DeliveryService {
 /**
  * Tests for the talk-delivery / delivery-channels DeliveryService.
  *
- * @spec openspec/changes/talk-delivery/tasks.md#4-tests
+ * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#4-tests
  * @spec openspec/changes/delivery-channels/tasks.md#task-4-deliveryservicedeliveremail-redact-resolve-recipient-send-via-imailer
  * @spec openspec/changes/delivery-channels/tasks.md#task-5-deliveryservicedeliverwebhook-hmac-sign-bounded-retry-size-cap
  */
@@ -343,7 +343,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#task-1-4
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#task-1-4
 	 */
 	public function testTalkWithDeliverTargetPostsToRoom(): void {
 		$this->talkBroker->method('hasBackend')->willReturn(true);
@@ -396,7 +396,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#task-1-4
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#task-1-4
 	 */
 	public function testEmptyDeliverTargetUsesNoteToSelf(): void {
 		$this->talkBroker->method('hasBackend')->willReturn(true);
@@ -436,6 +436,145 @@ class DeliveryServiceTest extends TestCase {
 		$this->assertNull($result->getWarning());
 
 	}//end testEmptyDeliverTargetUsesNoteToSelf()
+
+	/**
+	 * A held tool call posted to Talk names the tool and how far it reaches.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
+	 */
+	public function testAToolApprovalInTalkNamesTheToolAndItsReach(): void {
+		$this->talkBroker->method('hasBackend')->willReturn(true);
+		$this->notificationManager->method('createNotification')->willReturn($this->createMock(\OCP\Notification\INotification::class));
+
+		$noteToSelf = $this->createMock(NoteToSelfService::class);
+		$noteToSelf->method('ensureNoteToSelfExistsForUser')->willReturn($this->createMock(Room::class));
+		$participantService = $this->createMock(ParticipantService::class);
+		$participantService->method('getParticipant')->willReturn($this->createMock(Participant::class));
+
+		$posted = [];
+		$chatManager = $this->createMock(ChatManager::class);
+		$chatManager->method('sendMessage')->willReturnCallback(
+			function (...$args) use (&$posted) {
+				$posted[] = (string)$args[4];
+				return null;
+			}
+		);
+
+		$builder = $this->createMock(\OCA\Hermiq\Service\ApprovalPreviewBuilder::class);
+		$builder->method('toolLine')->with('files.deleteFile')
+			->willReturn('The tool files.deleteFile deletes, and reaches your own files and data.');
+
+		$this->services = [
+			NoteToSelfService::class => $noteToSelf,
+			ParticipantService::class => $participantService,
+			ChatManager::class => $chatManager,
+			\OCA\Hermiq\Service\ApprovalPreviewBuilder::class => $builder,
+		];
+
+		$approval = new ObjectEntity();
+		$approval->setUuid('appr-1');
+		$approval->setObject(['sourceType' => 'toolcall', 'toolId' => 'files.deleteFile', 'agentId' => 'agent-1']);
+
+		$this->service->deliverApprovalRequestForToolInvocation($approval, ['bob']);
+
+		$this->assertSame(
+			['Approval needed to run “files.deleteFile”. The tool files.deleteFile deletes, and reaches your own files and data. Review it in Hermiq.'],
+			$posted
+		);
+	}//end testAToolApprovalInTalkNamesTheToolAndItsReach()
+
+	/**
+	 * A tool id Talk would read as a mention or markdown is not put in the approval text.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
+	 */
+	public function testAToolApprovalInTalkLeavesOutAnUnsafeToolId(): void {
+		$this->talkBroker->method('hasBackend')->willReturn(true);
+		$this->notificationManager->method('createNotification')->willReturn($this->createMock(\OCP\Notification\INotification::class));
+		$noteToSelf = $this->createMock(NoteToSelfService::class);
+		$noteToSelf->method('ensureNoteToSelfExistsForUser')->willReturn($this->createMock(Room::class));
+		$participantService = $this->createMock(ParticipantService::class);
+		$participantService->method('getParticipant')->willReturn($this->createMock(Participant::class));
+
+		$posted = [];
+		$chatManager = $this->createMock(ChatManager::class);
+		$chatManager->method('sendMessage')->willReturnCallback(
+			function (...$args) use (&$posted) {
+				$posted[] = (string)$args[4];
+				return null;
+			}
+		);
+
+		// No preview builder: the text falls back to the tool id alone.
+		$this->services = [
+			NoteToSelfService::class => $noteToSelf,
+			ParticipantService::class => $participantService,
+			ChatManager::class => $chatManager,
+		];
+
+		foreach (['@all', '[x](https://evil.example)', 'files.deleteFile'] as $toolId) {
+			$approval = new ObjectEntity();
+			$approval->setUuid('appr-' . md5($toolId));
+			$approval->setObject(['sourceType' => 'toolcall', 'toolId' => $toolId, 'agentId' => 'agent-1']);
+			$this->service->deliverApprovalRequestForToolInvocation($approval, ['bob']);
+		}
+
+		$this->assertSame(
+			[
+				'Approval needed to run a tool. Review it in Hermiq.',
+				'Approval needed to run a tool. Review it in Hermiq.',
+				'Approval needed to run “files.deleteFile”. Review it in Hermiq.',
+			],
+			$posted
+		);
+	}//end testAToolApprovalInTalkLeavesOutAnUnsafeToolId()
+
+	/**
+	 * A schedule, flow or skill name goes in the Talk line only when it is plain text.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
+	 */
+	public function testAnApprovalNameInTalkIsPlainText(): void {
+		$this->talkBroker->method('hasBackend')->willReturn(true);
+		$this->notificationManager->method('createNotification')->willReturn($this->notificationMock());
+
+		$noteToSelf = $this->createMock(NoteToSelfService::class);
+		$noteToSelf->method('ensureNoteToSelfExistsForUser')->willReturn($this->createMock(Room::class));
+		$participantService = $this->createMock(ParticipantService::class);
+		$participantService->method('getParticipant')->willReturn($this->createMock(Participant::class));
+
+		$posted = [];
+		$chatManager = $this->createMock(ChatManager::class);
+		$chatManager->method('sendMessage')->willReturnCallback(
+			function (...$args) use (&$posted) {
+				$posted[] = (string)$args[4];
+				return null;
+			}
+		);
+
+		$this->services = [
+			NoteToSelfService::class => $noteToSelf,
+			ParticipantService::class => $participantService,
+			ChatManager::class => $chatManager,
+		];
+
+		$approval = new ObjectEntity();
+		$approval->setUuid('appr-1');
+		foreach (['Permit drafts', 'Ping @all [now](https://evil.example)'] as $name) {
+			$this->service->deliverApprovalRequest(schedule: $this->schedule(['name' => $name]), approval: $approval, reviewerUids: ['bob']);
+		}
+
+		$this->assertSame(
+			['Approval needed for “Permit drafts”. Review it in Hermiq.', 'Approval needed for an action. Review it in Hermiq.'],
+			$posted
+		);
+	}//end testAnApprovalNameInTalkIsPlainText()
 
 	/**
 	 * No schedule target but a stored default-room preference posts to that room
@@ -552,7 +691,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#task-1-5
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#task-1-5
 	 */
 	public function testNonMemberTargetFallsBackToNoteToSelf(): void {
 		$this->talkBroker->method('hasBackend')->willReturn(true);
@@ -598,7 +737,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#task-1-5
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#task-1-5
 	 */
 	public function testTargetAndNoteToSelfFailFallBackToNotification(): void {
 		$this->talkBroker->method('hasBackend')->willReturn(true);
@@ -637,7 +776,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#task-1-5
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#task-1-5
 	 */
 	public function testTalkAbsentFallsBackToNotification(): void {
 		$this->talkBroker->method('hasBackend')->willReturn(false);
@@ -663,7 +802,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#task-1-3
 	 */
 	public function testNotificationChannel(): void {
 		$this->notificationManager->method('createNotification')->willReturn($this->notificationMock());
@@ -687,7 +826,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#task-1-1
 	 */
 	public function testNoneChannelNoOp(): void {
 		$this->notificationManager->expects($this->never())->method('notify');
@@ -709,7 +848,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#task-1-1
 	 */
 	public function testEmptyOutputNoOp(): void {
 		$this->notificationManager->expects($this->never())->method('notify');
@@ -731,7 +870,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#task-1-2
 	 */
 	public function testDeliveryFailureIsReportedNotThrown(): void {
 		$this->notificationManager->method('createNotification')->willReturn($this->notificationMock());
@@ -755,7 +894,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-2-2
 	 */
 	public function testApprovalRequestNotifiesEachReviewer(): void {
 		// Talk unavailable → notification-only path.
@@ -785,7 +924,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#task-3-2
 	 */
 	public function testFlowRunApprovalRequestNotifiesEachReviewer(): void {
 		// Talk unavailable → notification-only path.
@@ -1316,4 +1455,141 @@ class DeliveryServiceTest extends TestCase {
 		$this->assertTrue($result->isDelivered());
 
 	}//end testWebhookPayloadIsRedactedBeforeSend()
+	/**
+	 * Golden: Talk delivery over every fallback path (Talk available or not; a
+	 * member, a non-member and no target room; Note-to-self working or failing;
+	 * the notification failing or not; a conversation to bind or none) returns,
+	 * posts, binds, notifies and logs exactly what was recorded. A later delivery
+	 * without a conversation never binds the earlier one. GOLDEN_RECORD=1
+	 * rewrites the fixture.
+	 *
+	 * @return void
+	 */
+	public function testTalkDeliveryPathsMatchTheRecordedFixture(): void {
+		$fixture = __DIR__ . '/../../Fixtures/Golden/talk-delivery-paths.json';
+		$actual = [];
+		foreach ([true, false] as $talkAvailable) {
+			foreach (['room-x', 'ghost-room', ''] as $target) {
+				foreach ([true, false] as $noteToSelfWorks) {
+					foreach ([true, false] as $notifyWorks) {
+						foreach (['conv-1', null] as $conversation) {
+							$scenario = ['talk' => $talkAvailable, 'target' => $target, 'noteToSelf' => $noteToSelfWorks, 'notify' => $notifyWorks, 'conversation' => $conversation];
+							$actual[(string)json_encode($scenario)] = $this->talkTrace(scenario: $scenario);
+						}
+					}
+				}
+			}
+		}
+
+		$actual = json_decode(json_encode($actual, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+		if (getenv('GOLDEN_RECORD') === '1') {
+			file_put_contents($fixture, json_encode($actual, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n");
+			$this->markTestSkipped('Fixture recorded.');
+		}
+
+		$expected = json_decode((string)file_get_contents($fixture), true, 512, JSON_THROW_ON_ERROR);
+		$this->assertSame($expected, $actual);
+
+	}//end testTalkDeliveryPathsMatchTheRecordedFixture()
+
+	/**
+	 * Delivers once over Talk with the scenario's collaborators, then once more
+	 * without a conversation, and returns what both did.
+	 *
+	 * @param array<string, mixed> $scenario The scenario values.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function talkTrace(array $scenario): array {
+		$trace = ['posts' => [], 'binds' => [], 'notifications' => [], 'warnings' => []];
+		$talkBroker = $this->createMock(IBroker::class);
+		$talkBroker->method('hasBackend')->willReturn($scenario['talk']);
+
+		$manager = $this->createMock(Manager::class);
+		$manager->method('getRoomForUserByToken')->willReturnCallback(
+			function (string $token, string $owner): Room {
+				if ($token !== 'room-x') {
+					throw new RoomNotFoundException('not a member of ' . $token);
+				}
+
+				return $this->createMock(Room::class);
+			}
+		);
+		$noteToSelf = $this->createMock(NoteToSelfService::class);
+		$noteToSelf->method('ensureNoteToSelfExistsForUser')->willReturnCallback(
+			function (string $owner) use ($scenario): Room {
+				if ($scenario['noteToSelf'] === false) {
+					throw new \RuntimeException('no note to self for ' . $owner);
+				}
+
+				return $this->createMock(Room::class);
+			}
+		);
+		$participantService = $this->createMock(ParticipantService::class);
+		$participantService->method('getParticipant')->willReturn($this->createMock(Participant::class));
+		$chatManager = $this->createMock(ChatManager::class);
+		$chatManager->method('sendMessage')->willReturnCallback(
+			function (mixed $room, mixed $participant, string $actorType, string $actorId, string $message) use (&$trace): mixed {
+				$trace['posts'][] = [$actorType, $actorId, $message, ($participant !== null)];
+				return null;
+			}
+		);
+		$this->services = [
+			Manager::class => $manager,
+			NoteToSelfService::class => $noteToSelf,
+			ParticipantService::class => $participantService,
+			ChatManager::class => $chatManager,
+		];
+
+		$notificationManager = $this->createMock(INotificationManager::class);
+		$notificationManager->method('createNotification')->willReturn($this->notificationMock());
+		$notificationManager->method('notify')->willReturnCallback(
+			function () use (&$trace, $scenario): void {
+				$trace['notifications'][] = 'notify';
+				if ($scenario['notify'] === false) {
+					throw new \RuntimeException('notifications down');
+				}
+			}
+		);
+		$talkRoomBinding = $this->createMock(TalkRoomBinding::class);
+		$talkRoomBinding->method('bindByUuid')->willReturnCallback(
+			function (string $conversationUuid, string $roomToken) use (&$trace): bool {
+				$trace['binds'][] = [$conversationUuid, $roomToken];
+				return true;
+			}
+		);
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->method('warning')->willReturnCallback(
+			function (string|\Stringable $message) use (&$trace): void {
+				$trace['warnings'][] = (string)$message;
+			}
+		);
+
+		$service = new DeliveryServiceTestable(
+			notificationManager: $notificationManager,
+			talkBroker: $talkBroker,
+			urlGenerator: $this->urlGenerator,
+			container: $this->container,
+			config: $this->config,
+			userManager: $this->userManager,
+			mailer: $this->mailer,
+			clientService: $this->clientService,
+			redactionService: $this->redactionService,
+			scheduleWebhookSecretService: $this->scheduleWebhookSecretService,
+			logger: $logger,
+			talkRoomBinding: $talkRoomBinding,
+			talkApprovalNotifier: $this->talkApprovalNotifier,
+		);
+
+		$schedule = $this->schedule(['name' => 'Briefing', 'deliver' => 'talk', 'deliverTarget' => $scenario['target']]);
+		$schedule->setUuid('schedule-1');
+		$results = [];
+		foreach ([$scenario['conversation'], null] as $conversation) {
+			$result = $service->deliver(channel: 'talk', output: 'Daily briefing', schedule: $schedule, conversationUuid: $conversation);
+			$results[] = [$result->isDelivered(), $result->getChannel(), $result->didFallBack(), $result->getWarning()];
+		}
+
+		return ['results' => $results] + $trace;
+
+	}//end talkTrace()
 }//end class

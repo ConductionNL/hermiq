@@ -108,7 +108,7 @@ class ChatControllerTest extends TestCase {
 	 *
 	 * @return ChatController
 	 */
-	private function controller(): ChatController {
+	private function controller(?\OCA\Hermiq\Service\Literacy\LiteracyRequirement $literacy = null): ChatController {
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text): string => $text);
 
@@ -127,7 +127,8 @@ class ChatControllerTest extends TestCase {
 			runStepBus: $this->createMock(RunStepBus::class),
 			providerFactory: $this->createMock(ProviderFactory::class),
 			accessRequests: $this->createMock(ToolAccessRequestService::class),
-			logger: $this->logger
+			logger: $this->logger,
+			literacy: $literacy
 		);
 
 	}//end controller()
@@ -223,6 +224,73 @@ class ChatControllerTest extends TestCase {
 	}//end testSendMessageForeignConversationIsForbidden()
 
 	/**
+	 * A turn's scope reaches the engine unchanged in its RAG settings
+	 * (chat-about-a-document-cites-its-sources task 1).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 */
+	public function testSendMessagePassesTheScopeToTheEngine(): void {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'Wat is de beslistermijn?', 'scope' => ['type' => 'file', 'fileId' => '42']]);
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+
+		$seen = null;
+		$this->engine->expects($this->once())->method('processMessage')->willReturnCallback(
+			static function (string $conversationId, string $userId, string $userMessage, array $selectedViews, array $selectedTools, array $ragSettings) use (&$seen): array {
+				$seen = $ragSettings;
+				return ['message' => 'Acht weken [1].', 'messageId' => 'msg-1', 'sources' => [], 'timings' => [], 'usage' => []];
+			}
+		);
+
+		$response = $this->controller()->sendMessage();
+
+		$this->assertSame(200, $response->getStatus());
+		$this->assertSame(['type' => 'file', 'fileId' => 42], $seen['scope']);
+
+	}//end testSendMessagePassesTheScopeToTheEngine()
+
+	/**
+	 * A scope in any other shape is a 400, and an unopenable one the engine
+	 * refuses is a 404; neither shape ever reaches the model.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 */
+	public function testSendMessageRefusesABadScope(): void {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi', 'scope' => ['type' => 'register', 'fileId' => 42]]);
+		$this->engine->expects($this->never())->method('processMessage');
+
+		$response = $this->controller()->sendMessage();
+
+		$this->assertSame(400, $response->getStatus());
+
+	}//end testSendMessageRefusesABadScope()
+
+	/**
+	 * A scope the speaker cannot open is answered with 404.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 */
+	public function testSendMessageAnUnopenableScopeIsNotFound(): void {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi', 'scope' => ['type' => 'file', 'fileId' => 9]]);
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+		$this->engine->method('processMessage')->willThrowException(new \OCA\Hermiq\Service\Chat\TurnScopeException(status: 404));
+
+		$response = $this->controller()->sendMessage();
+
+		$this->assertSame(404, $response->getStatus());
+
+	}//end testSendMessageAnUnopenableScopeIsNotFound()
+
+	/**
 	 * The happy path delegates to Engine::processMessage with the conversation
 	 * UUID and echoes the conversation uuid back on the result.
 	 *
@@ -257,6 +325,91 @@ class ChatControllerTest extends TestCase {
 		$this->assertSame('conv-1', $response->getData()['conversation']);
 
 	}//end testSendMessageDelegatesToEngine()
+
+	/**
+	 * A user who is not an admin can open a session by sending a first message
+	 * (hermiq#1086).
+	 *
+	 * The Session schema lists no `create` grant on purpose (hermiq#319), so the
+	 * default `_rbac: true` save is refused for every non-admin. The controller has
+	 * resolved the caller and read the agent under the caller's own rights, so the
+	 * new session is saved with `_rbac: false` and always for the caller.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 */
+	public function testSendMessageOpensANonAdminsSessionPastTheObjectApiCreateCheck(): void {
+		$this->stubParams(['agentUuid' => 'agent-1', 'message' => 'hi']);
+		$this->objectService->method('find')->willReturn($this->entity('agent-1', ['name' => 'Agent builder']));
+		$this->engine->method('ensureUniqueTitle')->willReturn('New Conversation');
+		$this->engine->method('processMessage')->willReturn(['message' => 'hello', 'messageId' => 'msg-1', 'sources' => [], 'timings' => [], 'usage' => []]);
+
+		$args = null;
+		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
+			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$args = $passed;
+				return $this->entity('conv-new', $passed[0]);
+			}
+		);
+
+		$response = $this->controller()->sendMessage();
+
+		$this->assertSame(200, $response->getStatus());
+		$this->assertSame('alice', $args[0]['userId']);
+		$this->assertSame('agentsession', $args[3]);
+		$this->assertFalse($args[5], 'The new session must not depend on an object-API create grant (_rbac).');
+
+	}//end testSendMessageOpensANonAdminsSessionPastTheObjectApiCreateCheck()
+
+	/**
+	 * A new session started from a record page records the record as its
+	 * subject when the caller can read it, and not when the read is refused.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#scenario-a-chat-started-on-a-case-page
+	 */
+	public function testSendMessageRecordsOnlyAReadableSubject(): void {
+		$saved = [];
+		$this->objectService->method('find')->willReturnCallback(
+			function (int|string $id): ?ObjectEntity {
+				if ($id === 'case-secret') {
+					throw new \OCP\AppFramework\Db\DoesNotExistException('not readable');
+				}
+
+				$entity = $this->entity((string)$id, ['name' => 'Zaakassistent']);
+				$entity->setRegister('5');
+				$entity->setSchema('9');
+				return $entity;
+			}
+		);
+		$this->engine->method('ensureUniqueTitle')->willReturn('New Conversation');
+		$this->engine->method('processMessage')->willReturn(['message' => 'hello', 'messageId' => 'msg-1']);
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (mixed ...$passed) use (&$saved): ObjectEntity {
+				$saved[] = $passed[0];
+				return $this->entity('conv-new', $passed[0]);
+			}
+		);
+		$params = ['agentUuid' => 'agent-1', 'message' => 'hi', 'context' => ['objectUuid' => 'case-1', 'register' => 'zaken', 'schema' => 'zaak', 'appId' => 'dossiq']];
+		$this->request->method('getParam')->willReturnCallback(
+			static function (string $key, mixed $default = null) use (&$params): mixed {
+				return ($params[$key] ?? $default);
+			}
+		);
+
+		$this->assertSame(200, $this->controller()->sendMessage()->getStatus());
+		$params['context'] = ['objectUuid' => 'case-secret', 'register' => 'zaken', 'schema' => 'zaak'];
+		$this->assertSame(200, $this->controller()->sendMessage()->getStatus());
+
+		$this->assertSame(
+			['subject' => ['objectUuid' => 'case-1', 'register' => '5', 'schema' => '9', 'appId' => 'dossiq']],
+			$saved[0]['metadata']
+		);
+		$this->assertArrayNotHasKey('metadata', $saved[1]);
+
+	}//end testSendMessageRecordsOnlyAReadableSubject()
 
 	/**
 	 * A missing conversation AND agentUuid is a 400 (resolveConversation's
@@ -302,6 +455,142 @@ class ChatControllerTest extends TestCase {
 		$this->assertSame(500, $response->getStatus());
 
 	}//end testSendMessageServerFailureStillLogsError()
+
+	/**
+	 * A refused pinned credential reaches the person as its own sentence, not a masked error.
+	 *
+	 * The engine wraps the refusal ("Failed to generate response: ..."); the controller
+	 * finds it in the chain and answers with the reason and a stable code.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 */
+	public function testARefusedPinnedCredentialTellsThePersonWhy(): void {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi there']);
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+		$refused = new \OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException(provider: 'openai');
+		$this->engine->method('processMessage')->willThrowException(
+			new \Exception('Failed to generate response: ' . $refused->getMessage(), 403, $refused)
+		);
+
+		$response = $this->controller()->sendMessage();
+
+		$this->assertSame(403, $response->getStatus());
+		$this->assertSame('The credential pinned to this agent cannot be used for this run.', $response->getData()['message']);
+		$this->assertSame('pinned_credential_refused', $response->getData()['errorCode']);
+
+	}//end testARefusedPinnedCredentialTellsThePersonWhy()
+
+	/**
+	 * The attachments the request names reach the engine, and an attachment the
+	 * engine refuses is answered with its sentence, its status and a stable code.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#scenario-a-participant-cannot-attach-a-colleagues-private-file-by-id
+	 */
+	public function testARefusedAttachmentTellsThePersonWhy(): void {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'Wat staat hierin?', 'attachments' => [['fileId' => 48213]]]);
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+		$seen = null;
+		$this->engine->method('processMessage')->willReturnCallback(
+			static function (...$args) use (&$seen): array {
+				$seen = $args;
+				throw new \OCA\Hermiq\Service\Chat\AttachmentRefusedException('This file is not available to you', 400);
+			}
+		);
+
+		$response = $this->controller()->sendMessage();
+
+		// Positional, in the order of Engine::processMessage(): attachments is the 14th.
+		$this->assertSame([['fileId' => 48213]], $seen[13] ?? null);
+		$this->assertSame(400, $response->getStatus());
+		$this->assertSame('This file is not available to you', $response->getData()['message']);
+		$this->assertSame('This file is not available to you', $response->getData()['error']);
+		$this->assertSame('attachment_refused', $response->getData()['errorCode']);
+
+	}//end testARefusedAttachmentTellsThePersonWhy()
+
+	/**
+	 * compliance-ai-literacy: with the course required and not done, the message
+	 * is refused before the engine runs, with the course message and a link.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 */
+	public function testAPersonWhoSkippedTheCourseIsSentToIt(): void {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi there']);
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+		$this->engine->expects($this->never())->method('processMessage');
+		$literacy = $this->createMock(\OCA\Hermiq\Service\Literacy\LiteracyRequirement::class);
+		$literacy->method('assertMayUseAgents')->willThrowException(new \OCA\Hermiq\Service\Literacy\LiteracyRequiredException());
+
+		$response = $this->controller(literacy: $literacy)->sendMessage();
+
+		$this->assertSame(403, $response->getStatus());
+		$this->assertSame('Finish the short course Working with AI first.', $response->getData()['message']);
+		$this->assertSame('ai_literacy_required', $response->getData()['errorCode']);
+		$this->assertStringEndsWith('/apps/hermiq/ai-literacy', $response->getData()['courseUrl']);
+
+	}//end testAPersonWhoSkippedTheCourseIsSentToIt()
+
+	/**
+	 * A run refused by the data-use check tells the chat user why, in plain words.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
+	 */
+	public function testARunRefusedOnDataUseTellsThePersonWhy(): void {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi there']);
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+		$refused = new \OCA\Hermiq\Service\AiFeature\DataUseViolationException(organisation: 'Gemeente Voorbeeld', provider: 'openai', dataUse: 'undeclared');
+		$this->engine->method('processMessage')->willThrowException(
+			new \Exception('Failed to generate response: ' . $refused->getMessage(), 422, $refused)
+		);
+
+		$response = $this->controller()->sendMessage();
+
+		$this->assertSame(422, $response->getStatus());
+		$this->assertSame(
+			'This assistant cannot answer: your organisation only allows AI providers that never train on its data.',
+			$response->getData()['message']
+		);
+		$this->assertSame('data_use_refused', $response->getData()['errorCode']);
+
+	}//end testARunRefusedOnDataUseTellsThePersonWhy()
+
+	/**
+	 * A switched-off agent: the chat answers 409 with the sentence the person reads.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
+	 */
+	public function testASwitchedOffAgentAnswers409(): void {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi there']);
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+		$this->engine->method('processMessage')->willThrowException(new \OCA\Hermiq\Service\Agent\AgentSwitchedOffException());
+
+		$response = $this->controller()->sendMessage();
+
+		$this->assertSame(409, $response->getStatus());
+		$this->assertSame('This agent is switched off.', $response->getData()['message']);
+		$this->assertSame('agent_switched_off', $response->getData()['errorCode']);
+
+	}//end testASwitchedOffAgentAnswers409()
 
 	/**
 	 * getHistory without a conversationId is a 400.
@@ -427,11 +716,11 @@ class ChatControllerTest extends TestCase {
 		$this->stubParams(['type' => 'positive']);
 		$this->objectService->method('find')->willReturnCallback(
 			function (int|string $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schema = null): ?ObjectEntity {
-				if ($schema === 'conversation') {
+				if ($schema === 'agentsession') {
 					return $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);
 				}
 
-				return $this->entity('msg-1', ['conversationId' => 'conv-OTHER', 'role' => 'assistant']);
+				return $this->entity(uuid: 'msg-1', payload: ['sessionId' => 'conv-OTHER', 'role' => 'assistant']);
 			}
 		);
 		$this->objectService->expects($this->never())->method('saveObject');
@@ -455,11 +744,11 @@ class ChatControllerTest extends TestCase {
 		$this->stubParams(['type' => 'negative', 'comment' => 'wrong answer']);
 		$this->objectService->method('find')->willReturnCallback(
 			function (int|string $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schema = null): ?ObjectEntity {
-				if ($schema === 'conversation') {
+				if ($schema === 'agentsession') {
 					return $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);
 				}
 
-				return $this->entity('msg-1', ['conversationId' => 'conv-1', 'role' => 'assistant']);
+				return $this->entity(uuid: 'msg-1', payload: ['sessionId' => 'conv-1', 'role' => 'assistant']);
 			}
 		);
 
@@ -468,10 +757,12 @@ class ChatControllerTest extends TestCase {
 
 		$saved = null;
 		$savedUuid = 'unset';
+		$savedRbac = null;
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$saved, &$savedUuid): ObjectEntity {
+			function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null, ?string $uuid = null, bool $_rbac = true) use (&$saved, &$savedUuid, &$savedRbac): ObjectEntity {
 				$saved = $object;
 				$savedUuid = $uuid;
+				$savedRbac = $_rbac;
 				$entity = new ObjectEntity();
 				$entity->setUuid('fb-1');
 				$entity->setObject($object);
@@ -483,6 +774,9 @@ class ChatControllerTest extends TestCase {
 
 		$this->assertSame(200, $response->getStatus());
 		$this->assertNull($savedUuid, 'A new feedback object must not target an existing uuid.');
+		// hermiq#1086: Feedback grants `read` only, so the default save refuses every
+		// non-admin. The participation and sessionId checks above are the guard.
+		$this->assertFalse($savedRbac, 'Feedback from a non-admin must not depend on an object-API create grant (_rbac).');
 		$this->assertSame(
 			[
 				'messageId' => 'msg-1',
@@ -509,11 +803,11 @@ class ChatControllerTest extends TestCase {
 		$this->stubParams(['type' => 'positive', 'comment' => 'better now']);
 		$this->objectService->method('find')->willReturnCallback(
 			function (int|string $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schema = null): ?ObjectEntity {
-				if ($schema === 'conversation') {
+				if ($schema === 'agentsession') {
 					return $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);
 				}
 
-				return $this->entity('msg-1', ['conversationId' => 'conv-1', 'role' => 'assistant']);
+				return $this->entity(uuid: 'msg-1', payload: ['sessionId' => 'conv-1', 'role' => 'assistant']);
 			}
 		);
 
@@ -620,4 +914,165 @@ class ChatControllerTest extends TestCase {
 		$this->assertFalse($response->getData()['warmed']);
 
 	}//end testWarmSwallowsAFailedLookup()
+
+	/**
+	 * Run a turn whose engine call throws the given exception, recording every
+	 * warning/error log line, and return the response.
+	 *
+	 * @param \Exception $failure The engine failure.
+	 *
+	 * @return array{0: int, 1: array<string, mixed>, 2: array<int, string>} Status, data and log lines.
+	 */
+	private function failedTurn(\Exception $failure): array {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi there']);
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+		$this->engine->method('processMessage')->willThrowException($failure);
+		$lines = [];
+		$this->logger->method('warning')->willReturnCallback(
+			static function (string $message) use (&$lines): void {
+				$lines[] = 'warning ' . $message;
+			}
+		);
+		$this->logger->method('error')->willReturnCallback(
+			static function (string $message, array $context) use (&$lines): void {
+				$lines[] = 'error ' . $message . ' / ' . $context['error'];
+			}
+		);
+
+		$response = $this->controller()->sendMessage();
+		return [$response->getStatus(), $response->getData(), $lines];
+
+	}//end failedTurn()
+
+	/**
+	 * Every exception code maps to its status and error sentence; codes outside the
+	 * HTTP error range become 500, and 4xx is logged as a warning, 5xx as an error.
+	 *
+	 * @return void
+	 */
+	public function testEveryFailureCodeMapsToItsStatusAndSentence(): void {
+		$cases = [
+			[0, 500, 'Failed to process message'],
+			[23, 500, 'Failed to process message'],
+			[399, 500, 'Failed to process message'],
+			[400, 400, 'Missing conversation or agentUuid'],
+			[401, 401, 'Authentication required'],
+			[403, 403, 'Access denied'],
+			[404, 404, 'Conversation not found'],
+			[409, 409, 'This agent is switched off.'],
+			[410, 410, 'Failed to process message'],
+			[422, 422, 'Message blocked by the organisation\'s guardrail policy'],
+			[503, 503, 'AI service not configured'],
+			[599, 599, 'Failed to process message'],
+			[600, 500, 'Failed to process message'],
+		];
+		foreach ($cases as [$code, $status, $error]) {
+			$this->setUp();
+			[$actualStatus, $data, $lines] = $this->failedTurn(new \Exception('why', $code));
+			$this->assertSame([$status, ['error' => $error, 'message' => 'why']], [$actualStatus, $data], 'code ' . $code);
+			$expected = ($status < 500) ? ['warning [ChatController] Rejected message: why'] : ['error [ChatController] Failed to send message / why'];
+			$this->assertSame($expected, $lines, 'code ' . $code);
+		}
+
+	}//end testEveryFailureCodeMapsToItsStatusAndSentence()
+
+	/**
+	 * A guardrail block carries its stable code; a refusal found deeper in the cause
+	 * chain replaces the message and code, the first one found wins, and the literacy
+	 * refusal adds the course link.
+	 *
+	 * @return void
+	 */
+	public function testTheCauseChainDecidesTheSentenceAndCode(): void {
+		[$status, $data] = $this->failedTurn(new \OCA\Hermiq\Service\GuardrailBlockedException(reason: 'pii'));
+		$this->assertSame(
+			[422, ['error' => 'Message blocked by the organisation\'s guardrail policy', 'message' => 'Message blocked by guardrail policy (pii)', 'errorCode' => 'guardrail_blocked']],
+			[$status, $data]
+		);
+
+		$this->setUp();
+		$switchedOff = new \OCA\Hermiq\Service\Agent\AgentSwitchedOffException();
+		$pinned = new \OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException(provider: 'openai');
+		$chain = new \Exception('outer', 403, new \Exception('middle', 0, new \Exception('inner', 0, $switchedOff)));
+		[$status, $data] = $this->failedTurn($chain);
+		$this->assertSame(
+			[403, ['error' => 'Access denied', 'message' => 'This agent is switched off.', 'errorCode' => \OCA\Hermiq\Service\Agent\AgentSwitchedOffException::ERROR_CODE]],
+			[$status, $data]
+		);
+
+		$this->setUp();
+		[$status, $data] = $this->failedTurn(new \Exception('outer', 503, $pinned));
+		$this->assertSame(
+			[503, ['error' => 'AI service not configured', 'message' => 'The credential pinned to this agent cannot be used for this run.', 'errorCode' => 'pinned_credential_refused']],
+			[$status, $data]
+		);
+
+		$this->setUp();
+		$literacy = new \OCA\Hermiq\Service\Literacy\LiteracyRequiredException();
+		[$status, $data] = $this->failedTurn(new \Exception('outer', 0, $literacy));
+		$this->assertSame(
+			[
+				500,
+				[
+					'error' => 'Failed to process message',
+					'message' => 'Finish the short course Working with AI first.',
+					'errorCode' => \OCA\Hermiq\Service\Literacy\LiteracyRequiredException::ERROR_CODE,
+					'courseUrl' => \OCA\Hermiq\Service\Literacy\LiteracyRequiredException::COURSE_PATH,
+				],
+			],
+			[$status, $data]
+		);
+
+	}//end testTheCauseChainDecidesTheSentenceAndCode()
+
+	/**
+	 * The turn's request parameters reach the engine with their defaults: views and
+	 * tools only when they are lists, the RAG settings defaulted, context only when an
+	 * array, and attachments re-indexed.
+	 *
+	 * @return void
+	 */
+	public function testTheTurnParametersReachTheEngine(): void {
+		$seen = [];
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+		$this->engine->method('processMessage')->willReturnCallback(
+			static function (...$args) use (&$seen): array {
+				$seen[] = [$args[2], $args[3], $args[4], $args[5], $args[6], $args[13]];
+				return [];
+			}
+		);
+		$controller = $this->controller();
+
+		$this->stubParams(
+			[
+				'conversation' => 'conv-1',
+				'message' => 'hi',
+				'views' => ['v1'],
+				'tools' => ['t1'],
+				'includeFiles' => false,
+				'numSourcesObjects' => 2,
+				'context' => ['page' => 'x'],
+				'attachments' => ['a' => ['id' => 1], 'b' => ['id' => 2]],
+			]
+		);
+		$controller->sendMessage();
+
+		$this->request = $this->createMock(\OCP\IRequest::class);
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'again', 'views' => 'x', 'tools' => 5, 'context' => 'y', 'attachments' => 'z']);
+		$this->controller()->sendMessage();
+
+		$defaults = ['includeObjects' => true, 'includeFiles' => true, 'numSourcesFiles' => 5, 'numSourcesObjects' => 5];
+		$this->assertSame(
+			[
+				['hi', ['v1'], ['t1'], ['includeObjects' => true, 'includeFiles' => false, 'numSourcesFiles' => 5, 'numSourcesObjects' => 2], ['page' => 'x'], [['id' => 1], ['id' => 2]]],
+				['again', [], [], $defaults, [], []],
+			],
+			$seen
+		);
+
+	}//end testTheTurnParametersReachTheEngine()
 }//end class

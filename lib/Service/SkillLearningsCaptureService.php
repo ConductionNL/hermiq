@@ -46,8 +46,14 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\SkillLearningsCaptureServiceInterface;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
+use OCA\Hermiq\Service\SkillLearnings\CaptureSource;
+use OCA\Hermiq\Service\SkillLearnings\CaptureUsage;
+use OCA\Hermiq\Service\SkillLearnings\ExtractionInput;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -66,7 +72,7 @@ use Throwable;
  *
  * @spec openspec/specs/skill-learnings/spec.md#requirement-a-post-run-capture-pass-appends-dated-atomic-candidates-per-exercised-skill
  */
-class SkillLearningsCaptureService {
+class SkillLearningsCaptureService implements SkillLearningsCaptureServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -237,11 +243,13 @@ class SkillLearningsCaptureService {
 			try {
 				$usage = $this->captureForSkill(
 					skillId: trim($skillId),
-					runId: $runId,
-					trace: $trace,
-					agentId: $agentId,
-					organisation: $organisation,
-					evalFail: $evalFail
+					source: new CaptureSource(
+						runId: $runId,
+						trace: $trace,
+						agentId: $agentId,
+						organisation: $organisation,
+						evalFail: $evalFail
+					)
 				);
 
 				$promptTokens += $usage['promptTokens'];
@@ -257,11 +265,13 @@ class SkillLearningsCaptureService {
 
 		if (($promptTokens + $completionTokens) > 0) {
 			$this->recordCaptureUsage(
-				scheduleUuid: $scheduleUuid,
-				agentId: $agentId,
-				runId: $runId,
-				promptTokens: $promptTokens,
-				completionTokens: $completionTokens
+				usage: new CaptureUsage(
+					scheduleUuid: $scheduleUuid,
+					agentId: $agentId,
+					runId: $runId,
+					promptTokens: $promptTokens,
+					completionTokens: $completionTokens
+				)
 			);
 		}
 
@@ -273,11 +283,7 @@ class SkillLearningsCaptureService {
 	 * single extraction call, redaction, and the mechanical grammar append/update.
 	 *
 	 * @param string $skillId The exercised skill's uuid.
-	 * @param string $runId The originating run's id.
-	 * @param string $trace The persisted run-trace excerpt.
-	 * @param string $agentId The run's agent uuid (budget scope).
-	 * @param string $organisation The run's organisation (budget + model-policy scope).
-	 * @param string $evalFail Optional failed-eval marker ref (`''` = none).
+	 * @param CaptureSource $source The run a skill learning is captured from.
 	 *
 	 * @return array{promptTokens: int, completionTokens: int} The pass's estimated usage.
 	 *
@@ -292,80 +298,21 @@ class SkillLearningsCaptureService {
 	 * @spec openspec/specs/skill-learnings/spec.md#requirement-capture-is-idempotent-per-run-id
 	 * @spec openspec/specs/skill-learnings/spec.md#requirement-capture-is-budget-gated-and-budget-counted
 	 */
-	private function captureForSkill(
-		string $skillId,
-		string $runId,
-		string $trace,
-		string $agentId,
-		string $organisation,
-		string $evalFail,
-	): array {
-		$none = [
-			'promptTokens' => 0,
-			'completionTokens' => 0,
-		];
-
-		$skill = $this->objectService->find(
-			id: $skillId,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			_rbac: false,
-			_multitenancy: false
-		);
-		if ($skill === null) {
-			$this->logger->info(sprintf('Hermiq learnings capture: skill %s not found — skipped.', $skillId));
-			return $none;
+	private function captureForSkill(string $skillId, CaptureSource $source): array {
+		$runId = $source->runId;
+		$loaded = $this->loadForCapture(skillId: $skillId, runId: $runId, agentId: $source->agentId, organisation: $source->organisation);
+		if ($loaded === null) {
+			return [
+				'promptTokens' => 0,
+				'completionTokens' => 0,
+			];
 		}
 
-		$data = $skill->getObject();
-		$files = ($data['files'] ?? []);
-		if (is_array($files) === false) {
-			$files = [];
-		}
-
-		$candidatesContent = $this->fileContent(files: $files, name: self::CANDIDATES_FILE);
-
-		// (a) IDEMPOTENCY FIRST: a re-delivered/double-enqueued job costs nothing and
-		// duplicates nothing — checked BEFORE the LLM call, per the spec.
-		if ($this->contentContainsRunId(content: $candidatesContent, runId: $runId) === true) {
-			$this->logger->info(
-				sprintf('Hermiq learnings capture: run %s already recorded on skill %s — idempotent skip.', $runId, $skillId)
-			);
-			return $none;
-		}
-
-		// (b) BUDGET GATE: a run that exhausted the budget gets no capture pass.
-		if ($this->isBudgetBlocked(organisation: $organisation, agentId: $agentId) === true) {
-			$this->logger->info(
-				sprintf('Hermiq learnings capture: budget blocked for org "%s" — skipping skill %s (no LLM call).', $organisation, $skillId)
-			);
-			return $none;
-		}
-
-		$parsedCandidates = $this->parseCandidates(content: $candidatesContent);
-
-		// Tenant-model-policy scope: an organisation-less run opts out of the
-		// per-organisation policy check (mirrors EvalScoringService's judge call).
-		$policyScope = $organisation;
-		if ($policyScope === '') {
-			$policyScope = null;
-		}
+		[$skill, $data, $files, $parsedCandidates] = $loaded;
 
 		// (c) ONE cheap extraction call per exercised skill via the governed chokepoint.
-		$prompt = $this->buildExtractionPrompt(data: $data, candidates: $parsedCandidates, trace: $trace);
-		$response = $this->providerFactory->generateText(
-			prompt: $prompt,
-			userId: null,
-			allowNextcloud: true,
-			organisation: $policyScope
-		);
-
-		$usage = [
-			'promptTokens' => (int)ceil(strlen($prompt) / self::CHARS_PER_TOKEN),
-			'completionTokens' => (int)ceil(strlen($response) / self::CHARS_PER_TOKEN),
-		];
-
-		$extraction = $this->parseExtraction(response: $response);
+		$input = new ExtractionInput(candidates: $parsedCandidates, trace: $source->trace);
+		[$usage, $extraction] = $this->extract(data: $data, input: $input, organisation: $source->organisation);
 
 		// (d)+(e) Redact every observation, drop empties, cap length. The LLM never
 		// writes the file — the service serializes every line itself.
@@ -385,28 +332,155 @@ class SkillLearningsCaptureService {
 			return $usage;
 		}
 
+		$parsedCandidates = $this->mergeCandidates(
+			candidates: $parsedCandidates,
+			confirmations: $confirmations,
+			observations: $observations,
+			runId: $runId,
+			evalFail: $source->evalFail
+		);
+
+		$this->persistCandidates(skill: $skill, data: $data, files: $files, candidates: $parsedCandidates);
+
+		return $usage;
+	}//end captureForSkill()
+
+	/**
+	 * Load one exercised skill for capture, or null when this pass must not run:
+	 * the skill is gone, (a) the candidates file already records this run id
+	 * (checked BEFORE the LLM call, so a re-delivered or double-enqueued job costs
+	 * nothing and duplicates nothing), or (b) the budget is exhausted.
+	 *
+	 * @param string $skillId      The exercised skill's uuid.
+	 * @param string $runId        The originating run's id.
+	 * @param string $agentId      The run's agent uuid (budget scope).
+	 * @param string $organisation The run's organisation (budget scope).
+	 *
+	 * @return array{0: ObjectEntity, 1: array<string, mixed>, 2: array<int, mixed>, 3: array<int, array<string, mixed>>}|null
+	 *         The skill, its object, its files and its parsed candidates; or null to skip.
+	 *
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-capture-is-idempotent-per-run-id
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-capture-is-budget-gated-and-budget-counted
+	 */
+	private function loadForCapture(string $skillId, string $runId, string $agentId, string $organisation): ?array {
+		$skill = $this->objectService->find(
+			id: $skillId,
+			register: self::REGISTER_SLUG,
+			schema: self::SKILL_SCHEMA,
+			_rbac: false,
+			_multitenancy: false
+		);
+		if ($skill === null) {
+			$this->logger->info(sprintf('Hermiq learnings capture: skill %s not found — skipped.', $skillId));
+			return null;
+		}
+
+		$data = $skill->getObject();
+		$files = ($data['files'] ?? []);
+		if (is_array($files) === false) {
+			$files = [];
+		}
+
+		$candidatesContent = $this->fileContent(files: $files, name: self::CANDIDATES_FILE);
+
+		if ($this->contentContainsRunId(content: $candidatesContent, runId: $runId) === true) {
+			$this->logger->info(
+				sprintf('Hermiq learnings capture: run %s already recorded on skill %s — idempotent skip.', $runId, $skillId)
+			);
+			return null;
+		}
+
+		if ($this->isBudgetBlocked(organisation: $organisation, agentId: $agentId) === true) {
+			$this->logger->info(
+				sprintf('Hermiq learnings capture: budget blocked for org "%s" — skipping skill %s (no LLM call).', $organisation, $skillId)
+			);
+			return null;
+		}
+
+		return [$skill, $data, $files, $this->parseCandidates(content: $candidatesContent)];
+
+	}//end loadForCapture()
+
+	/**
+	 * The single extraction call and its estimated usage. An organisation-less
+	 * run opts out of the per-organisation model policy (mirrors
+	 * EvalScoringService's judge call).
+	 *
+	 * @param array<string, mixed>             $data         The skill's stored object.
+	 * @param ExtractionInput                  $input        The parsed candidates and the run-trace excerpt.
+	 * @param string                           $organisation The run's organisation.
+	 *
+	 * @return array{0: array{promptTokens: int, completionTokens: int}, 1: array{observations: mixed, confirmations: mixed}}
+	 *         The usage and the parsed extraction.
+	 *
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-capture-is-budget-gated-and-budget-counted
+	 */
+	private function extract(array $data, ExtractionInput $input, string $organisation): array {
+		$policyScope = $organisation;
+		if ($policyScope === '') {
+			$policyScope = null;
+		}
+
+		$prompt = $this->buildExtractionPrompt(data: $data, input: $input);
+		$response = $this->providerFactory->generateText(
+			prompt: $prompt,
+			userId: null,
+			allowNextcloud: true,
+			organisation: $policyScope
+		);
+
+		$usage = [
+			'promptTokens' => (int)ceil(strlen($prompt) / self::CHARS_PER_TOKEN),
+			'completionTokens' => (int)ceil(strlen($response) / self::CHARS_PER_TOKEN),
+		];
+
+		return [$usage, $this->parseExtraction(response: $response)];
+
+	}//end extract()
+
+	/**
+	 * Fold one run's confirmations and new observations into the parsed
+	 * candidates: (f) a confirmation extends the line's run-id list once and
+	 * refreshes its date, never adding a duplicate line; (g) a failing eval-case
+	 * run marks every candidate it touched that carries no marker yet; new
+	 * observations are appended as dated lines for this run.
+	 *
+	 * @param array<int, array<string, mixed>>                $candidates    The parsed candidates.
+	 * @param array<int, int>                                 $confirmations Valid candidate indexes.
+	 * @param array<int, array{section: string, text: string}> $observations The sanitized observations.
+	 * @param string                                          $runId         The originating run's id.
+	 * @param string                                          $evalFail      Failed-eval marker ref (`''` = none).
+	 *
+	 * @return array<int, array<string, mixed>> The merged candidates.
+	 *
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-a-post-run-capture-pass-appends-dated-atomic-candidates-per-exercised-skill
+	 */
+	private function mergeCandidates(
+		array $candidates,
+		array $confirmations,
+		array $observations,
+		string $runId,
+		string $evalFail,
+	): array {
 		$today = $this->today();
 
-		// (f) Confirmations extend the existing line's run-id list + refresh its date;
-		// never a duplicate line.
 		foreach ($confirmations as $index) {
-			$candidate = $parsedCandidates[$index];
+			$candidate = $candidates[$index];
 			if (in_array($runId, $candidate['runs'], true) === false) {
 				$candidate['runs'][] = $runId;
 			}
 
 			$candidate['date'] = $today;
 
-			// (g) A failing eval-case run marks every candidate it touched.
 			if ($evalFail !== '' && $candidate['evalFail'] === '') {
 				$candidate['evalFail'] = $evalFail;
 			}
 
-			$parsedCandidates[$index] = $candidate;
+			$candidates[$index] = $candidate;
 		}
 
 		foreach ($observations as $observation) {
-			$parsedCandidates[] = [
+			$candidates[] = [
 				'date' => $today,
 				'section' => $observation['section'],
 				'text' => $observation['text'],
@@ -416,13 +490,30 @@ class SkillLearningsCaptureService {
 			];
 		}
 
-		$newContent = $this->serializeCandidates(candidates: $parsedCandidates);
+		return $candidates;
 
-		// (h) Persist through the unchanged ObjectService write path and stamp the l6
-		// activity — the ONLY fields this subsystem touches besides the candidates
-		// file. `body`/`frontmatter`/all other files entries stay byte-identical
-		// because only the CANDIDATES_FILE entry is replaced in the carried-forward
-		// payload (OR saveObject is PUT-semantic — the full object is written back).
+	}//end mergeCandidates()
+
+	/**
+	 * (h) Persist the serialized candidates through the unchanged ObjectService
+	 * write path and stamp the l6 activity — the ONLY fields this subsystem
+	 * touches besides the candidates file. `body`/`frontmatter`/all other files
+	 * entries stay byte-identical because only the CANDIDATES_FILE entry is
+	 * replaced in the carried-forward payload (OR saveObject is PUT-semantic —
+	 * the full object is written back).
+	 *
+	 * @param ObjectEntity                     $skill      The skill.
+	 * @param array<string, mixed>             $data       The skill's stored object.
+	 * @param array<int, mixed>                $files      The skill's files entries.
+	 * @param array<int, array<string, mixed>> $candidates The merged candidates.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-a-post-run-capture-pass-appends-dated-atomic-candidates-per-exercised-skill
+	 */
+	private function persistCandidates(ObjectEntity $skill, array $data, array $files, array $candidates): void {
+		$newContent = $this->serializeCandidates(candidates: $candidates);
+
 		$data['files'] = $this->withFileContent(files: $files, name: self::CANDIDATES_FILE, content: $newContent);
 
 		$data['levelEvidence'] = $this->stampL6(
@@ -442,8 +533,7 @@ class SkillLearningsCaptureService {
 			_multitenancy: false
 		);
 
-		return $usage;
-	}//end captureForSkill()
+	}//end persistCandidates()
 
 	/**
 	 * Parse a candidates file into structured candidate entries. Unparseable lines are
@@ -715,14 +805,15 @@ class SkillLearningsCaptureService {
 	 * is already paid for), and the persisted run-trace excerpt.
 	 *
 	 * @param array<string, mixed> $data The skill payload.
-	 * @param array<int, array<string, mixed>> $candidates The parsed current candidates.
-	 * @param string $trace The run-trace excerpt.
+	 * @param ExtractionInput $input The candidates and run trace learnings are extracted from.
 	 *
 	 * @return string The extraction prompt.
 	 *
 	 * @spec openspec/specs/skill-learnings/spec.md#requirement-a-post-run-capture-pass-appends-dated-atomic-candidates-per-exercised-skill
 	 */
-	private function buildExtractionPrompt(array $data, array $candidates, string $trace): string {
+	private function buildExtractionPrompt(array $data, ExtractionInput $input): string {
+		$candidates = $input->candidates;
+		$trace = $input->trace;
 		$existing = [];
 		foreach ($candidates as $index => $candidate) {
 			if (($candidate['raw'] ?? null) !== null) {
@@ -849,23 +940,18 @@ class SkillLearningsCaptureService {
 	 * cost counts against the SAME per-org/per-agent period windows with zero
 	 * BudgetService changes (design.md Decision 4). Non-fatal by contract.
 	 *
-	 * @param string $scheduleUuid The originating run's schedule uuid.
-	 * @param string $agentId The run's agent uuid.
-	 * @param string $runId The originating run's id.
-	 * @param int $promptTokens Estimated prompt tokens across the pass.
-	 * @param int $completionTokens Estimated completion tokens across the pass.
+	 * @param CaptureUsage $usage The tokens one learnings capture spent, and the run it spent them for.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/specs/skill-learnings/spec.md#requirement-capture-is-budget-gated-and-budget-counted
 	 */
-	private function recordCaptureUsage(
-		string $scheduleUuid,
-		string $agentId,
-		string $runId,
-		int $promptTokens,
-		int $completionTokens,
-	): void {
+	private function recordCaptureUsage(CaptureUsage $usage): void {
+		$scheduleUuid = $usage->scheduleUuid;
+		$agentId = $usage->agentId;
+		$runId = $usage->runId;
+		$promptTokens = $usage->promptTokens;
+		$completionTokens = $usage->completionTokens;
 		try {
 			if ($scheduleUuid === '') {
 				return;
@@ -885,20 +971,22 @@ class SkillLearningsCaptureService {
 				return;
 			}
 
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $schedule,
-				action: 'run',
-				context: [
-					'status' => 'skill_capture',
-					'runType' => 'skill-capture',
-					'runId' => $runId,
-					'agentId' => $agentId,
-					'dryRun' => false,
-					'usage' => [
-						'promptTokens' => $promptTokens,
-						'completionTokens' => $completionTokens,
-					],
-				]
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $schedule,
+					action: 'run',
+					context: [
+						'status' => 'skill_capture',
+						'runType' => 'skill-capture',
+						'runId' => $runId,
+						'agentId' => $agentId,
+						'dryRun' => false,
+						'usage' => [
+							'promptTokens' => $promptTokens,
+							'completionTokens' => $completionTokens,
+						],
+					]
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(

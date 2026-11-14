@@ -56,7 +56,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Flow;
 
-use OCA\Hermiq\Service\AsyncStageDispatchService;
+use OCA\Hermiq\Kernel\Contracts\AsyncStageDispatchServiceInterface;
+use OCA\OpenRegister\Service\Flow\FlowNodeCall;
 use OCA\OpenRegister\Service\Flow\IFlowNode;
 use OCP\IL10N;
 use OCP\IURLGenerator;
@@ -71,12 +72,12 @@ class HermiqWorkloadCollectNode implements IFlowNode {
 	/**
 	 * Constructor.
 	 *
-	 * @param AsyncStageDispatchService $stages The transport.
+	 * @param AsyncStageDispatchServiceInterface $stages The transport.
 	 * @param IL10N $l10n For palette strings.
 	 * @param IURLGenerator $urls For the palette icon.
 	 */
 	public function __construct(
-		private readonly AsyncStageDispatchService $stages,
+		private readonly AsyncStageDispatchServiceInterface $stages,
 		private readonly IL10N $l10n,
 		private readonly IURLGenerator $urls,
 	) {
@@ -151,13 +152,14 @@ class HermiqWorkloadCollectNode implements IFlowNode {
 	/**
 	 * Collect once per item.
 	 *
-	 * @param array $items The items.
-	 * @param array $config The step configuration.
-	 * @param array $context Run-level metadata.
+	 * @param FlowNodeCall $call The input items, the step configuration and the run context.
 	 *
 	 * @return array The items, each carrying the job state.
 	 */
-	public function execute(array $items, array $config, array $context): array {
+	public function execute(FlowNodeCall $call): array {
+		$items = $call->items;
+		$config = $call->config;
+		$context = $call->context;
 		$outKey = trim((string)($config['output'] ?? 'collected'));
 		if ($outKey === '') {
 			$outKey = 'collected';

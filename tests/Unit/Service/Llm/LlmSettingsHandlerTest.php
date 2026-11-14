@@ -153,6 +153,108 @@ class LlmSettingsHandlerTest extends TestCase {
 	}//end testUpdateMergesPatchStyle()
 
 	/**
+	 * Characterisation of the full merge: every field takes the patch, else the
+	 * stored value, else its default, with a stored null falling through, in the
+	 * stored order, and stored keys outside the shape are dropped.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+	 */
+	public function testTheMergeTakesThePatchThenTheStoredValueThenTheDefault(): void {
+		$stored = json_encode(
+			[
+				'embeddingProvider' => 'ollama',
+				'legacy' => 'dropped',
+				'openaiConfig' => ['credentialId' => 'cred-o', 'model' => null, 'apiKey' => 'sk-old'],
+				'ollamaConfig' => ['url' => 'http://ollama:11434', 'chatModel' => 'llama3'],
+				'anthropicConfig' => ['authMode' => 'oauth', 'scope' => 'personal'],
+				'vectorConfig' => ['backend' => 'solr'],
+			]
+		);
+
+		$written = null;
+		$handler = new LlmSettingsHandler($this->appConfig($stored, $written));
+		$result = $handler->updateLLMSettingsOnly(
+			[
+				'enabled' => true,
+				'openaiConfig' => ['model' => 'text-embedding-3', 'executionMode' => 'cli'],
+				'ollamaConfig' => ['chatModel' => null],
+				'fireworksConfig' => ['chatModel' => 'fw-1'],
+				'anthropicConfig' => ['chatModel' => 'claude-x', 'scope' => null],
+				'vectorConfig' => ['solrField' => 'vec'],
+				'unknown' => 'ignored',
+			]
+		);
+
+		$expected = [
+			'enabled' => true,
+			'embeddingProvider' => 'ollama',
+			'chatProvider' => null,
+			'openaiConfig' => [
+				'credentialId' => 'cred-o',
+				'model' => 'text-embedding-3',
+				'chatModel' => null,
+				'organizationId' => '',
+				'executionMode' => 'cli',
+			],
+			'ollamaConfig' => [
+				'url' => 'http://ollama:11434',
+				'model' => null,
+				'chatModel' => 'llama3',
+			],
+			'fireworksConfig' => [
+				'credentialId' => '',
+				'embeddingModel' => null,
+				'chatModel' => 'fw-1',
+				'baseUrl' => 'https://api.fireworks.ai/inference/v1',
+			],
+			'anthropicConfig' => [
+				'credentialId' => '',
+				'chatModel' => 'claude-x',
+				'authMode' => 'oauth',
+				'scope' => 'personal',
+				'baseUrl' => 'https://api.anthropic.com/v1',
+				'executionMode' => 'http',
+			],
+			'vectorConfig' => [
+				'backend' => 'solr',
+				'solrField' => 'vec',
+			],
+		];
+		$this->assertSame($expected, $result);
+		$this->assertSame(json_encode($expected), $written);
+
+	}//end testTheMergeTakesThePatchThenTheStoredValueThenTheDefault()
+
+	/**
+	 * Characterisation of the defaults: an unset key answers the full default
+	 * shape, in order.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+	 */
+	public function testTheDefaultShapeInOrder(): void {
+		$handler = new LlmSettingsHandler($this->appConfig(''));
+
+		$this->assertSame(
+			[
+				'enabled' => false,
+				'embeddingProvider' => null,
+				'chatProvider' => null,
+				'openaiConfig' => ['credentialId' => '', 'model' => null, 'chatModel' => null, 'organizationId' => '', 'executionMode' => 'http'],
+				'ollamaConfig' => ['url' => 'http://localhost:11434', 'model' => null, 'chatModel' => null],
+				'fireworksConfig' => ['credentialId' => '', 'embeddingModel' => null, 'chatModel' => null, 'baseUrl' => 'https://api.fireworks.ai/inference/v1'],
+				'anthropicConfig' => ['credentialId' => '', 'chatModel' => null, 'authMode' => 'api_key', 'scope' => 'organisation', 'baseUrl' => 'https://api.anthropic.com/v1', 'executionMode' => 'http'],
+				'vectorConfig' => ['backend' => 'php', 'solrField' => '_embedding_'],
+			],
+			$handler->getLLMSettingsOnly()
+		);
+
+	}//end testTheDefaultShapeInOrder()
+
+	/**
 	 * A submitted `apiKey` is never carried into the persisted blob.
 	 *
 	 * The keys used to live here in CLEARTEXT — not merely app-held, but unencrypted in

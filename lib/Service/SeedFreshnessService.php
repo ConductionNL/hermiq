@@ -44,6 +44,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\SeedFreshnessServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use Throwable;
 
@@ -52,7 +53,7 @@ use Throwable;
  *
  * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
  */
-class SeedFreshnessService {
+class SeedFreshnessService implements SeedFreshnessServiceInterface {
 	/**
 	 * Stamp `lastActivityAt = now` on a seed payload about to be created, so the
 	 * Curator's staleness clock starts at seed time.
@@ -85,40 +86,81 @@ class SeedFreshnessService {
 	 * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
 	 */
 	public function refreshedPayload(ObjectEntity $skill): ?array {
+		if ($this->isRefreshable(skill: $skill) === false) {
+			return null;
+		}
+
+		$data = $this->withIsoDates(data: $this->restamped(data: $skill->getObject()));
+		unset($data['id'], $data['uuid'], $data['@self']);
+
+		return $data;
+	}//end refreshedPayload()
+
+	/**
+	 * Whether a skill's lifecycle is ours to refresh: a system seed that is active or stale.
+	 *
+	 * A human-created (or human-owned) skill's lifecycle is never ours to reset, and an
+	 * archived or quarantined one (or an unknown state) is a curator or human decision.
+	 *
+	 * @param ObjectEntity $skill The skill.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
+	 */
+	private function isRefreshable(ObjectEntity $skill): bool {
 		if ((string)($skill->getOwner() ?? '') !== SeedCustodyService::SYSTEM_OWNER) {
-			// Human-created (or human-owned) — its lifecycle is never ours to reset.
-			return null;
+			return false;
 		}
 
-		$data = $skill->getObject();
-		$state = (string)($data['state'] ?? '');
-		if ($state !== 'active' && $state !== 'stale') {
-			// Archived / quarantined (or unknown): a curator or human decision — wins.
-			return null;
-		}
+		$state = (string)(($skill->getObject())['state'] ?? '');
+		return ($state === 'active' || $state === 'stale');
+	}//end isRefreshable()
 
+	/**
+	 * The payload stamped active now: a stale seed becomes active and loses its staleSince.
+	 *
+	 * @param array<string, mixed> $data The skill payload.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
+	 */
+	private function restamped(array $data): array {
 		$data['lastActivityAt'] = $this->now();
 
-		if ($state === 'stale') {
+		if ((string)($data['state'] ?? '') === 'stale') {
 			$data['state'] = 'active';
 			// PUT-semantic saveObject: omitting the key nulls the stored value.
 			unset($data['staleSince']);
 		}
 
-		// OR materialises stored date-times back space-separated ('Y-m-d H:i:s');
-		// re-saving that value fails the schema's 'date-time' format. Normalise any
-		// remaining lifecycle date field to ISO-8601 (the SkillMarketplaceService
-		// save() gotcha). Envelope keys never belong in the payload on a re-save.
+		return $data;
+	}//end restamped()
+
+	/**
+	 * The payload with its remaining lifecycle dates in ISO-8601.
+	 *
+	 * OR materialises stored date-times back space-separated ('Y-m-d H:i:s');
+	 * re-saving that value fails the schema's 'date-time' format. Normalise any
+	 * remaining lifecycle date field to ISO-8601 (the SkillMarketplaceService
+	 * save() gotcha).
+	 *
+	 * @param array<string, mixed> $data The skill payload.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
+	 */
+	private function withIsoDates(array $data): array {
 		foreach (['staleSince', 'archivedAt'] as $field) {
 			if (isset($data[$field]) === true && is_string($data[$field]) === true && $data[$field] !== '') {
 				$data[$field] = $this->normaliseDate(value: $data[$field]);
 			}
 		}
 
-		unset($data['id'], $data['uuid'], $data['@self']);
-
 		return $data;
-	}//end refreshedPayload()
+	}//end withIsoDates()
 
 	/**
 	 * Now, as ISO-8601 UTC.

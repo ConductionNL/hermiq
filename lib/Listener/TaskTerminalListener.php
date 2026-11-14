@@ -40,7 +40,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Listener;
 
-use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use Psr\Log\LoggerInterface;
@@ -86,11 +86,11 @@ class TaskTerminalListener implements IEventListener {
 	/**
 	 * Constructor.
 	 *
-	 * @param ApprovalService $approvalService The approval gate's decision write-path.
+	 * @param ApprovalServiceInterface $approvalService The approval gate's decision write-path.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
-		private readonly ApprovalService $approvalService,
+		private readonly ApprovalServiceInterface $approvalService,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()
@@ -164,11 +164,7 @@ class TaskTerminalListener implements IEventListener {
 			return;
 		}
 
-		$decider = trim((string)$this->read(subject: $task, getter: 'getCompletedBy'));
-		if ($decider === '') {
-			$decider = trim((string)$this->read(subject: $task, getter: 'getAssignee'));
-		}
-
+		$decider = $this->deciderOf(task: $task);
 		if ($decider === '') {
 			// Never decide as nobody: the decision stays on the task until a
 			// person owns it, and the Approval stays pending in hermiq.
@@ -182,12 +178,7 @@ class TaskTerminalListener implements IEventListener {
 
 		$outcome = strtolower(trim((string)$this->read(subject: $task, getter: 'getOutcome')));
 		if (in_array($outcome, self::REJECTING_OUTCOMES, true) === true) {
-			$reason = trim((string)$this->read(subject: $task, getter: 'getComment'));
-			if ($reason === '') {
-				$reason = trim((string)$this->read(subject: $task, getter: 'getResultText'));
-			}
-
-			$this->approvalService->deny(approval: $approval, deciderUid: $decider, reason: $reason);
+			$this->approvalService->deny(approval: $approval, deciderUid: $decider, reason: $this->rejectionReason(task: $task));
 
 			return;
 		}
@@ -195,6 +186,38 @@ class TaskTerminalListener implements IEventListener {
 		$this->approvalService->approve(approval: $approval, deciderUid: $decider);
 
 	}//end apply()
+
+	/**
+	 * Who completed the task: its completing user, or else its assignee; '' for nobody.
+	 *
+	 * @param object $task The terminal mirror task.
+	 *
+	 * @return string
+	 */
+	private function deciderOf(object $task): string {
+		$decider = trim((string)$this->read(subject: $task, getter: 'getCompletedBy'));
+		if ($decider === '') {
+			$decider = trim((string)$this->read(subject: $task, getter: 'getAssignee'));
+		}
+
+		return $decider;
+	}//end deciderOf()
+
+	/**
+	 * Why the task was rejected: its comment, or else its result text.
+	 *
+	 * @param object $task The rejected mirror task.
+	 *
+	 * @return string
+	 */
+	private function rejectionReason(object $task): string {
+		$reason = trim((string)$this->read(subject: $task, getter: 'getComment'));
+		if ($reason === '') {
+			$reason = trim((string)$this->read(subject: $task, getter: 'getResultText'));
+		}
+
+		return $reason;
+	}//end rejectionReason()
 
 	/**
 	 * The hermiq ownership marker: `metadata.hermiq.approvalUuid`.

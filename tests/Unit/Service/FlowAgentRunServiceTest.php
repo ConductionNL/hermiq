@@ -36,8 +36,9 @@ use OCA\Hermiq\Service\FlowAgentRunService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\Hermiq\Service\SkillVersionService;
-use OCA\OpenRegister\Db\Agent;
-use OCA\OpenRegister\Db\AgentMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
+use OCA\OpenRegister\Mcp\Db\Agent;
+use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -106,7 +107,7 @@ class FlowAgentRunServiceTest extends TestCase {
 	private AgentVersionService $agentVersionService;
 
 	/**
-	 * Recorded createAuditTrailEntry() calls: each ['action' => ..., 'context' => ...].
+	 * Recorded recordObjectEvent() calls: each ['action' => ..., 'context' => ...].
 	 *
 	 * @var array<int, array<string, mixed>>
 	 */
@@ -137,12 +138,12 @@ class FlowAgentRunServiceTest extends TestCase {
 
 		$this->auditCalls = [];
 		$this->auditTrailMapper = $this->createMock(AuditTrailMapper::class);
-		$this->auditTrailMapper->method('createAuditTrailEntry')->willReturnCallback(
-			function (ObjectEntity $object, string $action, array $context = []): AuditTrail {
-				$this->auditCalls[] = ['action' => $action, 'context' => $context];
+		$this->auditTrailMapper->method('recordObjectEvent')->willReturnCallback(
+			function (ObjectAuditEvent $event): AuditTrail {
+				$this->auditCalls[] = ['action' => $event->action, 'context' => $event->context];
 				$entry = new AuditTrail();
-				$entry->setAction($action);
-				$entry->setChanged($context);
+				$entry->setAction($event->action);
+				$entry->setChanged($event->context);
 				return $entry;
 			}
 		);
@@ -577,4 +578,29 @@ class FlowAgentRunServiceTest extends TestCase {
 		$this->assertFalse($ran);
 
 	}//end testAgentWithNoOwnerIsSkipped()
+
+	/**
+	 * A gated run whose agent cannot be resolved asks for the approval with no
+	 * owner, and a failing approval setup is logged and still leaves the run
+	 * awaiting approval without running the agent.
+	 *
+	 * @return void
+	 */
+	public function testApprovalGateWithoutAgentAndFailingSetupStillAwaitsApproval(): void {
+		$this->objectService->method('find')->willReturn($this->object());
+		$this->agentMapper->method('findByUuid')->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('gone'));
+		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->scheduleService->expects($this->never())->method('runAgentAsOwner');
+		$this->approvalService->expects($this->once())
+			->method('ensurePendingApprovalForFlowRun')
+			->with($this->anything(), '')
+			->willThrowException(new \RuntimeException('approvals register missing'));
+
+		$ran = $this->service->run($this->payload(['requiresApproval' => true]));
+
+		$this->assertFalse($ran);
+		$this->assertCount(1, $this->auditCalls);
+		$this->assertSame('awaiting_approval', $this->auditCalls[0]['context']['status']);
+
+	}//end testApprovalGateWithoutAgentAndFailingSetupStillAwaitsApproval()
 }//end class

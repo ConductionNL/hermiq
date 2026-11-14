@@ -151,35 +151,84 @@ class SkillIdentityResolver {
 	 * @spec openspec/changes/skill-install-idempotency/specs/skills-marketplace/spec.md#requirement-installing-a-skill-that-is-already-present-updates-it
 	 */
 	public function resolve(string $sourceUrl, string $name, array $existing): array {
-		if ($sourceUrl !== '') {
-			foreach ($existing as $skill) {
-				if ($this->normaliseUrl(url: (string)($skill['sourceUrl'] ?? '')) === $sourceUrl) {
-					return ['match' => $skill, 'matchedBy' => self::MATCH_SOURCE_URL];
-				}
-			}
+		$byUrl = $this->urlMatch(sourceUrl: $sourceUrl, existing: $existing);
+		if ($byUrl !== null) {
+			return ['match' => $byUrl, 'matchedBy' => self::MATCH_SOURCE_URL];
 		}
 
-		// ONE-TIME fallback for skills installed before identity existed. Restricted
-		// to skills with NO sourceUrl on purpose: a name collision against a skill
-		// that already carries a DIFFERENT url is two different skills, and merging
-		// them would silently lose one.
-		$wanted = $this->normaliseName(name: $name);
-		if ($wanted === '') {
-			return ['match' => null, 'matchedBy' => self::MATCH_NONE];
-		}
-
-		foreach ($existing as $skill) {
-			if ((string)($skill['sourceUrl'] ?? '') !== '') {
-				continue;
-			}
-
-			if ($this->normaliseName(name: (string)($skill['name'] ?? '')) === $wanted) {
-				return ['match' => $skill, 'matchedBy' => self::MATCH_NAME_FALLBACK];
-			}
+		$byName = $this->nameMatch(name: $name, existing: $existing);
+		if ($byName !== null) {
+			return ['match' => $byName, 'matchedBy' => self::MATCH_NAME_FALLBACK];
 		}
 
 		return ['match' => null, 'matchedBy' => self::MATCH_NONE];
 	}//end resolve()
+
+	/**
+	 * The first installed skill whose normalised source url is this one, or null.
+	 *
+	 * @param string                           $sourceUrl The canonical source url, or empty for none.
+	 * @param array<int, array<string, mixed>> $existing  The installed skills.
+	 *
+	 * @return array<string, mixed>|null
+	 *
+	 * @spec openspec/changes/skill-install-idempotency/specs/skills-marketplace/spec.md#requirement-installing-a-skill-that-is-already-present-updates-it
+	 */
+	private function urlMatch(string $sourceUrl, array $existing): ?array {
+		if ($sourceUrl === '') {
+			return null;
+		}
+
+		foreach ($existing as $skill) {
+			if ($this->normaliseUrl(url: (string)($skill['sourceUrl'] ?? '')) === $sourceUrl) {
+				return $skill;
+			}
+		}
+
+		return null;
+	}//end urlMatch()
+
+	/**
+	 * The first installed skill without a source url whose normalised name is this one, or null.
+	 *
+	 * ONE-TIME fallback for skills installed before identity existed. Restricted
+	 * to skills with NO sourceUrl on purpose: a name collision against a skill
+	 * that already carries a DIFFERENT url is two different skills, and merging
+	 * them would silently lose one.
+	 *
+	 * @param string                           $name     The skill's name.
+	 * @param array<int, array<string, mixed>> $existing The installed skills.
+	 *
+	 * @return array<string, mixed>|null
+	 *
+	 * @spec openspec/changes/skill-install-idempotency/specs/skills-marketplace/spec.md#requirement-installing-a-skill-that-is-already-present-updates-it
+	 */
+	private function nameMatch(string $name, array $existing): ?array {
+		$wanted = $this->normaliseName(name: $name);
+		if ($wanted === '') {
+			return null;
+		}
+
+		foreach ($existing as $skill) {
+			if ($this->isNamedWithoutUrl(skill: $skill, wanted: $wanted) === true) {
+				return $skill;
+			}
+		}
+
+		return null;
+	}//end nameMatch()
+
+	/**
+	 * Whether an installed skill carries no source url and has the wanted normalised name.
+	 *
+	 * @param array<string, mixed> $skill  An installed skill.
+	 * @param string               $wanted The normalised name.
+	 *
+	 * @return bool
+	 */
+	private function isNamedWithoutUrl(array $skill, string $wanted): bool {
+		return ((string)($skill['sourceUrl'] ?? '') === '' && $this->normaliseName(name: (string)($skill['name'] ?? '')) === $wanted);
+	}//end isNamedWithoutUrl()
 
 	/**
 	 * Normalise a stored URL for comparison — mirrors collapse to the canonical host

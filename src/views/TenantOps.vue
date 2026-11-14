@@ -24,9 +24,9 @@
   — it is governance policy, not a per-organisation operational control, and
   now exists in exactly that one place.
 
-  @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
-  @spec openspec/changes/multi-tenant-ops/specs/multi-tenant-ops/spec.md
-  @spec openspec/changes/dashboard-org-widgets/specs/dashboard-org-widgets/spec.md#requirement-tenant-ops-must-no-longer-display-organisation-quota-usage
+  @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
+  @spec openspec/specs/multi-tenant-ops/spec.md
+  @spec openspec/specs/dashboard-org-widgets/spec.md#requirement-tenant-ops-must-no-longer-display-organisation-quota-usage
   @spec openspec/specs/inapp-settings-section/spec.md#requirement-tenant-ops-must-retain-only-true-per-organisation-operational-controls
 -->
 <template>
@@ -55,7 +55,7 @@
 					<h3 class="tenant-ops__subhead">
 						{{ t('hermiq', 'Cost guardrails') }}
 					</h3>
-					<NcButton type="secondary" @click="openCreateBudget">
+					<NcButton variant="secondary" @click="openCreateBudget">
 						{{ t('hermiq', 'Add budget') }}
 					</NcButton>
 				</div>
@@ -134,10 +134,10 @@
 							{{ t('hermiq', 'Soft threshold crossed') }}
 						</span>
 						<div class="tenant-ops__card-actions">
-							<NcButton type="tertiary" @click="openEditBudget(entry)">
+							<NcButton variant="tertiary" @click="openEditBudget(entry)">
 								{{ t('hermiq', 'Edit') }}
 							</NcButton>
-							<NcButton type="tertiary" @click="removeBudget(entry)">
+							<NcButton variant="tertiary" @click="removeBudget(entry)">
 								{{ t('hermiq', 'Delete') }}
 							</NcButton>
 						</div>
@@ -186,7 +186,7 @@
 									)
 								: t('hermiq', 'Instance default')
 						}}</strong>
-						<NcButton type="tertiary" @click="togglePolicyEdit(policy)">
+						<NcButton variant="tertiary" @click="togglePolicyEdit(policy)">
 							{{
 								editingPolicyId === policy.id
 									? t('hermiq', 'Cancel')
@@ -212,9 +212,41 @@
 							v-model="policyDraft.defaultModel"
 							:label="t('hermiq', 'Default model (optional)')"
 							placeholder="qwen2.5" />
+						<NcCheckboxRadioSwitch
+							v-model="policyDraft.requireNoTraining"
+							type="switch">
+							{{
+								t(
+									'hermiq',
+									'Only use providers that never train on our data',
+								)
+							}}
+						</NcCheckboxRadioSwitch>
+						<NcNoteCard
+							v-if="
+								policyDraft.requireNoTraining
+								&& refusedProviders.length > 0
+							"
+							type="warning">
+							<p>
+								{{
+									t(
+										'hermiq',
+										'Runs on this provider will be refused.',
+									)
+								}}
+							</p>
+							<ul class="tenant-ops__refused">
+								<li
+									v-for="provider in refusedProviders"
+									:key="provider">
+									{{ provider }}
+								</li>
+							</ul>
+						</NcNoteCard>
 						<div class="tenant-ops__card-actions">
 							<NcButton
-								type="primary"
+								variant="primary"
 								:disabled="policySaving"
 								@click="savePolicy(policy)">
 								{{ t('hermiq', 'Save policy') }}
@@ -264,7 +296,7 @@
 					<template #row-actions="{ row }">
 						<div class="tenant-ops__review-actions">
 							<NcButton
-								type="tertiary"
+								variant="tertiary"
 								:disabled="reviewBusyUuid === row.uuid"
 								@click="markReviewed(row)">
 								{{ t('hermiq', 'Mark reviewed') }}
@@ -278,7 +310,7 @@
 										t('hermiq', 'New acting user id')
 									" />
 								<NcButton
-									type="secondary"
+									variant="secondary"
 									:disabled="
 										!reassignDrafts[row.uuid]
 										|| reviewBusyUuid === row.uuid
@@ -308,6 +340,7 @@ import { showError, showSuccess } from '@nextcloud/dialogs'
 import { loadState } from '@nextcloud/initial-state'
 import {
 	NcButton,
+	NcCheckboxRadioSwitch,
 	NcEmptyContent,
 	NcLoadingIcon,
 	NcNoteCard,
@@ -318,9 +351,14 @@ import {
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
 import BudgetFormModal from '../modals/BudgetFormModal.vue'
 import { deleteBudget, getBudgetStatus, listBudgets } from '../api/budgets.js'
-import { listModelPolicies, updateModelPolicy } from '../api/modelPolicy.js'
+import {
+	listModelPoliciesWithDataUse,
+	updateModelPolicy,
+} from '../api/modelPolicy.js'
 import { attestReviewed, getAccessReview, reassignAgent } from '../api/tenantOps.js'
+import { dateOrDash } from '../utils/displayDate.js'
 import { organisationLabel } from '../utils/organisationLabel.js'
+import { organisationPicker } from '../utils/organisationPicker.js'
 
 export default {
 	name: 'TenantOps',
@@ -329,6 +367,7 @@ export default {
 		BudgetFormModal,
 		CnDataTable,
 		NcButton,
+		NcCheckboxRadioSwitch,
 		NcEmptyContent,
 		NcLoadingIcon,
 		NcNoteCard,
@@ -337,6 +376,8 @@ export default {
 		NcTextField,
 		ShieldIcon,
 	},
+
+	mixins: [organisationPicker('loadBudgets')],
 
 	data() {
 		// Capability + manageable organisations come from the backend via
@@ -357,7 +398,14 @@ export default {
 			modelPolicies: [],
 			policyError: '',
 			editingPolicyId: null,
-			policyDraft: { allowedText: '', defaultModel: '' },
+			policyDraft: {
+				allowedText: '',
+				defaultModel: '',
+				requireNoTraining: false,
+			},
+
+			// What each provider declared about training (models-no-training-guarantee).
+			providerDataUse: {},
 			policySaving: false,
 			// Access review (agent-lifecycle-governance): agent inventory + attestation + reassignment.
 			reviewAgents: [],
@@ -370,47 +418,31 @@ export default {
 
 	computed: {
 		/**
-		 * The manageable organisations as NcSelect options.
+		 * The providers in the policy being edited that have not declared they
+		 * never train, so the admin sees who the switch refuses before saving.
 		 *
-		 * @return {Array<object>} The { label, value } options.
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @return {Array<string>} The provider ids.
+		 *
+		 * @spec openspec/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
 		 */
-		orgOptions() {
-			return this.organisations.map((org) => ({
-				label: org.label || org.id,
-				value: org.id,
-			}))
-		},
-
-		/**
-		 * Two-way bridge between the selected org id and the NcSelect option object.
-		 */
-		orgOption: {
-			/**
-			 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
-			 */
-			get() {
-				return (
-					this.orgOptions.find(
-						(option) => option.value === this.selectedOrg,
-					) || this.orgOptions[0]
-				)
-			},
-
-			/**
-			 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
-			 */
-			set(option) {
-				this.selectedOrg = option ? option.value : ''
-				this.loadBudgets()
-			},
+		refusedProviders() {
+			const providers = this.policyDraft.allowedText
+				.split('\n')
+				.map((line) => line.split(':')[0].trim())
+				.filter((provider) => provider !== '')
+			return [...new Set(providers)].filter(
+				(provider) =>
+					!['zero-retention', 'no-training'].includes(
+						this.providerDataUse[provider],
+					),
+			)
 		},
 
 		/**
 		 * Column definitions for the access-review CnDataTable.
 		 *
 		 * @return {Array<object>} CnDataTable column descriptors.
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		reviewColumns() {
 			return [
@@ -428,7 +460,7 @@ export default {
 		 * Agents projected onto flat rows for the access-review table.
 		 *
 		 * @return {Array<object>} The table rows.
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		reviewRows() {
 			return this.reviewAgents.map((agent) => ({
@@ -449,7 +481,7 @@ export default {
 	},
 
 	/**
-	 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 	 */
 	created() {
 		if (this.canManage) {
@@ -465,6 +497,8 @@ export default {
 	},
 
 	methods: {
+		formatDate: dateOrDash,
+
 		// Shared org-id → label lookup (src/utils/organisationLabel.js) —
 		// registered as a plain method so the template can call it directly.
 		organisationLabel,
@@ -474,7 +508,7 @@ export default {
 		 * status (cost-guardrails).
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		async loadBudgets() {
 			if (!this.selectedOrg) {
@@ -515,7 +549,7 @@ export default {
 		 *
 		 * @param {object} entry The budget + its status.
 		 * @return {string} The usage label.
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		budgetUsageLabel(entry) {
 			const tokens = entry.status && entry.status.tokens
@@ -535,7 +569,7 @@ export default {
 		 * Open the create-budget modal for the selected organisation.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		openCreateBudget() {
 			this.editingBudget = null
@@ -547,7 +581,7 @@ export default {
 		 *
 		 * @param {object} entry The budget to edit.
 		 * @return {void}
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		openEditBudget(entry) {
 			this.editingBudget = entry
@@ -558,7 +592,7 @@ export default {
 		 * Reload after a budget is created/edited.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		async onBudgetSaved() {
 			await this.loadBudgets()
@@ -568,12 +602,14 @@ export default {
 		 * Load the caller-visible model policies (tenant-model-policy).
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		async loadModelPolicies() {
 			this.policyError = ''
 			try {
-				this.modelPolicies = await listModelPolicies()
+				const { policies, dataUse } = await listModelPoliciesWithDataUse()
+				this.modelPolicies = policies
+				this.providerDataUse = dataUse
 			} catch (e) {
 				this.policyError =
 					e?.response?.data?.error
@@ -587,7 +623,7 @@ export default {
 		 *
 		 * @param {object} policy The ModelPolicy record.
 		 * @return {string} The summary line.
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		policySummary(policy) {
 			const allowed = Array.isArray(policy.allowed) ? policy.allowed : []
@@ -602,7 +638,11 @@ export default {
 			const suffix = policy.defaultModel
 				? ` — ${this.t('hermiq', 'default')}: ${policy.defaultModel}`
 				: ''
-			return parts.join(' · ') + suffix
+			const training =
+				policy.requireNoTraining === true
+					? ` · ${this.t('hermiq', 'only providers that never train on our data')}`
+					: ''
+			return parts.join(' · ') + suffix + training
 		},
 
 		/**
@@ -612,7 +652,7 @@ export default {
 		 *
 		 * @param {object} policy The ModelPolicy record.
 		 * @return {void}
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		togglePolicyEdit(policy) {
 			if (this.editingPolicyId === policy.id) {
@@ -630,6 +670,7 @@ export default {
 					.join('\n'),
 
 				defaultModel: policy.defaultModel || '',
+				requireNoTraining: policy.requireNoTraining === true,
 			}
 			this.editingPolicyId = policy.id
 		},
@@ -639,7 +680,7 @@ export default {
 		 *
 		 * @param {object} policy The ModelPolicy record being edited.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		async savePolicy(policy) {
 			const allowed = this.policyDraft.allowedText
@@ -663,6 +704,7 @@ export default {
 				await updateModelPolicy(policy.id, {
 					allowed,
 					defaultModel: this.policyDraft.defaultModel || null,
+					requireNoTraining: this.policyDraft.requireNoTraining,
 				})
 				showSuccess(this.t('hermiq', 'Model policy saved.'))
 				this.editingPolicyId = null
@@ -682,7 +724,7 @@ export default {
 		 *
 		 * @param {object} entry The budget to delete.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		async removeBudget(entry) {
 			try {
@@ -695,27 +737,12 @@ export default {
 		},
 
 		/**
-		 * Human-readable date, or an em-dash when absent/unparseable.
-		 *
-		 * @param {string} value An ISO-8601 timestamp.
-		 * @return {string} The formatted date.
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
-		 */
-		formatDate(value) {
-			if (!value) {
-				return '—'
-			}
-			const date = new Date(value)
-			return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
-		},
-
-		/**
 		 * One-line capability summary for an access-review row: the tool
 		 * allowlist plus whether RAG is enabled (agent-lifecycle-governance).
 		 *
 		 * @param {object} agent The access-review agent entry.
 		 * @return {string} The summary line.
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		capabilitySummary(agent) {
 			const tools = Array.isArray(agent.tools) ? agent.tools : []
@@ -732,7 +759,7 @@ export default {
 		 * Load the organisation's periodic access-review list (agent-lifecycle-governance).
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		async loadAccessReview() {
 			this.reviewLoading = true
@@ -760,7 +787,7 @@ export default {
 		 *
 		 * @param {object} row The access-review row.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		async markReviewed(row) {
 			this.reviewBusyUuid = row.uuid
@@ -783,7 +810,7 @@ export default {
 		 *
 		 * @param {object} row The access-review row.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		async reassign(row) {
 			const target = (this.reassignDrafts[row.uuid] || '').trim()
@@ -867,6 +894,12 @@ export default {
 
 .tenant-ops__card-label {
 	color: var(--color-text-maxcontrast);
+}
+
+.tenant-ops__refused {
+	margin: 4px 0 0;
+	padding-inline-start: 20px;
+	list-style: disc;
 }
 
 .tenant-ops__card-warn {

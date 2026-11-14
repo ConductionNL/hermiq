@@ -16,8 +16,8 @@
   guards and behaviour — only the host page changed.
 
   @spec openspec/specs/inapp-settings-section/spec.md#requirement-tenant-ops-must-retain-only-true-per-organisation-operational-controls
-  @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-incident-records-linked-to-runs-and-agents
-  @spec openspec/changes/multi-tenant-ops/specs/multi-tenant-ops/spec.md
+  @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-incident-records-linked-to-runs-and-agents
+  @spec openspec/specs/multi-tenant-ops/spec.md
 -->
 <template>
 	<div class="compliance-operations">
@@ -196,6 +196,8 @@ import {
 	getRetention,
 	setRetention,
 } from '../api/tenantOps.js'
+import { dateOrDash } from '../utils/displayDate.js'
+import { downloadJson } from '../utils/downloadJson.js'
 
 export default {
 	name: 'ComplianceOperations',
@@ -243,6 +245,8 @@ export default {
 	},
 
 	methods: {
+		formatDate: dateOrDash,
+
 		/**
 		 * Fetch the AI Act audit export and download it as a JSON file.
 		 *
@@ -266,42 +270,7 @@ export default {
 			}
 		},
 
-		/**
-		 * Trigger a client-side download of a JSON object.
-		 *
-		 * @param {object} data The payload to download.
-		 * @param {string} filename The download filename.
-		 * @return {void}
-		 * @spec openspec/specs/inapp-settings-section/spec.md#requirement-tenant-ops-must-retain-only-true-per-organisation-operational-controls
-		 */
-		downloadJson(data, filename) {
-			const blob = new Blob([JSON.stringify(data, null, 2)], {
-				type: 'application/json',
-			})
-			const url = URL.createObjectURL(blob)
-			const a = document.createElement('a')
-			a.href = url
-			a.download = filename
-			document.body.appendChild(a)
-			a.click()
-			document.body.removeChild(a)
-			URL.revokeObjectURL(url)
-		},
-
-		/**
-		 * Human-readable date, or an em-dash when absent/unparseable.
-		 *
-		 * @param {string} value An ISO-8601 timestamp.
-		 * @return {string} The formatted date.
-		 * @spec openspec/specs/inapp-settings-section/spec.md#requirement-tenant-ops-must-retain-only-true-per-organisation-operational-controls
-		 */
-		formatDate(value) {
-			if (!value) {
-				return '—'
-			}
-			const date = new Date(value)
-			return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
-		},
+		downloadJson,
 
 		/**
 		 * Load the organisation's incident records (agent-lifecycle-governance).

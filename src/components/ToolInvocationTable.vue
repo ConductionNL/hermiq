@@ -17,8 +17,8 @@
     endpoint degrades to the coarser run-audit entries and sets available/source; this view
     then shows a REDUCED-DETAIL indicator rather than implying the detail is simply absent.
 
-  @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
-  @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art1214
+  @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
+  @spec openspec/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art1214
 -->
 <template>
 	<section class="tool-oversight">
@@ -90,9 +90,8 @@
 			<!--
 				An audit trail grows without bound, so its height cannot be a
 				function of any gridHeight: a busy agent's rows pushed this widget
-				past its cell and over the widgets below it. Same treatment as the
-				grant catalogue in ToolGrantEditor — bounded scroll region, sticky
-				header, all rows still present.
+				past its cell and over the widgets below it. Bounded scroll region,
+				sticky header, all rows still present.
 			-->
 			<div v-else class="tool-oversight__table-wrap">
 				<table class="tool-oversight__table">
@@ -145,7 +144,7 @@
 							<td>
 								<span :class="resultClass(row)">{{
 									/**
-									 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+									 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 									 */
 									resultLabel(row)
 								}}</span>
@@ -173,6 +172,24 @@ import {
 	getToolInvocations,
 	toolInvocationsExportUrl,
 } from '../api/toolOversight.js'
+
+/**
+ * The result labels in order of precedence: the first rule whose test holds names the result.
+ *
+ * @type {Array<[function(object): boolean, function(object, function(string, string, object=): string): string]>}
+ */
+const RESULT_LABELS = [
+	[(summary) => Boolean(summary.isError), (summary, t) => t('hermiq', 'Error')],
+	[(summary) => Boolean(summary.status), (summary) => String(summary.status)],
+	[
+		(summary) => typeof summary.count === 'number',
+		(summary, t) => t('hermiq', '{count} result(s)', { count: summary.count }),
+	],
+	[
+		(summary) => Boolean(summary.id),
+		(summary, t) => t('hermiq', 'Object {id}', { id: summary.id }),
+	],
+]
 
 export default {
 	name: 'ToolInvocationTable',
@@ -213,7 +230,7 @@ export default {
 		 * policy" rendered literally as "OpenRegister&#39;s AuditTrail policy".
 		 *
 		 * @return {string} The retention label.
-		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+		 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		retentionLabel() {
 			return this.t(
@@ -229,7 +246,7 @@ export default {
 	watch: {
 		agentId: {
 			/**
-			 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+			 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 			 */
 			handler() {
 				this.load()
@@ -244,7 +261,7 @@ export default {
 		 * Load this agent's oversight rows.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+		 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		async load() {
 			this.loading = true
@@ -267,7 +284,7 @@ export default {
 		 *
 		 * @param {string} format Either 'csv' or 'json'.
 		 * @return {void}
-		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+		 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		exportAs(format) {
 			window.location.href = toolInvocationsExportUrl(this.agentId, format)
@@ -278,7 +295,7 @@ export default {
 		 *
 		 * @param {string} value The ISO timestamp.
 		 * @return {string} The formatted date, or an em dash.
-		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+		 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		formatDate(value) {
 			if (!value) {
@@ -292,7 +309,7 @@ export default {
 		 *
 		 * @param {string} digest The full digest.
 		 * @return {string} The shortened digest.
-		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+		 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		shortDigest(digest) {
 			return digest.length > 12 ? `${digest.slice(0, 12)}…` : digest
@@ -303,28 +320,15 @@ export default {
 		 *
 		 * @param {object} row The oversight row.
 		 * @return {string} The result label.
-		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+		 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		resultLabel(row) {
 			const summary = row.resultSummary
 			if (!summary) {
 				return '—'
 			}
-			if (summary.isError) {
-				return this.t('hermiq', 'Error')
-			}
-			if (summary.status) {
-				return String(summary.status)
-			}
-			if (typeof summary.count === 'number') {
-				return this.t('hermiq', '{count} result(s)', {
-					count: summary.count,
-				})
-			}
-			if (summary.id) {
-				return this.t('hermiq', 'Object {id}', { id: summary.id })
-			}
-			return this.t('hermiq', 'OK')
+			const rule = RESULT_LABELS.find(([applies]) => applies(summary))
+			return rule ? rule[1](summary, this.t) : this.t('hermiq', 'OK')
 		},
 
 		/**
@@ -332,7 +336,7 @@ export default {
 		 *
 		 * @param {object} row The oversight row.
 		 * @return {string} The class.
-		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+		 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		resultClass(row) {
 			const isError = !!(row.resultSummary && row.resultSummary.isError)
@@ -380,7 +384,6 @@ export default {
 
 /* The audit trail is unbounded — it scrolls inside the widget (ADR-062). */
 .tool-oversight__table-wrap {
-	/* Paired with ToolGrantEditor's 300px cap — see the note there. */
 	max-height: 260px;
 	overflow-y: auto;
 	border: 1px solid var(--color-border);

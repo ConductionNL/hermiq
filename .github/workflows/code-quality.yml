@@ -116,86 +116,58 @@ concurrency:
   # superseding really is correct.
   cancel-in-progress: ${{ github.event_name != 'push' }}
 
-# Permissions for the called quality pipeline. A reusable workflow can never
-# hold MORE than its caller grants, so this block is a CEILING, not a request:
-# any job in ConductionNL/.github's quality.yml that declares a permission
-# missing here makes the whole run fail at STARTUP — GitHub validates the
-# called workflow's DECLARED job permissions statically, even for jobs that
-# are disabled via enable-* inputs.
-#
-# 🔴 That failure mode is why this comment is long. A startup failure produces
-# ZERO jobs, so `gh pr checks` lists nothing for Code Quality at all and the PR
-# reads as green — a dead gate and a passing gate are indistinguishable from the
-# outside.
-#
-# This block previously said `contents: read`, described as "least privilege"
-# (#129, merged 2026-08-03T11:11). It silently disabled hermiq's ENTIRE quality
-# pipeline — phpcs, PHPUnit, psalm, phpstan, eslint, the lot — on every branch
-# including development. Measured, not inferred: code-quality runs on
-# development went from 29 jobs (30804165038, 10:05) to 0 jobs (30808564347 and
-# 30808575238, 11:11, both `startup_failure`) across that merge, and nothing
-# went red to say so.
-#
-# `contents: write` and `actions: write` are required because jobs in the
-# shared pipeline DECLARE them:
-#   - `update-baseline`    — writes the coverage baseline
-#   - `features-extract`   — writes features.json
-#   - `journeydoc-capture` — writes captured journey docs (also `actions: write`)
-# `issues: write` + `pull-requests: write` are required by the Quality Report
-# job's sticky PR comment — without them it 403s.
-#
-# Before narrowing any line here, disable the jobs that need it FIRST, and then
-# confirm the run still PRODUCES JOBS — not merely that it stopped failing.
-# `gh api repos/ConductionNL/hermiq/actions/runs/<id>/jobs --jq '.total_count'`
-# must be non-zero.
+# Read-only by default; the write grants sit on the job that needs them.
 permissions:
-  contents: write
-  actions: write
-  issues: write
-  pull-requests: write
+  contents: read
 
 jobs:
   quality:
     if: (github.event_name != 'pull_request' || github.head_ref != 'development')
+    # Permissions for the called quality pipeline. A reusable workflow can never
+    # hold MORE than its caller grants, so this block is a CEILING, not a request:
+    # any job in ConductionNL/.github's quality.yml that declares a permission
+    # missing here makes the whole run fail at STARTUP, GitHub validates the
+    # called workflow's DECLARED job permissions statically, even for jobs that
+    # are disabled via enable-* inputs.
+    #
+    # 🔴 That failure mode is why this comment is long. A startup failure produces
+    # ZERO jobs, so `gh pr checks` lists nothing for Code Quality at all and the PR
+    # reads as green, a dead gate and a passing gate are indistinguishable from the
+    # outside.
+    #
+    # This block previously said `contents: read`, described as "least privilege"
+    # (#129, merged 2026-08-03T11:11). It silently disabled hermiq's ENTIRE quality
+    # pipeline, phpcs, PHPUnit, psalm, phpstan, eslint, the lot, on every branch
+    # including development. Measured, not inferred: code-quality runs on
+    # development went from 29 jobs (30804165038, 10:05) to 0 jobs (30808564347 and
+    # 30808575238, 11:11, both `startup_failure`) across that merge, and nothing
+    # went red to say so.
+    #
+    # `contents: write` and `actions: write` are required because jobs in the
+    # shared pipeline DECLARE them:
+    #   - `update-baseline`   , writes the coverage baseline
+    #   - `features-extract`  , writes features.json
+    #   - `journeydoc-capture`, writes captured journey docs (also `actions: write`)
+    # `issues: write` + `pull-requests: write` are required by the Quality Report
+    # job's sticky PR comment, without them it 403s.
+    #
+    # Before narrowing any line here, disable the jobs that need it FIRST, and then
+    # confirm the run still PRODUCES JOBS, not merely that it stopped failing.
+    # `gh api repos/ConductionNL/hermiq/actions/runs/<id>/jobs --jq '.total_count'`
+    # must be non-zero.
+    permissions:
+      contents: write
+      actions: write
+      issues: write
+      pull-requests: write
     uses: ConductionNL/.github/.github/workflows/quality.yml@main
     with:
       app-name: hermiq
       php-version: "8.3"
       php-test-versions: '["8.3", "8.4"]'
-      # 🔴 ORDER IS LOAD-BEARING, not cosmetic. The PHPUnit matrix runs all three
-      # refs whatever the order, but four jobs read `nextcloud-test-refs[0]` as
-      # THEIR ONLY ref: playwright, newman, journeydoc-capture, and the coverage
-      # baseline leg. With `stable31` first, every browser test ran against a
-      # Nextcloud three majors behind the one hermiq's frontend targets, and the
-      # first thing that failed was the app shell — which is why 43 of 64 specs
-      # failed in the 2026-07-30 trial and the job was left switched off.
-      #
-      # Newest-first costs nothing (the matrix is unchanged) and points every
-      # single-ref job at the version closest to production.
-      #
-      # 🔴 `stable31` REMOVED 2026-08-11 — it was never testing this app.
-      # OpenRegister declares `min-version="32"`, and it is a REQUIRED
-      # additional app here (see `additional-apps` below), so on Nextcloud 31
-      # `occ app:enable openregister` refuses:
-      #
-      #   App "Open Register" cannot be installed because it is not compatible
-      #   with this version of the server.
-      #
-      # The shared workflow swallows that as `::warning::Failed to enable
-      # openregister, continuing...` and the run carries on WITHOUT the app
-      # hermiq's storage and interfaces come from. Both stable31 cells of run
-      # 31490144919 then reported 12 PHPUnit errors against the 5 the healthy
-      # cells reported — seven phantom failures that read as application debt
-      # and were an absent dependency. A cell that cannot install this app's
-      # hard dependency measures nothing, so it is gone, and appinfo/info.xml
-      # now declares `min-version="32"` to match.
-      #
-      # THE LIST IS THE WHOLE DECLARED RANGE. appinfo/info.xml declares
-      # <nextcloud min-version="32" max-version="34"/>, so 32, 33 and 34 each get
-      # a leg. Adopting NC 34 by REPLACING the list left 32 and 33 advertised to
-      # the App Store with no job touching them — the declared floor became the
-      # untested end, which is the same drift as never testing 34, reversed.
-      nextcloud-test-refs: '["stable34", "stable32", "stable33"]'
+      # No `nextcloud-test-refs` override: the shared quality.yml derives the
+      # Nextcloud matrix from appinfo/info.xml (min-version..max-version), so the
+      # declared range — now including stable35 — is exactly what gets tested.
       enable-psalm: true
       enable-phpstan: true
       enable-phpmetrics: true
@@ -309,6 +281,15 @@ jobs:
       # serious/critical violations on core's OWN routes that DOM scoping does
       # not remove. Enabling axe is a separate decision.
       enable-hydra-gates: true
+      # Gate 122 (SIG unit ratchet) blocks: a unit this change adds or makes
+      # worse must stay at NLOC 60, McCabe 10 and at most 4 parameters, and a
+      # new duplicated fragment of 6+ lines fails. Units the change does not
+      # touch, or touches without making worse, are inherited and do not count.
+      hydra-gates-sig-blocking: true
+      # Maintainability floor: no rating in .maintainability-floor.json may drop
+      # more than 0.01 against the merge base (pull request) or below the
+      # committed floor (push). The floor is raised after improving merges.
+      enable-maintainability-floor: true
       # No `hydra-gates-ref` here on purpose. The shared workflow defaults it
       # to @main, and this workflow is itself consumed at @main, so the two
       # sides move together and a gate fix reaches this repo without a commit

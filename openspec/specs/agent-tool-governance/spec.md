@@ -28,7 +28,9 @@ on Hermiq's side of the facade, and this capability owns all three:
 Hermiq CONSUMES the derived catalog; it never derives it and ships no tool code of its own
 (ADR-063, gate-27). The authoritative authorization boundary stays OpenRegister RBAC at invoke
 time — everything here is a governance/UX layer that only ever NARROWS what an agent can reach.
+
 ## Requirements
+
 ### Requirement: Progressive tool disclosure for large catalogs
 The system MUST NOT place every tool descriptor into the model context when an agent's resolved tool
 catalog exceeds a configurable threshold (`IAppConfig('hermiq', 'tools.disclosureThreshold')`,
@@ -193,6 +195,153 @@ The system MUST include each tool's resolved `reach` in the grant-annotated tool
 - **WHEN** the catalogue is returned
 - **THEN** that entry's `reach` MUST be `external`
 @e2e exclude Requires a descriptor with no reach in the live catalogue, which the shipped provider does not produce; asserted by unit test on the catalogue assembler.
+
+### Requirement: An agent stops after the tool calls its owner allows (REQ-AGOFF-005)
+
+The system MUST let an agent owner set `maxToolCalls` on an agent, an integer from 1 to 100 with default 10. The system MUST count tool calls within one turn on every provider path and MUST NOT invoke a tool past the cap. The turn MUST end with the model's last answer and the run trace MUST record "Tool call limit reached for this turn".
+
+#### Scenario: A looping agent hits its cap
+- GIVEN an agent with `maxToolCalls` 5 that keeps asking for the same search
+- WHEN it asks for a sixth tool call in one turn
+- THEN the sixth tool is not invoked, the turn ends, and the run trace shows "Tool call limit reached for this turn"
+- @e2e exclude engine behaviour, covered by PHPUnit on FacadeToolInvoker and ProviderFactory
+
+#### Scenario: An owner raises the cap on the agent form
+- GIVEN the owner of an agent editing it on the agent form
+- WHEN they set "Maximum tool calls per answer" to 25 and save
+- THEN the agent page shows 25 and the next turn may make up to 25 tool calls
+
+### Requirement: A failed tool call goes back to the agent as a result, and the turn carries on
+
+The system MUST NOT end an agent's turn because a tool failed, was refused, or returned nothing. Every tool call the engine dispatches (`lib/Service/Engine/FacadeToolInvoker.php`, `dispatchToFacade()` at :1285) MUST return a JSON tool result to the model, which then decides what to do next within the same turn. A failure inside one of hermiq's own tools MUST come back as `{"error": {"code", "message"}}` and MUST NOT throw: `lib/Mcp/HermiqToolProvider.php::invokeTool()` (:793) catches every `Throwable` as `tool_failed` (:883-885) and answers an unknown tool id with `unknown_tool` and the list of available ids (:877-880). A tool the organisation's guardrail policy denies MUST come back as `tool_denied_by_policy` with a readable message (`handleDeniedByPolicy()` at :796), and a tool that needs a human first MUST come back as `approval_required` (:934, :1167). The run trace MUST record each such step with the outcome `error` or `denied`, so the run history shows which call failed while the answer continues. A result that cannot be encoded MUST still reach the model as `{"error":"Tool result could not be encoded"}`.
+
+#### Scenario: A tool throws and the agent answers anyway
+- **GIVEN** an agent in a chat turn calls `hermiq.readFile` on a file that cannot be read
+- **WHEN** the tool raises an exception
+- **THEN** the model receives `{"error": {"code": "tool_failed", "message": "The tool call failed."}}` as the tool result
+- **AND** the turn continues, so the agent can try another file or tell the person what went wrong
+- **AND** the run trace records the step with the outcome `error`
+- @e2e exclude engine behaviour without a page of its own, covered by PHPUnit on FacadeToolInvoker and HermiqToolProvider
+
+#### Scenario: A tool the policy denies is reported, not fatal
+- **GIVEN** the organisation's guardrail policy denies a tool the agent calls
+- **WHEN** the agent calls it
+- **THEN** the tool is not run and the model receives `tool_denied_by_policy` with the message that the policy denies it
+- **AND** the run trace records the step with the outcome `denied`
+- @e2e exclude engine behaviour, covered by PHPUnit on FacadeToolInvoker
+
+#### Scenario: The model asks for a tool that does not exist
+- **GIVEN** a model that names a tool id hermiq does not provide
+- **WHEN** the call reaches `HermiqToolProvider::invokeTool()`
+- **THEN** the model receives `unknown_tool` with the ids that are available, and can pick one of them
+- @e2e exclude engine behaviour, covered by PHPUnit on HermiqToolProvider
+
+### Requirement: An outside agent MUST reach declared tools through a registration
+
+The system MUST publish a tool surface an AI agent outside the instance can call. The
+tools it offers MUST be declared by the app that owns the data. hermiq MUST publish
+the surface and MUST ship no tool of its own, in the outbound direction as in the
+inbound one (ADR-063, gate 27).
+
+An outside agent MUST hold a registration naming the tools it may call. The
+registration MUST default-deny every tool that writes, reusing the default-deny rule
+this capability already states for per-agent grants rather than stating a second one.
+
+Candidate C-integrations-19 (`integrations.tsv:16`), relevance `should`, driven
+passers itop and openproject. OpenProject's evidence: `mount API::Mcp => "/mcp"`,
+`app/models/mcp_configuration.rb`, `/admin/mcp_configurations`,
+`app/services/mcp_output_filters/`, enterprise. The sweep's note: "Both expose the
+product to an agent outside it, not an assistant inside it."
+
+#### Scenario: The owning app declares, hermiq publishes
+
+- **GIVEN** an app declaring two of its tools as reachable by an outside agent
+- **WHEN** the surface is read
+- **THEN** exactly those two MUST be offered, and hermiq MUST declare no tool of its
+  own
+
+#### Scenario: A write tool is denied unless granted
+
+- **GIVEN** a registration that names no tools explicitly
+- **WHEN** it calls a tool that writes
+- **THEN** the call MUST be refused
+
+### Requirement: Every outside call MUST be authorised as the calling principal
+
+The system MUST authenticate an outside agent as a principal and MUST have every call
+authorised by the owning app for that principal, exactly as a call from a person would
+be. A registration MUST NOT carry rights of its own and MUST NOT raise what its
+principal may do.
+
+Revoking a person's access MUST therefore revoke their agent's on the next call, with
+nothing to update in hermiq.
+
+#### Scenario: An agent cannot exceed its principal
+
+- **GIVEN** a registration granted a read tool, whose principal may not read a given
+  case
+- **WHEN** it calls that tool on that case
+- **THEN** the owning app MUST refuse it
+
+#### Scenario: Revocation reaches the agent without an edit
+
+- **GIVEN** a working agent registration
+- **WHEN** its principal's access to a case is revoked
+- **THEN** the next call on that case MUST be refused, and no hermiq object MUST have
+  been edited
+
+### Requirement: Both gates MUST open before a tool runs
+
+The system MUST check, per call and in this order: that the registration lists the
+tool, and that the owning app authorises the act for the calling principal. Both MUST
+pass. Neither MUST be treated as sufficient alone.
+
+#### Scenario: A permitted caller without the grant is refused
+
+- **GIVEN** a principal who may write a case and a registration not granted the write
+  tool
+- **WHEN** the write is attempted
+- **THEN** it MUST be refused by the grant check
+
+#### Scenario: A granted agent without the right is refused
+
+- **GIVEN** a registration granted every tool and a principal who may not read the
+  case
+- **WHEN** a read is attempted
+- **THEN** it MUST be refused by the owning app
+
+### Requirement: A registration MAY narrow what a tool response carries
+
+The system MUST let a registration declare an allowlist of fields a tool response may
+carry. A field outside the allowlist MUST be absent from the response. The filter MUST
+narrow only, and MUST NOT rename, reshape or compute a value.
+
+A filter that transformed values would hold a second copy of the owning app's data
+model, and a field renamed in that app would then silently produce a wrong shape here.
+
+#### Scenario: A reading agent does not receive every field
+
+- **GIVEN** a registration allowing three fields of a case
+- **WHEN** it reads a case carrying twelve
+- **THEN** the response MUST carry those three and no others
+
+#### Scenario: Nothing is renamed on the way out
+
+- **WHEN** a filtered response is compared to the owning app's own field names
+- **THEN** every field present MUST carry the owning app's name for it
+
+### Requirement: An outside agent's calls MUST be recorded like an internal agent's
+
+The system MUST record every call from an outside agent on the same audit trail it
+records internal agent runs on, carrying the registration, the calling principal, the
+tool and the outcome. The oversight surface this capability already specifies MUST
+show them beside internal invocations.
+
+#### Scenario: One place to read who called what
+
+- **GIVEN** calls from an internal agent and from an outside registration
+- **WHEN** the oversight surface is read
+- **THEN** both MUST appear, each naming its caller
 
 ## User Stories
 

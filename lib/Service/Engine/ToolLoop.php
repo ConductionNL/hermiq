@@ -3,11 +3,11 @@
 /**
  * Hermiq Chat Tool Loop.
  *
- * Ported from `OCA\OpenRegister\Service\Chat\ToolManagementHandler`. The JSON-schema →
+ * Ported from `OCA\OpenRegister\Mcp\Service\Chat\ToolManagementHandler`. The JSON-schema →
  * LLPhant `Parameter`/`FunctionInfo` conversion logic is preserved verbatim; the tool
  * SOURCE is re-pointed: instead of constructing/consulting OR's internal
  * `ToolRegistry` (and, transitively, `McpProviderBridge`), this class consumes ONLY
- * `OCA\OpenRegister\Service\Mcp\ToolRegistryFacade` — the documented public
+ * `OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade` — the documented public
  * cross-app contract (`listTools()` / `invokeTool()`, gate-27 / ADR-022) — injected
  * via DI.
  *
@@ -48,34 +48,40 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
- * @spec openspec/changes/agent-engine-port/tasks.md#task-3-2
- * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-2
- * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-2
+ * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-2
+ * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-3
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
 
+use Closure;
 use LLPhant\Chat\FunctionInfo\FunctionInfo;
-use LLPhant\Chat\FunctionInfo\Parameter;
+use OCA\Hermiq\Kernel\Contracts\ToolLoopInterface;
+use OCA\Hermiq\Service\Agent\AgentAvailability;
+use OCA\Hermiq\Service\Agent\AgentAvailabilityService;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\GuardrailPolicyService;
+use OCA\Hermiq\Service\PersonalPreferences;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ToolSearchService;
+use OCA\Hermiq\Service\Workspace\RepoEffectingGrants;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolutionException;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCP\IAppConfig;
 use OCP\IUserSession;
+use Psr\Log\LoggerInterface;
+
 // 🔴 THESE TWO USED TO NEED NO IMPORT — see the note in FacadeToolInvoker. They
 // lived in this namespace until ADR-099 §5 moved the capability grammar to
 // OpenRegister; a relocation that only rewrote files with an explicit `use`
 // would leave this class referencing classes that are no longer here, and PHP
 // would not say so until the line ran.
-use OCA\OpenRegister\Service\Capability\ToolGrantResolutionException;
-use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
-use Psr\Log\LoggerInterface;
 
 /**
  * Resolves an agent's allowed tool functions from the OR tool-registry facade
@@ -92,9 +98,9 @@ use Psr\Log\LoggerInterface;
  *   constructor collaborator named after its class (GuardrailPolicyService) — shortening
  *   it would obscure which service is injected.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
  */
-class ToolLoop {
+class ToolLoop implements ToolLoopInterface {
 
 	/**
 	 * The `hermiq.searchTools` meta-tool's registry id (nc-native-tools provider).
@@ -151,6 +157,11 @@ class ToolLoop {
 	 *                                       falls back to the agent record's own acting
 	 *                                       user, and with neither a flow-queueing tool
 	 *                                       is REFUSED rather than run unattributed.
+	 * @param AgentAvailabilityService|null $availabilityService Fresh read of the agent's switch, so a
+	 *                                                        turn stops at its next tool call once the
+	 *                                                        agent is switched off. Null: never stops.
+	 * @param PersonalPreferences|null      $preferences         The signed-in person's own preferences, for
+	 *                                                        ask-before-sending. Null: asks nothing extra.
 	 *
 	 * @return void
 	 *
@@ -158,10 +169,10 @@ class ToolLoop {
 	 *   distinct injected collaborator, not a logic-bearing argument list (mirrors
 	 *   ApprovalService's precedent in this codebase).
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-2
-	 * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
-	 * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-2
+	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
+	 * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
 	 */
 	public function __construct(
 		private readonly ToolRegistryFacade $toolRegistryFacade,
@@ -173,6 +184,8 @@ class ToolLoop {
 		private readonly ?GuardrailPolicyService $guardrailPolicyService = null,
 		private readonly ?RedactionService $redactionService = null,
 		private readonly ?IUserSession $userSession = null,
+		private readonly ?AgentAvailabilityService $availabilityService = null,
+		private readonly ?PersonalPreferences $preferences = null,
 	) {
 	}//end __construct()
 
@@ -190,59 +203,112 @@ class ToolLoop {
 	 *                                          (`name`, `description`, `parameters`,
 	 *                                          optional `mcpId`).
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-2
 	 */
 	public function listAgentFunctions(?ObjectEntity $agent, array $selectedTools = []): array {
 		if ($agent === null) {
 			return [];
 		}
 
-		$whitelist = $agent->getObject()['tools'] ?? [];
-		if (is_array($whitelist) === false) {
-			$whitelist = [];
+		$whitelist = $this->narrowToSelection(
+			whitelist: $this->expandLegacyIds(ids: $this->agentGrants(agent: $agent)),
+			selectedTools: $selectedTools
+		);
+		if ($whitelist === null) {
+			return [];
 		}
 
-		// Legacy compatibility (ported from the original's candidate loop): agent
-		// records from older eras stored bare ids ("objects") that resolve as
-		// "openregister.{id}" registry ids. Expand such entries so both forms match.
-		$whitelist = $this->expandLegacyIds(ids: $whitelist);
+		$functions = $this->resolveGrantedFunctions(whitelist: $whitelist);
+		$this->logResolvedFunctions(whitelist: $whitelist, functions: $functions);
+
+		// Register the FULL resolved set for this run (searchTools ranking +
+		// the approval gate's grant-membership check) BEFORE any disclosure
+		// narrowing — see ToolSearchService's docblock.
+		$this->toolSearchService->registerResolved(descriptors: $functions);
+
+		return $this->applyDisclosure(functions: $functions);
+	}//end listAgentFunctions()
+
+	/**
+	 * Narrow the agent whitelist to the per-request selection.
+	 *
+	 * Legacy compatibility (ported from the original's candidate loop): agent
+	 * records from older eras stored bare ids ("objects") that resolve as
+	 * "openregister.{id}" registry ids, so the selection is expanded the same way
+	 * as the whitelist. When the agent whitelist is empty ("all allowed") the
+	 * selection simply becomes the whitelist; when both are non-empty they
+	 * intersect. An intersection that comes up EMPTY means "nothing allowed" —
+	 * null, because passing an empty whitelist to listTools() would mean "all"
+	 * (the exact opposite).
+	 *
+	 * @param array<int, string> $whitelist     The legacy-expanded agent whitelist.
+	 * @param array              $selectedTools Registry ids selected for this request.
+	 *
+	 * @return array<int, string>|null The whitelist to resolve, or null when nothing is allowed.
+	 */
+	private function narrowToSelection(array $whitelist, array $selectedTools): ?array {
 		$selected = $this->expandLegacyIds(ids: $selectedTools);
+		if (empty($selected) === true) {
+			return $whitelist;
+		}
 
-		// Per-request narrowing. When the agent whitelist is empty ("all allowed")
-		// the selection simply becomes the whitelist; when both are non-empty they
-		// intersect. An intersection that comes up EMPTY means "nothing allowed" —
-		// return [] explicitly, because passing an empty whitelist to listTools()
-		// would mean "all" (the exact opposite).
-		if (empty($selected) === false) {
-			$bothSet = (empty($whitelist) === false);
-			if ($bothSet === true) {
-				$whitelist = array_values(array_intersect($whitelist, $selected));
-			}
+		if (empty($whitelist) === true) {
+			return $selected;
+		}
 
-			if ($bothSet === false) {
-				$whitelist = $selected;
-			}
+		$whitelist = array_values(array_intersect($whitelist, $selected));
+		if (empty($whitelist) === false) {
+			return $whitelist;
+		}
 
-			if ($bothSet === true && empty($whitelist) === true) {
-				$this->logger->info(
-					message: '[ToolLoop] Selected tools do not intersect the agent whitelist — no tools enabled',
-					context: [
-						'file' => __FILE__,
-						'line' => __LINE__,
-						'selectedTools' => count($selectedTools),
-					]
-				);
-				return [];
-			}
-		}//end if
+		$this->logNoIntersection(selectedCount: count($selectedTools));
+		return null;
+	}//end narrowToSelection()
 
-		$functions = $this->resolveFunctions(whitelist: $whitelist);
+	/**
+	 * Log that the per-request selection shares no tool with the agent whitelist.
+	 *
+	 * @param int $selectedCount How many tools the request selected.
+	 *
+	 * @return void
+	 */
+	private function logNoIntersection(int $selectedCount): void {
+		$this->logger->info(
+			message: '[ToolLoop] Selected tools do not intersect the agent whitelist — no tools enabled',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'selectedTools' => $selectedCount,
+			]
+		);
+	}//end logNoIntersection()
 
-		// An agent that WAS granted tools but resolved to none is broken, not
-		// tool-less: downstream both look like an empty function list, so the run
-		// would continue text-only and every layer would report success while the
-		// agent silently lost every capability it was configured with. Raise it
-		// here, the last point where both facts are still known.
+	/**
+	 * Resolve the whitelist into the descriptors the agent may call, and raise
+	 * when a whitelist that granted tools resolved to none.
+	 *
+	 * Hermiq-runner-git-capability: a repo-effecting tool (the push) resolves
+	 * only from a grant pinning the repository and constraining the branch, so
+	 * a bare grant is never offered. An agent that WAS granted tools but resolved
+	 * to none is broken, not tool-less: downstream both look like an empty
+	 * function list, so the run would continue text-only and every layer would
+	 * report success while the agent silently lost every capability it was
+	 * configured with. Raise it here, the last point where both facts are known.
+	 *
+	 * @param array<int, string> $whitelist The legacy-expanded, selection-narrowed whitelist.
+	 *
+	 * @return array<int, array<string, mixed>> The resolved descriptors.
+	 *
+	 * @throws ToolGrantResolutionException When granted tools resolve to nothing.
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) RepoEffectingGrants is a pure rule over the grant grammar, like ToolGrantResolver's static classifiers.
+	 */
+	private function resolveGrantedFunctions(array $whitelist): array {
+		$functions = RepoEffectingGrants::filterDescriptors(
+			descriptors: $this->resolveFunctions(whitelist: $whitelist),
+			constraints: $this->grantResolver->argumentConstraints(grants: $whitelist)
+		);
+
 		if ($this->grantResolver->resolvesToNothing(grants: $whitelist, resolvedTools: $functions) === true) {
 			$this->logger->error(
 				message: '[ToolLoop] Agent tool grants resolved to no tools',
@@ -255,6 +321,18 @@ class ToolLoop {
 			throw new ToolGrantResolutionException(grants: $whitelist);
 		}
 
+		return $functions;
+	}//end resolveGrantedFunctions()
+
+	/**
+	 * Log the size of the resolved function set against the whitelist.
+	 *
+	 * @param array<int, string>               $whitelist The resolved whitelist.
+	 * @param array<int, array<string, mixed>> $functions The resolved descriptors.
+	 *
+	 * @return void
+	 */
+	private function logResolvedFunctions(array $whitelist, array $functions): void {
 		$this->logger->debug(
 			message: '[ToolLoop] Resolved agent tool functions',
 			context: [
@@ -264,14 +342,7 @@ class ToolLoop {
 				'functionCount' => count($functions),
 			]
 		);
-
-		// Register the FULL resolved set for this run (searchTools ranking +
-		// the approval gate's grant-membership check) BEFORE any disclosure
-		// narrowing — see ToolSearchService's docblock.
-		$this->toolSearchService->registerResolved(descriptors: $functions);
-
-		return $this->applyDisclosure(functions: $functions);
-	}//end listAgentFunctions()
+	}//end logResolvedFunctions()
 
 	/**
 	 * Resolve the whitelist into concrete descriptors: a plain (non-wildcard,
@@ -284,7 +355,7 @@ class ToolLoop {
 	 *
 	 * @return array<int, array<string, mixed>> Flattened LLPhant function descriptors.
 	 *
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-2
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-2
 	 */
 	private function resolveFunctions(array $whitelist): array {
 		$needsCatalog = ($whitelist === [] || $this->grantResolver->hasWildcardGrant(grants: $whitelist) === true);
@@ -363,8 +434,8 @@ class ToolLoop {
 	 *
 	 * @return array<int, array<string, mixed>>
 	 *
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#scenario-a-resolved-catalog-exceeds-the-disclosure-threshold
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#scenario-a-small-catalog-does-not-trigger-disclosure
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-resolved-catalog-exceeds-the-disclosure-threshold
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-small-catalog-does-not-trigger-disclosure
 	 */
 	private function applyDisclosure(array $functions): array {
 		$threshold = $this->appConfig->getValueInt('hermiq', 'tools.disclosureThreshold', self::DEFAULT_DISCLOSURE_THRESHOLD);
@@ -434,19 +505,15 @@ class ToolLoop {
 	 *
 	 * @return array<int, FunctionInfo> FunctionInfo objects ready for `setTools()`.
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Ported descriptor-to-FunctionInfo
-	 * conversion kept structurally intact from the OR original for parity reviewability.
-	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same ported conversion: the per-descriptor
-	 * shape guards (name, properties, required) are independent, multiplying paths.
 	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag)  Dry-run preview (run-replay-and-dry-run)
 	 * is a cross-cutting mode threaded through the engine as a flag by design.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-4
-	 * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
-	 * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-3
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-4
+	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
+	 * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
 	 */
 	public function buildFunctionInfos(
 		array $functions,
@@ -456,89 +523,137 @@ class ToolLoop {
 		?string $organisation = null,
 		bool $dryRun = false,
 	): array {
-		$agentId = null;
-		if ($agent !== null) {
-			$agentId = (string)$agent->getUuid();
-		}
+		$run = new ToolSurfaceRun();
+		$run->functions = $functions;
+		$run->channel = $channel;
+		$run->trace = $trace;
+		$run->agent = $agent;
+		$run->organisation = $organisation;
+		$run->dryRun = $dryRun;
 
-		$mcpIdByName = [];
-		$descriptorsByName = [];
-		foreach ($functions as $func) {
-			if (is_array($func) === true && isset($func['name']) === true) {
-				$name = (string)$func['name'];
-				$mcpIdByName[$name] = (string)($func['mcpId'] ?? $func['name']);
-				// Run-replay-and-dry-run: the full descriptor, keyed the same way, so the
-				// dry-run classifier can consult a tool's declared hints when present.
-				$descriptorsByName[$name] = $func;
-			}
-		}
+		return (new FunctionInfoBuilder())->build(functions: $functions, invoker: $this->createInvoker(run: $run));
+	}//end buildFunctionInfos()
 
-		$invoker = new FacadeToolInvoker(
+	/**
+	 * The one FacadeToolInvoker every FunctionInfo of a tool-surface build shares.
+	 *
+	 * @param ToolSurfaceRun $run The build's descriptors and turn.
+	 *
+	 * @return FacadeToolInvoker
+	 */
+	private function createInvoker(ToolSurfaceRun $run): FacadeToolInvoker {
+		$agentId = $this->agentIdOf(agent: $run->agent);
+
+		return new FacadeToolInvoker(
 			facade: $this->toolRegistryFacade,
-			channel: $channel,
-			trace: $trace,
+			channel: $run->channel,
+			trace: $run->trace,
 			toolSearchService: $this->toolSearchService,
 			approvalService: $this->approvalService,
 			agentId: $agentId,
-			mcpIdByName: $mcpIdByName,
-			toolPolicy: $this->resolveToolPolicy(organisation: $organisation),
-			dryRun: $dryRun,
-			descriptorsByName: $descriptorsByName,
+			mcpIdByName: $this->mcpIdsByName(functions: $run->functions),
+			toolPolicy: $this->resolveToolPolicy(organisation: $run->organisation),
+			dryRun: $run->dryRun,
+			descriptorsByName: $this->descriptorsByName(functions: $run->functions),
 			redactionService: $this->redactionService,
-			argumentConstraints: $this->grantResolver->argumentConstraints(grants: $this->agentGrants(agent: $agent)),
-			ownerUid: $this->resolveOwnerUid(agent: $agent),
-			waivedConstraintSets: $this->grantResolver->waivedConstraintSets(grants: $this->agentGrants(agent: $agent))
+			argumentConstraints: $this->grantResolver->argumentConstraints(grants: $this->agentGrants(agent: $run->agent)),
+			ownerUid: $this->resolveOwnerUid(agent: $run->agent),
+			waivedConstraintSets: $this->grantResolver->waivedConstraintSets(grants: $this->agentGrants(agent: $run->agent)),
+			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent),
+			agentStillOn: $this->agentStillOn(agentId: $agentId),
+			askFirst: $this->askFirst(functions: $run->functions)
 		);
-		$functionInfoObjects = [];
+	}//end createInvoker()
 
-		foreach ($functions as $func) {
-			if (is_array($func) === false || isset($func['name']) === false) {
-				continue;
-			}
+	/**
+	 * The outbound tools of this turn the person running it asked to approve first.
+	 *
+	 * Empty unless the signed-in person switched on ask-before-sending; a turn with
+	 * no signed-in person asks nothing extra.
+	 *
+	 * @param array<int|string, mixed> $functions Flattened LLPhant function descriptors.
+	 *
+	 * @return list<string> Registry ids.
+	 *
+	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 */
+	private function askFirst(array $functions): array {
+		$uid = (string)($this->userSession?->getUser()?->getUID() ?? '');
+		if ($this->preferences === null || $this->preferences->isOn(userId: $uid, key: PersonalPreferences::ASK_BEFORE_SEND) === false) {
+			return [];
+		}
 
-			// Create parameters array.
-			$parameters = [];
-			$required = [];
+		return OutboundToolRule::outboundAmong(toolIds: array_values($this->mcpIdsByName(functions: $functions)));
+	}//end askFirst()
 
-			if (($func['parameters']['properties'] ?? null) !== null) {
-				foreach ($func['parameters']['properties'] as $paramName => $paramDef) {
-					$paramDefArray = [];
-					if (is_array($paramDef) === true) {
-						$paramDefArray = $paramDef;
-					}
+	/**
+	 * The acting agent's uuid, or null for agent-less chat.
+	 *
+	 * @param ObjectEntity|null $agent The acting agent, or null.
+	 *
+	 * @return string|null
+	 */
+	private function agentIdOf(?ObjectEntity $agent): ?string {
+		if ($agent === null) {
+			return null;
+		}
 
-					$parameters[] = $this->schemaToParameter(
-						name: (string)$paramName,
-						def: $paramDefArray
-					);
-				}
-			}
+		return (string)$agent->getUuid();
+	}//end agentIdOf()
 
-			if (($func['parameters']['required'] ?? null) !== null) {
-				$required = $func['parameters']['required'];
-			}
+	/**
+	 * The registry id of each named descriptor, keyed by function name; a
+	 * descriptor without `mcpId` maps to its own name.
+	 *
+	 * @param array<int|string, mixed> $functions Flattened LLPhant function descriptors.
+	 *
+	 * @return array<string, string>
+	 */
+	private function mcpIdsByName(array $functions): array {
+		$mcpIdByName = [];
+		foreach ($this->descriptorsByName(functions: $functions) as $name => $func) {
+			$mcpIdByName[$name] = (string)($func['mcpId'] ?? $func['name']);
+		}
 
-			// LLPhant's FunctionInfo expects requiredParameters as Parameter
-			// OBJECTS, not name strings (ToolFormatter reads $param->name). Map
-			// the required names back to the Parameter objects built above.
-			$requiredParameters = [];
-			foreach ($parameters as $parameterObject) {
-				if (in_array($parameterObject->name, $required, true) === true) {
-					$requiredParameters[] = $parameterObject;
-				}
-			}
+		return $mcpIdByName;
+	}//end mcpIdsByName()
 
-			$functionInfoObjects[] = new FunctionInfo(
-				$func['name'],
-				$invoker,
-				$func['description'] ?? '',
-				$parameters,
-				$requiredParameters
-			);
-		}//end foreach
+	/**
+	 * The full descriptor of each named function, keyed by function name, so
+	 * the dry-run classifier can consult a tool's declared hints when present.
+	 *
+	 * @param array<int|string, mixed> $functions Flattened LLPhant function descriptors.
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
+	private function descriptorsByName(array $functions): array {
+		$descriptorsByName = [];
+		foreach ((new FunctionInfoBuilder())->namedDescriptors(functions: $functions) as $func) {
+			$descriptorsByName[(string)$func['name']] = $func;
+		}
 
-		return $functionInfoObjects;
-	}//end buildFunctionInfos()
+		return $descriptorsByName;
+	}//end descriptorsByName()
+
+	/**
+	 * A fresh read of the agent's switch for the tool invoker, so a turn stops at
+	 * its next tool call once the agent is switched off (agents-switch-off-and-stop).
+	 *
+	 * @param string|null $agentId The acting agent, or null for agent-less chat.
+	 *
+	 * @return Closure|null The read, or null when there is no agent to switch.
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-run-in-progress-stops-when-its-agent-is-switched-off-req-agoff-003
+	 */
+	private function agentStillOn(?string $agentId): ?Closure {
+		if ($agentId === null || $agentId === '' || $this->availabilityService === null) {
+			return null;
+		}
+
+		$availability = $this->availabilityService;
+
+		return static fn (): bool => $availability->isOn(agentId: $agentId);
+	}//end agentStillOn()
 
 	/**
 	 * The raw `Agent.tools` grant strings for an agent, or `[]` when there is no
@@ -586,15 +701,37 @@ class ToolLoop {
 	 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#requirement-a-flow-invoked-as-an-agent-tool-is-attributed-to-an-owning-uid
 	 */
 	private function resolveOwnerUid(?ObjectEntity $agent): ?string {
+		$sessionUid = $this->sessionUid();
+		if ($sessionUid !== null || $agent === null) {
+			return $sessionUid;
+		}
+
+		return $this->agentRecordUid(agent: $agent);
+	}//end resolveOwnerUid()
+
+	/**
+	 * The acting session user's UID, or null when there is no (named) session user.
+	 *
+	 * @return string|null
+	 */
+	private function sessionUid(): ?string {
 		$sessionUser = $this->userSession?->getUser();
 		if ($sessionUser !== null && trim($sessionUser->getUID()) !== '') {
 			return trim($sessionUser->getUID());
 		}
 
-		if ($agent === null) {
-			return null;
-		}
+		return null;
+	}//end sessionUid()
 
+	/**
+	 * The UID an agent record declares it runs as (`actingUser`, then `user`),
+	 * falling back to the agent object's owner; null when all are empty.
+	 *
+	 * @param ObjectEntity $agent The acting agent.
+	 *
+	 * @return string|null
+	 */
+	private function agentRecordUid(ObjectEntity $agent): ?string {
 		$data = $agent->getObject();
 		foreach (['actingUser', 'user'] as $field) {
 			$candidate = trim((string)($data[$field] ?? ''));
@@ -609,7 +746,7 @@ class ToolLoop {
 		}
 
 		return null;
-	}//end resolveOwnerUid()
+	}//end agentRecordUid()
 
 	/**
 	 * Expand bare (dot-less) tool ids with the legacy `openregister.` prefix so
@@ -645,86 +782,6 @@ class ToolLoop {
 	}//end expandLegacyIds()
 
 	/**
-	 * Convert a single JSON-schema property into an LLPhant Parameter.
-	 *
-	 * LLPhant's formatters require `itemsOrProperties` to be either a STRING
-	 * (the element type of an array of scalars) or an array of Parameter
-	 * OBJECTS (an object's properties / an array of objects). Passing the raw
-	 * JSON-schema `items`/`properties` (associative arrays of schema fragments)
-	 * makes FunctionFormatter read `->name` on a string and throw. This builds
-	 * the correct shape, recursing one level for nested objects. (Ported
-	 * verbatim from ToolManagementHandler.)
-	 *
-	 * @param string $name The property name.
-	 * @param array<string,mixed> $def The JSON-schema fragment for the property.
-	 *
-	 * @return Parameter
-	 *
-	 * @SuppressWarnings(PHPMD.ElseExpression) Ported object/array/scalar branch
-	 * structure kept intact from the OR original (load-bearing LLPhant shape
-	 * conversion) for parity reviewability.
-	 */
-	private function schemaToParameter(string $name, array $def): Parameter {
-		$type = $def['type'] ?? 'string';
-		$description = $def['description'] ?? '';
-		$enum = $def['enum'] ?? [];
-		$format = $def['format'] ?? null;
-		$itemsOrProperties = null;
-
-		if ($type === 'object') {
-			$properties = $this->propertiesToParameters(properties: ($def['properties'] ?? []));
-			if (count($properties) === 0) {
-				// Free-form object with no declared sub-properties (e.g. a
-				// schema's `properties` map). LLPhant serialises an empty
-				// object schema as "properties": [] (a JSON array), which
-				// Ollama rejects with "Value looks like object, but can't find
-				// closing '}'". Represent it as a JSON string the model fills.
-				$type = 'string';
-				$description = $this->freeFormObjectDescription(description: $description);
-			} else {
-				$itemsOrProperties = $properties;
-			}
-		} elseif ($type === 'array') {
-			$items = $def['items'] ?? [];
-			$itemType = 'string';
-			if (is_array($items) === true && isset($items['type']) === true) {
-				$itemType = (string)$items['type'];
-			}
-
-			if ($itemType === 'object') {
-				$properties = $this->propertiesToParameters(properties: ($items['properties'] ?? []));
-				// Same empty-object guard for arrays of free-form objects.
-				if (count($properties) === 0) {
-					$itemsOrProperties = 'string';
-				} else {
-					$itemsOrProperties = $properties;
-				}
-			} else {
-				// A scalar element type is passed as a plain string.
-				$itemsOrProperties = $itemType;
-			}
-		}//end if
-
-		return new Parameter($name, $type, $description, $enum, $format, $itemsOrProperties);
-	}//end schemaToParameter()
-
-	/**
-	 * Build the description used when a free-form object (no declared
-	 * sub-properties) is represented as a JSON string instead.
-	 *
-	 * @param string $description Original property description (may be empty).
-	 *
-	 * @return string Description guiding the model to pass a JSON object.
-	 */
-	private function freeFormObjectDescription(string $description): string {
-		if ($description === '') {
-			return 'A JSON object.';
-		}
-
-		return ($description . ' (pass as a JSON object).');
-	}//end freeFormObjectDescription()
-
-	/**
 	 * Resolve the effective GuardrailPolicy's `toolPolicy` list into a
 	 * `toolId => classification` map for O(1) lookups inside `FacadeToolInvoker`
 	 * (design.md Decision 6 — resolved ONCE per turn, not once per tool call).
@@ -735,7 +792,7 @@ class ToolLoop {
 	 *
 	 * @return array<string,string> toolId => classification.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
 	 */
 	private function resolveToolPolicy(?string $organisation): array {
 		if ($this->guardrailPolicyService === null) {
@@ -754,27 +811,4 @@ class ToolLoop {
 		return $map;
 	}//end resolveToolPolicy()
 
-	/**
-	 * Convert a JSON-schema `properties` map into an array of Parameter objects.
-	 *
-	 * @param array<string,mixed> $properties The properties map (name => schema).
-	 *
-	 * @return Parameter[]
-	 */
-	private function propertiesToParameters(array $properties): array {
-		$out = [];
-		foreach ($properties as $propName => $propDef) {
-			$propDefArray = [];
-			if (is_array($propDef) === true) {
-				$propDefArray = $propDef;
-			}
-
-			$out[] = $this->schemaToParameter(
-				name: (string)$propName,
-				def: $propDefArray
-			);
-		}
-
-		return $out;
-	}//end propertiesToParameters()
 }//end class

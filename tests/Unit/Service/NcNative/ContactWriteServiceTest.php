@@ -176,4 +176,59 @@ class ContactWriteServiceTest extends TestCase {
 
 	}//end testMissingNameIsRefused()
 
+	/**
+	 * A saved contact reports its name, address book and artefact, and every given
+	 * optional field reaches the card trimmed, in order, before the mark.
+	 *
+	 * @return void
+	 */
+	public function testSavedContactReportsItsBookAndCarriesEveryGivenField(): void {
+		$written = [];
+		$keys = [];
+		$contacts = $this->createMock(IContactsManager::class);
+		$contacts->method('getUserAddressBooks')->willReturn([$this->book(false, false, 'own-book')]);
+		$contacts->method('createOrUpdate')->willReturnCallback(
+			function (array $properties, string $key) use (&$written, &$keys): array {
+				$written = $properties;
+				$keys[] = $key;
+
+				return ['UID' => 'contact-2'];
+			}
+		);
+
+		$result = $this->service($contacts)->upsert(
+			'alice',
+			['name' => ' Jansen ', 'phone' => ' 0612 ', 'organization' => 'Gemeente', 'uid' => 'u-1', 'email' => '']
+		);
+
+		$this->assertSame(['saved' => true, 'name' => 'Jansen', 'addressBook' => 'Contacts', 'artefact' => ['type' => 'contact', 'id' => 'contact-2']], $result);
+		$this->assertSame(['FN', 'TEL', 'ORG', 'UID', AgentArtefactMarker::OBJECT_PROPERTY], array_keys($written));
+		$this->assertSame(['Jansen', '0612', 'Gemeente', 'u-1'], array_slice(array_values($written), 0, 4));
+		$this->assertSame(['own-book'], $keys);
+
+	}//end testSavedContactReportsItsBookAndCarriesEveryGivenField()
+
+	/**
+	 * A manager that throws, or returns no card, is reported as a failed write.
+	 *
+	 * @return void
+	 */
+	public function testAFailedWriteIsReported(): void {
+		foreach ([new \RuntimeException('down'), null] as $outcome) {
+			$contacts = $this->createMock(IContactsManager::class);
+			$contacts->method('getUserAddressBooks')->willReturn([$this->book(false, false)]);
+			if ($outcome === null) {
+				$contacts->method('createOrUpdate')->willReturn(null);
+			} else {
+				$contacts->method('createOrUpdate')->willThrowException($outcome);
+			}
+
+			$result = $this->service($contacts)->upsert('alice', ['name' => 'Jansen']);
+
+			$this->assertSame('contact_write_failed', $result['error']['code'] ?? null);
+			$this->assertSame('The contact could not be saved.', $result['error']['message'] ?? null);
+		}
+
+	}//end testAFailedWriteIsReported()
+
 }//end class

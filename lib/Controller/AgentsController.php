@@ -14,8 +14,9 @@
  * - Organisation is never taken from the request: ObjectService multitenancy
  *   assigns owner + organisation on create and scopes every read (OR set/
  *   preserved them explicitly against the entity).
- * - Visibility semantics mirror OR's AgentMapper::canUserAccessAgent():
- *   non-private OR owner OR invited; modification is owner-only.
+ * - Visibility is AgentAccessService's one predicate: non-private OR owner
+ *   OR invited OR a member of one of the agent's groups; modification is
+ *   owner-only.
  * - OR's `agents#page` TemplateResponse route is NOT mirrored — hermiq's SPA
  *   catch-all serves the page URL (see appinfo/routes.php).
  *
@@ -31,7 +32,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
  */
 
 declare(strict_types=1);
@@ -39,10 +40,12 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use Exception;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\AgentCatalogInterface;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -58,7 +61,7 @@ use Psr\Log\LoggerInterface;
  * Every `@NoAdminRequired` method that takes an agent uuid guards per-object
  * access/ownership in the method body (gate-7 no-admin-idor).
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
  */
 class AgentsController extends Controller {
 	use SanitizesForSaveTrait;
@@ -115,7 +118,20 @@ class AgentsController extends Controller {
 	 *
 	 * @var array<int, string>
 	 */
-	private const PROTECTED_KEYS = ['_route', 'id', 'uuid', 'created', 'updated', 'organisation', 'owner'];
+	private const PROTECTED_KEYS = [
+		'_route',
+		'id',
+		'uuid',
+		'created',
+		'updated',
+		'organisation',
+		'owner',
+		// Agents-switch-off-and-stop: the switch has one write path, the availability endpoint.
+		'active',
+		'availabilityChangedBy',
+		'availabilityChangedAt',
+		'availabilityReason',
+	];
 
 	/**
 	 * Constructor.
@@ -125,8 +141,10 @@ class AgentsController extends Controller {
 	 * @param ToolRegistryFacade $toolRegistry OR's public tool read surface (gate-27 contract).
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param AgentAccessServiceInterface $agentAccess The one per-agent access predicate.
+	 * @param AgentCatalogInterface $catalog The agent list and row by who asks (agents-sharing-and-catalog-columns).
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	public function __construct(
 		IRequest $request,
@@ -134,23 +152,25 @@ class AgentsController extends Controller {
 		private readonly ToolRegistryFacade $toolRegistry,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
+		private readonly AgentAccessServiceInterface $agentAccess,
+		private readonly AgentCatalogInterface $catalog,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
 	 * Get all agents accessible by the current user.
 	 *
 	 * Organisation scoping is applied by ObjectService multitenancy on the
-	 * read; the per-agent visibility rule (non-private OR owner OR invited)
-	 * is applied here, mirroring OR's mapper-layer RBAC filter.
+	 * read; the per-agent visibility rule (non-private OR owner OR invited OR
+	 * group member, AgentAccessService) is applied here.
 	 *
 	 * @return JSONResponse List of agents.
 	 *
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	public function index(): JSONResponse {
 		try {
@@ -170,32 +190,11 @@ class AgentsController extends Controller {
 				$offset = (($page - 1) * $limit);
 			}
 
-			// Fetch the page (org-scoped by ObjectService multitenancy), then
-			// apply the per-agent visibility rule.
-			$agents = $this->objectService
-				->setRegister(self::REGISTER_SLUG)
-				->setSchema(self::AGENT_SCHEMA)
-				->findAll(
-					config: [
-						'limit' => $limit,
-						'offset' => $offset,
-					]
-				);
-
-			$results = [];
-			foreach ($agents as $agent) {
-				if (($agent instanceof ObjectEntity) === false) {
-					continue;
-				}
-
-				if ($this->canUserAccessAgent(agent: $agent, userId: $userId) === true) {
-					$results[] = $this->serializeAgent(agent: $agent);
-				}
-			}
-
-			// Return successful response with agents list.
+			// Agents-sharing-and-catalog-columns: the page reads through the Agent
+			// read rule, so paging and the total count only what the user may use;
+			// an organisation admin reads every agent of the organisation.
 			return new JSONResponse(
-				data: ['results' => $results],
+				data: $this->catalog->page(uid: $userId, limit: $limit, offset: $offset),
 				statusCode: Http::STATUS_OK
 			);
 		} catch (Exception $e) {
@@ -226,7 +225,7 @@ class AgentsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	public function show(string $id): JSONResponse {
 		try {
@@ -243,18 +242,18 @@ class AgentsController extends Controller {
 				);
 			}
 
-			// Per-object visibility check (gate-7).
-			if ($this->canUserAccessAgent(agent: $agent, userId: $userId) === false) {
+			// Per-object visibility check (gate-7). A refusal is a 404, so a
+			// colleague cannot confirm that a private agent exists; an organisation
+			// admin gets the reduced row (agents-sharing-and-catalog-columns).
+			$row = $this->catalog->row(agent: $agent, uid: $userId);
+			if ($row === null) {
 				return new JSONResponse(
-					data: ['error' => 'Access denied to this agent'],
-					statusCode: Http::STATUS_FORBIDDEN
+					data: ['error' => 'Agent not found'],
+					statusCode: Http::STATUS_NOT_FOUND
 				);
 			}
 
-			return new JSONResponse(
-				data: $this->serializeAgent(agent: $agent),
-				statusCode: Http::STATUS_OK
-			);
+			return new JSONResponse(data: $row, statusCode: Http::STATUS_OK);
 		} catch (Exception $e) {
 			$this->logger->error(
 				message: '[AgentsController] Failed to get agent',
@@ -293,7 +292,7 @@ class AgentsController extends Controller {
 	 * the session, so a caller cannot create an agent owned by, or inside the
 	 * organisation of, anyone else. New agents default to isPrivate: true.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	public function create(): JSONResponse {
 		try {
@@ -379,7 +378,7 @@ class AgentsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	public function update(string $id): JSONResponse {
 		try {
@@ -397,7 +396,7 @@ class AgentsController extends Controller {
 			}
 
 			// Owner-only modification guard (gate-7).
-			if ($this->canUserModifyAgent(agent: $agent, userId: $userId) === false) {
+			if ($this->agentAccess->canUserModifyAgent(agent: $agent, userId: $userId) === false) {
 				return new JSONResponse(
 					data: ['error' => 'You do not have permission to modify this agent'],
 					statusCode: Http::STATUS_FORBIDDEN
@@ -460,7 +459,7 @@ class AgentsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	public function patch(string $id): JSONResponse {
 		// Delegate to update method (both handle partial updates).
@@ -480,7 +479,7 @@ class AgentsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	public function destroy(string $id): JSONResponse {
 		try {
@@ -505,7 +504,7 @@ class AgentsController extends Controller {
 			}
 
 			// Owner-only modification guard (gate-7).
-			if ($this->canUserModifyAgent(agent: $agent, userId: $userId) === false) {
+			if ($this->agentAccess->canUserModifyAgent(agent: $agent, userId: $userId) === false) {
 				return new JSONResponse(
 					data: ['error' => 'You do not have permission to delete this agent'],
 					statusCode: Http::STATUS_FORBIDDEN
@@ -569,7 +568,7 @@ class AgentsController extends Controller {
 	 * so a caller cannot count another organisation's agents by any parameter
 	 * this endpoint accepts.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	public function stats(): JSONResponse {
 		try {
@@ -618,7 +617,7 @@ class AgentsController extends Controller {
 	 * of them is a separate decision enforced at call time by the tool-grant
 	 * check, not by hiding the catalogue.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	public function tools(): JSONResponse {
 		try {
@@ -662,57 +661,6 @@ class AgentsController extends Controller {
 	}//end tools()
 
 	/**
-	 * Whether the user may use an agent: non-private agents are open to the
-	 * organisation (multitenancy already scoped the read), private agents
-	 * only to their owner or explicitly invited users — mirrors OR's
-	 * AgentMapper::canUserAccessAgent().
-	 *
-	 * @param ObjectEntity $agent Agent object.
-	 * @param string $userId Nextcloud user id.
-	 *
-	 * @return bool True when the user may access the agent.
-	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
-	 */
-	private function canUserAccessAgent(ObjectEntity $agent, string $userId): bool {
-		$data = $agent->getObject();
-		$isPrivate = ($data['isPrivate'] ?? null);
-
-		// Non-private agents are accessible to all users in the organisation.
-		if ($isPrivate === false || $isPrivate === null) {
-			return true;
-		}
-
-		// Owner always has access.
-		if ($agent->getOwner() === $userId) {
-			return true;
-		}
-
-		// Check if user is invited.
-		$invitedUsers = ($data['invitedUsers'] ?? []);
-		if (is_array($invitedUsers) === true && in_array($userId, $invitedUsers, true) === true) {
-			return true;
-		}
-
-		return false;
-	}//end canUserAccessAgent()
-
-	/**
-	 * Whether the user may modify (or delete) an agent: owner-only, mirroring
-	 * OR's AgentMapper::canUserModifyAgent().
-	 *
-	 * @param ObjectEntity $agent Agent object.
-	 * @param string $userId Nextcloud user id.
-	 *
-	 * @return bool True when the user may modify the agent.
-	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
-	 */
-	private function canUserModifyAgent(ObjectEntity $agent, string $userId): bool {
-		return $agent->getOwner() === $userId && $userId !== '';
-	}//end canUserModifyAgent()
-
-	/**
 	 * Strip routing internals, identity fields, and the owner/organisation
 	 * pair from a request payload (see PROTECTED_KEYS).
 	 *
@@ -720,7 +668,7 @@ class AgentsController extends Controller {
 	 *
 	 * @return array<string, mixed> The cleaned payload.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	private function stripProtectedKeys(array $data): array {
 		foreach (self::PROTECTED_KEYS as $key) {
@@ -738,7 +686,7 @@ class AgentsController extends Controller {
 	 *
 	 * @return int Agent count.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	private function countAgents(array $filters): int {
 		// Booleans MUST be normalised to the literal strings 'true'/'false'.
@@ -783,7 +731,7 @@ class AgentsController extends Controller {
 	 *
 	 * @return array<string, mixed> Serialized agent.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	private function serializeAgent(ObjectEntity $agent): array {
 		return array_merge(

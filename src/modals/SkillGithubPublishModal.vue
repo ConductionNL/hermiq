@@ -19,33 +19,33 @@
 	<NcModal @close="$emit('close')">
 		<div class="skill-github-publish-modal">
 			<h3>{{ t('hermiq', 'Publish skill to GitHub') }}</h3>
-			<NcNoteCard v-if="githubPublishError" type="error">
-				{{ githubPublishError }}
+			<NcNoteCard v-if="publishError" type="error">
+				{{ publishError }}
 			</NcNoteCard>
 			<NcTextField
-				v-model="githubPublishForm.owner"
+				v-model="form.owner"
 				:label="t('hermiq', 'Owner')"
 				:placeholder="t('hermiq', 'e.g. acme-council')" />
 			<NcTextField
-				v-model="githubPublishForm.repo"
+				v-model="form.repo"
 				:label="t('hermiq', 'Repository name')"
 				:placeholder="t('hermiq', 'e.g. demo-skill')" />
 			<NcSelect
-				v-model="githubPublishVisibility"
+				v-model="visibility"
 				:options="visibilityOptions"
 				:inputLabel="t('hermiq', 'Visibility')"
 				:clearable="false"
 				label="label"
 				trackBy="value" />
 			<NcSelect
-				v-model="githubPublishCredential"
+				v-model="credential"
 				:options="githubCredentials"
 				:inputLabel="t('hermiq', 'GitHub credential')"
-				:loading="loadingGithubCredentials"
+				:loading="loadingCredentials"
 				:placeholder="t('hermiq', 'Select a credential')"
 				label="label" />
 			<p
-				v-if="!loadingGithubCredentials && githubCredentials.length === 0"
+				v-if="!loadingCredentials && githubCredentials.length === 0"
 				class="skill-github-publish-modal__hint">
 				{{
 					t(
@@ -56,10 +56,10 @@
 			</p>
 			<NcButton
 				type="primary"
-				:disabled="githubPublishing || !canGithubPublish"
-				@click="doGithubPublish">
+				:disabled="publishing || !canPublish"
+				@click="doPublish">
 				{{
-					githubPublishing
+					publishing
 						? t('hermiq', 'Publishing…')
 						: t('hermiq', 'Publish')
 				}}
@@ -69,10 +69,9 @@
 </template>
 
 <script>
-import axios from '@nextcloud/axios'
-import { generateUrl } from '@nextcloud/router'
 import { NcButton, NcModal, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
 import { publishSkillToGithub } from '../api/skills.js'
+import { githubPublishForm } from './githubPublishForm.js'
 
 export default {
 	name: 'SkillGithubPublishModal',
@@ -85,6 +84,8 @@ export default {
 		NcTextField,
 	},
 
+	mixins: [githubPublishForm],
+
 	props: {
 		/** The skill uuid the publish applies to. */
 		skillId: {
@@ -95,123 +96,20 @@ export default {
 
 	emits: ['close', 'published'],
 
-	data() {
-		return {
-			githubPublishing: false,
-			githubPublishError: '',
-			githubPublishForm: {
-				owner: '',
-				repo: '',
-			},
-
-			githubPublishVisibility: {
-				label: this.t('hermiq', 'Private'),
-				value: 'private',
-			},
-
-			githubPublishCredential: null,
-			githubCredentialsList: [],
-			loadingGithubCredentials: false,
-		}
-	},
-
-	computed: {
-		/**
-		 * The publish visibility options (hermiq-github-store, mirrors
-		 * AgentTemplateRowActions' `visibilityOptions`).
-		 *
-		 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
-		 * @return {Array<object>} NcSelect options.
-		 */
-		visibilityOptions() {
-			return [
-				{ label: this.t('hermiq', 'Private'), value: 'private' },
-				{ label: this.t('hermiq', 'Public'), value: 'public' },
-			]
-		},
-
-		/**
-		 * The caller's broker credentials scoped to the `github` provider
-		 * (hermiq-github-store).
-		 *
-		 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
-		 * @return {Array<object>} NcSelect options.
-		 */
-		githubCredentials() {
-			return this.githubCredentialsList
-				.filter((c) => c.provider === 'github')
-				.map((c) => ({ label: c.name || c.id, value: c.id }))
-		},
-
-		/**
-		 * Whether the "Publish to GitHub" form has everything it needs to submit.
-		 *
-		 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
-		 * @return {boolean}
-		 */
-		canGithubPublish() {
-			return (
-				this.githubPublishForm.owner.trim() !== ''
-				&& this.githubPublishForm.repo.trim() !== ''
-				&& !!this.githubPublishCredential
-			)
-		},
-	},
-
-	mounted() {
-		this.fetchGithubCredentials()
-	},
-
 	methods: {
-		/**
-		 * Load the caller's broker credentials (for the GitHub credential
-		 * picker) (hermiq-github-store).
-		 *
-		 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
-		 * @return {Promise<void>}
-		 */
-		async fetchGithubCredentials() {
-			this.loadingGithubCredentials = true
-			try {
-				const { data } = await axios.get(
-					generateUrl('/apps/openregister/api/credentials'),
-				)
-				this.githubCredentialsList = data.results || []
-			} catch (e) {
-				this.githubCredentialsList = []
-			} finally {
-				this.loadingGithubCredentials = false
-			}
-		},
-
 		/**
 		 * Publish this skill to a new GitHub repository tagged
 		 * `topic:hermiq-skill` (hermiq-github-store — the primary publish
 		 * path). A broker `github` credential is required — the GitHub token
-		 * never reaches Hermiq. Emits `published` with the repo URL.
+		 * never reaches Hermiq.
 		 *
 		 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
-		 * @return {Promise<void>}
+		 *
+		 * @param {object} payload The owner, repo, visibility and credentialId.
+		 * @return {Promise<object>} The endpoint's result, with `repoUrl`.
 		 */
-		async doGithubPublish() {
-			this.githubPublishing = true
-			this.githubPublishError = ''
-			try {
-				const result = await publishSkillToGithub(this.skillId, {
-					owner: this.githubPublishForm.owner.trim(),
-					repo: this.githubPublishForm.repo.trim(),
-					visibility: this.githubPublishVisibility?.value || 'private',
-					credentialId: this.githubPublishCredential?.value,
-				})
-				this.$emit('published', result.repoUrl)
-			} catch (e) {
-				this.githubPublishError =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
-			} finally {
-				this.githubPublishing = false
-			}
+		publishToGithub(payload) {
+			return publishSkillToGithub(this.skillId, payload)
 		},
 	},
 }

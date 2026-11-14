@@ -29,7 +29,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -57,7 +57,7 @@ class PreferencesController extends Controller {
 		private readonly IConfig $config,
 		private readonly IUserSession $userSession,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 
@@ -74,20 +74,15 @@ class PreferencesController extends Controller {
 	 * @NoCSRFRequired
 	 */
 	public function getPreference(string $key): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(data: ['message' => 'Not logged in'], statusCode: Http::STATUS_UNAUTHORIZED);
-		}
-
-		$safeKey = $this->sanitizeKey(key: $key);
-		if ($safeKey === '') {
-			return new JSONResponse(data: ['message' => 'Invalid key'], statusCode: Http::STATUS_BAD_REQUEST);
+		$target = $this->preferenceOf(key: $key);
+		if ($target instanceof JSONResponse) {
+			return $target;
 		}
 
 		$value = $this->config->getUserValue(
-			userId: $user->getUID(),
-			appName: Application::APP_ID,
-			key: 'pref_' . $safeKey,
+			userId: $target['uid'],
+			appName: AppIdentity::APP_ID,
+			key: $target['key'],
 			default: ''
 		);
 
@@ -113,6 +108,38 @@ class PreferencesController extends Controller {
 	 * @NoCSRFRequired
 	 */
 	public function setPreference(string $key, string $value = ''): JSONResponse {
+		$target = $this->preferenceOf(key: $key);
+		if ($target instanceof JSONResponse) {
+			return $target;
+		}
+
+		if ($value === '') {
+			$this->config->deleteUserValue(
+				userId: $target['uid'],
+				appName: AppIdentity::APP_ID,
+				key: $target['key']
+			);
+			return new JSONResponse(data: ['value' => null]);
+		}
+
+		$this->config->setUserValue(
+			userId: $target['uid'],
+			appName: AppIdentity::APP_ID,
+			key: $target['key'],
+			value: $value
+		);
+
+		return new JSONResponse(data: ['value' => $value]);
+	}//end setPreference()
+
+	/**
+	 * The signed-in user and the stored key of a preference, or the 401 (checked first) or the 400 for an invalid key.
+	 *
+	 * @param string $key The preference key as sent.
+	 *
+	 * @return array{uid: string, key: string}|JSONResponse
+	 */
+	private function preferenceOf(string $key): array|JSONResponse {
 		$user = $this->userSession->getUser();
 		if ($user === null) {
 			return new JSONResponse(data: ['message' => 'Not logged in'], statusCode: Http::STATUS_UNAUTHORIZED);
@@ -123,24 +150,8 @@ class PreferencesController extends Controller {
 			return new JSONResponse(data: ['message' => 'Invalid key'], statusCode: Http::STATUS_BAD_REQUEST);
 		}
 
-		if ($value === '') {
-			$this->config->deleteUserValue(
-				userId: $user->getUID(),
-				appName: Application::APP_ID,
-				key: 'pref_' . $safeKey
-			);
-			return new JSONResponse(data: ['value' => null]);
-		}
-
-		$this->config->setUserValue(
-			userId: $user->getUID(),
-			appName: Application::APP_ID,
-			key: 'pref_' . $safeKey,
-			value: $value
-		);
-
-		return new JSONResponse(data: ['value' => $value]);
-	}//end setPreference()
+		return ['uid' => $user->getUID(), 'key' => 'pref_' . $safeKey];
+	}//end preferenceOf()
 
 	/**
 	 * Restrict keys to a safe charset so callers cannot reach arbitrary

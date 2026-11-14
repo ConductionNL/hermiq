@@ -32,14 +32,14 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-4-delete-the-cleartext-keys
+ * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-4-delete-the-cleartext-keys
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCP\IAppConfig;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -49,7 +49,7 @@ use Throwable;
 /**
  * Strips the retired, cleartext LLM API keys out of the `hermiq.llm` config blob.
  *
- * @spec openspec/changes/llm-keys-via-broker/tasks.md
+ * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md
  */
 class RemoveLegacyLlmKeys implements IRepairStep {
 	/**
@@ -83,7 +83,7 @@ class RemoveLegacyLlmKeys implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/llm-keys-via-broker/tasks.md
+	 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md
 	 */
 	public function getName(): string {
 		return 'Remove the legacy cleartext LLM API keys (they live in the credential broker now)';
@@ -96,64 +96,141 @@ class RemoveLegacyLlmKeys implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-4-delete-the-cleartext-keys
+	 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-4-delete-the-cleartext-keys
 	 */
 	public function run(IOutput $output): void {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, self::LLM_CONFIG_KEY, '');
-		if ($raw === '') {
-			$output->info('No Hermiq LLM config stored; nothing to remove.');
+		$config = $this->storedConfig(output: $output);
+		if ($config === null) {
 			return;
 		}
 
-		$config = json_decode($raw, true);
-		if (is_array($config) === false) {
-			$output->warning('Hermiq LLM config is not valid JSON; leaving it untouched.');
-			return;
-		}
-
-		$removed = 0;
-		foreach (self::PROVIDER_BLOCKS as $block) {
-			if (is_array($config[$block] ?? null) === false) {
-				continue;
-			}
-
-			if (array_key_exists('apiKey', $config[$block]) === false) {
-				continue;
-			}
-
-			// Count only keys that actually held something — an empty string is not a
-			// secret, and reporting it as one would overstate what this step did.
-			if ((string)$config[$block]['apiKey'] !== '') {
-				$removed++;
-			}
-
-			unset($config[$block]['apiKey']);
-		}
-
+		$removed = $this->countStoredKeys(config: $config);
 		if ($removed === 0) {
 			$output->info('No cleartext LLM API keys stored; nothing to remove.');
 			return;
 		}
 
+		if ($this->rewrite(config: $this->withoutApiKeys(config: $config), output: $output) === true) {
+			$output->info(
+				'Removed ' . $removed . ' cleartext LLM API key(s). Select a credential from the broker in the '
+				. 'Hermiq LLM settings to re-enable each provider.'
+			);
+		}
+	}//end run()
+
+	/**
+	 * The stored LLM config blob, or null (with a message) when none is stored or it
+	 * is not a JSON object.
+	 *
+	 * @param IOutput $output The output interface.
+	 *
+	 * @return array|null
+	 */
+	private function storedConfig(IOutput $output): ?array {
+		$raw = $this->appConfig->getValueString(AppIdentity::APP_ID, self::LLM_CONFIG_KEY, '');
+		if ($raw === '') {
+			$output->info('No Hermiq LLM config stored; nothing to remove.');
+			return null;
+		}
+
+		$config = json_decode($raw, true);
+		if (is_array($config) === false) {
+			$output->warning('Hermiq LLM config is not valid JSON; leaving it untouched.');
+			return null;
+		}
+
+		return $config;
+	}//end storedConfig()
+
+	/**
+	 * How many provider blocks hold a non-empty `apiKey`.
+	 *
+	 * Count only keys that actually held something — an empty string is not a
+	 * secret, and reporting it as one would overstate what this step did.
+	 *
+	 * @param array $config The LLM config blob.
+	 *
+	 * @return int
+	 */
+	private function countStoredKeys(array $config): int {
+		$count = 0;
+		foreach ($this->blocksWithApiKey(config: $config) as $block) {
+			if ((string)$config[$block]['apiKey'] !== '') {
+				$count++;
+			}
+		}
+
+		return $count;
+	}//end countStoredKeys()
+
+	/**
+	 * The config with `apiKey` removed from every provider block that has one.
+	 *
+	 * @param array $config The LLM config blob.
+	 *
+	 * @return array
+	 */
+	private function withoutApiKeys(array $config): array {
+		foreach ($this->blocksWithApiKey(config: $config) as $block) {
+			unset($config[$block]['apiKey']);
+		}
+
+		return $config;
+	}//end withoutApiKeys()
+
+	/**
+	 * The provider blocks that are objects with an `apiKey` entry.
+	 *
+	 * @param array $config The LLM config blob.
+	 *
+	 * @return array<int, string>
+	 */
+	private function blocksWithApiKey(array $config): array {
+		return array_values(
+			array_filter(
+				self::PROVIDER_BLOCKS,
+				static fn (string $block): bool => is_array($config[$block] ?? null) === true
+					&& array_key_exists('apiKey', $config[$block]) === true
+			)
+		);
+	}//end blocksWithApiKey()
+
+	/**
+	 * Write the stripped config back, or warn and log loudly when the write fails.
+	 *
+	 * @param array $config The config without its API keys.
+	 * @param IOutput $output The output interface.
+	 *
+	 * @return bool Whether the config was written.
+	 */
+	private function rewrite(array $config, IOutput $output): bool {
 		try {
 			$this->appConfig->setValueString(
-				Application::APP_ID,
+				AppIdentity::APP_ID,
 				self::LLM_CONFIG_KEY,
 				(string)json_encode($config)
 			);
 		} catch (Throwable $e) {
-			// Never fatal, but this IS a secret we meant to remove — say so loudly.
-			$output->warning('Could not rewrite the Hermiq LLM config: ' . $e->getMessage());
-			$this->logger->error(
-				'[Hermiq] Could not remove the cleartext LLM API keys; they are still stored',
-				['exception' => $e->getMessage()]
-			);
-			return;
+			$this->reportKeysStillStored(error: $e, output: $output);
+			return false;
 		}
 
-		$output->info(
-			'Removed ' . $removed . ' cleartext LLM API key(s). Select a credential from the broker in the '
-			. 'Hermiq LLM settings to re-enable each provider.'
+		return true;
+	}//end rewrite()
+
+	/**
+	 * Never fatal, but this IS a secret we meant to remove — say so loudly.
+	 *
+	 * @param Throwable $error Why the rewrite failed.
+	 * @param IOutput $output The output interface.
+	 *
+	 * @return void
+	 */
+	private function reportKeysStillStored(Throwable $error, IOutput $output): void {
+		$output->warning('Could not rewrite the Hermiq LLM config: ' . $error->getMessage());
+		$this->logger->error(
+			'[Hermiq] Could not remove the cleartext LLM API keys; they are still stored',
+			['exception' => $error->getMessage()]
 		);
-	}//end run()
+	}//end reportKeysStillStored()
 }//end class

@@ -28,13 +28,25 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use DateTime;
 use OCA\Hermiq\Controller\ToolOversightController;
+use OCA\Hermiq\Listener\AgentWaiverChangeListener;
+use OCA\Hermiq\Service\Agent\AgentObjectMatcher;
+use OCA\Hermiq\Service\Agent\GrantWaiverAudit;
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
+use OCA\Hermiq\Service\ToolOversight\ToolCallMarks;
+use OCA\Hermiq\Service\ToolOversight\ToolCatalogView;
+use OCA\Hermiq\Service\ToolOversight\ToolGrantWrites;
+use OCA\Hermiq\Service\ToolOversight\ToolInvocationLog;
+use OCA\Hermiq\Service\ToolOversight\ToolOversightAgents;
+use OCA\Hermiq\Service\ToolOversight\ToolOversightServices;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\Capability\ToolGrantSet;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Event\ObjectUpdatedEvent;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
@@ -54,6 +66,22 @@ use RuntimeException;
  * Tests for the tool-catalog / tool-grants / tool-invocations endpoints.
  *
  * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-5
+ *
+ * @covers \OCA\Hermiq\Controller\ToolOversightController
+ * @covers \OCA\Hermiq\Service\ToolOversight\ToolOversightAgents
+ * @covers \OCA\Hermiq\Service\ToolOversight\ToolCatalogView
+ * @covers \OCA\Hermiq\Service\ToolOversight\ToolInvocationLog
+ * @covers \OCA\Hermiq\Service\ToolOversight\ToolGrantWrites
+ * @covers \OCA\Hermiq\Service\ToolOversight\ToolOversightServices
+ * @uses   \OCA\Hermiq\Listener\AgentWaiverChangeListener
+ * @uses   \OCA\Hermiq\Service\AgentAccessService
+ * @uses   \OCA\Hermiq\Service\Agent\GrantWaiverAudit
+ * @uses   \OCA\Hermiq\Service\ToolAccessDecision
+ * @uses   \OCA\Hermiq\Service\ToolInvocationRows
+ * @uses   \OCA\Hermiq\Service\Workspace\RepoEffectingGrants
+ * @uses \OCA\Hermiq\Controller\ToolAccessResolution
+ * @uses \OCA\Hermiq\Controller\ToolInvocationExport
+ * @uses \OCA\Hermiq\Controller\ToolGrantUpdate
  */
 class ToolOversightControllerTest extends TestCase {
 
@@ -107,6 +135,13 @@ class ToolOversightControllerTest extends TestCase {
 	private IGroupManager $groupManager;
 
 	/**
+	 * The waiver audit the controller writes through.
+	 *
+	 * @var GrantWaiverAudit
+	 */
+	private GrantWaiverAudit $waiverAudit;
+
+	/**
 	 * Wire fresh mocks before each test.
 	 *
 	 * @return void
@@ -131,6 +166,8 @@ class ToolOversightControllerTest extends TestCase {
 		$this->groupManager = $this->createMock(IGroupManager::class);
 		$this->groupManager->method('isAdmin')->willReturn(false);
 
+		$this->waiverAudit = new GrantWaiverAudit($this->auditTrailMapper, $this->userSession, $this->createMock(LoggerInterface::class));
+
 	}//end setUp()
 
 	/**
@@ -143,38 +180,26 @@ class ToolOversightControllerTest extends TestCase {
 	 * @return ToolOversightController
 	 */
 	private function controller(bool $richAvailable = false): ToolOversightController {
-		// ⚠️ `$accessRequests` sits BEFORE the logger in the constructor, so it
-		// goes here and not on the end — appending would put the logger in its
-		// slot and the anonymous class's own `$richAvailable` in the logger's.
-		return new class($this->request, $this->objectService, $this->toolRegistry, new ToolGrantResolver(), $this->auditTrailMapper, $this->appConfig, $this->userSession, $this->groupManager, $this->createMock(ToolAccessRequestService::class), $this->createMock(LoggerInterface::class), $richAvailable) extends ToolOversightController {
+		$services = new ToolOversightServices(
+			agents: new ToolOversightAgents($this->objectService, new AgentAccessService($this->objectService, $this->createMock(LoggerInterface::class), $this->groupManager), $this->groupManager, $this->createMock(LoggerInterface::class)),
+			catalog: new ToolCatalogView($this->toolRegistry, new ToolGrantResolver(), $this->appConfig),
+			invocations: new ToolInvocationLog($this->objectService, $this->auditTrailMapper),
+			grants: new ToolGrantWrites($this->objectService, $this->createMock(ToolAccessRequestService::class)),
+			marks: new ToolCallMarks($this->objectService),
+		);
+
+		return new class($this->request, $this->userSession, $this->createMock(LoggerInterface::class), $services, $richAvailable) extends ToolOversightController {
 			/**
 			 * @param bool $richAvailable Forced return value.
 			 */
 			public function __construct(
 				IRequest $request,
-				ObjectService $objectService,
-				ToolRegistryFacade $toolRegistry,
-				ToolGrantResolver $grantResolver,
-				AuditTrailMapper $auditTrailMapper,
-				IAppConfig $appConfig,
 				IUserSession $userSession,
-				IGroupManager $groupManager,
-				ToolAccessRequestService $accessRequests,
 				LoggerInterface $logger,
+				ToolOversightServices $services,
 				private readonly bool $richAvailable,
 			) {
-				parent::__construct(
-					$request,
-					$objectService,
-					$toolRegistry,
-					$grantResolver,
-					$auditTrailMapper,
-					$appConfig,
-					$userSession,
-					$groupManager,
-					$accessRequests,
-					$logger
-				);
+				parent::__construct($request, $userSession, $logger, $services);
 			}//end __construct()
 
 			protected function richAuditAvailable(): bool {
@@ -257,6 +282,33 @@ class ToolOversightControllerTest extends TestCase {
 	}//end testToolCatalogAnnotatesGrantedAndRequiresExplicitGrant()
 
 	/**
+	 * The oversight catalogue shows a bare push grant as NOT granted, so an
+	 * operator sees the misconfiguration before a run needs it; a scoped one is granted.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
+	 */
+	public function testToolCatalogShowsABarePushGrantAsNotGranted(): void {
+		$this->toolRegistry->method('listTools')->willReturn(
+			[['name' => 'hermiq_workspacePush', 'mcpId' => 'hermiq.workspacePush', 'destructiveHint' => true]]
+		);
+		$this->objectService->method('find')->willReturnOnConsecutiveCalls(
+			$this->agent(['tools' => ['hermiq.workspacePush']]),
+			$this->agent(['tools' => ['hermiq.workspacePush?repository=example-org/example-app&branch=feature-a']])
+		);
+
+		$bare = $this->controller()->toolCatalog('agent-1')->getData();
+		$this->assertFalse($bare['tools'][0]['granted']);
+		$this->assertTrue($bare['tools'][0]['destructiveHint']);
+
+		$scoped = $this->controller()->toolCatalog('agent-1')->getData();
+		$this->assertTrue($scoped['tools'][0]['granted']);
+		$this->assertTrue($scoped['tools'][0]['destructiveHint'], 'Narrowing never downgrades the classification.');
+
+	}//end testToolCatalogShowsABarePushGrantAsNotGranted()
+
+	/**
 	 * toolCatalog refuses an agent the caller cannot view (private, non-owner,
 	 * not invited) with 403 — never leaking the catalog.
 	 *
@@ -328,6 +380,90 @@ class ToolOversightControllerTest extends TestCase {
 		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
 
 	}//end testToolCatalogThrowingLookupIsNotFound()
+
+	/**
+	 * The owner marks a tool call as misuse: 201 with the mark, written on the
+	 * agent with the operator's uid (row ov-tool-oversight).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/verify-row-scenarios/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art-12-14
+	 */
+	public function testTheOwnerMarksAToolCallAsMisuse(): void {
+		$this->objectService->method('find')->willReturn($this->agent(['name' => 'Woo-triage', 'tools' => ['hermiq.sendMail']], 'alice'));
+		$this->request->method('getParam')->with('reason')->willReturn('Sending mail is not part of this agent\'s task');
+
+		$saved = [];
+		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
+			function (array $object) use (&$saved): ObjectEntity {
+				$saved[] = $object;
+				return new ObjectEntity();
+			}
+		);
+
+		$response = $this->controller()->markToolInvocation('agent-1', 'call-17');
+
+		$this->assertSame(Http::STATUS_CREATED, $response->getStatus());
+		$this->assertSame(['callId', 'label', 'reason', 'markedBy', 'markedAt'], array_keys($response->getData()));
+		$this->assertSame('misuse', $response->getData()['label']);
+		$this->assertSame('alice', $response->getData()['markedBy']);
+		$this->assertSame([$response->getData()], $saved[0]['toolCallMarks']);
+	}//end testTheOwnerMarksAToolCallAsMisuse()
+
+	/**
+	 * A mark without a reason is refused with 400 and nothing is written.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/verify-row-scenarios/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art-12-14
+	 */
+	public function testAMarkWithoutAReasonIsRefused(): void {
+		$this->objectService->method('find')->willReturn($this->agent(['tools' => []], 'alice'));
+		$this->request->method('getParam')->with('reason')->willReturn('  ');
+		$this->objectService->expects($this->never())->method('saveObject');
+
+		$response = $this->controller()->markToolInvocation('agent-1', 'call-17');
+
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
+		$this->assertSame(['error' => 'A mark needs a reason.'], $response->getData());
+	}//end testAMarkWithoutAReasonIsRefused()
+
+	/**
+	 * Somebody who may not modify the agent cannot mark its calls.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/verify-row-scenarios/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art-12-14
+	 */
+	public function testANonOwnerCannotMark(): void {
+		$this->objectService->method('find')->willReturn($this->agent(['tools' => []], 'bob'));
+		$this->request->method('getParam')->willReturn('a reason');
+		$this->objectService->expects($this->never())->method('saveObject');
+
+		$this->assertSame(Http::STATUS_FORBIDDEN, $this->controller()->markToolInvocation('agent-1', 'call-17')->getStatus());
+	}//end testANonOwnerCannotMark()
+
+	/**
+	 * The tool activity shows a marked call with its mark.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/verify-row-scenarios/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art-12-14
+	 */
+	public function testTheToolActivityShowsTheMark(): void {
+		$mark = ['callId' => 'entry-1', 'label' => 'misuse', 'reason' => 'r', 'markedBy' => 'alice', 'markedAt' => '2026-11-13T10:00:00+00:00'];
+		$this->objectService->method('find')->willReturn($this->agent(['tools' => [], 'toolCallMarks' => [$mark]], 'alice'));
+		$this->objectService->method('findAll')->willReturn([]);
+		$entry = $this->mcpEntry('alice', 'hermiq.sendMail', '2026-11-12T10:00:00+00:00');
+		$entry->setUuid('entry-1');
+		$this->auditTrailMapper->method('findAll')->willReturn([$entry]);
+
+		$rows = $this->controller(richAvailable: true)->toolInvocations('agent-1')->getData()['rows'];
+
+		$this->assertCount(1, $rows);
+		$this->assertSame('entry-1', $rows[0]['callId']);
+		$this->assertSame($mark, $rows[0]['mark']);
+	}//end testTheToolActivityShowsTheMark()
 
 	/**
 	 * updateToolGrants persists the new grant array via ObjectService::saveObject
@@ -415,7 +551,7 @@ class ToolOversightControllerTest extends TestCase {
 	public function testUpdateToolGrantsRefusesANonOwnerAddingAWaiver(): void {
 		$this->objectService->method('find')->willReturn($this->agent(['tools' => ['a.b.search']], 'carol'));
 		$this->objectService->expects($this->never())->method('saveObject');
-		$this->auditTrailMapper->expects($this->never())->method('createAuditTrailEntry');
+		$this->auditTrailMapper->expects($this->never())->method('recordObjectEvent');
 
 		$this->request->method('getParam')->with('grants')
 			->willReturn(['hermiq.sendMail' . ToolGrantResolver::WAIVER_FRAGMENT]);
@@ -437,13 +573,13 @@ class ToolOversightControllerTest extends TestCase {
 		$this->objectService->method('find')->willReturn($this->agent(['tools' => ['hermiq.sendMail']], 'alice'));
 		$this->request->method('getParam')->with('grants')
 			->willReturn(['hermiq.sendMail' . ToolGrantResolver::WAIVER_FRAGMENT]);
-		$this->objectService->method('saveObject')->willReturnCallback($this->savingEntity());
+		$this->objectService->method('saveObject')->willReturnCallback($this->savingWithObjectEvent());
 
 		$captured = [];
-		$this->auditTrailMapper->expects($this->once())->method('createAuditTrailEntry')
+		$this->auditTrailMapper->expects($this->once())->method('recordObjectEvent')
 			->willReturnCallback(
-				function (ObjectEntity $object, string $action, array $context) use (&$captured) {
-					$captured = ['action' => $action, 'context' => $context];
+				function (ObjectAuditEvent $event) use (&$captured) {
+					$captured = ['action' => $event->action, 'context' => $event->context];
 					return new AuditTrail();
 				}
 			);
@@ -456,6 +592,7 @@ class ToolOversightControllerTest extends TestCase {
 		$this->assertSame('alice', $captured['context']['actor']);
 
 	}//end testAddingAWaiverWritesADistinctAuditEvent()
+
 
 	/**
 	 * 🔴 Removing a waiver is audited too.
@@ -474,13 +611,13 @@ class ToolOversightControllerTest extends TestCase {
 			$this->agent(['tools' => ['hermiq.sendMail' . ToolGrantResolver::WAIVER_FRAGMENT]], 'alice')
 		);
 		$this->request->method('getParam')->with('grants')->willReturn(['hermiq.sendMail']);
-		$this->objectService->method('saveObject')->willReturnCallback($this->savingEntity());
+		$this->objectService->method('saveObject')->willReturnCallback($this->savingWithObjectEvent());
 
 		$captured = [];
-		$this->auditTrailMapper->expects($this->once())->method('createAuditTrailEntry')
+		$this->auditTrailMapper->expects($this->once())->method('recordObjectEvent')
 			->willReturnCallback(
-				function (ObjectEntity $object, string $action, array $context) use (&$captured) {
-					$captured = ['action' => $action, 'context' => $context];
+				function (ObjectAuditEvent $event) use (&$captured) {
+					$captured = ['action' => $event->action, 'context' => $event->context];
 					return new AuditTrail();
 				}
 			);
@@ -509,9 +646,9 @@ class ToolOversightControllerTest extends TestCase {
 		$this->objectService->method('find')->willReturn($this->agent(['tools' => ['pipelinq.lead.search']], 'alice'));
 		$this->request->method('getParam')->with('grants')
 			->willReturn(['pipelinq.lead.search', 'pipelinq.lead.get']);
-		$this->objectService->method('saveObject')->willReturnCallback($this->savingEntity());
+		$this->objectService->method('saveObject')->willReturnCallback($this->savingWithObjectEvent());
 
-		$this->auditTrailMapper->expects($this->never())->method('createAuditTrailEntry');
+		$this->auditTrailMapper->expects($this->never())->method('recordObjectEvent');
 
 		$response = $this->controller()->updateToolGrants('agent-1');
 
@@ -530,9 +667,9 @@ class ToolOversightControllerTest extends TestCase {
 
 		$this->objectService->method('find')->willReturn($this->agent(['tools' => $grants], 'alice'));
 		$this->request->method('getParam')->with('grants')->willReturn(array_reverse($grants));
-		$this->objectService->method('saveObject')->willReturnCallback($this->savingEntity());
+		$this->objectService->method('saveObject')->willReturnCallback($this->savingWithObjectEvent());
 
-		$this->auditTrailMapper->expects($this->never())->method('createAuditTrailEntry');
+		$this->auditTrailMapper->expects($this->never())->method('recordObjectEvent');
 
 		$this->controller()->updateToolGrants('agent-1');
 
@@ -608,6 +745,26 @@ class ToolOversightControllerTest extends TestCase {
 	}//end savingEntity()
 
 	/**
+	 * A saveObject() stand-in that, like OpenRegister, raises the object update
+	 * event inside the save, heard by the waiver listener; the old object is the
+	 * one find() returns.
+	 *
+	 * @return callable
+	 */
+	private function savingWithObjectEvent(): callable {
+		$matcher = $this->createMock(AgentObjectMatcher::class);
+		$matcher->method('isAgent')->willReturn(true);
+		$listener = new AgentWaiverChangeListener($this->waiverAudit, $matcher, $this->createMock(LoggerInterface::class));
+
+		return function (array $object) use ($listener): ObjectEntity {
+			$saved = ($this->savingEntity())($object);
+			$listener->handle(new ObjectUpdatedEvent($saved, $this->objectService->find('agent-1')));
+			return $saved;
+		};
+
+	}//end savingWithObjectEvent()
+
+	/**
 	 * toolInvocations (rich source) lists this agent's correlated-owner MCP
 	 * invocation rows, newest first, and NEVER a row belonging to a different
 	 * agent/tenant's owner.
@@ -635,6 +792,27 @@ class ToolOversightControllerTest extends TestCase {
 		$this->assertSame('pipelinq.lead.search', $data['rows'][1]['toolId']);
 
 	}//end testToolInvocationsRichSourceTenantScopedNewestFirst()
+
+	/**
+	 * toolInvocations refuses a user who may not see the agent (a private agent,
+	 * not the owner, not invited, not an admin) with 403, before any audit read.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#scenario-an-operator-reviews-an-agents-tool-activity
+	 */
+	public function testToolInvocationsRefusesAUserWhoMayNotSeeTheAgentBeforeReadingTheAudit(): void {
+		$this->objectService->method('find')->willReturn($this->agent(payload: ['tools' => [], 'isPrivate' => true], owner: 'bob'));
+		$this->objectService->expects($this->never())->method('findAll');
+		$this->auditTrailMapper->expects($this->never())->method('findAll');
+
+		foreach ([true, false] as $richAvailable) {
+			$response = $this->controller(richAvailable: $richAvailable)->toolInvocations(agentId: 'agent-1', format: 'csv');
+			$this->assertSame(expected: Http::STATUS_FORBIDDEN, actual: $response->getStatus());
+			$this->assertSame(expected: ['error' => 'Access denied to this agent'], actual: $response->getData());
+		}
+
+	}//end testToolInvocationsRefusesAUserWhoMayNotSeeTheAgentBeforeReadingTheAudit()
 
 	/**
 	 * toolInvocations degrades gracefully when the richer shape is absent —
@@ -765,7 +943,7 @@ class ToolOversightControllerTest extends TestCase {
 			$this->agent(['tools' => []], 'bob'),
 			['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
 		);
-		$this->request->method('getParam')->willReturn('granted');
+		$this->decide(decision: 'granted');
 		$this->objectService->expects($this->never())->method('saveObject');
 
 		$response = $this->controller()->resolveToolAccessRequest('agent-1', 'req-1');
@@ -773,6 +951,30 @@ class ToolOversightControllerTest extends TestCase {
 		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
 
 	}//end testResolveToolAccessRequestRefusesNonOwnerWithoutWriting()
+
+	/**
+	 * An empty session uid never owns an agent, not even one whose stored owner is empty too.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	public function testResolveToolAccessRequestRefusesAnEmptyUidOnAnUnownedAgent(): void {
+		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn('');
+		$this->userSession = $this->createMock(IUserSession::class);
+		$this->userSession->method('getUser')->willReturn($user);
+		$this->serveAgentAndRequest(
+			$this->agent(['tools' => []], ''),
+			['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
+		);
+		$this->decide(decision: 'granted');
+		$this->objectService->expects($this->never())->method('saveObject');
+
+		$response = $this->controller()->resolveToolAccessRequest('agent-1', 'req-1');
+
+		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+	}//end testResolveToolAccessRequestRefusesAnEmptyUidOnAnUnownedAgent()
 
 	/**
 	 * A request belonging to a DIFFERENT agent cannot be resolved through this
@@ -791,7 +993,7 @@ class ToolOversightControllerTest extends TestCase {
 			$this->agent(['tools' => []], 'alice'),
 			['agentId' => 'someone-elses-agent', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
 		);
-		$this->request->method('getParam')->willReturn('granted');
+		$this->decide(decision: 'granted');
 		$this->objectService->expects($this->never())->method('saveObject');
 
 		$response = $this->controller()->resolveToolAccessRequest('agent-1', 'req-1');
@@ -813,7 +1015,7 @@ class ToolOversightControllerTest extends TestCase {
 			$this->agent(['tools' => []], 'alice'),
 			['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
 		);
-		$this->request->method('getParam')->willReturn('maybe');
+		$this->decide(decision: 'maybe');
 		$this->objectService->expects($this->never())->method('saveObject');
 
 		$response = $this->controller()->resolveToolAccessRequest('agent-1', 'req-1');
@@ -835,7 +1037,7 @@ class ToolOversightControllerTest extends TestCase {
 			$this->agent(['tools' => ['hermiq.listFiles']], 'alice'),
 			['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
 		);
-		$this->request->method('getParam')->willReturn('granted');
+		$this->decide(decision: 'granted');
 
 		$written = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
@@ -876,7 +1078,7 @@ class ToolOversightControllerTest extends TestCase {
 			$this->agent(['tools' => []], 'alice'),
 			['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
 		);
-		$this->request->method('getParam')->willReturn('granted');
+		$this->decide(decision: 'granted');
 
 		$this->objectService->method('saveObject')
 			->willThrowException(new RuntimeException('storage is down'));
@@ -906,7 +1108,7 @@ class ToolOversightControllerTest extends TestCase {
 			$this->agent(['tools' => ['hermiq.listFiles']], 'alice'),
 			['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
 		);
-		$this->request->method('getParam')->willReturn('refused');
+		$this->decide(decision: 'refused');
 
 		$written = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
@@ -930,4 +1132,306 @@ class ToolOversightControllerTest extends TestCase {
 		}
 	}//end testResolveToolAccessRequestRefusalGrantsNothing()
 
+	/**
+	 * Answer the request's parameters for a decision on the tool the owner was
+	 * shown, with a forged decider beside it.
+	 *
+	 * @param string $decision The decision posted.
+	 * @param string $toolId   The tool the card showed.
+	 *
+	 * @return void
+	 */
+	private function decide(string $decision, string $toolId = 'hermiq.sendMail'): void {
+		$params = ['decision' => $decision, 'toolId' => $toolId, 'userId' => 'mallory', 'decidedBy' => 'mallory'];
+		$this->request->method('getParam')->willReturnCallback(
+			static fn (string $key, mixed $default = null): mixed => ($params[$key] ?? $default)
+		);
+
+	}//end decide()
+
+	/**
+	 * A request that is no longer pending is not decided again, and nothing is written.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	public function testResolveRefusesARequestThatIsNoLongerPending(): void {
+		foreach (['refused', 'granted', ''] as $status) {
+			$this->setUp();
+			$this->serveAgentAndRequest(
+				$this->agent(['tools' => []], 'alice'),
+				['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => $status]
+			);
+			$this->decide(decision: 'granted');
+			$this->objectService->expects($this->never())->method('saveObject');
+
+			$response = $this->controller()->resolveToolAccessRequest('agent-1', 'req-1');
+
+			$this->assertSame(Http::STATUS_CONFLICT, $response->getStatus(), 'status ' . $status);
+		}
+
+	}//end testResolveRefusesARequestThatIsNoLongerPending()
+
+	/**
+	 * A decision about another tool than the one stored is refused: the requester
+	 * may not swap the tool behind the card the owner was shown.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	public function testResolveRefusesASwappedTool(): void {
+		foreach (['hermiq.listFiles', '', 'HERMIQ.SENDMAIL', 'hermiq.SendMail', 'hermiq%2EsendMail', 'hermiq.sendMail '] as $shown) {
+			$this->setUp();
+			$this->serveAgentAndRequest(
+				$this->agent(['tools' => []], 'alice'),
+				['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
+			);
+			$this->decide(decision: 'granted', toolId: $shown);
+			$this->objectService->expects($this->never())->method('saveObject');
+
+			$response = $this->controller()->resolveToolAccessRequest('agent-1', 'req-1');
+
+			$this->assertSame(Http::STATUS_CONFLICT, $response->getStatus(), 'shown ' . $shown);
+		}
+
+	}//end testResolveRefusesASwappedTool()
+
+	/**
+	 * The decider is the session user, whatever userId or decidedBy the request sends.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	public function testTheDeciderIsNeverTakenFromTheRequest(): void {
+		$this->serveAgentAndRequest(
+			$this->agent(['tools' => []], 'alice'),
+			['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
+		);
+		$this->decide(decision: 'refused');
+		$written = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (...$args) use (&$written): ObjectEntity {
+				$written[] = $args[0];
+				return new ObjectEntity();
+			}
+		);
+
+		$this->assertSame(Http::STATUS_OK, $this->controller()->resolveToolAccessRequest('agent-1', 'req-1')->getStatus());
+		$this->assertSame('alice', $written[0]['decidedBy'] ?? null);
+
+	}//end testTheDeciderIsNeverTakenFromTheRequest()
+
+	/**
+	 * The decision on a request is written on the system path: the owner-only
+	 * update rule of the ToolAccessRequest schema would refuse an agent owner
+	 * who did not raise the request, and the controller has already checked
+	 * that the caller owns the agent.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	public function testTheDecisionIsWrittenOnTheSystemPath(): void {
+		$this->serveAgentAndRequest(
+			$this->agent(['tools' => []], 'alice'),
+			['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
+		);
+		$this->decide(decision: 'refused');
+
+		$names = array_map(
+			static fn ($parameter): string => $parameter->getName(),
+			(new \ReflectionMethod(ObjectService::class, 'saveObject'))->getParameters()
+		);
+		$writes = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (...$args) use (&$writes, $names): ObjectEntity {
+				$named = [];
+				foreach ($args as $position => $value) {
+					$named[is_int($position) === true ? $names[$position] : $position] = $value;
+				}
+
+				$writes[] = $named;
+				return new ObjectEntity();
+			}
+		);
+
+		$this->assertSame(Http::STATUS_OK, $this->controller()->resolveToolAccessRequest('agent-1', 'req-1')->getStatus());
+		$this->assertCount(1, $writes);
+		$this->assertSame('toolAccessRequest', $writes[0]['schema']);
+		$this->assertSame('refused', $writes[0]['object']['status']);
+		$this->assertFalse($writes[0]['_rbac'] ?? true, 'the decision must be written with _rbac false');
+
+	}//end testTheDecisionIsWrittenOnTheSystemPath()
+
+	/**
+	 * The arguments of an ObjectService call, by parameter name.
+	 *
+	 * @param string $method The ObjectService method.
+	 * @param array<int, mixed> $args The arguments the double received.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function namedArguments(string $method, array $args): array {
+		$named = [];
+		foreach ((new \ReflectionMethod(ObjectService::class, $method))->getParameters() as $index => $parameter) {
+			$named[$parameter->getName()] = ($args[$index] ?? ($parameter->isDefaultValueAvailable() ? $parameter->getDefaultValue() : null));
+		}
+
+		return $named;
+	}//end namedArguments()
+
+	/**
+	 * The admin bypass asks about the acting user, not about a fixed account.
+	 *
+	 * @return void
+	 */
+	public function testTheAdminBypassAsksAboutTheActingUser(): void {
+		$this->groupManager = $this->createMock(IGroupManager::class);
+		$this->groupManager->method('isAdmin')->willReturnCallback(
+			static fn (string $uid): bool => ($uid === 'admin')
+		);
+		$this->objectService->method('find')->willReturn($this->agent(['tools' => [], 'isPrivate' => true], 'carol'));
+
+		$this->assertSame(Http::STATUS_FORBIDDEN, $this->controller()->toolCatalog('agent-1')->getStatus());
+	}//end testTheAdminBypassAsksAboutTheActingUser()
+
+	/**
+	 * The agent lookup keeps OpenRegister's RBAC and tenant scope on.
+	 *
+	 * @return void
+	 */
+	public function testTheAgentLookupKeepsTheScopeOn(): void {
+		$seen = [];
+		$this->objectService->method('find')->willReturnCallback(
+			function (...$args) use (&$seen): ObjectEntity {
+				$seen[] = $this->namedArguments('find', $args);
+				return $this->agent(['tools' => []], 'alice');
+			}
+		);
+		$this->toolRegistry->method('listTools')->willReturn([]);
+
+		$this->assertSame(Http::STATUS_OK, $this->controller()->toolCatalog('agent-1')->getStatus());
+
+		$this->assertSame('agent-1', $seen[0]['id']);
+		$this->assertTrue($seen[0]['_rbac']);
+		$this->assertTrue($seen[0]['_multitenancy']);
+	}//end testTheAgentLookupKeepsTheScopeOn()
+
+	/**
+	 * A grant write keeps OpenRegister's RBAC and tenant scope on.
+	 *
+	 * @return void
+	 */
+	public function testTheGrantWriteKeepsTheScopeOn(): void {
+		$this->objectService->method('find')->willReturn($this->agent(['tools' => []], 'alice'));
+		$this->request->method('getParam')->with('grants')->willReturn(['a.b']);
+		$seen = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (...$args) use (&$seen): ObjectEntity {
+				$seen[] = $this->namedArguments('saveObject', $args);
+				return new ObjectEntity();
+			}
+		);
+
+		$this->assertSame(Http::STATUS_OK, $this->controller()->updateToolGrants('agent-1')->getStatus());
+
+		$this->assertTrue($seen[0]['_rbac']);
+		$this->assertTrue($seen[0]['_multitenancy']);
+	}//end testTheGrantWriteKeepsTheScopeOn()
+
+	/**
+	 * A non-owner gets the same 404 for an invalid decision, and no request is looked up.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	public function testTheOwnerCheckComesBeforeTheDecisionAndTheRequestLookup(): void {
+		$looked = [];
+		$this->objectService->method('find')->willReturnCallback(
+			function (...$args) use (&$looked): ObjectEntity {
+				$looked[] = (string)$args[0];
+				return $this->agent(['tools' => [], 'agentId' => 'agent-1'], 'carol');
+			}
+		);
+
+		foreach (['nonsense', 'granted'] as $decision) {
+			$params = ['decision' => $decision];
+			$request = $this->createMock(IRequest::class);
+			$request->method('getParam')->willReturnCallback(
+				static fn (string $key, mixed $default = null): mixed => ($params[$key] ?? $default)
+			);
+			$this->request = $request;
+
+			$this->assertSame(Http::STATUS_NOT_FOUND, $this->controller()->resolveToolAccessRequest('agent-1', 'req-1')->getStatus());
+		}
+
+		$this->assertSame(['agent-1', 'agent-1'], $looked);
+	}//end testTheOwnerCheckComesBeforeTheDecisionAndTheRequestLookup()
+
+	/**
+	 * The agent is the one in the path: an `agentId` in the request body changes nothing.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	public function testTheAgentIsTheOneInThePath(): void {
+		$this->objectService->method('find')->willReturnCallback(
+			fn (...$args): ?ObjectEntity => match ((string)$args[0]) {
+				'agent-1' => $this->agent(['tools' => []], 'carol'),
+				'agent-own' => $this->agent(['tools' => []], 'alice'),
+				'req-1' => $this->agent(['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending'], 'carol'),
+				default => null,
+			}
+		);
+		$params = ['decision' => 'granted', 'toolId' => 'hermiq.sendMail', 'agentId' => 'agent-own'];
+		$this->request->method('getParam')->willReturnCallback(
+			static fn (string $key, mixed $default = null): mixed => ($params[$key] ?? $default)
+		);
+		$this->objectService->expects($this->never())->method('saveObject');
+
+		$this->assertSame(Http::STATUS_NOT_FOUND, $this->controller()->resolveToolAccessRequest('agent-1', 'req-1')->getStatus());
+	}//end testTheAgentIsTheOneInThePath()
+
+	/**
+	 * An empty session uid cannot change the grants of an agent whose stored owner is empty too.
+	 *
+	 * @return void
+	 */
+	public function testUpdateToolGrantsRefusesAnEmptyUidOnAnUnownedAgent(): void {
+		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn('');
+		$this->userSession = $this->createMock(IUserSession::class);
+		$this->userSession->method('getUser')->willReturn($user);
+		$this->objectService->method('find')->willReturn($this->agent(['tools' => []], ''));
+		$this->request->method('getParam')->willReturn(['a.b']);
+		$this->objectService->expects($this->never())->method('saveObject');
+
+		$this->assertSame(Http::STATUS_FORBIDDEN, $this->controller()->updateToolGrants('agent-1')->getStatus());
+	}//end testUpdateToolGrantsRefusesAnEmptyUidOnAnUnownedAgent()
+
+	/**
+	 * What reaches the save is the grant list the schema declares, whatever the body held.
+	 *
+	 * @return void
+	 */
+	public function testAStructuredBodyReachesTheSaveAsGrantStrings(): void {
+		$this->objectService->method('find')->willReturn($this->agent(['tools' => []], 'alice'));
+		$this->request->method('getParam')->with('grants')->willReturn(['hermiq' => ['file' => ['list' => 'hermiq.listFiles']], 'x' => 7]);
+		$saved = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (...$args) use (&$saved): ObjectEntity {
+				$saved[] = $args[0];
+				return new ObjectEntity();
+			}
+		);
+
+		$this->controller()->updateToolGrants('agent-1');
+
+		$this->assertSame(['hermiq.listFiles'], $saved[0]['tools']);
+	}//end testAStructuredBodyReachesTheSaveAsGrantStrings()
 }//end class

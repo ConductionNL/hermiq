@@ -28,12 +28,13 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\AiFeatureService;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\ComplianceService;
-use OCA\Hermiq\Service\TenantControlService;
-use OCA\Hermiq\Service\TenantModelPolicyService;
-use OCA\Hermiq\Service\TenantOpsService;
+use OCA\Hermiq\Service\OrganisationControlService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
+use OCA\Hermiq\Service\OrganisationOpsService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
@@ -66,7 +67,7 @@ class ComplianceServiceTest extends TestCase {
 	}//end object()
 
 	/**
-	 * A stateful ObjectService test double keyed by schema (mirrors TenantOpsServiceTest).
+	 * A stateful ObjectService test double keyed by schema (mirrors OrganisationOpsServiceTest).
 	 *
 	 * @param array<string, array<int, ObjectEntity>> $bySchema Schema slug → objects.
 	 *
@@ -155,29 +156,32 @@ class ComplianceServiceTest extends TestCase {
 	 * evidence-seam service mocks (any omitted mock defaults to a bare createMock).
 	 *
 	 * @param ObjectService $objectService The catalogue/agent/incident double.
-	 * @param TenantOpsService|null $tenantOpsService Optional custom mock.
+	 * @param OrganisationOpsService|null $tenantOpsService Optional custom mock.
 	 * @param ApprovalService|null $approvalService Optional custom mock.
-	 * @param TenantControlService|null $tenantControlService Optional custom mock.
-	 * @param TenantModelPolicyService|null $modelPolicyService Optional custom mock.
+	 * @param OrganisationControlService|null $tenantControlService Optional custom mock.
+	 * @param EffectiveModelPolicy|null $modelPolicyService Optional custom mock.
 	 * @param AiFeatureService|null $aiFeatureService Optional custom mock.
+	 * @param AiFeatureLookup|null $aiFeatureLookup Optional custom mock.
 	 *
 	 * @return ComplianceService
 	 */
 	private function service(
 		ObjectService $objectService,
-		?TenantOpsService $tenantOpsService = null,
+		?OrganisationOpsService $tenantOpsService = null,
 		?ApprovalService $approvalService = null,
-		?TenantControlService $tenantControlService = null,
-		?TenantModelPolicyService $modelPolicyService = null,
+		?OrganisationControlService $tenantControlService = null,
+		?EffectiveModelPolicy $modelPolicyService = null,
 		?AiFeatureService $aiFeatureService = null,
+		?AiFeatureLookup $aiFeatureLookup = null,
 	): ComplianceService {
 		return new ComplianceService(
 			objectService: $objectService,
-			tenantOpsService: ($tenantOpsService ?? $this->createMock(TenantOpsService::class)),
+			tenantOpsService: ($tenantOpsService ?? $this->createMock(OrganisationOpsService::class)),
 			approvalService: ($approvalService ?? $this->createMock(ApprovalService::class)),
-			tenantControlService: ($tenantControlService ?? $this->createMock(TenantControlService::class)),
-			modelPolicyService: ($modelPolicyService ?? $this->createMock(TenantModelPolicyService::class)),
+			tenantControlService: ($tenantControlService ?? $this->createMock(OrganisationControlService::class)),
+			modelPolicyService: ($modelPolicyService ?? $this->createMock(EffectiveModelPolicy::class)),
 			aiFeatureService: ($aiFeatureService ?? $this->createMock(AiFeatureService::class)),
+			aiFeatureLookup: ($aiFeatureLookup ?? $this->createMock(AiFeatureLookup::class)),
 		);
 
 	}//end service()
@@ -187,20 +191,20 @@ class ComplianceServiceTest extends TestCase {
 	 * one-control-one-framework dashboard.
 	 *
 	 * @param string $evidenceSource The evidenceSource to exercise.
-	 * @param TenantOpsService|null $tenantOpsService Optional custom mock.
+	 * @param OrganisationOpsService|null $tenantOpsService Optional custom mock.
 	 * @param ApprovalService|null $approvalService Optional custom mock.
-	 * @param TenantControlService|null $tenantControlService Optional custom mock.
-	 * @param TenantModelPolicyService|null $modelPolicyService Optional custom mock.
+	 * @param OrganisationControlService|null $tenantControlService Optional custom mock.
+	 * @param EffectiveModelPolicy|null $modelPolicyService Optional custom mock.
 	 * @param AiFeatureService|null $aiFeatureService Optional custom mock.
 	 *
 	 * @return array<string, mixed> The computed control row (status/detail).
 	 */
 	private function statusFor(
 		string $evidenceSource,
-		?TenantOpsService $tenantOpsService = null,
+		?OrganisationOpsService $tenantOpsService = null,
 		?ApprovalService $approvalService = null,
-		?TenantControlService $tenantControlService = null,
-		?TenantModelPolicyService $modelPolicyService = null,
+		?OrganisationControlService $tenantControlService = null,
+		?EffectiveModelPolicy $modelPolicyService = null,
 		?AiFeatureService $aiFeatureService = null,
 	): array {
 		$service = $this->service(
@@ -219,6 +223,37 @@ class ComplianceServiceTest extends TestCase {
 	}//end statusFor()
 
 	/**
+	 * compliance-ai-literacy: the article 4 control dispatches to the literacy
+	 * report, and nothing else decides its status.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-the-ai-act-article-4-control-reads-its-status-from-completions-req-ailit-003
+	 */
+	public function testTheAiLiteracyControlReadsTheLiteracyReport(): void {
+		$report = $this->createMock(\OCA\Hermiq\Service\Literacy\LiteracyReport::class);
+		$report->expects($this->once())->method('evidence')->with('org-a')->willReturn(
+			['status' => 'partial', 'detail' => '40 of 50 people who used an agent in the last 90 days completed the course.']
+		);
+
+		$service = new ComplianceService(
+			objectService: $this->catalogueWith(evidenceSource: 'ai-literacy-completion'),
+			tenantOpsService: $this->createMock(OrganisationOpsService::class),
+			approvalService: $this->createMock(ApprovalService::class),
+			tenantControlService: $this->createMock(OrganisationControlService::class),
+			modelPolicyService: $this->createMock(EffectiveModelPolicy::class),
+			aiFeatureService: $this->createMock(AiFeatureService::class),
+			aiFeatureLookup: $this->createMock(AiFeatureLookup::class),
+			literacyReport: $report,
+		);
+
+		$control = $service->dashboard(organisation: 'org-a')['frameworks'][0]['controls'][0];
+		$this->assertSame('partial', $control['status']);
+		$this->assertSame('40 of 50 people who used an agent in the last 90 days completed the course.', $control['detail']);
+
+	}//end testTheAiLiteracyControlReadsTheLiteracyReport()
+
+	/**
 	 * The audit-trail-recordkeeping evidence branch reads exportAuditTrail() and
 	 * reports satisfied/unevidenced by recordCount only — never partial.
 	 *
@@ -227,14 +262,14 @@ class ComplianceServiceTest extends TestCase {
 	 * @spec openspec/changes/compliance-control-packs/tasks.md#task-3-complianceservice-computed-evidence-mapping
 	 */
 	public function testAuditTrailEvidenceSatisfiedAndUnevidenced(): void {
-		$withRecords = $this->createMock(TenantOpsService::class);
+		$withRecords = $this->createMock(OrganisationOpsService::class);
 		$withRecords->method('exportAuditTrail')->willReturn(['recordCount' => 3]);
 		$this->assertSame(
 			'satisfied',
 			$this->statusFor(evidenceSource: 'audit-trail-recordkeeping', tenantOpsService: $withRecords)['status']
 		);
 
-		$withoutRecords = $this->createMock(TenantOpsService::class);
+		$withoutRecords = $this->createMock(OrganisationOpsService::class);
 		$withoutRecords->method('exportAuditTrail')->willReturn(['recordCount' => 0]);
 		$this->assertSame(
 			'unevidenced',
@@ -287,14 +322,14 @@ class ComplianceServiceTest extends TestCase {
 	 * @spec openspec/changes/compliance-control-packs/tasks.md#task-3-complianceservice-computed-evidence-mapping
 	 */
 	public function testKillSwitchEvidence(): void {
-		$provisioned = $this->createMock(TenantControlService::class);
+		$provisioned = $this->createMock(OrganisationControlService::class);
 		$provisioned->method('getForOrganisation')->willReturn($this->object('tc1', ['engaged' => false]));
 		$this->assertSame(
 			'satisfied',
 			$this->statusFor(evidenceSource: 'kill-switch-stop-mechanism', tenantControlService: $provisioned)['status']
 		);
 
-		$missing = $this->createMock(TenantControlService::class);
+		$missing = $this->createMock(OrganisationControlService::class);
 		$missing->method('getForOrganisation')->willReturn(null);
 		$this->assertSame(
 			'unevidenced',
@@ -313,21 +348,21 @@ class ComplianceServiceTest extends TestCase {
 	 * @spec openspec/changes/compliance-control-packs/tasks.md#task-3-complianceservice-computed-evidence-mapping
 	 */
 	public function testModelPolicyEvidenceThreeStates(): void {
-		$own = $this->createMock(TenantModelPolicyService::class);
+		$own = $this->createMock(EffectiveModelPolicy::class);
 		$own->method('effectivePolicyFor')->willReturn(['source' => 'organisation', 'allowed' => [['provider' => 'openai', 'models' => []]]]);
 		$this->assertSame(
 			'satisfied',
 			$this->statusFor(evidenceSource: 'model-policy-risk-control', modelPolicyService: $own)['status']
 		);
 
-		$instance = $this->createMock(TenantModelPolicyService::class);
+		$instance = $this->createMock(EffectiveModelPolicy::class);
 		$instance->method('effectivePolicyFor')->willReturn(['source' => 'instance', 'allowed' => [['provider' => 'openai', 'models' => []]]]);
 		$this->assertSame(
 			'partial',
 			$this->statusFor(evidenceSource: 'model-policy-risk-control', modelPolicyService: $instance)['status']
 		);
 
-		$fallback = $this->createMock(TenantModelPolicyService::class);
+		$fallback = $this->createMock(EffectiveModelPolicy::class);
 		$fallback->method('effectivePolicyFor')->willReturn(['source' => 'fallback', 'allowed' => []]);
 		$this->assertSame(
 			'unevidenced',
@@ -347,7 +382,7 @@ class ComplianceServiceTest extends TestCase {
 	public function testAccessReviewEvidenceStates(): void {
 		$now = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
 
-		$allReviewed = $this->createMock(TenantOpsService::class);
+		$allReviewed = $this->createMock(OrganisationOpsService::class);
 		$allReviewed->method('accessReviewList')->willReturn(['agents' => [['reviewedAt' => $now], ['reviewedAt' => $now]]]);
 		$allReviewed->method('getRetentionMonths')->willReturn(6);
 		$this->assertSame(
@@ -355,7 +390,7 @@ class ComplianceServiceTest extends TestCase {
 			$this->statusFor(evidenceSource: 'capability-review-least-privilege', tenantOpsService: $allReviewed)['status']
 		);
 
-		$mixed = $this->createMock(TenantOpsService::class);
+		$mixed = $this->createMock(OrganisationOpsService::class);
 		$mixed->method('accessReviewList')->willReturn(['agents' => [['reviewedAt' => $now], ['reviewedAt' => null]]]);
 		$mixed->method('getRetentionMonths')->willReturn(6);
 		$this->assertSame(
@@ -363,7 +398,7 @@ class ComplianceServiceTest extends TestCase {
 			$this->statusFor(evidenceSource: 'capability-review-least-privilege', tenantOpsService: $mixed)['status']
 		);
 
-		$none = $this->createMock(TenantOpsService::class);
+		$none = $this->createMock(OrganisationOpsService::class);
 		$none->method('accessReviewList')->willReturn(['agents' => []]);
 		$none->method('getRetentionMonths')->willReturn(6);
 		$this->assertSame(
@@ -439,10 +474,10 @@ class ComplianceServiceTest extends TestCase {
 			),
 		];
 
-		$tenantOps = $this->createMock(TenantOpsService::class);
+		$tenantOps = $this->createMock(OrganisationOpsService::class);
 		$tenantOps->method('exportAuditTrail')->willReturn(['recordCount' => 5]);
 
-		$tenantControl = $this->createMock(TenantControlService::class);
+		$tenantControl = $this->createMock(OrganisationControlService::class);
 		$tenantControl->method('getForOrganisation')->willReturn(null);
 
 		$service = $this->service(
@@ -471,7 +506,7 @@ class ComplianceServiceTest extends TestCase {
 	 */
 	public function testAuditorPackWrapsAuditTrailUnmodified(): void {
 		$rawExport = ['export' => 'eu-ai-act-audit', 'recordCount' => 2, 'records' => [['action' => 'run']]];
-		$tenantOps = $this->createMock(TenantOpsService::class);
+		$tenantOps = $this->createMock(OrganisationOpsService::class);
 		$tenantOps->method('exportAuditTrail')->willReturn($rawExport);
 
 		$service = $this->service(objectService: $this->objectService([]), tenantOpsService: $tenantOps);
@@ -511,8 +546,8 @@ class ComplianceServiceTest extends TestCase {
 			['description' => 'Oops', 'impact' => 'Minor', 'linkedAgentId' => 'agent-1', 'createdAt' => '2026-01-02T00:00:00+00:00']
 		);
 
-		$aiFeatureService = $this->createMock(AiFeatureService::class);
-		$aiFeatureService->method('findBySlug')->willReturn(
+		$aiFeatureLookup = $this->createMock(AiFeatureLookup::class);
+		$aiFeatureLookup->method('findBySlug')->willReturn(
 			$this->object('af-1', ['riskCategory' => 'high', 'lifecycle' => 'enabled', 'dpoAckBy' => 'dpo', 'dpoAckAt' => '2026-01-01T00:00:00+00:00'])
 		);
 
@@ -529,7 +564,7 @@ class ComplianceServiceTest extends TestCase {
 		$service = $this->service(
 			objectService: $this->objectService(['agent' => [$agent], 'incident' => [$incident]]),
 			approvalService: $approvalService,
-			aiFeatureService: $aiFeatureService,
+			aiFeatureLookup: $aiFeatureLookup,
 		);
 
 		$factsheet = $service->factsheet(agentId: 'agent-1');

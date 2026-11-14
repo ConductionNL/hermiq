@@ -43,6 +43,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
 
+use OCA\Hermiq\Kernel\Contracts\ConversationTitleWriterInterface;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -54,7 +55,7 @@ use Throwable;
  *
  * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
  */
-class ConversationTitleWriter {
+class ConversationTitleWriter implements ConversationTitleWriterInterface {
 	use SanitizesForSaveTrait;
 
 	/**
@@ -65,11 +66,21 @@ class ConversationTitleWriter {
 	private const REGISTER_SLUG = 'hermiq';
 
 	/**
+	 * The titles that mean "this session has not been named yet".
+	 *
+	 * Both spellings are kept on purpose: rows created before the session rename
+	 * hold the older one, and they must still be picked up for auto-titling.
+	 *
+	 * @var array<int, string>
+	 */
+	private const PLACEHOLDER_TITLES = ['New session', 'New conversation'];
+
+	/**
 	 * Schema slug for conversation objects.
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * Constructor.
@@ -144,7 +155,7 @@ class ConversationTitleWriter {
 		$this->userSession->setUser($user);
 
 		try {
-			$this->writeAsOwner(conversationId: $conversationId, userMessage: $userMessage, userId: $userId);
+			$this->writeAsOwner(conversationId: $conversationId, request: new TitleRequest(userMessage: $userMessage, userId: $userId));
 		} finally {
 			// Restored unconditionally: this job runs in a shared worker process, so a
 			// leaked session would hand the NEXT job this user's identity.
@@ -157,14 +168,15 @@ class ConversationTitleWriter {
 	 * Generate and persist the title, with the owner already impersonated.
 	 *
 	 * @param string $conversationId The conversation UUID.
-	 * @param string $userMessage The first user message to name it from.
-	 * @param string $userId The impersonated owner's UID.
+	 * @param TitleRequest $request The turn a conversation title is written from.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
 	 */
-	private function writeAsOwner(string $conversationId, string $userMessage, string $userId): void {
+	private function writeAsOwner(string $conversationId, TitleRequest $request): void {
+		$userMessage = $request->userMessage;
+		$userId = $request->userId;
 		try {
 			$conversation = $this->objectService->find(
 				id: $conversationId,
@@ -277,9 +289,19 @@ class ConversationTitleWriter {
 			return true;
 		}
 
-		// Case-insensitive: the create path writes "New conversation" while the
-		// pre-existing check matched "New Conversation". Matching only one casing
-		// would leave the other permanently unnamed.
-		return (stripos((string)$currentTitle, 'New conversation') === 0);
+		// Both placeholders, and case-insensitively.
+		//
+		// The create path writes "New session" since the session rename, but every
+		// row created before it says "New conversation", and the pre-existing check
+		// matched "New Conversation" with a capital C. A check that recognised only
+		// the current spelling would leave every older session permanently unnamed,
+		// which is invisible: the row still renders, it just never gets a title.
+		foreach (self::PLACEHOLDER_TITLES as $placeholder) {
+			if (stripos((string)$currentTitle, $placeholder) === 0) {
+				return true;
+			}
+		}
+
+		return false;
 	}//end needsTitle()
 }//end class

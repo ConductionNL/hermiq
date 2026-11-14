@@ -47,6 +47,25 @@ final class LeafDescriptor {
 		'single-entity',
 	];
 
+	/*
+	 * The load-strategy constants mirror openregister's `LeafDescriptor`
+	 * (openregister#3956), where they live next to `LeafRendering::$loadStrategy`.
+	 * A stub may mirror the real class or lag it. It may never LEAD it: if
+	 * OpenRegister renames one, this file must follow.
+	 */
+
+	public const LOADS_VIA_SHARED_ENTRY = 'shared-entry';
+
+	public const LOADS_VIA_OWN_SCRIPT = 'own-script';
+
+	public const LOADS_ALREADY_PRESENT = 'already-present';
+
+	public const VALID_LOAD_STRATEGIES = [
+		self::LOADS_VIA_SHARED_ENTRY,
+		self::LOADS_VIA_OWN_SCRIPT,
+		self::LOADS_ALREADY_PRESENT,
+	];
+
 	public const RENDER_MODE_COMPONENT = 'component';
 
 	public const RENDER_MODE_MOUNT = 'mount';
@@ -56,38 +75,53 @@ final class LeafDescriptor {
 		self::RENDER_MODE_MOUNT,
 	];
 
+	private string $id;
+
+	private string $label;
+
+	private string $icon;
+
+	private ?string $requiredApp;
+
+	private ?string $group;
+
+	private array $surfaces;
+
+	private ?string $referenceType;
+
+	private ?string $requiresPermission;
+
+	private string $renderMode;
+
+	private ?string $loadStrategy;
+
 	/**
 	 * Constructor — same parameter order as the real descriptor.
 	 *
-	 * @param string $id Stable kebab-case id.
-	 * @param string $label Human-readable label.
-	 * @param string $icon MDI icon name.
-	 * @param array<int,string> $kinds Non-empty subset of VALID_KINDS.
-	 * @param string|null $requiredApp Required NC app id, or null.
-	 * @param string|null $group Optional group.
-	 * @param array<int,string> $surfaces Render surfaces.
-	 * @param string|null $referenceType Optional reference-type marker.
-	 * @param string|null $requiresPermission Optional permission gate.
-	 * @param string $renderMode `component` (SFC under the host's Vue runtime) or
-	 *                           `mount` (a mount/unmount DOM hand-off that crosses a
-	 *                           Vue major). Mirrors the real descriptor, which gained
-	 *                           this parameter in openregister#2127 / ADR-066 — without
-	 *                           it the listener's own registration throws and the leaf
-	 *                           silently disappears, which is exactly the failure mode
-	 *                           the leaf tests exist to catch.
+	 * @param LeafIdentity          $identity     Id, label, icon and group.
+	 * @param array<int,string>     $kinds        Non-empty subset of VALID_KINDS.
+	 * @param LeafAvailability|null $availability Required app and permission; defaults to none.
+	 * @param LeafRendering|null    $rendering    Surfaces, reference type, render mode and
+	 *                                            load strategy; defaults to an empty rendering.
 	 */
 	public function __construct(
-		private string $id,
-		private string $label,
-		private string $icon,
+		LeafIdentity $identity,
 		private array $kinds,
-		private ?string $requiredApp = null,
-		private ?string $group = null,
-		private array $surfaces = [],
-		private ?string $referenceType = null,
-		private ?string $requiresPermission = null,
-		private string $renderMode = self::RENDER_MODE_COMPONENT,
+		?LeafAvailability $availability = null,
+		?LeafRendering $rendering = null,
 	) {
+		$availability = $availability ?? new LeafAvailability();
+		$rendering = $rendering ?? new LeafRendering();
+		$this->id = $identity->id;
+		$this->label = $identity->label;
+		$this->icon = $identity->icon;
+		$this->requiredApp = $availability->requiredApp;
+		$this->group = $identity->group;
+		$this->surfaces = $rendering->surfaces;
+		$this->referenceType = $rendering->referenceType;
+		$this->requiresPermission = $availability->requiresPermission;
+		$this->renderMode = $rendering->renderMode;
+		$this->loadStrategy = $rendering->loadStrategy;
 	}//end __construct()
 
 	/**
@@ -98,6 +132,15 @@ final class LeafDescriptor {
 	public function getRenderMode(): string {
 		return $this->renderMode;
 	}//end getRenderMode()
+
+	/**
+	 * How the render bundle reaches the page, if the descriptor has said.
+	 *
+	 * @return string|null One of VALID_LOAD_STRATEGIES, or null when unstated.
+	 */
+	public function getLoadStrategy(): ?string {
+		return $this->loadStrategy;
+	}//end getLoadStrategy()
 
 	/**
 	 * @return string

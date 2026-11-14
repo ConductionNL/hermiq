@@ -26,7 +26,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\NcNative;
 
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\NcNative\MailReadService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use PHPUnit\Framework\TestCase;
@@ -51,7 +51,7 @@ class MailReadServiceTest extends TestCase {
 	 * @return MailReadService
 	 */
 	private function service(?bool $enabled, bool $throws = false): MailReadService {
-		$features = $this->createMock(AiFeatureService::class);
+		$features = $this->createMock(AiFeatureLookup::class);
 
 		if ($throws === true) {
 			$features->method('findBySlug')->willThrowException(new RuntimeException('register down'));
@@ -70,6 +70,216 @@ class MailReadServiceTest extends TestCase {
 		);
 
 	}//end service()
+
+	/**
+	 * Mail doubles for a read whose message has unusual address lists and whose
+	 * IMAP attachments are produced by the given callback.
+	 *
+	 * @param \Closure $attachments Produces the IMAP attachment list (may throw).
+	 *
+	 * @return array<string, object> The doubles, keyed as MAIL_CLASSES.
+	 */
+	private function oddMessageDoubles(\Closure $attachments): array {
+		$message = new class {
+			/**
+			 * Answer every getter from a fixed map.
+			 *
+			 * @param string            $name      The method.
+			 * @param array<int, mixed> $arguments Unused.
+			 *
+			 * @return mixed
+			 */
+			public function __call(string $name, array $arguments): mixed {
+				$values = [
+					'getId' => 9,
+					'getSubject' => 'No addresses',
+					'getFrom' => null,
+					'getTo' => new \stdClass(),
+					'getSentAt' => 1700000000,
+					'getFlagSeen' => false,
+					'getFlagAnswered' => true,
+					'getAttachments' => [],
+					'getMailboxId' => 1,
+					'getUid' => 5,
+				];
+
+				return $values[$name];
+			}
+		};
+
+		$imap = new class($attachments) {
+			/**
+			 * @param \Closure $attachments The attachment producer.
+			 */
+			public function __construct(private \Closure $attachments) {
+			}
+
+			/**
+			 * The plain body.
+			 *
+			 * @return string
+			 */
+			public function getPlainBody(): string {
+				return 'plain';
+			}
+
+			/**
+			 * The attachments.
+			 *
+			 * @return mixed
+			 */
+			public function getAttachments(): mixed {
+				return ($this->attachments)();
+			}
+		};
+
+		$doubles = $this->readMessageDoubles();
+		$doubles['manager'] = new class($message, $imap) {
+			/**
+			 * @param object $message The message.
+			 * @param object $imap The IMAP message.
+			 */
+			public function __construct(private object $message, private object $imap) {
+			}
+
+			/**
+			 * @return object
+			 */
+			public function getMessage(string $uid, int $id): object {
+				return $this->message;
+			}
+
+			/**
+			 * @return object
+			 */
+			public function getMailbox(string $uid, int $id): object {
+				return new class {
+					/**
+					 * @return int
+					 */
+					public function getAccountId(): int {
+						return 3;
+					}
+				};
+			}
+
+			/**
+			 * @return object
+			 */
+			public function getImapMessage(object $client, object $account, object $mailbox, int $uid, bool $loadBody = false): object {
+				return $this->imap;
+			}
+		};
+
+		return $doubles;
+
+	}//end oddMessageDoubles()
+
+	/**
+	 * Address lists that are absent or not serialisable reduce to empty lists, and
+	 * an attachment listing that throws yields no attachments instead of an error.
+	 *
+	 * @return void
+	 */
+	public function testUnreadableAddressesAndAttachmentsReduceToEmptyLists(): void {
+		$doubles = $this->oddMessageDoubles(static function (): array {
+			throw new RuntimeException('imap gone');
+		});
+
+		$result = $this->serviceWithMail($doubles)->readMessage('alice', ['id' => 9]);
+
+		$this->assertArrayNotHasKey('error', $result);
+		$this->assertSame(9, $result['id']);
+		$this->assertSame([], $result['from']);
+		$this->assertSame([], $result['to']);
+		$this->assertSame(['seen' => false, 'answered' => true], $result['flags']);
+		$this->assertFalse($result['hasAttachments']);
+		$this->assertSame('plain', $result['body']);
+		$this->assertSame([], $result['attachments']);
+
+	}//end testUnreadableAddressesAndAttachmentsReduceToEmptyLists()
+
+	/**
+	 * Attachment entries that are not arrays are skipped; missing fields default.
+	 *
+	 * @return void
+	 */
+	public function testNonArrayAttachmentEntriesAreSkipped(): void {
+		$doubles = $this->oddMessageDoubles(static fn (): array => ['raw-bytes', ['fileName' => 'a.pdf'], 42]);
+
+		$result = $this->serviceWithMail($doubles)->readMessage('alice', ['id' => 9]);
+
+		$this->assertSame([['name' => 'a.pdf', 'size' => 0, 'mime' => '']], $result['attachments']);
+
+	}//end testNonArrayAttachmentEntriesAreSkipped()
+
+	/**
+	 * A failing account lookup is a structured error, never an exception.
+	 *
+	 * @return void
+	 */
+	public function testAFailingAccountListingIsAStructuredError(): void {
+		$accounts = new class {
+			/**
+			 * Find accounts for a user.
+			 *
+			 * @param string $uid The user id.
+			 *
+			 * @return array<int, object>
+			 */
+			public function findByUserId(string $uid): array {
+				throw new RuntimeException('db down');
+			}
+		};
+
+		$result = $this->serviceWithMail(['accounts' => $accounts])->listAccounts('alice');
+
+		$this->assertSame('mail_unavailable', $result['error']['code']);
+		$this->assertSame('The mail accounts could not be listed.', $result['error']['message']);
+
+	}//end testAFailingAccountListingIsAStructuredError()
+
+	/**
+	 * A feature whose data cannot be read is treated as not enabled.
+	 *
+	 * @return void
+	 */
+	public function testAFeatureWhoseDataCannotBeReadRefuses(): void {
+		$feature = $this->createMock(ObjectEntity::class);
+		$feature->method('getObject')->willThrowException(new RuntimeException('corrupt'));
+		$features = $this->createMock(AiFeatureLookup::class);
+		$features->method('findBySlug')->willReturn($feature);
+
+		$service = new MailReadService(
+			$features,
+			$this->createMock(ContainerInterface::class),
+			$this->createMock(LoggerInterface::class)
+		);
+
+		$this->assertSame('mail_reading_not_enabled', $service->listAccounts('alice')['error']['code']);
+
+	}//end testAFeatureWhoseDataCannotBeReadRefuses()
+
+	/**
+	 * Only a literal `true` enables the feature; a truthy string does not.
+	 *
+	 * @return void
+	 */
+	public function testATruthyButNonBooleanEnabledFlagRefuses(): void {
+		$feature = new ObjectEntity();
+		$feature->setObject(['enabled' => 'yes']);
+		$features = $this->createMock(AiFeatureLookup::class);
+		$features->method('findBySlug')->willReturn($feature);
+
+		$service = new MailReadService(
+			$features,
+			$this->createMock(ContainerInterface::class),
+			$this->createMock(LoggerInterface::class)
+		);
+
+		$this->assertSame('mail_reading_not_enabled', $service->listAccounts('alice')['error']['code']);
+
+	}//end testATruthyButNonBooleanEnabledFlagRefuses()
 
 	/**
 	 * Every mail tool refuses when the AI feature is not enabled.
@@ -205,7 +415,7 @@ class MailReadServiceTest extends TestCase {
 	 * @return MailReadService
 	 */
 	private function serviceWithMail(array $doubles): MailReadService {
-		$features = $this->createMock(AiFeatureService::class);
+		$features = $this->createMock(AiFeatureLookup::class);
 		$feature = new ObjectEntity();
 		$feature->setObject(['enabled' => true]);
 		$features->method('findBySlug')->willReturn($feature);
@@ -219,13 +429,13 @@ class MailReadServiceTest extends TestCase {
 			/**
 			 * Constructor.
 			 *
-			 * @param AiFeatureService $features The feature register.
+			 * @param AiFeatureLookup $features The feature register.
 			 * @param ContainerInterface $container The container.
 			 * @param LoggerInterface $logger The logger.
 			 * @param array<string, object> $doubles The Mail doubles.
 			 */
 			public function __construct(
-				AiFeatureService $features,
+				AiFeatureLookup $features,
 				ContainerInterface $container,
 				LoggerInterface $logger,
 				private array $doubles,
@@ -396,6 +606,73 @@ class MailReadServiceTest extends TestCase {
 		$this->assertCount(MailReadService::MAX_PAGE_SIZE, $asked);
 
 	}//end testOversizedPageRequestIsClamped()
+
+	/**
+	 * A page is the slice of the mailbox's ids at that offset, newest first; a page
+	 * past the end fetches nothing and lists no messages.
+	 *
+	 * @return void
+	 */
+	public function testPagesAreSlicedAndAPagePastTheEndFetchesNothing(): void {
+		$manager = new class {
+			/**
+			 * Resolve a mailbox for a user.
+			 *
+			 * @param string $uid The user id.
+			 * @param int $id The mailbox id.
+			 *
+			 * @return object
+			 */
+			public function getMailbox(string $uid, int $id): object {
+				return new \stdClass();
+			}
+		};
+
+		$messages = new class {
+			/** @var array<int, array{0: string, 1: array<int, int>, 2: string}> */
+			public array $calls = [];
+
+			/**
+			 * All ids in a mailbox.
+			 *
+			 * @param object $mailbox The mailbox.
+			 *
+			 * @return array<int, int>
+			 */
+			public function findAllIds(object $mailbox): array {
+				return range(1, 12);
+			}
+
+			/**
+			 * Fetch by ids.
+			 *
+			 * @param string $uid The user id.
+			 * @param array<int, int> $ids The ids.
+			 * @param string $sortOrder The sort order.
+			 *
+			 * @return array<int, object>
+			 */
+			public function findByIds(string $uid, array $ids, string $sortOrder): array {
+				$this->calls[] = [$uid, $ids, $sortOrder];
+
+				return [];
+			}
+		};
+
+		$service = $this->serviceWithMail(['manager' => $manager, 'messages' => $messages]);
+
+		$second = $service->listMessages('alice', ['mailboxId' => 3, 'page' => 2, 'pageSize' => 5]);
+		$this->assertSame(['mailboxId' => 3, 'page' => 2, 'pageSize' => 5, 'messages' => []], $second);
+		$this->assertSame([['alice', [6, 7, 8, 9, 10], 'DESC']], $messages->calls);
+
+		$past = $service->listMessages('alice', ['mailboxId' => 3, 'page' => 9, 'pageSize' => 5]);
+		$this->assertSame(['mailboxId' => 3, 'page' => 9, 'pageSize' => 5, 'messages' => []], $past);
+		$this->assertCount(1, $messages->calls, 'A page past the end fetches nothing.');
+
+		$defaults = $service->listMessages('alice', ['mailboxId' => 3, 'page' => 0, 'pageSize' => 0]);
+		$this->assertSame([1, 1], [$defaults['page'], $defaults['pageSize']]);
+
+	}//end testPagesAreSlicedAndAPagePastTheEndFetchesNothing()
 
 	/**
 	 * A mailbox that cannot be resolved for this user is a structured refusal, not
@@ -771,5 +1048,45 @@ class MailReadServiceTest extends TestCase {
 		}
 
 	}//end testServiceExposesNoWriteVerb()
+
+
+	/**
+	 * canRead answers whether the user can open a message without reading it:
+	 * true only when Mail's own user-scoped lookup finds it, false when the
+	 * lookup throws, Mail is absent or the feature is off (fail closed).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+	 */
+	public function testCanReadIsTheUserScopedLookupAndFailsClosed(): void {
+		$manager = new class {
+			/**
+			 * Mail's user-scoped message lookup: only alice owns message 7.
+			 *
+			 * @param string $uid The user id.
+			 * @param int $id The message id.
+			 *
+			 * @return object
+			 */
+			public function getMessage(string $uid, int $id): object {
+				if ($uid !== 'alice' || $id !== 7) {
+					throw new RuntimeException('not found');
+				}
+
+				return new class {
+				};
+			}
+		};
+
+		$service = $this->serviceWithMail(['manager' => $manager]);
+		$this->assertTrue($service->canRead('alice', 7));
+		$this->assertFalse($service->canRead('bob', 7));
+		$this->assertFalse($service->canRead('alice', 8));
+		$this->assertFalse($service->canRead('alice', 0));
+		$this->assertFalse($this->service(true)->canRead('alice', 7));
+		$this->assertFalse($this->service(false)->canRead('alice', 7));
+
+	}//end testCanReadIsTheUserScopedLookupAndFailsClosed()
 
 }//end class

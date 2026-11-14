@@ -16,10 +16,50 @@
   - is asynchronous: the widget refreshes history for the outcome rather than
   - showing a synchronous result.
   -
-  - @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+  - The "Summary" section above the run list shows an AI-written summary of
+  - the object (agents-bound-to-their-app task 5): `GET /api/assistant/summary`
+  - says what may show without a model call, `POST /api/assistant/summarise`
+  - writes one with the assistant of the object's app.
+  -
+  - @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+  - @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 -->
 <template>
 	<div class="cn-agent-runs-widget" data-testid="cn-agent-runs-widget">
+		<section
+			v-if="summaryShown"
+			class="cn-agent-runs-widget__summary"
+			data-testid="cn-agent-runs-widget-summary">
+			<h4>{{ t('hermiq', 'Summary') }}</h4>
+			<template v-if="summaryStatus.summary">
+				<p class="cn-agent-runs-widget__summary-text">
+					{{ summaryStatus.summary.summary }}
+				</p>
+				<p class="cn-agent-runs-widget__summary-label">
+					{{
+						t(
+							'hermiq',
+							'Written by AI on {date}. Check it before you rely on it.',
+							{ date: summaryWrittenOn },
+						)
+					}}
+				</p>
+			</template>
+			<NcButton
+				v-if="summaryButton"
+				:disabled="summaryWriting"
+				data-testid="cn-agent-runs-widget-summarise"
+				@click="writeSummary">
+				<template v-if="summaryWriting" #icon>
+					<NcLoadingIcon :size="20" />
+				</template>
+				{{ t('hermiq', 'Write a summary') }}
+			</NcButton>
+			<NcNoteCard v-if="summaryError" type="error">
+				{{ summaryError }}
+			</NcNoteCard>
+		</section>
+
 		<div class="cn-agent-runs-widget__run">
 			<NcSelect
 				v-model="selectedAgent"
@@ -77,7 +117,7 @@
 
 <script>
 import { getRequestToken } from '@nextcloud/auth'
-import { translate as t } from '@nextcloud/l10n'
+import { getCanonicalLocale, translate as t } from '@nextcloud/l10n'
 import { generateUrl } from '@nextcloud/router'
 import {
 	NcButton,
@@ -86,6 +126,53 @@ import {
 	NcNoteCard,
 	NcSelect,
 } from '@nextcloud/vue'
+import {
+	offersSummaryButton,
+	showsSummarySection,
+	summaryDate,
+	summaryRefusal,
+} from '../../utils/recordSummary.js'
+
+/**
+ * The sentence a reader sees for a refused summary.
+ *
+ * @param {string} reason The refusal reason (summaryRefusal()).
+ * @return {string} The sentence.
+ * @spec openspec/specs/agent-object-leaf/spec.md#scenario-no-summary-for-a-record-the-user-cannot-read
+ */
+function refusalSentence(reason) {
+	switch (reason) {
+		case 'not-found':
+			return t('hermiq', 'This record could not be found.')
+		case 'switched-off':
+			return t(
+				'hermiq',
+				'Your organisation has switched off AI summaries of records.',
+			)
+		case 'no-agent':
+			return t('hermiq', 'No agent answers in this app.')
+		case 'blocked':
+			return t(
+				'hermiq',
+				"Your organisation's guardrail policy stopped this summary.",
+			)
+		default:
+			return t('hermiq', 'The summary could not be written. Try again later.')
+	}
+}
+
+/**
+ * Whether an audit-trail entry records an agent run.
+ *
+ * @param {object} e The audit-trail entry.
+ * @return {boolean} True for an agent run.
+ * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+ */
+function isAgentRunEntry(e) {
+	return e.action === 'agent-run'
+		|| (e?.context?.status !== undefined
+			&& e?.action === 'agent-run')
+}
 
 export default {
 	name: 'CnAgentRunsWidget',
@@ -109,14 +196,43 @@ export default {
 			loadingHistory: false,
 			notice: '',
 			noticeType: 'success',
+			summaryStatus: null,
+			summaryWriting: false,
+			summaryError: '',
 		}
+	},
+
+	computed: {
+		/**
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+		 */
+		summaryShown() {
+			return showsSummarySection(this.summaryStatus)
+		},
+
+		/**
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+		 */
+		summaryButton() {
+			return offersSummaryButton(this.summaryStatus)
+		},
+
+		/**
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+		 */
+		summaryWrittenOn() {
+			return summaryDate(
+				this.summaryStatus?.summary?.generatedAt || '',
+				getCanonicalLocale(),
+			)
+		},
 	},
 
 	watch: {
 		objectId: {
 			immediate: true,
 			/**
-			 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+			 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
 			 */
 			handler() {
 				this.refresh()
@@ -127,7 +243,7 @@ export default {
 	methods: {
 		t,
 		/**
-		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
 		 */
 		statusLabel(status) {
 			const map = {
@@ -135,23 +251,89 @@ export default {
 				error: t('hermiq', 'Failed'),
 				skipped_killswitch: t('hermiq', 'Blocked (kill-switch)'),
 				skipped_budget: t('hermiq', 'Blocked (budget)'),
+				skipped_agent_off: t('hermiq', 'Blocked (agent switched off)'),
 				awaiting_approval: t('hermiq', 'Awaiting approval'),
 			}
 			return map[status] || status
 		},
 
 		/**
-		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
 		 */
 		async refresh() {
 			if (this.objectId === '') {
 				return
 			}
-			await Promise.all([this.loadAgents(), this.loadHistory()])
+			await Promise.all([
+				this.loadAgents(),
+				this.loadHistory(),
+				this.loadSummary(),
+			])
 		},
 
 		/**
-		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 * What the summary section may show, without a model call. Any refusal
+		 * (an unreadable object included) leaves the section hidden.
+		 *
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+		 */
+		async loadSummary() {
+			this.summaryError = ''
+			try {
+				const url = generateUrl(
+					'/apps/hermiq/api/assistant/summary?register={register}&schema={schema}&objectId={id}',
+					{
+						register: this.register,
+						schema: this.schema,
+						id: this.objectId,
+					},
+				)
+				const res = await this.getWithToken(url)
+				this.summaryStatus = res.ok ? await res.json() : null
+			} catch {
+				this.summaryStatus = null
+			}
+		},
+
+		/**
+		 * Ask the app's assistant for a summary of this object.
+		 *
+		 * @spec openspec/specs/agent-object-leaf/spec.md#scenario-a-case-handler-reads-a-summary-of-a-long-application
+		 */
+		async writeSummary() {
+			if (this.summaryWriting) {
+				return
+			}
+			this.summaryWriting = true
+			this.summaryError = ''
+			try {
+				const res = await this.postObjectRef(
+					generateUrl('/apps/hermiq/api/assistant/summarise'),
+				)
+				const body = await res.json().catch(() => ({}))
+				if (res.ok) {
+					this.summaryStatus = { ...this.summaryStatus, summary: body }
+				} else {
+					this.summaryError = this.refusalText(summaryRefusal(res.status))
+				}
+			} catch {
+				this.summaryError = this.refusalText('failed')
+			} finally {
+				this.summaryWriting = false
+			}
+		},
+
+		/**
+		 * @param {string} reason The refusal reason (summaryRefusal()).
+		 * @return {string} The sentence the reader sees.
+		 * @spec openspec/specs/agent-object-leaf/spec.md#scenario-no-summary-for-a-record-the-user-cannot-read
+		 */
+		refusalText(reason) {
+			return refusalSentence(reason)
+		},
+
+		/**
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
 		 */
 		async loadAgents() {
 			if (this.agents.length > 0) {
@@ -159,9 +341,7 @@ export default {
 			}
 			this.loadingAgents = true
 			try {
-				const res = await fetch(generateUrl('/apps/hermiq/api/agents'), {
-					headers: { requesttoken: getRequestToken() },
-				})
+				const res = await this.getWithToken(generateUrl('/apps/hermiq/api/agents'))
 				if (!res.ok) {
 					return
 				}
@@ -175,7 +355,7 @@ export default {
 						label: a.name || a.title || a.uuid || a.id,
 					}))
 					.filter((a) => a.id)
-			} catch (e) {
+			} catch {
 				// Non-fatal: the run affordance simply has no agents to offer.
 			} finally {
 				this.loadingAgents = false
@@ -183,7 +363,7 @@ export default {
 		},
 
 		/**
-		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
 		 */
 		async loadHistory() {
 			this.loadingHistory = true
@@ -196,24 +376,15 @@ export default {
 						id: this.objectId,
 					},
 				)
-				const res = await fetch(url, {
-					headers: { requesttoken: getRequestToken() },
-				})
+				const res = await this.getWithToken(url)
 				if (!res.ok) {
 					this.runs = []
 					return
 				}
 				const body = await res.json()
 				const entries = Array.isArray(body) ? body : body?.results || []
-				this.runs = entries
-					.filter(
-						(e) =>
-							e.action === 'agent-run'
-							|| (e?.context?.status !== undefined
-								&& e?.action === 'agent-run'),
-					)
-					.map((e) => this.toRun(e))
-			} catch (e) {
+				this.runs = entries.filter(isAgentRunEntry).map((e) => this.toRun(e))
+			} catch {
 				this.runs = []
 			} finally {
 				this.loadingHistory = false
@@ -221,7 +392,7 @@ export default {
 		},
 
 		/**
-		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
 		 */
 		toRun(entry) {
 			const ctx = entry.context || entry.changed || {}
@@ -234,7 +405,7 @@ export default {
 		},
 
 		/**
-		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
 		 */
 		async runAgent() {
 			if (!this.selectedAgent || this.dispatching) {
@@ -243,44 +414,85 @@ export default {
 			this.dispatching = true
 			this.notice = ''
 			try {
-				const url = generateUrl(
-					'/apps/hermiq/api/agents/{id}/run-on-object',
-					{ id: this.selectedAgent.id },
+				const res = await this.postObjectRef(
+					generateUrl('/apps/hermiq/api/agents/{id}/run-on-object', { id: this.selectedAgent.id }),
 				)
-				const res = await fetch(url, {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						requesttoken: getRequestToken(),
-					},
-					body: JSON.stringify({
-						register: this.register,
-						schema: this.schema,
-						objectId: this.objectId,
-					}),
-				})
 				const body = await res.json().catch(() => ({}))
-				if (res.status === 202) {
-					this.noticeType = 'success'
-					this.notice = t(
-						'hermiq',
-						'Run queued. It will appear in the history shortly.',
-					)
-					await this.loadHistory()
-				} else if (res.status === 404) {
-					this.noticeType = 'error'
-					this.notice = t('hermiq', 'Object or agent not found.')
-				} else {
-					this.noticeType = 'error'
-					this.notice =
-						body?.error || t('hermiq', 'Could not start the run.')
-				}
-			} catch (e) {
-				this.noticeType = 'error'
-				this.notice = t('hermiq', 'The agent service is unreachable.')
+				await this.showRunOutcome(res.status, body)
+			} catch {
+				this.showNotice('error', t('hermiq', 'The agent service is unreachable.'))
 			} finally {
 				this.dispatching = false
 			}
+		},
+
+		/**
+		 * Show what became of a run request; a queued run reloads the history.
+		 *
+		 * @param {number} status The response status.
+		 * @param {object} body The response body.
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 */
+		async showRunOutcome(status, body) {
+			if (status === 202) {
+				this.showNotice('success', t('hermiq', 'Run queued. It will appear in the history shortly.'))
+				await this.loadHistory()
+				return
+			}
+			if (status === 404) {
+				this.showNotice('error', t('hermiq', 'Object or agent not found.'))
+				return
+			}
+			this.showNotice('error', body?.error || t('hermiq', 'Could not start the run.'))
+		},
+
+		/**
+		 * Show a notice.
+		 *
+		 * @param {string} type The notice type (success|error).
+		 * @param {string} text The translated text.
+		 * @return {void}
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 */
+		showNotice(type, text) {
+			this.noticeType = type
+			this.notice = text
+		},
+
+		/**
+		 * GET a Hermiq or OpenRegister endpoint with the request token.
+		 *
+		 * @param {string} url The generated URL.
+		 * @return {Promise<Response>} The response.
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 */
+		getWithToken(url) {
+			return fetch(url, {
+				headers: { requesttoken: getRequestToken() },
+			})
+		},
+
+		/**
+		 * POST this object's reference (register, schema, object id) as JSON.
+		 *
+		 * @param {string} url The generated URL.
+		 * @return {Promise<Response>} The response.
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 */
+		postObjectRef(url) {
+			return fetch(url, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					requesttoken: getRequestToken(),
+				},
+				body: JSON.stringify({
+					register: this.register,
+					schema: this.schema,
+					objectId: this.objectId,
+				}),
+			})
 		},
 	},
 }
@@ -292,6 +504,24 @@ export default {
 	flex-direction: column;
 	gap: 12px;
 	padding: 8px 4px;
+}
+
+.cn-agent-runs-widget__summary {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	align-items: flex-start;
+}
+
+.cn-agent-runs-widget__summary-text {
+	margin: 0;
+	white-space: pre-line;
+}
+
+.cn-agent-runs-widget__summary-label {
+	margin: 0;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.9em;
 }
 
 .cn-agent-runs-widget__run {
@@ -334,7 +564,8 @@ export default {
 }
 
 .cn-agent-runs-widget__status--skipped_killswitch,
-.cn-agent-runs-widget__status--skipped_budget {
+.cn-agent-runs-widget__status--skipped_budget,
+.cn-agent-runs-widget__status--skipped_agent_off {
 	color: var(--color-warning);
 }
 
