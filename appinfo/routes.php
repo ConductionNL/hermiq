@@ -267,6 +267,13 @@ $routes = [
             'verb'         => 'GET',
             'requirements' => ['agentId' => '[^/]+'],
         ],
+        // verify-row-scenarios (row ov-tool-oversight): mark one tool call as misuse, with a reason.
+        [
+            'name'         => 'toolOversight#markToolInvocation',
+            'url'          => '/api/agents/{agentId}/tool-invocations/{callId}/mark',
+            'verb'         => 'POST',
+            'requirements' => ['agentId' => '[^/]+', 'callId' => '[^/]+'],
+        ],
 
         // Tenant ops (multi-tenant-ops): per-org quota status + EU AI Act audit export (tenant-scoped).
         ['name' => 'organisationOps#quota',       'url' => '/api/tenant-ops/quota', 'verb' => 'GET'],
