@@ -235,7 +235,7 @@ class HermiqToolProviderTest extends TestCase {
 		$this->assertNotContains('hermiq.completeTask', $ids);
 		$this->assertContains('hermiq.listTasks', $ids);
 		$this->assertContains('hermiq.createTask', $ids);
-		$this->assertCount(42, $ids);
+		$this->assertCount(43, $ids);
 
 	}//end testCompleteTaskIsAbsentWithoutAReplacePath()
 
@@ -450,7 +450,7 @@ class HermiqToolProviderTest extends TestCase {
 		// + hermiq.listTasks/createTask/completeTask (tools-nextcloud-tasks),
 		// + hermiq.sendTalkMessage (tools-post-a-talk-message),
 		// all registered through this same provider.
-		$this->assertCount(43, $tools);
+		$this->assertCount(44, $tools);
 
 		$ids = array_column($tools, 'id');
 		$this->assertContains('hermiq.listFiles', $ids);
@@ -554,7 +554,7 @@ class HermiqToolProviderTest extends TestCase {
 		];
 
 		$tools = $this->provider('alice')->getTools();
-		$this->assertCount(43, $tools, 'This test must be updated if a tool is added or removed.');
+		$this->assertCount(44, $tools, 'This test must be updated if a tool is added or removed.');
 
 		$seen = [];
 		foreach ($tools as $tool) {
