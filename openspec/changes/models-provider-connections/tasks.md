@@ -10,8 +10,10 @@ Kind: code. Size L. Rows `hermiq:mo-openai-compat`, `hermiq:dm-responses-api`, `
 - **acceptance_criteria**:
   - GIVEN openai-compatible with a keyless base URL WHEN an agent runs THEN the base URL answers and the model policy and residency apply to it
   - GIVEN an OpenAI provider with no base URL WHEN it runs THEN calls go to api.openai.com as before
-- [ ] Implement
-- [ ] Test (PHPUnit on the driver and the settings merge)
+- [x] Implement
+      > 2026-11-13: `openai-compatible` in `ALLOWED_CHAT_PROVIDERS`, `openaiCompatibleConfig` (label, baseUrl, chatModel, credentialId, ownNetwork) and `openaiConfig.baseUrl`/`ownNetwork` in the settings shape; `ProviderFactory::createOpenAiCompatibleDriver()`; a keyless base URL is called directly after the egress check (private address and plain HTTP only with `ownNetwork`), a credential keeps the broker path; the ModelPolicy and AiFeature provider enums accept it (register 0.53.0); residency and data-use declarations take it through the shared provider list; the connection report names it by its label.
+- [x] Test (PHPUnit on the driver and the settings merge)
+      > `ProviderFactoryOpenAiCompatibleTest` (9), `LlmConnectionReportNamingTest` (+2), `LlmSettingsHandlerTest` shape and merge.
 
 ### Task 2: Transport by credential, and an honest Fireworks form
 - **spec_ref**: `openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-a-chosen-host-is-reached-without-hermiq-holding-a-key-req-pconn-002`
@@ -20,8 +22,10 @@ Kind: code. Size L. Rows `hermiq:mo-openai-compat`, `hermiq:dm-responses-api`, `
   - GIVEN a credential set WHEN a call is made THEN it goes through BrokerHttpClient and no key is read by hermiq
   - GIVEN no OpenAI-compatible credential type in OpenRegister WHEN the admin opens the form THEN the credential field is disabled with the stated text
   - GIVEN the Fireworks form WHEN a credential is chosen THEN the host is read-only and the field says API path
-- [ ] Implement
+- [x] Implement
+      > 2026-11-14: the provider modal lists "OpenAI-compatible endpoint" with name, base URL, model, an optional credential and "This is a server on our own network"; the credential field stays disabled with "A key needs OpenRegister's OpenAI-compatible credential type." until a credential of that provider is listed. OpenAI gains an optional base URL. The Fireworks form shows the host read-only and edits only the API path. `src/credentials.json` declares `openai-compatible` and `openai-cli`.
 - [ ] Test (PHPUnit on transport choice; Playwright under tests/e2e/spec-coverage/ on the modal)
+      > PHPUnit on transport choice is in `ProviderFactoryOpenAiCompatibleTest` (Task 1); the modal in `tests/vitest/llm-provider-modal*.spec.js`. Playwright needs a running Nextcloud and is left open.
 
 ### Task 3: Responses API mode
 - **spec_ref**: `openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-a-provider-can-run-in-responses-api-mode-with-governed-tools-req-pconn-004`
@@ -29,8 +33,10 @@ Kind: code. Size L. Rows `hermiq:mo-openai-compat`, `hermiq:dm-responses-api`, `
 - **acceptance_criteria**:
   - GIVEN apiMode responses WHEN a turn runs THEN the request goes to /responses with store false, and each function call runs through the governed executor
   - GIVEN a function call for an ungranted tool WHEN it arrives THEN it is refused like on the other paths
-- [ ] Implement
+- [x] Implement
+      > 2026-11-14: `apiMode` (`chat_completions` default, `responses`) on `openaiConfig` and `openaiCompatibleConfig`, carried on the ChatDriver. `OpenAiResponsesLoop` maps the system blocks to `instructions`, the history to `input` (attachments as input images and files), the tools to function tools, sends `store: false`, runs every `function_call` through the governed executor the Anthropic path uses and returns its result as `function_call_output`, up to the agent's tool call cap; hosted tools and other output are refused with a clear error. `ProviderFactory::callOpenAiResponses()` posts to `{base}/responses` through the broker with a credential and straight to the base URL without one; the chat turn, background generation and conversation titles all follow the mode. The modal has an "API mode" choice for both providers.
 - [ ] Test (PHPUnit on mapping both ways and the tool loop; one live OpenAI check)
+      > PHPUnit done: `OpenAiResponsesLoopTest` (9) and `ProviderFactoryResponsesTest` (5). The live OpenAI check needs an account and is left open.
 
 ### Task 4: The runner's sign-in route
 - **spec_ref**: `openspec/changes/models-provider-connections/specs/agent-credentials/spec.md#requirement-a-user-can-sign-in-with-a-claude-subscription-req-signin-001`

@@ -197,6 +197,9 @@ class LlmSettingsHandlerTest extends TestCase {
 				'chatModel' => null,
 				'organizationId' => '',
 				'executionMode' => 'cli',
+				'baseUrl' => '',
+				'ownNetwork' => false,
+				'apiMode' => 'chat_completions',
 			],
 			'ollamaConfig' => [
 				'url' => 'http://ollama:11434',
@@ -216,6 +219,14 @@ class LlmSettingsHandlerTest extends TestCase {
 				'scope' => 'personal',
 				'baseUrl' => 'https://api.anthropic.com/v1',
 				'executionMode' => 'http',
+			],
+			'openaiCompatibleConfig' => [
+				'label' => '',
+				'baseUrl' => '',
+				'chatModel' => null,
+				'credentialId' => '',
+				'ownNetwork' => false,
+				'apiMode' => 'chat_completions',
 			],
 			'vectorConfig' => [
 				'backend' => 'solr',
@@ -243,10 +254,11 @@ class LlmSettingsHandlerTest extends TestCase {
 				'enabled' => false,
 				'embeddingProvider' => null,
 				'chatProvider' => null,
-				'openaiConfig' => ['credentialId' => '', 'model' => null, 'chatModel' => null, 'organizationId' => '', 'executionMode' => 'http'],
+				'openaiConfig' => ['credentialId' => '', 'model' => null, 'chatModel' => null, 'organizationId' => '', 'executionMode' => 'http', 'baseUrl' => '', 'ownNetwork' => false, 'apiMode' => 'chat_completions'],
 				'ollamaConfig' => ['url' => 'http://localhost:11434', 'model' => null, 'chatModel' => null],
 				'fireworksConfig' => ['credentialId' => '', 'embeddingModel' => null, 'chatModel' => null, 'baseUrl' => 'https://api.fireworks.ai/inference/v1'],
 				'anthropicConfig' => ['credentialId' => '', 'chatModel' => null, 'authMode' => 'api_key', 'scope' => 'organisation', 'baseUrl' => 'https://api.anthropic.com/v1', 'executionMode' => 'http'],
+				'openaiCompatibleConfig' => ['label' => '', 'baseUrl' => '', 'chatModel' => null, 'credentialId' => '', 'ownNetwork' => false, 'apiMode' => 'chat_completions'],
 				'vectorConfig' => ['backend' => 'php', 'solrField' => '_embedding_'],
 			],
 			$handler->getLLMSettingsOnly()
@@ -298,7 +310,7 @@ class LlmSettingsHandlerTest extends TestCase {
 	 */
 	public function testNextcloudIsAnAllowedChatProvider(): void {
 		$this->assertSame(
-			['openai', 'ollama', 'fireworks', 'nextcloud', 'anthropic'],
+			['openai', 'ollama', 'fireworks', 'nextcloud', 'anthropic', 'openai-compatible'],
 			LlmSettingsHandler::ALLOWED_CHAT_PROVIDERS
 		);
 

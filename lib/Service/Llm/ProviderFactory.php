@@ -55,6 +55,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Llm;
 
+use Closure;
 use Exception;
 use GuzzleHttp\Psr7\Request;
 use LLPhant\Chat\Message as LLPhantMessage;
@@ -63,12 +64,15 @@ use LLPhant\Chat\OpenAIChat;
 use LLPhant\OllamaConfig;
 use LLPhant\OpenAIConfig;
 use OCA\Hermiq\Kernel\Contracts\ProviderFactoryInterface;
+use OCA\Hermiq\Kernel\Contracts\WebResearchEgressGuardInterface;
 use OCA\Hermiq\Service\AiFeature\DataUseGate;
 use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
 use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCP\App\IAppManager;
+use OCP\Http\Client\IClient;
+use OCP\Http\Client\IClientService;
 use OCP\Http\Client\IResponse;
 use OCP\IAppConfig;
 use OCP\IURLGenerator;
@@ -238,6 +242,29 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @var string
 	 */
 	private const CREDENTIAL_SCOPE_PERSONAL = 'personal';
+
+	/**
+	 * The api key the openai-php client is given for a keyless endpoint. Not a
+	 * secret: the client refuses to build without one, and a server without
+	 * authentication ignores it (models-provider-connections D3).
+	 *
+	 * @var string
+	 */
+	private const KEYLESS_API_KEY = 'hermiq-keyless';
+
+	/**
+	 * The OpenAI API base when the admin set none (models-provider-connections D2).
+	 *
+	 * @var string
+	 */
+	private const OPENAI_BASE_URL = 'https://api.openai.com/v1';
+
+	/**
+	 * The apiMode that sends a turn to the Responses API (models-provider-connections D4).
+	 *
+	 * @var string
+	 */
+	public const API_MODE_RESPONSES = 'responses';
 
 	/**
 	 * Tool calls per turn on the Anthropic loop when the caller names no cap: the
@@ -604,6 +631,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 			'openai' => $this->createOpenAiDriver(openaiConfig: $llmConfig['openaiConfig'] ?? [], request: $request),
 			'fireworks' => $this->createFireworksDriver(fireworksConfig: $llmConfig['fireworksConfig'] ?? [], request: $request),
 			'anthropic' => $this->createAnthropicDriver(anthropicConfig: $llmConfig['anthropicConfig'] ?? [], request: $request),
+			'openai-compatible' => $this->createOpenAiCompatibleDriver(compatibleConfig: $llmConfig['openaiCompatibleConfig'] ?? [], request: $request),
 			'nextcloud' => $this->createNextcloudDriver(),
 			default => throw new ProviderUnavailableException("Unsupported chat provider: {$request->chatProvider}"),
 		};// End match.
@@ -958,6 +986,163 @@ class ProviderFactory implements ProviderFactoryInterface {
 
 		return $this->fireworksAnswer(response: $response);
 	}//end callFireworksChat()
+
+	/**
+	 * One turn on the OpenAI Responses API, for an OpenAI or OpenAI-compatible
+	 * driver in `apiMode: responses` (models-provider-connections D4).
+	 *
+	 * The request goes to `{base}/responses` with `store: false`, through the
+	 * broker when the driver has a credential and straight to the base URL when
+	 * it has none, as the driver's chat completions calls do. Each function call
+	 * runs through `$toolExecutor`, the turn's governed executor.
+	 *
+	 * @param ChatDriver    $driver         The driver: model, credential, base URL, ceiling.
+	 * @param array         $messageHistory The LLPhant messages, system prompt first.
+	 * @param array         $functions      The turn's tools.
+	 * @param Closure|null  $toolExecutor   Runs a requested tool, or null for a text-only turn.
+	 * @param int|null      $maxToolCalls   The agent's tool call cap, or null for the default.
+	 *
+	 * @return string The answer text.
+	 *
+	 * @throws ProviderCallFailedException When the endpoint answers with an error status.
+	 * @throws ProviderUnavailableException When the answer asks for something Hermiq does not run.
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-a-provider-can-run-in-responses-api-mode-with-governed-tools-req-pconn-004
+	 */
+	public function callOpenAiResponses(
+		ChatDriver $driver,
+		array $messageHistory,
+		array $functions = [],
+		?Closure $toolExecutor = null,
+		?int $maxToolCalls = null,
+	): string {
+		$this->lastCallUsage = [];
+		$this->lastCallHitToolCap = false;
+		$url = rtrim((string)$driver->baseUrl, '/') . '/responses';
+		$post = function (array $payload) use ($driver, $url): array {
+			return $this->postResponses(driver: $driver, url: $url, payload: $payload);
+		};
+
+		$loop = new OpenAiResponsesLoop(post: $post, toolExecutor: $toolExecutor, maxToolCalls: ($maxToolCalls ?? self::MAX_TOOL_ITERATIONS));
+		try {
+			return $loop->run(
+				payload: $loop->payload(model: $driver->model, messageHistory: $messageHistory, functions: $functions, maxTokens: $driver->maxTokens)
+			);
+		} finally {
+			$this->lastCallUsage = $loop->usage();
+			$this->lastCallHitToolCap = $loop->hitToolCap();
+		}
+	}//end callOpenAiResponses()
+
+	/**
+	 * Post one Responses API request and return the decoded body.
+	 *
+	 * @param ChatDriver          $driver  The driver.
+	 * @param string              $url     The `/responses` address.
+	 * @param array<string,mixed> $payload The request.
+	 *
+	 * @return array<string,mixed>
+	 *
+	 * @throws ProviderCallFailedException When the endpoint answers with an error status.
+	 * @throws ProviderUnavailableException When it cannot be reached or answers with no JSON object.
+	 */
+	private function postResponses(ChatDriver $driver, string $url, array $payload): array {
+		$body = (string)json_encode($payload);
+		if ((string)$driver->credentialId !== '') {
+			try {
+				$response = (new BrokerHttpClient(
+					credentialId: (string)$driver->credentialId,
+					logger: $this->logger,
+					actingUserId: $this->currentUid(),
+					container: $this->container
+				))->sendRequest(new Request('POST', $url, ['Content-Type' => 'application/json'], $body));
+			} catch (Throwable $e) {
+				throw self::transportFailure(prefix: 'Responses API request failed: ', failure: $e);
+			}
+
+			return $this->responsesBody(
+				status: $response->getStatusCode(),
+				body: (string)$response->getBody(),
+				retryAfter: $response->getHeaderLine('retry-after')
+			);
+		}
+
+		try {
+			$response = $this->keylessClient()->post(
+				$url,
+				[
+					'body' => $body,
+					'headers' => ['Content-Type' => 'application/json'],
+					'http_errors' => false,
+					'timeout' => 120,
+					'nextcloud' => ['allow_local_address' => $driver->ownNetwork],
+				]
+			);
+		} catch (Throwable $e) {
+			throw self::transportFailure(prefix: 'Responses API request failed: ', failure: $e);
+		}
+
+		return $this->responsesBody(
+			status: $response->getStatusCode(),
+			body: (string)$response->getBody(),
+			retryAfter: (string)$response->getHeader('retry-after')
+		);
+	}//end postResponses()
+
+	/**
+	 * A Responses API answer as an array, or the failure its status names.
+	 *
+	 * @param int    $status     The HTTP status.
+	 * @param string $body       The body.
+	 * @param string $retryAfter The retry-after header.
+	 *
+	 * @return array<string,mixed>
+	 *
+	 * @throws ProviderCallFailedException When the status is not 200.
+	 * @throws ProviderUnavailableException When the body is not a JSON object.
+	 */
+	private function responsesBody(int $status, string $body, string $retryAfter): array {
+		$decoded = json_decode($body, true);
+		if ($status !== 200) {
+			$message = 'no message';
+			if (is_array($decoded) === true && (string)($decoded['error']['message'] ?? '') !== '') {
+				$message = (string)$decoded['error']['message'];
+			}
+
+			throw ProviderCallFailedException::fromHttpStatus(
+				status: $status,
+				message: 'Responses API error (HTTP ' . $status . '): ' . $message,
+				retryAfter: $retryAfter
+			);
+		}
+
+		if (is_array($decoded) === false) {
+			throw new ProviderUnavailableException('The Responses API answered with no JSON object.', 502);
+		}
+
+		return $decoded;
+	}//end responsesBody()
+
+	/**
+	 * The Nextcloud HTTP client a keyless base URL is called with.
+	 *
+	 * @return IClient
+	 *
+	 * @throws ProviderUnavailableException When the container cannot give one.
+	 */
+	private function keylessClient(): IClient {
+		try {
+			$service = $this->container?->get(IClientService::class);
+		} catch (Throwable $e) {
+			$service = null;
+		}
+
+		if ($service instanceof IClientService === false) {
+			throw new ProviderUnavailableException('No HTTP client is available on this instance.', 503);
+		}
+
+		return $service->newClient();
+	}//end keylessClient()
 
 	/**
 	 * Function calling is not supported for Fireworks AI: say so when a turn
@@ -2553,6 +2738,10 @@ class ProviderFactory implements ProviderFactoryInterface {
 			);
 		}
 
+		if ($driver->apiMode === self::API_MODE_RESPONSES) {
+			return $this->callOpenAiResponses(driver: $driver, messageHistory: [LLPhantMessage::user($prompt)]);
+		}
+
 		// OpenAI / Ollama: driver->chat is a ready LLPhant chat instance.
 		return $driver->chat->generateText($prompt);
 	}//end generateWithDriver()
@@ -2609,9 +2798,17 @@ class ProviderFactory implements ProviderFactoryInterface {
 			config: $openaiConfig,
 			override: $this->resolveCredentialOverride(provider: 'openai', organisation: $request->organisation, pinned: $request->agentCredentialIds)
 		);
-		$this->assertBrokerCredential(credentialId: $credentialId, label: 'OpenAI');
 
-		$config = $this->brokeredOpenAiConfig(credentialId: $credentialId);
+		// A base URL with no credential is a keyless server the admin chose, called
+		// directly; everything else keeps the broker path (models-provider-connections D2).
+		$baseUrl = trim((string)($openaiConfig['baseUrl'] ?? ''));
+		if ($baseUrl !== '' && $credentialId === '') {
+			$config = $this->keylessOpenAiConfig(baseUrl: $baseUrl, ownNetwork: (($openaiConfig['ownNetwork'] ?? false) === true), label: 'OpenAI');
+		} else {
+			$this->assertBrokerCredential(credentialId: $credentialId, label: 'OpenAI');
+			$config = $this->brokeredOpenAiConfig(credentialId: $credentialId);
+		}
+
 		$config->model = $this->agentModelOr(configured: ($openaiConfig['chatModel'] ?? 'gpt-4o-mini'), request: $request);
 
 		// The agent's own ceiling, wired the same way temperature already was.
@@ -2626,8 +2823,179 @@ class ProviderFactory implements ProviderFactoryInterface {
 		// credential a personal/organisation override actually resolved to
 		// (agent-credentials). Nothing reads `$driver->credentialId` on the openai path
 		// today; this is metadata only, not a behaviour change.
-		return new ChatDriver(provider: 'openai', chat: $chat, model: $config->model, credentialId: $credentialId, maxTokens: $request->agentMaxTokens);
+		$driverBaseUrl = self::OPENAI_BASE_URL;
+		if ($baseUrl !== '') {
+			$driverBaseUrl = $baseUrl;
+		}
+
+		return new ChatDriver(
+			provider: 'openai',
+			chat: $chat,
+			model: $config->model,
+			credentialId: $credentialId,
+			baseUrl: $driverBaseUrl,
+			maxTokens: $request->agentMaxTokens,
+			apiMode: $this->apiModeOf(config: $openaiConfig),
+			ownNetwork: (($openaiConfig['ownNetwork'] ?? false) === true)
+		);
 	}//end createOpenAiDriver()
+
+	/**
+	 * Build the `openai-compatible` driver: an OpenAI-compatible endpoint the admin
+	 * named and gave a base URL.
+	 *
+	 * With no credential the base URL is called directly, as Ollama's URL is, after
+	 * the egress check. With a credential the call goes through the broker, which
+	 * sends it to the host locked to that credential; hermiq holds no key either way.
+	 *
+	 * @param array             $compatibleConfig The `openaiCompatibleConfig` sub-block.
+	 * @param ChatDriverRequest $request          The agent's model, temperature and ceiling,
+	 *                                            organisation and pinned credentials.
+	 *
+	 * @return ChatDriver
+	 *
+	 * @throws ProviderUnavailableException When no base URL or model is configured, or the base URL is refused.
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-an-admin-can-connect-an-openai-compatible-endpoint-by-name-req-pconn-001
+	 */
+	private function createOpenAiCompatibleDriver(array $compatibleConfig, ChatDriverRequest $request): ChatDriver {
+		$label = $this->compatibleLabel(compatibleConfig: $compatibleConfig);
+		$baseUrl = trim((string)($compatibleConfig['baseUrl'] ?? ''));
+		if ($baseUrl === '') {
+			throw new ProviderUnavailableException($label . ' has no base URL. Enter it in the Hermiq LLM settings.', 503);
+		}
+
+		$model = $this->agentModelOr(configured: ($compatibleConfig['chatModel'] ?? null), request: $request);
+		if (empty($model) === true) {
+			throw new ProviderUnavailableException($label . ' has no model. Enter the model name the endpoint serves.', 503);
+		}
+
+		$credentialId = $this->overriddenCredentialId(
+			config: $compatibleConfig,
+			override: $this->resolveCredentialOverride(
+				provider: 'openai-compatible',
+				organisation: $request->organisation,
+				pinned: $request->agentCredentialIds
+			)
+		);
+
+		$driverCredential = null;
+		if ($credentialId === '') {
+			$config = $this->keylessOpenAiConfig(baseUrl: $baseUrl, ownNetwork: (($compatibleConfig['ownNetwork'] ?? false) === true), label: $label);
+		} else {
+			$this->assertBrokerCredential(credentialId: $credentialId, label: $label);
+			$config = $this->brokeredOpenAiConfig(credentialId: $credentialId);
+			$driverCredential = $credentialId;
+		}
+
+		$config->model = (string)$model;
+		$config->modelOptions = array_merge($config->modelOptions, $this->agentModelOptions(request: $request, ceilingKey: 'max_tokens'));
+
+		return new ChatDriver(
+			provider: 'openai-compatible',
+			chat: new OpenAIChat($config),
+			model: $config->model,
+			credentialId: $driverCredential,
+			maxTokens: $request->agentMaxTokens,
+			baseUrl: $baseUrl,
+			apiMode: $this->apiModeOf(config: $compatibleConfig),
+			ownNetwork: (($compatibleConfig['ownNetwork'] ?? false) === true)
+		);
+	}//end createOpenAiCompatibleDriver()
+
+	/**
+	 * The OpenAI API a provider block asks for: `responses`, else `chat_completions`.
+	 *
+	 * @param array $config The provider's settings block.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-a-provider-can-run-in-responses-api-mode-with-governed-tools-req-pconn-004
+	 */
+	private function apiModeOf(array $config): string {
+		if (($config['apiMode'] ?? '') === self::API_MODE_RESPONSES) {
+			return self::API_MODE_RESPONSES;
+		}
+
+		return 'chat_completions';
+	}//end apiModeOf()
+
+	/**
+	 * The name an OpenAI-compatible endpoint goes by in a message.
+	 *
+	 * @param array $compatibleConfig The `openaiCompatibleConfig` sub-block.
+	 *
+	 * @return string The admin's label, else "OpenAI-compatible endpoint".
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-an-admin-can-connect-an-openai-compatible-endpoint-by-name-req-pconn-001
+	 */
+	private function compatibleLabel(array $compatibleConfig): string {
+		$label = trim((string)($compatibleConfig['label'] ?? ''));
+		if ($label === '') {
+			return 'OpenAI-compatible endpoint';
+		}
+
+		return $label;
+	}//end compatibleLabel()
+
+	/**
+	 * An OpenAI client configuration that calls an admin-chosen base URL directly,
+	 * without a key.
+	 *
+	 * The base URL is checked before any call: never a cloud metadata address, and
+	 * a private address or plain HTTP only when the admin stated it is a server on
+	 * their own network. The openai-php client insists on an api key, so it gets a
+	 * fixed placeholder that is not a secret; a keyless server ignores it.
+	 *
+	 * @param string $baseUrl    The base URL, up to and including the API version path.
+	 * @param bool   $ownNetwork Whether the admin stated the server is on their own network.
+	 * @param string $label      The provider's name in a refusal.
+	 *
+	 * @return OpenAIConfig
+	 *
+	 * @throws ProviderUnavailableException When the base URL cannot be checked or is refused.
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-a-chosen-host-is-reached-without-hermiq-holding-a-key-req-pconn-002
+	 */
+	private function keylessOpenAiConfig(string $baseUrl, bool $ownNetwork, string $label): OpenAIConfig {
+		$guard = $this->egressGuard();
+		if ($guard === null) {
+			throw new ProviderUnavailableException($label . ' cannot be used: its base URL cannot be checked on this instance.', 503);
+		}
+
+		$verdict = $guard->assertSafe(url: $baseUrl, isAdminConfiguredEndpoint: $ownNetwork, allowInsecureHttp: $ownNetwork);
+		if (($verdict['allowed'] ?? false) !== true) {
+			throw new ProviderUnavailableException(
+				$label . ' cannot be used: its base URL is refused. ' . (string)($verdict['message'] ?? ''),
+				503
+			);
+		}
+
+		$config = new OpenAIConfig();
+		$config->url = rtrim($baseUrl, '/');
+		$config->apiKey = self::KEYLESS_API_KEY;
+
+		return $config;
+	}//end keylessOpenAiConfig()
+
+	/**
+	 * The egress guard, or null when the container cannot give one.
+	 *
+	 * @return WebResearchEgressGuardInterface|null
+	 */
+	private function egressGuard(): ?WebResearchEgressGuardInterface {
+		try {
+			$guard = $this->container?->get(WebResearchEgressGuardInterface::class);
+		} catch (Throwable $e) {
+			return null;
+		}
+
+		if ($guard instanceof WebResearchEgressGuardInterface === false) {
+			return null;
+		}
+
+		return $guard;
+	}//end egressGuard()
 
 	/**
 	 * An OpenAI client configuration whose requests go through the credential broker.

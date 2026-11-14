@@ -63,6 +63,14 @@ class LlmSettingsHandler implements LlmSettingsHandlerInterface {
 	 * flag). `scope` is organisation | personal; a Claude Max OAuth token MUST be
 	 * personal-only (validated on save).
 	 *
+	 * `openaiConfig.baseUrl` is optional: empty keeps api.openai.com. A base URL with
+	 * no credential is called directly; with a credential the call goes through the
+	 * broker. `openaiCompatibleConfig` is an OpenAI-compatible endpoint named by its
+	 * admin-chosen `label`, under the same transport rule. `ownNetwork` is the
+	 * admin's statement that a keyless base URL is a server on the organisation's
+	 * own network: only then may it resolve to a private address or use plain HTTP.
+	 * `apiMode` on both is `chat_completions` or `responses` (models-provider-connections).
+	 *
 	 * @var array<string, mixed>
 	 */
 	private const DEFAULT_CONFIG = [
@@ -75,6 +83,9 @@ class LlmSettingsHandler implements LlmSettingsHandlerInterface {
 			'chatModel' => null,
 			'organizationId' => '',
 			'executionMode' => 'http',
+			'baseUrl' => '',
+			'ownNetwork' => false,
+			'apiMode' => 'chat_completions',
 		],
 		'ollamaConfig' => [
 			'url' => 'http://localhost:11434',
@@ -94,6 +105,14 @@ class LlmSettingsHandler implements LlmSettingsHandlerInterface {
 			'scope' => 'organisation',
 			'baseUrl' => 'https://api.anthropic.com/v1',
 			'executionMode' => 'http',
+		],
+		'openaiCompatibleConfig' => [
+			'label' => '',
+			'baseUrl' => '',
+			'chatModel' => null,
+			'credentialId' => '',
+			'ownNetwork' => false,
+			'apiMode' => 'chat_completions',
 		],
 		'vectorConfig' => [
 			'backend' => 'php',

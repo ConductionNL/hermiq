@@ -1992,7 +1992,20 @@ OC.L10N.register(
         "The organisation's output filter masked part of the answer.": "Het uitvoerfilter van de organisatie heeft een deel van het antwoord afgeschermd.",
         "_Used %n document: %s._::_Used %n documents: %s._": ["%n document gebruikt: %s.","%n documenten gebruikt: %s."],
         "_Called %n tool: %s._::_Called %n tools: %s._": ["%n tool aangeroepen: %s.","%n tools aangeroepen: %s."],
-        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n aanroep is geweigerd: %s.","%n aanroepen zijn geweigerd: %s."]
+        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n aanroep is geweigerd: %s.","%n aanroepen zijn geweigerd: %s."],
+        "A key needs OpenRegister's OpenAI-compatible credential type.": "Voor een sleutel is het OpenAI-compatibele credentialtype van OpenRegister nodig.",
+        "API path": "API-pad",
+        "Base URL (optional)": "Basis-URL (optioneel)",
+        "Calls go to the host locked to the credential.": "Aanroepen gaan naar de host die aan de credential is gekoppeld.",
+        "Enter the base URL of the endpoint first.": "Vul eerst de basis-URL van het endpoint in.",
+        "Enter the model the endpoint serves first.": "Vul eerst het model in dat het endpoint aanbiedt.",
+        "Host": "Host",
+        "Leave empty to use api.openai.com. A base URL without a credential is called directly; with a credential the broker sends the call.": "Laat leeg om api.openai.com te gebruiken. Een basis-URL zonder credential wordt rechtstreeks aangeroepen; met een credential verstuurt de broker de aanroep.",
+        "No key: call the base URL directly": "Geen sleutel: de basis-URL rechtstreeks aanroepen",
+        "This is a server on our own network": "Dit is een server op ons eigen netwerk",
+        "API mode": "API-modus",
+        "Chat completions": "Chat completions (berichten)",
+        "Responses API": "Responses-API"
     },
     "nplurals=2; plural=(n != 1);"
 )
