@@ -44,6 +44,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\NcNative;
 
+use OCA\Hermiq\Kernel\Contracts\NcNativeWriteServiceInterface;
+
 /**
  * Facade over the Calendar, Contacts and Notes write services.
  *
@@ -52,7 +54,7 @@ namespace OCA\Hermiq\Service\NcNative;
  *
  * @spec openspec/specs/nc-native-tools/spec.md#requirement-per-object-idor-guard-on-every-provider
  */
-class NcNativeWriteService {
+class NcNativeWriteService implements NcNativeWriteServiceInterface {
 
 	/**
 	 * Constructor.

@@ -25,7 +25,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\BackgroundJob;
 
-use OCA\Hermiq\Service\Workspace\ServerSideWorkspaceProvider;
+use OCA\Hermiq\Kernel\Contracts\ServerSideWorkspaceProviderInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\TimedJob;
 use Psr\Log\LoggerInterface;
@@ -42,12 +42,12 @@ class WorkspaceReaperJob extends TimedJob {
 	 * Build the job.
 	 *
 	 * @param ITimeFactory                $time     Clock.
-	 * @param ServerSideWorkspaceProvider $provider The workspace store.
+	 * @param ServerSideWorkspaceProviderInterface $provider The workspace store.
 	 * @param LoggerInterface             $logger   Logger.
 	 */
 	public function __construct(
 		ITimeFactory $time,
-		private readonly ServerSideWorkspaceProvider $provider,
+		private readonly ServerSideWorkspaceProviderInterface $provider,
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct(time: $time);

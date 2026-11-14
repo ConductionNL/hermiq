@@ -17,7 +17,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Listener;
 
 use OCA\Hermiq\Event\AiOversightRecordedEvent;
-use OCA\Hermiq\Service\AiOversightService;
+use OCA\Hermiq\Kernel\Contracts\AiOversightServiceInterface;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 
@@ -40,12 +40,12 @@ class AiOversightRecordedListener implements IEventListener {
     /**
      * Constructor.
      *
-     * @param AiOversightService $oversight Writes the advisory Approval.
+     * @param AiOversightServiceInterface $oversight Writes the advisory Approval.
      *
      * @return void
      */
     public function __construct(
-        private readonly AiOversightService $oversight,
+        private readonly AiOversightServiceInterface $oversight,
     ) {
 
     }//end __construct()

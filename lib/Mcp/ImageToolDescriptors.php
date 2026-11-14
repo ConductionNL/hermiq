@@ -27,7 +27,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Mcp;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 
 /**
@@ -42,7 +42,7 @@ final class ImageToolDescriptors {
 	 *
 	 * @var string
 	 */
-	public const GENERATE_IMAGE = Application::APP_ID . '.generateImage';
+	public const GENERATE_IMAGE = AppIdentity::APP_ID . '.generateImage';
 
 	/**
 	 * Every id this class describes.

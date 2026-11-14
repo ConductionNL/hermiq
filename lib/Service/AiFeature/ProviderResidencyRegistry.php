@@ -33,6 +33,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\AiFeature;
 
 use InvalidArgumentException;
+use OCA\Hermiq\Kernel\Contracts\ProviderResidencyRegistryInterface;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCP\IAppConfig;
 
@@ -41,28 +42,7 @@ use OCP\IAppConfig;
  *
  * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
  */
-class ProviderResidencyRegistry {
-
-	/**
-	 * The provider runs inside the organisation's own premises.
-	 *
-	 * @var string
-	 */
-	public const RESIDENCY_ON_PREMISE = 'on-premise';
-
-	/**
-	 * The provider runs in the European Union.
-	 *
-	 * @var string
-	 */
-	public const RESIDENCY_EU = 'eu';
-
-	/**
-	 * The provider runs outside the European Union.
-	 *
-	 * @var string
-	 */
-	public const RESIDENCY_OUTSIDE_EU = 'outside-eu';
+class ProviderResidencyRegistry implements ProviderResidencyRegistryInterface {
 
 	/**
 	 * No administrator has stated where this provider runs. Never a guess, and
@@ -71,17 +51,6 @@ class ProviderResidencyRegistry {
 	 * @var string
 	 */
 	public const RESIDENCY_UNDECLARED = 'undeclared';
-
-	/**
-	 * The residencies an administrator may state.
-	 *
-	 * @var array<int, string>
-	 */
-	public const DECLARABLE_RESIDENCIES = [
-		self::RESIDENCY_ON_PREMISE,
-		self::RESIDENCY_EU,
-		self::RESIDENCY_OUTSIDE_EU,
-	];
 
 	/**
 	 * The IAppConfig key holding the JSON map of declarations.

@@ -26,9 +26,10 @@ namespace OCA\Hermiq\Service\Agent;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\AgentAvailabilityServiceInterface;
 use OCA\Hermiq\Service\AgentAccessService;
-use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
+use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCA\OpenRegister\Service\ObjectService;
@@ -42,7 +43,7 @@ use Throwable;
  *
  * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
  */
-class AgentAvailabilityService {
+class AgentAvailabilityService implements AgentAvailabilityServiceInterface {
 
 	/**
 	 * The audit action of a switch.

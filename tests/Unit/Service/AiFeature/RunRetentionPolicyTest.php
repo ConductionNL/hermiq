@@ -108,6 +108,24 @@ class RunRetentionPolicyTest extends TestCase {
 	}//end testAnUnconfiguredInstanceStillHasARetention()
 
 	/**
+	 * A stored default that is not a number, or outside the allowed range, reads as
+	 * the shipped default; a valid one is used as is.
+	 *
+	 * @return void
+	 */
+	public function testAnUnusableStoredDefaultReadsAsTheShippedDefault(): void {
+		foreach (['abc', '0', '-5', '3651'] as $raw) {
+			$policy = new RunRetentionPolicy($this->appConfig(['runRetentionDays' => $raw]), $this->features([]));
+			$this->assertSame(RunRetentionPolicy::DEFAULT_DAYS, $policy->defaultDays(), 'stored: ' . $raw);
+		}
+
+		foreach (['1' => 1, '30' => 30, '3650' => 3650] as $raw => $days) {
+			$policy = new RunRetentionPolicy($this->appConfig(['runRetentionDays' => (string)$raw]), $this->features([]));
+			$this->assertSame($days, $policy->defaultDays());
+		}
+	}//end testAnUnusableStoredDefaultReadsAsTheShippedDefault()
+
+	/**
 	 * A run carries the default that applied when it was written.
 	 *
 	 * @return void

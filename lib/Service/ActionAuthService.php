@@ -13,7 +13,7 @@
  *   - Action RBAC (who can invoke which controller method) is this service.
  *   - Admin-only operations (editing the matrix itself, app config, backup/
  *     restore, integrations, credentials) bypass this service and use
- *     #[AuthorizedAdminSetting(Application::APP_ID)] at the route layer.
+ *     #[AuthorizedAdminSetting(AppIdentity::APP_ID)] at the route layer.
  *
  * Controllers call `requireAction` which throws OCSForbiddenException when
  * the caller's groups don't intersect the matrix entry for the action.
@@ -38,6 +38,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
 use OCP\AppFramework\OCS\OCSForbiddenException;
 use OCP\IGroupManager;
 use OCP\IUser;
@@ -51,7 +52,7 @@ use OCP\IUser;
  *
  * @spec openspec/architecture/adr-023-action-authorization.md
  */
-class ActionAuthService {
+class ActionAuthService implements ActionAuthServiceInterface {
 	/**
 	 * Constructor.
 	 *

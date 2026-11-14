@@ -46,12 +46,14 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\SkillConsolidationServiceInterface;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
+use OCA\Hermiq\Service\SkillConsolidation\DraftEvalSubject;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
-use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
@@ -82,7 +84,7 @@ use Throwable;
  *
  * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-proposes-a-draft-version-and-never-edits-the-active-skill
  */
-class SkillConsolidationService {
+class SkillConsolidationService implements SkillConsolidationServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -149,13 +151,6 @@ class SkillConsolidationService {
 	 * @var string
 	 */
 	public const STATUS_PROPOSED = 'proposed';
-
-	/**
-	 * Awaiting the human decision on the linked Approval.
-	 *
-	 * @var string
-	 */
-	public const STATUS_AWAITING_APPROVAL = 'awaiting-approval';
 
 	/**
 	 * The text fields an edit may replace: edit key => draft field.
@@ -596,7 +591,7 @@ class SkillConsolidationService {
 		}
 
 		if ($dataset !== null) {
-			$evalOutcome = $this->runDraftEval(dataset: $dataset, skill: $skill, data: $data);
+			$evalOutcome = $this->runDraftEval(dataset: $dataset, subject: new DraftEvalSubject(skill: $skill, data: $data));
 			if ($evalOutcome === null) {
 				// Eval engine unavailable / blocked / failed — evidence, not bypass:
 				// persist any scan evidence gathered and stay `proposed`.
@@ -1269,7 +1264,7 @@ class SkillConsolidationService {
 	 */
 	public function threshold(): int {
 		return $this->appConfig->getValueInt(
-			Application::APP_ID,
+			AppIdentity::APP_ID,
 			self::THRESHOLD_KEY,
 			self::DEFAULT_LEARNINGS_THRESHOLD
 		);
@@ -1303,14 +1298,15 @@ class SkillConsolidationService {
 	 * agent, gates blocked, infra failure) — fail closed, the draft stays `proposed`.
 	 *
 	 * @param ObjectEntity $dataset The linked EvalDataset.
-	 * @param ObjectEntity $skill The skill under comparison.
-	 * @param array<string, mixed> $data The draft payload (proposed content source).
+	 * @param DraftEvalSubject $subject The skill and draft content an eval runs against.
 	 *
 	 * @return array<string, mixed>|null The `evalEvidence` map, or null.
 	 *
 	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-a-paired-draft-vs-active-eval-gates-the-draft-and-a-worse-draft-is-auto-discarded
 	 */
-	private function runDraftEval(ObjectEntity $dataset, ObjectEntity $skill, array $data): ?array {
+	private function runDraftEval(ObjectEntity $dataset, DraftEvalSubject $subject): ?array {
+		$skill = $subject->skill;
+		$data = $subject->data;
 		$agent = $this->resolveEvalAgent(skill: $skill);
 		if ($agent === null) {
 			$this->logger->info(

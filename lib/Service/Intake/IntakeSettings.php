@@ -30,7 +30,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Intake;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\IntakeSettingsInterface;
 use OCP\IAppConfig;
 
 /**
@@ -38,7 +39,7 @@ use OCP\IAppConfig;
  *
  * @spec openspec/specs/conversational-intake/spec.md#scenario-the-threshold-is-readable
  */
-class IntakeSettings {
+class IntakeSettings implements IntakeSettingsInterface {
 
 	/**
 	 * The confidence an intake needs before it files rather than hands over. Set
@@ -88,7 +89,7 @@ class IntakeSettings {
 	 * @return float|null The stored value, not yet range-checked.
 	 */
 	private function storedThreshold(): ?float {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, self::CONFIG_KEY, '');
+		$raw = $this->appConfig->getValueString(AppIdentity::APP_ID, self::CONFIG_KEY, '');
 		if ($raw === '') {
 			return null;
 		}
@@ -120,7 +121,7 @@ class IntakeSettings {
 		}
 
 		$this->appConfig->setValueString(
-			Application::APP_ID,
+			AppIdentity::APP_ID,
 			self::CONFIG_KEY,
 			(string)json_encode(['abstentionThreshold' => $threshold])
 		);

@@ -30,8 +30,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Listener;
 
-use OCA\Hermiq\Service\Agent\AgentObjectMatcher;
-use OCA\Hermiq\Service\Agent\GrantWaiverAudit;
+use OCA\Hermiq\Kernel\Contracts\AgentObjectMatcherInterface;
+use OCA\Hermiq\Kernel\Contracts\GrantWaiverAuditInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Event\DraftCreatedEvent;
 use OCA\OpenRegister\Event\DraftUpdatedEvent;
@@ -68,13 +68,13 @@ class AgentWaiverChangeListener implements IEventListener {
 	/**
 	 * Constructor.
 	 *
-	 * @param GrantWaiverAudit $waiverAudit Writes the waiver audit event.
-	 * @param AgentObjectMatcher $agents Tells a Hermiq agent from other objects.
+	 * @param GrantWaiverAuditInterface $waiverAudit Writes the waiver audit event.
+	 * @param AgentObjectMatcherInterface $agents Tells a Hermiq agent from other objects.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
-		private readonly GrantWaiverAudit $waiverAudit,
-		private readonly AgentObjectMatcher $agents,
+		private readonly GrantWaiverAuditInterface $waiverAudit,
+		private readonly AgentObjectMatcherInterface $agents,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()

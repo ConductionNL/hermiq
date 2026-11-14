@@ -256,6 +256,12 @@ class ContextAssembler {
 	 *                                                               test doubles or a future assembler swap; this implementation always
 	 *                                                               returns both keys.
 	 *
+	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) One skip-and-log loop: each per-skill
+	 *   guard (string uuid, resolvable, found, active state, content override) is a
+	 *   single flat condition preserving the never-fatal contract.
+	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same: the guards are independent
+	 *   skips, multiplying paths without nesting.
+	 *
 	 * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
 	 */
 	public function assembleSkillsForRun(?ObjectEntity $agent, ?array $skillSetOverride = null): array {
@@ -266,12 +272,12 @@ class ContextAssembler {
 				continue;
 			}
 
-			$skill = $this->activeSkill(skillId: $skillId);
+			$skill = $this->resolveExposableSkill(skillId: $skillId);
 			if ($skill === null) {
 				continue;
 			}
 
-			$blocks[] = $this->skillBlock(skill: $skill);
+			$blocks[] = $this->renderSkillBlock(skill: $skill);
 			$skillsUsed[] = (string)$skill->getUuid();
 		}
 
@@ -283,15 +289,13 @@ class ContextAssembler {
 	}//end assembleSkillsForRun()
 
 	/**
-	 * The skill uuids a run is exposed to: the per-run override when given,
-	 * otherwise the agent's stored installs (none without an agent).
+	 * The skill uuids a run sees: the per-run override when given (even an empty
+	 * one), else the agent's stored skillInstalls when they are a list, else none.
 	 *
 	 * @param ObjectEntity|null       $agent            Agent object (optional).
 	 * @param array<int, string>|null $skillSetOverride Per-run override, or null.
 	 *
-	 * @return array<int, mixed> The effective skill set, unvalidated.
-	 *
-	 * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
+	 * @return array<int, mixed> The candidate skill ids, unvalidated.
 	 */
 	private function effectiveSkillIds(?ObjectEntity $agent, ?array $skillSetOverride): array {
 		if ($skillSetOverride !== null) {
@@ -312,16 +316,16 @@ class ContextAssembler {
 	}//end effectiveSkillIds()
 
 	/**
-	 * Resolve one skill and return it only when it is active. An unresolvable,
-	 * missing or non-active skill is logged and skipped (null), never fatal.
+	 * Load a skill and return it only when it may be exposed to a run. A lookup
+	 * that throws is logged as a warning, a missing skill and a skill that is
+	 * not active are logged as info; each is skipped, never fatal (marketplace
+	 * approval gate: an agent MUST NOT use an unapproved skill).
 	 *
 	 * @param string $skillId The skill uuid.
 	 *
-	 * @return ObjectEntity|null The active skill, or null when it must not be exposed.
-	 *
-	 * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
+	 * @return ObjectEntity|null The active skill, or null when it is skipped.
 	 */
-	private function activeSkill(string $skillId): ?ObjectEntity {
+	private function resolveExposableSkill(string $skillId): ?ObjectEntity {
 		try {
 			$skill = $this->objectService->find(
 				id: $skillId,
@@ -345,8 +349,6 @@ class ContextAssembler {
 
 		$state = (string)($skill->getObject()['state'] ?? self::SKILL_ACTIVE_STATE);
 		if ($state !== self::SKILL_ACTIVE_STATE) {
-			// Marketplace approval gate: an agent MUST NOT use an unapproved skill —
-			// neither via install nor via a dataset's skillRefs reaching an override.
 			$this->logger->info(
 				sprintf('Hermiq ContextAssembler: skill %s is %s, not exposed to the run.', $skillId, $state)
 			);
@@ -355,22 +357,19 @@ class ContextAssembler {
 
 		return $skill;
 
-	}//end activeSkill()
+	}//end resolveExposableSkill()
 
 	/**
-	 * The text block one exposed skill contributes to the run preamble.
-	 *
-	 * Skill-self-improvement: the paired draft-vs-active eval's draft half swaps
-	 * in the DRAFT's content in memory — the stored object was still consulted
+	 * The text block for one exposed skill: `Skill: {name}`, then the description
+	 * and the body when present. The paired draft-vs-active eval's draft half
+	 * swaps in the DRAFT's content in memory; the stored object was already used
 	 * for existence and the marketplace state gate.
 	 *
-	 * @param ObjectEntity $skill The active skill.
+	 * @param ObjectEntity $skill The exposed skill.
 	 *
-	 * @return string The block: name, then description and body when present.
-	 *
-	 * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
+	 * @return string The block.
 	 */
-	private function skillBlock(ObjectEntity $skill): string {
+	private function renderSkillBlock(ObjectEntity $skill): string {
 		$data = $skill->getObject();
 		$name = (string)($data['name'] ?? 'skill');
 		$description = (string)($data['description'] ?? '');
@@ -394,7 +393,7 @@ class ContextAssembler {
 
 		return $block;
 
-	}//end skillBlock()
+	}//end renderSkillBlock()
 
 	/**
 	 * Resolve ONE Context object into its budgeted preamble text.

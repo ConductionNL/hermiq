@@ -88,8 +88,12 @@ class VersionFloorGuardTest extends TestCase {
 	 * @return array<int, string> The API method names called unconditionally.
 	 */
 	private function unconditionalRegistrationCalls(): array {
-		$source = file_get_contents($this->repoRoot() . '/lib/AppInfo/Application.php');
-		$this->assertIsString($source, 'lib/AppInfo/Application.php must be readable');
+		$source = '';
+		foreach (['lib/AppInfo/Application.php', ...array_map(fn (string $path): string => substr($path, strlen($this->repoRoot()) + 1), glob($this->repoRoot() . '/lib/*/*Registrar.php'))] as $file) {
+			$part = file_get_contents($this->repoRoot() . '/' . $file);
+			$this->assertIsString($part, $file . ' must be readable');
+			$source .= $part;
+		}
 
 		$calls = [];
 		foreach (array_keys(self::API_SINCE_MAJOR) as $api) {

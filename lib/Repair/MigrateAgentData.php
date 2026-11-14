@@ -66,7 +66,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Repair\Migration\MigratedAgentRow;
 use OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -364,7 +365,7 @@ class MigrateAgentData implements IRepairStep {
 			$encoded = '[]';
 		}
 
-		$this->appConfig->setValueString(Application::APP_ID, self::UNMIGRATABLE_KEY, $encoded);
+		$this->appConfig->setValueString(AppIdentity::APP_ID, self::UNMIGRATABLE_KEY, $encoded);
 
 	}//end storeReportedUnmigratable()
 
@@ -434,7 +435,15 @@ class MigrateAgentData implements IRepairStep {
 			return 0;
 		}
 
-		$this->persist(objectService: $run->objectService, schema: $run->schema, uuid: $run->uuid, data: $data, row: $run->row);
+		$this->persist(
+			objectService: $run->objectService,
+			migrated: new MigratedAgentRow(
+				schema: $run->schema,
+				uuid: $run->uuid,
+				data: $data,
+				row: $run->row
+			)
+		);
 		return 1;
 
 	}//end writeRow()
@@ -629,16 +638,17 @@ class MigrateAgentData implements IRepairStep {
 	 * (roundtrip-save gotcha). RBAC/tenancy are bypassed — this is a system data copy.
 	 *
 	 * @param ObjectService $objectService The OpenRegister object write-path.
-	 * @param string $schema The target schema slug.
-	 * @param string $uuid The source uuid, preserved as the object identity.
-	 * @param array<string, mixed> $data The mapped object payload.
-	 * @param array<string, mixed> $row The source DB row (for owner/organisation/created).
+	 * @param MigratedAgentRow $migrated One migrated agent row and where it is stored.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/changes/agent-data-migration/specs/agent-data-migration/spec.md#an-agent-row-is-migrated-with-its-uuid-preserved
 	 */
-	private function persist(ObjectService $objectService, string $schema, string $uuid, array $data, array $row): void {
+	private function persist(ObjectService $objectService, MigratedAgentRow $migrated): void {
+		$schema = $migrated->schema;
+		$uuid = $migrated->uuid;
+		$data = $migrated->data;
+		$row = $migrated->row;
 		$self = [];
 		$organisation = $this->stringOrNull(value: ($row['organisation'] ?? null));
 		if ($organisation !== null) {
@@ -925,7 +935,7 @@ class MigrateAgentData implements IRepairStep {
 	 * @return array<int, string> The previously reported uuids.
 	 */
 	private function loadReportedUnmigratable(): array {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, self::UNMIGRATABLE_KEY, '[]');
+		$raw = $this->appConfig->getValueString(AppIdentity::APP_ID, self::UNMIGRATABLE_KEY, '[]');
 		if ($raw === '') {
 			return [];
 		}
@@ -951,6 +961,6 @@ class MigrateAgentData implements IRepairStep {
 	 * @spec openspec/changes/agent-data-migration/specs/agent-data-migration/spec.md#a-repair-step-migrates-existing-or-agent-engine-data-into-hermiq-register-objects
 	 */
 	private function isEngineEnabled(): bool {
-		return $this->appConfig->getValueString(Application::APP_ID, self::ENGINE_FLAG_KEY, 'false') === 'true';
+		return $this->appConfig->getValueString(AppIdentity::APP_ID, self::ENGINE_FLAG_KEY, 'false') === 'true';
 	}//end isEngineEnabled()
 }//end class
