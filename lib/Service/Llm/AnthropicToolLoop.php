@@ -90,6 +90,13 @@ final class AnthropicToolLoop {
 	public string $text = '';
 
 	/**
+	 * The prompt-cache breakpoints every round's request carries, or null when the admin switched caching off.
+	 *
+	 * @var AnthropicCacheBreakpoints|null
+	 */
+	public ?AnthropicCacheBreakpoints $breakpoints = null;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param AnthropicChatRun $run        The turn.
