@@ -43,6 +43,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 	use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
 	use OCA\Hermiq\Service\Llm\ChatDriver;
 	use OCA\Hermiq\Service\Llm\ChatDriverRequest;
+	use OCA\Hermiq\Service\Llm\CliRunTokens;
 	use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 	use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
 	use OCA\Hermiq\Service\Llm\ProviderFactory;
@@ -64,6 +65,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 	 * @covers \OCA\Hermiq\Service\Llm\ProviderFactory
 	 * @uses   \OCA\Hermiq\Service\Llm\BrokerHttpClient
 	 * @uses   \OCA\Hermiq\Service\Llm\ChatDriver
+	 * @uses   \OCA\Hermiq\Service\Llm\CliRunTokens
 	 * @uses   \OCA\Hermiq\Service\Llm\ChatDriverRequest
 	 * @uses   \OCA\Hermiq\Service\Llm\ModelPolicyViolationException
 	 */
@@ -415,8 +417,12 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 			$tokens->expects(self::never())->method('mint');
 			$factory = $this->factory(['runTokenService' => $tokens]);
 
-			self::assertSame('', $this->call($factory, 'mintEgressRunToken', ['agentId' => 'agent-1', 'uid' => null]));
-			self::assertSame('', $this->call($factory, 'mintEgressRunToken', ['agentId' => 'agent-1', 'uid' => '']));
+			// The egress token is minted by the factory's CliRunTokens collaborator.
+			$cliRunTokens = $this->call($factory, 'cliRunTokens');
+			$mint         = new ReflectionMethod(CliRunTokens::class, 'mintEgressRunToken');
+
+			self::assertSame('', $mint->invokeArgs($cliRunTokens, ['agentId' => 'agent-1', 'uid' => null]));
+			self::assertSame('', $mint->invokeArgs($cliRunTokens, ['agentId' => 'agent-1', 'uid' => '']));
 		}//end testNoEgressTokenIsMintedWithoutAUser()
 
 		/**
