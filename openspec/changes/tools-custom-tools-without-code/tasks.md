@@ -11,7 +11,7 @@ Kind: code. Size M. Row `hermiq:tl-custom-tool`.
   - GIVEN an organisation admin WHEN they save a valid tool THEN it is stored in their organisation with a unique slug
   - GIVEN a non-admin WHEN they create or edit THEN it is refused
   - GIVEN an input schema with a nested object WHEN saved THEN it is refused with the allowed types named
-- [ ] Implement
+- [x] Implement
 - [ ] Test (PHPUnit on validation and rights; Newman for admin and non-admin)
 
 ### Task 2: Descriptors in the catalogue
@@ -21,8 +21,8 @@ Kind: code. Size M. Row `hermiq:tl-custom-tool`.
   - GIVEN enabled tools in two organisations WHEN a user's catalogue is built THEN only their organisation's appear, as hermiq.custom_<slug>
   - GIVEN an integriq target marked read-only WHEN described THEN reach stays external
   - GIVEN a wildcard grant WHEN resolved THEN no custom tool is granted
-- [ ] Implement
-- [ ] Test (PHPUnit on descriptor building and grant resolution)
+- [x] Implement
+- [x] Test (PHPUnit on descriptor building and grant resolution)
 
 ### Task 3: The invoker
 - **spec_ref**: `openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003`

@@ -321,6 +321,17 @@ $routes = [
             'requirements' => ['policyId' => '[^/]+'],
         ],
 
+        // tools-custom-tools-without-code (REQ-CUSTOOL-001): organisation admins and
+        // instance admins list, create and edit the organisation's custom tools.
+        ['name' => 'customTool#index',  'url' => '/api/custom-tools', 'verb' => 'GET'],
+        ['name' => 'customTool#create', 'url' => '/api/custom-tools', 'verb' => 'POST'],
+        [
+            'name'         => 'customTool#update',
+            'url'          => '/api/custom-tools/{id}',
+            'verb'         => 'PUT',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+
         // Compliance control packs (compliance-control-packs): org-scoped dashboard,
         // auditor's-pack export (both action-auth-gated), and per-agent AI factsheet
         // (owner/actingUser or compliance.view-factsheet, 404-not-403 IDOR guard).
