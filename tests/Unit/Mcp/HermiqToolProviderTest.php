@@ -41,6 +41,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Mcp;
 
+use OCA\Hermiq\Kernel\Contracts\ImageGenerationServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\TaskWriteServiceInterface;
 use OCA\Hermiq\Service\Chat\ImageGenerationService;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
@@ -143,7 +145,7 @@ class HermiqToolProviderTest extends TestCase {
 
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->willReturnCallback(
-			static fn (string $id): ?object => ($id === TaskWriteService::class ? $tasks : null)
+			static fn (string $id): ?object => ($id === TaskWriteServiceInterface::class ? $tasks : null)
 		);
 
 		return $container;
@@ -163,8 +165,8 @@ class HermiqToolProviderTest extends TestCase {
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->willReturnCallback(
 			static fn (string $id): ?object => match ($id) {
-				TaskWriteService::class => $tasks,
-				ImageGenerationService::class => $images,
+				TaskWriteServiceInterface::class => $tasks,
+				ImageGenerationServiceInterface::class => $images,
 				default => null,
 			}
 		);

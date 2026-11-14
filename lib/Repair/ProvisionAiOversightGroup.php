@@ -16,7 +16,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\Hermiq\Service\AiOversightAccess;
+use OCA\Hermiq\Kernel\Contracts\AiOversightAccessInterface;
 use OCP\IGroupManager;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -74,7 +74,7 @@ class ProvisionAiOversightGroup implements IRepairStep {
 	 * @spec openspec/specs/ai-oversight/spec.md
 	 */
 	public function run(IOutput $output): void {
-		$groupId = AiOversightAccess::OVERSIGHT_GROUP;
+		$groupId = AiOversightAccessInterface::OVERSIGHT_GROUP;
 		if ($this->groupManager->groupExists($groupId) === true) {
 			return;
 		}

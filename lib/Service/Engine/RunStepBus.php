@@ -50,6 +50,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
 
+use OCA\Hermiq\Kernel\Contracts\RunStepBusInterface;
 use OCP\ICache;
 use OCP\ICacheFactory;
 use Throwable;
@@ -63,7 +64,7 @@ use Throwable;
  * @license  EUPL-1.2 https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
  * @link     https://conduction.nl
  */
-class RunStepBus {
+class RunStepBus implements RunStepBusInterface {
 
 	/**
 	 * How long a bucket survives unread, in seconds.
@@ -95,20 +96,6 @@ class RunStepBus {
 	 * @var int
 	 */
 	private const MAX_RESULT_CHARS = 600;
-
-	/**
-	 * A tool call that completed.
-	 *
-	 * @var string
-	 */
-	public const OUTCOME_OK = 'ok';
-
-	/**
-	 * A tool call that did not complete.
-	 *
-	 * @var string
-	 */
-	public const OUTCOME_ERROR = 'error';
 
 	/**
 	 * The distributed cache, or null when none is configured.

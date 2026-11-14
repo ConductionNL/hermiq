@@ -94,22 +94,22 @@ namespace OCA\Hermiq\Mcp;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeInterface;
-use OCA\Hermiq\Service\Chat\ImageGenerationService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\CourseRecommendationEngineInterface;
+use OCA\Hermiq\Kernel\Contracts\DelegationServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\GraphToolsInterface;
+use OCA\Hermiq\Kernel\Contracts\ImageGenerationServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\MailReadServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\MemoryServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\NcNativeWriteServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\TaskWriteServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\WebFetchServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\WebSearchClientInterface;
 use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
 use OCA\Hermiq\Service\Workspace\WorkspaceWrites;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\CourseRecommendationEngine;
-use OCA\Hermiq\Service\DelegationService;
-use OCA\OpenRegister\Service\Capability\ToolReachResolver;
-use OCA\Hermiq\Service\MemoryService;
-use OCA\Hermiq\Service\Graph\GraphTools;
-use OCA\Hermiq\Service\NcNative\MailReadService;
-use OCA\Hermiq\Service\NcNative\NcNativeWriteService;
-use OCA\Hermiq\Service\NcNative\TaskWriteService;
-use OCA\Hermiq\Service\ToolAccessRequestService;
-use OCA\Hermiq\Service\WebResearch\WebFetchService;
-use OCA\Hermiq\Service\WebResearch\WebSearchClient;
 use OCA\OpenRegister\Mcp\IMcpToolProvider;
+use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 use OCP\App\IAppManager;
 use OCP\Calendar\IManager as ICalendarManager;
 use OCP\Contacts\IManager as IContactsManager;
@@ -172,7 +172,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 */
 	private const TOOL_DESCRIPTORS = [
 		[
-			'id' => Application::APP_ID . '.listFiles',
+			'id' => AppIdentity::APP_ID . '.listFiles',
 			'subject' => 'file',
 			'action' => 'list',
 			// The acting user's own files — nothing they could not already list.
@@ -190,7 +190,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'read',
 		],
 		[
-			'id' => Application::APP_ID . '.readFile',
+			'id' => AppIdentity::APP_ID . '.readFile',
 			'subject' => 'file',
 			'action' => 'get',
 			'reach' => ToolReachResolver::REACH_USER,
@@ -207,7 +207,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'read',
 		],
 		[
-			'id' => Application::APP_ID . '.searchContacts',
+			'id' => AppIdentity::APP_ID . '.searchContacts',
 			'subject' => 'contact',
 			'action' => 'search',
 			// 🔴 `user`, NOT `instance`, even though the system addressbook
@@ -230,7 +230,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'read',
 		],
 		[
-			'id' => Application::APP_ID . '.listCalendarEvents',
+			'id' => AppIdentity::APP_ID . '.listCalendarEvents',
 			'subject' => 'calendarEvent',
 			'action' => 'list',
 			'reach' => ToolReachResolver::REACH_USER,
@@ -247,7 +247,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'read',
 		],
 		[
-			'id' => Application::APP_ID . '.sendMail',
+			'id' => AppIdentity::APP_ID . '.sendMail',
 			// `send`, not `create`. Sending is not creating a record someone can
 			// review before it leaves — it is irreversible and reaches a third
 			// party, and a matrix that files it under `create` invites granting
@@ -279,7 +279,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'create',
 		],
 		[
-			'id' => Application::APP_ID . '.listDeckBoards',
+			'id' => AppIdentity::APP_ID . '.listDeckBoards',
 			'subject' => 'deckBoard',
 			'action' => 'list',
 			'reach' => ToolReachResolver::REACH_USER,
@@ -296,7 +296,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'read',
 		],
 		[
-			'id' => Application::APP_ID . '.searchTools',
+			'id' => AppIdentity::APP_ID . '.searchTools',
 			'subject' => 'tool',
 			'action' => 'search',
 			// Reads the agent's own catalogue; touches nothing outside itself.
@@ -317,7 +317,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'read',
 		],
 		[
-			'id' => Application::APP_ID . '.listAvailableTools',
+			'id' => AppIdentity::APP_ID . '.listAvailableTools',
 			'subject' => 'tool',
 			'action' => 'list',
 			// Reads the instance catalogue and the agent's own grants; writes nothing.
@@ -339,7 +339,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'read',
 		],
 		[
-			'id' => Application::APP_ID . '.requestToolAccess',
+			'id' => AppIdentity::APP_ID . '.requestToolAccess',
 			// `request`, deliberately not a CRUD verb. This tool asks a HUMAN
 			// for a grant; forcing it into `create` would put the thing that
 			// escalates privilege in the same bucket as the things it escalates
@@ -368,7 +368,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'write',
 		],
 		[
-			'id' => Application::APP_ID . '.recommendCourses',
+			'id' => AppIdentity::APP_ID . '.recommendCourses',
 			'subject' => 'course',
 			'action' => 'recommend',
 			'reach' => ToolReachResolver::REACH_USER,
@@ -393,7 +393,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'update',
 		],
 		[
-			'id' => Application::APP_ID . '.rememberMemory',
+			'id' => AppIdentity::APP_ID . '.rememberMemory',
 			'subject' => 'memory',
 			'action' => 'create',
 			'reach' => ToolReachResolver::REACH_SELF,
@@ -421,7 +421,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'create',
 		],
 		[
-			'id' => Application::APP_ID . '.recallMemory',
+			'id' => AppIdentity::APP_ID . '.recallMemory',
 			'subject' => 'memory',
 			'action' => 'search',
 			'reach' => ToolReachResolver::REACH_SELF,
@@ -445,7 +445,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'read',
 		],
 		[
-			'id' => Application::APP_ID . '.forgetMemory',
+			'id' => AppIdentity::APP_ID . '.forgetMemory',
 			'subject' => 'memory',
 			'action' => 'delete',
 			// `delete` scope but `self` reach — reversible and private to the
@@ -472,7 +472,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'delete',
 		],
 		[
-			'id' => Application::APP_ID . '.webSearch',
+			'id' => AppIdentity::APP_ID . '.webSearch',
 			'subject' => 'web',
 			'action' => 'search',
 			// Egress. `scope: read` made this look inert; the query itself leaves
@@ -494,7 +494,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'read',
 		],
 		[
-			'id' => Application::APP_ID . '.webFetch',
+			'id' => AppIdentity::APP_ID . '.webFetch',
 			'subject' => 'web',
 			'action' => 'get',
 			// Fetches a CALLER-SUPPLIED url — the model chooses where the
@@ -518,7 +518,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'read',
 		],
 		[
-			'id' => Application::APP_ID . '.delegateAgent',
+			'id' => AppIdentity::APP_ID . '.delegateAgent',
 			// `delegate` is its own verb because the thing it does is hand the
 			// caller's authority to another agent. No CRUD verb describes that,
 			// and picking the nearest one would understate it.
@@ -570,34 +570,34 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @param IMailer $mailer Outbound email.
 	 * @param IAppManager $appManager App availability (Deck) + describe.
 	 * @param ContainerInterface $container Lazy Deck BoardService resolution.
-	 * @param CourseRecommendationEngine $courseEngine Shared engine backing `recommendCourses`
+	 * @param CourseRecommendationEngineInterface $courseEngine Shared engine backing `recommendCourses`
 	 *                                                 (ai-course-recommendations) — no
 	 *                                                 duplicated gating/scoring/signal-read
 	 *                                                 logic.
-	 * @param MemoryService $memoryService Shared service backing `rememberMemory`/
+	 * @param MemoryServiceInterface $memoryService Shared service backing `rememberMemory`/
 	 *                                     `recallMemory`/`forgetMemory`
 	 *                                     (agent-memory-tools) — no duplicated
 	 *                                     append/redact/recall/soft-delete logic.
-	 * @param WebSearchClient $webSearchClient Shared client backing `webSearch`
+	 * @param WebSearchClientInterface $webSearchClient Shared client backing `webSearch`
 	 *                                         (web-research-tool) —
 	 *                                         SSRF-guarded call to the
 	 *                                         admin-configured search backend.
-	 * @param WebFetchService $webFetchService Shared service backing `webFetch`
+	 * @param WebFetchServiceInterface $webFetchService Shared service backing `webFetch`
 	 *                                         (web-research-tool) —
 	 *                                         SSRF-guarded GET + readable-text
 	 *                                         extraction.
-	 * @param DelegationService $delegationService Shared governed dispatcher backing
+	 * @param DelegationServiceInterface $delegationService Shared governed dispatcher backing
 	 *                                             `delegateAgent` (sub-agent-delegation) —
 	 *                                             all self/cycle/allowlist/depth/fan-out/
 	 *                                             organisation/model-policy/kill-switch/
 	 *                                             budget/approval gating lives there.
-	 * @param NcNativeWriteService $writeService Facade over the Calendar/Contacts/Notes
+	 * @param NcNativeWriteServiceInterface $writeService Facade over the Calendar/Contacts/Notes
 	 *                                           write services (nc-native-write-tools) —
 	 *                                           ownership guards, ADR-088 marking and the
 	 *                                           lazy Notes resolution all live there.
-	 * @param MailReadService $mailReadService Read-only mail (nc-mail-read-tools) —
+	 * @param MailReadServiceInterface $mailReadService Read-only mail (nc-mail-read-tools) —
 	 *                                         AI-feature gate and lazy Mail resolution live there.
-	 * @param ToolAccessRequestService $accessRequests Discovery past the grant and the
+	 * @param ToolAccessRequestServiceInterface $accessRequests Discovery past the grant and the
 	 *                                                 request that can widen it
 	 *                                                 (tool-discovery-and-access-requests) —
 	 *                                                 backs `listAvailableTools` and
@@ -622,14 +622,14 @@ class HermiqToolProvider implements IMcpToolProvider {
 		private readonly IMailer $mailer,
 		private readonly IAppManager $appManager,
 		private readonly ContainerInterface $container,
-		private readonly CourseRecommendationEngine $courseEngine,
-		private readonly MemoryService $memoryService,
-		private readonly WebSearchClient $webSearchClient,
-		private readonly WebFetchService $webFetchService,
-		private readonly DelegationService $delegationService,
-		private readonly NcNativeWriteService $writeService,
-		private readonly MailReadService $mailReadService,
-		private readonly ToolAccessRequestService $accessRequests,
+		private readonly CourseRecommendationEngineInterface $courseEngine,
+		private readonly MemoryServiceInterface $memoryService,
+		private readonly WebSearchClientInterface $webSearchClient,
+		private readonly WebFetchServiceInterface $webFetchService,
+		private readonly DelegationServiceInterface $delegationService,
+		private readonly NcNativeWriteServiceInterface $writeService,
+		private readonly MailReadServiceInterface $mailReadService,
+		private readonly ToolAccessRequestServiceInterface $accessRequests,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()
@@ -642,7 +642,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @spec openspec/changes/archive/2026-09-06-nc-native-tools/tasks.md#task-1-1
 	 */
 	public function getAppId(): string {
-		return Application::APP_ID;
+		return AppIdentity::APP_ID;
 	}//end getAppId()
 
 	/**
@@ -677,12 +677,12 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 */
 	private function taskDescriptors(): array {
 		try {
-			$tasks = $this->container->get(TaskWriteService::class);
+			$tasks = $this->container->get(TaskWriteServiceInterface::class);
 		} catch (Throwable) {
 			$tasks = null;
 		}
 
-		if ($tasks instanceof TaskWriteService && $tasks->canComplete() === true) {
+		if ($tasks instanceof TaskWriteServiceInterface && $tasks->canComplete() === true) {
 			return NcTaskToolDescriptors::ALL;
 		}
 
@@ -704,12 +704,12 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 */
 	private function imageDescriptors(): array {
 		try {
-			$images = $this->container->get(ImageGenerationService::class);
+			$images = $this->container->get(ImageGenerationServiceInterface::class);
 		} catch (Throwable) {
 			$images = null;
 		}
 
-		if ($images instanceof ImageGenerationService
+		if ($images instanceof ImageGenerationServiceInterface
 			&& $images->isAvailable(uid: $this->userSession->getUser()?->getUID()) === true
 		) {
 			return ImageToolDescriptors::ALL;
@@ -774,9 +774,9 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 */
 	private function userScopedServiceFor(string $toolId): ?string {
 		return match (true) {
-			in_array($toolId, GraphToolDescriptors::IDS, true) => GraphTools::class,
-			in_array($toolId, NcTaskToolDescriptors::IDS, true) => TaskWriteService::class,
-			in_array($toolId, ImageToolDescriptors::IDS, true) => ImageGenerationService::class,
+			in_array($toolId, GraphToolDescriptors::IDS, true) => GraphToolsInterface::class,
+			in_array($toolId, NcTaskToolDescriptors::IDS, true) => TaskWriteServiceInterface::class,
+			in_array($toolId, ImageToolDescriptors::IDS, true) => ImageGenerationServiceInterface::class,
 			default => null,
 		};
 
@@ -853,11 +853,11 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 */
 	private function invokeFileOrPimTool(string $toolId, NativeToolCall $call): ?array {
 		return match ($toolId) {
-			Application::APP_ID . '.listFiles' => $this->listFiles(uid: $call->uid, path: $call->text(name: 'path')),
-			Application::APP_ID . '.readFile' => $this->readFile(uid: $call->uid, path: $call->text(name: 'path')),
-			Application::APP_ID . '.searchContacts' => $this->searchContacts(query: $call->text(name: 'query')),
-			Application::APP_ID . '.listCalendarEvents' => $this->listCalendarEvents(uid: $call->uid, days: (int)($call->arguments['days'] ?? 7)),
-			Application::APP_ID . '.sendMail' => $this->sendMail(user: $call->user, arguments: $call->arguments),
+			AppIdentity::APP_ID . '.listFiles' => $this->listFiles(uid: $call->uid, path: $call->text(name: 'path')),
+			AppIdentity::APP_ID . '.readFile' => $this->readFile(uid: $call->uid, path: $call->text(name: 'path')),
+			AppIdentity::APP_ID . '.searchContacts' => $this->searchContacts(query: $call->text(name: 'query')),
+			AppIdentity::APP_ID . '.listCalendarEvents' => $this->listCalendarEvents(uid: $call->uid, days: (int)($call->arguments['days'] ?? 7)),
+			AppIdentity::APP_ID . '.sendMail' => $this->sendMail(user: $call->user, arguments: $call->arguments),
 			default => null,
 		};
 	}//end invokeFileOrPimTool()
@@ -872,14 +872,14 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 */
 	private function invokeNoteOrMailTool(string $toolId, NativeToolCall $call): ?array {
 		return match ($toolId) {
-			Application::APP_ID . '.listNotes' => $this->writeService->listNotes(uid: $call->uid),
+			AppIdentity::APP_ID . '.listNotes' => $this->writeService->listNotes(uid: $call->uid),
 			// No agentId: a note is marked with a system tag, which cannot
 			// carry per-agent data — attribution lives in the run trace.
-			Application::APP_ID . '.createNote' => $this->writeService->createNote(uid: $call->uid, arguments: $call->arguments),
-			Application::APP_ID . '.updateNote' => $this->writeService->updateNote(uid: $call->uid, arguments: $call->arguments),
-			Application::APP_ID . '.listMailAccounts' => $this->mailReadService->listAccounts(uid: $call->uid),
-			Application::APP_ID . '.listMailMessages' => $this->mailReadService->listMessages(uid: $call->uid, arguments: $call->arguments),
-			Application::APP_ID . '.readMailMessage' => $this->mailReadService->readMessage(uid: $call->uid, arguments: $call->arguments),
+			AppIdentity::APP_ID . '.createNote' => $this->writeService->createNote(uid: $call->uid, arguments: $call->arguments),
+			AppIdentity::APP_ID . '.updateNote' => $this->writeService->updateNote(uid: $call->uid, arguments: $call->arguments),
+			AppIdentity::APP_ID . '.listMailAccounts' => $this->mailReadService->listAccounts(uid: $call->uid),
+			AppIdentity::APP_ID . '.listMailMessages' => $this->mailReadService->listMessages(uid: $call->uid, arguments: $call->arguments),
+			AppIdentity::APP_ID . '.readMailMessage' => $this->mailReadService->readMessage(uid: $call->uid, arguments: $call->arguments),
 			default => null,
 		};
 	}//end invokeNoteOrMailTool()
@@ -894,12 +894,12 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 */
 	private function invokeAttributedWriteTool(string $toolId, NativeToolCall $call): ?array {
 		return match ($toolId) {
-			Application::APP_ID . '.createCalendarEvent' => $this->writeService->createCalendarEvent(
+			AppIdentity::APP_ID . '.createCalendarEvent' => $this->writeService->createCalendarEvent(
 				uid: $call->uid,
 				arguments: $call->arguments,
 				agentId: $call->agentId
 			),
-			Application::APP_ID . '.upsertContact' => $this->writeService->upsertContact(
+			AppIdentity::APP_ID . '.upsertContact' => $this->writeService->upsertContact(
 				uid: $call->uid,
 				arguments: $call->arguments,
 				agentId: $call->agentId
@@ -918,12 +918,12 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 */
 	private function invokeLookupOrDelegationTool(string $toolId, NativeToolCall $call): ?array {
 		return match ($toolId) {
-			Application::APP_ID . '.listDeckBoards' => $this->listDeckBoards(),
-			Application::APP_ID . '.recommendCourses' => $this->courseEngine->getOrRegenerate(learnerUid: $call->uid),
-			Application::APP_ID . '.webSearch' => $this->webSearch(uid: $call->uid, query: $call->text(name: 'query')),
-			Application::APP_ID . '.webFetch' => $this->webFetch(url: $call->text(name: 'url')),
-			Application::APP_ID . '.delegateAgent' => $this->delegateAgent(arguments: $call->arguments),
-			Application::APP_ID . '.listAvailableTools' => $this->accessRequests->listAvailable(
+			AppIdentity::APP_ID . '.listDeckBoards' => $this->listDeckBoards(),
+			AppIdentity::APP_ID . '.recommendCourses' => $this->courseEngine->getOrRegenerate(learnerUid: $call->uid),
+			AppIdentity::APP_ID . '.webSearch' => $this->webSearch(uid: $call->uid, query: $call->text(name: 'query')),
+			AppIdentity::APP_ID . '.webFetch' => $this->webFetch(url: $call->text(name: 'url')),
+			AppIdentity::APP_ID . '.delegateAgent' => $this->delegateAgent(arguments: $call->arguments),
+			AppIdentity::APP_ID . '.listAvailableTools' => $this->accessRequests->listAvailable(
 				uid: $call->uid,
 				agentId: $call->agentId,
 				query: $call->text(name: 'query')
@@ -942,7 +942,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 */
 	private function invokeToolAccessTool(string $toolId, NativeToolCall $call): ?array {
 		return match ($toolId) {
-			Application::APP_ID . '.requestToolAccess' => $this->accessRequests->request(
+			AppIdentity::APP_ID . '.requestToolAccess' => $this->accessRequests->request(
 				uid: $call->uid,
 				agentId: $call->agentId,
 				toolId: $call->text(name: 'toolId'),
@@ -952,7 +952,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			// call directly to ToolSearchService before it ever reaches the
 			// facade (see class docblock). A caller that bypasses the engine
 			// gets a clear error instead of a silent no-op.
-			Application::APP_ID . '.searchTools' => $this->error(
+			AppIdentity::APP_ID . '.searchTools' => $this->error(
 				code: 'internal_only',
 				message: 'hermiq.searchTools is handled internally by the Hermiq engine and is not invocable via the facade.'
 			),

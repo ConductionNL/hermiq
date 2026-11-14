@@ -45,6 +45,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\WebResearch;
 
+use OCA\Hermiq\Kernel\Contracts\WebFetchServiceInterface;
 use OCP\Http\Client\IClientService;
 use OCP\Http\Client\IResponse;
 use Psr\Log\LoggerInterface;
@@ -56,7 +57,7 @@ use Throwable;
  *
  * @spec openspec/changes/archive/2026-07-14-web-research-tool/tasks.md#task-5-webfetchservice--readabletextextractor
  */
-class WebFetchService {
+class WebFetchService implements WebFetchServiceInterface {
 
 	/**
 	 * The only accepted response content types (base type, parameters stripped).

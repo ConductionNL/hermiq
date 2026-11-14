@@ -58,13 +58,13 @@ namespace OCA\Hermiq\Controller;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\ActionAuthService;
-use OCA\Hermiq\Service\AgentAccessService;
-use OCA\Hermiq\Service\AgentTemplateService;
-use OCA\Hermiq\Service\GitHubTemplateCatalogService;
-use OCA\Hermiq\Service\GitHubTemplatePushService;
-use OCA\Hermiq\Service\SeedCustodyService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\AgentTemplateServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\GitHubTemplateCatalogServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\GitHubTemplatePushServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SeedCustodyServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCA\OpenRegister\Service\ObjectService;
@@ -117,15 +117,15 @@ class AgentTemplateController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param AgentTemplateService $templateService The template read/write/gallery path.
-	 * @param ActionAuthService $actionAuth The ADR-023 action-authorization service.
+	 * @param AgentTemplateServiceInterface $templateService The template read/write/gallery path.
+	 * @param ActionAuthServiceInterface $actionAuth The ADR-023 action-authorization service.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param OrganisationMapper $organisationMapper OpenRegister organisation lookup (instantiate's org resolution).
 	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param GitHubTemplateCatalogService $catalogService GitHub search/fetch (agent-template-github-store).
-	 * @param GitHubTemplatePushService $pushService GitHub publish (agent-template-github-store).
-	 * @param SeedCustodyService $seedCustody Owner-or-seed-custodian check (update/destroy guard).
-	 * @param AgentAccessService $agentAccess Per-agent authorization (export guard).
+	 * @param GitHubTemplateCatalogServiceInterface $catalogService GitHub search/fetch (agent-template-github-store).
+	 * @param GitHubTemplatePushServiceInterface $pushService GitHub publish (agent-template-github-store).
+	 * @param SeedCustodyServiceInterface $seedCustody Owner-or-seed-custodian check (update/destroy guard).
+	 * @param AgentAccessServiceInterface $agentAccess Per-agent authorization (export guard).
 	 * @param ObjectService $objectService OpenRegister object read/write — the ownership guard
 	 *   reads, and `destroy()` deletes, through OpenRegister directly (ADR-022/ADR-083: no
 	 *   app-local CRUD wrapper).
@@ -135,18 +135,18 @@ class AgentTemplateController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly AgentTemplateService $templateService,
-		private readonly ActionAuthService $actionAuth,
+		private readonly AgentTemplateServiceInterface $templateService,
+		private readonly ActionAuthServiceInterface $actionAuth,
 		private readonly IUserSession $userSession,
 		private readonly OrganisationMapper $organisationMapper,
 		private readonly LoggerInterface $logger,
-		private readonly GitHubTemplateCatalogService $catalogService,
-		private readonly GitHubTemplatePushService $pushService,
-		private readonly SeedCustodyService $seedCustody,
-		private readonly AgentAccessService $agentAccess,
+		private readonly GitHubTemplateCatalogServiceInterface $catalogService,
+		private readonly GitHubTemplatePushServiceInterface $pushService,
+		private readonly SeedCustodyServiceInterface $seedCustody,
+		private readonly AgentAccessServiceInterface $agentAccess,
 		private readonly ObjectService $objectService,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -262,8 +262,8 @@ class AgentTemplateController extends Controller {
 			// call. The authority to run it is the ownership guard four lines up.
 			$this->objectService->deleteObject(
 				uuid: $id,
-				register: AgentTemplateService::REGISTER_SLUG,
-				schema: AgentTemplateService::TEMPLATE_SCHEMA
+				register: AgentTemplateServiceInterface::REGISTER_SLUG,
+				schema: AgentTemplateServiceInterface::TEMPLATE_SCHEMA
 			);
 			return new JSONResponse([]);
 		} catch (Throwable $e) {
@@ -630,7 +630,7 @@ class AgentTemplateController extends Controller {
 			$this->logger->error('Hermiq agent-template github search failed: ' . $e->getMessage(), ['exception' => $e]);
 			return new JSONResponse(
 				[
-					'outcome' => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE,
+					'outcome' => GitHubTemplateCatalogServiceInterface::OUTCOME_UNREACHABLE,
 					'cards' => [],
 					'brokerCredentialAvailable' => $this->catalogService->isBrokerAvailable(),
 					'brokerUsed' => false,
@@ -740,7 +740,7 @@ class AgentTemplateController extends Controller {
 	 */
 	private function importGithubPackage(?string $package, string $userId): JSONResponse {
 		if ($package === null) {
-			return new JSONResponse(['error' => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE], Http::STATUS_NOT_FOUND);
+			return new JSONResponse(['error' => GitHubTemplateCatalogServiceInterface::OUTCOME_UNREACHABLE], Http::STATUS_NOT_FOUND);
 		}
 
 		$template = $this->templateService->importPackage(package: $package, source: 'hub', createdBy: $userId);
@@ -983,8 +983,8 @@ class AgentTemplateController extends Controller {
 			// caller's tenant never reaches the ownership comparison below.
 			$template = $this->objectService->find(
 				id: $templateId,
-				register: AgentTemplateService::REGISTER_SLUG,
-				schema: AgentTemplateService::TEMPLATE_SCHEMA
+				register: AgentTemplateServiceInterface::REGISTER_SLUG,
+				schema: AgentTemplateServiceInterface::TEMPLATE_SCHEMA
 			);
 		} catch (Throwable $e) {
 			// `ObjectService::find()` throws when the object is absent and this

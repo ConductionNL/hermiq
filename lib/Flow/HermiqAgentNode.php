@@ -32,7 +32,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Flow;
 
-use OCA\Hermiq\Service\ScheduleService;
+use OCA\Hermiq\Kernel\Contracts\ScheduleServiceInterface;
 use OCA\OpenRegister\Service\Flow\FlowNodeCall;
 use OCA\OpenRegister\Service\Flow\IFlowNode;
 use OCA\OpenRegister\Service\Flow\IFlowNodeLogActions;
@@ -81,12 +81,12 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 	/**
 	 * Constructor.
 	 *
-	 * @param ScheduleService $scheduleService The proven agent-turn runner.
+	 * @param ScheduleServiceInterface $scheduleService The proven agent-turn runner.
 	 * @param IL10N $l10n Translations.
 	 * @param IURLGenerator $urls For the palette icon.
 	 */
 	public function __construct(
-		private readonly ScheduleService $scheduleService,
+		private readonly ScheduleServiceInterface $scheduleService,
 		private readonly IL10N $l10n,
 		private readonly IURLGenerator $urls,
 	) {

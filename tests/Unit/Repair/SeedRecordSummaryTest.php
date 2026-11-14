@@ -26,6 +26,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Repair;
 
+use OCA\Hermiq\Kernel\Contracts\AssistantPromptLibraryInterface;
 use OCA\Hermiq\Repair\SeedRecordSummary;
 use OCA\Hermiq\Service\Assistant\AssistantPromptLibrary;
 use OCA\Hermiq\Service\Assistant\RecordSummaryService;
@@ -177,7 +178,7 @@ final class SeedRecordSummaryTest extends TestCase {
 		$container->method('get')->willReturnCallback(
 			static fn (string $class) => match ($class) {
 				ObjectService::class => $objectService,
-				AssistantPromptLibrary::class => $library,
+				AssistantPromptLibraryInterface::class => $library,
 				default => throw new RuntimeException("Unexpected service: {$class}"),
 			}
 		);

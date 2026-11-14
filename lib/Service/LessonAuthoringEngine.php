@@ -33,6 +33,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\LessonAuthoringEngineInterface;
+use OCA\Hermiq\Service\LessonAuthoring\AuthoringRequest;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -42,71 +44,7 @@ use Throwable;
  *
  * @spec openspec/specs/lesson-authoring/spec.md
  */
-class LessonAuthoringEngine {
-
-	/**
-	 * Action: draft a lesson outline from learning goals.
-	 *
-	 * @var string
-	 */
-	public const ACTION_OUTLINE = 'outline';
-
-	/**
-	 * Action: suggest questions for a lesson.
-	 *
-	 * @var string
-	 */
-	public const ACTION_QUESTIONS = 'questions';
-
-	/**
-	 * Action: rewrite a text at a lower reading level.
-	 *
-	 * @var string
-	 */
-	public const ACTION_SIMPLIFY = 'simplify';
-
-	/**
-	 * Action: suggest which given goals a lesson covers.
-	 *
-	 * @var string
-	 */
-	public const ACTION_GOAL_SUGGESTIONS = 'goal-suggestions';
-
-	/**
-	 * The reading levels `simplify` accepts, each with the description the prompt uses.
-	 *
-	 * @var array<string, string>
-	 */
-	public const READING_LEVELS = [
-		'A1' => 'CEFR A1: very short sentences and only the most common everyday words',
-		'A2' => 'CEFR A2: short sentences and common words',
-		'B1' => 'CEFR B1: plain language most adults understand',
-		'B2' => 'CEFR B2: clear language, with subject terms explained',
-		'1F' => 'Dutch referentieniveau 1F: the basic level expected at the end of primary school',
-		'2F' => 'Dutch referentieniveau 2F: the level expected at the end of vmbo or mbo 2 and 3',
-		'3F' => 'Dutch referentieniveau 3F: the level expected at the end of havo or mbo 4',
-	];
-
-	/**
-	 * The reading level used when the caller names none.
-	 *
-	 * @var string
-	 */
-	public const DEFAULT_READING_LEVEL = 'B1';
-
-	/**
-	 * The fewest questions `questions` returns.
-	 *
-	 * @var int
-	 */
-	public const MIN_QUESTIONS = 1;
-
-	/**
-	 * The most questions `questions` returns.
-	 *
-	 * @var int
-	 */
-	public const MAX_QUESTIONS = 10;
+class LessonAuthoringEngine implements LessonAuthoringEngineInterface {
 
 	/**
 	 * The AiFeature slug this engine is gated by.
@@ -185,9 +123,11 @@ class LessonAuthoringEngine {
 	private function outline(LessonDraftRequest $request): array {
 		return $this->execute(
 			action: self::ACTION_OUTLINE,
-			userId: $request->userId,
-			prompt: $this->outlinePrompt(request: $request),
-			sizes: $this->sizes(lessonText: $request->lessonText, goalCount: count($request->goals)),
+			request: new AuthoringRequest(
+				userId: $request->userId,
+				prompt: $this->outlinePrompt(request: $request),
+				sizes: $this->sizes(lessonText: $request->lessonText, goalCount: count($request->goals))
+			),
 			parse: fn (string $raw): ?array => $this->parseText(raw: $raw)
 		);
 	}//end outline()
@@ -256,9 +196,11 @@ class LessonAuthoringEngine {
 	private function questions(LessonDraftRequest $request, int $count): array {
 		return $this->execute(
 			action: self::ACTION_QUESTIONS,
-			userId: $request->userId,
-			prompt: $this->questionPrompt(request: $request, count: $count),
-			sizes: $this->sizes(lessonText: $request->lessonText, goalCount: count($request->goals)),
+			request: new AuthoringRequest(
+				userId: $request->userId,
+				prompt: $this->questionPrompt(request: $request, count: $count),
+				sizes: $this->sizes(lessonText: $request->lessonText, goalCount: count($request->goals))
+			),
 			parse: fn (string $raw): ?array => $this->parseQuestions(raw: $raw, limit: $count)
 		);
 	}//end questions()
@@ -316,9 +258,11 @@ class LessonAuthoringEngine {
 
 		return $this->execute(
 			action: self::ACTION_SIMPLIFY,
-			userId: $userId,
-			prompt: $prompt,
-			sizes: $this->sizes(lessonText: $lessonText, goalCount: 0),
+			request: new AuthoringRequest(
+				userId: $userId,
+				prompt: $prompt,
+				sizes: $this->sizes(lessonText: $lessonText, goalCount: 0)
+			),
 			parse: function (string $raw) use ($level): ?array {
 				$fields = $this->parseText(raw: $raw);
 				if ($fields === null) {
@@ -348,9 +292,11 @@ class LessonAuthoringEngine {
 
 		return $this->execute(
 			action: self::ACTION_GOAL_SUGGESTIONS,
-			userId: $userId,
-			prompt: $this->goalSuggestionPrompt(lessonText: $lessonText, goals: $candidates->goals),
-			sizes: $this->sizes(lessonText: $lessonText, goalCount: count($candidates->goals)),
+			request: new AuthoringRequest(
+				userId: $userId,
+				prompt: $this->goalSuggestionPrompt(lessonText: $lessonText, goals: $candidates->goals),
+				sizes: $this->sizes(lessonText: $lessonText, goalCount: count($candidates->goals))
+			),
 			parse: fn (string $raw): ?array => $this->parseGoalIndexes(raw: $raw, candidates: $candidates)
 		);
 	}//end suggestGoals()
@@ -383,9 +329,7 @@ class LessonAuthoringEngine {
 	 * Gate, call the provider, parse, log once, and build the envelope.
 	 *
 	 * @param string $action One of the ACTION_* constants.
-	 * @param string $userId The requesting user.
-	 * @param string $prompt The built prompt.
-	 * @param array{lessonTextLength: int, goalCount: int} $sizes Input sizes for the call log.
+	 * @param AuthoringRequest $request Who asked for a lesson-authoring action, and with what.
 	 * @param callable(string): (array<string, mixed>|null) $parse Turns raw output into result fields, or null when unusable.
 	 *
 	 * @return array<string, mixed> The success or unavailable envelope.
@@ -395,7 +339,10 @@ class LessonAuthoringEngine {
 	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-008-a-provider-failure-or-unusable-output-degrades-to-unavailable
 	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-011-the-model-runs-through-the-hermiq-provider-factory
 	 */
-	private function execute(string $action, string $userId, string $prompt, array $sizes, callable $parse): array {
+	private function execute(string $action, AuthoringRequest $request, callable $parse): array {
+		$userId = $request->userId;
+		$prompt = $request->prompt;
+		$sizes = $request->sizes;
 		// Gate (REQ-001): zero provider footprint when missing or not enabled.
 		$feature = $this->aiFeatureService->findBySlug(slug: self::AIFEATURE_SLUG);
 		if ($feature === null || (string)($feature->getObject()['lifecycle'] ?? '') !== 'enabled') {
