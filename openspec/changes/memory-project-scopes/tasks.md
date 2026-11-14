@@ -27,8 +27,8 @@ Kind: code. Size M. Row `hermiq:dm-project-memory`.
 - **acceptance_criteria**:
   - GIVEN a project session WHEN `rememberMemory` runs with scope `agent` THEN the project memory gains the entry
   - GIVEN the CLI transport WHEN the same call arrives over the governed MCP endpoint THEN the project key comes from the run token
-- [ ] Implement
-- [ ] Test (PHPUnit on the injection and on the token claim)
+- [x] Implement
+- [x] Test (PHPUnit on the injection and on the token claim)
 
 ### Task 4: Project picker on the Chat page
 - **spec_ref**: `openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001`

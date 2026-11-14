@@ -492,4 +492,37 @@ final class McpRunControllerDispatchPathsTest extends TestCase {
 		self::assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
 		self::assertSame(-32700, $response->getData()['error']['code']);
 	}//end testTheRealBodyReaderReadsTheInputStream()
+
+	/**
+	 * The project key in the verified token reaches the governed invoker; the
+	 * model never supplies it (memory-project-scopes, CLI transport).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	public function testTheTokensProjectKeyReachesTheInvoker(): void {
+		$this->toolLoop->expects(self::once())
+			->method('buildFunctionInfos')
+			->with(self::anything(), self::anything(), self::anything(), self::anything(), self::anything(), self::anything(), 'omgevingsvisie-2040')
+			->willReturn([$this->functionInfo(self::TOOL, '{}')]);
+
+		$this->controller(body: $this->callBody(), binding: ['projectKey' => 'omgevingsvisie-2040'])->handle();
+	}//end testTheTokensProjectKeyReachesTheInvoker()
+
+	/**
+	 * A token without a project key builds the invoker with an empty one.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	public function testATokenWithoutAProjectBuildsNoProjectKey(): void {
+		$this->toolLoop->expects(self::once())
+			->method('buildFunctionInfos')
+			->with(self::anything(), self::anything(), self::anything(), self::anything(), self::anything(), self::anything(), '')
+			->willReturn([$this->functionInfo(self::TOOL, '{}')]);
+
+		$this->controller(body: $this->callBody())->handle();
+	}//end testATokenWithoutAProjectBuildsNoProjectKey()
 }//end class

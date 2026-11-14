@@ -317,4 +317,41 @@ final class RunTokenServiceTest extends TestCase {
 		$this->assertSame(['runId' => '', 'agentId' => '', 'userId' => '', 'conversationId' => ''], $service->verify(token: 'presented'));
 
 	}//end testAMalformedRecordVerifiesToNothing()
+
+	/**
+	 * A run in a project carries its project key in the record and the binding.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	public function testAProjectKeyIsBoundIntoTheToken(): void {
+		$store = new InMemoryRunTokenStore();
+		$service = $this->service($store);
+
+		$token = $service->mint(runId: 'run-1', agentId: 'agent-1', userId: 'alice', conversationId: 'conv-1', projectKey: 'omgevingsvisie-2040');
+
+		$this->assertSame('omgevingsvisie-2040', json_decode($store->rows[hash('sha256', $token)]['record'], true)['projectKey']);
+		$this->assertSame(
+			['runId' => 'run-1', 'agentId' => 'agent-1', 'userId' => 'alice', 'conversationId' => 'conv-1', 'projectKey' => 'omgevingsvisie-2040'],
+			$service->verify(token: $token)
+		);
+	}//end testAProjectKeyIsBoundIntoTheToken()
+
+	/**
+	 * A run outside a project stores and returns no project key.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	public function testARunOutsideAProjectCarriesNoProjectKey(): void {
+		$store = new InMemoryRunTokenStore();
+		$service = $this->service($store);
+
+		$token = $service->mint(runId: 'run-1', agentId: 'agent-1', userId: 'alice');
+
+		$this->assertArrayNotHasKey('projectKey', json_decode($store->rows[hash('sha256', $token)]['record'], true));
+		$this->assertArrayNotHasKey('projectKey', (array)$service->verify(token: $token));
+	}//end testARunOutsideAProjectCarriesNoProjectKey()
 }//end class

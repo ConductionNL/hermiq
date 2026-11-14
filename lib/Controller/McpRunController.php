@@ -345,7 +345,8 @@ class McpRunController extends Controller {
 				method: (string)$body['method'],
 				params: $this->requestParams(body: $body),
 				agentId: $binding['agentId'],
-				conversationId: $binding['conversationId']
+				conversationId: $binding['conversationId'],
+				projectKey: (string)($binding['projectKey'] ?? '')
 			);
 		} finally {
 			$this->workspaceScope?->leave();
@@ -448,12 +449,21 @@ class McpRunController extends Controller {
 	 * @param string $agentId The run's agent UUID (from the token).
 	 * @param string $conversationId The conversation this run belongs to, so a step
 	 *                               published on the bus reaches the right stream.
+	 * @param string $projectKey The run's project, from the token (memory-project-scopes).
 	 *
 	 * @return Response The JSON-RPC response.
 	 *
 	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-tool-call-is-governed-not-passed-through
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
-	private function dispatch(mixed $id, string $method, array $params, string $agentId, string $conversationId = ''): Response {
+	private function dispatch(
+		mixed $id,
+		string $method,
+		array $params,
+		string $agentId,
+		string $conversationId = '',
+		string $projectKey = '',
+	): Response {
 		if ($method === 'tools/list') {
 			return $this->jsonRpcSuccess(id: $id, result: ['tools' => $this->resolveMcpTools(agentId: $agentId)]);
 		}
@@ -464,7 +474,8 @@ class McpRunController extends Controller {
 				call: new ToolCallRequest(
 					params: $params,
 					agentId: $agentId,
-					conversationId: $conversationId
+					conversationId: $conversationId,
+					projectKey: $projectKey
 				)
 			);
 		}
@@ -585,10 +596,13 @@ class McpRunController extends Controller {
 		// FacadeToolInvoker the http path builds.
 		$this->toolSearchService->registerResolved(descriptors: $descriptors);
 
+		// The project key comes from the verified token, never from the model:
+		// the invoker sets it on the memory tool calls (memory-project-scopes).
 		$functionInfos = $this->toolLoop->buildFunctionInfos(
 			functions: $descriptors,
 			agent: $agent,
-			organisation: $this->organisationOf(agent: $agent)
+			organisation: $this->organisationOf(agent: $agent),
+			projectKey: $call->projectKey
 		);
 
 		foreach ($functionInfos as $functionInfo) {

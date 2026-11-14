@@ -853,4 +853,80 @@ class FacadeToolInvokerTest extends TestCase {
 		$this->assertArrayNotHasKey('artefact', $steps[0]);
 
 	}//end testNonArtefactToolStepCarriesNoArtefactKey()
+
+	/**
+	 * In a project session the memory tools get the run's project key.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	public function testTheProjectKeyIsInjectedForMemoryTools(): void {
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->expects($this->once())
+			->method('invokeTool')
+			->with('hermiq_rememberMemory', ['content' => 'x', 'scope' => 'agent', 'agentId' => 'agent-1', 'projectKey' => 'omgevingsvisie-2040'])
+			->willReturn(['result' => ['remembered' => true], 'isError' => false]);
+
+		$invoker = new FacadeToolInvoker(
+			facade: $facade,
+			agentId: 'agent-1',
+			mcpIdByName: ['hermiq_rememberMemory' => 'hermiq.rememberMemory'],
+			projectKey: 'omgevingsvisie-2040'
+		);
+
+		$invoker->hermiq_rememberMemory(content: 'x', scope: 'agent');
+	}//end testTheProjectKeyIsInjectedForMemoryTools()
+
+	/**
+	 * A project key the model supplies is overwritten by the run's, and removed
+	 * when the session has no project.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	public function testAModelSuppliedProjectKeyIsNeverTrusted(): void {
+		$seen = [];
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->method('invokeTool')->willReturnCallback(
+			function (string $toolId, array $arguments) use (&$seen): array {
+				$seen[] = $arguments;
+				return ['result' => [], 'isError' => false];
+			}
+		);
+		$names = ['hermiq_recallMemory' => 'hermiq.recallMemory'];
+
+		(new FacadeToolInvoker(facade: $facade, agentId: 'agent-1', mcpIdByName: $names, projectKey: 'mine'))
+			->hermiq_recallMemory(query: 'q', projectKey: 'someone-elses');
+		(new FacadeToolInvoker(facade: $facade, agentId: 'agent-1', mcpIdByName: $names))
+			->hermiq_recallMemory(query: 'q', projectKey: 'someone-elses');
+
+		$this->assertSame(['query' => 'q', 'agentId' => 'agent-1', 'projectKey' => 'mine'], $seen[0]);
+		$this->assertSame(['query' => 'q', 'agentId' => 'agent-1'], $seen[1]);
+	}//end testAModelSuppliedProjectKeyIsNeverTrusted()
+
+	/**
+	 * Another tool's arguments are not touched by the project key.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	public function testTheProjectKeyIsNotInjectedForOtherTools(): void {
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->expects($this->once())
+			->method('invokeTool')
+			->with('hermiq_listFiles', ['path' => '/', 'projectKey' => 'kept'])
+			->willReturn(['result' => ['entries' => []], 'isError' => false]);
+
+		$invoker = new FacadeToolInvoker(
+			facade: $facade,
+			agentId: 'agent-1',
+			mcpIdByName: ['hermiq_listFiles' => 'hermiq.listFiles'],
+			projectKey: 'omgevingsvisie-2040'
+		);
+
+		$invoker->hermiq_listFiles(path: '/', projectKey: 'kept');
+	}//end testTheProjectKeyIsNotInjectedForOtherTools()
 }//end class

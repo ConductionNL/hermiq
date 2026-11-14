@@ -502,6 +502,10 @@ class ToolLoop implements ToolLoopInterface {
 	 *                     set, informs the side-effect classification).
 	 *                     False (every pre-existing caller) is
 	 *                     byte-for-byte unchanged behavior.
+	 * @param string|null $projectKey The session's project (memory-project-scopes),
+	 *                                threaded onto the shared `FacadeToolInvoker`, which
+	 *                                hands it to the memory tools. Null or '' is a session
+	 *                                without a project (shared memory only).
 	 *
 	 * @return array<int, FunctionInfo> FunctionInfo objects ready for `setTools()`.
 	 *
@@ -509,6 +513,7 @@ class ToolLoop implements ToolLoopInterface {
 	 * is a cross-cutting mode threaded through the engine as a flag by design.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
 	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-3
 	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-4
@@ -522,6 +527,7 @@ class ToolLoop implements ToolLoopInterface {
 		?ObjectEntity $agent = null,
 		?string $organisation = null,
 		bool $dryRun = false,
+		?string $projectKey = null,
 	): array {
 		$run = new ToolSurfaceRun();
 		$run->functions = $functions;
@@ -530,6 +536,7 @@ class ToolLoop implements ToolLoopInterface {
 		$run->agent = $agent;
 		$run->organisation = $organisation;
 		$run->dryRun = $dryRun;
+		$run->projectKey = $projectKey;
 
 		return (new FunctionInfoBuilder())->build(functions: $functions, invoker: $this->createInvoker(run: $run));
 	}//end buildFunctionInfos()
@@ -561,7 +568,8 @@ class ToolLoop implements ToolLoopInterface {
 			waivedConstraintSets: $this->grantResolver->waivedConstraintSets(grants: $this->agentGrants(agent: $run->agent)),
 			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent),
 			agentStillOn: $this->agentStillOn(agentId: $agentId),
-			askFirst: $this->askFirst(functions: $run->functions)
+			askFirst: $this->askFirst(functions: $run->functions),
+			projectKey: $run->projectKey
 		);
 	}//end createInvoker()
 

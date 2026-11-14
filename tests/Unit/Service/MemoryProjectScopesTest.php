@@ -238,4 +238,66 @@ class MemoryProjectScopesTest extends TestCase {
 		$this->assertSame(['agentId' => 'a', 'scope' => 'shared'], MemoryService::layerFilters(agentId: 'a', projectKey: null));
 		$this->assertSame(['agentId' => 'a', 'scope' => 'project', 'projectKey' => 'p'], MemoryService::layerFilters(agentId: 'a', projectKey: ' p '));
 	}//end testLayerFilters()
+
+	/**
+	 * A fact remembered in a project lands in the project memory; the shared memory is unchanged.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	public function testAppendInAProjectWritesTheProjectMemory(): void {
+		$this->service()->appendMemoryEntry(agentId: 'agent-1', text: 'De raad behandelt het ontwerp op 14 november 2026.', projectKey: 'omgevingsvisie-2040');
+
+		$this->assertCount(1, $this->saved);
+		$this->assertSame('project', $this->saved[0]['scope']);
+		$this->assertSame('omgevingsvisie-2040', $this->saved[0]['projectKey']);
+		$this->assertCount(2, $this->saved[0]['entries']);
+	}//end testAppendInAProjectWritesTheProjectMemory()
+
+	/**
+	 * Without a project key the fact goes to the shared memory.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	public function testAppendWithoutAProjectWritesTheSharedMemory(): void {
+		$this->service()->appendMemoryEntry(agentId: 'agent-1', text: 'Een naamconventie.');
+
+		$this->assertSame('shared', $this->saved[0]['scope']);
+		$this->assertArrayNotHasKey('projectKey', $this->saved[0]);
+	}//end testAppendWithoutAProjectWritesTheSharedMemory()
+
+	/**
+	 * Forget in a project finds the entry in the project first, then in the shared memory.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	public function testForgetInAProjectSearchesTheProjectThenShared(): void {
+		$service = $this->service();
+
+		$this->assertSame(['found' => true, 'scope' => 'memory'], $service->forgetEntry(agentId: 'agent-1', subjectUid: null, entryId: 'mem-visie-e1', projectKey: 'omgevingsvisie-2040'));
+		$this->assertSame('omgevingsvisie-2040', $this->saved[0]['projectKey']);
+
+		$this->assertSame(['found' => true, 'scope' => 'memory'], $service->forgetEntry(agentId: 'agent-1', subjectUid: null, entryId: 'mem-shared-e1', projectKey: 'omgevingsvisie-2040'));
+		$this->assertSame('shared', $this->saved[1]['scope']);
+	}//end testForgetInAProjectSearchesTheProjectThenShared()
+
+	/**
+	 * Forget never reaches another project's memory, nor a project's from outside one.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	public function testForgetNeverReachesAnotherProject(): void {
+		$service = $this->service();
+
+		$this->assertSame(['found' => false, 'scope' => null], $service->forgetEntry(agentId: 'agent-1', subjectUid: null, entryId: 'mem-wagen-e1', projectKey: 'omgevingsvisie-2040'));
+		$this->assertSame(['found' => false, 'scope' => null], $service->forgetEntry(agentId: 'agent-1', subjectUid: null, entryId: 'mem-visie-e1'));
+		$this->assertSame([], $this->saved);
+	}//end testForgetNeverReachesAnotherProject()
 }//end class

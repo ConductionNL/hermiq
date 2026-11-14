@@ -635,7 +635,8 @@ class Engine implements EngineInterface {
 					)
 				),
 				attachments: $turn['resolvedAttachments'],
-				speaker: ($turn['authorId'] ?? $turn['userId'])
+				speaker: ($turn['authorId'] ?? $turn['userId']),
+				projectKey: (string)($turn['conversationData']['projectKey'] ?? '')
 			);
 		} catch (Exception $e) {
 			throw $this->attachmentRefusalFor(exception: $e, attachments: $turn['resolvedAttachments']);

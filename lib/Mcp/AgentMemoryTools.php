@@ -95,6 +95,7 @@ final class AgentMemoryTools {
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
 	 * @spec openspec/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
 	private function rememberMemory(string $uid, array $arguments): array {
 		$agentId = trim((string)($arguments['agentId'] ?? ''));
@@ -108,8 +109,8 @@ final class AgentMemoryTools {
 		}
 
 		$scope = (string)($arguments['scope'] ?? '');
-		if (in_array($scope, ['agent', 'user'], true) === false) {
-			return $this->errors->build(code: 'invalid_argument', message: 'scope must be "agent" or "user".');
+		if (in_array($scope, ['agent', 'user', 'shared'], true) === false) {
+			return $this->errors->build(code: 'invalid_argument', message: 'scope must be "agent", "user" or "shared".');
 		}
 
 		if ($scope === 'user') {
@@ -117,15 +118,45 @@ final class AgentMemoryTools {
 			return $this->rememberedResult(scope: $scope, memory: $memory);
 		}
 
-		$memory = $this->memoryService->appendMemoryEntry(agentId: $agentId, text: $content);
-		return $this->rememberedResult(scope: $scope, memory: $memory);
+		// In a project session `agent` writes to the project memory and `shared`
+		// to the shared one; outside a project both go to the shared memory.
+		$projectKey = null;
+		if ($scope === 'agent') {
+			$projectKey = self::projectKeyOf(arguments: $arguments);
+		}
+
+		$memory = $this->memoryService->appendMemoryEntry(agentId: $agentId, text: $content, projectKey: $projectKey);
+		$result = $this->rememberedResult(scope: $scope, memory: $memory);
+		$result['layer'] = 'shared';
+		if ($projectKey !== null) {
+			$result['layer'] = 'project';
+		}
+
+		return $result;
 	}//end rememberMemory()
+
+	/**
+	 * The session's project key the invoker injected, or null outside a project.
+	 * Never something the model chooses: `FacadeToolInvoker` and the governed MCP
+	 * endpoint overwrite it from the run.
+	 * @param array<string, mixed> $arguments The tool arguments.
+	 * @return string|null The project key, or null.
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	public static function projectKeyOf(array $arguments): ?string {
+		$key = trim((string)($arguments['projectKey'] ?? ''));
+		if ($key === '') {
+			return null;
+		}
+
+		return $key;
+	}//end projectKeyOf()
 
 	/**
 	 * Shape a persisted Memory/UserProfile object into `rememberMemory`'s result
 	 * payload, surfacing the newly-appended entry's id.
 	 *
-	 * @param string $scope The scope the entry was appended to (`agent`|`user`).
+	 * @param string $scope The scope the entry was appended to (`agent`|`user`|`shared`).
 	 * @param ObjectEntity $memory The persisted Memory/UserProfile object.
 	 *
 	 * @return array<string, mixed> The result payload.
@@ -163,6 +194,7 @@ final class AgentMemoryTools {
 	 * @return array<string, mixed> The combined result, or an error envelope.
 	 *
 	 * @spec openspec/specs/agent-memory/spec.md#requirement-agent-self-service-memory-recall-tool
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
 	 */
 	private function recallMemory(string $uid, array $arguments): array {
 		$agentId = trim((string)($arguments['agentId'] ?? ''));
@@ -175,7 +207,12 @@ final class AgentMemoryTools {
 			return $this->errors->build(code: 'invalid_argument', message: 'A non-empty query is required.');
 		}
 
-		$entries = $this->memoryService->recallEntries(agentId: $agentId, subjectUid: $uid, query: $query);
+		$entries = $this->memoryService->recallEntries(
+			agentId: $agentId,
+			subjectUid: $uid,
+			query: $query,
+			projectKey: self::projectKeyOf(arguments: $arguments)
+		);
 		$turns = $this->memoryService->recallSessions(agentId: $agentId, query: $query);
 
 		$sessionTurns = [];
@@ -206,6 +243,7 @@ final class AgentMemoryTools {
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
 	 * @spec openspec/specs/agent-memory/spec.md#requirement-agent-self-service-memory-forget-tool-soft-delete-only
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
 	private function forgetMemory(string $uid, array $arguments): array {
 		$agentId = trim((string)($arguments['agentId'] ?? ''));
@@ -218,7 +256,12 @@ final class AgentMemoryTools {
 			return $this->errors->build(code: 'invalid_argument', message: 'A non-empty id is required.');
 		}
 
-		$result = $this->memoryService->forgetEntry(agentId: $agentId, subjectUid: $uid, entryId: $entryId);
+		$result = $this->memoryService->forgetEntry(
+			agentId: $agentId,
+			subjectUid: $uid,
+			entryId: $entryId,
+			projectKey: self::projectKeyOf(arguments: $arguments)
+		);
 
 		if ($result['found'] === false) {
 			return ['found' => false, 'message' => 'No memory entry with that id was found.'];

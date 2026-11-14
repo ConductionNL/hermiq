@@ -46,14 +46,16 @@ interface MemoryServiceInterface {
 	 * `charBudget` the object is flagged `needsConsolidation=true` (a nudge to summarise)
 	 * — older entries are never dropped (the spec forbids silent truncation).
 	 *
-	 * @param string $agentId The agent UUID.
-	 * @param string $text The memory text to append.
+	 * @param string      $agentId    The agent UUID.
+	 * @param string      $text       The memory text to append.
+	 * @param string|null $projectKey The project whose memory gains the entry, or null for the shared memory.
 	 *
 	 * @return ObjectEntity The persisted Memory object.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-2
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
-	public function appendMemoryEntry(string $agentId, string $text): ObjectEntity;
+	public function appendMemoryEntry(string $agentId, string $text, ?string $projectKey = null): ObjectEntity;
 
 	/**
 	 * Append an entry to an agent's UserProfile, flagging a consolidation nudge over budget.
@@ -118,13 +120,16 @@ interface MemoryServiceInterface {
 	 * @param string|null $subjectUid The acting user id whose own UserProfile may also
 	 *                                be searched, or null to search only the agent's Memory.
 	 * @param string $entryId The entry id to soft-delete.
+	 * @param string|null $projectKey The session's project: its memory is searched first,
+	 *                                then the shared memory. Null searches the shared memory only.
 	 *
 	 * @return array{found: bool, scope: (string|null)} Whether a match was found, and
 	 *                                                  in which object ('memory'|'userProfile') when it was.
 	 *
 	 * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-3
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
-	public function forgetEntry(string $agentId, ?string $subjectUid, string $entryId): array;
+	public function forgetEntry(string $agentId, ?string $subjectUid, string $entryId, ?string $projectKey = null): array;
 
 	/**
 	 * Get (or create) the Memory object for an agent, scoped to the caller's tenant.
