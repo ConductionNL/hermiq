@@ -1,6 +1,8 @@
 {
     "translations": {
         "Open {name} in Files": "Open {name} in Files",
+        "Anthropic reads the unchanged start of each request from its cache, which makes repeat turns cheaper and faster. The answer stays the same.": "Anthropic reads the unchanged start of each request from its cache, which makes repeat turns cheaper and faster. The answer stays the same.",
+        "Use the provider’s prompt cache": "Use the provider’s prompt cache",
         "Create an image": "Create an image",
         "The image is saved in your Files under Hermiq/Generated images and marked as made by an agent.": "The image is saved in your Files under Hermiq/Generated images and marked as made by an agent.",
         "What should the image show?": "What should the image show?",
@@ -2701,8 +2703,6 @@
         "Unused because": "Unused because",
         "Why a shown suggestion went unused (status=unused): the surface was closed, the suggestion expired, or a newer suggestion replaced it. Empty for every other status.": "Why a shown suggestion went unused (status=unused): the surface was closed, the suggestion expired, or a newer suggestion replaced it. Empty for every other status.",
         "The tool grants could not be read, so nothing was saved. Reload the page and try again.": "The tool grants could not be read, so nothing was saved. Reload the page and try again.",
-        "Anthropic reads the unchanged start of each request from its cache, which makes repeat turns cheaper and faster. The answer stays the same.": "Anthropic reads the unchanged start of each request from its cache, which makes repeat turns cheaper and faster. The answer stays the same.",
-        "Use the provider’s prompt cache": "Use the provider’s prompt cache",
         "page {page}": "page {page}",
         "The documents in this folder do not answer this question.": "The documents in this folder do not answer this question.",
         "This document does not answer this question.": "This document does not answer this question.",
