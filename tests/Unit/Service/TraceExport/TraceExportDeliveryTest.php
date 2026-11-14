@@ -37,6 +37,7 @@ namespace OCA\OpenRegister\Service\Credential {
 namespace OCA\Hermiq\Tests\Unit\Service\TraceExport {
 
 	use OCA\Hermiq\BackgroundJob\TraceExportJob;
+	use OCA\Hermiq\Service\TraceExport\TraceExportDelivery;
 	use OCA\Hermiq\Kernel\Contracts\GuardrailPolicyServiceInterface;
 	use OCA\Hermiq\Kernel\Contracts\WebResearchEgressGuardInterface;
 	use OCA\Hermiq\Service\Connection\ConnectionReporter;
@@ -71,6 +72,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\TraceExport {
 	 */
 	#[CoversClass(TraceExportQueue::class)]
 	#[CoversClass(TraceExportJob::class)]
+	#[CoversClass(TraceExportDelivery::class)]
 	#[CoversClass(TraceExportSender::class)]
 	#[UsesClass(TraceExportSettings::class)]
 	#[UsesClass(TraceExporter::class)]
@@ -423,10 +425,13 @@ namespace OCA\Hermiq\Tests\Unit\Service\TraceExport {
 
 			return new TraceExportJob(
 				time: $time,
-				queue: $queue,
-				settings: $settings,
-				sender: $this->sender(status: $status, verdict: ['allowed' => true], secret: 's', posted: $posted),
-				reporter: $reporter,
+				delivery: new TraceExportDelivery(
+					queue: $queue,
+					settings: $settings,
+					sender: $this->sender(status: $status, verdict: ['allowed' => true], secret: 's', posted: $posted),
+					reporter: $reporter,
+					logger: $logger
+				),
 				logger: $logger
 			);
 
