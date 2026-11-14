@@ -513,6 +513,8 @@ class ChatStreamController extends Controller {
 			// not read natively. On `final`, so no new SSE event type is added
 			// (hydra ADR-034 Decision 6).
 			'attachmentNotices' => array_values(array_map('strval', (array)($result['attachmentNotices'] ?? []))),
+			// Models-prompt-and-answer-cache: the answer came from the answer cache.
+			'fromCache' => (((array)($result['cache'] ?? [])) !== []),
 			// Chat-attachments-and-images D8: the answer's attachments, such as an
 			// image the agent created, so a client can show them without a reload.
 			'attachments' => array_values((array)($result['attachments'] ?? [])),

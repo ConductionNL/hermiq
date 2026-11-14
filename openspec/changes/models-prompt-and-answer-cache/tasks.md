@@ -49,8 +49,10 @@ Kind: code. Size M. Rows `hermiq:dm-prompt-cache`, `integriq:gw-ai-cache`.
   - GIVEN an eligible turn that repeats a stored input WHEN it runs THEN no model is called and the final event has fromCache true
   - GIVEN a turn with tools, a dry run or another organisation WHEN it runs THEN the cache is not read
   - GIVEN an entry whose model the policy no longer allows WHEN it would hit THEN it is deleted and the model is called
-- [ ] Implement
+- [x] Implement
+  > 2026-11-14: `AnswerCacheService` (eligibility, the SHA-256 key over organisation, agent, version, provider, model, temperature and the assembled input, the re-checked lookup, the store) runs in `ResponseGenerationHandler::runTurn()` right before the model call; a hit returns the stored answer with zero model tokens and sets `lastCache`, which the Engine returns as `cache` and the stream's `final` frame as `fromCache`.
 - [ ] Test (PHPUnit on eligibility, key and policy re-check; Newman that a second organisation reads no entry)
+  > PHPUnit is done (`AnswerCacheServiceTest`, `ResponseAnswerCacheTest`); the Newman check needs a live instance with two organisations and stays open.
 
 ### Task 6: The similarity layer through the vector facade
 - **spec_ref**: `openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-similar-questions-match-only-through-openregisters-vector-facade-req-acache-003`

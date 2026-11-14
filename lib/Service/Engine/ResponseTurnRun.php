@@ -112,6 +112,14 @@ final class ResponseTurnRun {
 	public array $attachments = [];
 
 	/**
+	 * Whether this turn skips the answer cache, read and write: the person asked
+	 * the model again (models-prompt-and-answer-cache).
+	 *
+	 * @var bool
+	 */
+	public bool $answerCacheBypass = false;
+
+	/**
 	 * The uid the attachments were resolved for.
 	 *
 	 * @var string

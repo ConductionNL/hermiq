@@ -677,6 +677,9 @@ class Engine implements EngineInterface {
 			// (run-analytics / ScheduleService::lastRunUsage): load-bearing,
 			// see class docblock.
 			'usage' => $this->responseHandler->lastUsage,
+			// Models-prompt-and-answer-cache: how the answer came from the answer
+			// cache ({layer, entryId}), [] when the model gave it.
+			'cache' => $this->responseHandler->lastCache,
 			// Chat-attachments-and-images D6: what happened to each attachment
 			// the model could not read natively, for the answer's notice.
 			'attachmentNotices' => $this->responseHandler->attachmentNotices,

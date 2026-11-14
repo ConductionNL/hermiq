@@ -50,6 +50,7 @@ use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
+use OCA\Hermiq\Service\AnswerCache\AnswerCacheService;
 use OCA\Hermiq\Service\Llm\AttachmentPartBuilder;
 use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
@@ -107,6 +108,15 @@ class ResponseGenerationHandler {
 	public array $attachmentNotices = [];
 
 	/**
+	 * How the last turn's answer came from the answer cache, or [] when the model
+	 * gave it (models-prompt-and-answer-cache): `layer` and `entryId`. Read by the
+	 * Engine onto its result, and from there onto the run and the `final` frame.
+	 *
+	 * @var array<string, string>
+	 */
+	public array $lastCache = [];
+
+	/**
 	 * Constructor.
 	 *
 	 * @param ProviderFactory $providerFactory LLM provider resolution (`hermiq.llm`).
@@ -123,6 +133,9 @@ class ResponseGenerationHandler {
 	 *                                                    a model declared to read them
 	 *                                                    (chat-attachments-and-images). Null
 	 *                                                    sends the text turn as before.
+	 * @param AnswerCacheService|null    $answerCache     The answer cache of turns without tools
+	 *                                                    (models-prompt-and-answer-cache). Null:
+	 *                                                    every turn calls the model.
 	 *
 	 * @return void
 	 *
@@ -134,6 +147,7 @@ class ResponseGenerationHandler {
 		private readonly LoggerInterface $logger,
 		private readonly ?FeatureProviderResolver $featureResolver = null,
 		private readonly ?AttachmentPartBuilder $attachmentParts = null,
+		private readonly ?AnswerCacheService $answerCache = null,
 	) {
 	}//end __construct()
 
@@ -298,7 +312,18 @@ class ResponseGenerationHandler {
 		try {
 			$this->resolveDriver(run: $run);
 			$this->buildMessages(run: $run);
+			// Models-prompt-and-answer-cache: the lookup sits exactly where the model
+			// call is, after every gate, so a blocked run stays blocked.
+			$this->lastCache = [];
+			$cached = $this->answerCache?->lookup(run: $run);
+			if ($cached !== null) {
+				$this->lastCache = ['layer' => $cached['layer'], 'entryId' => $cached['entryId']];
+				$this->lastUsage = ['promptTokens' => 0, 'completionTokens' => 0, 'llmSeconds' => 0.0];
+				return $cached['answer'];
+			}
+
 			$response = $this->callProvider(run: $run);
+			$this->answerCache?->store(run: $run, answer: $response);
 			(new TurnPerformanceLog(logger: $this->logger))->record(run: $run, response: $response);
 			return $response;
 		} catch (TurnStoppedException $e) {
