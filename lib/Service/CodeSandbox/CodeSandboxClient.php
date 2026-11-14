@@ -33,8 +33,9 @@ use Throwable;
  *
  * The own sandbox is the `hermiq-code-sandbox` ExApp, reached through AppAPI's
  * `POST /run` with `{language, code, stdin, files, limits}`. The hosted backend
- * goes through integriq's CallService and nowhere else; until that path is
- * wired, a hosted choice refuses every run rather than sending code anywhere.
+ * goes through integriq's CallService on the admin's chosen source and
+ * nowhere else (HostedSandboxDispatch); without integriq or that source, a
+ * hosted choice refuses every run rather than sending code anywhere.
  *
  * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-the-admin-chooses-where-code-runs-req-sandbox-004
  */
@@ -78,11 +79,6 @@ class CodeSandboxClient {
 	private const TRANSPORT_SLACK_SECONDS = 15;
 
 	/**
-	 * The refusal while the hosted path is not wired.
-	 */
-	public const HOSTED_NOT_WIRED = 'The hosted code sandbox cannot take runs yet. Choose the own sandbox in Admin settings, Code sandbox.';
-
-	/**
 	 * Constructor.
 	 *
 	 * @param CodeSandboxSettings     $settings  Where code runs.
@@ -106,8 +102,8 @@ class CodeSandboxClient {
 	 * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-the-admin-chooses-where-code-runs-req-sandbox-004
 	 */
 	public function isAvailable(): bool {
-		if ($this->settings->backend() !== CodeSandboxSettings::BACKEND_EXAPP) {
-			return false;
+		if ($this->settings->backend() === CodeSandboxSettings::BACKEND_HOSTED) {
+			return ($this->hosted()?->isAvailable(sourceId: (string)$this->settings->hostedSource()) === true);
 		}
 
 		return $this->appApi() !== null;
@@ -144,8 +140,12 @@ class CodeSandboxClient {
 			throw new InvalidArgumentException('The sandbox runs python or node.');
 		}
 
+		$clamped = self::clampLimits(limits: $limits);
 		if ($this->settings->backend() === CodeSandboxSettings::BACKEND_HOSTED) {
-			throw new CodeSandboxUnavailableException(self::HOSTED_NOT_WIRED);
+			return $this->runHosted(
+				payload: ['language' => $language, 'code' => $code, 'stdin' => $stdin, 'files' => array_values($files), 'limits' => $clamped],
+				limits: $clamped
+			);
 		}
 
 		$appApi = $this->appApi();
@@ -153,8 +153,7 @@ class CodeSandboxClient {
 			throw new CodeSandboxUnavailableException(CodeSandboxUnavailableException::NOT_INSTALLED);
 		}
 
-		$clamped = self::clampLimits(limits: $limits);
-		$result  = $appApi->exAppRequest(
+		$result = $appApi->exAppRequest(
 			self::EXAPP_ID,
 			self::RUN_ROUTE,
 			$uid,
@@ -186,6 +185,46 @@ class CodeSandboxClient {
 
 		return self::mapResult(body: (string)$result->getBody()) + ['limits' => $clamped];
 	}//end run()
+
+	/**
+	 * Run at the hosted sandbox through integriq.
+	 *
+	 * @param array<string, mixed>                  $payload The run contract's request.
+	 * @param array{wallSeconds: int, memoryMb: int} $limits  The clamped limits.
+	 *
+	 * @return array{exitCode: int, stdout: string, stderr: string, durationMs: int, timedOut: bool,
+	 *   files: array<int, mixed>, limits: array{wallSeconds: int, memoryMb: int}}
+	 *
+	 * @throws CodeSandboxUnavailableException When integriq or the source is not there; nothing was sent.
+	 * @throws RuntimeException               When the run could not be carried out or answered malformed.
+	 */
+	private function runHosted(array $payload, array $limits): array {
+		$hosted = $this->hosted();
+		if ($hosted === null) {
+			throw new CodeSandboxUnavailableException(HostedSandboxDispatch::SOURCE_MISSING);
+		}
+
+		$body = $hosted->run(
+			sourceId: (string)$this->settings->hostedSource(),
+			payload: $payload,
+			timeoutSeconds: ($limits['wallSeconds'] + self::TRANSPORT_SLACK_SECONDS)
+		);
+
+		return self::mapResult(body: $body) + ['limits' => $limits];
+	}//end runHosted()
+
+	/**
+	 * The hosted dispatch, or null without a container to reach integriq through.
+	 *
+	 * @return HostedSandboxDispatch|null
+	 */
+	private function hosted(): ?HostedSandboxDispatch {
+		if ($this->container === null) {
+			return null;
+		}
+
+		return new HostedSandboxDispatch(container: $this->container, logger: $this->logger);
+	}//end hosted()
 
 	/**
 	 * The limits a run is sent with: defaults filled in, each clamped to 1..ceiling.
