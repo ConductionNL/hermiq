@@ -24,6 +24,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Listener;
 
 use OCA\Hermiq\Event\AiOversightRecordedEvent;
+use OCA\Hermiq\Flow\OrganisationBudgetCheck;
 use OCA\Hermiq\Flow\OrganisationKillSwitchCheck;
 use OCA\Hermiq\Listener\AiOversightRecordedListener;
 use OCA\Hermiq\Listener\FlowOversightRegistrationListener;
@@ -109,18 +110,25 @@ final class RegistrationListenersTest extends TestCase {
 	}//end testAnUnbuildableConfigTypeIsLogged()
 
 	/**
-	 * The organisation kill switch is registered on the flow oversight event only.
+	 * The organisation kill switch and budget are registered on the flow oversight event only.
 	 *
 	 * @return void
 	 */
 	public function testTheKillSwitchIsRegisteredAsAFlowOversightCheck(): void {
 		$check = $this->createMock(OrganisationKillSwitchCheck::class);
+		$budget = $this->createMock(OrganisationBudgetCheck::class);
+		$registered = [];
 		$event = $this->createMock(RegisterFlowOversightEvent::class);
-		$event->expects($this->once())->method('registerCheck')->with($this->identicalTo($check));
+		$event->expects($this->exactly(2))->method('registerCheck')
+			->willReturnCallback(function ($registeredCheck) use (&$registered): void {
+				$registered[] = $registeredCheck;
+			});
 
-		$listener = new FlowOversightRegistrationListener(killSwitchCheck: $check);
+		$listener = new FlowOversightRegistrationListener(killSwitchCheck: $check, budgetCheck: $budget);
 		$listener->handle(new Event());
 		$listener->handle($event);
+
+		$this->assertSame([$check, $budget], $registered);
 	}//end testTheKillSwitchIsRegisteredAsAFlowOversightCheck()
 
 	/**

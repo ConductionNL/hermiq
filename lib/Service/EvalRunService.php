@@ -1162,6 +1162,9 @@ class EvalRunService implements EvalRunServiceInterface {
 	private function executeCase(EvalCaseRun $run, int $caseIndex): array {
 		$case = $run->cases[$caseIndex];
 		$record = $this->caseRecord(case: $case, caseIndex: $caseIndex);
+		if ($record['expectationType'] === 'counterfactualPair') {
+			return $this->executePairCase(run: $run, case: $case, record: $record);
+		}
 
 		try {
 			$actualOutput = $this->runCaseTurn(run: $run, prompt: $record['prompt']);
@@ -1174,6 +1177,39 @@ class EvalRunService implements EvalRunServiceInterface {
 		return $this->scoredCase(record: $record + ['actualOutput' => $actualOutput], scored: $scored);
 
 	}//end executeCase()
+
+	/**
+	 * Execute and score a `counterfactualPair` case: request A and request B
+	 * each run as their own agent turn (a separate session, so neither answer
+	 * sees the other), then the judge compares the two answers. Both answers
+	 * and the judge's rationale are kept on the case result. A failed turn is
+	 * an infra-error case, as for any other case.
+	 *
+	 * @param EvalCaseRun                                                $run    The case execution.
+	 * @param array<string,mixed>                                        $case   The EvalCase.
+	 * @param array{caseIndex:int,prompt:string,expectationType:string} $record The case's identifying fields.
+	 *
+	 * @return array<string,mixed>
+	 *
+	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-test-case-can-compare-two-requests-that-differ-in-one-attribute-req-biaseval-001
+	 */
+	private function executePairCase(EvalCaseRun $run, array $case, array $record): array {
+		$inputA = (string)($case['inputA'] ?? $record['prompt']);
+		$inputB = (string)($case['inputB'] ?? '');
+		$record['prompt'] = $inputA;
+		$record['inputB'] = $inputB;
+
+		try {
+			$outputA = $this->runCaseTurn(run: $run, prompt: $inputA);
+			$outputB = $this->runCaseTurn(run: $run, prompt: $inputB);
+		} catch (Throwable $e) {
+			return $this->failedCase(record: $record, error: $e) + ['actualOutputB' => ''];
+		}
+
+		$scored = $this->scoringService->scorePair(case: $case, outputA: $outputA, outputB: $outputB, organisation: $run->organisation);
+
+		return $this->scoredCase(record: $record + ['actualOutput' => $outputA, 'actualOutputB' => $outputB], scored: $scored);
+	}//end executePairCase()
 
 	/**
 	 * The identifying fields every case result starts with.

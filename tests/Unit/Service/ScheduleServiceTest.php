@@ -44,6 +44,8 @@ use OCA\Hermiq\Service\ScheduleService;
 use OCA\Hermiq\Service\SkillVersionService;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\Agent;
+
+use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -4098,4 +4100,60 @@ class ScheduleServiceTest extends TestCase {
 		$this->assertFalse($this->callStepHelper('stepsIncludeToolCall', ['steps' => [['type' => 'llm'], ['name' => 'x']]]));
 		$this->assertTrue($this->callStepHelper('stepsIncludeToolCall', ['steps' => [['type' => 'llm'], ['type' => 'tool']]]));
 	}//end testToolStepDetection()
+	/**
+	 * Agent-guardrails on the legacy (flag-off) branch: an input filter that
+	 * blocks refuses the run before any conversation exists or the chat service
+	 * is called.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-4-wire-input-output-filters-into-scheduleservice-runagentasowner
+	 */
+	public function testABlockingInputFilterRefusesTheLegacyRunBeforeAnyConversation(): void {
+		$this->guardrailPolicyService = $this->createMock(GuardrailPolicyService::class);
+		$this->guardrailPolicyService->method('effectivePolicyFor')->willReturn(['inputFilters' => [], 'outputFilters' => [], 'toolPolicy' => []]);
+		$this->guardrailPolicyService->method('filterInput')->willReturn(['text' => 'go', 'blocked' => true, 'reason' => 'prompt injection']);
+		$this->chatService = $this->createMock(ChatService::class);
+		$this->chatService->expects($this->never())->method('processMessage');
+		$this->conversationMapper = $this->createMock(ConversationMapper::class);
+		$this->conversationMapper->expects($this->never())->method('insert');
+		$this->service = $this->makeService();
+		$this->objectService->method('findAll')->willReturn([]);
+
+		$this->expectException(GuardrailBlockedException::class);
+
+		$this->service->runAgentAsOwner(owner: 'alice', agentId: 'agent-uuid', prompt: 'go');
+
+	}//end testABlockingInputFilterRefusesTheLegacyRunBeforeAnyConversation()
+
+	/**
+	 * Agent-guardrails on the legacy (flag-off) branch: a redacting input filter's
+	 * masked text is what the chat service receives, in a conversation owned by
+	 * the run's owner.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-4-wire-input-output-filters-into-scheduleservice-runagentasowner
+	 */
+	public function testARedactingInputFilterSendsTheMaskedPromptOnTheLegacyRun(): void {
+		$this->guardrailPolicyService = $this->createMock(GuardrailPolicyService::class);
+		$this->guardrailPolicyService->method('effectivePolicyFor')->willReturn(['inputFilters' => [], 'outputFilters' => [], 'toolPolicy' => []]);
+		$this->guardrailPolicyService->method('filterInput')->willReturn(['text' => 'mail [REDACTED]', 'blocked' => false, 'reason' => null]);
+		$this->guardrailPolicyService->method('filterOutput')->willReturnCallback(
+			static fn (array $policy, string $text): array => ['text' => $text, 'blocked' => false, 'reason' => null]
+		);
+		$this->chatService = $this->createMock(ChatService::class);
+		$this->chatService->expects($this->once())->method('processMessage')->with(
+			$this->anything(),
+			'alice',
+			'mail [REDACTED]'
+		)->willReturn(['message' => 'done']);
+		$this->service = $this->makeService();
+		$this->objectService->method('findAll')->willReturn([]);
+
+		$output = $this->service->runAgentAsOwner(owner: 'alice', agentId: 'agent-uuid', prompt: 'mail jan@example.nl');
+
+		$this->assertSame('done', $output);
+
+	}//end testARedactingInputFilterSendsTheMaskedPromptOnTheLegacyRun()
 }//end class

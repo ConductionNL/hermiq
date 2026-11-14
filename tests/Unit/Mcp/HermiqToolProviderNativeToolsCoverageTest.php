@@ -462,6 +462,51 @@ final class HermiqToolProviderNativeToolsCoverageTest extends TestCase {
 		);
 	}//end testDelegateAgentForwardsTrimmedArguments()
 
+	public function testDelegateAgentsNeedsAnAgentContext(): void {
+		$this->delegation->expects($this->never())->method('delegateMany');
+
+		$result = $this->provider->invokeTool('hermiq.delegateAgents', ['parts' => [['targetAgentId' => 't', 'task' => 'do it']]]);
+
+		$this->assertSame('no_agent_context', $result['error']['code']);
+	}//end testDelegateAgentsNeedsAnAgentContext()
+
+	/**
+	 * @return array<string, array{mixed}>
+	 */
+	public static function badPartsLists(): array {
+		return [
+			'missing' => [null],
+			'empty' => [[]],
+			'not a list' => [['b' => ['targetAgentId' => 't', 'task' => 'x']]],
+			'a string' => ['two parts'],
+		];
+	}//end badPartsLists()
+
+	/**
+	 * @dataProvider badPartsLists
+	 */
+	public function testDelegateAgentsNeedsAListOfParts(mixed $parts): void {
+		$this->delegation->expects($this->never())->method('delegateMany');
+
+		$this->assertSame(
+			self::error('invalid_argument', 'parts must be a non-empty list of {targetAgentId, task}.'),
+			$this->provider->invokeTool('hermiq.delegateAgents', ['agentId' => 'a', 'parts' => $parts])
+		);
+	}//end testDelegateAgentsNeedsAListOfParts()
+
+	public function testDelegateAgentsForwardsTheCallerAndTheParts(): void {
+		$parts = [['targetAgentId' => 'b', 'task' => 'one'], ['targetAgentId' => 'c', 'task' => 'two']];
+		$this->delegation->expects($this->once())
+			->method('delegateMany')
+			->with('caller', $parts)
+			->willReturn(['results' => []]);
+
+		$this->assertSame(
+			['results' => []],
+			$this->provider->invokeTool('hermiq.delegateAgents', ['agentId' => ' caller ', 'parts' => $parts])
+		);
+	}//end testDelegateAgentsForwardsTheCallerAndTheParts()
+
 	public function testNoteAndMailReadToolsActAsTheActingUser(): void {
 		$this->writes->expects($this->once())->method('listNotes')->with('alice')->willReturn(['notes' => []]);
 		$this->writes->expects($this->once())->method('createNote')->with('alice', ['title' => 'N'])->willReturn(['created' => 1]);
@@ -528,6 +573,6 @@ final class HermiqToolProviderNativeToolsCoverageTest extends TestCase {
 
 		$this->assertSame('unknown_tool', $result['error']['code']);
 		$this->assertStringStartsWith("Unknown tool id 'hermiq.nope'. Available: hermiq.listFiles, hermiq.readFile, ", $result['error']['message']);
-		$this->assertStringEndsWith('hermiq.delegateAgent.', $result['error']['message']);
+		$this->assertStringEndsWith('hermiq.delegateAgent, hermiq.delegateAgents.', $result['error']['message']);
 	}//end testAnUnknownToolNamesTheAvailableIds()
 }//end class

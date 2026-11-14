@@ -1,14 +1,17 @@
 ## 1. Server guard
 
-- [ ] 1.1 Add `"agent.set-acting-user": ["admin"]` to `lib/actions.seed.json`. A seed only reaches an
+- [x] 1.1 Add `"agent.set-acting-user": ["admin"]` to `lib/actions.seed.json`. A seed only reaches an
       empty matrix (`InitializeActions`), and a missing entry already defaults to `["admin"]`, so no
       repair step is needed. Verify: `ActionAuthServiceTest` covers the default for the new name.
-- [ ] 1.2 Add `lib/Listener/AgentActingUserGuardListener.php` for OpenRegister `ObjectCreatingEvent`
+- [x] 1.2 Add `lib/Listener/AgentActingUserGuardListener.php` for OpenRegister `ObjectCreatingEvent`
       and `ObjectUpdatingEvent`, registered in `lib/AppInfo/Application.php`, acting only on the
       hermiq `agent` schema: when the new `actingUser` is non-empty and differs from the old value,
       require `ActionAuthService::can($user, 'agent.set-acting-user')` and an existing, enabled
       user, else `stopPropagation()` with an error naming the reason (REQ-AGID-002, design D2).
       Verify: unit tests for allowed, missing action, disabled user, unchanged value, and clearing.
+      Done: registered in `ListenerRegistrar::registerAgentObjectListeners()` (the app's listener
+      registrar); the error is keyed `actingUser`; `tests/Stubs/Event` gains the OpenRegister
+      pre-save events for standalone runs.
 
 ## 2. Edit page
 

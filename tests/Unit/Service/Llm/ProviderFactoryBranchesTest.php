@@ -43,6 +43,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 	use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
 	use OCA\Hermiq\Service\Llm\ChatDriver;
 	use OCA\Hermiq\Service\Llm\ChatDriverRequest;
+	use OCA\Hermiq\Service\Llm\CliRunTokens;
 	use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 	use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
 	use OCA\Hermiq\Service\Llm\ProviderFactory;
@@ -62,12 +63,29 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 	 * The factory's guard and fallback branches, one decision per test.
 	 *
 	 * @covers \OCA\Hermiq\Service\Llm\ProviderFactory
+	 * @uses   \OCA\Hermiq\Service\Llm\AnthropicCliRunner
+	 * @uses   \OCA\Hermiq\Service\Llm\ProviderCallFailedException
 	 * @uses   \OCA\Hermiq\Service\Llm\BrokerHttpClient
 	 * @uses   \OCA\Hermiq\Service\Llm\ChatDriver
 	 * @uses   \OCA\Hermiq\Service\Llm\ChatDriverRequest
+	 * @uses   \OCA\Hermiq\Service\Llm\CliRunTokens
 	 * @uses   \OCA\Hermiq\Service\Llm\ModelPolicyViolationException
 	 */
 	final class ProviderFactoryBranchesTest extends TestCase {
+
+		/**
+		 * The cli decisions that live in the factory's collaborators, reached through the
+		 * factory's own wiring: method => [factory accessor, collaborator method].
+		 *
+		 * @var array<string, array{0: string, 1: string}>
+		 */
+		private const MOVED = [
+			'appApiGap' => ['cliRunner', 'appApiGap'],
+			'runnerGap' => ['cliRunner', 'runnerGap'],
+			'resolveCliToken' => ['cliRunner', 'resolveToken'],
+			'mapHistoryToCliMessages' => ['cliRunner', 'mapHistoryToCliMessages'],
+			'mintEgressRunToken' => ['cliRunTokens', 'mintEgressRunToken'],
+		];
 
 		/**
 		 * Build a factory with only the named collaborators.
@@ -101,6 +119,12 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 		 * @return mixed
 		 */
 		private function call(ProviderFactory $factory, string $method, array $args = []): mixed {
+			if (isset(self::MOVED[$method]) === true) {
+				[$accessor, $name] = self::MOVED[$method];
+				$owner = (new ReflectionMethod(ProviderFactory::class, $accessor))->invoke($factory);
+				return (new ReflectionMethod($owner, $name))->invokeArgs($owner, $args);
+			}
+
 			return (new ReflectionMethod(ProviderFactory::class, $method))->invokeArgs($factory, $args);
 		}//end call()
 
@@ -415,8 +439,12 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 			$tokens->expects(self::never())->method('mint');
 			$factory = $this->factory(['runTokenService' => $tokens]);
 
-			self::assertSame('', $this->call($factory, 'mintEgressRunToken', ['agentId' => 'agent-1', 'uid' => null]));
-			self::assertSame('', $this->call($factory, 'mintEgressRunToken', ['agentId' => 'agent-1', 'uid' => '']));
+			// The egress token is minted by the factory's CliRunTokens collaborator.
+			$cliRunTokens = $this->call($factory, 'cliRunTokens');
+			$mint         = new ReflectionMethod(CliRunTokens::class, 'mintEgressRunToken');
+
+			self::assertSame('', $mint->invokeArgs($cliRunTokens, ['agentId' => 'agent-1', 'uid' => null]));
+			self::assertSame('', $mint->invokeArgs($cliRunTokens, ['agentId' => 'agent-1', 'uid' => '']));
 		}//end testNoEgressTokenIsMintedWithoutAUser()
 
 		/**
@@ -447,7 +475,10 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 				);
 				self::fail('A refused call was answered.');
 			} catch (Exception $e) {
-				self::assertSame(Exception::class, get_class($e));
+				// Typed since models-several-models-per-turn task 2: a broker
+				// refusal is not a temporary failure, so it never moves a turn.
+				self::assertSame(\OCA\Hermiq\Service\Llm\ProviderCallFailedException::class, get_class($e));
+				self::assertSame(\OCA\Hermiq\Service\Llm\ProviderCallFailedException::UNKNOWN, $e->kind);
 				self::assertSame(
 					'Fireworks API request failed: Hermiq LLM: the credential broker refused or could not make the call.',
 					$e->getMessage()

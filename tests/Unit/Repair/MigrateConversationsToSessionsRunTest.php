@@ -51,6 +51,9 @@ use RuntimeException;
  *
  * @covers \OCA\Hermiq\Repair\MigrateConversationsToSessions
  * @uses   \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity
+ * @uses   \OCA\Hermiq\Repair\Migration\FamilyMigration
+ * @uses   \OCA\Hermiq\Repair\Migration\MigratedConversation
+ * @uses   \OCA\Hermiq\Repair\Migration\ProvenanceTarget
  */
 class MigrateConversationsToSessionsRunTest extends TestCase {
 

@@ -574,4 +574,124 @@ class GuardrailPolicyServiceTest extends TestCase {
 		$this->assertSame([], $this->service([$junk])->effectivePolicyFor(organisation: 'org-a')['toolPolicy']);
 
 	}//end testStoredToolPolicyIsReadLeniently()
+	/**
+	 * Lookups: a blank uuid finds nothing, a known one its policy, and the
+	 * listing and organisation lookup skip anything that is not an object.
+	 *
+	 * @return void
+	 */
+	public function testLookupsSkipWhatIsNotAPolicy(): void {
+		$own = $this->policy('p-1', 'org-a');
+		$service = new GuardrailPolicyService(
+			objectService: $this->objectService([new \stdClass(), $own]),
+			redactionService: $this->redactionService(),
+		);
+
+		$this->assertSame([$own], $service->listAll());
+		$this->assertSame($own, $service->getForOrganisation('org-a'));
+		$this->assertNull($service->getForOrganisation('org-b'));
+
+		// A stored row without a uuid must still not answer a blank id.
+		$byId = $this->service([$this->policy('', 'org-c'), $own]);
+		$this->assertNull($byId->findById(''));
+		$this->assertSame($own, $byId->findById('p-1'));
+		$this->assertNull($byId->findById('p-2'));
+	}//end testLookupsSkipWhatIsNotAPolicy()
+
+	/**
+	 * Updating a policy that does not exist is refused; an existing one is
+	 * updated in place, keeping its uuid and its organisation.
+	 *
+	 * @return void
+	 */
+	public function testUpdateFindsThePolicyOrRefuses(): void {
+		$service = $this->service([$this->policy('p-1', 'org-a')]);
+
+		$updated = $service->update('p-1', ['inputFilters' => ['piiAction' => 'redact'], 'enabled' => false]);
+		$this->assertSame('p-1', $updated['id']);
+		$this->assertSame('org-a', $updated['organisation']);
+		$this->assertSame('organisation', $updated['source']);
+		$this->assertSame(['piiAction' => 'redact', 'promptInjectionAction' => 'off'], $updated['inputFilters']);
+		$this->assertFalse($updated['enabled']);
+
+		$this->expectException(\RuntimeException::class);
+		$this->expectExceptionMessage("GuardrailPolicy 'p-9' does not exist");
+		$service->update('p-9', []);
+	}//end testUpdateFindsThePolicyOrRefuses()
+
+	/**
+	 * The instance default (organisation '') is shaped with source `instance`.
+	 *
+	 * @return void
+	 */
+	public function testTheInstanceDefaultIsShapedAsInstance(): void {
+		$this->assertSame('instance', $this->service()->upsertForOrganisation('', [])['source']);
+	}//end testTheInstanceDefaultIsShapedAsInstance()
+
+	/**
+	 * Every malformed filter payload is refused with its own message.
+	 *
+	 * @return void
+	 */
+	public function testMalformedFiltersAreRefused(): void {
+		$cases = [
+			'inputFilters must be an object' => ['inputFilters' => 'redact'],
+			"Unsupported inputFilters.promptInjectionAction 'warn'" => ['inputFilters' => ['promptInjectionAction' => 'warn']],
+			'outputFilters must be an object' => ['outputFilters' => 'block'],
+			"Unsupported outputFilters.piiAction 'mask'" => ['outputFilters' => ['piiAction' => 'mask']],
+		];
+		foreach ($cases as $message => $payload) {
+			try {
+				$this->service()->upsertForOrganisation('org-a', $payload);
+				$this->fail('Accepted: ' . $message);
+			} catch (\InvalidArgumentException $e) {
+				$this->assertStringStartsWith($message, $e->getMessage());
+			}
+		}
+	}//end testMalformedFiltersAreRefused()
+
+	/**
+	 * A stored policy with unreadable filters is read as off, never as a failure.
+	 *
+	 * @return void
+	 */
+	public function testUnreadableStoredFiltersReadAsOff(): void {
+		$garbled = $this->policy('p-1', 'org-a');
+		$garbled->setObject(['inputFilters' => 'x', 'outputFilters' => ['piiAction' => 'mask'], 'enabled' => true]);
+		$odd = $this->policy('p-2', 'org-b', inputFilters: ['piiAction' => 'shout', 'promptInjectionAction' => 'warn']);
+
+		$service = $this->service([$garbled, $odd]);
+
+		$this->assertSame(['piiAction' => 'off', 'promptInjectionAction' => 'off'], $service->effectivePolicyFor('org-a')['inputFilters']);
+		$this->assertSame(['piiAction' => 'off'], $service->effectivePolicyFor('org-a')['outputFilters']);
+		$this->assertSame(['piiAction' => 'off', 'promptInjectionAction' => 'off'], $service->effectivePolicyFor('org-b')['inputFilters']);
+
+		$garbled->setObject(['outputFilters' => 'x']);
+		$this->assertSame(['piiAction' => 'off'], $service->effectivePolicyFor('org-a')['outputFilters']);
+	}//end testUnreadableStoredFiltersReadAsOff()
+
+	/**
+	 * Tool classification skips entries that are not objects and reads an
+	 * unknown classification as auto.
+	 *
+	 * @return void
+	 */
+	public function testClassifyToolSkipsMalformedEntries(): void {
+		$policy = ['toolPolicy' => ['hermiq.sendMail', ['toolId' => 'hermiq.sendMail', 'classification' => 'maybe'], ['toolId' => 'other', 'classification' => 'deny']]];
+
+		$this->assertSame('auto', $this->service()->classifyTool($policy, 'hermiq.sendMail'));
+		$this->assertSame('deny', $this->service()->classifyTool($policy, 'other'));
+	}//end testClassifyToolSkipsMalformedEntries()
+
+	/**
+	 * With injection blocking on, empty or harmless text passes.
+	 *
+	 * @return void
+	 */
+	public function testInjectionBlockingPassesHarmlessText(): void {
+		$policy = ['inputFilters' => ['promptInjectionAction' => 'block', 'piiAction' => 'off']];
+
+		$this->assertSame(['text' => '', 'blocked' => false, 'reason' => null], $this->service()->filterInput($policy, ''));
+		$this->assertFalse($this->service()->filterInput($policy, 'Wat is de status van mijn aanvraag?')['blocked']);
+	}//end testInjectionBlockingPassesHarmlessText()
 }//end class

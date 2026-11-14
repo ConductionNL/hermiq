@@ -50,6 +50,7 @@ namespace OCA\Hermiq\Service;
 
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\ContextAgentInteractionServiceInterface;
+use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\ContextAgent\ConfirmationActor;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
@@ -121,6 +122,7 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 	 *                                                 identifier, pinned onto the interaction audit
 	 *                                                 context (agent-versioning).
 	 * @param AgentAccessService $agentAccess Decides whether the task user may use a fallback agent.
+	 * @param ApprovalInbox $approvalInbox The approvals routed to the task user.
 	 *
 	 * @return void
 	 *
@@ -138,6 +140,7 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 		private readonly LoggerInterface $logger,
 		private readonly AgentVersionService $agentVersionService,
 		private readonly AgentAccessService $agentAccess,
+		private readonly ApprovalInbox $approvalInbox,
 	) {
 	}//end __construct()
 
@@ -350,7 +353,7 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 			return 'no-confirmation';
 		}
 
-		$pending = $this->approvalService->listPendingForReviewer(uid: $userId);
+		$pending = $this->approvalInbox->listPendingForReviewer(uid: $userId);
 		$match = null;
 		foreach ($pending as $record) {
 			if (($record['agentId'] ?? '') === $agentId) {

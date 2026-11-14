@@ -101,6 +101,48 @@ class MigrateAgentDataTest extends TestCase {
 	private array $persistedUnmigratable = [];
 
 	/**
+	 * Owner UIDs the user manager no longer knows.
+	 *
+	 * @var array<int, string>
+	 */
+	private array $deletedUsers = [];
+
+	/**
+	 * uuids whose saveObject() throws.
+	 *
+	 * @var array<int, string>
+	 */
+	private array $failingSaves = [];
+
+	/**
+	 * uuids whose existence probe throws.
+	 *
+	 * @var array<int, string>
+	 */
+	private array $failingFinds = [];
+
+	/**
+	 * Whether resolving OpenRegister's ObjectService throws.
+	 *
+	 * @var bool
+	 */
+	private bool $openRegisterMissing = false;
+
+	/**
+	 * Lines logged by the step, as "level: message".
+	 *
+	 * @var array<int, string>
+	 */
+	private array $logged = [];
+
+	/**
+	 * Every setUser() call, by UID or null (impersonation and restore trace).
+	 *
+	 * @var array<int, string|null>
+	 */
+	private array $sessionTrace = [];
+
+	/**
 	 * Reset captured state before each test.
 	 *
 	 * @return void
@@ -524,6 +566,200 @@ class MigrateAgentDataTest extends TestCase {
 	}//end testAFullPassMatchesTheRecordedFixture()
 
 	/**
+	 * Without OpenRegister the step warns and writes nothing.
+	 *
+	 * @return void
+	 */
+	public function testMissingOpenRegisterSkipsWithAWarning(): void {
+		$this->openRegisterMissing = true;
+		$db = $this->makeDb(tables: ['openregister_agents' => [$this->agentRow(1, 'agent-uuid-1', 'alice')]]);
+
+		$this->makeSubject(db: $db, flag: 'true')->run($this->makeOutput());
+
+		$this->assertSame([], $this->saved);
+		$this->assertSame(['OpenRegister not available — skipping agent-data migration.'], $this->warnings);
+		$this->assertContains('warning: [hermiq] agent-data-migration skipped: openregister not installed', $this->logged);
+		$this->assertSame('', $this->summaryLine());
+	}//end testMissingOpenRegisterSkipsWithAWarning()
+
+	/**
+	 * A deleted owner is logged and the row saved under the system identity;
+	 * an existing owner is impersonated for the write and the prior session
+	 * user restored afterwards.
+	 *
+	 * @return void
+	 */
+	public function testADeletedOwnerIsSavedUnderTheSystemIdentity(): void {
+		$this->deletedUsers = ['bob'];
+		$db = $this->makeDb(
+			tables: [
+				'openregister_agents' => [
+					$this->agentRow(1, 'agent-uuid-1', 'bob'),
+					$this->agentRow(2, 'agent-uuid-2', 'alice'),
+				],
+			]
+		);
+
+		$this->makeSubject(db: $db, flag: 'true')->run($this->makeOutput());
+
+		$this->assertSame(['agent-uuid-1', 'agent-uuid-2'], array_column($this->savedFor(schema: 'agent'), 'uuid'));
+		$this->assertContains(
+			'warning: [hermiq] agent-data-migration: owner "bob" for agent agent-uuid-1 no longer exists — saved under the system identity.',
+			$this->logged
+		);
+		$this->assertSame(['alice', null], $this->sessionTrace, 'Only the existing owner is impersonated, and the prior user is restored.');
+	}//end testADeletedOwnerIsSavedUnderTheSystemIdentity()
+
+	/**
+	 * A failed write is logged as an error and the pass continues; the
+	 * session user is restored even when the write throws.
+	 *
+	 * @return void
+	 */
+	public function testAFailedWriteIsLoggedAndThePassContinues(): void {
+		$this->failingSaves = ['agent-uuid-1'];
+		$db = $this->makeDb(
+			tables: [
+				'openregister_agents' => [
+					$this->agentRow(1, 'agent-uuid-1', 'alice'),
+					$this->agentRow(2, 'agent-uuid-2', 'carol'),
+				],
+			]
+		);
+
+		$this->makeSubject(db: $db, flag: 'true')->run($this->makeOutput());
+
+		$this->assertSame(['agent-uuid-2'], array_column($this->savedFor(schema: 'agent'), 'uuid'));
+		$this->assertContains('error: [hermiq] agent-data-migration: failed to write agent agent-uuid-1: disk full', $this->logged);
+		$this->assertSame(['alice', null, 'carol', null], $this->sessionTrace);
+	}//end testAFailedWriteIsLoggedAndThePassContinues()
+
+	/**
+	 * An existence probe that throws counts as "not migrated yet", so the
+	 * row is written rather than silently skipped.
+	 *
+	 * @return void
+	 */
+	public function testAFailingExistenceProbeStillWritesTheRow(): void {
+		$this->failingFinds = ['agent-uuid-1'];
+		$db = $this->makeDb(tables: ['openregister_agents' => [$this->agentRow(1, 'agent-uuid-1', 'alice')]]);
+
+		$this->makeSubject(db: $db, flag: 'true')->run($this->makeOutput());
+
+		$this->assertSame(['agent-uuid-1'], array_column($this->savedFor(schema: 'agent'), 'uuid'));
+	}//end testAFailingExistenceProbeStillWritesTheRow()
+
+	/**
+	 * A table whose existence cannot be probed is skipped with a warning and
+	 * the remaining tables are still migrated.
+	 *
+	 * @return void
+	 */
+	public function testAnUnprobeableTableIsSkippedWithAWarning(): void {
+		$db = $this->makeDb(
+			tables: [
+				'openregister_agents' => null,
+				'openregister_feedback' => [],
+			]
+		);
+
+		$this->makeSubject(db: $db, flag: 'true')->run($this->makeOutput());
+
+		$this->assertContains('Could not probe openregister_agents — skipping (permission denied).', $this->warnings);
+		$this->assertStringContainsString('0 agents', $this->summaryLine());
+	}//end testAnUnprobeableTableIsSkippedWithAWarning()
+
+	/**
+	 * More rows than one page are read page by page and all migrated.
+	 *
+	 * @return void
+	 */
+	public function testATableLargerThanOnePageIsReadCompletely(): void {
+		$rows = [];
+		for ($i = 1; $i <= 501; $i++) {
+			$rows[] = $this->agentRow($i, 'agent-uuid-' . $i, 'alice');
+		}
+
+		$pages = [array_slice($rows, 0, 500), array_slice($rows, 500)];
+		$db = $this->createMock(IDBConnection::class);
+		$db->method('tableExists')->willReturnCallback(static fn (string $table): bool => $table === 'openregister_agents');
+		$db->method('getQueryBuilder')->willReturnCallback(
+			function () use (&$pages): IQueryBuilder {
+				$qb = $this->createMock(IQueryBuilder::class);
+				foreach (['select', 'from', 'orderBy', 'setFirstResult', 'setMaxResults'] as $method) {
+					$qb->method($method)->willReturnSelf();
+				}
+
+				$result = $this->createMock(IResult::class);
+				$result->method('fetchAll')->willReturn((array_shift($pages) ?? []));
+				$result->method('closeCursor')->willReturn(true);
+				$qb->method('executeQuery')->willReturn($result);
+				return $qb;
+			}
+		);
+
+		$this->makeSubject(db: $db, flag: 'true')->run($this->makeOutput());
+
+		$this->assertCount(501, $this->savedFor(schema: 'agent'));
+		$this->assertSame([], $pages, 'Both pages are read, and no third one.');
+		$this->assertStringContainsString('501 agents', $this->summaryLine());
+	}//end testATableLargerThanOnePageIsReadCompletely()
+
+	/**
+	 * JSON columns keep an already-decoded array, and an empty or invalid
+	 * JSON string decodes to nothing and is left out of the object.
+	 *
+	 * @return void
+	 */
+	public function testJsonColumnsAreDecodedOrNulled(): void {
+		$row = $this->agentRow(1, 'agent-uuid-1', 'alice');
+		$row['configuration'] = ['mode' => 'strict'];
+		$row['views'] = '';
+		$row['tools'] = '{not json';
+		$row['groups'] = '["staff"]';
+		$db = $this->makeDb(tables: ['openregister_agents' => [$row]]);
+
+		$this->makeSubject(db: $db, flag: 'true')->run($this->makeOutput());
+
+		$data = $this->savedFor(schema: 'agent')[0]['data'];
+		$this->assertSame(['mode' => 'strict'], $data['configuration']);
+		$this->assertArrayNotHasKey('views', $data, 'An empty JSON column is left out, not written as a string.');
+		$this->assertArrayNotHasKey('tools', $data, 'An invalid JSON column is left out, not written as a string.');
+		$this->assertSame(['staff'], $data['groups']);
+	}//end testJsonColumnsAreDecodedOrNulled()
+
+	/**
+	 * An unreadable warn-once memory degrades to "nothing reported yet":
+	 * the unmigratable conversation is warned about and the memory rewritten.
+	 *
+	 * @return void
+	 */
+	public function testAnUnreadableWarnOnceMemoryWarnsAgain(): void {
+		foreach (['', '{broken', '"a string"', '[1, "conv-uuid-42"]'] as $stored) {
+			$this->storedUnmigratable = $stored;
+			$this->persistedUnmigratable = [];
+			$this->warnings = [];
+			$db = $this->makeDb(
+				tables: [
+					'openregister_agents' => [],
+					'openregister_conversations' => [$this->conversationRow(42, 'conv-uuid-42', 999, 'alice')],
+				]
+			);
+
+			$this->makeSubject(db: $db, flag: 'true')->run($this->makeOutput());
+
+			$warned = array_filter($this->warnings, static fn (string $line): bool => str_contains($line, 'conv-uuid-42'));
+			if ($stored === '[1, "conv-uuid-42"]') {
+				$this->assertSame([], $warned, 'A string entry among junk is still remembered.');
+				continue;
+			}
+
+			$this->assertNotEmpty($warned, 'stored: ' . $stored);
+			$this->assertSame(['["conv-uuid-42"]'], $this->persistedUnmigratable, 'stored: ' . $stored);
+		}
+	}//end testAnUnreadableWarnOnceMemoryWarnsAgain()
+
+	/**
 	 * Build the subject under test with all collaborators mocked.
 	 *
 	 * @param IDBConnection $db The (fake) DB connection.
@@ -571,6 +807,10 @@ class MigrateAgentDataTest extends TestCase {
 		);
 		$objectService->method('find')->willReturnCallback(
 			function (mixed $id, ?array $extend = [], bool $files = false, mixed $register = null, mixed $schema = null) {
+				if (in_array((string)$id, $this->failingFinds, true) === true) {
+					throw new \RuntimeException('find failed');
+				}
+
 				if (in_array((string)$id, $this->existing, true) === true) {
 					$entity = new ObjectEntity();
 					$entity->setUuid((string)$id);
@@ -582,18 +822,31 @@ class MigrateAgentDataTest extends TestCase {
 		);
 		$objectService->method('saveObject')->willReturnCallback(
 			function (mixed $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null) {
+				if (in_array((string)$uuid, $this->failingSaves, true) === true) {
+					throw new \RuntimeException('disk full');
+				}
+
 				$this->saved[] = ['schema' => (string)$schema, 'uuid' => (string)$uuid, 'data' => (array)$object];
 				return new ObjectEntity();
 			}
 		);
 
 		$container = $this->createMock(ContainerInterface::class);
-		$container->method('get')->willReturn($objectService);
+		$container->method('get')->willReturnCallback(
+			function () use ($objectService): ObjectService {
+				if ($this->openRegisterMissing === true) {
+					throw new \RuntimeException('openregister not installed');
+				}
+
+				return $objectService;
+			}
+		);
 
 		$userSession = $this->createMock(IUserSession::class);
 		$userSession->method('getUser')->willReturn(null);
 		$userSession->method('setUser')->willReturnCallback(
 			function (?IUser $user): void {
+				$this->sessionTrace[] = $user?->getUID();
 				if ($user !== null) {
 					$this->impersonated[] = $user->getUID();
 				}
@@ -603,6 +856,10 @@ class MigrateAgentDataTest extends TestCase {
 		$userManager = $this->createMock(IUserManager::class);
 		$userManager->method('get')->willReturnCallback(
 			function (string $uid): ?IUser {
+				if (in_array($uid, $this->deletedUsers, true) === true) {
+					return null;
+				}
+
 				$user = $this->createMock(IUser::class);
 				$user->method('getUID')->willReturn($uid);
 				return $user;
@@ -615,22 +872,46 @@ class MigrateAgentDataTest extends TestCase {
 			$userSession,
 			$userManager,
 			$container,
-			$this->createMock(LoggerInterface::class)
+			$this->makeLogger()
 		);
 
 	}//end makeSubject()
 
 	/**
+	 * A logger capturing every line as "level: message".
+	 *
+	 * @return LoggerInterface
+	 */
+	private function makeLogger(): LoggerInterface {
+		$logger = $this->createMock(LoggerInterface::class);
+		foreach (['info', 'warning', 'error'] as $level) {
+			$logger->method($level)->willReturnCallback(
+				function (string|\Stringable $message) use ($level): void {
+					$this->logged[] = $level . ': ' . $message;
+				}
+			);
+		}
+
+		return $logger;
+	}//end makeLogger()
+
+	/**
 	 * A fake IDBConnection whose query builder returns the given per-table rows.
 	 *
-	 * @param array<string, array<int, array<string, mixed>>> $tables Table name → rows.
+	 * @param array<string, array<int, array<string, mixed>>|null> $tables Table name → rows, or null for a table whose probe throws.
 	 *
 	 * @return IDBConnection
 	 */
 	private function makeDb(array $tables): IDBConnection {
 		$db = $this->createMock(IDBConnection::class);
 		$db->method('tableExists')->willReturnCallback(
-			static fn (string $table): bool => array_key_exists($table, $tables)
+			static function (string $table) use ($tables): bool {
+				if (array_key_exists($table, $tables) === true && $tables[$table] === null) {
+					throw new \RuntimeException('permission denied');
+				}
+
+				return array_key_exists($table, $tables);
+			}
 		);
 		$db->method('getQueryBuilder')->willReturnCallback(
 			fn (): IQueryBuilder => $this->makeQueryBuilder(tables: $tables)

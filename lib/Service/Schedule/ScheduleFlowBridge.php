@@ -42,8 +42,10 @@ use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\ScheduleFlowBridgeInterface;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\Flow;
+use OCA\OpenRegister\Db\Flow\FlowSelection;
 use OCA\OpenRegister\Db\FlowMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\ListQuery;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserManager;
 use Psr\Container\ContainerInterface;
@@ -94,6 +96,13 @@ class ScheduleFlowBridge implements ScheduleFlowBridgeInterface {
 	 * @var string
 	 */
 	private const APPLICATION_SLUG = 'hermiq-schedules';
+
+	/**
+	 * How many schedules, and mirror flows, one sync pass reads. A pass that
+	 * reads a full page of schedules sweeps no orphans: a partial list cannot
+	 * prove that a schedule is gone.
+	 */
+	private const LOAD_LIMIT = 1000;
 
 	/**
 	 * Constructor.
@@ -160,8 +169,69 @@ class ScheduleFlowBridge implements ScheduleFlowBridgeInterface {
 			return $stats;
 		}
 
-		return $this->syncSchedules(schedules: $schedules, stats: $stats);
+		$stats = $this->syncSchedules(schedules: $schedules, stats: $stats);
+		$stats['retired'] += $this->sweepOrphans(schedules: $schedules);
+
+		return $stats;
 	}//end syncAll()
+
+	/**
+	 * Delete the mirror flows whose schedule no longer exists (deleted in the
+	 * UI), from the flow side, instead of waiting for the dispatch node's loud
+	 * refusal when the engine next fires them. Only when the pass read every
+	 * schedule; a listing failure sweeps nothing.
+	 *
+	 * @param array<int, mixed> $schedules Every schedule the pass loaded.
+	 *
+	 * @return int How many orphaned mirrors were deleted.
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-3-1
+	 */
+	private function sweepOrphans(array $schedules): int {
+		if (count($schedules) >= self::LOAD_LIMIT) {
+			return 0;
+		}
+
+		$live = [];
+		foreach ($schedules as $schedule) {
+			if (($schedule instanceof ObjectEntity) === true) {
+				$live[(string)$schedule->getUuid()] = true;
+			}
+		}
+
+		$swept = 0;
+		foreach ($this->mirrorFlows() as $flow) {
+			$scheduleId = $this->definition->dispatchedScheduleId(nodes: $flow->getNodes());
+			if ($scheduleId === '' || isset($live[$scheduleId]) === true) {
+				continue;
+			}
+
+			$this->deleteFlow(flowId: (string)$flow->getUuid());
+			$swept++;
+		}
+
+		return $swept;
+	}//end sweepOrphans()
+
+	/**
+	 * Every mirror flow hermiq made, or none (logged) when they cannot be listed.
+	 *
+	 * @return array<int, Flow>
+	 */
+	private function mirrorFlows(): array {
+		try {
+			return $this->container->get(FlowMapper::class)->findAllFlows(
+				selection: new FlowSelection(app: AppIdentity::APP_ID, applicationSlug: self::APPLICATION_SLUG),
+				query: new ListQuery(limit: self::LOAD_LIMIT, offset: 0)
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'[hermiq] Schedule flow sync could not list mirror flows; no orphans swept: ' . $e->getMessage(),
+				['exception' => $e]
+			);
+			return [];
+		}
+	}//end mirrorFlows()
 
 	/**
 	 * Every schedule, system-wide; a read failure is logged.
@@ -173,7 +243,7 @@ class ScheduleFlowBridge implements ScheduleFlowBridgeInterface {
 			return $this->objectService
 				->setRegister(self::REGISTER_SLUG)
 				->setSchema(self::SCHEMA_SLUG)
-				->findAll(config: ['limit' => 1000], _rbac: false, _multitenancy: false);
+				->findAll(config: ['limit' => self::LOAD_LIMIT], _rbac: false, _multitenancy: false);
 		} catch (Throwable $e) {
 			$this->logger->error(
 				'[hermiq] Schedule flow sync could not load schedules: ' . $e->getMessage(),

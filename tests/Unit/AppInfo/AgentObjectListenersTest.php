@@ -19,14 +19,17 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\AppInfo;
 
+use OCA\Hermiq\Listener\AgentActingUserGuardListener;
 use OCA\Hermiq\Listener\AgentBotLifecycleListener;
 use OCA\Hermiq\Listener\AgentWaiverChangeListener;
 use OCA\Hermiq\Listener\ListenerRegistrar;
 use OCA\OpenRegister\Event\DraftCreatedEvent;
 use OCA\OpenRegister\Event\DraftUpdatedEvent;
 use OCA\OpenRegister\Event\ObjectCreatedEvent;
+use OCA\OpenRegister\Event\ObjectCreatingEvent;
 use OCA\OpenRegister\Event\ObjectDeletedEvent;
 use OCA\OpenRegister\Event\ObjectUpdatedEvent;
+use OCA\OpenRegister\Event\ObjectUpdatingEvent;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use PHPUnit\Framework\TestCase;
 
@@ -64,6 +67,11 @@ class AgentObjectListenersTest extends TestCase {
 			[ObjectCreatedEvent::class, ObjectUpdatedEvent::class, ObjectDeletedEvent::class],
 			$registered[AgentBotLifecycleListener::class],
 			'A draft agent gets no Talk bot until it leaves draft.'
+		);
+		$this->assertSame(
+			[ObjectCreatingEvent::class, ObjectUpdatingEvent::class],
+			$registered[AgentActingUserGuardListener::class],
+			'The acting-user guard runs before every create and update (REQ-AGID-002).'
 		);
 	}//end testTheWaiverAuditListensToDraftAndObjectWrites()
 }//end class

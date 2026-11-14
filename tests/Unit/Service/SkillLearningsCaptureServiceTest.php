@@ -702,4 +702,54 @@ class SkillLearningsCaptureServiceTest extends TestCase {
 
 		return '';
 	}//end candidatesContentOf()
+	/**
+	 * A confirmation made by a failing eval-case run marks the confirmed
+	 * candidate with that eval, unless the candidate already carries a marker.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-a-post-run-capture-pass-appends-dated-atomic-candidates-per-exercised-skill
+	 */
+	public function testAFailingEvalRunMarksTheCandidatesItConfirms(): void {
+		$service = $this->service();
+		$original = '- [2026-07-01] {domain} TED deadlines are CET. <!-- runs: 00000000-0000-0000-0000-000000000000 -->' . "\n"
+			. '- [2026-07-02] {mistakes} Check the lot count. <!-- runs: 00000000-0000-0000-0000-000000000000 | eval-fail: earlier#case-1 -->' . "\n";
+		$this->wireLookups(
+			skills: [
+				'skill-1' => $this->skillEntity(uuid: 'skill-1', files: [['name' => 'learning-candidates.md', 'content' => $original]]),
+			]
+		);
+		$this->budgetService->method('isBlocked')->willReturn(false);
+		$this->providerFactory->method('generateText')->willReturn(
+			$this->llmResponse(confirmations: [['candidateIndex' => 0], ['candidateIndex' => 1]])
+		);
+
+		$service->captureForRun(args: $this->args(['evalFail' => 'eval-9#case-2']));
+
+		$expected = '- [' . self::TODAY . '] {domain} TED deadlines are CET. '
+			. '<!-- runs: 00000000-0000-0000-0000-000000000000,' . self::RUN_ID . ' | eval-fail: eval-9#case-2 -->' . "\n"
+			. '- [' . self::TODAY . '] {mistakes} Check the lot count. '
+			. '<!-- runs: 00000000-0000-0000-0000-000000000000,' . self::RUN_ID . ' | eval-fail: earlier#case-1 -->' . "\n";
+		$this->assertSame($expected, $this->candidatesContentOf(saved: $this->savedObjects[0][2]));
+
+	}//end testAFailingEvalRunMarksTheCandidatesItConfirms()
+
+	/**
+	 * A skill that no longer exists is skipped before any LLM call or write.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-capture-is-failure-isolated-from-the-run
+	 */
+	public function testAMissingSkillCostsNoLlmCallAndNoWrite(): void {
+		$service = $this->service();
+		$this->wireLookups(skills: []);
+		$this->budgetService->method('isBlocked')->willReturn(false);
+		$this->providerFactory->expects($this->never())->method('generateText');
+
+		$service->captureForRun(args: $this->args(['skillIds' => ['skill-gone']]));
+
+		$this->assertSame([], $this->savedObjects);
+
+	}//end testAMissingSkillCostsNoLlmCallAndNoWrite()
 }//end class

@@ -52,6 +52,7 @@ use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
+use InvalidArgumentException;
 use Throwable;
 
 /**
@@ -392,6 +393,50 @@ class ToolOversightController extends Controller {
 	}//end toolInvocations()
 
 	/**
+	 * Mark one of the agent's tool calls as misuse, with a reason.
+	 *
+	 * The mark is written on the agent, so the agent's audit trail records the
+	 * operator, the call and the reason. Only who may modify the agent marks
+	 * its calls, and a mark without a reason is refused.
+	 *
+	 * @param string $agentId Agent UUID.
+	 * @param string $callId  The call, as its tool activity row names it.
+	 *
+	 * @return JSONResponse The mark (201), or an error status.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/changes/verify-row-scenarios/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art-12-14
+	 */
+	public function markToolInvocation(string $agentId, string $callId): JSONResponse {
+		$agent = $this->modifiableAgent(agentId: $agentId);
+		if ($agent instanceof JSONResponse) {
+			return $agent;
+		}
+
+		if ($this->services->marks === null) {
+			return new JSONResponse(['error' => 'Marking is not available'], Http::STATUS_SERVICE_UNAVAILABLE);
+		}
+
+		try {
+			$mark = $this->services->marks->mark(
+				agent: $agent,
+				callId: $callId,
+				reason: (string)($this->request->getParam('reason') ?? ''),
+				operator: (string)$this->userSession->getUser()?->getUID()
+			);
+			return new JSONResponse($mark, Http::STATUS_CREATED);
+		} catch (InvalidArgumentException $e) {
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq tool-call mark failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not mark the tool call'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}//end try
+	}//end markToolInvocation()
+
+	/**
 	 * The oversight payload: the rich MCP-invocation audit when this OpenRegister
 	 * records it, otherwise the run audit log, over the requested window.
 	 *
@@ -411,6 +456,10 @@ class ToolOversightController extends Controller {
 		if ($available === true) {
 			$source = 'or-mcp-invocation-audit';
 			$rows = $this->services->invocations->richRows(ownerUids: $ownerUids, window: $window);
+		}
+
+		if ($this->services->marks !== null) {
+			$rows = $this->services->marks->overlay(rows: $rows, agent: $agent);
 		}
 
 		return [

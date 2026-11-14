@@ -142,6 +142,33 @@ describe('companion init script', () => {
 		})
 	})
 
+	it('takes the same file id from the path and from the query string', async () => {
+		await loadOn('/apps/eurooffice/24753')
+		const fromPath = (await renderedProps()).context.fileId
+		document.head.innerHTML = ''
+		document.body.innerHTML = ''
+		await loadOn('/apps/richdocuments/index?fileId=24753')
+		const fromQuery = (await renderedProps()).context.fileId
+
+		expect([fromPath, fromQuery]).toEqual([24753, 24753])
+	})
+
+	it('mounts silently on a page that shows no file', async () => {
+		const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+		const warnings = vi.spyOn(console, 'warn').mockImplementation(() => {})
+		try {
+			await loadOn('/index.php/apps/calendar/')
+			const props = await renderedProps()
+
+			expect(props.context).not.toHaveProperty('fileId')
+			expect(errors).not.toHaveBeenCalled()
+			expect(warnings).not.toHaveBeenCalled()
+		} finally {
+			errors.mockRestore()
+			warnings.mockRestore()
+		}
+	})
+
 	it('takes the open file from a numeric last path segment', async () => {
 		await loadOn('/apps/onlyoffice/24753')
 

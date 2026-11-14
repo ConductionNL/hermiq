@@ -104,6 +104,10 @@ final class TurnSystemPrompt {
 	 * @return string The block, or '' without context text.
 	 */
 	private function ragContextBlock(array $context): string {
+		if (($context['scoped'] ?? false) === true) {
+			return $this->scopedContextBlock(context: $context);
+		}
+
 		if (empty($context['text']) === true) {
 			return '';
 		}
@@ -113,4 +117,23 @@ final class TurnSystemPrompt {
 		$block .= "If the context doesn't contain relevant information, say so honestly. ";
 		return $block . 'Always cite which sources you used when answering.';
 	}//end ragContextBlock()
+
+	/**
+	 * The numbered passages of a turn scoped to one document or folder, with the
+	 * instruction to cite them by number and to answer from nothing else.
+	 *
+	 * @param array<string, mixed> $context The scoped context.
+	 *
+	 * @return string The block.
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
+	 */
+	private function scopedContextBlock(array $context): string {
+		$block = "\n\nThe user asks about one document or the documents in one folder. Answer ONLY from the "
+			. "numbered passages below, which come from it. After every claim, put the number of the passage "
+			. "it rests on in square brackets, for example [1] or [2]. Do not answer from general knowledge. "
+			. "If the passages do not answer the question, say that the document does not answer it.\n\n";
+
+		return $block . "PASSAGES:\n" . (string)($context['text'] ?? '');
+	}//end scopedContextBlock()
 }//end class

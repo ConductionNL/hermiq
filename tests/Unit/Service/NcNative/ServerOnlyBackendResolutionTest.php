@@ -159,6 +159,18 @@ class ServerOnlyBackendResolutionTest extends TestCase {
 	}//end testAnUnresolvableCalDavBackendIsNull()
 
 	/**
+	 * Without the DAV app the container is never asked and there is no backend.
+	 *
+	 * @return void
+	 */
+	public function testWithoutTheDavAppThereIsNoBackend(): void {
+		$container = $this->createMock(ContainerInterface::class);
+		$container->expects($this->never())->method('get');
+
+		$this->assertNull($this->taskLists($container, $this->createMock(LoggerInterface::class))->davBackend());
+	}//end testWithoutTheDavAppThereIsNoBackend()
+
+	/**
 	 * A complete Notes service is returned as it is.
 	 *
 	 * @return void

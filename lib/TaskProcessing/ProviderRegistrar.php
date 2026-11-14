@@ -56,6 +56,9 @@ final class ProviderRegistrar {
 		$context->registerTaskProcessingProvider(Text2TextProvider::class);
 		$context->registerTaskProcessingProvider(Text2TextSummaryProvider::class);
 		$context->registerTaskProcessingProvider(Text2TextHeadlineProvider::class);
+		// REQ-T2T-003: reformulate and translate, the other two text actions the Assistant offers.
+		$context->registerTaskProcessingProvider(Text2TextReformulationProvider::class);
+		$context->registerTaskProcessingProvider(Text2TextTranslateProvider::class);
 		$context->registerTaskProcessingProvider(ContextAgentProvider::class);
 	}//end register()
 }//end class

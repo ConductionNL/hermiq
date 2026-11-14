@@ -31,6 +31,7 @@ use OCA\Hermiq\Service\AiFeature\RunRetentionCleaner;
 use OCA\Hermiq\Service\SkillConsolidationService;
 use OCA\Hermiq\Service\SkillLearningsPromotionService;
 use OCA\Hermiq\Service\SkillMarketplaceService;
+use OCA\Hermiq\Service\SkillMergeService;
 use OCA\Hermiq\Service\Workspace\ServerSideWorkspaceProvider;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\TimedJob;
@@ -96,7 +97,7 @@ final class TimedJobsTest extends TestCase {
 			'retention' => new RunRetentionCleanupJob(time: $time, cleaner: $this->createMock(RunRetentionCleaner::class), logger: $this->logger()),
 			'reaper' => new WorkspaceReaperJob(time: $time, provider: $this->createMock(ServerSideWorkspaceProvider::class), logger: $this->logger()),
 			'consolidation' => new SkillConsolidationTask(time: $time, container: $this->createMock(ContainerInterface::class), logger: $this->logger()),
-			'curator' => new SkillCuratorTask(time: $time, marketplaceService: $this->createMock(SkillMarketplaceService::class)),
+			'curator' => new SkillCuratorTask(time: $time, marketplaceService: $this->createMock(SkillMarketplaceService::class), mergeService: $this->createMock(SkillMergeService::class)),
 			'promotion' => new SkillLearningsPromotionTask(time: $time, promotionService: $this->createMock(SkillLearningsPromotionService::class)),
 		];
 
@@ -175,17 +176,29 @@ final class TimedJobsTest extends TestCase {
 	}//end testConsolidationRunsAPassOrWarns()
 
 	/**
-	 * The curator and the promotion task each call their service once per tick.
+	 * The curator and the promotion task each call their service once per tick;
+	 * the curator then proposes merges (skills-curator-merges-duplicates).
 	 *
 	 * @return void
 	 */
 	public function testCuratorAndPromotionCallTheirService(): void {
 		$marketplace = $this->createMock(SkillMarketplaceService::class);
-		$marketplace->expects($this->once())->method('curate')->willReturn([]);
+		$calls = [];
+		$marketplace->expects($this->once())->method('curate')->willReturnCallback(static function () use (&$calls): array {
+			$calls[] = 'curate';
+			return [];
+		});
+		$merges = $this->createMock(SkillMergeService::class);
+		$merges->expects($this->once())->method('proposeMerges')->willReturnCallback(static function () use (&$calls): array {
+			$calls[] = 'proposeMerges';
+			return ['scanned' => 0, 'proposed' => 0];
+		});
 		$promotion = $this->createMock(SkillLearningsPromotionService::class);
 		$promotion->expects($this->once())->method('promoteAll');
 
-		(new SkillCuratorTask(time: $this->createMock(ITimeFactory::class), marketplaceService: $marketplace))->run(argument: null);
+		(new SkillCuratorTask(time: $this->createMock(ITimeFactory::class), marketplaceService: $marketplace, mergeService: $merges))->run(argument: null);
+		// Unused skills are moved first, so a merge is proposed only among the skills still active.
+		$this->assertSame(['curate', 'proposeMerges'], $calls);
 		(new SkillLearningsPromotionTask(time: $this->createMock(ITimeFactory::class), promotionService: $promotion))->run(argument: null);
 	}//end testCuratorAndPromotionCallTheirService()
 }//end class

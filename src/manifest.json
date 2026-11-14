@@ -1660,6 +1660,11 @@
 							"rowRoute": "AiOversightDetail",
 							"emptyText": "No AI oversight decisions recorded yet"
 						}
+					},
+					{
+						"id": "aio-ai-label",
+						"type": "custom",
+						"title": "Made with AI"
 					}
 				],
 				"layout": [
@@ -1694,8 +1699,19 @@
 						"gridY": 3,
 						"gridWidth": 12,
 						"gridHeight": 9
+					},
+					{
+						"id": 5,
+						"widgetId": "aio-ai-label",
+						"gridX": 0,
+						"gridY": 12,
+						"gridWidth": 12,
+						"gridHeight": 4
 					}
 				]
+			},
+			"slots": {
+				"widget-aio-ai-label": "ai-label-section"
 			}
 		},
 		{

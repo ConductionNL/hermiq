@@ -43,6 +43,7 @@ use ReflectionMethod;
  *
  * @covers \OCA\Hermiq\Repair\SeedMaturityExampleSkills
  * @uses   \OCA\Hermiq\Service\SeedFreshnessService
+ * @uses   \OCA\Hermiq\Repair\Seed\LearningsSeedTarget
  *
  * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
  */

@@ -155,6 +155,23 @@ export async function renameSession(uuid, title) {
 }
 
 /**
+ * Start a new session from one of a session's answers ("Fork from here"). The
+ * new session has the same agent and every turn up to and including that answer;
+ * the source stays as it was. Only the owner may fork: anyone else gets a 404.
+ *
+ * @param {string} uuid The source session UUID.
+ * @param {string} turnUuid The assistant turn to fork at.
+ * @return {Promise<{uuid: string, title: string, agentId: string, forkedFrom: object, messageCount: number}>} The new session.
+ * @spec openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
+ */
+export async function forkSession(uuid, turnUuid) {
+	const response = await axios.post(generateUrl(`${SESSIONS_BASE}/${uuid}/fork`), {
+		turnUuid,
+	})
+	return response.data
+}
+
+/**
  * Store the answers to the agent's start fields on a session, once, before its
  * first message (agents-instruction-variables). A refused answer comes back as
  * a 422 whose `problems` name the reason per field key.
@@ -742,4 +759,34 @@ export async function stopGoal(goalId) {
 		generateUrl(`/apps/hermiq/api/goals/${goalId}/stop`),
 	)
 	return response.data
+}
+
+/**
+ * Start an agent's pooled CLI process for a session before its first question
+ * (warm-start-and-cli-step-visibility). Called when a session opens or starts
+ * with an agent, so the process start happens while the person is still typing.
+ *
+ * Never throws: a warm-up is an optimisation the next turn does not depend on,
+ * so any failure, including a refused or unreachable request, reads as "not
+ * warmed" and is not shown.
+ *
+ * @param {string} agentUuid The session's agent.
+ * @param {string} sessionUuid The session.
+ * @return {Promise<boolean>} Whether a process was warmed.
+ * @spec openspec/changes/warm-start-and-cli-step-visibility/specs/warm-start-and-cli-step-visibility/spec.md#requirement-the-cli-process-is-warmed-before-the-first-question-not-by-it
+ */
+export async function warmChat(agentUuid, sessionUuid) {
+	if (!agentUuid || !sessionUuid) {
+		return false
+	}
+	try {
+		// wire key: ChatController::warm() reads getParam('conversation')
+		const response = await axios.post(generateUrl(`${CHAT_BASE}/warm`), {
+			agentUuid,
+			conversation: sessionUuid,
+		})
+		return response?.data?.warmed === true
+	} catch {
+		return false
+	}
 }

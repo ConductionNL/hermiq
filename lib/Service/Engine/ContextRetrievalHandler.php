@@ -44,6 +44,9 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Engine;
 
 use Exception;
+use OCA\Hermiq\Service\Chat\ScopedPassageSource;
+use OCA\Hermiq\Service\Chat\TurnScope;
+use OCA\Hermiq\Service\Chat\TurnScopeException;
 use OCA\Hermiq\Service\Graph\GraphContextRetriever;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -66,6 +69,7 @@ class ContextRetrievalHandler {
 	 * @param LoggerInterface $logger Logger.
 	 * @param GraphContextRetriever|null $graphRetriever The graph mode (knowledge-graph); null keeps graph mode on the keyword path.
 	 * @param AppRegisterScope|null $appScope The registers of an agent's app (agents-bound-to-their-app).
+	 * @param ScopedPassageSource|null $scopedSource The passages of a turn scoped to a file or folder; null refuses such a turn.
 	 *
 	 * @return void
 	 *
@@ -76,6 +80,7 @@ class ContextRetrievalHandler {
 		private readonly LoggerInterface $logger,
 		private readonly ?GraphContextRetriever $graphRetriever = null,
 		private readonly ?AppRegisterScope $appScope = null,
+		private readonly ?ScopedPassageSource $scopedSource = null,
 	) {
 	}//end __construct()
 
@@ -91,21 +96,36 @@ class ContextRetrievalHandler {
 	 * @param string $query User query text.
 	 * @param ObjectEntity|null $agent Agent object (optional).
 	 * @param array $selectedViews View filters for multitenancy (optional).
-	 * @param array $ragSettings RAG configuration overrides (optional).
+	 * @param array $ragSettings RAG configuration overrides (optional); a `scope`
+	 *                           limits the turn to one file or folder.
+	 * @param string $speaker The uid a scoped turn's files are read as.
 	 *
 	 * @return array Retrieved context: `text` (concatenated excerpt block) and
-	 *               `sources` (list of source descriptors).
+	 *               `sources` (list of source descriptors); a scoped turn adds
+	 *               `scoped` and `noMatch` (the reply when nothing matched).
 	 *
-	 * @psalm-return array{text: string, sources: list<array>}
+	 * @psalm-return array{text: string, sources: list<array>, scoped?: true, noMatch?: string}
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-a-collection-req-dchat-002
 	 */
 	public function retrieveContext(
 		string $query,
 		?ObjectEntity $agent,
 		array $selectedViews = [],
 		array $ragSettings = [],
+		string $speaker = '',
 	): array {
+		$scope = (new TurnScope())->fromRagSettings(ragSettings: $ragSettings);
+		if ($scope !== null) {
+			return $this->scopedContext(
+				scope: $scope,
+				query: $query,
+				speaker: $speaker,
+				limit: (int)($ragSettings['numSourcesFiles'] ?? ($agent?->getObject()['ragNumSources'] ?? 5))
+			);
+		}
+
 		$agentData = [];
 		if ($agent !== null) {
 			$agentData = $agent->getObject();
@@ -157,6 +177,87 @@ class ContextRetrievalHandler {
 			];
 		}//end try
 	}//end retrieveContext()
+
+	/**
+	 * Refuse a scoped turn whose file or folder the speaker cannot open, before
+	 * anything of the turn is stored or any model is called. An unscoped turn passes.
+	 *
+	 * @param array<string, mixed> $ragSettings The turn's RAG settings.
+	 * @param string               $speaker     The uid the turn is read as.
+	 *
+	 * @return void
+	 *
+	 * @throws TurnScopeException 400 for a malformed scope, 404 for one the speaker cannot open.
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 */
+	public function assertScopeReadable(array $ragSettings, string $speaker): void {
+		$scope = (new TurnScope())->fromRagSettings(ragSettings: $ragSettings);
+		if ($scope === null) {
+			return;
+		}
+
+		if ($this->scopedSource === null) {
+			throw new TurnScopeException(status: 404);
+		}
+
+		$this->scopedSource->assertReadable(scope: $scope, speaker: $speaker);
+	}//end assertScopeReadable()
+
+	/**
+	 * The context of a scoped turn: only the passages of its file or folder, each
+	 * numbered so the answer can cite it, with the sources in that same order.
+	 * Nothing matching leaves the sources empty, and `noMatch` carries the reply.
+	 *
+	 * @param array{type: string, fileId: int} $scope   The turn's scope.
+	 * @param string                           $query   The question.
+	 * @param string                           $speaker The uid the files are read as.
+	 * @param int                              $limit   The most passages kept.
+	 *
+	 * @return array{text: string, sources: list<array<string, mixed>>, scoped: true, noMatch: string}
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-a-collection-req-dchat-002
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
+	 */
+	private function scopedContext(array $scope, string $query, string $speaker, int $limit): array {
+		$context = ['text' => '', 'sources' => [], 'scoped' => true, 'noMatch' => ''];
+		if ($this->scopedSource === null) {
+			return $context;
+		}
+
+		$context['noMatch'] = $this->scopedSource->noMatchReply(scope: $scope);
+		try {
+			$passages = $this->scopedSource->matching(scope: $scope, query: $query, speaker: $speaker, limit: max(1, $limit));
+		} catch (Throwable $e) {
+			$this->logger->error(
+				message: '[ContextRetrievalHandler] Failed to read the scope of the turn',
+				context: ['file' => __FILE__, 'line' => __LINE__, 'error' => $e->getMessage()]
+			);
+			return $context;
+		}
+
+		foreach ($passages as $passage) {
+			$where = $passage['name'];
+			if ($passage['page'] !== null) {
+				$where .= ', page ' . $passage['page'];
+			}
+
+			$context['text'] .= '[' . $passage['number'] . '] Source: ' . $where . "\n" . $passage['text'] . "\n\n";
+			$context['sources'][] = [
+				'id' => $passage['file_id'],
+				'type' => 'file',
+				'name' => $passage['name'],
+				'similarity' => $passage['score'],
+				'text' => $passage['text'],
+				'file_id' => $passage['file_id'],
+				'file_path' => $passage['file_path'],
+				'page' => $passage['page'],
+				'passage' => $passage['number'],
+			];
+		}
+
+		return $context;
+	}//end scopedContext()
 
 	/**
 	 * The turn's search mode and, per source type, its include flag and limit:

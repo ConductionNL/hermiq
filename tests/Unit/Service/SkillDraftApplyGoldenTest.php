@@ -66,6 +66,7 @@ use Stringable;
  * @covers \OCA\Hermiq\Service\SkillConsolidationService
  * @uses   \OCA\Hermiq\Service\SkillMaturityService
  * @uses   \OCA\Hermiq\Service\DeliveryResult
+ * @uses   \OCA\Hermiq\Service\TenantKillSwitch
  *
  * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
  */

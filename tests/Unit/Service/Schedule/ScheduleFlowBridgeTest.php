@@ -32,6 +32,8 @@ use OCA\Hermiq\Service\Schedule\ScheduleFlowPublisher;
 use OCA\Hermiq\Service\Schedule\ScheduleMirrorDefinition;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\Flow;
+use OCA\OpenRegister\Db\Flow\FlowSelection;
+use OCA\OpenRegister\Kernel\Contracts\ListQuery;
 use OCA\OpenRegister\Db\FlowMapper;
 use OCA\OpenRegister\Db\FlowVersion;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -964,4 +966,101 @@ class ScheduleFlowBridgeTest extends TestCase {
 		$this->assertSame(array_fill(0, 3, ['0 8 * * *', true, 'alice']), $updates);
 
 	}//end testAnyOneDriftRedefinesAndRepublishesTheMirror()
+
+	/**
+	 * A stored mirror flow that dispatches the given schedule.
+	 *
+	 * @param string $uuid       The flow uuid.
+	 * @param string $scheduleId The schedule its dispatch node fires; '' for no dispatch node.
+	 *
+	 * @return Flow
+	 */
+	private function storedMirror(string $uuid, string $scheduleId): Flow {
+		$flow = new Flow();
+		$flow->setUuid($uuid);
+		$nodes = [['id' => 'trigger', 'type' => 'openregister.trigger-schedule', 'config' => ['cron' => '0 8 * * *', 'runAs' => 'alice']]];
+		if ($scheduleId !== '') {
+			$nodes[] = ['id' => 'dispatch', 'type' => 'hermiq.schedule-dispatch', 'config' => ['scheduleId' => $scheduleId]];
+		}
+
+		$flow->setNodes($nodes);
+		return $flow;
+	}//end storedMirror()
+
+	/**
+	 * A mirror flow whose schedule was deleted is removed from the flow side on
+	 * the next pass and counted as retired; a mirror of a live schedule and a
+	 * flow without a dispatch node are left alone.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-3-1
+	 */
+	public function testAnOrphanedMirrorIsSweptFromTheFlowSide(): void {
+		$this->objectService->method('findAll')->willReturn(
+			[$this->schedule(['kind' => 'once', 'runAt' => '2026-12-01T08:00:00+00:00', 'enabled' => true], 'sched-live')]
+		);
+		$flows = [
+			'flow-live' => $this->storedMirror('flow-live', 'sched-live'),
+			'flow-orphan' => $this->storedMirror('flow-orphan', 'sched-gone'),
+			'flow-odd' => $this->storedMirror('flow-odd', ''),
+		];
+		$selections = [];
+		$this->flowMapper->method('findAllFlows')->willReturnCallback(
+			function (FlowSelection $selection, ListQuery $query) use (&$selections, $flows): array {
+				$selections[] = [$selection->app, $selection->applicationSlug, $query->limit];
+				return array_values($flows);
+			}
+		);
+		$this->flowMapper->method('findByUuid')->willReturnCallback(static fn (string $uuid): Flow => $flows[$uuid]);
+		$deleted = [];
+		$this->flowMapper->method('delete')->willReturnCallback(
+			static function (Flow $flow) use (&$deleted): Flow {
+				$deleted[] = $flow->getUuid();
+				return $flow;
+			}
+		);
+
+		$stats = $this->bridge()->syncAll();
+
+		$this->assertSame(['flow-orphan'], $deleted);
+		$this->assertSame(1, $stats['retired']);
+		$this->assertSame([['hermiq', 'hermiq-schedules', 1000]], $selections);
+	}//end testAnOrphanedMirrorIsSweptFromTheFlowSide()
+
+	/**
+	 * A pass that read a full page of schedules cannot prove one gone, so it
+	 * sweeps nothing; a listing that fails sweeps nothing and says so.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-3-1
+	 */
+	public function testNoSweepWithoutTheWholePictureOrTheListing(): void {
+		$this->objectService->method('findAll')->willReturn(array_fill(0, 1000, 'not-a-schedule'));
+		$this->flowMapper->expects($this->never())->method('findAllFlows');
+		$this->flowMapper->expects($this->never())->method('delete');
+		$this->assertSame(0, $this->bridge()->syncAll()['retired']);
+	}//end testNoSweepWithoutTheWholePictureOrTheListing()
+
+	/**
+	 * A listing failure deletes nothing and is logged.
+	 *
+	 * @return void
+	 */
+	public function testAFailingListingSweepsNothing(): void {
+		$this->objectService->method('findAll')->willReturn([]);
+		$this->flowMapper->method('findAllFlows')->willThrowException(new \RuntimeException('flows table locked'));
+		$this->flowMapper->expects($this->never())->method('delete');
+		$warnings = [];
+		$this->loggerOverride = $this->createMock(LoggerInterface::class);
+		$this->loggerOverride->method('warning')->willReturnCallback(
+			static function (string $message) use (&$warnings): void {
+				$warnings[] = $message;
+			}
+		);
+
+		$this->assertSame(0, $this->bridge()->syncAll()['retired']);
+		$this->assertSame(['[hermiq] Schedule flow sync could not list mirror flows; no orphans swept: flows table locked'], $warnings);
+	}//end testAFailingListingSweepsNothing()
 }//end class

@@ -32,8 +32,10 @@ use OCA\OpenRegister\Event\AgentRunRequestedEvent;
 use OCA\OpenRegister\Event\DraftCreatedEvent;
 use OCA\OpenRegister\Event\DraftUpdatedEvent;
 use OCA\OpenRegister\Event\ObjectCreatedEvent;
+use OCA\OpenRegister\Event\ObjectCreatingEvent;
 use OCA\OpenRegister\Event\ObjectDeletedEvent;
 use OCA\OpenRegister\Event\ObjectUpdatedEvent;
+use OCA\OpenRegister\Event\ObjectUpdatingEvent;
 use OCA\OpenRegister\Event\RegisterLeafProvidersEvent;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use OCP\User\Events\UserChangedEvent;
@@ -131,6 +133,11 @@ final class ListenerRegistrar {
 		$context->registerEventListener(event: ObjectUpdatedEvent::class, listener: AgentWaiverChangeListener::class);
 		$context->registerEventListener(event: DraftCreatedEvent::class, listener: AgentWaiverChangeListener::class);
 		$context->registerEventListener(event: DraftUpdatedEvent::class, listener: AgentWaiverChangeListener::class);
+
+		// Naming the account an agent works with is checked before the write,
+		// on every write path (agent-acting-identity-picker, REQ-AGID-002).
+		$context->registerEventListener(event: ObjectCreatingEvent::class, listener: AgentActingUserGuardListener::class);
+		$context->registerEventListener(event: ObjectUpdatingEvent::class, listener: AgentActingUserGuardListener::class);
 	}//end registerAgentObjectListeners()
 
 	/**
