@@ -166,8 +166,8 @@ class ToolInvocationLogTest extends TestCase {
 	public function testTheDegradedLogListsTheSchedulesRuns(): void {
 		$this->objects->method('findAll')->willReturn([self::entity('s-1', 'bob', ['agentId' => 'agent-1'])]);
 		$this->audit->expects($this->once())->method('findAll')->with($this->anything(), $this->anything(), ['action' => 'run'])->willReturn([
-			self::entry('bob', '2026-11-02T10:00:00+00:00', ['objectUuid' => 's-1', 'changed' => ['status' => 'ok']]),
-			self::entry('bob', '2026-11-04T10:00:00+00:00', ['objectUuid' => 's-1']),
+			self::entry('bob', '2026-11-02T10:00:00+00:00', ['uuid' => 'run-1', 'objectUuid' => 's-1', 'changed' => ['status' => 'ok']]),
+			self::entry('bob', '2026-11-04T10:00:00+00:00', ['uuid' => 'run-2', 'objectUuid' => 's-1']),
 			self::entry('carol', '2026-11-03T10:00:00+00:00', ['objectUuid' => 's-9', 'changed' => ['status' => 'ok']]),
 		]);
 
@@ -175,8 +175,8 @@ class ToolInvocationLogTest extends TestCase {
 
 		$this->assertSame(
 			[
-				['at' => '2026-11-04T10:00:00+00:00', 'toolId' => null, 'actingUser' => 'bob', 'paramsDigest' => null, 'resultSummary' => ['status' => 'unknown'], 'dataTouched' => []],
-				['at' => '2026-11-02T10:00:00+00:00', 'toolId' => null, 'actingUser' => 'bob', 'paramsDigest' => null, 'resultSummary' => ['status' => 'ok'], 'dataTouched' => []],
+				['callId' => 'run-2', 'at' => '2026-11-04T10:00:00+00:00', 'toolId' => null, 'actingUser' => 'bob', 'paramsDigest' => null, 'resultSummary' => ['status' => 'unknown'], 'dataTouched' => []],
+				['callId' => 'run-1', 'at' => '2026-11-02T10:00:00+00:00', 'toolId' => null, 'actingUser' => 'bob', 'paramsDigest' => null, 'resultSummary' => ['status' => 'ok'], 'dataTouched' => []],
 			],
 			$rows
 		);
