@@ -280,6 +280,57 @@ class ConversationManagementHandler {
 	}//end highestTitleSuffix()
 
 	/**
+	 * Keep the turn's context usage on the session as `metadata.contextUsage`
+	 * (chat-how-an-answer-came-about D4). It never writes `metadata.token_count`:
+	 * that key would switch on checkAndSummarize(), which has never run in
+	 * production (design D6). Never throws; a failure is logged.
+	 *
+	 * @param string                                                          $conversationId The session uuid.
+	 * @param array{usedTokens: int, windowTokens: int|null, estimated: bool} $contextUsage   The usage.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+	 */
+	public function recordContextUsage(string $conversationId, array $contextUsage): void {
+		try {
+			$conversation = $this->objectService->find(
+				id: $conversationId,
+				register: self::REGISTER_SLUG,
+				schema: self::CONVERSATION_SCHEMA
+			);
+			if ($conversation === null) {
+				return;
+			}
+
+			$data = $conversation->getObject();
+			$metadata = $data['metadata'] ?? [];
+			if (is_array($metadata) === false) {
+				$metadata = [];
+			}
+
+			$metadata['contextUsage'] = $contextUsage;
+			$data['metadata'] = $metadata;
+			$this->objectService->saveObject(
+				object: $this->sanitizeForSave(data: $data),
+				register: self::REGISTER_SLUG,
+				schema: self::CONVERSATION_SCHEMA,
+				uuid: $conversationId
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				message: '[ConversationManagementHandler] Could not record the context usage',
+				context: [
+					'file' => __FILE__,
+					'line' => __LINE__,
+					'conversationId' => $conversationId,
+					'error' => $e->getMessage(),
+				]
+			);
+		}//end try
+	}//end recordContextUsage()
+
+	/**
 	 * Check whether a conversation needs summarisation and, if so, create one.
 	 *
 	 * Triggers when `metadata.token_count` exceeds `MAX_TOKENS_BEFORE_SUMMARY`

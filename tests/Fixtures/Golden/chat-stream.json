@@ -2730,7 +2730,10 @@
                     "attachmentNotices": [],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -3311,7 +3314,10 @@
                     ],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -3627,7 +3633,10 @@
                     "attachmentNotices": [],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -3878,7 +3887,10 @@
                     "attachmentNotices": [],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -4392,7 +4404,10 @@
                     "attachmentNotices": [],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -4540,7 +4555,10 @@
                         }
                     ],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -5598,7 +5616,10 @@
                     "attachmentNotices": [],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -6398,7 +6419,10 @@
                     "attachmentNotices": [],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -6984,7 +7008,10 @@
                     "attachmentNotices": [],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -7923,7 +7950,10 @@
                         }
                     ],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -9447,7 +9477,10 @@
                     "attachmentNotices": [],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -10153,7 +10186,10 @@
                     "attachmentNotices": [],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -10271,7 +10307,10 @@
                     "attachmentNotices": [],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -10505,7 +10544,10 @@
                     ],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -10980,7 +11022,10 @@
                     "attachmentNotices": [],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -11439,7 +11484,10 @@
                     "attachmentNotices": [],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -12217,7 +12265,10 @@
                     "attachmentNotices": [],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -13473,7 +13524,10 @@
                     ],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -14338,7 +14392,10 @@
                     "attachmentNotices": [],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -15388,7 +15445,10 @@
                         }
                     ],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -15526,7 +15586,10 @@
                     ],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -18944,7 +19007,10 @@
                     "attachmentNotices": [],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -21161,7 +21227,10 @@
                     ],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -21394,7 +21463,10 @@
                     "attachmentNotices": [],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -21735,7 +21807,10 @@
                     ],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -22054,7 +22129,10 @@
                     "attachmentNotices": [],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -22827,7 +22905,10 @@
                     "attachmentNotices": [],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -23332,7 +23413,10 @@
                     "attachmentNotices": [],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -24555,7 +24639,10 @@
                     "attachmentNotices": [],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -24842,7 +24929,10 @@
                         }
                     ],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -25944,7 +26034,10 @@
                     "attachmentNotices": [],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -26051,7 +26144,10 @@
                     "attachmentNotices": [],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {
@@ -26603,7 +26699,10 @@
                     ],
                     "attachments": [],
                     "sources": [],
-                    "provenance": null
+                    "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null
                 }
             },
             {

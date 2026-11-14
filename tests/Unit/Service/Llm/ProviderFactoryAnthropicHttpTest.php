@@ -289,4 +289,99 @@ class ProviderFactoryAnthropicHttpTest extends TestCase {
 		}
 
 	}//end testEachHttpFailureHasItsMessage()
+	/**
+	 * Without "Show the model's reasoning" no thinking is asked for, and none is kept.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+	 */
+	public function testNoThinkingIsAskedForWhenReasoningIsOff(): void {
+		$factory = $this->factory([$this->ok(['content' => [['type' => 'thinking', 'thinking' => 'unasked'], ['type' => 'text', 'text' => 'Hi.']], 'stop_reason' => 'end_turn'])]);
+
+		$text = $factory->callAnthropicChat(
+			credentialId: 'cred',
+			model: 'claude-x',
+			baseUrl: 'https://api.anthropic.com/v1/',
+			messageHistory: [LLPhantMessage::user('Hello')]
+		);
+
+		$this->assertSame('Hi.', $text);
+		$this->assertArrayNotHasKey('thinking', $this->requests[0]['body']);
+		$this->assertSame('unasked', $factory->lastCallReasoning());
+	}//end testNoThinkingIsAskedForWhenReasoningIsOff()
+
+	/**
+	 * With reasoning on, the request asks for extended thinking with a quarter of
+	 * max_tokens (at least 1024), and none when max_tokens leaves no room for it.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+	 */
+	public function testThinkingIsAskedForWithAQuarterOfMaxTokens(): void {
+		$budgets = [8000 => 2000, 4096 => 1024, 2048 => 1024, 1024 => null, null => 1024];
+		foreach ($budgets as $maxTokens => $budget) {
+			$this->requests = [];
+			$factory = $this->factory([$this->ok(['content' => [['type' => 'text', 'text' => 'Hi.']], 'stop_reason' => 'end_turn'])]);
+			$factory->callAnthropicChat(
+				credentialId: 'cred',
+				model: 'claude-x',
+				baseUrl: 'https://api.anthropic.com/v1/',
+				messageHistory: [LLPhantMessage::user('Hello')],
+				maxTokens: ($maxTokens === '' ? null : $maxTokens),
+				showReasoning: true
+			);
+
+			$body = $this->requests[0]['body'];
+			if ($budget === null) {
+				$this->assertArrayNotHasKey('thinking', $body, 'max_tokens ' . $maxTokens);
+				continue;
+			}
+
+			$this->assertSame(['type' => 'enabled', 'budget_tokens' => $budget], $body['thinking'], 'max_tokens ' . $maxTokens);
+			$this->assertLessThan($body['max_tokens'], $budget);
+		}
+	}//end testThinkingIsAskedForWithAQuarterOfMaxTokens()
+
+	/**
+	 * Every request of the tool loop asks for thinking, its thinking blocks are echoed
+	 * back with the tool call, and the reasoning of both requests is kept, never in the answer.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+	 */
+	public function testTheReasoningOfEveryToolRoundIsKept(): void {
+		$thinking = ['type' => 'thinking', 'thinking' => 'I need the cases.', 'signature' => 'sig-1'];
+		$toolUse = ['type' => 'tool_use', 'id' => 'tu-1', 'name' => 'list_cases', 'input' => []];
+		$factory = $this->factory(
+			[
+				$this->ok(['content' => [$thinking, $toolUse], 'stop_reason' => 'tool_use']),
+				$this->ok(['content' => [['type' => 'thinking', 'thinking' => 'One case is open.'], ['type' => 'text', 'text' => 'One case.']], 'stop_reason' => 'end_turn']),
+			]
+		);
+
+		$text = $factory->callAnthropicChat(
+			credentialId: 'cred',
+			model: 'claude-x',
+			baseUrl: 'https://api.anthropic.com/v1',
+			messageHistory: [LLPhantMessage::user('Open cases?')],
+			maxTokens: 8000,
+			functions: $this->functions(),
+			toolExecutor: static fn (string $name, array $input): string => '["case-1"]',
+			showReasoning: true
+		);
+
+		$this->assertSame('One case.', $text);
+		$this->assertSame("I need the cases.\n\nOne case is open.", $factory->lastCallReasoning());
+		$this->assertSame(['type' => 'enabled', 'budget_tokens' => 2000], $this->requests[1]['body']['thinking']);
+		$this->assertSame(['role' => 'assistant', 'content' => [$thinking, $toolUse]], $this->requests[1]['body']['messages'][1]);
+
+		// The next call starts clean.
+		$this->requests = [];
+		$next = $this->factory([$this->ok(['content' => [['type' => 'text', 'text' => 'Hi.']], 'stop_reason' => 'end_turn'])]);
+		$next->callAnthropicChat(credentialId: 'cred', model: 'claude-x', baseUrl: 'https://api.anthropic.com/v1', messageHistory: [LLPhantMessage::user('Hi')]);
+		$this->assertSame('', $next->lastCallReasoning());
+	}//end testTheReasoningOfEveryToolRoundIsKept()
 }//end class

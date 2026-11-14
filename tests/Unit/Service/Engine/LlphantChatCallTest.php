@@ -31,6 +31,7 @@ use OCA\Hermiq\Service\Engine\LlphantChatCall;
 use OCA\Hermiq\Service\Engine\ResponseTurnRun;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
 use OCA\Hermiq\Service\Llm\ChatDriver;
+use OCA\Hermiq\Service\Llm\ReasoningOllamaChat;
 use OpenAI\Responses\Chat\CreateResponse;
 use OpenAI\Responses\Meta\MetaInformation;
 use PHPUnit\Framework\TestCase;
@@ -169,6 +170,38 @@ class LlphantChatCallTest extends TestCase {
 		);
 		$this->assertSame(['ok'], $tokens);
 	}//end testOllamaWithToolsBlocksAndWithoutToolsStreams()
+
+	/**
+	 * An Ollama call that asks for reasoning blocks even with a channel listening:
+	 * only the blocking answer carries its `thinking`, and no reasoning reaches a
+	 * token; without the ask it streams as before (chat-how-an-answer-came-about D3).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+	 */
+	public function testOllamaAskingForReasoningBlocks(): void {
+		$tokens = [];
+		$asking = $this->createMock(ReasoningOllamaChat::class);
+		$asking->asksForReasoning = true;
+		$asking->expects($this->never())->method('generateChatStream');
+		$asking->expects($this->once())->method('generateChat')->willReturn('answer');
+
+		$this->assertSame(
+			'answer',
+			(new LlphantChatCall(chat: $asking, logger: new NullLogger()))->generate(run: $this->turn(channel: $this->channel($tokens)))
+		);
+		$this->assertSame([], $tokens);
+
+		$notAsking = $this->createMock(ReasoningOllamaChat::class);
+		$notAsking->expects($this->once())->method('generateChatStream')->willReturn($this->stream(['streamed']));
+		$notAsking->expects($this->never())->method('generateChat');
+
+		$this->assertSame(
+			'streamed',
+			(new LlphantChatCall(chat: $notAsking, logger: new NullLogger()))->generate(run: $this->turn(channel: $this->channel($tokens)))
+		);
+	}//end testOllamaAskingForReasoningBlocks()
 
 	/**
 	 * A provider that cannot stream degrades to the blocking call, and the

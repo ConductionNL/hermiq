@@ -337,6 +337,25 @@
 					"
 					placeholder="10" />
 
+				<!-- chat-how-an-answer-came-about D3: the owner chooses whether the model's
+				     reasoning is asked for and shown next to the answer. -->
+				<div class="agent-form__field">
+					<NcCheckboxRadioSwitch
+						v-model="form.showReasoning"
+						type="switch"
+						data-testid="agent-form-show-reasoning"
+						:disabled="!reasoningAvailable">
+						{{ t('hermiq', 'Show the model\'s reasoning') }}
+					</NcCheckboxRadioSwitch>
+					<p class="agent-form__hint" data-testid="agent-form-show-reasoning-hint">
+						{{
+							reasoningAvailable
+								? t('hermiq', 'The answer shows the model\'s own reasoning next to it. Reasoning costs tokens.')
+								: t('hermiq', 'This provider does not return reasoning')
+						}}
+					</p>
+				</div>
+
 				<div class="agent-form__field">
 					<NcSelect
 						v-model="form.tools"
@@ -531,6 +550,7 @@ import {
 	setPin,
 } from '../utils/agentCredentials.js'
 import { sharingFields, sharingOf } from '../utils/agentSharing.js'
+import { providerReturnsReasoning } from '../utils/contextUsage.js'
 import { insertPlaceholder, startFieldsOf } from '../utils/instructionVariables.js'
 import { formDialogSlot } from './formDialogSlot.js'
 
@@ -661,6 +681,7 @@ function describingFields(source) {
 		temperature: source.temperature ?? '',
 		maxTokens: source.maxTokens ?? '',
 		maxToolCalls: source.maxToolCalls ?? 10,
+		showReasoning: source.showReasoning === true,
 	}
 }
 
@@ -848,6 +869,17 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * Whether the agent's provider returns reasoning; an agent on the app's
+		 * default provider is not refused here, since that provider is not known.
+		 *
+		 * @return {boolean}
+		 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+		 */
+		reasoningAvailable() {
+			return !this.form.provider || providerReturnsReasoning(this.form.provider)
+		},
+
 		/**
 		 * The dictation-engine picker's selection, as the option object NcSelect
 		 * wants, over the plain value the form stores.
@@ -1332,6 +1364,7 @@ export default {
 				temperature: '',
 				maxTokens: '',
 				maxToolCalls: 10,
+				showReasoning: false,
 				applicationSlug: null,
 				appAssistant: false,
 				sharing: 'only-me',
@@ -1740,6 +1773,8 @@ export default {
 				),
 			)
 			assignDefined(payload, limitFields(this.form))
+			// chat-how-an-answer-came-about D3: always sent, so switching it off is saved.
+			payload.showReasoning = this.form.showReasoning === true
 		},
 
 		appSlugOf,

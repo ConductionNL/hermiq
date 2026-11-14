@@ -594,6 +594,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -1585,6 +1592,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -1866,6 +1880,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -2352,6 +2373,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -2623,6 +2651,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -3446,6 +3481,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -4138,6 +4180,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -4665,6 +4714,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -5067,6 +5123,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -5666,6 +5729,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -6343,6 +6413,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -6759,6 +6836,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -7205,6 +7289,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": [
                 "s1"
@@ -8436,6 +8527,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -10781,6 +10879,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -12021,6 +12126,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": [
                 "s1"
@@ -12945,6 +13057,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -13184,6 +13303,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": [
                 "s1"
@@ -14315,6 +14441,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -14663,6 +14796,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -15444,6 +15584,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": [
                 "s1"
@@ -16442,6 +16589,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -16994,6 +17148,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -17577,6 +17738,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": [
                 "s1"
@@ -18276,6 +18444,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -18814,6 +18989,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -19711,6 +19893,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -20046,6 +20235,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -20916,6 +21112,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -21255,6 +21458,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": [
                 "s1"
@@ -21971,6 +22181,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -22728,6 +22945,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": [
                 "s1"
@@ -24217,6 +24441,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -24480,6 +24711,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -26054,6 +26292,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -26644,6 +26889,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -27077,6 +27329,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -27610,6 +27869,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -28636,6 +28902,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -29392,6 +29665,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -29671,6 +29951,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": [
                 "s1"
@@ -30022,6 +30309,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -30906,6 +31200,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -32358,6 +32659,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -32908,6 +33216,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -34436,6 +34751,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -35159,6 +35481,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -35906,6 +36235,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -36814,6 +37150,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -37089,6 +37432,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": [
                 "s1"
@@ -37932,6 +38282,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -38142,6 +38499,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -38769,6 +39133,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": [
                 "s1"
@@ -39511,6 +39882,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -39808,6 +40186,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": [
                 "s1"
@@ -40453,6 +40838,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": [
                 "s1"
@@ -41109,6 +41501,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -42486,6 +42885,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -43175,6 +43581,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": [
                 "s1"
@@ -46321,6 +46734,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -46608,6 +47028,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -47158,6 +47585,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -48445,6 +48879,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -48790,6 +49231,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -49617,6 +50065,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -49845,6 +50300,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": [
                 "s1"
@@ -50239,6 +50701,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -51119,6 +51588,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -51433,6 +51909,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },
@@ -52079,6 +52562,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -52593,6 +53083,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -52893,6 +53390,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "skillsUsed": []
         },

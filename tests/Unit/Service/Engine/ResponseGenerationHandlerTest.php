@@ -223,6 +223,67 @@ class ResponseGenerationHandlerTest extends TestCase {
 	}//end testAnthropicPathWiresGovernedToolExecutor()
 
 	/**
+	 * The agent's "Show the model's reasoning" reaches the Anthropic call only when it
+	 * is a stored true, and the reasoning and the size of the prompt are exposed after it.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+	 */
+	public function testTheReasoningSwitchReachesAnthropicAndTheReasoningIsExposed(): void {
+		foreach ([[true, true], ['yes', false], [null, false]] as [$stored, $expected]) {
+			$asked = null;
+			$factory = $this->createMock(ProviderFactory::class);
+			$factory->method('getLlmConfig')->willReturn(['chatProvider' => 'anthropic']);
+			$factory->method('createChatDriver')->willReturn(
+				new ChatDriver(provider: 'anthropic', chat: null, model: 'claude-x', credentialId: 'cred', baseUrl: 'https://api.anthropic.com/v1', authMode: 'api_key')
+			);
+			$factory->method('callAnthropicChat')->willReturnCallback(
+				function (...$args) use (&$asked): string {
+					$asked = $args['showReasoning'] ?? $args[12] ?? null;
+					return 'answer.';
+				}
+			);
+			$factory->method('lastCallReasoning')->willReturn('thought');
+			$factory->method('lastCallUsage')->willReturn([]);
+
+			$agentData = ['prompt' => 'Be brief.'];
+			if ($stored !== null) {
+				$agentData['showReasoning'] = $stored;
+			}
+
+			$handler = new ResponseGenerationHandler($factory, $this->toollessLoop(), new NullLogger());
+			$handler->generateResponse(
+				userMessage: 'Compare A and B',
+				context: ['text' => '', 'sources' => []],
+				messageHistory: [],
+				agent: $this->agent($agentData),
+				cnAiContext: []
+			);
+
+			$this->assertSame($expected, $asked, 'stored ' . json_encode($stored));
+			$this->assertSame('thought', $handler->lastReasoning);
+			$this->assertSame('anthropic', $handler->lastPrompt['provider']);
+			$this->assertSame('claude-x', $handler->lastPrompt['model']);
+			$this->assertGreaterThan(mb_strlen('Compare A and B'), $handler->lastPrompt['promptCharacters']);
+		}//end foreach
+	}//end testTheReasoningSwitchReachesAnthropicAndTheReasoningIsExposed()
+
+	/**
+	 * The prompt size counts the characters of every message, multibyte-aware.
+	 *
+	 * @return void
+	 */
+	public function testThePromptCharactersCountEveryMessage(): void {
+		$this->assertSame(
+			8,
+			ResponseGenerationHandler::promptCharacters(
+				messageHistory: [\LLPhant\Chat\Message::system('ééé'), \LLPhant\Chat\Message::user('hello'), 'not a message']
+			)
+		);
+	}//end testThePromptCharactersCountEveryMessage()
+
+	/**
 	 * Selecting the nextcloud TaskProcessing driver for CHAT is refused (its
 	 * scope is background titles/summaries only) with a clear wrapped error.
 	 *

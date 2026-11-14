@@ -27,6 +27,7 @@ use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use LLPhant\Exception\MissingFeatureException;
 use OCA\Hermiq\Service\Llm\ProviderCallFailedException;
+use OCA\Hermiq\Service\Llm\ReasoningOllamaChat;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -174,6 +175,12 @@ final class LlphantChatCall {
 	 */
 	private function callChat(OpenAIChat|OllamaChat $chat, ResponseTurnRun $run): string {
 		$ollamaWithTools = (($chat instanceof OllamaChat) === true && empty($run->progress->functions) === false);
+		// An Ollama call that asks for reasoning runs blocking too: only the blocking
+		// answer carries the `thinking` field ReasoningOllamaChat keeps
+		// (chat-how-an-answer-came-about D3); the page shows its typing indicator meanwhile.
+		if (($chat instanceof ReasoningOllamaChat) === true && $chat->asksForReasoning === true) {
+			$ollamaWithTools = true;
+		}
 
 		// Both branches of `$chat`'s OpenAIChat|OllamaChat type declare
 		// generateStreamOfText(), so the method_exists() conjunct this replaces
