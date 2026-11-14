@@ -2812,7 +2812,22 @@ OC.L10N.register(
         "counterfactualPair: the second request, identical to request A except for the attribute.": "counterfactualPair: het tweede verzoek, gelijk aan verzoek A op het kenmerk na.",
         "counterfactualPair: the second request, snapshotted at run time.": "counterfactualPair: het tweede verzoek, vastgelegd op het moment van uitvoeren.",
         "Fork from here": "Hier afsplitsen",
-        "Could not fork the session.": "De sessie kon niet worden afgesplitst."
+        "Could not fork the session.": "De sessie kon niet worden afgesplitst.",
+        "As the agent is set up": "Zoals de agent is ingesteld",
+        "Ask before an agent mails or sends something on my behalf": "Vragen voordat een agent namens mij mailt of iets verstuurt",
+        "Choose when starting a chat": "Kiezen bij het starten van een chat",
+        "Default agent in the chat": "Standaardagent in de chat",
+        "How agents work for you.": "Hoe agents voor jou werken.",
+        "Language of answers": "Taal van antwoorden",
+        "Notify me when a run is done": "Melding als een run klaar is",
+        "Preferences": "Voorkeuren",
+        "Your preference could not be saved.": "Je voorkeur kon niet worden opgeslagen.",
+        "Your preferences could not be loaded.": "Je voorkeuren konden niet worden geladen.",
+        "Dutch": "Nederlands",
+        "Dutch, B1": "Nederlands, B1",
+        "English": "Engels",
+        "German": "Duits",
+        "French": "Frans"
     },
     "nplurals=2; plural=(n != 1);"
 )

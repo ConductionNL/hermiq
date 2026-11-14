@@ -2812,7 +2812,22 @@ OC.L10N.register(
         "counterfactualPair: the first of the two requests. When absent the case's prompt is used.": "counterfactualPair: the first of the two requests. When absent the case's prompt is used.",
         "counterfactualPair: the one attribute in which the two requests differ.": "counterfactualPair: the one attribute in which the two requests differ.",
         "counterfactualPair: the second request, identical to request A except for the attribute.": "counterfactualPair: the second request, identical to request A except for the attribute.",
-        "counterfactualPair: the second request, snapshotted at run time.": "counterfactualPair: the second request, snapshotted at run time."
+        "counterfactualPair: the second request, snapshotted at run time.": "counterfactualPair: the second request, snapshotted at run time.",
+        "As the agent is set up": "As the agent is set up",
+        "Ask before an agent mails or sends something on my behalf": "Ask before an agent mails or sends something on my behalf",
+        "Choose when starting a chat": "Choose when starting a chat",
+        "Default agent in the chat": "Default agent in the chat",
+        "How agents work for you.": "How agents work for you.",
+        "Language of answers": "Language of answers",
+        "Notify me when a run is done": "Notify me when a run is done",
+        "Preferences": "Preferences",
+        "Your preference could not be saved.": "Your preference could not be saved.",
+        "Your preferences could not be loaded.": "Your preferences could not be loaded.",
+        "Dutch": "Dutch",
+        "Dutch, B1": "Dutch, B1",
+        "English": "English",
+        "German": "German",
+        "French": "French"
     },
     "nplurals=2; plural=(n != 1);"
 )
