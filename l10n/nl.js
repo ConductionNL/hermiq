@@ -1992,7 +1992,15 @@ OC.L10N.register(
         "The organisation's output filter masked part of the answer.": "Het uitvoerfilter van de organisatie heeft een deel van het antwoord afgeschermd.",
         "_Used %n document: %s._::_Used %n documents: %s._": ["%n document gebruikt: %s.","%n documenten gebruikt: %s."],
         "_Called %n tool: %s._::_Called %n tools: %s._": ["%n tool aangeroepen: %s.","%n tools aangeroepen: %s."],
-        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n aanroep is geweigerd: %s.","%n aanroepen zijn geweigerd: %s."]
+        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n aanroep is geweigerd: %s.","%n aanroepen zijn geweigerd: %s."],
+        "On whose behalf the agent works": "Namens wie werkt de agent",
+        "On behalf of the person who uses it": "Namens de persoon die hem gebruikt",
+        "Sees only what that person may see.": "Ziet alleen wat die persoon mag zien.",
+        "As its own service account": "Als eigen serviceaccount",
+        "For schedules with nobody behind the screen.": "Voor schema's waar niemand achter het scherm zit.",
+        "An administrator sets the account an agent works with.": "Een beheerder stelt het account in waarmee een agent werkt.",
+        "Service account": "Serviceaccount",
+        "The account {user} no longer exists or is disabled. Runs are refused until you choose another account or let the agent work on behalf of the person who uses it.": "Het account {user} bestaat niet meer of is uitgeschakeld. Runs worden geweigerd tot je een ander account kiest of de agent laat werken namens de persoon die hem gebruikt."
     },
     "nplurals=2; plural=(n != 1);"
 )

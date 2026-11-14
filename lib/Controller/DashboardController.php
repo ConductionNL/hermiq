@@ -25,6 +25,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
 use OCA\Hermiq\Tenant\ManageableOrganisations;
 use OCP\App\IAppManager;
 use OCP\AppFramework\Controller;
@@ -43,6 +44,16 @@ use OCP\IUserSession;
  * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-4-1
  */
 class DashboardController extends Controller {
+
+	/**
+	 * The governance action that names an agent's acting user. A literal, not
+	 * AgentActingUserGuardListener::ACTION: this default route stays loadable
+	 * without OpenRegister (ADR-083 rule 3), and that listener names its events.
+	 *
+	 * @var string
+	 */
+	private const SET_ACTING_USER = 'agent.set-acting-user';
+
 	/**
 	 * Constructor for the DashboardController.
 	 *
@@ -56,6 +67,7 @@ class DashboardController extends Controller {
 	 *   a start screen that explains itself. The OpenRegister reach lives behind
 	 *   an availability guard in OpenRegisterManageableOrganisations.
 	 * @param IAppManager $appManager Runtime app availability (OpenCatalogi publication seam).
+	 * @param ActionAuthServiceInterface $actions The action matrix (agent.set-acting-user).
 	 *
 	 * @return void
 	 */
@@ -66,6 +78,7 @@ class DashboardController extends Controller {
 		private readonly IGroupManager $groupManager,
 		private readonly ManageableOrganisations $organisations,
 		private readonly IAppManager $appManager,
+		private readonly ActionAuthServiceInterface $actions,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
@@ -90,6 +103,7 @@ class DashboardController extends Controller {
 	 */
 	public function page(): TemplateResponse {
 		$this->provideKillSwitchCapability();
+		$this->provideActingUserCapability();
 		return new TemplateResponse(AppIdentity::APP_ID, 'index');
 	}//end page()
 
@@ -146,6 +160,21 @@ class DashboardController extends Controller {
 		$this->initialState->provideInitialState('opencatalogi_available', $this->appManager->isInstalled('opencatalogi'));
 
 	}//end provideKillSwitchCapability()
+
+	/**
+	 * Tell the agent edit page whether the viewer may name the account an agent
+	 * works with (`can_set_acting_user`), read through the action matrix. UX
+	 * gating only: AgentActingUserGuardListener refuses the write either way.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-naming-a-service-account-is-a-governance-action-checked-on-every-write-req-agid-002
+	 */
+	private function provideActingUserCapability(): void {
+		$user = $this->userSession->getUser();
+		$canSet = ($user !== null && $this->actions->can(user: $user, action: self::SET_ACTING_USER) === true);
+		$this->initialState->provideInitialState('can_set_acting_user', $canSet);
+	}//end provideActingUserCapability()
 
 	/**
 	 * Serve the SPA for deep links (Vue history mode). Delegates to {@see page()}.

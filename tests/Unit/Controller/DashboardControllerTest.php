@@ -31,6 +31,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\DashboardController;
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
 use OCA\Hermiq\Tenant\ManageableOrganisations;
 use OCP\App\IAppManager;
 use OCP\AppFramework\Services\IInitialState;
@@ -38,6 +39,7 @@ use OCP\IGroupManager;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -58,6 +60,13 @@ class DashboardControllerTest extends TestCase {
 	private array $state = [];
 
 	/**
+	 * The action matrix double of the last controller built.
+	 *
+	 * @var ActionAuthServiceInterface&MockObject
+	 */
+	private ActionAuthServiceInterface $actions;
+
+	/**
 	 * Build the controller, recording every initial-state key into `$this->state`.
 	 *
 	 * @param string|null $uid The caller's uid, or null for an anonymous request.
@@ -65,6 +74,7 @@ class DashboardControllerTest extends TestCase {
 	 * @param array<int, array{id: string, label: string}> $organisations The organisations
 	 *   the tenant contract resolves for the caller.
 	 * @param bool $opencatalogi Whether the publication leaf is installed.
+	 * @param bool $canSetActingUser What the action matrix answers for agent.set-acting-user.
 	 *
 	 * @return DashboardController
 	 */
@@ -73,6 +83,7 @@ class DashboardControllerTest extends TestCase {
 		bool $isAdmin = false,
 		array $organisations = [],
 		bool $opencatalogi = false,
+		bool $canSetActingUser = false,
 	): DashboardController {
 		$this->state = [];
 
@@ -101,13 +112,17 @@ class DashboardControllerTest extends TestCase {
 		$appManager = $this->createMock(IAppManager::class);
 		$appManager->method('isInstalled')->willReturn($opencatalogi);
 
+		$this->actions = $this->createMock(ActionAuthServiceInterface::class);
+		$this->actions->method('can')->willReturn($canSetActingUser);
+
 		return new DashboardController(
 			$this->createMock(IRequest::class),
 			$initialState,
 			$session,
 			$groupManager,
 			$tenants,
-			$appManager
+			$appManager,
+			$this->actions
 		);
 
 	}//end controller()
@@ -241,4 +256,40 @@ class DashboardControllerTest extends TestCase {
 		$this->assertFalse($this->state['opencatalogi_available']);
 
 	}//end testPublicationSeamTracksLeafAvailability()
+	/**
+	 * The edit page learns from the action matrix whether the viewer may name an
+	 * agent's account, asked for exactly agent.set-acting-user.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-naming-a-service-account-is-a-governance-action-checked-on-every-write-req-agid-002
+	 */
+	public function testTheActingUserRightTracksTheActionMatrix(): void {
+		$controller = $this->controller('alice', false, [], false, true);
+		$this->actions->expects($this->once())
+			->method('can')
+			->with($this->callback(static fn ($user): bool => $user->getUID() === 'alice'), 'agent.set-acting-user');
+		$controller->page();
+		$this->assertTrue($this->state['can_set_acting_user']);
+
+		$this->controller('pieter', false, [], false, false)->page();
+		$this->assertFalse($this->state['can_set_acting_user']);
+
+	}//end testTheActingUserRightTracksTheActionMatrix()
+
+	/**
+	 * An anonymous request is never offered the right, and the matrix is not asked.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-naming-a-service-account-is-a-governance-action-checked-on-every-write-req-agid-002
+	 */
+	public function testAnAnonymousRequestMayNotSetTheActingUser(): void {
+		$controller = $this->controller(null, false, [], false, true);
+		$this->actions->expects($this->never())->method('can');
+		$controller->page();
+
+		$this->assertFalse($this->state['can_set_acting_user']);
+
+	}//end testAnAnonymousRequestMayNotSetTheActingUser()
 }//end class

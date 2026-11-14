@@ -150,6 +150,60 @@
 					</template>
 				</fieldset>
 
+				<!-- Whose rights the agent works with (agent-acting-identity-picker):
+			     two choices over the one field actingUser. Naming an account needs
+			     agent.set-acting-user; the server refuses the write without it, the
+			     page only says so up front. -->
+				<fieldset class="agent-form__field" data-testid="agent-form-acting">
+					<legend>{{ t('hermiq', 'On whose behalf the agent works') }}</legend>
+					<NcCheckboxRadioSwitch
+						v-model="form.actingChoice"
+						type="radio"
+						name="agent-acting"
+						value="person">
+						{{ t('hermiq', 'On behalf of the person who uses it') }}
+					</NcCheckboxRadioSwitch>
+					<p class="agent-form__hint">
+						{{ t('hermiq', 'Sees only what that person may see.') }}
+					</p>
+					<NcCheckboxRadioSwitch
+						v-model="form.actingChoice"
+						type="radio"
+						name="agent-acting"
+						value="service-account"
+						:disabled="!canSetActingUser">
+						{{ t('hermiq', 'As its own service account') }}
+					</NcCheckboxRadioSwitch>
+					<p class="agent-form__hint">
+						{{ t('hermiq', 'For schedules with nobody behind the screen.') }}
+					</p>
+					<p
+						v-if="!canSetActingUser"
+						class="agent-form__hint"
+						data-testid="agent-form-acting-admin-only">
+						{{ t('hermiq', 'An administrator sets the account an agent works with.') }}
+					</p>
+					<template v-if="form.actingChoice === 'service-account'">
+						<NcSelect
+							v-model="form.actingUser"
+							data-testid="agent-form-acting-user"
+							:inputLabel="t('hermiq', 'Service account')"
+							:options="actingUserOptions"
+							:filterable="false"
+							:disabled="!canSetActingUser"
+							label="label"
+							trackBy="value"
+							@search="onSearchActingUsers" />
+						<p
+							v-if="actingUserUnresolved"
+							class="agent-form__finding"
+							role="alert"
+							data-testid="agent-form-acting-unresolved">
+							{{ t('hermiq', 'The account {user} no longer exists or is disabled. Runs are refused until you choose another account or let the agent work on behalf of the person who uses it.', { user: actingUserStatus.actingUser }) }}
+						</p>
+					</template>
+				</fieldset>
+
 				<!-- Icon (agent-icon-picker): a Material Design Icon name shown for this
 			     agent in lists and on its detail page. Searchable over the full MDI
 			     range (not the small curated dashboard set) since agent icons are
@@ -503,6 +557,7 @@
 <script>
 import { CnIconPicker, fromOpenGemeenten } from '@conduction/nextcloud-vue'
 import axios from '@nextcloud/axios'
+import { loadState } from '@nextcloud/initial-state'
 import { generateUrl } from '@nextcloud/router'
 import {
 	NcButton,
@@ -516,6 +571,7 @@ import {
 } from '@nextcloud/vue'
 import PromptPlaceholderTools from '../components/PromptPlaceholderTools.vue'
 import StartFieldsEditor from '../components/StartFieldsEditor.vue'
+import { getActingUserStatus } from '../api/actingUser.js'
 import { listTools, setAppAssistant } from '../api/agents.js'
 import { searchGroups, searchUsers } from '../api/chat.js'
 import { getEffectiveModelPolicy } from '../api/modelPolicy.js'
@@ -524,6 +580,7 @@ import { flattenGrants } from '../api/toolTaxonomy.js'
 import { OPEN_GEMEENTEN_ICONS } from '../icons/openGemeentenIcons.js'
 import { KNOWN_MODELS, knownModelsFor } from '../llm/knownModels.js'
 import { useAgentStore } from '../store/store.js'
+import { actingChoiceOf, actingUserField, actingUserOf } from '../utils/agentActingUser.js'
 import { answersInItsApp, appOptions, appSlugOf } from '../utils/agentApp.js'
 import {
 	credentialOptions,
@@ -688,6 +745,8 @@ function accessFields(source) {
 		sharing: sharingOf(source),
 		invitedUsers: idOptions(source.invitedUsers),
 		groups: idOptions(source.groups),
+		actingChoice: actingChoiceOf(source),
+		actingUser: idOptions(actingUserOf(source) ? [actingUserOf(source)] : [])[0] || null,
 	}
 }
 
@@ -822,6 +881,13 @@ export default {
 			// Agents-sharing-and-catalog-columns: search results for the pickers.
 			peopleOptions: [],
 			groupOptions: [],
+			// agent-acting-identity-picker: whether the viewer may name an
+			// account (initial state from the action matrix; the server guard
+			// decides either way), the account picker's search results, and the
+			// server's answer on whether the stored account still resolves.
+			canSetActingUser: loadState('hermiq', 'can_set_acting_user', false) === true,
+			actingUserOptions: [],
+			actingUserStatus: null,
 			saving: false,
 			error: '',
 			// Effective model policy (tenant-model-policy); null until loaded.
@@ -848,6 +914,21 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * Whether the stored service account no longer resolves, while it is
+		 * still the one chosen: the server's answer, never a guess here.
+		 *
+		 * @return {boolean} True when the warning shows.
+		 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
+		 */
+		actingUserUnresolved() {
+			const status = this.actingUserStatus
+			if (!status || status.resolves !== false || this.form.actingChoice !== 'service-account') {
+				return false
+			}
+			return actingUserField(this.form.actingChoice, this.form.actingUser).actingUser === status.actingUser
+		},
+
 		/**
 		 * The dictation-engine picker's selection, as the option object NcSelect
 		 * wants, over the plain value the form stores.
@@ -1203,6 +1284,7 @@ export default {
 				} finally {
 					this.loadingAgent = false
 				}
+				this.loadActingUserStatus()
 				this.loadTools()
 				this.loadPolicy()
 				this.loadCredentials()
@@ -1337,6 +1419,8 @@ export default {
 				sharing: 'only-me',
 				invitedUsers: [],
 				groups: [],
+				actingChoice: 'person',
+				actingUser: null,
 				tools: [],
 				delegationAllowlist: [],
 				enableRag: false,
@@ -1383,6 +1467,50 @@ export default {
 			const options = this.voiceEngineOptions
 
 			return options.find((option) => option.value === value) || options[0]
+		},
+
+		/**
+		 * Offer the accounts matching the typed text for the service account
+		 * (agent-acting-identity-picker). Nextcloud's user search offers
+		 * enabled accounts only.
+		 *
+		 * @param {string} search The typed text.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-agent-edit-page-sets-whose-rights-the-agent-works-with-req-agid-001
+		 */
+		async onSearchActingUsers(search) {
+			if (!search) {
+				return
+			}
+			try {
+				this.actingUserOptions = (await searchUsers(search)).map((user) => ({
+					label: user.uid,
+					value: user.uid,
+				}))
+			} catch {
+				this.actingUserOptions = []
+			}
+		},
+
+		/**
+		 * Ask the server whether the stored service account still resolves, for
+		 * an agent that names one (agent-acting-identity-picker REQ-AGID-003). An
+		 * unanswered question shows no warning: the run's own refusal stays.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
+		 */
+		async loadActingUserStatus() {
+			this.actingUserStatus = null
+			const agent = this.effectiveAgent
+			if (!agent || !agent.id || actingUserOf(agent) === '') {
+				return
+			}
+			try {
+				this.actingUserStatus = await getActingUserStatus(agent.id)
+			} catch {
+				this.actingUserStatus = null
+			}
 		},
 
 		/**
@@ -1740,6 +1868,7 @@ export default {
 				),
 			)
 			assignDefined(payload, limitFields(this.form))
+			Object.assign(payload, actingUserField(this.form.actingChoice, this.form.actingUser))
 		},
 
 		appSlugOf,
