@@ -41,6 +41,7 @@ use RuntimeException;
  * @uses   \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity
  * @uses   \OCA\Hermiq\Service\SeedFreshnessService
  * @uses   \OCA\Hermiq\Service\NamedObjectRows
+ * @uses   \OCA\Hermiq\Repair\Seed\LearningsSeedTarget
  */
 class SeedMaturityExampleSkillsRunTest extends TestCase {
 
