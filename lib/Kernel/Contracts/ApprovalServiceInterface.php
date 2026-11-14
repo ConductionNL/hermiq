@@ -79,42 +79,11 @@ interface ApprovalServiceInterface {
 	public function deny(ObjectEntity $approval, string $deciderUid, ?string $reason): void;
 
 	/**
-	 * Whether the given user may decide the given Approval (separation of duties).
-	 *
-	 * Admits the resolved reviewer user, a member of the reviewer group, or a
-	 * Nextcloud instance admin. The schedule owner is admitted only when they are
-	 * themselves the reviewer (Art. 14 separation of duties).
-	 *
-	 * @param ObjectEntity $approval The approval object.
-	 * @param string $uid The requesting user's UID.
-	 *
-	 * @return bool
-	 *
-	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
-	 */
-	public function isReviewer(ObjectEntity $approval, string $uid): bool;
-
-	/**
-	 * List the pending Approvals routed to the given user as reviewer.
-	 *
-	 * Returns approvals where the user is the reviewer user, or a member of the
-	 * reviewer group. Instance-admin visibility is deliberately NOT included — this
-	 * is the "routed to me" inbox, not a global queue.
-	 *
-	 * @param string $uid The requesting user's UID.
-	 *
-	 * @return array<int, array<string, mixed>> Compact pending-approval records.
-	 *
-	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
-	 */
-	public function listPendingForReviewer(string $uid): array;
-
-	/**
 	 * Load an Approval object by UUID without RBAC (the caller applies the guard).
 	 *
 	 * The Approval is owned by the schedule owner, but the decider is the reviewer —
 	 * a different user — so an RBAC read would hide it. It is loaded RBAC-off and the
-	 * caller MUST authorise via isReviewer() before acting (IDOR guard).
+	 * caller MUST authorise via ApprovalInbox::isReviewer() before acting (IDOR guard).
 	 *
 	 * @param string $uuid The Approval object UUID.
 	 *

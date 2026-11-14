@@ -256,6 +256,7 @@ class ToolInvocationLog {
 	 */
 	private function degradedRow(AuditTrail $log, ?string $occurredAt): array {
 		return [
+			'callId' => (string)($log->getUuid() ?? ''),
 			'at' => $occurredAt,
 			'toolId' => null,
 			'actingUser' => $log->getUser(),
