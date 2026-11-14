@@ -36,11 +36,20 @@
 
 ## 2. Chat steps
 
-- [ ] 2.1 Show each part as its own step under "Toolstappen" on the chat page, with the target agent
+- [x] 2.1 Show each part as its own step under "Toolstappen" on the chat page, with the target agent
       and its state, as the single delegation step drawn on HmChat. Verify: Vitest test of the
       step list with two parts.
+      Built: `src/views/chatToolSteps.js` turns the streamed tool calls into steps; a
+      `hermiq.delegateAgents` call becomes one step per part ("Part 1 to Researcher: Running"),
+      whose state (done, refused, failed, timed out) is read from that part's slot in the result,
+      in-process or replayed as JSON. `Chat.vue` keeps each call's arguments and result and draws
+      `streamingSteps`. Tests: `tests/vitest/chat-tool-steps.spec.js` (two parts running, then
+      done and timed out, refused and failed, unknown agent, mixed calls) and `chat-page.spec.js`.
 
 ## 3. Verification
 
-- [ ] 3.1 `@spec` tags on every new method (gate 16); every scenario carries a reason-bearing
+- [x] 3.1 `@spec` tags on every new method (gate 16); every scenario carries a reason-bearing
       `@e2e exclude` (gate 19).
+      Done: the 11 new methods without a tag (constructors and private helpers of
+      `DelegatedRunJob`, `DelegatedRunStore`, `ParallelDelegation`, `DelegationService`) carry one;
+      all 5 scenarios already carried a reason-bearing `@e2e exclude`.
