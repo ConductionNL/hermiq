@@ -528,6 +528,8 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	 * @param string|null $authorDisplayName That human's display name AT SEND TIME (talk-shared-sessions).
 	 * @param array $attachments The turn's attachments as references (fileId, name, mimeType,
 	 *                           size, origin), resolved as the speaker; never bytes or text.
+	 * @param array|null $provenance How an assistant answer came about: model, sources and step
+	 *                               outcomes, never content (chat-how-an-answer-came-about).
 	 * @param string|null $channel Where a human turn was typed: `talk` or `hermiq`; stored on
 	 *                             role=user turns only, anything else is left unset.
 	 *
@@ -537,6 +539,7 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-2
 	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
 	 * @spec openspec/changes/chat-carry-a-conversation-across-channels/specs/session-channel-continuity/spec.md#requirement-each-turn-records-where-it-was-typed-req-schan-004
 	 */
 	public function storeMessage(
@@ -548,6 +551,7 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 		?string $authorId = null,
 		?string $authorDisplayName = null,
 		array $attachments = [],
+		?array $provenance = null,
 		?string $channel = null,
 	): ObjectEntity {
 		$payload = [
@@ -566,6 +570,10 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 
 		if ($attachments !== []) {
 			$payload['attachments'] = array_values($attachments);
+		}
+
+		if ($provenance !== null) {
+			$payload['provenance'] = $provenance;
 		}
 
 		$payload = $this->withAuthorship(

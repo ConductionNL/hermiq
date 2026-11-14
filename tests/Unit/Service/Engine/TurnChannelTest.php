@@ -107,7 +107,7 @@ class TurnChannelTest extends TestCase {
 
 		$this->assertSame('string', self::channelProperty()['type']);
 		$this->assertNotContains('channel', ($turn['required'] ?? []));
-		$this->assertTrue(version_compare((string)$register['info']['version'], '0.53.0', '>='), 'The import is gated on info.version.');
+		$this->assertTrue(version_compare((string)$register['info']['version'], '0.54.0', '>='), 'The import is gated on info.version.');
 	}//end testTheRegisterDeclaresTheChannelOptional()
 
 	/**
