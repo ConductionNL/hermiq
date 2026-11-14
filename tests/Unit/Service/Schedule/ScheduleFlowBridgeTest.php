@@ -183,7 +183,7 @@ class ScheduleFlowBridgeTest extends TestCase {
 	 *
 	 * @return ScheduleFlowBridge
 	 */
-	private function bridge(): ScheduleFlowBridge {
+	private function bridge(?ScheduleCadenceMapper $cadenceMapper = null): ScheduleFlowBridge {
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->willReturnCallback(
 			function (string $id) {
@@ -198,7 +198,7 @@ class ScheduleFlowBridgeTest extends TestCase {
 		return new ScheduleFlowBridge(
 			objectService: $this->objectService,
 			scheduleService: $this->scheduleService,
-			cadenceMapper: new ScheduleCadenceMapper(config: $this->config),
+			cadenceMapper: ($cadenceMapper ?? new ScheduleCadenceMapper(config: $this->config)),
 			container: $container,
 			publisher: new ScheduleFlowPublisher(container: $container),
 			definition: new ScheduleMirrorDefinition(),
@@ -306,6 +306,99 @@ class ScheduleFlowBridgeTest extends TestCase {
 		);
 
 	}//end testTimezoneSensitiveCronStaysLocal()
+
+	/**
+	 * On an engine that reads the key, a zone-sensitive cron is mirrored with
+	 * the owner's timezone on its trigger, and a stored mirror without it has
+	 * drifted and is redefined with it.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#phase-2-the-shapes-the-engine-cannot-time-yet-staged
+	 */
+	public function testAZoneSensitiveCronIsMirroredWithTheOwnersTimezone(): void {
+		$other = (date_default_timezone_get() === 'Pacific/Chatham') ? 'Europe/Amsterdam' : 'Pacific/Chatham';
+		$this->config = $this->createMock(IConfig::class);
+		$this->config->method('getUserValue')->willReturn($other);
+		$this->config->method('getSystemValueString')->willReturn(date_default_timezone_get());
+		$mapper = new class($this->config) extends ScheduleCadenceMapper {
+			/**
+			 * The engine declares the key.
+			 *
+			 * @return boolean Always true.
+			 */
+			protected function engineReadsTimezone(): bool {
+				return true;
+			}
+		};
+
+		$fresh = $this->schedule(['kind' => 'cron', 'cronExpr' => '0 9 * * *', 'name' => 'Morning', 'agentId' => '', 'enabled' => true]);
+		$this->objectService->method('findAll')->willReturn([$fresh]);
+		$inserted = null;
+		$this->flowMapper->method('insert')->willReturnCallback(
+			function (Flow $flow) use (&$inserted): Flow {
+				$inserted = $flow;
+				return $flow;
+			}
+		);
+
+		$stats = $this->bridge(cadenceMapper: $mapper)->syncAll();
+
+		$this->assertSame(1, $stats['mirrored']);
+		$this->assertSame('0 9 * * *', $inserted->getCron());
+		$this->assertSame(
+			['cron' => '0 9 * * *', 'runAs' => 'alice', 'timezone' => $other],
+			$inserted->getNodes()[0]['config'],
+			'The engine reads the cron on the owner\'s wall clock only when the trigger names it.'
+		);
+	}//end testAZoneSensitiveCronIsMirroredWithTheOwnersTimezone()
+
+	/**
+	 * A stored mirror whose trigger names no timezone has drifted from a
+	 * zone-sensitive schedule and is redefined with the owner's timezone.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#phase-2-the-shapes-the-engine-cannot-time-yet-staged
+	 */
+	public function testAMirrorWithoutTheOwnersTimezoneIsRedefined(): void {
+		$other = (date_default_timezone_get() === 'Pacific/Chatham') ? 'Europe/Amsterdam' : 'Pacific/Chatham';
+		$this->config = $this->createMock(IConfig::class);
+		$this->config->method('getUserValue')->willReturn($other);
+		$this->config->method('getSystemValueString')->willReturn(date_default_timezone_get());
+		$mapper = new class($this->config) extends ScheduleCadenceMapper {
+			/**
+			 * The engine declares the key.
+			 *
+			 * @return boolean Always true.
+			 */
+			protected function engineReadsTimezone(): bool {
+				return true;
+			}
+		};
+
+		$schedule = $this->schedule(['kind' => 'cron', 'cronExpr' => '0 9 * * *', 'agentId' => '', 'engineFlowId' => 'flow-1', 'enabled' => true]);
+		$this->objectService->method('findAll')->willReturn([$schedule]);
+		$flow = new Flow();
+		$flow->setUuid('flow-1');
+		$flow->setCron('0 9 * * *');
+		$flow->setEnabled(true);
+		$flow->setLifecycleStatus(FlowVersion::STATUS_PUBLISHED);
+		$flow->setNodes([['id' => 'trigger', 'type' => 'openregister.trigger-schedule', 'config' => ['cron' => '0 9 * * *', 'runAs' => 'alice']]]);
+		$this->flowMapper->method('findByUuid')->willReturn($flow);
+		$updated = null;
+		$this->flowMapper->expects($this->once())->method('update')->willReturnCallback(
+			function (Flow $flow) use (&$updated): Flow {
+				$updated = $flow;
+				return $flow;
+			}
+		);
+
+		$stats = $this->bridge(cadenceMapper: $mapper)->syncAll();
+
+		$this->assertSame(1, $stats['refreshed']);
+		$this->assertSame($other, $updated->getNodes()[0]['config']['timezone']);
+	}//end testAMirrorWithoutTheOwnersTimezoneIsRedefined()
 
 	/**
 	 * runAs is the resolved acting identity: the agent's live actingUser

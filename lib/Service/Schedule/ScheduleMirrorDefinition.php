@@ -42,18 +42,24 @@ class ScheduleMirrorDefinition {
 	 * @param string $scheduleUuid The schedule uuid the dispatch node fires.
 	 * @param string $cron The 5-field cron expression.
 	 * @param string $runAs The declared acting identity.
+	 * @param string $timezone The timezone the trigger reads the cron in; '' leaves it unnamed.
 	 *
 	 * @return array<int,array<string,mixed>> The nodes.
 	 *
 	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
 	 */
-	public function nodes(string $scheduleUuid, string $cron, string $runAs): array {
+	public function nodes(string $scheduleUuid, string $cron, string $runAs, string $timezone = ''): array {
+		$trigger = ['cron' => $cron, 'runAs' => $runAs];
+		if ($timezone !== '') {
+			$trigger['timezone'] = $timezone;
+		}
+
 		return [
 			[
 				'id' => 'trigger',
 				'position' => ['x' => 0, 'y' => 0],
 				'type' => 'openregister.trigger-schedule',
-				'config' => ['cron' => $cron, 'runAs' => $runAs],
+				'config' => $trigger,
 			],
 			[
 				'id' => 'dispatch',
@@ -119,6 +125,32 @@ class ScheduleMirrorDefinition {
 
 		return '';
 	}//end triggerRunAs()
+
+	/**
+	 * The timezone a stored mirror's trigger reads its cron in.
+	 *
+	 * @param mixed $nodes The stored nodes.
+	 *
+	 * @return string The timezone identifier, or '' when the trigger names none.
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#phase-2-the-shapes-the-engine-cannot-time-yet-staged
+	 */
+	public function triggerTimezone(mixed $nodes): string {
+		if (is_array($nodes) === false) {
+			return '';
+		}
+
+		foreach ($nodes as $node) {
+			if (is_array($node) === true && ($node['type'] ?? null) === 'openregister.trigger-schedule') {
+				$config = ($node['config'] ?? []);
+				if (is_array($config) === true) {
+					return trim((string)($config['timezone'] ?? ''));
+				}
+			}
+		}
+
+		return '';
+	}//end triggerTimezone()
 
 	/**
 	 * The schedule a stored mirror's dispatch node fires.

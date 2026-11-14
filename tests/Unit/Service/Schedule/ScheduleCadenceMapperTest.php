@@ -112,4 +112,80 @@ class ScheduleCadenceMapperTest extends TestCase {
 		$this->assertSame($sameZone, $this->mapper(sameZone: true)->mappedCron($this->schedule($payload)));
 		$this->assertSame($otherZone, $this->mapper(sameZone: false)->mappedCron($this->schedule($payload)));
 	}//end testEachShapeMapsToItsCron()
+	/**
+	 * A mapper on an engine that reads a schedule trigger's timezone.
+	 *
+	 * @param string $ownerZone The owner's timezone.
+	 *
+	 * @return ScheduleCadenceMapper The mapper.
+	 */
+	private function zoneAwareMapper(string $ownerZone): ScheduleCadenceMapper {
+		$config = $this->createMock(IConfig::class);
+		$config->method('getUserValue')->willReturn($ownerZone);
+		$config->method('getSystemValueString')->willReturn(date_default_timezone_get());
+
+		return new class($config) extends ScheduleCadenceMapper {
+			/**
+			 * The engine declares the key.
+			 *
+			 * @return boolean Always true.
+			 */
+			protected function engineReadsTimezone(): bool {
+				return true;
+			}
+		};
+	}//end zoneAwareMapper()
+
+	/**
+	 * On an engine that reads the key, an hour-anchored cron of an owner in
+	 * another timezone moves to the engine and names the owner's timezone.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#phase-2-the-shapes-the-engine-cannot-time-yet-staged
+	 */
+	public function testAZoneSensitiveCronMovesWithTheOwnersTimezone(): void {
+		$other = (date_default_timezone_get() === 'Pacific/Chatham') ? 'Europe/Amsterdam' : 'Pacific/Chatham';
+		$mapper = $this->zoneAwareMapper(ownerZone: $other);
+		$daily = $this->schedule(['kind' => 'cron', 'cronExpr' => '0 9 * * 1-5']);
+
+		$this->assertSame('0 9 * * 1-5', $mapper->mappedCron($daily));
+		$this->assertSame($other, $mapper->mirrorTimezone($daily));
+	}//end testAZoneSensitiveCronMovesWithTheOwnersTimezone()
+
+	/**
+	 * A timezone-safe cron, an interval and an unmappable cron name no
+	 * timezone, so a mirror that already exists does not drift.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#phase-2-the-shapes-the-engine-cannot-time-yet-staged
+	 */
+	public function testATimezoneSafeShapeNamesNoTimezone(): void {
+		$other = (date_default_timezone_get() === 'Pacific/Chatham') ? 'Europe/Amsterdam' : 'Pacific/Chatham';
+		$elsewhere = $this->zoneAwareMapper(ownerZone: $other);
+		$here = $this->zoneAwareMapper(ownerZone: date_default_timezone_get());
+
+		$this->assertSame('', $elsewhere->mirrorTimezone($this->schedule(['kind' => 'cron', 'cronExpr' => '*/5 * * * *'])));
+		$this->assertSame('', $elsewhere->mirrorTimezone($this->schedule(['kind' => 'interval', 'intervalMinutes' => 60])));
+		$this->assertSame('', $elsewhere->mirrorTimezone($this->schedule(['kind' => 'cron', 'cronExpr' => '0 9 * *'])));
+		$this->assertSame('', $here->mirrorTimezone($this->schedule(['kind' => 'cron', 'cronExpr' => '0 9 * * *'])));
+	}//end testATimezoneSafeShapeNamesNoTimezone()
+
+	/**
+	 * On an engine that does not read the key, a zone-sensitive cron stays
+	 * local and no timezone is named.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#phase-2-the-shapes-the-engine-cannot-time-yet-staged
+	 */
+	public function testWithoutTheEngineKeyAZoneSensitiveCronStaysLocal(): void {
+		$mapper = $this->mapper(sameZone: false);
+		$daily = $this->schedule(['kind' => 'cron', 'cronExpr' => '0 9 * * *']);
+
+		$this->assertNull($mapper->mappedCron($daily));
+		$this->assertSame('', $mapper->mirrorTimezone($daily));
+		$this->assertStringContainsString('owner\'s timezone', $mapper->gapReason(['kind' => 'cron']));
+	}//end testWithoutTheEngineKeyAZoneSensitiveCronStaysLocal()
 }//end class
