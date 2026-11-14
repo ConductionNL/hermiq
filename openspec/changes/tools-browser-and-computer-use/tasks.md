@@ -45,8 +45,11 @@ Kind: code. Size L. Rows `hermiq:dm-browser-use`, `hermiq:dm-computer-use`.
 - **acceptance_criteria**:
   - GIVEN the feature disabled WHEN a computer tool is called THEN nothing reaches integriq
   - GIVEN an image-less provider path WHEN the catalogue is built THEN the computer tools are absent
-- [ ] Implement
-- [ ] Test (PHPUnit on the gate, the catalogue filter and the Anthropic image tool result)
+- [x] Implement
+  - `lib/Mcp/ComputerToolDescriptors.php` (screenshot read-only; click, type and key destructive; all reach external, each names a `target`), listed by `HermiqToolProvider` and routed to `ComputerUseService` (`ComputerUseServiceInterface`). The service refuses every call unless the `computer-use` AI feature is explicitly enabled (seeded in `SeedAiFeatures`: high-risk, disabled), the machine is registered and switched on, and the arguments are well formed; it reaches the machine through `ComputerTargetService::screenshot()` / `act()` (integriq `CallService`, `POST /action`).
+  - `ResponseGenerationHandler` drops the computer tools once the driver is known unless it is Anthropic over HTTP (`ComputerToolDescriptors::forDriver()`); `AnthropicMessageFormat` turns a screenshot result into an image block. No OpenAI Responses path exists in hermiq yet. The agent form hint "Computer use needs a model that can read images." is not built.
+- [x] Test (PHPUnit on the gate, the catalogue filter and the Anthropic image tool result)
+  - `ComputerUseServiceTest`, `ComputerToolDescriptorsTest`, `AnthropicMessageFormatTest::testAScreenshotToolResultIsAnImageBlock`, `ComputerTargetServiceTest::testAnActionPostsItsBodyToTheMachineAndAnswersWithTheNewScreen`; catalogue and seed tests updated.
 
 ### Task 6: The approval floor and the run-scoped pre-authorisation
 - **spec_ref**: `openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003`
@@ -56,7 +59,10 @@ Kind: code. Size L. Rows `hermiq:dm-browser-use`, `hermiq:dm-computer-use`.
   - GIVEN a 15 minute pre-authorisation WHEN it expires or another machine or run is named THEN a new approval is needed
   - GIVEN a screenshot WHEN it is called THEN no approval is created
 - [ ] Implement
+  - Done: the floor. `FacadeToolInvoker::classifyTool()` returns `confirm` for click, type and key whatever the policy says (a `deny` still refuses), and an owner's `#noapproval` waiver never answers them (`waivable()`). A screenshot creates no approval.
+  - Open: the 15 minute run-scoped pre-authorisation per machine (run id into the invoker, `ApprovalService` request and lookup with a clock), and the approval card in `src/views/ApprovalInbox.vue` showing the machine, the action and the screenshot with the point marked.
 - [ ] Test (PHPUnit with a fake clock; Playwright under tests/e2e/spec-coverage/ on the approval card)
+  - PHPUnit on the floor done: `FacadeToolInvokerComputerTest` (no policy, auto, waiver, deny, screenshot). The fake-clock test waits on the pre-authorisation.
 
 ### Task 7: The run record for browser and computer actions
 - **spec_ref**: `openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-the-run-records-actions-and-never-stores-screenshots-req-computer-004`
@@ -64,7 +70,10 @@ Kind: code. Size L. Rows `hermiq:dm-browser-use`, `hermiq:dm-computer-use`.
 - **acceptance_criteria**:
   - GIVEN a computer action WHEN it is traced THEN machine, action, coordinates, redacted text and approval id are kept and a screenshot is a hash and size
 - [ ] Implement
-- [ ] Test (PHPUnit on the trace extra)
+  - Done: `ComputerActionRecord` builds the trace extra (`computer`: target, action, x/y, redacted text, keys, approvalId, screenshot sha256 and bytes), added by `FacadeToolInvoker::traceExtraFor()` with the approval id threaded through `FacadeCall`; the streamed tool result carries the hash instead of the image (`ToolCallReporter`).
+  - Open: showing these steps in `src/views/Runs.vue`, which lists runs without their steps today.
+- [x] Test (PHPUnit on the trace extra)
+  - `ComputerActionRecordTest`, `FacadeToolInvokerComputerTest` (approval id and coordinates on the step, no image in the trace or the stream).
 
 ## Verification
 - [ ] `openspec validate tools-browser-and-computer-use --type change --strict` passes
