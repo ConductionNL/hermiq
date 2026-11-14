@@ -2,8 +2,8 @@
 
 ## 0. Sequencing and the blocking decision
 
-- [ ] Land `tool-scope-security-default` first
-- [ ] Decide the token strategy (design D0.1) before writing any pool code
+- [x] Land `tool-scope-security-default` first (on development since c8d9f9d6)
+- [ ] Decide the token strategy (design D0.1) before writing any pool code (option 2 does not cover the egress-proxy token, design D0.1a; needs the security owner)
 
 Acceptance criteria:
 - Pooling a process that holds a stale, over-broad tool set is strictly worse than spawning a correct one each time.

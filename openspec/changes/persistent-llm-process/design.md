@@ -86,6 +86,33 @@ leaving the security contract untouched, and it can ship before the harder quest
 is settled. Option 1 is a governance change and belongs in its own proposal with the
 security owner in the room.
 
+### D0.1a — Option 2 covers one of the two startup-bound token channels (read 2026-11-14)
+
+Option 2 assumes the MCP config is the only place a run is bound to its token at spawn.
+It is not: when `EGRESS_PROXY_AUTHORITY` is set, `runner.js` `buildEgressProxyEnv()` also
+puts the run token into the CLI child's proxy environment, and the egress proxy asks
+Hermiq's PDP about every outbound connection with it. A process environment cannot be
+changed after spawn, so a pooled process keeps the first run's egress identity for its
+whole life, whatever its MCP config is re-pointed to. Re-handshaking MCP with a fresh token
+fixes the tool channel and leaves the model-API channel on a consumed token.
+
+So option 2 as written does not hold on a deployment with the governed egress proxy.
+What remains is one of:
+
+- pool only where no per-run egress token exists (the iptables-jail deployment), and
+  take the cold path whenever `EGRESS_PROXY_AUTHORITY` is set;
+- a runner-local hop that the pooled process is pointed at once and that presents the
+  current turn's token upstream, for both channels — a new component on the security
+  boundary;
+- option 1 (token lifetime follows the process), which already needs the security owner.
+
+Each of these changes what a run token governs, so the choice belongs with the security
+owner, as D0.1 says for option 1. Until it is made, no pool code is written: a pool built
+on option 2 alone fails as "the model has no tools" or as a refused model call, the
+silent shape D0.1 warns about. Separately, swapping the MCP config of a live process
+depends on a CLI control message that has not been verified against the pinned binary
+(the same caution as option 3).
+
 ### D0.2 — ⚠️ An auth failure does not fail fast; it backs off for minutes
 
 Observed in the same probe, with a deliberately invalid key:
