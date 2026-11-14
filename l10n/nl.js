@@ -1992,7 +1992,24 @@ OC.L10N.register(
         "The organisation's output filter masked part of the answer.": "Het uitvoerfilter van de organisatie heeft een deel van het antwoord afgeschermd.",
         "_Used %n document: %s._::_Used %n documents: %s._": ["%n document gebruikt: %s.","%n documenten gebruikt: %s."],
         "_Called %n tool: %s._::_Called %n tools: %s._": ["%n tool aangeroepen: %s.","%n tools aangeroepen: %s."],
-        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n aanroep is geweigerd: %s.","%n aanroepen zijn geweigerd: %s."]
+        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n aanroep is geweigerd: %s.","%n aanroepen zijn geweigerd: %s."],
+        "Add computer target": "Computer toevoegen",
+        "Agents may use it": "Agents mogen hem gebruiken",
+        "Agents may use this machine": "Agents mogen deze machine gebruiken",
+        "Applications": "Applicaties",
+        "Applications an agent may operate": "Applicaties die een agent mag bedienen",
+        "Computer targets": "Computers",
+        "Edit computer target": "Computer bewerken",
+        "Integriq source that reaches the machine": "Integriq-bron die de machine bereikt",
+        "No machine is registered. Agents cannot operate a computer until an admin adds one.": "Er is geen machine geregistreerd. Agents kunnen geen computer bedienen tot een beheerder er een toevoegt.",
+        "Operating system: Windows": "Besturingssysteem: Windows",
+        "Shown to the reviewer of every action on this machine.": "Wordt getoond aan wie elke handeling op deze machine beoordeelt.",
+        "Test screenshot": "Testschermafbeelding",
+        "Test screenshot of {name}": "Testschermafbeelding van {name}",
+        "Test screenshot of {name}. It is shown here only and not stored.": "Testschermafbeelding van {name}. Ze wordt alleen hier getoond en niet bewaard.",
+        "The integriq sources could not be read.": "De integriq-bronnen konden niet worden gelezen.",
+        "The machines an agent may operate, each reached only through an integriq source whose key stays in the credential broker. A machine is off until you switch it on, and every action on it still needs a person's approval.": "De machines die een agent mag bedienen, elk alleen bereikbaar via een integriq-bron waarvan de sleutel in de credential broker blijft. Een machine staat uit tot je hem aanzet, en elke handeling erop heeft nog steeds de goedkeuring van een persoon nodig.",
+        "What the machine is for": "Waar de machine voor is"
     },
     "nplurals=2; plural=(n != 1);"
 )
