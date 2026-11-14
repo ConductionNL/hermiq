@@ -11,8 +11,10 @@ Kind: code. Size L. Rows `hermiq:tl-code-exec`, `hermiq:fl-code-step`, `hermiq:d
   - GIVEN code that opens a socket WHEN it runs THEN it fails and nothing leaves the container
   - GIVEN an endless loop, a memory hog or a fork bomb WHEN it runs THEN the matching limit stops it
   - GIVEN any run WHEN it ends THEN its work directory is gone
-- [ ] Implement
+- [x] Implement
+  - `exapp/code-sandbox/`: `POST /run` behind the AppAPI shared secret, a fresh work directory per run in the `/work` tmpfs removed afterwards, a separate runner uid, `prlimit` caps (address space for Python, heap for Node, 64 processes, 10 MB files), the process group killed at the wall time, 64 KB per output stream, no server environment passed on; Dockerfile with pinned numpy/pandas/python-dateutil, `deploy/docker-compose.yml` with only an internal network, no volumes, read-only root and dropped capabilities.
 - [ ] Test (the ExApp's own test suite, including the network and limit cases)
+  - `npm test` in exapp/code-sandbox: 20 pass (run, server, deploy posture). The network case runs only inside the container (`SANDBOX_IN_CONTAINER=1`), and the per-run process cap only binds the non-root runner uid; both wait on a run of the suite in the built image.
 
 ### Task 2: Dispatch and the backend choice
 - **spec_ref**: `openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-the-admin-chooses-where-code-runs-req-sandbox-004`
