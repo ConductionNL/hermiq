@@ -59,6 +59,7 @@ vi.mock('../../src/api/chat.js', async (orig) => {
 		ChatStreamError: real.ChatStreamError,
 		answerStartFields: vi.fn(),
 		archiveSession: vi.fn(async () => ({})),
+		bulkSessions: vi.fn(async () => []),
 		createSession: vi.fn(),
 		getImageAvailability: vi.fn(async () => true),
 		getSession: vi.fn(async (uuid) => ({ uuid, title: 'Fresh' })),

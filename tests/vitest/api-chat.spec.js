@@ -61,15 +61,50 @@ afterEach(() => {
 describe('session list and read', () => {
 	it('lists active sessions by default, and archived ones on request', async () => {
 		const calls = record({ results: [{ uuid: 'a' }], total: 3 })
-		expect(await chat.listSessions()).toEqual({ results: [{ uuid: 'a' }], total: 3 })
+		expect(await chat.listSessions()).toEqual({ results: [{ uuid: 'a' }], total: 3, truncated: false })
 		await chat.listSessions({ archived: true, limit: 5, offset: 10 })
 		expect(calls[0]).toEqual(['get', '/index.php/apps/hermiq/api/sessions', { params: { _deleted: 'false', limit: 50, offset: 0 } }])
 		expect(calls[1][2].params).toEqual({ _deleted: 'true', limit: 5, offset: 10 })
 	})
 
+	it('sends a trimmed search term and passes the truncation flag back, and omits an empty term', async () => {
+		const calls = record({ results: [{ uuid: 'a', match: { turnUuid: 't1', excerpt: '…monument…' } }], total: 1, truncated: true })
+		expect(await chat.listSessions({ search: '  monument ' })).toEqual({
+			results: [{ uuid: 'a', match: { turnUuid: 't1', excerpt: '…monument…' } }],
+			total: 1,
+			truncated: true,
+		})
+		await chat.listSessions({ archived: true, search: '   ' })
+		expect(calls[0][2].params).toEqual({ _deleted: 'false', limit: 50, offset: 0, search: 'monument' })
+		expect(calls[1][2].params).toEqual({ _deleted: 'true', limit: 50, offset: 0 })
+	})
+
+	it('posts a bulk action and returns the outcome per uuid', async () => {
+		const calls = record({ action: 'delete', results: [{ uuid: 'a', status: 'ok' }, { uuid: 'b', status: 'not_found' }] })
+		expect(await chat.bulkSessions('delete', ['a', 'b'])).toEqual([{ uuid: 'a', status: 'ok' }, { uuid: 'b', status: 'not_found' }])
+		expect(calls[0]).toEqual(['post', '/index.php/apps/hermiq/api/sessions/bulk', { action: 'delete', uuids: ['a', 'b'] }])
+	})
+
+	it('sends more than 100 uuids in requests of at most 100 and joins the answers', async () => {
+		const calls = []
+		vi.spyOn(axios, 'post').mockImplementation(async (url, body) => {
+			calls.push(body.uuids.length)
+			return { data: { results: body.uuids.map((uuid) => ({ uuid, status: 'ok' })) } }
+		})
+		const uuids = Array.from({ length: 205 }, (_, i) => `s${i}`)
+		const results = await chat.bulkSessions('archive', uuids)
+		expect(calls).toEqual([100, 100, 5])
+		expect(results.map((entry) => entry.uuid)).toEqual(uuids)
+	})
+
+	it('normalises a malformed bulk answer to no outcomes', async () => {
+		record({ results: 'nope' })
+		expect(await chat.bulkSessions('archive', ['a'])).toEqual([])
+	})
+
 	it('normalises a malformed list envelope to an empty page', async () => {
 		record({ results: 'nope' })
-		expect(await chat.listSessions()).toEqual({ results: [], total: 0 })
+		expect(await chat.listSessions()).toEqual({ results: [], total: 0, truncated: false })
 		expect(await chat.listMessages('s1')).toEqual({ results: [], total: 0 })
 	})
 

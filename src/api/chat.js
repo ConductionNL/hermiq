@@ -68,26 +68,68 @@ const FRAME_HANDLERS = new Map([
 const SESSIONS_BASE = '/apps/hermiq/api/sessions'
 
 /**
+ * The most session uuids one bulk request may carry (the server refuses more with 400).
+ */
+const BULK_MAX = 100
+
+/**
  * List the current user's sessions (server-side user-scoped).
  *
  * @param {object} [options] List options.
  * @param {boolean} [options.archived] True to list archived (soft-deleted) sessions.
  * @param {number} [options.limit] Page size (default 50).
  * @param {number} [options.offset] Page offset (default 0).
- * @return {Promise<{results: Array<object>, total: number}>} The page envelope.
+ * @param {string} [options.search] A search term: only the caller's own sessions whose title
+ *   or turns contain it come back, each with a `match` (`{ turnUuid, excerpt }` or `{ title: true }`).
+ * @return {Promise<{results: Array<object>, total: number, truncated: boolean}>} The page envelope;
+ *   `truncated` says a search did not reach the oldest sessions.
+ * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
  */
 export async function listSessions({
 	archived = false,
 	limit = 50,
 	offset = 0,
+	search = '',
 } = {}) {
-	const response = await axios.get(generateUrl(SESSIONS_BASE), {
-		params: { _deleted: archived ? 'true' : 'false', limit, offset },
-	})
+	const params = { _deleted: archived ? 'true' : 'false', limit, offset }
+	const term = String(search || '').trim()
+	if (term !== '') {
+		params.search = term
+	}
+	const response = await axios.get(generateUrl(SESSIONS_BASE), { params })
 	return {
 		results: Array.isArray(response.data?.results) ? response.data.results : [],
 		total: response.data?.total ?? 0,
+		truncated: response.data?.truncated === true,
 	}
+}
+
+/**
+ * Archive, restore or permanently delete several of the caller's sessions at once.
+ *
+ * The server checks each uuid as the caller's own and answers per uuid: `ok`,
+ * `not_found` (missing, or not the caller's) or `refused` (the write failed).
+ *
+ * The route takes at most 100 uuids per request, so a longer selection is sent
+ * in consecutive requests of 100 and the answers are joined.
+ *
+ * @param {'archive'|'restore'|'delete'} action What to do with them.
+ * @param {Array<string>} uuids The session uuids.
+ * @return {Promise<Array<{uuid: string, status: string}>>} The outcome per uuid.
+ * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+ */
+export async function bulkSessions(action, uuids) {
+	const results = []
+	for (let start = 0; start < uuids.length; start += BULK_MAX) {
+		const response = await axios.post(generateUrl(`${SESSIONS_BASE}/bulk`), {
+			action,
+			uuids: uuids.slice(start, start + BULK_MAX),
+		})
+		if (Array.isArray(response.data?.results)) {
+			results.push(...response.data.results)
+		}
+	}
+	return results
 }
 
 /**

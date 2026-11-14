@@ -2027,7 +2027,57 @@
         "_%n call was refused: %s._::_%n calls were refused: %s._": [
             "%n aanroep is geweigerd: %s.",
             "%n aanroepen zijn geweigerd: %s."
-        ]
+        ],
+        "Search sessions": "Sessies zoeken",
+        "Clear search": "Zoekopdracht wissen",
+        "Select": "Selecteren",
+        "Selected sessions": "Geselecteerde sessies",
+        "Select all shown": "Alle getoonde selecteren",
+        "Archive selected": "Selectie archiveren",
+        "Restore selected": "Selectie herstellen",
+        "Delete selected": "Selectie verwijderen",
+        "Only your 1000 most recent sessions were searched.": "Alleen je 1000 meest recente sessies zijn doorzocht.",
+        "No sessions match {term}.": "Geen sessies gevonden voor {term}.",
+        "Select {title}": "{title} selecteren",
+        "Results for \"{term}\"": "Resultaten voor \"{term}\"",
+        "Could not search the sessions.": "Kon de sessies niet doorzoeken.",
+        "Could not change the selected sessions.": "Kon de geselecteerde sessies niet wijzigen.",
+        "Delete sessions permanently": "Sessies permanent verwijderen",
+        "_%n selected_::_%n selected_": [
+            "%n geselecteerd",
+            "%n geselecteerd"
+        ],
+        "%n selected": "%n geselecteerd",
+        "_%n session could not be changed._::_%n sessions could not be changed._": [
+            "%n sessie kon niet worden gewijzigd.",
+            "%n sessies konden niet worden gewijzigd."
+        ],
+        "%n session could not be changed.": "%n sessie kon niet worden gewijzigd.",
+        "%n sessions could not be changed.": "%n sessies konden niet worden gewijzigd.",
+        "_%n session archived_::_%n sessions archived_": [
+            "%n sessie gearchiveerd",
+            "%n sessies gearchiveerd"
+        ],
+        "%n session archived": "%n sessie gearchiveerd",
+        "%n sessions archived": "%n sessies gearchiveerd",
+        "_%n session restored_::_%n sessions restored_": [
+            "%n sessie hersteld",
+            "%n sessies hersteld"
+        ],
+        "%n session restored": "%n sessie hersteld",
+        "%n sessions restored": "%n sessies hersteld",
+        "_%n session deleted_::_%n sessions deleted_": [
+            "%n sessie verwijderd",
+            "%n sessies verwijderd"
+        ],
+        "%n session deleted": "%n sessie verwijderd",
+        "%n sessions deleted": "%n sessies verwijderd",
+        "_Delete %n session? This cannot be undone._::_Delete %n sessions? This cannot be undone._": [
+            "%n sessie verwijderen? Dit kan niet ongedaan worden gemaakt.",
+            "%n sessies verwijderen? Dit kan niet ongedaan worden gemaakt."
+        ],
+        "Delete %n session? This cannot be undone.": "%n sessie verwijderen? Dit kan niet ongedaan worden gemaakt.",
+        "Delete %n sessions? This cannot be undone.": "%n sessies verwijderen? Dit kan niet ongedaan worden gemaakt."
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

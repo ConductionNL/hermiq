@@ -19,7 +19,7 @@ Kind: code. Size M. Rows `hermiq:ch-search-history`, `dm-bulk-delete-chats`.
 - **files**: `src/views/Chat.vue`, `src/api/chat.js`, `l10n/en.json`, `l10n/nl.json`
 - **acceptance_criteria**:
   - GIVEN the Active tab WHEN a person types a term THEN results replace the groups, each with its excerpt, and clearing the field brings the groups back
-- [ ] Implement
+- [x] Implement
 - [ ] Test (Playwright under `tests/e2e/spec-coverage/session-search-and-bulk.spec.ts`)
 
 ### Task 3: One deletion routine for single and bulk delete
@@ -45,7 +45,7 @@ Kind: code. Size M. Rows `hermiq:ch-search-history`, `dm-bulk-delete-chats`.
 - **acceptance_criteria**:
   - GIVEN selection mode on the Archive tab WHEN a person ticks rows and confirms Delete THEN the rows leave the list and the modal named the count
   - GIVEN the open session is archived in bulk WHEN the action completes THEN the thread column shows the start surface
-- [ ] Implement
+- [x] Implement
 - [ ] Test (Playwright under `tests/e2e/spec-coverage/session-search-and-bulk.spec.ts`, keyboard selection included)
 
 ## Verification
