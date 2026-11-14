@@ -9,8 +9,9 @@
   - GIVEN `Agent.configuration` is a free-form blob WHEN its live contents are inspected post-`hermiq#43` THEN it MUST contain no provider API keys; if it does, `Agent` drops to OFF and only `Schedule` + `Session` are declared
   - GIVEN the dialect is declared on `Agent`, `Schedule`, `Session` WHEN the register is imported THEN `McpAnnotationValidator` MUST accept it, with every `search.filters` entry naming a real property
   - GIVEN the declarations WHEN the catalog is built THEN only `search` and `get` verbs MUST appear, each with `scope: 'read'` and `readOnlyHint: true`
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
+- Verified in code, not on a live instance: no code path writes provider credentials into `Agent.configuration` (providers resolve keys through the credential broker by `credentialIds`), so `Agent` stays declared. Pinned by `tests/Unit/Settings/McpReadOnlySurfaceTest.php`.
 
 ### Task 2: Create `NcNativeToolService` and move the six NC-native tool bodies verbatim
 - **spec_ref**: `openspec/changes/hermiq-mcp-adoption/specs/nc-native-tools/spec.md#requirement-per-object-idor-guard-on-every-provider`
