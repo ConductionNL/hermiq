@@ -330,6 +330,26 @@ class HandoffServiceTest extends TestCase {
 	}//end testAHandoffWithoutAReadableDeadlineExpires()
 
 	/**
+	 * The waiting handoff of a run is found by its kind and external reference; a closed or other one is not.
+	 *
+	 * @return void
+	 */
+	public function testTheWaitingHandoffOfARunIsFound(): void {
+		$this->objects->method('setRegister')->willReturnSelf();
+		$this->objects->method('setSchema')->willReturnSelf();
+		$this->objects->expects($this->once())->method('findAll')
+			->with(['filters' => ['kind' => 'flow', 'externalRef' => 'run-42', 'status' => 'waiting'], 'limit' => 10], false, false)
+			->willReturn([
+				$this->entity(uuid: 'closed', data: ['status' => 'done'] + $this->waitingHandoff()),
+				$this->entity(uuid: 'other-run', data: ['externalRef' => 'run-7'] + $this->waitingHandoff()),
+				$this->entity(uuid: 'h-1', data: $this->waitingHandoff()),
+			]);
+
+		$this->assertSame('h-1', $this->service->waitingFor(kind: 'flow', externalRef: 'run-42'));
+		$this->assertNull($this->service->waitingFor(kind: 'flow', externalRef: ''));
+	}//end testTheWaitingHandoffOfARunIsFound()
+
+	/**
 	 * A closed handoff does not expire later.
 	 *
 	 * @return void

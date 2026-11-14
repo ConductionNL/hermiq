@@ -137,6 +137,8 @@ namespace OCA\Hermiq\Service\Engine;
 
 use Closure;
 use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Service\Handoff\FlowHandoffs;
+use OCA\Hermiq\Service\Handoff\FlowTurn;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ToolClassificationService;
 use OCA\Hermiq\Service\ToolSearchService;
@@ -430,6 +432,9 @@ class FacadeToolInvoker {
 	 * @param array<int,string> $askFirst Registry ids the person who started the run asks to
 	 *                                    approve first (personal-preferences, ask before sending);
 	 *                                    empty, every pre-existing caller, asks nothing extra.
+	 * @param FlowHandoffs|null $flowHandoffs Opens the handoff of a run a flow-queueing tool queued
+	 *                                       (flows-hand-off-and-wait); null opens none.
+	 * @param string            $conversationId The conversation of this turn; '' opens no handoff.
 	 *
 	 * @return void
 	 *
@@ -465,6 +470,8 @@ class FacadeToolInvoker {
 		?int $maxToolCalls = null,
 		?Closure $agentStillOn = null,
 		private readonly array $askFirst = [],
+		private readonly ?FlowHandoffs $flowHandoffs = null,
+		private readonly string $conversationId = '',
 	) {
 		$this->turnGuard = new TurnGuard(maxToolCalls: $maxToolCalls, agentStillOn: $agentStillOn);
 	}//end __construct()
@@ -1277,6 +1284,11 @@ class FacadeToolInvoker {
 			result: $dispatch->envelope['result'],
 			isError: $dispatch->envelope['isError']
 		);
+		$dispatch->envelope['result'] = $this->withFlowHandoff(
+			name: $name,
+			arguments: $arguments,
+			envelope: $dispatch->envelope
+		);
 
 		$reporter->finished(
 			dispatch: $dispatch,
@@ -1285,6 +1297,35 @@ class FacadeToolInvoker {
 
 		return $dispatch->encodedResult();
 	}//end dispatchToFacade()
+
+	/**
+	 * When a flow-queueing tool queued a run in a turn with a conversation, open
+	 * the run's handoff so its result comes back there, and say so in the result
+	 * (flows-hand-off-and-wait). Every other result is returned as is.
+	 *
+	 * @param string               $name      The LLPhant-side function name.
+	 * @param array<string, mixed> $arguments The call's arguments.
+	 * @param array<string, mixed> $envelope  The facade's {result, isError}.
+	 *
+	 * @return mixed The result, with `handoff` and `note` for a queued run.
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
+	 */
+	private function withFlowHandoff(string $name, array $arguments, array $envelope): mixed {
+		if ($this->flowHandoffs === null || ($envelope['isError'] ?? false) === true || $this->queuesFlowRun(name: $name) === false) {
+			return $envelope['result'];
+		}
+
+		return $this->flowHandoffs->afterRunFlow(
+			arguments: $arguments,
+			result: $envelope['result'],
+			turn: new FlowTurn(
+				agentId: (string)$this->agentId,
+				conversationId: $this->conversationId,
+				owner: (string)$this->ownerUid
+			)
+		);
+	}//end withFlowHandoff()
 
 	/**
 	 * When an integriq agent tool staged a batch (`status: staged` with a proposal

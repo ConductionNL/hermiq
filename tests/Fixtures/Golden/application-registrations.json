@@ -105,6 +105,12 @@
         ],
         [
             "registerEventListener",
+            "OCA\\OpenRegister\\Event\\FlowRunTerminalEvent",
+            "OCA\\Hermiq\\Listener\\FlowRunTerminalListener",
+            0
+        ],
+        [
+            "registerEventListener",
             "OCA\\Talk\\Events\\BotInvokeEvent",
             "OCA\\Hermiq\\Listener\\TalkApprovalReactionListener",
             0

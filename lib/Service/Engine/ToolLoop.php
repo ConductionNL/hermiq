@@ -65,6 +65,7 @@ use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Service\Agent\AgentAvailabilityService;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\GuardrailPolicyService;
+use OCA\Hermiq\Service\Handoff\FlowHandoffs;
 use OCA\Hermiq\Service\PersonalPreferences;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ToolSearchService;
@@ -162,6 +163,8 @@ class ToolLoop implements ToolLoopInterface {
 	 *                                                        agent is switched off. Null: never stops.
 	 * @param PersonalPreferences|null      $preferences         The signed-in person's own preferences, for
 	 *                                                        ask-before-sending. Null: asks nothing extra.
+	 * @param FlowHandoffs|null             $flowHandoffs        Opens the handoff of a flow an agent queued
+	 *                                                        (flows-hand-off-and-wait). Null: opens none.
 	 *
 	 * @return void
 	 *
@@ -186,6 +189,7 @@ class ToolLoop implements ToolLoopInterface {
 		private readonly ?IUserSession $userSession = null,
 		private readonly ?AgentAvailabilityService $availabilityService = null,
 		private readonly ?PersonalPreferences $preferences = null,
+		private readonly ?FlowHandoffs $flowHandoffs = null,
 	) {
 	}//end __construct()
 
@@ -502,6 +506,10 @@ class ToolLoop implements ToolLoopInterface {
 	 *                     set, informs the side-effect classification).
 	 *                     False (every pre-existing caller) is
 	 *                     byte-for-byte unchanged behavior.
+	 * @param string $conversationId The conversation the turn belongs to, so a flow an
+	 *                               agent queues can bring its result back there
+	 *                               (flows-hand-off-and-wait). '' (every pre-existing
+	 *                               caller) opens no handoff.
 	 *
 	 * @return array<int, FunctionInfo> FunctionInfo objects ready for `setTools()`.
 	 *
@@ -522,8 +530,10 @@ class ToolLoop implements ToolLoopInterface {
 		?ObjectEntity $agent = null,
 		?string $organisation = null,
 		bool $dryRun = false,
+		string $conversationId = '',
 	): array {
 		$run = new ToolSurfaceRun();
+		$run->conversationId = $conversationId;
 		$run->functions = $functions;
 		$run->channel = $channel;
 		$run->trace = $trace;
@@ -561,7 +571,9 @@ class ToolLoop implements ToolLoopInterface {
 			waivedConstraintSets: $this->grantResolver->waivedConstraintSets(grants: $this->agentGrants(agent: $run->agent)),
 			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent),
 			agentStillOn: $this->agentStillOn(agentId: $agentId),
-			askFirst: $this->askFirst(functions: $run->functions)
+			askFirst: $this->askFirst(functions: $run->functions),
+			flowHandoffs: $this->flowHandoffs,
+			conversationId: $run->conversationId
 		);
 	}//end createInvoker()
 

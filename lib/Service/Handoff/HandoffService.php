@@ -216,6 +216,41 @@ class HandoffService {
 	}//end asObject()
 
 	/**
+	 * The id of the waiting handoff of this kind whose work has this external reference, or null.
+	 *
+	 * @param string $kind        `flow`, `webhook` or `a2a`.
+	 * @param string $externalRef The flow run uuid or remote task id.
+	 *
+	 * @return string|null
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
+	 */
+	public function waitingFor(string $kind, string $externalRef): ?string {
+		if ($externalRef === '') {
+			return null;
+		}
+
+		$filters = ['kind' => $kind, 'externalRef' => $externalRef, 'status' => self::WAITING];
+		$found   = $this->objectService->setRegister(self::REGISTER_SLUG)->setSchema(self::SCHEMA_SLUG)->findAll(
+			config: ['filters' => $filters, 'limit' => 10],
+			_rbac: false,
+			_multitenancy: false
+		);
+		foreach ($found as $object) {
+			if (($object instanceof ObjectEntity) === false) {
+				continue;
+			}
+
+			$data = $object->getObject();
+			if (array_intersect_assoc(array_map('strval', array_intersect_key($data, $filters)), $filters) === $filters) {
+				return (string) $object->getUuid();
+			}
+		}
+
+		return null;
+	}//end waitingFor()
+
+	/**
 	 * Expire a waiting handoff whose deadline has passed.
 	 *
 	 * @param string $handoffId The handoff's uuid.

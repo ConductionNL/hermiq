@@ -31,8 +31,9 @@ Kind: code. Size L. Rows `hermiq:dm-async-flow-step`, `hermiq:dm-remote-agent`, 
   - GIVEN runFlow from a turn WHEN the run is queued THEN a flow handoff holds its run id
   - GIVEN the terminal event WHEN it names that run THEN the handoff closes with the final items
   - GIVEN no terminal event class WHEN runFlow is called THEN no handoff opens and the model is told
-- [ ] Implement
-- [ ] Test (PHPUnit with the event class present and absent)
+- **status**: built. The turn's conversation id now reaches `FacadeToolInvoker` (through `ToolLoop::buildFunctionInfos()`). After `openregister.runFlow` queues a run there, `FlowHandoffs::afterRunFlow()` opens a `flow` handoff holding the run uuid and adds the note "The flow is running…" to the tool result. `FlowRunTerminalListener` is registered by event name on `OCA\OpenRegister\Event\FlowRunTerminalEvent` and closes it, as `done` with the run's `items` or `failed` with its status. The items are read through OpenRegister's published `openregister.flowRunStatus` tool. Without the event class, no handoff opens and the tool result carries the no-event note. The label is the flow id, because runFlow carries no flow name.
+- [x] Implement
+- [x] Test (PHPUnit with the event class present and absent): `tests/Unit/Service/Handoff/FlowHandoffsTest.php`
 
 ### Task 4: The webhook result route and the n8n preset
 - **spec_ref**: `openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004`
