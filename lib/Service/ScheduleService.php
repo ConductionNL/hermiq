@@ -307,6 +307,10 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *                          (what-the-model-reads-and-what-is-kept). Nullable and
 	 *                          trailing: a service built by hand in a test writes the
 	 *                          entry it always wrote.
+	 * @param RunDoneNotifier|null $runDoneNotifier Tells the schedule owner a run is
+	 *                          done when they asked for it (personal-preferences).
+	 *                          Nullable and trailing: a service built by hand in a
+	 *                          test sends no such notification.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
 	 *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -333,6 +337,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		private readonly DelegationContext $delegationContext,
 		private readonly IJobList $jobList,
 		private readonly ?RunRetentionPolicy $retentionPolicy = null,
+		private readonly ?RunDoneNotifier $runDoneNotifier = null,
 	) {
 		$this->tenantKillSwitch = new TenantKillSwitch(objectService: $objectService, logger: $logger);
 	}//end __construct()
@@ -1431,6 +1436,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		// Wall-clock start of the agent turn, for the run-audit timing (run-audit-log).
 		$startedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 		$summary = '';
+		$succeeded = false;
 
 		// Run the agent + deliver + finalise inside a try/catch that operates on the
 		// SAME $data that already carries the committed advance (nextRun / disabled
@@ -1465,6 +1471,7 @@ class ScheduleService implements ScheduleServiceInterface {
 
 			$data = $this->applySuccessOutcome(data: $data, delivery: $delivery, deferDisable: $deferDisable);
 			$summary = $output;
+			$succeeded = true;
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				sprintf('Hermiq schedule %s failed: %s', (string)$schedule->getUuid(), $e->getMessage()),
@@ -1498,6 +1505,12 @@ class ScheduleService implements ScheduleServiceInterface {
 				attempt: $attemptNumber
 			)
 		);
+
+		// Personal-preferences: the owner asked to hear when a run is done. Only a
+		// run that resolved (not one waiting for a retry), and never fatal.
+		if (($data['lastStatus'] ?? '') !== 'retry_pending') {
+			$this->notifyRunDone(schedule: $schedule, data: $data, succeeded: $succeeded);
+		}
 
 		// Run-reliability: the deferred finite-repeat delete only fires once the
 		// occurrence has actually RESOLVED (ok / error / dead_letter /
@@ -1753,6 +1766,60 @@ class ScheduleService implements ScheduleServiceInterface {
 
 		return $data;
 	}//end markDeadLetter()
+
+	/**
+	 * Tell the schedule owner a run is done, when they switched that on
+	 * (personal-preferences). Never throws.
+	 *
+	 * @param ObjectEntity        $schedule  The schedule that ran.
+	 * @param array<string,mixed> $data      The schedule payload after the run.
+	 * @param bool                $succeeded Whether the run succeeded.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 */
+	private function notifyRunDone(ObjectEntity $schedule, array $data, bool $succeeded): void {
+		if ($this->runDoneNotifier === null) {
+			return;
+		}
+
+		$this->runDoneNotifier->notifyScheduledRun(
+			userId: (string)($schedule->getOwner() ?? ''),
+			agentName: $this->agentNameOf(agentId: (string)($data['agentId'] ?? ''), fallback: (string)($data['name'] ?? '')),
+			scheduleUuid: (string)$schedule->getUuid(),
+			succeeded: $succeeded,
+			channel: (string)($data['deliver'] ?? 'none')
+		);
+	}//end notifyRunDone()
+
+	/**
+	 * An agent's name for a notification, or the fallback when it cannot be read.
+	 *
+	 * @param string $agentId  The agent uuid.
+	 * @param string $fallback The name to use instead (the schedule's name).
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 */
+	private function agentNameOf(string $agentId, string $fallback): string {
+		if ($agentId === '') {
+			return $fallback;
+		}
+
+		try {
+			$name = (string)($this->agentMapper->findByUuid($agentId)->getName() ?? '');
+		} catch (Throwable) {
+			$name = '';
+		}
+
+		if ($name === '') {
+			return $fallback;
+		}
+
+		return $name;
+	}//end agentNameOf()
 
 	/**
 	 * Write the explicit per-run AuditTrail entry via OpenRegister (run-audit-log).

@@ -2827,7 +2827,11 @@ OC.L10N.register(
         "Dutch, B1": "Dutch, B1",
         "English": "English",
         "German": "German",
-        "French": "French"
+        "French": "French",
+        "Your agent run is done": "Your agent run is done",
+        "%s is done": "%s is done",
+        "The run finished successfully.": "The run finished successfully.",
+        "The run ended with an error.": "The run ended with an error."
     },
     "nplurals=2; plural=(n != 1);"
 )

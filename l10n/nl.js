@@ -2827,7 +2827,11 @@ OC.L10N.register(
         "Dutch, B1": "Nederlands, B1",
         "English": "Engels",
         "German": "Duits",
-        "French": "Frans"
+        "French": "Frans",
+        "Your agent run is done": "Je agentrun is klaar",
+        "%s is done": "%s is klaar",
+        "The run finished successfully.": "De run is goed afgerond.",
+        "The run ended with an error.": "De run is geëindigd met een fout."
     },
     "nplurals=2; plural=(n != 1);"
 )

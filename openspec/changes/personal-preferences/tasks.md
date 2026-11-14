@@ -20,7 +20,7 @@
       Built: `PersonalPreferences` reads `pref_ask-before-send` (the settings dialog sends the key
       `ask-before-send`; the endpoint drops underscores), `OutboundToolRule` picks the turn's send tools,
       and `FacadeToolInvoker` asks after every other gate. Tests: `FacadeToolInvokerAskBeforeSendTest`.
-- [ ] 2.4 Run done notification: when `notify_run_done` is on, a finished run sends a Nextcloud
+- [x] 2.4 Run done notification: when `notify_run_done` is on, a finished run sends a Nextcloud
       notification to the person who started it. Verify: unit test of the notifier call.
 
 ## 3. Verification

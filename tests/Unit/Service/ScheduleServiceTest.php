@@ -40,6 +40,7 @@ use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\EngineRequiredException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\RedactionService;
+use OCA\Hermiq\Service\RunDoneNotifier;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\Hermiq\Service\SkillVersionService;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
@@ -4156,4 +4157,153 @@ class ScheduleServiceTest extends TestCase {
 		$this->assertSame('done', $output);
 
 	}//end testARedactingInputFilterSendsTheMaskedPromptOnTheLegacyRun()
+	/**
+	 * The service as setUp() builds it, plus a run-done notifier double.
+	 *
+	 * @param RunDoneNotifier $notifier The notifier.
+	 *
+	 * @return ScheduleService
+	 */
+	private function serviceWithRunDoneNotifier(RunDoneNotifier $notifier): ScheduleService {
+		return new ScheduleService(
+			objectService: $this->objectService,
+			agentMapper: $this->agentMapper,
+			conversationMapper: $this->conversationMapper,
+			chatService: $this->chatService,
+			userSession: $this->userSession,
+			userManager: $this->userManager,
+			config: $this->config,
+			logger: $this->createMock(LoggerInterface::class),
+			deliveryService: $this->deliveryService,
+			auditTrailMapper: $this->auditTrailMapper,
+			redactionService: $this->redactionService,
+			approvalService: $this->approvalService,
+			appConfig: $this->appConfig,
+			engine: $this->engine,
+			budgetService: $this->budgetService,
+			guardrailPolicyService: $this->guardrailPolicyService,
+			agentVersionService: $this->agentVersionService,
+			skillVersionService: $this->createMock(SkillVersionService::class),
+			delegationContext: $this->delegationContext,
+			jobList: $this->createMock(IJobList::class),
+			runDoneNotifier: $notifier,
+		);
+	}//end serviceWithRunDoneNotifier()
+
+	/**
+	 * A schedule to run now, delivering on the given channel.
+	 *
+	 * @param string $deliver The delivery channel.
+	 *
+	 * @return ObjectEntity
+	 */
+	private function runDoneSchedule(string $deliver = 'none'): ObjectEntity {
+		return $this->schedule(
+			[
+				'name' => 'Weekly Woo digest',
+				'kind' => 'interval',
+				'intervalMinutes' => 60,
+				'agentId' => 'agent-uuid',
+				'prompt' => 'run me now',
+				'deliver' => $deliver,
+				'enabled' => true,
+				'nextRun' => '2030-01-01T00:00:00+00:00',
+				'repeat' => ['times' => 0, 'completed' => 0],
+			],
+			'done-sched',
+			'pieter'
+		);
+	}//end runDoneSchedule()
+
+	/**
+	 * A finished run tells its owner, naming the agent and that it succeeded
+	 * (personal-preferences task 2.4).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 */
+	public function testAFinishedRunCallsTheRunDoneNotifier(): void {
+		$this->objectService->method('findAll')->willReturn([]);
+		$this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+		$this->agentMapper->findByUuid('agent-uuid')->setName('Hulp bij Woo-besluit');
+
+		$notifier = $this->createMock(RunDoneNotifier::class);
+		$notifier->expects($this->once())->method('notifyScheduledRun')->with(
+			'pieter',
+			'Hulp bij Woo-besluit',
+			'done-sched',
+			true,
+			'none'
+		)->willReturn(true);
+
+		$this->serviceWithRunDoneNotifier(notifier: $notifier)->runNow($this->runDoneSchedule());
+	}//end testAFinishedRunCallsTheRunDoneNotifier()
+
+	/**
+	 * A failed run tells its owner it failed, under the schedule's name when the
+	 * agent's own name cannot be read.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 */
+	public function testAFailedRunCallsTheRunDoneNotifierWithTheFailure(): void {
+		$this->objectService->method('findAll')->willReturn([]);
+		$this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+		$this->chatService->method('processMessage')->willThrowException(new \RuntimeException('boom'));
+
+		$notifier = $this->createMock(RunDoneNotifier::class);
+		$notifier->expects($this->once())->method('notifyScheduledRun')->with(
+			'pieter',
+			'Weekly Woo digest',
+			'done-sched',
+			false,
+			'talk'
+		)->willReturn(true);
+
+		$this->serviceWithRunDoneNotifier(notifier: $notifier)->runNow($this->runDoneSchedule(deliver: 'talk'));
+		$this->assertSame('error', $this->auditCalls[0]['context']['status']);
+	}//end testAFailedRunCallsTheRunDoneNotifierWithTheFailure()
+
+	/**
+	 * A failed attempt that waits for a retry is not done yet: no notification.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 */
+	public function testARunWaitingForARetryIsNotReportedDone(): void {
+		$schedule = $this->schedule(
+			[
+				'kind' => 'interval',
+				'intervalMinutes' => 60,
+				'agentId' => 'agent-uuid',
+				'prompt' => 'flaky',
+				'deliver' => 'none',
+				'enabled' => true,
+				'retryEnabled' => true,
+				'retryMaxAttempts' => 3,
+				'nextRun' => '2030-01-01T00:00:00+00:00',
+				'repeat' => ['times' => 0, 'completed' => 0],
+			],
+			'retry-sched',
+			'pieter'
+		);
+		$saved = [];
+		$this->objectService->method('findAll')->willReturn([]);
+		$this->objectService->method('saveObject')->willReturnCallback(
+			static function (array $object) use (&$saved): ObjectEntity {
+				$saved[] = $object;
+				return new ObjectEntity();
+			}
+		);
+		$this->chatService->method('processMessage')->willThrowException(new \RuntimeException('transient'));
+
+		$notifier = $this->createMock(RunDoneNotifier::class);
+		$notifier->expects($this->never())->method('notifyScheduledRun');
+
+		$this->serviceWithRunDoneNotifier(notifier: $notifier)->runNow($schedule);
+		$this->assertSame('retry_pending', end($saved)['lastStatus'] ?? null);
+	}//end testARunWaitingForARetryIsNotReportedDone()
 }//end class
