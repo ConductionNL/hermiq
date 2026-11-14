@@ -1957,6 +1957,8 @@ OC.L10N.register(
         "Unused because": "Niet gebruikt omdat",
         "Why a shown suggestion went unused (status=unused): the surface was closed, the suggestion expired, or a newer suggestion replaced it. Empty for every other status.": "Waarom een getoond voorstel niet is gebruikt (status=unused): het scherm werd gesloten, het voorstel verliep of een nieuwer voorstel verving het. Leeg bij elke andere status.",
         "The tool grants could not be read, so nothing was saved. Reload the page and try again.": "De toolrechten konden niet worden gelezen, dus er is niets opgeslagen. Laad de pagina opnieuw en probeer het nog eens.",
+        "Fork from here": "Hier afsplitsen",
+        "Could not fork the session.": "De sessie kon niet worden afgesplitst.",
         "How this answer came about": "Hoe dit antwoord tot stand kwam",
         "You decide what to do with this answer.": "Jij beslist wat je met dit antwoord doet.",
         "Which model answered was not recorded.": "Welk model antwoordde, is niet vastgelegd.",
