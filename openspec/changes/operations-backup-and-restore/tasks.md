@@ -10,8 +10,10 @@ Kind: code. Size L. Row `hermiq:dm-backup-restore`.
 - **acceptance_criteria**:
   - GIVEN an administrator WHEN they save a folder, hour, keep and sessions choice THEN `backup` holds them
   - GIVEN a non-admin WHEN they call any backup route THEN the answer is 403
-- [ ] Implement
+- [x] Implement
 - [ ] Test (PHPUnit on auth; Newman as admin and non-admin)
+  - [x] PHPUnit: `BackupSettingsControllerTest` (every action carries `AuthorizedAdminSetting` and nothing opens it), `BackupSettingsTest`; vitest on the admin section.
+  - [ ] Newman as admin and non-admin: needs a running instance.
 
 ### Task 2: The backup writer and the nightly job
 - **spec_ref**: `openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001`
@@ -21,8 +23,8 @@ Kind: code. Size L. Row `hermiq:dm-backup-restore`.
   - GIVEN sessions excluded WHEN the file is written THEN it holds no `agentsession` or `agentsessionturn` object
   - GIVEN 15 files and keep 14 WHEN the job runs THEN the oldest is deleted
   - GIVEN the four schemas missing from the register list WHEN the schema set is built THEN they are included
-- [ ] Implement
-- [ ] Test (PHPUnit with two tenants and a fake Files folder)
+- [x] Implement
+- [x] Test (PHPUnit with two tenants and a fake Files folder)
 
 ### Task 3: The restore preview
 - **spec_ref**: `openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002`
@@ -30,8 +32,9 @@ Kind: code. Size L. Row `hermiq:dm-backup-restore`.
 - **acceptance_criteria**:
   - GIVEN a backup and a changed agent WHEN the preview runs THEN it counts one changed agent and writes nothing
   - GIVEN a moment in time WHEN the preview runs THEN objects without history at that time are listed as such
-- [ ] Implement
-- [ ] Test (PHPUnit on the planner, both restore points)
+- [x] Implement
+- [x] Test (PHPUnit on the planner, both restore points)
+  - `RestorePlannerTest` (a changed agent counted and nothing written, dropped properties listed, a newer register refused, a moment rebuilt from the audit trail with created-after and no-history objects), `RestorePointTest`, `BackupFilesTest`, `BackupControllerTest` (admin-only attributes, preview 200/422/404/409).
 
 ### Task 4: The restore job with the kill switch and the record
 - **spec_ref**: `openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003`
@@ -40,16 +43,20 @@ Kind: code. Size L. Row `hermiq:dm-backup-restore`.
   - GIVEN a restore WHEN it starts THEN the kill switch is engaged before the first write, and released after a clean finish
   - GIVEN two failing saves WHEN it finishes THEN the switch stays engaged and the record and notification name both
   - GIVEN a file from a newer register version WHEN a restore is requested THEN it is refused
-- [ ] Implement
-- [ ] Test (PHPUnit on the runner with a failing save and a version check)
+- [x] Implement
+- [x] Test (PHPUnit on the runner with a failing save and a version check)
+  - `RestoreRunnerTest` (switch on before the first write and off after a clean finish, two failing saves keep it on and are named in the record and notification, a switch already on is left alone, later objects removed when chosen, a refused point touches nothing), `RestoreJobTest`, `NotifierRestoreTest`, `BackupControllerTest` (restore queued with the point and administrator, refused restore not queued).
+  - The restore record is an audit entry with action `restore` on the organisation's TenantControl object; the notification subject is `restore_finished`. A moment is rebuilt from each object's create and update entries and written through `ObjectService::saveObject()`, so it is on the audit trail like a backup restore.
 
 ### Task 5: The restore dialog
 - **spec_ref**: `openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002`
 - **files**: `src/modals/RestoreDialog.vue`, `src/views/AdminRoot.vue`, `src/api/backup.js`, `l10n/en.json`, `l10n/nl.json`
 - **acceptance_criteria**:
   - GIVEN the admin section WHEN the administrator picks a backup THEN the preview shows per schema counts and a choice for objects created after the point, before any restore starts
-- [ ] Implement
+- [x] Implement
+  - "Restore" in the admin Backups section opens `src/modals/RestoreDialog.vue`: a backup from the folder or a moment for an organisation, the preview per schema (put back, changed back, created after, missing, no history, not restorable), and only after a preview that is not refused the restore, with the switch for objects created after the point. vitest: `tests/vitest/restore-dialog.spec.js`, `tests/vitest/admin-root.spec.js`.
 - [ ] Test (Playwright under `tests/e2e/spec-coverage/backup-restore.spec.ts`)
+  - Open: needs a running instance with a backup in the folder.
 
 ## Verification
 - [ ] `openspec validate operations-backup-and-restore --type change --strict` passes
