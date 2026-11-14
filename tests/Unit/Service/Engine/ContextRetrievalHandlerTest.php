@@ -162,7 +162,14 @@ class ContextRetrievalHandlerTest extends TestCase {
 		);
 
 		$this->assertTrue($degradeLogged, 'The semantic→keyword degrade must be logged');
-		$this->assertSame(['text' => '', 'sources' => []], $context);
+		$this->assertSame(
+			[
+				'text' => '',
+				'sources' => [],
+				'retrievalScope' => ['fileFilters' => null, 'validated' => false, 'floor' => null, 'passed' => 0, 'bestSimilarity' => null, 'abstained' => false],
+			],
+			$context
+		);
 
 	}//end testSemanticModeDegradesToKeywordWithLogNote()
 
@@ -245,7 +252,14 @@ class ContextRetrievalHandlerTest extends TestCase {
 		$handler = new ContextRetrievalHandler($objectService, new NullLogger());
 		$context = $handler->retrieveContext(query: 'anything', agent: null);
 
-		$this->assertSame(['text' => '', 'sources' => []], $context);
+		$this->assertSame(
+			[
+				'text' => '',
+				'sources' => [],
+				'retrievalScope' => ['fileFilters' => null, 'validated' => false, 'floor' => null, 'passed' => 0, 'bestSimilarity' => null, 'abstained' => false],
+			],
+			$context
+		);
 
 	}//end testSearchFailureYieldsEmptyContext()
 

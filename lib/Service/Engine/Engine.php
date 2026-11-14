@@ -58,6 +58,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
 
+use OCA\Hermiq\Service\RetrievalScope\ValidatedMode;
 use Exception;
 use OCA\Hermiq\BackgroundJob\ConversationTitleJob;
 use OCA\Hermiq\Kernel\Contracts\EngineInterface;
@@ -353,7 +354,7 @@ class Engine implements EngineInterface {
 			$timings = [];
 			$ragContext = $this->turnContext(turn: $turn, timings: $timings);
 			$turnHistory = $this->turnHistory(turn: $turn, timings: $timings);
-			$aiResponse = $this->reviewedResponse(
+			$aiResponse = $this->answerOrAbstain(
 				turn: $turn + ['ragContext' => $ragContext, 'turnHistory' => $turnHistory, 'guardrail' => $guardrail],
 				timings: $timings
 			);
@@ -364,6 +365,7 @@ class Engine implements EngineInterface {
 				'aiResponse' => $aiResponse,
 				'answerAttachments' => ($this->images?->takeCreated() ?? []),
 				'sources' => $ragContext['sources'],
+				'retrievalScope' => ($ragContext['retrievalScope'] ?? null),
 			];
 			// Chat-how-an-answer-came-about D1: identities and outcomes, never content.
 			$turn['provenance'] = (new AnswerProvenance())->build(trace: $trace, sources: $turn['sources']);
@@ -570,6 +572,32 @@ class Engine implements EngineInterface {
 	}//end turnHistory()
 
 	/**
+	 * The answer: the agent's abstention when validated mode found no passage
+	 * at or above its floor, without asking the model (memory-retrieval-scope
+	 * D3); otherwise the model's reviewed answer.
+	 *
+	 * @param array<string, mixed> $turn    The turn, with its RAG context, history and guardrail.
+	 * @param array<string, float> $timings The turn's timings, filled in place.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-agent-in-validated-mode-refuses-without-asking-the-model-when-nothing-validated-matches-req-rscope-003
+	 */
+	private function answerOrAbstain(array $turn, array &$timings): string {
+		if (($turn['ragContext']['retrievalScope']['abstained'] ?? false) !== true) {
+			return $this->reviewedResponse(turn: $turn, timings: $timings);
+		}
+
+		$timings['llm'] = 0.0;
+		$this->logger->info(
+			message: '[Engine] Validated mode found no passage above the floor; abstained without the model',
+			context: ['conversationId' => $turn['conversationId']]
+		);
+
+		return ValidatedMode::abstention(agentData: ($turn['agent']?->getObject() ?? []));
+	}//end answerOrAbstain()
+
+	/**
 	 * The model's answer as the output guardrail lets it be stored and sent.
 	 *
 	 * Agent-guardrails: the output filter runs BEFORE the assistant Message is
@@ -687,6 +715,8 @@ class Engine implements EngineInterface {
 			'steps' => $turn['trace']?->toArray() ?? [],
 			// Chat-how-an-answer-came-about: the record stored on the answer.
 			'provenance' => $turn['provenance'],
+			// Memory-retrieval-scope D5: the scope the answer was given.
+			'retrievalScope' => $turn['retrievalScope'],
 			// Skill-evals: the skill uuids actually exposed to this run's context,
 			// recorded on the run's audit entry for ALL runs.
 			'skillsUsed' => $turn['skillsUsed'],
@@ -745,7 +775,8 @@ class Engine implements EngineInterface {
 			content: $turn['aiResponse'],
 			sources: $turn['sources'],
 			attachments: $turn['answerAttachments'],
-			provenance: $turn['provenance']
+			provenance: $turn['provenance'],
+			retrievalScope: $turn['retrievalScope']
 		);
 
 		$this->queueTitleGeneration(

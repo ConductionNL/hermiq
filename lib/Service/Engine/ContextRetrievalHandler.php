@@ -44,6 +44,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Engine;
 
 use OCA\Hermiq\Service\RetrievalScope\FileScopeResolver;
+use OCA\Hermiq\Service\RetrievalScope\ValidatedFileSet;
+use OCA\Hermiq\Service\RetrievalScope\ValidatedMode;
 use Exception;
 use OCA\Hermiq\Service\Chat\ScopedPassageSource;
 use OCA\Hermiq\Service\Chat\TurnScope;
@@ -72,6 +74,7 @@ class ContextRetrievalHandler {
 	 * @param AppRegisterScope|null $appScope The registers of an agent's app (agents-bound-to-their-app).
 	 * @param FileScopeResolver|null $fileScope The agent's file filters as a file set (memory-retrieval-scope).
 	 * @param ScopedPassageSource|null $scopedSource The passages of a turn scoped to a file or folder; null refuses such a turn.
+	 * @param ValidatedFileSet|null $validatedFiles The files carrying the validated tag (memory-retrieval-scope); null is no file.
 	 *
 	 * @return void
 	 *
@@ -84,6 +87,7 @@ class ContextRetrievalHandler {
 		private readonly ?AppRegisterScope $appScope = null,
 		private readonly ?FileScopeResolver $fileScope = null,
 		private readonly ?ScopedPassageSource $scopedSource = null,
+		private readonly ?ValidatedFileSet $validatedFiles = null,
 	) {
 	}//end __construct()
 
@@ -119,6 +123,14 @@ class ContextRetrievalHandler {
 		array $ragSettings = [],
 		string $speaker = '',
 	): array {
+		// Validated mode (memory-retrieval-scope D3/D4): the session cannot widen
+		// the scope, so its object search, views and file or folder scope are dropped.
+		$validated = ValidatedMode::isOn(agentData: ($agent?->getObject() ?? []));
+		if ($validated === true) {
+			$ragSettings = ValidatedMode::narrowed(ragSettings: $ragSettings);
+			$selectedViews = [];
+		}
+
 		$scope = (new TurnScope())->fromRagSettings(ragSettings: $ragSettings);
 		if ($scope !== null) {
 			return $this->scopedContext(
@@ -159,6 +171,12 @@ class ContextRetrievalHandler {
 		// (memory-retrieval-scope D1). An empty set switches file search off; it never
 		// falls back to an unscoped search.
 		$run['fileIds'] = $this->fileScope?->resolve(filters: ($agentData['ragFileFilters'] ?? null));
+		if ($validated === true) {
+			$run['settings']['include']['object'] = false;
+			$run['viewFilters'] = [];
+			$run['fileIds'] = ValidatedMode::fileSet(fileIds: $run['fileIds'], tagged: ($this->validatedFiles?->fileIds() ?? []));
+		}
+
 		if ($run['fileIds'] === []) {
 			$run['settings']['include']['file'] = false;
 		}
@@ -166,12 +184,28 @@ class ContextRetrievalHandler {
 		try {
 			$found = $this->candidateResults(run: $run);
 			$found['results'] = self::withinFileScope(results: $found['results'], fileIds: $run['fileIds']);
+			$floor = null;
+			if ($validated === true) {
+				$floor = ValidatedMode::floor(agentData: $agentData);
+				$found['results'] = self::validatedRows(results: $found['results'], include: $run['settings']['include']);
+				$found['text'] = '';
+			}
+
+			$passing = ValidatedMode::aboveFloor(rows: $found['results'], floor: ($floor ?? 0.0));
+			$found['results'] = $passing['rows'];
 			$collected = (new RetrievalSourceCollector(settings: $run['settings']))->collect(found: $found);
 			$this->logRetrieved(run: $run, collected: $collected + ['rawResultsCount' => count($found['results'])]);
 
 			return [
 				'text' => $collected['text'],
 				'sources' => $collected['sources'],
+				'retrievalScope' => ValidatedMode::record(
+					fileFilters: ($agentData['ragFileFilters'] ?? null),
+					validated: $validated,
+					floor: $floor,
+					passed: count($collected['sources']),
+					best: $passing['best']
+				),
 			];
 		} catch (Exception $e) {
 			$this->logger->error(
@@ -186,9 +220,40 @@ class ContextRetrievalHandler {
 			return [
 				'text' => '',
 				'sources' => [],
+				'retrievalScope' => ValidatedMode::record(
+					fileFilters: ($agentData['ragFileFilters'] ?? null),
+					validated: $validated,
+					floor: null,
+					passed: 0,
+					best: null
+				),
 			];
 		}//end try
 	}//end retrieveContext()
+
+	/**
+	 * The rows a validated turn may use: file rows only, and none when file
+	 * search is off (no validated file, or none within the agent's filters).
+	 *
+	 * @param mixed                $results The candidate rows.
+	 * @param array<string, mixed> $include Which kinds the turn searches.
+	 *
+	 * @return list<mixed>
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-agent-in-validated-mode-refuses-without-asking-the-model-when-nothing-validated-matches-req-rscope-003
+	 */
+	private static function validatedRows(mixed $results, array $include): array {
+		if (($include['file'] ?? false) === false || is_array($results) === false) {
+			return [];
+		}
+
+		return array_values(
+			array_filter(
+				$results,
+				static fn (mixed $row): bool => is_array($row) === true && ($row['entity_type'] ?? null) === 'file'
+			)
+		);
+	}//end validatedRows()
 
 	/**
 	 * Drop file rows outside the agent's file set; object rows pass. Without a
