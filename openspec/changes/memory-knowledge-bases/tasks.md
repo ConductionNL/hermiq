@@ -53,8 +53,8 @@ Kind: code. Size L. Rows `hermiq:me-kb-upload`, `me-external-kb`.
 - **acceptance_criteria**:
   - GIVEN a folder only the owner can read WHEN a colleague's turn resolves scope THEN that folder's files are not in the scope
   - GIVEN the same folder WHEN the owner opens the detail page THEN the notice is shown
-- [ ] Implement
-  - Person-scoped read done: `KnowledgeBaseScopeResolver` opens every source by file id in the speaker's own Files, so a folder only the owner can read gives a colleague nothing (at most 500 files per knowledge base). `SourceSharingInspector` marks each file and folder source `onlyYou` when it is in the owner's own storage and neither it nor a folder above it is shared with a user, group, team or room (a team folder or someone else's share is not), and `missing` when it is gone; `GET /api/knowledge-bases/{id}/sources` gives the owner those flags with each file's indexing state and `searchAvailable`. Open: showing the notice on the detail page (Task 6).
+- [x] Implement
+  - Person-scoped read done: `KnowledgeBaseScopeResolver` opens every source by file id in the speaker's own Files, so a folder only the owner can read gives a colleague nothing (at most 500 files per knowledge base). `SourceSharingInspector` marks each file and folder source `onlyYou` when it is in the owner's own storage and neither it nor a folder above it is shared with a user, group, team or room (a team folder or someone else's share is not), and `missing` when it is gone; `GET /api/knowledge-bases/{id}/sources` gives the owner those flags with each file's indexing state and `searchAvailable`. The detail page shows the notice per source (Task 6).
 - [x] Test (PHPUnit with two users and a share)
   - `KnowledgeBaseScopeResolverTest` (5) covers the two-person read; `SourceSharingInspectorTest` (5) the unshared folder, a share higher up, a team folder, someone else's share and a gone file.
 
