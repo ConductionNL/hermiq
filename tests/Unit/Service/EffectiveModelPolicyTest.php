@@ -305,4 +305,32 @@ class EffectiveModelPolicyTest extends TestCase {
 		$this->expectExceptionMessage("ModelPolicy 'missing' does not exist");
 		$service->update(uuid: 'missing', payload: []);
 	}//end testAWriteOutsideTheRulesIsRefused()
+
+	/**
+	 * The service hands the effective chain to the turn: the organisation's own, else the
+	 * instance default's, and nothing malformed.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-3-the-fallback-loop-with-the-same-gates-per-hop
+	 */
+	public function testTheServiceHandsTheEffectiveChainToTheTurn(): void {
+		$objects = $this->objectService(
+			[
+				$this->policy('p-instance', '', ['allowed' => [['provider' => 'ollama', 'models' => []]], 'fallbackChain' => [['provider' => 'ollama', 'model' => 'qwen2.5']]]),
+				$this->policy(
+					'p-org',
+					'org-a',
+					[
+						'allowed' => [['provider' => 'fireworks', 'models' => []], ['provider' => 'ollama', 'models' => []]],
+						'fallbackChain' => [['provider' => 'fireworks', 'model' => 'llama'], ['model' => 'no-provider']],
+					]
+				),
+			]
+		);
+		$service = $this->service(objects: $objects);
+
+		$this->assertSame([['provider' => 'fireworks', 'model' => 'llama']], $service->fallbackChainFor(organisation: 'org-a'));
+		$this->assertSame([['provider' => 'ollama', 'model' => 'qwen2.5']], $service->fallbackChainFor(organisation: 'org-b'));
+	}//end testTheServiceHandsTheEffectiveChainToTheTurn()
 }//end class

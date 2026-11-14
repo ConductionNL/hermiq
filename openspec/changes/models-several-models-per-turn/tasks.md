@@ -28,8 +28,8 @@ Kind: code. Size L. Rows `hermiq:mo-failover`, `hermiq:dm-model-ensemble`, `inte
   - GIVEN a 429 on the first hop and nothing shown yet WHEN the turn runs THEN the next allowed hop answers
   - GIVEN a hop outside the feature's residency WHEN the loop reaches it THEN it is skipped without a call
   - GIVEN a tool already ran WHEN the provider fails THEN no hop is tried
-- [ ] Implement
-- [ ] Test (PHPUnit with stubbed drivers for each branch)
+- [x] Implement — `ProviderFallbackLoop` around the first call in `ResponseGenerationHandler::answerTurn()`; each hop goes through `createChatDriver()` with the new `providerOverride`/`modelOverride`, so model policy, residency and redaction run again and a refused hop is recorded `skipped` with its step; only temporary kinds move a turn; `StreamYieldChannel::answerShown()`/`toolCalled()` and `RunTraceCollector::hasToolStep()` keep a turn where it is ("Not retried: …"); the chain comes from `OrganisationModelPolicyService::fallbackChainFor()`; an exhausted chain fails with "No provider in the fallback chain is available right now."
+- [x] Test (PHPUnit with stubbed drivers for each branch) — `ProviderFallbackLoopTest` (rate limit moves, residency skip without a call, tool ran, text shown, 401 and policy refusal, no chain, exhausted chain, cooling first, cooldown started), `ResponseGenerationHandlerTest::testARateLimitedTurnIsAnsweredByTheNextHop`, `EffectiveModelPolicyTest::testTheServiceHandsTheEffectiveChainToTheTurn`
 
 ### Task 4: Cooldown and the attempts on the run record
 - **spec_ref**: `openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005`

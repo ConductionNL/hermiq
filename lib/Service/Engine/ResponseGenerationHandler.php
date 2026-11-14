@@ -52,6 +52,7 @@ use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\Llm\AttachmentPartBuilder;
 use OCA\Hermiq\Service\Llm\ChatDriver;
+use OCA\Hermiq\Service\Llm\ProviderCooldown;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -123,6 +124,8 @@ class ResponseGenerationHandler {
 	 *                                                    a model declared to read them
 	 *                                                    (chat-attachments-and-images). Null
 	 *                                                    sends the text turn as before.
+	 * @param ProviderCooldown|null $cooldown Skips a provider cooling down for the organisation
+	 *                                       (models-several-models-per-turn). Null keeps none.
 	 *
 	 * @return void
 	 *
@@ -134,6 +137,7 @@ class ResponseGenerationHandler {
 		private readonly LoggerInterface $logger,
 		private readonly ?FeatureProviderResolver $featureResolver = null,
 		private readonly ?AttachmentPartBuilder $attachmentParts = null,
+		private readonly ?ProviderCooldown $cooldown = null,
 	) {
 	}//end __construct()
 
@@ -297,8 +301,7 @@ class ResponseGenerationHandler {
 
 		try {
 			$this->resolveDriver(run: $run);
-			$this->buildMessages(run: $run);
-			$response = $this->callProvider(run: $run);
+			$response = $this->answerTurn(run: $run);
 			(new TurnPerformanceLog(logger: $this->logger))->record(run: $run, response: $response);
 			return $response;
 		} catch (TurnStoppedException $e) {
@@ -378,6 +381,116 @@ class ResponseGenerationHandler {
 		$this->assertChatProvider(provider: $run->progress->driver->provider);
 		$this->logProvider(run: $run);
 	}//end resolveDriver()
+
+	/**
+	 * Answer the turn from the first provider, or from the fallback chain when it
+	 * fails with a temporary error or is cooling down (models-several-models-per-turn).
+	 *
+	 * @param ResponseTurnRun $run The turn, with its first driver resolved.
+	 *
+	 * @return string The answer.
+	 *
+	 * @throws Exception The first provider's failure when the turn may not move.
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	private function answerTurn(ResponseTurnRun $run): string {
+		$history = $run->messageHistory;
+		$driverFor = fn (string $provider, string $model): ChatDriver => $this->hopDriver(run: $run, provider: $provider, model: $model);
+		$answer = fn (ChatDriver $driver): string => $this->answerWith(run: $run, driver: $driver, history: $history);
+
+		if ($this->cooldown?->isCooling(organisation: (string)$run->progress->organisation, provider: $run->progress->driver->provider) === true) {
+			$loop = $this->fallbackLoop(run: $run);
+			if ($loop->firstIsCooling(run: $run) === true) {
+				return $loop->skipCoolingFirst(run: $run, driverFor: $driverFor, answer: $answer);
+			}
+		}
+
+		$startedAt = microtime(true);
+		try {
+			$this->buildMessages(run: $run);
+			$text = $this->callProvider(run: $run);
+		} catch (TurnStoppedException $e) {
+			throw $e;
+		} catch (Exception $e) {
+			return $this->fallbackLoop(run: $run)->recover(run: $run, failure: $e, startedAt: $startedAt, driverFor: $driverFor, answer: $answer);
+		}
+
+		$run->trace?->recordProviderAttempt(
+			provider: $run->progress->driver->provider,
+			model: $run->progress->driver->model,
+			outcome: 'answered',
+			reason: '',
+			durationMs: (int)round((microtime(true) - $startedAt) * 1000),
+			received: true
+		);
+
+		return $text;
+	}//end answerTurn()
+
+	/**
+	 * The fallback loop over the organisation's effective chain.
+	 *
+	 * @param ResponseTurnRun $run The turn.
+	 *
+	 * @return ProviderFallbackLoop
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	private function fallbackLoop(ResponseTurnRun $run): ProviderFallbackLoop {
+		return new ProviderFallbackLoop(
+			hops: $this->providerFactory->fallbackChainFor(organisation: $run->progress->organisation),
+			cooldown: $this->cooldown
+		);
+	}//end fallbackLoop()
+
+	/**
+	 * A hop's driver, through the same driver path and gates as the first provider.
+	 *
+	 * @param ResponseTurnRun $run      The turn.
+	 * @param string          $provider The hop's provider.
+	 * @param string          $model    The hop's model.
+	 *
+	 * @return ChatDriver
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	private function hopDriver(ResponseTurnRun $run, string $provider, string $model): ChatDriver {
+		$inputs = new ChatDriverInputs(run: $run);
+		return $this->providerFactory->createChatDriver(
+			llmConfig: $this->providerFactory->getLlmConfig(),
+			agentModel: $inputs->model(),
+			agentTemperature: $inputs->temperature(),
+			organisation: $inputs->organisation(),
+			agentMaxTokens: $inputs->maxTokens(),
+			aiFeature: $inputs->aiFeature(),
+			documentReference: $inputs->documentReference(),
+			agentCredentialIds: $inputs->credentialIds(),
+			attachmentReferences: $inputs->attachmentReferences(),
+			providerOverride: $provider,
+			modelOverride: $model
+		);
+	}//end hopDriver()
+
+	/**
+	 * Run the turn on a hop's driver, from the history as it was before the first try.
+	 *
+	 * @param ResponseTurnRun     $run     The turn.
+	 * @param ChatDriver          $driver  The hop's driver.
+	 * @param array<int, mixed>   $history The message history before the first try.
+	 *
+	 * @return string The answer.
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	private function answerWith(ResponseTurnRun $run, ChatDriver $driver, array $history): string {
+		$run->progress->driver = $driver;
+		$run->messageHistory = $history;
+		$this->recordProviderDisclosure(run: $run);
+		$this->assertChatProvider(provider: $driver->provider);
+		$this->buildMessages(run: $run);
+		return $this->callProvider(run: $run);
+	}//end answerWith()
 
 	/**
 	 * Ask the provider factory for the turn's chat driver.

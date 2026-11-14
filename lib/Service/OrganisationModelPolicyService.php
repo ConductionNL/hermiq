@@ -168,6 +168,31 @@ class OrganisationModelPolicyService implements OrganisationModelPolicyServiceIn
 	}//end isAllowed()
 
 	/**
+	 * The hops a turn may move to when its provider fails, from the effective policy.
+	 *
+	 * @param string $organisation The organisation identifier (may be '').
+	 *
+	 * @return array<int, array{provider: string, model: string}> The hops in order.
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	public function fallbackChainFor(string $organisation): array {
+		$chain = ($this->effectivePolicy->effectivePolicyFor(organisation: $organisation)['fallbackChain'] ?? []);
+		if (is_array($chain) === false) {
+			return [];
+		}
+
+		$hops = [];
+		foreach ($chain as $hop) {
+			if (is_array($hop) === true && is_string($hop['provider'] ?? null) === true && $hop['provider'] !== '') {
+				$hops[] = ['provider' => $hop['provider'], 'model' => (string)($hop['model'] ?? '')];
+			}
+		}
+
+		return $hops;
+	}//end fallbackChainFor()
+
+	/**
 	 * Create-or-update the ModelPolicy for an organisation (at most one per
 	 * organisation, mirroring `OrganisationControlService::toggle()`'s upsert
 	 * semantics). `$organisation === ''` upserts the organisation-less instance

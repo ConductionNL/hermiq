@@ -105,6 +105,24 @@ class StreamYieldChannel {
 	private array $heldTokens = [];
 
 	/**
+	 * Whether any answer text has reached the listeners.
+	 *
+	 * @var bool
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	private bool $answerShown = false;
+
+	/**
+	 * Whether a tool call was emitted in this turn.
+	 *
+	 * @var bool
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	private bool $toolCalled = false;
+
+	/**
 	 * Register a callback invoked for each token delta emitted by the LLM
 	 * stream.
 	 *
@@ -220,6 +238,7 @@ class StreamYieldChannel {
 	 * @return void
 	 */
 	private function forwardToken(string $delta): void {
+		$this->answerShown = true;
 		foreach ($this->tokenCallbacks as $callback) {
 			$callback($delta);
 		}
@@ -237,6 +256,7 @@ class StreamYieldChannel {
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function emitToolCall(array $payload): void {
+		$this->toolCalled = true;
 		$payload = $this->screenToolDetail(payload: $payload, key: 'arguments');
 		foreach ($this->toolCallCallbacks as $callback) {
 			$callback($payload);
@@ -260,6 +280,28 @@ class StreamYieldChannel {
 			$callback($payload);
 		}
 	}//end emitToolResult()
+
+	/**
+	 * Whether part of the answer was already shown, so the turn cannot move to another provider.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	public function answerShown(): bool {
+		return $this->answerShown;
+	}//end answerShown()
+
+	/**
+	 * Whether a tool was called in this turn, so the turn cannot move to another provider.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	public function toolCalled(): bool {
+		return $this->toolCalled;
+	}//end toolCalled()
 
 	/**
 	 * Screen what tool-call and tool-result frames show from now on.

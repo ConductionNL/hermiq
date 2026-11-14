@@ -110,7 +110,7 @@ class EffectiveModelPolicy implements EffectiveModelPolicyInterface {
 	 *
 	 * @param string $organisation The organisation identifier (may be '').
 	 *
-	 * @return array{source:string,allowed:list<array{provider:string,models:list<string>}>,defaultModel:array{provider:string,model:string}|null}
+	 * @return array{source:string,allowed:list<array{provider:string,models:list<string>}>,defaultModel:array{provider:string,model:string}|null,fallbackChain?:list<array{provider:string,model:string}>}
 	 *                                                                                                                                             The effective, shaped policy.
 	 *
 	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
