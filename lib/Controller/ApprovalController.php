@@ -35,6 +35,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
 use OCA\Hermiq\Service\Approval\ApprovalInbox;
@@ -228,6 +229,83 @@ class ApprovalController extends Controller {
 			return new JSONResponse(['error' => 'Deny failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
 		}
 	}//end denied()
+
+	/**
+	 * Answer a pending question an agent asked in an unattended run; the run is
+	 * dispatched again with the answer.
+	 *
+	 * @param string $approvalId The Approval object UUID.
+	 *
+	 * @return JSONResponse The outcome; 422 when the answer is refused.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 */
+	public function answer(string $approvalId): JSONResponse {
+		$guard = $this->ensureDecidableApproval(approvalId: $approvalId);
+		if (($guard instanceof ObjectEntity) === false) {
+			return $guard;
+		}
+
+		$answer = $this->request->getParam('answer');
+		if (is_string($answer) === false) {
+			return new JSONResponse(['error' => 'answer must be text'], Http::STATUS_BAD_REQUEST);
+		}
+
+		try {
+			$result = $this->approvalService->answerQuestion(
+				approval: $guard,
+				deciderUid: (string)$this->userSession->getUser()?->getUID(),
+				answer: $answer
+			);
+			return new JSONResponse(['approvalId' => $approvalId, 'status' => $result['status'], 'ran' => $result['ran']]);
+		} catch (InvalidArgumentException $e) {
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_UNPROCESSABLE_ENTITY);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq approval answer failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Answer failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+	}//end answer()
+
+	/**
+	 * Release a held draft, as written or with the reviewer's edits. A release
+	 * that changes the recipients or any other fixed field is refused with 422
+	 * and nothing is sent.
+	 *
+	 * @param string $approvalId The Approval object UUID.
+	 *
+	 * @return JSONResponse The outcome; 422 when an edit is refused.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	public function release(string $approvalId): JSONResponse {
+		$guard = $this->ensureDecidableApproval(approvalId: $approvalId);
+		if (($guard instanceof ObjectEntity) === false) {
+			return $guard;
+		}
+
+		$edits = $this->request->getParam('edits', []);
+		if (is_array($edits) === false) {
+			return new JSONResponse(['error' => 'edits must be an object'], Http::STATUS_BAD_REQUEST);
+		}
+
+		try {
+			$result = $this->approvalService->releaseDraft(
+				approval: $guard,
+				deciderUid: (string)$this->userSession->getUser()?->getUID(),
+				edits: $edits
+			);
+			return new JSONResponse(['approvalId' => $approvalId, 'status' => $result['status'], 'ran' => $result['ran']]);
+		} catch (InvalidArgumentException $e) {
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_UNPROCESSABLE_ENTITY);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq draft release failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Release failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+	}//end release()
 
 	/**
 	 * Load a pending approval the caller is authorised to decide (shared IDOR guard).

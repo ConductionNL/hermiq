@@ -27,6 +27,7 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\ApprovalController;
 use OCA\Hermiq\Service\Approval\ApprovalInbox;
+use OCA\Hermiq\Service\Approval\DraftEditRefused;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Http;
@@ -456,4 +457,102 @@ class ApprovalControllerTest extends TestCase {
 		}
 
 	}//end testDecisionsRequireTheCsrfToken()
+
+	/**
+	 * A reviewer answers a question; the session user is the decider.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 */
+	public function testAReviewerAnswersAQuestion(): void {
+		$service = $this->bobReviews();
+		$service->expects($this->once())->method('answerQuestion')
+			->with($this->isInstanceOf(ObjectEntity::class), 'bob', 'Yes, close them')
+			->willReturn(['status' => 'approved', 'ran' => true]);
+
+		$response = $this->resolvingController($service, $this->session('bob'), ['answer' => 'Yes, close them'])->answer('appr-1');
+
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame(['approvalId' => 'appr-1', 'status' => 'approved', 'ran' => true], $response->getData());
+
+	}//end testAReviewerAnswersAQuestion()
+
+	/**
+	 * A refused answer is 422; a missing one is 400; a non-reviewer gets 404.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 */
+	public function testAnswerRefusals(): void {
+		$service = $this->bobReviews();
+		$service->method('answerQuestion')->willThrowException(new \InvalidArgumentException('Choose one of the suggested answers.'));
+
+		$refused = $this->resolvingController($service, $this->session('bob'), ['answer' => 'Maybe'])->answer('appr-1');
+		$this->assertSame(Http::STATUS_UNPROCESSABLE_ENTITY, $refused->getStatus());
+		$this->assertSame('Choose one of the suggested answers.', $refused->getData()['error']);
+
+		$missing = $this->resolvingController($service, $this->session('bob'), [])->answer('appr-1');
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $missing->getStatus());
+
+		$stranger = $this->resolvingController($service, $this->session('eve'), ['answer' => 'Yes'])->answer('appr-1');
+		$this->assertSame(Http::STATUS_NOT_FOUND, $stranger->getStatus());
+
+	}//end testAnswerRefusals()
+
+	/**
+	 * A reviewer releases a draft with edits.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	public function testAReviewerReleasesADraftWithEdits(): void {
+		$service = $this->bobReviews();
+		$service->expects($this->once())->method('releaseDraft')
+			->with($this->isInstanceOf(ObjectEntity::class), 'bob', ['output' => 'Open tickets: 14'])
+			->willReturn(['status' => 'approved', 'ran' => true]);
+
+		$response = $this->resolvingController($service, $this->session('bob'), ['edits' => ['output' => 'Open tickets: 14']])->release('appr-1');
+
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertTrue($response->getData()['ran']);
+
+	}//end testAReviewerReleasesADraftWithEdits()
+
+	/**
+	 * Changed recipients are refused with 422 and nothing is sent.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	public function testAReleaseWithChangedRecipientsIs422(): void {
+		$service = $this->bobReviews();
+		$service->method('releaseDraft')->willThrowException(new DraftEditRefused('The field "to" of this draft cannot be changed.'));
+
+		$response = $this->resolvingController($service, $this->session('bob'), ['edits' => ['to' => 'other@example.org']])->release('appr-1');
+
+		$this->assertSame(Http::STATUS_UNPROCESSABLE_ENTITY, $response->getStatus());
+		$this->assertSame('The field "to" of this draft cannot be changed.', $response->getData()['error']);
+
+		$notAnObject = $this->resolvingController($service, $this->session('bob'), ['edits' => 'x'])->release('appr-1');
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $notAnObject->getStatus());
+
+	}//end testAReleaseWithChangedRecipientsIs422()
+
+	/**
+	 * Answer and release change state, so they keep Nextcloud's CSRF check.
+	 *
+	 * @return void
+	 */
+	public function testAnswerAndReleaseRequireTheCsrfToken(): void {
+		foreach (['answer', 'release'] as $name) {
+			$method = new ReflectionMethod(ApprovalController::class, $name);
+			$this->assertCount(0, $method->getAttributes(NoCSRFRequired::class), $name);
+			$this->assertStringNotContainsString('@NoCSRFRequired', (string)$method->getDocComment(), $name);
+		}
+
+	}//end testAnswerAndReleaseRequireTheCsrfToken()
 }//end class

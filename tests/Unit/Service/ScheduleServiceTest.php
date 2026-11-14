@@ -37,6 +37,7 @@ use OCA\Hermiq\Service\DeliveryResult;
 use OCA\Hermiq\Service\DeliveryService;
 use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\EngineRequiredException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\RedactionService;
@@ -4156,4 +4157,178 @@ class ScheduleServiceTest extends TestCase {
 		$this->assertSame('done', $output);
 
 	}//end testARedactingInputFilterSendsTheMaskedPromptOnTheLegacyRun()
+
+	/**
+	 * A due schedule's payload for the oversight-ask-and-hold tests.
+	 *
+	 * @param array<string, mixed> $extra Fields to add.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function dueReport(array $extra = []): array {
+		return $extra + [
+			'kind' => 'interval',
+			'intervalMinutes' => 60,
+			'agentId' => 'agent-uuid',
+			'prompt' => 'Write the weekly report.',
+			'deliver' => 'email',
+			'enabled' => true,
+			'nextRun' => '2020-01-01T00:00:00+00:00',
+			'repeat' => ['times' => 0, 'completed' => 0],
+		];
+	}//end dueReport()
+
+	/**
+	 * Switch the run onto the engine path with an engine that answers through a callback.
+	 *
+	 * @param callable $answer Receives the prompt and the run trace, returns the message.
+	 *
+	 * @return void
+	 */
+	private function engineAnswers(callable $answer): void {
+		$this->appConfig = $this->createMock(IAppConfig::class);
+		$this->appConfig->method('getValueString')->willReturn('true');
+		$this->engine = $this->createMock(Engine::class);
+		$this->engine->method('processMessage')->willReturnCallback(
+			static function (string $conversationId, string $userId, string $userMessage, array $views = [], array $tools = [], array $rag = [], array $context = [], mixed $channel = null, ?RunTraceCollector $trace = null) use ($answer): array {
+				return ['message' => $answer($userMessage, $trace), 'usage' => []];
+			}
+		);
+		$agent = new ObjectEntity();
+		$agent->setUuid('agent-uuid');
+		$agent->setObject(['name' => 'Reporter']);
+		$this->objectService->method('find')->willReturn($agent);
+		$this->objectService->method('saveObject')->willReturnCallback(
+			static function (): ObjectEntity {
+				$entity = new ObjectEntity();
+				$entity->setUuid('saved');
+				return $entity;
+			}
+		);
+	}//end engineAnswers()
+
+	/**
+	 * A schedule with holdOutput delivers nothing: its output becomes a draft.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	public function testAHeldSchedulesOutputBecomesADraftInsteadOfAMail(): void {
+		$this->deliveryService = $this->createMock(DeliveryService::class);
+		$this->deliveryService->expects($this->never())->method('deliver');
+		$this->approvalService = $this->createMock(ApprovalService::class);
+		$this->approvalService->expects($this->once())->method('ensurePendingDraft')
+			->with($this->isInstanceOf(ObjectEntity::class), 'email', 'agent output', null);
+		$this->service = $this->makeService();
+		$this->objectService->method('findAll')->willReturn([$this->schedule($this->dueReport(['holdOutput' => true]))]);
+		$saved = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (array $object) use (&$saved): ObjectEntity {
+				$saved[] = $object;
+				return new ObjectEntity();
+			}
+		);
+
+		$this->service->run();
+
+		$this->assertSame('ok', end($saved)['lastStatus']);
+
+	}//end testAHeldSchedulesOutputBecomesADraftInsteadOfAMail()
+
+	/**
+	 * A draft that cannot be created sends nothing and records why.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	public function testAHoldThatCannotBeStoredSendsNothing(): void {
+		$this->deliveryService = $this->createMock(DeliveryService::class);
+		$this->deliveryService->expects($this->never())->method('deliver');
+		$this->approvalService = $this->createMock(ApprovalService::class);
+		$this->approvalService->method('ensurePendingDraft')->willThrowException(new \RuntimeException('register down'));
+		$this->service = $this->makeService();
+		$this->objectService->method('findAll')->willReturn([$this->schedule($this->dueReport(['holdOutput' => true]))]);
+		$saved = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (array $object) use (&$saved): ObjectEntity {
+				$saved[] = $object;
+				return new ObjectEntity();
+			}
+		);
+
+		$this->service->run();
+
+		$this->assertSame('The output could not be held for review, so nothing was sent.', end($saved)['lastDeliveryError']);
+
+	}//end testAHoldThatCannotBeStoredSendsNothing()
+
+	/**
+	 * A run that asks a question delivers nothing and the question goes to the reviewer.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 */
+	public function testARunThatAsksAQuestionSendsItToTheReviewer(): void {
+		$question = ['text' => 'Close the three duplicate reports?', 'options' => ['Yes, close them', 'No, keep them'], 'allowOther' => false];
+		$this->engineAnswers(
+			static function (string $prompt, ?RunTraceCollector $trace) use ($question): string {
+				$trace?->recordQuestion(question: $question);
+				return 'I asked the team lead.';
+			}
+		);
+		$this->deliveryService = $this->createMock(DeliveryService::class);
+		$this->deliveryService->expects($this->never())->method('deliver');
+		$this->approvalService = $this->createMock(ApprovalService::class);
+		$this->approvalService->expects($this->once())->method('ensurePendingQuestion')
+			->with($this->isInstanceOf(ObjectEntity::class), $question, $this->isType('string'));
+		$this->approvalService->expects($this->never())->method('ensurePendingDraft');
+		$this->service = $this->makeService();
+
+		$this->service->runNow($this->schedule($this->dueReport(['holdOutput' => true])));
+
+	}//end testARunThatAsksAQuestionSendsItToTheReviewer()
+
+	/**
+	 * An answered question runs again with the answered prompt instead of the schedule's own.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 */
+	public function testAnAnsweredRunUsesTheAnsweredPrompt(): void {
+		$prompts = [];
+		$this->engineAnswers(
+			static function (string $prompt) use (&$prompts): string {
+				$prompts[] = $prompt;
+				return 'Closed them.';
+			}
+		);
+		$this->service = $this->makeService();
+
+		$this->service->runNow($this->schedule($this->dueReport()), true, "Write the weekly report.\n\nThe person answered: Yes");
+		$this->service->runNow($this->schedule($this->dueReport()));
+
+		$this->assertSame(["Write the weekly report.\n\nThe person answered: Yes", 'Write the weekly report.'], $prompts);
+
+	}//end testAnAnsweredRunUsesTheAnsweredPrompt()
+
+	/**
+	 * Every tick expires the questions nobody answered in 7 days.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 */
+	public function testATickExpiresUnansweredQuestions(): void {
+		$this->approvalService = $this->createMock(ApprovalService::class);
+		$this->approvalService->expects($this->once())->method('expireUnansweredQuestions')->willReturn(2);
+		$this->service = $this->makeService();
+		$this->objectService->method('findAll')->willReturn([]);
+
+		$this->service->run();
+
+	}//end testATickExpiresUnansweredQuestions()
 }//end class

@@ -3862,6 +3862,148 @@
                 }
             }
         },
+        "/approvals/{approvalId}/answer": {
+            "post": {
+                "operationId": "approval-answer",
+                "summary": "Answer a pending question an agent asked in an unattended run; the run is dispatched again with the answer.",
+                "description": "Answer a pending question an agent asked in an unattended run; the run is dispatched again with the answer. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "approval"
+                ],
+                "parameters": [
+                    {
+                        "name": "approvalId",
+                        "in": "path",
+                        "required": true,
+                        "description": "The Approval object UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "answer": {
+                                        "description": "The chosen or typed answer."
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "422": {
+                        "description": "The answer or edit was refused; nothing was sent.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/approvals/{approvalId}/release": {
+            "post": {
+                "operationId": "approval-release",
+                "summary": "Release a held draft, as written or with the reviewer's edits. A release that changes the recipients or any other fixed field is refused with 422 and nothing is sent.",
+                "description": "Release a held draft, as written or with the reviewer's edits. A release that changes the recipients or any other fixed field is refused with 422 and nothing is sent. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "approval"
+                ],
+                "parameters": [
+                    {
+                        "name": "approvalId",
+                        "in": "path",
+                        "required": true,
+                        "description": "The Approval object UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "edits": {
+                                        "description": "The edited fields: output, or the tool's editable arguments."
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "422": {
+                        "description": "The answer or edit was refused; nothing was sent.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/assistant-prompts": {
             "get": {
                 "operationId": "assistant-prompt-index",
