@@ -171,6 +171,8 @@ $routes = [
         // Agent's OpenRegister AuditTrail as a version timeline + diff, and owner-only
         // rollback. No new storage — reads/replays the SAME AuditTrail SaveObject
         // already writes on every Agent save.
+        // models-prompt-and-answer-cache: the owner clears the agent's cached answers.
+        ['name' => 'agentAnswerCache#clear', 'url' => '/api/agents/{id}/answer-cache', 'verb' => 'DELETE', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentVersion#index', 'url' => '/api/agents/{id}/versions', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentVersion#diff',  'url' => '/api/agents/{id}/versions/diff', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         [

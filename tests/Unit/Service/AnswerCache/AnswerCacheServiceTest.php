@@ -301,4 +301,37 @@ class AnswerCacheServiceTest extends TestCase {
 		$this->service->store($this->turn(['answerCache' => ['enabled' => true, 'ttlMinutes' => 999999]]), 'A');
 		$this->service->store($this->turn(['answerCache' => ['enabled' => true, 'ttlMinutes' => 0]]), 'B');
 	}
+
+	public function testClearingAnAgentRemovesOnlyItsOwnEntries(): void {
+		$entry = static function (string $uuid, string $agentId): ObjectEntity {
+			$object = new ObjectEntity();
+			$object->setUuid($uuid);
+			$object->setObject(['agentId' => $agentId]);
+			return $object;
+		};
+		$this->objects->expects($this->once())->method('findAll')->willReturnCallback(
+			static function (array $config, bool $rbac, bool $multitenancy) use ($entry): array {
+				self::assertSame(['agentId' => 'agent-1'], $config['filters']);
+				self::assertFalse($rbac);
+				self::assertFalse($multitenancy);
+				return [$entry('e-1', 'agent-1'), $entry('e-2', 'agent-2'), $entry('e-3', 'agent-1')];
+			}
+		);
+		$deleted = [];
+		$this->objects->method('deleteObject')->willReturnCallback(
+			static function (string $uuid) use (&$deleted): bool {
+				$deleted[] = $uuid;
+				return true;
+			}
+		);
+
+		$this->assertSame(2, $this->service->clearForAgent('agent-1'));
+		$this->assertSame(['e-1', 'e-3'], $deleted);
+	}
+
+	public function testClearingWithoutAnAgentTouchesNothing(): void {
+		$this->objects->expects($this->never())->method('findAll');
+
+		$this->assertSame(0, $this->service->clearForAgent(' '));
+	}
 }

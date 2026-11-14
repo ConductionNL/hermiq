@@ -286,6 +286,51 @@ class AnswerCacheService {
 	}//end purgeExpired()
 
 	/**
+	 * Remove every cached answer of one agent ("Clear cached answers").
+	 *
+	 * Reads the entries by `agentId` across organisations, as the purge job
+	 * does: the caller has already been checked as the agent's owner, and an
+	 * entry of this agent is this agent's whichever organisation stored it.
+	 *
+	 * @param string $agentId The agent's UUID.
+	 *
+	 * @return int How many entries were removed.
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+	 */
+	public function clearForAgent(string $agentId): int {
+		if (trim($agentId) === '') {
+			return 0;
+		}
+
+		$entryIds = [];
+		$offset   = 0;
+		do {
+			$page = $this->objects->setRegister(self::REGISTER)->setSchema(self::SCHEMA)->findAll(
+				config: ['filters' => ['agentId' => $agentId], 'limit' => self::PURGE_PAGE, 'offset' => $offset],
+				_rbac: false,
+				_multitenancy: false
+			);
+			foreach ($page as $entry) {
+				if ($entry instanceof ObjectEntity === true && (string)(($entry->getObject())['agentId'] ?? '') === $agentId) {
+					$entryIds[] = (string)$entry->getUuid();
+				}
+			}
+
+			$offset += self::PURGE_PAGE;
+		} while (count($page) === self::PURGE_PAGE);
+
+		$removed = 0;
+		foreach ($entryIds as $entryId) {
+			if ($this->objects->deleteObject(uuid: $entryId, register: self::REGISTER, schema: self::SCHEMA, _rbac: false, _multitenancy: false) === true) {
+				$removed++;
+			}
+		}
+
+		return $removed;
+	}//end clearForAgent()
+
+	/**
 	 * The live entry for this key in this organisation and agent version, or null.
 	 *
 	 * @param ResponseTurnRun $run       The turn.
