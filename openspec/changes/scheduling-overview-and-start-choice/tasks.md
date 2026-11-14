@@ -25,7 +25,7 @@ Kind: code. Size M. Rows `hermiq:sc-list`, `sc-manual-event-choice`, `sc-nl`.
 - **files**: `src/widgets/AgentRunOperationsWidget.vue`, `src/api/flows.js`, `src/manifest.json`
 - **acceptance_criteria**:
   - GIVEN an agent with a schedule, a flow step and a webhook WHEN the page loads THEN all three rows show as active; "Add event" creates an inactive draft flow
-- [ ] Implement
+- [x] Implement
 - [ ] Test (Playwright; check the flow draft shape against openregister's flow schema)
 
 ### Task 4: Plain words to a rule
