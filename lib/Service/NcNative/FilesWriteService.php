@@ -81,33 +81,84 @@ class FilesWriteService {
 	 * @spec openspec/changes/spec-coverage-built-rows/tasks.md
 	 */
 	public function createFile(string $uid, array $arguments): array {
-		$path = $this->confinedPath(path: $arguments['path'] ?? null);
+		$path = $this->confinedPath(path: ($arguments['path'] ?? null));
+		$content = (string)($arguments['content'] ?? '');
+		$refusal = $this->createArgumentRefusal(path: $path, content: $content);
+		if ($refusal !== null) {
+			return $refusal;
+		}
+
+		$file = $this->writeNewFile(uid: $uid, path: (string)$path, content: $content);
+		if (is_array($file) === true) {
+			return $file;
+		}
+
+		return $this->markedCreation(file: $file, path: (string)$path);
+
+	}//end createFile()
+
+	/**
+	 * Why the arguments of a create may not run, or null when they may: a
+	 * confined path is required and the content must fit the size limit.
+	 *
+	 * @param string|null $path    The confined path, or null when the agent's path was refused.
+	 * @param string      $content The file content.
+	 *
+	 * @return array<string, mixed>|null The error envelope, or null.
+	 */
+	private function createArgumentRefusal(?string $path, string $content): ?array {
 		if ($path === null) {
 			return $this->err(code: 'invalid_argument', message: 'A file path inside your files is required.');
 		}
 
-		$content = (string)($arguments['content'] ?? '');
 		if (strlen($content) > self::MAX_CONTENT_BYTES) {
 			return $this->err(code: 'content_too_large', message: 'The file content is larger than one megabyte.');
 		}
 
+		return null;
+
+	}//end createArgumentRefusal()
+
+	/**
+	 * Write a new file at a free path in a folder that exists.
+	 *
+	 * @param string $uid     The acting user id.
+	 * @param string $path    The confined path.
+	 * @param string $content The file content.
+	 *
+	 * @return File|array<string, mixed> The new file, or an error envelope.
+	 */
+	private function writeNewFile(string $uid, string $path, string $content): File|array {
 		try {
 			$userFolder = $this->rootFolder->getUserFolder($uid);
-			if ($userFolder->nodeExists($path) === true) {
-				return $this->err(code: 'already_exists', message: 'A file or folder already exists at that path.');
+			$refusal = $this->targetRefusal(
+				userFolder: $userFolder,
+				path: $path,
+				existsMessage: 'A file or folder already exists at that path.',
+				parentMessage: 'The folder to create the file in does not exist.'
+			);
+			if ($refusal !== null) {
+				return $refusal;
 			}
 
-			if ($this->parentFolder(userFolder: $userFolder, path: $path) === null) {
-				return $this->err(code: 'parent_not_found', message: 'The folder to create the file in does not exist.');
-			}
-
-			$file = $userFolder->newFile($path, $content);
+			return $userFolder->newFile($path, $content);
 		} catch (Throwable $e) {
 			$this->logger->warning('Hermiq: file creation failed', ['exception' => $e]);
 
 			return $this->err(code: 'files_unavailable', message: 'The file could not be created.');
 		}
 
+	}//end writeNewFile()
+
+	/**
+	 * Mark a created file as agent-authored and answer the creation.
+	 *
+	 * @param File   $file The created file.
+	 * @param string $path The confined path it was created at.
+	 *
+	 * @return array<string, mixed> The result, or an error envelope.
+	 */
+	private function markedCreation(File $file, string $path): array {
 		try {
 			$this->marker->markFile(fileId: (int)$file->getId());
 		} catch (Throwable $e) {
@@ -123,7 +174,7 @@ class FilesWriteService {
 			'artefact' => ['type' => 'file', 'id' => (string)$file->getId()],
 		];
 
-	}//end createFile()
+	}//end markedCreation()
 
 	/**
 	 * Move a file in the acting user's folder to a path that is free, in a folder that exists.
@@ -181,17 +232,38 @@ class FilesWriteService {
 			return $this->err(code: 'not_found', message: 'No file at the source path in your files.');
 		}
 
-		if ($userFolder->nodeExists($to) === true) {
-			return $this->err(code: 'already_exists', message: 'A file or folder already exists at the target path.');
+		return $this->targetRefusal(
+			userFolder: $userFolder,
+			path: $to,
+			existsMessage: 'A file or folder already exists at the target path.',
+			parentMessage: 'The folder to move the file into does not exist.'
+		);
+
+	}//end moveRefusal()
+
+	/**
+	 * Why a path may not be written to, or null when it may: it must be free
+	 * and its folder must exist.
+	 *
+	 * @param Folder $userFolder    The acting user's folder.
+	 * @param string $path          The confined target path.
+	 * @param string $existsMessage The refusal when something is already there.
+	 * @param string $parentMessage The refusal when the folder is missing.
+	 *
+	 * @return array<string, mixed>|null The error envelope, or null.
+	 */
+	private function targetRefusal(Folder $userFolder, string $path, string $existsMessage, string $parentMessage): ?array {
+		if ($userFolder->nodeExists($path) === true) {
+			return $this->err(code: 'already_exists', message: $existsMessage);
 		}
 
-		if ($this->parentFolder(userFolder: $userFolder, path: $to) === null) {
-			return $this->err(code: 'parent_not_found', message: 'The folder to move the file into does not exist.');
+		if ($this->parentFolder(userFolder: $userFolder, path: $path) === null) {
+			return $this->err(code: 'parent_not_found', message: $parentMessage);
 		}
 
 		return null;
 
-	}//end moveRefusal()
+	}//end targetRefusal()
 
 	/**
 	 * The folder a path would be created in, or null when it is missing or not a folder.
@@ -203,7 +275,7 @@ class FilesWriteService {
 	 */
 	private function parentFolder(Folder $userFolder, string $path): ?Folder {
 		$parent = dirname($path);
-		if ($parent === '.' || $parent === '') {
+		if (in_array($parent, ['.', ''], true) === true) {
 			return $userFolder;
 		}
 
@@ -231,26 +303,55 @@ class FilesWriteService {
 	 * @spec openspec/changes/spec-coverage-built-rows/tasks.md
 	 */
 	public function confinedPath(mixed $path): ?string {
-		if (is_string($path) === false || str_contains($path, "\0") === true) {
+		if (self::isPlainPath(path: $path) === false) {
 			return null;
 		}
 
-		$segments = [];
-		foreach (explode('/', str_replace('\\', '/', $path)) as $segment) {
-			if ($segment === '..') {
-				return null;
-			}
-
-			if ($segment !== '' && $segment !== '.') {
-				$segments[] = $segment;
-			}
-		}
-
-		if ($segments === []) {
+		$segments = self::pathSegments(path: $path);
+		if ($segments === null || $segments === []) {
 			return null;
 		}
 
 		return implode('/', $segments);
 
 	}//end confinedPath()
+
+	/**
+	 * Whether a path is text without a NUL byte.
+	 *
+	 * @param mixed $path The path as the agent sent it.
+	 *
+	 * @return bool
+	 *
+	 * @phpstan-assert-if-true string $path
+	 */
+	private static function isPlainPath(mixed $path): bool {
+		return is_string($path) === true && str_contains($path, "\0") === false;
+
+	}//end isPlainPath()
+
+	/**
+	 * The named segments of a path, or null when one of them climbs up.
+	 *
+	 * Backslashes count as separators; empty and `.` segments are dropped.
+	 *
+	 * @param string $path The path as the agent sent it.
+	 *
+	 * @return list<string>|null The segments, or null.
+	 */
+	private static function pathSegments(string $path): ?array {
+		$segments = [];
+		foreach (explode('/', str_replace('\\', '/', $path)) as $segment) {
+			if ($segment === '..') {
+				return null;
+			}
+
+			if (in_array($segment, ['', '.'], true) === false) {
+				$segments[] = $segment;
+			}
+		}
+
+		return $segments;
+
+	}//end pathSegments()
 }//end class
