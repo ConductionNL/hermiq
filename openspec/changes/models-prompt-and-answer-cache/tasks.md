@@ -38,8 +38,9 @@ Kind: code. Size M. Rows `hermiq:dm-prompt-cache`, `integriq:gw-ai-cache`.
 - **files**: `lib/Settings/hermiq_register.json` (AnswerCacheEntry, Agent.answerCache), `src/modals/AgentFormModal.vue`, `l10n/en.json`, `l10n/nl.json`
 - **acceptance_criteria**:
   - GIVEN an agent owner WHEN they switch the cache on with a lifetime THEN it is stored within bounds, and organisation scope is disabled while retrieval is on
-- [ ] Implement
+- [x] Implement
 - [ ] Test (register validation test; Playwright under tests/e2e/spec-coverage/)
+  > 2026-11-14: the register validation test is done (`tests/Unit/Settings/AnswerCacheSchemaTest.php`) and the form's setting is covered by `tests/vitest/answer-cache-form.spec.js`; the Playwright check needs a live instance and stays open. The similarity choice is disabled with its note until OpenRegister exposes the vector facade.
 
 ### Task 5: Exact lookup and store
 - **spec_ref**: `openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-an-exact-repeat-within-one-organisation-gets-the-stored-answer-req-acache-002`
