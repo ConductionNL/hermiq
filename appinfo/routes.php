@@ -56,6 +56,10 @@ $routes = [
         // (scheduling-overview-and-start-choice D3). Before the {scheduleId} routes.
         ['name' => 'scheduleWhen#parse', 'url' => '/api/schedules/parse-when', 'verb' => 'POST'],
 
+        // The Schedules page: every schedule the caller may see, filtered per row by
+        // owner, agent access and organisation admin (scheduling-overview-and-start-choice D1).
+        ['name' => 'scheduleList#index', 'url' => '/api/schedules', 'verb' => 'GET'],
+
         // Run history — owner-scoped audit read for a schedule (run-audit-log).
         ['name' => 'runHistory#index', 'url' => '/api/schedules/{scheduleId}/runs', 'verb' => 'GET', 'requirements' => ['scheduleId' => '[^/]+']],
 

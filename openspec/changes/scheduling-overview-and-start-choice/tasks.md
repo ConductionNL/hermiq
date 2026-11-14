@@ -9,7 +9,7 @@ Kind: code. Size M. Rows `hermiq:sc-list`, `sc-manual-event-choice`, `sc-nl`.
 - **files**: `lib/Controller/ScheduleListController.php`, `appinfo/routes.php`, `src/manifest.json` (page Schedules, navigation), `l10n/en.json`, `l10n/nl.json`
 - **acceptance_criteria**:
   - GIVEN a user and an admin WHEN they list THEN each sees exactly the schedules the rule allows, with filters working
-- [ ] Implement
+- [x] Implement
 - [ ] Test (PHPUnit on access; Newman; Playwright for the page and the failed filter)
 
 ### Task 2: Run by hand without a schedule

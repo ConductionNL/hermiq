@@ -1961,7 +1961,13 @@ OC.L10N.register(
         "every weekday at eight": "elke werkdag om acht uur",
         "Next runs": "Volgende keren",
         "Advanced": "Geavanceerd",
-        "I could not read that. Try for example: every weekday at 8:00.": "Dat kon ik niet lezen. Probeer bijvoorbeeld: elke werkdag om 8:00."
+        "I could not read that. Try for example: every weekday at 8:00.": "Dat kon ik niet lezen. Probeer bijvoorbeeld: elke werkdag om 8:00.",
+        "Last result": "Laatste resultaat",
+        "All": "Alle",
+        "Paused": "Gepauzeerd",
+        "Not run yet": "Nog niet gelopen",
+        "Failed: {error}": "Mislukt: {error}",
+        "Succeeded": "Gelukt"
     },
     "nplurals=2; plural=(n != 1);"
 )

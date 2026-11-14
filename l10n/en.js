@@ -2687,7 +2687,13 @@ OC.L10N.register(
         "every weekday at eight": "every weekday at eight",
         "Next runs": "Next runs",
         "Advanced": "Advanced",
-        "I could not read that. Try for example: every weekday at 8:00.": "I could not read that. Try for example: every weekday at 8:00."
+        "I could not read that. Try for example: every weekday at 8:00.": "I could not read that. Try for example: every weekday at 8:00.",
+        "Last result": "Last result",
+        "All": "All",
+        "Paused": "Paused",
+        "Not run yet": "Not run yet",
+        "Failed: {error}": "Failed: {error}",
+        "Succeeded": "Succeeded"
     },
     "nplurals=2; plural=(n != 1);"
 )
