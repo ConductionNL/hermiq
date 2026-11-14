@@ -41,6 +41,7 @@ use OCA\Hermiq\Service\EngineRequiredException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
+use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
 use OCA\Hermiq\Service\SkillVersionService;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\Agent;
@@ -70,6 +71,13 @@ use Psr\Log\LoggerInterface;
  * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
  */
 class ScheduleServiceTest extends TestCase {
+
+	/**
+	 * The trace export queue handed to the service; null leaves export out.
+	 *
+	 * @var TraceExportQueue|null
+	 */
+	private ?TraceExportQueue $traceExportQueue = null;
 
 	/**
 	 * Mock ObjectService.
@@ -353,6 +361,7 @@ class ScheduleServiceTest extends TestCase {
 			skillVersionService: $this->createMock(SkillVersionService::class),
 			delegationContext: $this->delegationContext,
 			jobList: $this->createMock(IJobList::class),
+			traceExportQueue: $this->traceExportQueue,
 		);
 
 	}//end makeService()
@@ -980,6 +989,51 @@ class ScheduleServiceTest extends TestCase {
 		$this->assertNull($final['lastDeliveryError'], 'A clean delivery must clear lastDeliveryError.');
 
 	}//end testSuccessfulDeliveryClearsLastDeliveryError()
+
+	/**
+	 * A finished scheduled run is handed to trace export once, with the audited context and its organisation.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/trace-export/spec.md#requirement-export-never-slows-or-changes-a-run-req-trex-003
+	 */
+	public function testAFinishedScheduledRunIsEnqueuedForTraceExport(): void {
+		$this->objectService->method('findAll')->willReturn(
+			[
+				$this->schedule(
+					[
+						'kind' => 'interval',
+						'intervalMinutes' => 60,
+						'agentId' => 'agent-uuid',
+						'prompt' => 'go',
+						'deliver' => 'none',
+						'enabled' => true,
+						'nextRun' => '2020-01-01T00:00:00+00:00',
+						'repeat' => ['times' => 0, 'completed' => 0],
+					]
+				),
+			]
+		);
+		$this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+		$enqueued = [];
+		$this->traceExportQueue = $this->createMock(TraceExportQueue::class);
+		$this->traceExportQueue->expects($this->once())->method('enqueueRun')->willReturnCallback(
+			function (array $context, string $trigger, string $organisation = '') use (&$enqueued): bool {
+				$enqueued[] = [$context, $trigger, $organisation];
+				return true;
+			}
+		);
+
+		$this->makeService()->run();
+
+		$this->assertCount(1, $this->auditCalls);
+		$this->assertSame('schedule', $enqueued[0][1]);
+		$this->assertSame($this->auditCalls[0]['context'], $enqueued[0][0]);
+		$this->assertSame((string)($this->auditCalls[0]['context']['organisation'] ?? ''), $enqueued[0][2]);
+		$this->assertSame('ok', $enqueued[0][0]['status']);
+
+	}//end testAFinishedScheduledRunIsEnqueuedForTraceExport()
 
 	/**
 	 * A successful run writes an explicit action='run' audit entry with owner status.
