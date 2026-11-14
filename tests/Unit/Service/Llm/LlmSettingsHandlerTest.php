@@ -181,7 +181,7 @@ class LlmSettingsHandlerTest extends TestCase {
 				'openaiConfig' => ['model' => 'text-embedding-3', 'executionMode' => 'cli'],
 				'ollamaConfig' => ['chatModel' => null],
 				'fireworksConfig' => ['chatModel' => 'fw-1'],
-				'anthropicConfig' => ['chatModel' => 'claude-x', 'scope' => null],
+				'anthropicConfig' => ['chatModel' => 'claude-x', 'scope' => null, 'promptCaching' => false],
 				'vectorConfig' => ['solrField' => 'vec'],
 				'unknown' => 'ignored',
 			]
@@ -219,6 +219,8 @@ class LlmSettingsHandlerTest extends TestCase {
 				'scope' => 'personal',
 				'baseUrl' => 'https://api.anthropic.com/v1',
 				'executionMode' => 'http',
+				'promptCaching' => false,
+				'promptCacheTtl' => '5m',
 			],
 			'openaiCompatibleConfig' => [
 				'label' => '',
@@ -257,7 +259,7 @@ class LlmSettingsHandlerTest extends TestCase {
 				'openaiConfig' => ['credentialId' => '', 'model' => null, 'chatModel' => null, 'organizationId' => '', 'executionMode' => 'http', 'baseUrl' => '', 'ownNetwork' => false, 'apiMode' => 'chat_completions'],
 				'ollamaConfig' => ['url' => 'http://localhost:11434', 'model' => null, 'chatModel' => null],
 				'fireworksConfig' => ['credentialId' => '', 'embeddingModel' => null, 'chatModel' => null, 'baseUrl' => 'https://api.fireworks.ai/inference/v1'],
-				'anthropicConfig' => ['credentialId' => '', 'chatModel' => null, 'authMode' => 'api_key', 'scope' => 'organisation', 'baseUrl' => 'https://api.anthropic.com/v1', 'executionMode' => 'http'],
+				'anthropicConfig' => ['credentialId' => '', 'chatModel' => null, 'authMode' => 'api_key', 'scope' => 'organisation', 'baseUrl' => 'https://api.anthropic.com/v1', 'executionMode' => 'http', 'promptCaching' => true, 'promptCacheTtl' => '5m'],
 				'openaiCompatibleConfig' => ['label' => '', 'baseUrl' => '', 'chatModel' => null, 'credentialId' => '', 'ownNetwork' => false, 'apiMode' => 'chat_completions'],
 				'vectorConfig' => ['backend' => 'php', 'solrField' => '_embedding_'],
 			],

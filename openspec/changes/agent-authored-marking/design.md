@@ -16,8 +16,10 @@ Read at hermiq `development` 0a36e2a1: `AgentArtefactMarker::TAG_NAME = 'Agent a
   stays. Counting reviewed files is counting files with both tags.
 - **D3. Counts come from the marks.** Files and notes: `ISystemTagObjectMapper::getObjectIdsForTags()`
   on the agent-authored tag, limited to files the viewer can read. Contacts and calendar items: the
-  run audit log's successful write tool calls per organisation, since there is no index over `X-`
-  properties.
+  objects of the viewer's own address books and calendars that carry `X-HERMIQ-AGENT-AUTHORED`,
+  read through the public contacts and calendar APIs (`MarkedObjectCounter`), capped at 5000 per
+  kind. There is no index over `X-` properties, and the run audit log records no per-call write
+  tool entries to count from, so the objects themselves are read.
 - **D4. Chat answers.** The chat page already shows each answer under the agent's name and avatar in
   a conversation with that agent, so no label is added there.
 
