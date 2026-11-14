@@ -24,6 +24,7 @@ const STORED_FIELDS = [
 
 /**
  * Copy the stored (masked) configuration into the form, field by field.
+ * The prompt-cache switch is on unless the stored value is exactly false.
  *
  * @param {object} form The modal's form.
  * @param {object} config The stored configuration.
@@ -35,6 +36,8 @@ export function applyStoredConfig(form, config) {
 	for (const [section, field, fallback] of STORED_FIELDS) {
 		form[section][field] = (config[section] && config[section][field]) || fallback
 	}
+	// On unless switched off: a boolean, so `|| fallback` above would turn false into true.
+	form.anthropicConfig.promptCaching = !(config.anthropicConfig && config.anthropicConfig.promptCaching === false)
 }
 
 /**

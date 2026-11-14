@@ -181,7 +181,7 @@ class LlmSettingsHandlerTest extends TestCase {
 				'openaiConfig' => ['model' => 'text-embedding-3', 'executionMode' => 'cli'],
 				'ollamaConfig' => ['chatModel' => null],
 				'fireworksConfig' => ['chatModel' => 'fw-1'],
-				'anthropicConfig' => ['chatModel' => 'claude-x', 'scope' => null],
+				'anthropicConfig' => ['chatModel' => 'claude-x', 'scope' => null, 'promptCaching' => false],
 				'vectorConfig' => ['solrField' => 'vec'],
 				'unknown' => 'ignored',
 			]
@@ -216,6 +216,8 @@ class LlmSettingsHandlerTest extends TestCase {
 				'scope' => 'personal',
 				'baseUrl' => 'https://api.anthropic.com/v1',
 				'executionMode' => 'http',
+				'promptCaching' => false,
+				'promptCacheTtl' => '5m',
 			],
 			'vectorConfig' => [
 				'backend' => 'solr',
@@ -246,7 +248,7 @@ class LlmSettingsHandlerTest extends TestCase {
 				'openaiConfig' => ['credentialId' => '', 'model' => null, 'chatModel' => null, 'organizationId' => '', 'executionMode' => 'http'],
 				'ollamaConfig' => ['url' => 'http://localhost:11434', 'model' => null, 'chatModel' => null],
 				'fireworksConfig' => ['credentialId' => '', 'embeddingModel' => null, 'chatModel' => null, 'baseUrl' => 'https://api.fireworks.ai/inference/v1'],
-				'anthropicConfig' => ['credentialId' => '', 'chatModel' => null, 'authMode' => 'api_key', 'scope' => 'organisation', 'baseUrl' => 'https://api.anthropic.com/v1', 'executionMode' => 'http'],
+				'anthropicConfig' => ['credentialId' => '', 'chatModel' => null, 'authMode' => 'api_key', 'scope' => 'organisation', 'baseUrl' => 'https://api.anthropic.com/v1', 'executionMode' => 'http', 'promptCaching' => true, 'promptCacheTtl' => '5m'],
 				'vectorConfig' => ['backend' => 'php', 'solrField' => '_embedding_'],
 			],
 			$handler->getLLMSettingsOnly()
