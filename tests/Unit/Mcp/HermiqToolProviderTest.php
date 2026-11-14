@@ -235,7 +235,7 @@ class HermiqToolProviderTest extends TestCase {
 		$this->assertNotContains('hermiq.completeTask', $ids);
 		$this->assertContains('hermiq.listTasks', $ids);
 		$this->assertContains('hermiq.createTask', $ids);
-		$this->assertCount(41, $ids);
+		$this->assertCount(42, $ids);
 
 	}//end testCompleteTaskIsAbsentWithoutAReplacePath()
 
@@ -311,7 +311,7 @@ class HermiqToolProviderTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/nc-native-write-tools/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored-req-ailbl-001
 	 */
 	public function testRunInjectedAgentIdReachesTheMarkedWrites(): void {
 		$writeService = $this->createMock(NcNativeWriteService::class);
@@ -404,6 +404,7 @@ class HermiqToolProviderTest extends TestCase {
 		// + hermiq.rememberMemory/recallMemory/forgetMemory (agent-memory-tools)
 		// + hermiq.webSearch/webFetch (web-research-tool)
 		// + hermiq.delegateAgent (sub-agent-delegation)
+		// + hermiq.delegateAgents (delegation-runs-in-parallel)
 		// + hermiq.createCalendarEvent/upsertContact/listNotes/createNote/updateNote
 		//   (nc-native-write-tools)
 		// + hermiq.listMailAccounts/listMailMessages/readMailMessage
@@ -416,7 +417,7 @@ class HermiqToolProviderTest extends TestCase {
 		// + hermiq.graphNeighbors/graphPath (knowledge-graph),
 		// + hermiq.listTasks/createTask/completeTask (tools-nextcloud-tasks),
 		// all registered through this same provider.
-		$this->assertCount(42, $tools);
+		$this->assertCount(43, $tools);
 
 		$ids = array_column($tools, 'id');
 		$this->assertContains('hermiq.listFiles', $ids);
@@ -433,6 +434,7 @@ class HermiqToolProviderTest extends TestCase {
 		$this->assertContains('hermiq.webSearch', $ids);
 		$this->assertContains('hermiq.webFetch', $ids);
 		$this->assertContains('hermiq.delegateAgent', $ids);
+		$this->assertContains('hermiq.delegateAgents', $ids);
 
 		foreach ($ids as $id) {
 			$this->assertStringStartsWith('hermiq.', $id);
@@ -479,6 +481,7 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.webSearch' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.webFetch' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.delegateAgent' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'create'],
+			'hermiq.delegateAgents' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'create'],
 			// nc-native-write-tools, appended by getTools(). createCalendarEvent is
 			// destructive because attendees trigger iMIP invitations that cannot be
 			// recalled, and updateNote is destructive because Notes keeps no version
@@ -516,7 +519,7 @@ class HermiqToolProviderTest extends TestCase {
 		];
 
 		$tools = $this->provider('alice')->getTools();
-		$this->assertCount(42, $tools, 'This test must be updated if a tool is added or removed.');
+		$this->assertCount(43, $tools, 'This test must be updated if a tool is added or removed.');
 
 		$seen = [];
 		foreach ($tools as $tool) {
@@ -571,6 +574,7 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.webSearch' => ToolReachResolver::REACH_EXTERNAL,
 			'hermiq.webFetch' => ToolReachResolver::REACH_EXTERNAL,
 			'hermiq.delegateAgent' => ToolReachResolver::REACH_INSTANCE,
+			'hermiq.delegateAgents' => ToolReachResolver::REACH_INSTANCE,
 			// `external`, not `user`: an event with attendees dispatches iMIP
 			// invitations to third parties, so its blast radius leaves the instance.
 			'hermiq.createCalendarEvent' => ToolReachResolver::REACH_EXTERNAL,
@@ -678,6 +682,7 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.webFetch' => ['web', 'get'],
 			// `delegate`: hands this agent's authority to another one.
 			'hermiq.delegateAgent' => ['agent', 'delegate'],
+			'hermiq.delegateAgents' => ['agent', 'delegate'],
 			'hermiq.createCalendarEvent' => ['calendarEvent', 'create'],
 			// `upsert`: it may create OR update, so declaring either one alone
 			// would let a grant reading "may update contacts" also create them.
