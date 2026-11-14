@@ -16,7 +16,7 @@
 
 ## 3. Oversight section
 
-- [ ] 3.1 Add `lib/Service/AiLabelStatsService.php` returning counts of agent-authored notes and
+- [x] 3.1 Add `lib/Service/AiLabelStatsService.php` returning counts of agent-authored notes and
       files, contacts and calendar items, and the reviewed share (design D3), and
       `GET /api/ai-label/stats` on `AiLabelController`. Verify: unit tests for each count.
 - [x] 3.2 Add the "AI label" section to the AI oversight page as drawn on HmToezicht, as a widget in
