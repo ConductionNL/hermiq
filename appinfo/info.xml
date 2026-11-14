@@ -55,6 +55,7 @@
         <job>OCA\Hermiq\BackgroundJob\SkillLearningsPromotionTask</job>
         <job>OCA\Hermiq\BackgroundJob\SkillConsolidationTask</job>
         <job>OCA\Hermiq\BackgroundJob\RunRetentionCleanupJob</job>
+        <job>OCA\Hermiq\BackgroundJob\AnswerCachePurgeJob</job>
         <job>OCA\Hermiq\BackgroundJob\WorkspaceReaperJob</job>
     </background-jobs>
 

@@ -55,6 +55,8 @@ class AnswerCacheService {
 
 	public const MAX_TTL_MINUTES = 43200;
 
+	private const PURGE_PAGE = 500;
+
 	/**
 	 * Constructor.
 	 *
@@ -243,6 +245,45 @@ class AnswerCacheService {
 			return false;
 		}
 	}//end remove()
+
+	/**
+	 * Delete every expired entry, of every organisation; returns how many went.
+	 *
+	 * Run by the daily AnswerCachePurgeJob. Pages through the entries, so no
+	 * fixed cap leaves expired answers behind.
+	 *
+	 * @return int The entries deleted.
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+	 */
+	public function purgeExpired(): int {
+		$now     = $this->now();
+		$expired = [];
+		$offset  = 0;
+		do {
+			$page = $this->objects->setRegister(self::REGISTER)->setSchema(self::SCHEMA)->findAll(
+				config: ['limit' => self::PURGE_PAGE, 'offset' => $offset],
+				_rbac: false,
+				_multitenancy: false
+			);
+			foreach ($page as $entry) {
+				if ($entry instanceof ObjectEntity === true && $this->expired(data: $entry->getObject(), now: $now) === true) {
+					$expired[] = (string)$entry->getUuid();
+				}
+			}
+
+			$offset += self::PURGE_PAGE;
+		} while (count($page) === self::PURGE_PAGE);
+
+		$removed = 0;
+		foreach ($expired as $entryId) {
+			if ($this->objects->deleteObject(uuid: $entryId, register: self::REGISTER, schema: self::SCHEMA, _rbac: false, _multitenancy: false) === true) {
+				$removed++;
+			}
+		}
+
+		return $removed;
+	}//end purgeExpired()
 
 	/**
 	 * The live entry for this key in this organisation and agent version, or null.

@@ -258,6 +258,37 @@ class AnswerCacheServiceTest extends TestCase {
 		$this->service->store($dry, 'An answer');
 	}
 
+	public function testThePurgeDeletesOnlyExpiredEntriesOfEveryPage(): void {
+		$entry = static function (string $uuid, string $expires): ObjectEntity {
+			$object = new ObjectEntity();
+			$object->setUuid($uuid);
+			$object->setObject(['expiresAt' => $expires]);
+			return $object;
+		};
+		$firstPage = [];
+		for ($i = 0; $i < 500; $i++) {
+			$firstPage[] = $entry('live-' . $i, '2026-11-15T00:00:00+00:00');
+		}
+		$firstPage[0] = $entry('old-1', '2026-11-01T00:00:00+00:00');
+		$this->objects->expects($this->exactly(2))->method('findAll')->willReturnCallback(
+			static function (array $config, bool $rbac, bool $multitenancy) use ($firstPage, $entry): array {
+				self::assertFalse($rbac);
+				self::assertFalse($multitenancy);
+				return $config['offset'] === 0 ? $firstPage : [$entry('old-2', '2026-11-14T11:00:00+00:00'), $entry('live-x', '2026-12-01T00:00:00+00:00')];
+			}
+		);
+		$deleted = [];
+		$this->objects->method('deleteObject')->willReturnCallback(
+			static function (string $uuid) use (&$deleted): bool {
+				$deleted[] = $uuid;
+				return $uuid !== 'old-2';
+			}
+		);
+
+		$this->assertSame(1, $this->service->purgeExpired());
+		$this->assertSame(['old-1', 'old-2'], $deleted);
+	}
+
 	public function testALifetimeOutOfBoundsIsClamped(): void {
 		$this->objects->expects($this->exactly(2))->method('saveObject')->willReturnCallback(
 			function (array $data) {

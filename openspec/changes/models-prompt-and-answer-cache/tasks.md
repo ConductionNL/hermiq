@@ -71,6 +71,7 @@ Kind: code. Size M. Rows `hermiq:dm-prompt-cache`, `integriq:gw-ai-cache`.
   - GIVEN an expired entry WHEN the daily job runs THEN it is removed
   - GIVEN "Answered from cache" WHEN the user presses "Ask the model again" THEN the model is called and the cache bypassed
 - [ ] Implement
+  > 2026-11-14: the daily `AnswerCachePurgeJob` removes expired entries (`AnswerCacheService::purgeExpired()`, `AnswerCachePurgeJobTest`). Left: the thumbs-down hook in `ChatController`, "Clear cached answers" on `AgentsController`, and the note with "Ask the model again" in `Chat.vue` (the turn already honours `ResponseTurnRun::$answerCacheBypass`).
 - [ ] Test (PHPUnit on the job and the feedback hook; Playwright under tests/e2e/spec-coverage/ for the note and the button)
 
 ## Verification
