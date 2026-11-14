@@ -380,6 +380,29 @@
 								</li>
 							</ul>
 
+							<!-- How this answer came about (chat-how-an-answer-came-about D5):
+							     sentences the server built from the stored record. A native
+							     details element is keyboard operable and announces its state. -->
+							<details
+								v-if="
+									message.role === 'assistant'
+									&& message.provenanceAccount
+									&& message.provenanceAccount.length > 0
+								"
+								class="chat-page__provenance"
+								data-testid="chat-message-provenance">
+								<summary class="chat-page__provenance-summary">
+									{{ t('hermiq', 'How this answer came about') }}
+								</summary>
+								<ul class="chat-page__provenance-list">
+									<li
+										v-for="(sentence, sentenceIndex) in message.provenanceAccount"
+										:key="sentenceIndex">
+										{{ sentence }}
+									</li>
+								</ul>
+							</details>
+
 							<!-- RAG sources -->
 							<div
 								v-if="message.sources && message.sources.length > 0"
@@ -1951,6 +1974,7 @@ export default {
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 * @spec openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port/spec.md#requirement-the-chat-page-streams-the-answer-as-the-agent-writes-it-req-chstrm-001
 		 */
 		async sendViaStream(text, uuid, attachments = []) {
 			this.isStreaming = true
@@ -2164,6 +2188,7 @@ export default {
 		 * @param {string} type 'positive' or 'negative'.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 * @spec openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port/spec.md#requirement-a-person-rates-an-answer-up-or-down-with-an-optional-comment-req-chfb-001
 		 */
 		async sendFeedback(message, type) {
 			const cleared = message.feedback === type
@@ -2192,6 +2217,7 @@ export default {
 		 * @param {object} message The assistant message.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 * @spec openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port/spec.md#requirement-a-person-rates-an-answer-up-or-down-with-an-optional-comment-req-chfb-001
 		 */
 		async saveFeedbackComment(message) {
 			if (!message.feedbackComment || !message.feedbackComment.trim()) {
@@ -2786,6 +2812,28 @@ export default {
 }
 
 /* ── Sources ──────────────────────────────────────────────────────── */
+
+.chat-page__provenance {
+	margin-top: 8px;
+	font-size: 0.9em;
+}
+
+.chat-page__provenance-summary {
+	cursor: pointer;
+	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__provenance-summary:focus-visible {
+	outline: 2px solid var(--color-primary-element);
+	outline-offset: 2px;
+}
+
+.chat-page__provenance-list {
+	margin: 4px 0 0;
+	padding-left: 20px;
+	list-style: disc;
+	color: var(--color-main-text);
+}
 
 .chat-page__sources {
 	margin-top: 10px;

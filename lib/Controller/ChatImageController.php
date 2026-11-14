@@ -30,6 +30,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Controller\Chat\ImageTurn;
 use OCA\Hermiq\Kernel\Contracts\ImageGenerationServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\MessageHistoryHandlerInterface;
 use OCA\Hermiq\Service\Chat\ImageGenerationException;
@@ -146,21 +147,30 @@ class ChatImageController extends Controller {
 			return $this->refusal(message: $e->getMessage(), code: $e->errorCode, status: (self::STATUS_FOR[$e->errorCode] ?? 502));
 		}
 
-		return $this->storeTurns(sessionId: $sessionId, uid: $uid, displayName: $user->getDisplayName(), prompt: $prompt, created: $created);
+		return $this->storeTurns(
+			sessionId: $sessionId,
+			turn: new ImageTurn(
+				uid: $uid,
+				displayName: $user->getDisplayName(),
+				prompt: $prompt,
+				created: $created
+			)
+		);
 	}//end create()
 
 	/**
 	 * Store the description and the image as two turns and answer with both.
 	 *
 	 * @param string               $sessionId   The session.
-	 * @param string               $uid         The person.
-	 * @param string               $displayName Their display name at send time.
-	 * @param string               $prompt      The description.
-	 * @param array<string, mixed> $created     What the service created.
+	 * @param ImageTurn $turn The person's image request and the image created for it.
 	 *
 	 * @return JSONResponse The two turns, or a 500 when they could not be stored.
 	 */
-	private function storeTurns(string $sessionId, string $uid, string $displayName, string $prompt, array $created): JSONResponse {
+	private function storeTurns(string $sessionId, ImageTurn $turn): JSONResponse {
+		$uid = $turn->uid;
+		$displayName = $turn->displayName;
+		$prompt = $turn->prompt;
+		$created = $turn->created;
 		$attachment = $this->images->asAttachment(created: $created);
 		$answer = $this->l10n->t('Here is the image you asked for.');
 
