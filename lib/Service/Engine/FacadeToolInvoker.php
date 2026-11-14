@@ -210,6 +210,14 @@ class FacadeToolInvoker {
 	private const DELEGATE_AGENT_TOOL_ID = 'hermiq.delegateAgent';
 
 	/**
+	 * `hermiq.delegateAgents` (delegation-runs-in-parallel): the same trusted
+	 * calling-agent identity as `DELEGATE_AGENT_TOOL_ID`.
+	 *
+	 * @var string
+	 */
+	private const DELEGATE_AGENTS_TOOL_ID = 'hermiq.delegateAgents';
+
+	/**
 	 * The six integriq agent tools (approval-verification-contract, hermiq#1045)
 	 * that get the running agent's id as `agentId`, overwriting whatever the model
 	 * sent: integriq records it on a staged batch and names it as `actingAgent`
@@ -1202,7 +1210,8 @@ class FacadeToolInvoker {
 		return in_array($toolId, self::MEMORY_TOOL_IDS, true) === true
 			|| in_array($toolId, self::ARTEFACT_WRITE_TOOL_IDS, true) === true
 			|| in_array($toolId, self::INTEGRIQ_AGENT_TOOL_IDS, true) === true
-			|| $toolId === self::DELEGATE_AGENT_TOOL_ID;
+			|| $toolId === self::DELEGATE_AGENT_TOOL_ID
+			|| $toolId === self::DELEGATE_AGENTS_TOOL_ID;
 
 	}//end needsAgentId()
 
