@@ -225,10 +225,11 @@ class ResponseGenerationHandler {
 	): string {
 		// Chat-about-a-document: a scoped turn with nothing in scope is answered
 		// with that fact, and the model is never asked to answer from general knowledge.
-		if (($context['scoped'] ?? false) === true && ($context['sources'] ?? []) === [] && (string)($context['noMatch'] ?? '') !== '') {
+		$noMatch = self::scopedNoMatchReply(context: $context);
+		if ($noMatch !== null) {
 			$this->attachmentNotices = [];
 			$this->lastUsage = [];
-			return (string)$context['noMatch'];
+			return $noMatch;
 		}
 
 		$run = $this->startTurn(run: new ResponseTurnRun(userMessage: $userMessage, context: $context), agent: $agent);
@@ -246,6 +247,24 @@ class ResponseGenerationHandler {
 
 		return $this->runTurn(run: $run);
 	}//end generateResponse()
+
+	/**
+	 * The reply of a scoped turn with nothing in scope, or null for any other turn.
+	 *
+	 * @param array<string, mixed> $context The turn's context.
+	 *
+	 * @return string|null The no-match sentence.
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
+	 */
+	private static function scopedNoMatchReply(array $context): ?string {
+		$reply = (string)($context['noMatch'] ?? '');
+		if (($context['scoped'] ?? false) === true && ($context['sources'] ?? []) === [] && $reply !== '') {
+			return $reply;
+		}
+
+		return null;
+	}//end scopedNoMatchReply()
 
 	/**
 	 * Start a turn: its clock, a clean set of attachment notices, and the agent.

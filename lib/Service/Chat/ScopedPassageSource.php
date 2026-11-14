@@ -126,14 +126,7 @@ class ScopedPassageSource {
 			return [];
 		}
 
-		$scored = [];
-		foreach ($this->passages(scope: $scope, speaker: $speaker) as $order => $passage) {
-			$score = $this->passageText->score(text: $passage['text'], terms: $terms);
-			if ($score > 0.0) {
-				$scored[] = $passage + ['score' => $score, 'order' => $order];
-			}
-		}
-
+		$scored = $this->scored(scope: $scope, speaker: $speaker, terms: $terms);
 		usort(
 			$scored,
 			static fn (array $left, array $right): int => [$right['score'], $left['order']] <=> [$left['score'], $right['order']]
@@ -147,6 +140,27 @@ class ScopedPassageSource {
 
 		return $matching;
 	}//end matching()
+
+	/**
+	 * The passages in scope that share a word with the question, with their score and reading order.
+	 *
+	 * @param array{type: string, fileId: int} $scope   The turn's scope.
+	 * @param string                           $speaker The uid the files are read as.
+	 * @param list<string>                     $terms   The question's words.
+	 *
+	 * @return list<array<string, mixed>> The scored passages, in reading order.
+	 */
+	private function scored(array $scope, string $speaker, array $terms): array {
+		$scored = [];
+		foreach ($this->passages(scope: $scope, speaker: $speaker) as $order => $passage) {
+			$score = $this->passageText->score(text: $passage['text'], terms: $terms);
+			if ($score > 0.0) {
+				$scored[] = $passage + ['score' => $score, 'order' => $order];
+			}
+		}
+
+		return $scored;
+	}//end scored()
 
 	/**
 	 * Every passage in scope, in file and reading order.
@@ -202,27 +216,50 @@ class ScopedPassageSource {
 			return null;
 		}
 
-		try {
-			$node = ($this->rootFolder->getUserFolder($speaker)->getById($scope['fileId'])[0] ?? null);
-		} catch (Throwable $e) {
-			$this->logger->info(
-				message: '[ScopedPassageSource] The scope could not be opened as the speaker',
-				context: ['fileId' => $scope['fileId'], 'error' => $e->getMessage()]
-			);
-			return null;
-		}
-
-		$expected = File::class;
-		if ($scope['type'] === 'folder') {
-			$expected = Folder::class;
-		}
-
-		if ($node instanceof $expected === false || $node->isReadable() === false) {
+		$node = $this->openNode(fileId: $scope['fileId'], speaker: $speaker);
+		if (self::isScopeNode(node: $node, type: $scope['type']) === false) {
 			return null;
 		}
 
 		return $node;
 	}//end scopeNode()
+
+	/**
+	 * Whether a node is readable and of the scope's type: a folder for `folder`, else a file.
+	 *
+	 * @param Node|null $node The node.
+	 * @param string    $type The scope's type.
+	 *
+	 * @return bool
+	 */
+	private static function isScopeNode(?Node $node, string $type): bool {
+		$expected = File::class;
+		if ($type === 'folder') {
+			$expected = Folder::class;
+		}
+
+		return $node instanceof $expected && $node->isReadable() === true;
+	}//end isScopeNode()
+
+	/**
+	 * The node with this id in the speaker's Files, or null when it cannot be opened.
+	 *
+	 * @param int    $fileId  The file or folder id.
+	 * @param string $speaker The uid.
+	 *
+	 * @return Node|null The node.
+	 */
+	private function openNode(int $fileId, string $speaker): ?Node {
+		try {
+			return ($this->rootFolder->getUserFolder($speaker)->getById($fileId)[0] ?? null);
+		} catch (Throwable $e) {
+			$this->logger->info(
+				message: '[ScopedPassageSource] The scope could not be opened as the speaker',
+				context: ['fileId' => $fileId, 'error' => $e->getMessage()]
+			);
+			return null;
+		}
+	}//end openNode()
 
 	/**
 	 * The readable files in scope: the file itself, or the folder's files at any depth.
@@ -261,20 +298,32 @@ class ScopedPassageSource {
 				return;
 			}
 
-			if ($node->isReadable() === false) {
-				continue;
-			}
-
-			if ($node instanceof Folder) {
-				$this->collectFiles(folder: $node, files: $files);
-				continue;
-			}
-
-			if ($node instanceof File) {
-				$files[] = $node;
-			}
+			$this->collectNode(node: $node, files: $files);
 		}
 	}//end collectFiles()
+
+	/**
+	 * Add one readable node: a file itself, a folder's files depth first.
+	 *
+	 * @param Node       $node  The node.
+	 * @param list<File> $files The files so far, filled in place.
+	 *
+	 * @return void
+	 */
+	private function collectNode(Node $node, array &$files): void {
+		if ($node->isReadable() === false) {
+			return;
+		}
+
+		if ($node instanceof Folder) {
+			$this->collectFiles(folder: $node, files: $files);
+			return;
+		}
+
+		if ($node instanceof File) {
+			$files[] = $node;
+		}
+	}//end collectNode()
 
 	/**
 	 * A file's text as the speaker reads it, or null when it has none hermiq can read.
@@ -287,12 +336,7 @@ class ScopedPassageSource {
 	private function readText(File $file, string $speaker): ?string {
 		$mimeType = strtolower((string)$file->getMimetype());
 		try {
-			$text = null;
-			if (str_starts_with($mimeType, 'text/') === true || in_array($mimeType, self::TEXT_TYPES, true) === true) {
-				$text = $file->getContent();
-			} else if ($this->textSource !== null && $this->textSource->isAvailable() === true) {
-				$text = $this->textSource->extractText(fileId: (int)$file->getId(), userId: $speaker);
-			}
+			$text = $this->rawText(file: $file, mimeType: $mimeType, speaker: $speaker);
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				message: '[ScopedPassageSource] A file in scope could not be read; it is left out',
@@ -307,6 +351,27 @@ class ScopedPassageSource {
 
 		return mb_substr($text, 0, self::MAX_FILE_CHARS);
 	}//end readText()
+
+	/**
+	 * A file's content when it is text, else what the text source extracts, else null.
+	 *
+	 * @param File   $file     The file.
+	 * @param string $mimeType The file's lower-cased MIME type.
+	 * @param string $speaker  The uid.
+	 *
+	 * @return mixed The text, or whatever the reader returned.
+	 */
+	private function rawText(File $file, string $mimeType, string $speaker): mixed {
+		if (str_starts_with($mimeType, 'text/') === true || in_array($mimeType, self::TEXT_TYPES, true) === true) {
+			return $file->getContent();
+		}
+
+		if ($this->textSource !== null && $this->textSource->isAvailable() === true) {
+			return $this->textSource->extractText(fileId: (int)$file->getId(), userId: $speaker);
+		}
+
+		return null;
+	}//end rawText()
 
 	/**
 	 * Split a file's text into passages: per page (form feeds), then per run of

@@ -55,15 +55,11 @@ final class TurnScope {
 	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-a-collection-req-dchat-002
 	 */
 	public function parse(mixed $value): ?array {
-		if ($value === null || $value === '' || $value === []) {
+		if (in_array($value, [null, '', []], true) === true) {
 			return null;
 		}
 
-		if (is_array($value) === false || in_array(($value['type'] ?? null), self::TYPES, true) === false) {
-			throw new TurnScopeException(status: 400);
-		}
-
-		$fileId = $this->fileId(value: ($value['fileId'] ?? null));
+		$fileId = $this->scopedFileId(value: $value);
 		if ($fileId === null) {
 			throw new TurnScopeException(status: 400);
 		}
@@ -97,14 +93,41 @@ final class TurnScope {
 	 * @return int|null The id.
 	 */
 	private function fileId(mixed $value): ?int {
-		if (is_string($value) === true && ctype_digit($value) === true) {
-			$value = (int)$value;
+		$value = self::digitsAsInt(value: $value);
+		if (is_int($value) === true && $value > 0) {
+			return $value;
 		}
 
-		if (is_int($value) === false || $value < 1) {
+		return null;
+	}//end fileId()
+
+	/**
+	 * The file id of a scope of a known type, else null.
+	 *
+	 * @param mixed $value The posted scope.
+	 *
+	 * @return int|null The id.
+	 */
+	private function scopedFileId(mixed $value): ?int {
+		if (is_array($value) === false || in_array(($value['type'] ?? null), self::TYPES, true) === false) {
 			return null;
 		}
 
+		return $this->fileId(value: ($value['fileId'] ?? null));
+	}//end scopedFileId()
+
+	/**
+	 * A string of digits as an int; any other value unchanged.
+	 *
+	 * @param mixed $value The value.
+	 *
+	 * @return mixed The value.
+	 */
+	private static function digitsAsInt(mixed $value): mixed {
+		if (is_string($value) === true && ctype_digit($value) === true) {
+			return (int)$value;
+		}
+
 		return $value;
-	}//end fileId()
+	}//end digitsAsInt()
 }//end class

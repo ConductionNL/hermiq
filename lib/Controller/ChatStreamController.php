@@ -309,9 +309,24 @@ class ChatStreamController extends Controller {
 			$turn['attachments'] = array_values($body['attachments']);
 		}
 
-		// Chat-about-a-document: an optional scope of one file or folder; any
-		// other shape ends the stream before anything is stored.
-		$turn['ragSettings'] = [];
+		$turn['ragSettings'] = $this->readScope(body: $body);
+
+		return $turn;
+	}//end readTurn()
+
+	/**
+	 * The RAG settings a turn's optional scope gives: one file or folder.
+	 *
+	 * Any other shape ends the stream before anything is stored.
+	 *
+	 * @param array<string, mixed> $body The decoded request body.
+	 *
+	 * @return array<string, mixed> The RAG settings, with `scope` when one was given.
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 */
+	private function readScope(array $body): array {
+		$ragSettings = [];
 		try {
 			$scope = (new TurnScope())->parse(value: ($body['scope'] ?? null));
 		} catch (TurnScopeException $e) {
@@ -319,11 +334,11 @@ class ChatStreamController extends Controller {
 		}
 
 		if ($scope !== null) {
-			$turn['ragSettings']['scope'] = $scope;
+			$ragSettings['scope'] = $scope;
 		}
 
-		return $turn;
-	}//end readTurn()
+		return $ragSettings;
+	}//end readScope()
 
 	/**
 	 * The turn's agent: the one named, or for a fresh chat that names none an

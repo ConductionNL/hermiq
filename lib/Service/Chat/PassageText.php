@@ -62,19 +62,8 @@ final class PassageText {
 		$current = '';
 		foreach ($this->splitOn(pattern: '/\R\s*\R/u', text: $text) as $paragraph) {
 			$paragraph = trim($paragraph);
-			if ($paragraph === '') {
-				continue;
-			}
-
-			if ($current !== '' && mb_strlen($current) + 2 + mb_strlen($paragraph) > self::PASSAGE_CHARS) {
-				$chunks[] = $current;
-				$current = '';
-			}
-
-			$current = ltrim($current . "\n\n" . $paragraph);
-			while (mb_strlen($current) > self::PASSAGE_CHARS) {
-				$chunks[] = mb_substr($current, 0, self::PASSAGE_CHARS);
-				$current = mb_substr($current, self::PASSAGE_CHARS);
+			if ($paragraph !== '') {
+				$current = $this->appendParagraph(chunks: $chunks, current: $current, paragraph: $paragraph);
 			}
 		}
 
@@ -84,6 +73,30 @@ final class PassageText {
 
 		return $chunks;
 	}//end chunks()
+
+	/**
+	 * Add a paragraph to the passage being built, closing passages that are full.
+	 *
+	 * @param list<string> $chunks    The closed passages, filled in place.
+	 * @param string       $current   The passage being built.
+	 * @param string       $paragraph The next non-empty paragraph.
+	 *
+	 * @return string The passage being built afterwards.
+	 */
+	private function appendParagraph(array &$chunks, string $current, string $paragraph): string {
+		if ($current !== '' && mb_strlen($current) + 2 + mb_strlen($paragraph) > self::PASSAGE_CHARS) {
+			$chunks[] = $current;
+			$current = '';
+		}
+
+		$current = ltrim($current . "\n\n" . $paragraph);
+		while (mb_strlen($current) > self::PASSAGE_CHARS) {
+			$chunks[] = mb_substr($current, 0, self::PASSAGE_CHARS);
+			$current = mb_substr($current, self::PASSAGE_CHARS);
+		}
+
+		return $current;
+	}//end appendParagraph()
 
 	/**
 	 * The distinct words of the question long enough to match on, lower-cased.
