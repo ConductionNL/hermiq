@@ -18,8 +18,8 @@ Kind: code. Size M. Rows `hermiq:dm-prompt-cache`, `integriq:gw-ai-cache`.
 - **files**: `lib/Service/Engine/ResponseGenerationHandler.php`, `lib/Service/Llm/ProviderFactory.php` (mapHistoryToAnthropicMessages)
 - **acceptance_criteria**:
   - GIVEN two turns with different retrieved context WHEN both requests are built THEN the stable block is byte-identical
-- [ ] Implement
-- [ ] Test (PHPUnit on prompt assembly for both provider paths)
+- [x] Implement
+- [x] Test (PHPUnit on prompt assembly for both provider paths)
 
 ### Task 3: Cache tokens on the run
 - **spec_ref**: `openspec/changes/models-prompt-and-answer-cache/specs/provider-prompt-caching/spec.md#requirement-the-run-reports-cache-tokens-req-pcache-003`

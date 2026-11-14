@@ -486,7 +486,16 @@ class ResponseGenerationHandler {
 	 * library's public API — there is no injectable seam.
 	 */
 	private function buildMessages(ResponseTurnRun $run): void {
-		array_unshift($run->messageHistory, LLPhantMessage::system((new TurnSystemPrompt())->compose(run: $run)));
+		// Models-prompt-and-answer-cache: the stable block first, the per-turn block
+		// as its own system message after it, so the cached prefix stays the same.
+		$prompt  = new TurnSystemPrompt();
+		$system  = [LLPhantMessage::system($prompt->stable(run: $run))];
+		$perTurn = $prompt->perTurn(run: $run);
+		if ($perTurn !== '') {
+			$system[] = LLPhantMessage::system($perTurn);
+		}
+
+		array_unshift($run->messageHistory, ...$system);
 		$turn = ($this->attachmentParts?->compose(
 			text: $run->userMessage,
 			driver: $run->progress->driver,

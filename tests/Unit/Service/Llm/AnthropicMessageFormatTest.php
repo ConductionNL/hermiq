@@ -51,7 +51,8 @@ class AnthropicMessageFormatTest extends TestCase {
 			[Message::system('Eén.'), Message::user('Vraag'), Message::system('Twee.'), Message::assistant('Antwoord')]
 		);
 
-		$this->assertSame("Eén.\n\nTwee.", $mapped['system']);
+		// Several system turns stay separate text blocks, in order (models-prompt-and-answer-cache).
+		$this->assertSame([['type' => 'text', 'text' => 'Eén.'], ['type' => 'text', 'text' => 'Twee.']], $mapped['system']);
 		$this->assertSame(
 			[
 				['role' => 'user', 'content' => 'Vraag'],
@@ -69,6 +70,17 @@ class AnthropicMessageFormatTest extends TestCase {
 	public function testEmptyHistory(): void {
 		$this->assertSame(['system' => '', 'messages' => []], $this->format()->mapHistoryToAnthropicMessages([]));
 	}//end testEmptyHistory()
+
+	/**
+	 * One system turn stays a plain string, and an empty one is left out.
+	 *
+	 * @return void
+	 */
+	public function testOneSystemTurnStaysAString(): void {
+		$mapped = $this->format()->mapHistoryToAnthropicMessages([Message::system('Alleen.'), Message::system(''), Message::user('Vraag')]);
+
+		$this->assertSame('Alleen.', $mapped['system']);
+	}//end testOneSystemTurnStaysAString()
 
 	/**
 	 * Nameless and non-array definitions are skipped; a missing schema or type is filled in.

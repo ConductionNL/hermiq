@@ -47,6 +47,33 @@ final class TurnSystemPromptTest extends TestCase {
 		return $run;
 	}
 
+	/**
+	 * The stable block holds the prompt and the preamble only, so it is byte-identical
+	 * between two turns that retrieve different documents; only the per-turn block differs.
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-2
+	 */
+	public function testTheStableBlockDoesNotChangeWithTheRetrievedContext(): void {
+		$prompt = new TurnSystemPrompt();
+		$first  = $this->turn(['prompt' => 'P'], ['text' => 'Document A']);
+		$second = $this->turn(['prompt' => 'P'], ['text' => 'Document B']);
+		foreach ([$first, $second] as $run) {
+			$run->contextPreamble = 'Preamble';
+			$run->cnAiContext     = ['app' => 'pipelinq'];
+		}
+
+		$this->assertSame("P\n\nPreamble", $prompt->stable($first));
+		$this->assertSame($prompt->stable($first), $prompt->stable($second));
+		$this->assertStringStartsWith('CURRENT APP CONTEXT', $prompt->perTurn($first));
+		$this->assertStringContainsString("CONTEXT:\nDocument A", $prompt->perTurn($first));
+		$this->assertStringContainsString("CONTEXT:\nDocument B", $prompt->perTurn($second));
+		$this->assertSame($prompt->stable($first) . "\n\n" . $prompt->perTurn($first), $prompt->compose($first));
+	}
+
+	public function testWithoutRetrievedOrAppContextThePerTurnBlockIsEmpty(): void {
+		$this->assertSame('', (new TurnSystemPrompt())->perTurn($this->turn(['prompt' => 'P'])));
+	}
+
 	public function testWithoutAgentTheDefaultPromptIsUsed(): void {
 		$this->assertSame(
 			'You are a helpful AI assistant that helps users find and understand their data.',

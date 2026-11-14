@@ -55,11 +55,11 @@ final class AnthropicToolLoop {
 	public array $headers = [];
 
 	/**
-	 * The hoisted system prompt, or ''.
+	 * The hoisted system prompt, or '': a string, or text blocks with the stable one first.
 	 *
-	 * @var string
+	 * @var string|array<int, array{type: string, text: string}>
 	 */
-	public string $system = '';
+	public string|array $system = '';
 
 	/**
 	 * The Anthropic messages sent with the next round.
