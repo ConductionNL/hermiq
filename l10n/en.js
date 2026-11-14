@@ -2718,7 +2718,24 @@ OC.L10N.register(
         "The organisation's output filter masked part of the answer.": "The organisation's output filter masked part of the answer.",
         "_Used %n document: %s._::_Used %n documents: %s._": ["Used %n document: %s.","Used %n documents: %s."],
         "_Called %n tool: %s._::_Called %n tools: %s._": ["Called %n tool: %s.","Called %n tools: %s."],
-        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n call was refused: %s.","%n calls were refused: %s."]
+        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n call was refused: %s.","%n calls were refused: %s."],
+        "Add computer target": "Add computer target",
+        "Agents may use it": "Agents may use it",
+        "Agents may use this machine": "Agents may use this machine",
+        "Applications": "Applications",
+        "Applications an agent may operate": "Applications an agent may operate",
+        "Computer targets": "Computer targets",
+        "Edit computer target": "Edit computer target",
+        "Integriq source that reaches the machine": "Integriq source that reaches the machine",
+        "No machine is registered. Agents cannot operate a computer until an admin adds one.": "No machine is registered. Agents cannot operate a computer until an admin adds one.",
+        "Operating system: Windows": "Operating system: Windows",
+        "Shown to the reviewer of every action on this machine.": "Shown to the reviewer of every action on this machine.",
+        "Test screenshot": "Test screenshot",
+        "Test screenshot of {name}": "Test screenshot of {name}",
+        "Test screenshot of {name}. It is shown here only and not stored.": "Test screenshot of {name}. It is shown here only and not stored.",
+        "The integriq sources could not be read.": "The integriq sources could not be read.",
+        "The machines an agent may operate, each reached only through an integriq source whose key stays in the credential broker. A machine is off until you switch it on, and every action on it still needs a person's approval.": "The machines an agent may operate, each reached only through an integriq source whose key stays in the credential broker. A machine is off until you switch it on, and every action on it still needs a person's approval.",
+        "What the machine is for": "What the machine is for"
     },
     "nplurals=2; plural=(n != 1);"
 )

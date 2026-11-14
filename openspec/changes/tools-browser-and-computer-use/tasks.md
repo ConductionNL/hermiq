@@ -36,7 +36,7 @@ Kind: code. Size L. Rows `hermiq:dm-browser-use`, `hermiq:dm-computer-use`.
 - **acceptance_criteria**:
   - GIVEN an integriq source WHEN an admin takes a test screenshot THEN it goes through CallService and is shown, not stored
   - GIVEN a non-admin WHEN they call the routes THEN they are refused
-- [ ] Implement
+- [x] Implement (backend: the `ComputerTarget` schema, `ComputerTargetService`, the admin-only `ComputerTargetController` and its routes; the admin settings section `src/components/settings/ComputerTargets.vue` with `src/modals/ComputerTargetFormModal.vue`: list, add, edit, delete, and a test screenshot shown in place and never stored)
 - [ ] Test (PHPUnit with CallService stubbed; Newman on the admin routes; Playwright under tests/e2e/spec-coverage/)
 
 ### Task 5: The computer tools, the AI feature and the image path

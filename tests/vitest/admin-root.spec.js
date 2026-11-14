@@ -17,6 +17,7 @@ vi.mock('../../src/components/settings/AssistantPromptLibrary.vue', () => ({ def
 vi.mock('../../src/components/settings/IntakeSettings.vue', () => ({ default: { name: 'IntakeSettings', render: () => null } }))
 vi.mock('../../src/components/settings/ReportGroupingSettings.vue', () => ({ default: { name: 'ReportGroupingSettings', render: () => null } }))
 vi.mock('../../src/components/settings/RunRetentionSettings.vue', () => ({ default: { name: 'RunRetentionSettings', render: () => null } }))
+vi.mock('../../src/components/settings/ComputerTargets.vue', () => ({ default: { name: 'ComputerTargets', render: () => null } }))
 vi.mock('../../src/components/settings/TalkBridgeSettings.vue', () => ({ default: { name: 'TalkBridgeSettings', render: () => null } }))
 vi.mock('../../src/modals/LlmProviderModal.vue', () => ({ default: { name: 'LlmProviderModal', props: ['show'], emits: ['close', 'saved'], render: () => null } }))
 vi.mock('../../src/modals/WebResearchSettingsModal.vue', () => ({ default: { name: 'WebResearchSettingsModal', props: ['show'], emits: ['close', 'saved'], render: () => null } }))
@@ -46,6 +47,7 @@ const CHILDREN = [
 	'LlmProviderModal',
 	'ReportGroupingSettings',
 	'RunRetentionSettings',
+	'ComputerTargets',
 	'TalkBridgeSettings',
 	'WebResearchSettingsModal',
 ]
@@ -147,6 +149,7 @@ describe('AdminRoot', () => {
 			'Report grouping',
 			'Assistant prompts',
 			'AI run retention',
+			'Computer targets',
 			'Talk chat bridge',
 			'Organisation credentials',
 		])

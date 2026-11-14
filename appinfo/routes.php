@@ -40,6 +40,13 @@ $routes = [
         ['name' => 'Settings\TalkBridgeSettings#bindRoom',  'url' => '/api/settings/talk-bridge/room', 'verb' => 'PUT'],
         ['name' => 'Settings\WebResearchSettings#get',    'url' => '/api/settings/web-research', 'verb' => 'GET'],
         ['name' => 'Settings\WebResearchSettings#update', 'url' => '/api/settings/web-research', 'verb' => 'PATCH'],
+        // Admin-only computer targets (tools-browser-and-computer-use REQ-COMPUTER-001):
+        // the machines an agent may operate, each reached only through an integriq source.
+        ['name' => 'Settings\ComputerTarget#index',      'url' => '/api/settings/computer-targets', 'verb' => 'GET'],
+        ['name' => 'Settings\ComputerTarget#create',     'url' => '/api/settings/computer-targets', 'verb' => 'POST'],
+        ['name' => 'Settings\ComputerTarget#update',     'url' => '/api/settings/computer-targets/{id}', 'verb' => 'PUT'],
+        ['name' => 'Settings\ComputerTarget#destroy',    'url' => '/api/settings/computer-targets/{id}', 'verb' => 'DELETE'],
+        ['name' => 'Settings\ComputerTarget#screenshot', 'url' => '/api/settings/computer-targets/{id}/screenshot', 'verb' => 'POST'],
 
         // Generic per-user preferences (used by shared nextcloud-vue widgets, e.g. CnSupportDialog).
         ['name' => 'preferences#getPreference', 'url' => '/api/preferences/{key}', 'verb' => 'GET'],

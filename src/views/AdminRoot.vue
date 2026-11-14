@@ -150,6 +150,17 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			:name="t('hermiq', 'Computer targets')"
+			:description="
+				t(
+					'hermiq',
+					'The machines an agent may operate, each reached only through an integriq source whose key stays in the credential broker. A machine is off until you switch it on, and every action on it still needs a person\'s approval.',
+				)
+			">
+			<ComputerTargets />
+		</NcSettingsSection>
+
+		<NcSettingsSection
 			:name="t('hermiq', 'Talk chat bridge')"
 			:description="
 				t(
@@ -183,6 +194,7 @@ import { CnCredentials } from '@conduction/nextcloud-vue'
 import { NcButton, NcSettingsSection } from '@nextcloud/vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
 import AssistantPromptLibrary from '../components/settings/AssistantPromptLibrary.vue'
+import ComputerTargets from '../components/settings/ComputerTargets.vue'
 import IntakeSettings from '../components/settings/IntakeSettings.vue'
 import ReportGroupingSettings from '../components/settings/ReportGroupingSettings.vue'
 import RunRetentionSettings from '../components/settings/RunRetentionSettings.vue'
@@ -219,6 +231,7 @@ export default {
 		NcSettingsSection,
 		ReportGroupingSettings,
 		RunRetentionSettings,
+		ComputerTargets,
 		TalkBridgeSettings,
 		WebResearchSettingsModal,
 	},
