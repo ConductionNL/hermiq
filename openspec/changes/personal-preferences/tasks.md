@@ -11,7 +11,7 @@
 
 ## 2. Server use of the preferences
 
-- [ ] 2.1 Answer language: pass the `answer_language` preference of the run's person into the
+- [x] 2.1 Answer language: pass the `answer_language` preference of the run's person into the
       context the engine assembles. Verify: unit test of the context assembly.
 - [x] 2.2 Default agent: the chat reads `default_agent` when no agent is chosen. Verify: Vitest test.
 - [x] 2.3 Ask before sending: when `ask_before_send` is on, the approval check adds an approval for
