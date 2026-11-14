@@ -17,8 +17,8 @@ Kind: code. Size L. Row `hermiq:dl-embed-web`.
 - **files**: `lib/Service/PublicChat/PublicRetrievalService.php`
 - **acceptance_criteria**:
   - GIVEN a scope and a non-anonymous object in it WHEN retrieved THEN the object is never returned
-- [ ] Implement
-- [ ] Test (PHPUnit; a live check reading a private object through a channel, output in the PR)
+- [x] Implement (every search runs inside OpenRegister's anonymous scope, acting for the channel's organisation when it has one; no anonymous scope means no sources)
+- [ ] Test (PHPUnit done: `PublicRetrievalServiceTest`; the live check reading a private object through a channel needs a running instance)
 
 ### Task 3: The entry point and the turn
 - **spec_ref**: `openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-sibling-apps-reach-the-same-channel-in-process-without-an-identity-req-pubchat-004`
