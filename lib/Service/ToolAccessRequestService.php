@@ -42,6 +42,7 @@ use DateTime;
 use DateTimeImmutable;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
+use OCA\Hermiq\Service\ToolAccess\AccessMatchQuery;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCP\Notification\IManager as INotificationManager;
 use Psr\Container\ContainerInterface;
@@ -141,9 +142,11 @@ class ToolAccessRequestService implements ToolAccessRequestServiceInterface {
 
 		$found = $this->collectMatches(
 			catalog: $catalog,
-			uid: $uid,
-			held: $held,
-			tokens: $this->tokenise(query: $query)
+			query: new AccessMatchQuery(
+				uid: $uid,
+				held: $held,
+				tokens: $this->tokenise(query: $query)
+			)
 		);
 
 		$shown = count($found['tools']);
@@ -212,13 +215,14 @@ class ToolAccessRequestService implements ToolAccessRequestServiceInterface {
 	 * descriptor for an id wins; they are copies of one another.
 	 *
 	 * @param array<int, array<string, mixed>> $catalog The tool catalogue.
-	 * @param string $uid The acting user.
-	 * @param array<string, mixed> $held The ids the agent already holds.
-	 * @param array<int, string> $tokens The query tokens; [] matches everything.
+	 * @param AccessMatchQuery $query Who asks for tool access, what they hold, and the search terms.
 	 *
 	 * @return array{tools: array<int, array<string, mixed>>, matched: int, distinct: int}
 	 */
-	private function collectMatches(array $catalog, string $uid, array $held, array $tokens): array {
+	private function collectMatches(array $catalog, AccessMatchQuery $query): array {
+		$uid = $query->uid;
+		$held = $query->held;
+		$tokens = $query->tokens;
 		$out = [];
 		$matched = 0;
 		$seen = [];

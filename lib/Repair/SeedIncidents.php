@@ -33,6 +33,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
+use OCA\Hermiq\Repair\Seed\IncidentSeed;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
@@ -122,7 +123,7 @@ class SeedIncidents implements IRepairStep {
 				$seeded = 0;
 
 				foreach ($this->seedRows() as $row) {
-					$seeded += $this->seedIfMissing(objectService: $objectService, output: $output, row: $row);
+					$seeded += $this->seedIfMissing(objectService: $objectService, seed: new IncidentSeed(output: $output, row: $row));
 				}
 
 				$output->info('Incident seed complete (' . $seeded . ' new).');
@@ -168,13 +169,14 @@ class SeedIncidents implements IRepairStep {
 	 * description) and its named agent already exists.
 	 *
 	 * @param ObjectService $objectService The OpenRegister object service.
-	 * @param IOutput $output Repair output channel.
-	 * @param array<string,string> $row The seed row (see seedRows() for its shape).
+	 * @param IncidentSeed $seed One incident row to seed, and where progress is reported.
 	 *
 	 * @return int 1 when a new incident was created, 0 when skipped (already exists,
 	 *             prerequisite missing, or failed).
 	 */
-	private function seedIfMissing(ObjectService $objectService, IOutput $output, array $row): int {
+	private function seedIfMissing(ObjectService $objectService, IncidentSeed $seed): int {
+		$output = $seed->output;
+		$row = $seed->row;
 		try {
 			if ($this->alreadySeeded(objectService: $objectService, description: $row['description']) === true) {
 				return 0;

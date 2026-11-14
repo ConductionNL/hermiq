@@ -49,6 +49,7 @@ use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\SkillConsolidationServiceInterface;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
+use OCA\Hermiq\Service\SkillConsolidation\DraftEvalSubject;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -590,7 +591,7 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 		}
 
 		if ($dataset !== null) {
-			$evalOutcome = $this->runDraftEval(dataset: $dataset, skill: $skill, data: $data);
+			$evalOutcome = $this->runDraftEval(dataset: $dataset, subject: new DraftEvalSubject(skill: $skill, data: $data));
 			if ($evalOutcome === null) {
 				// Eval engine unavailable / blocked / failed — evidence, not bypass:
 				// persist any scan evidence gathered and stay `proposed`.
@@ -1297,14 +1298,15 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 	 * agent, gates blocked, infra failure) — fail closed, the draft stays `proposed`.
 	 *
 	 * @param ObjectEntity $dataset The linked EvalDataset.
-	 * @param ObjectEntity $skill The skill under comparison.
-	 * @param array<string, mixed> $data The draft payload (proposed content source).
+	 * @param DraftEvalSubject $subject The skill and draft content an eval runs against.
 	 *
 	 * @return array<string, mixed>|null The `evalEvidence` map, or null.
 	 *
 	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-a-paired-draft-vs-active-eval-gates-the-draft-and-a-worse-draft-is-auto-discarded
 	 */
-	private function runDraftEval(ObjectEntity $dataset, ObjectEntity $skill, array $data): ?array {
+	private function runDraftEval(ObjectEntity $dataset, DraftEvalSubject $subject): ?array {
+		$skill = $subject->skill;
+		$data = $subject->data;
 		$agent = $this->resolveEvalAgent(skill: $skill);
 		if ($agent === null) {
 			$this->logger->info(

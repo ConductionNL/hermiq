@@ -196,7 +196,7 @@ class AssistantService implements AssistantServiceInterface {
 		$this->validateMessage(message: $message);
 		$app = $this->validateContext(context: $context);
 
-		$conversation = $this->resolveConversation(sessionId: $sessionId, userId: $userId, app: $app);
+		$conversation = $this->resolveConversation(sessionId: $sessionId, owner: new ConversationOwner(userId: $userId, app: $app));
 		$conversationId = (string)$conversation->getUuid();
 		$organisation = (string)($conversation->getOrganisation() ?? '');
 
@@ -394,11 +394,13 @@ class AssistantService implements AssistantServiceInterface {
 	private function findOrCreateDetectorAgent(string $app): ObjectEntity {
 		return $this->provisionAgent(
 			app: $app,
-			name: sprintf(self::DETECTOR_AGENT_NAME_TEMPLATE, $app),
-			description: 'Auto-provisioned tool-free structured PII/redaction-span detector for '
+			agent: new AgentProvisioning(
+				name: sprintf(self::DETECTOR_AGENT_NAME_TEMPLATE, $app),
+				description: 'Auto-provisioned tool-free structured PII/redaction-span detector for '
 				. 'the ' . $app . ' woo-llm-anonymisation surface. Do not add tools — this Agent is '
 				. 'deliberately locked to zero tool execution.',
-			prompt: $this->detectPiiSystemPrompt()
+				prompt: $this->detectPiiSystemPrompt()
+			)
 		);
 	}//end findOrCreateDetectorAgent()
 
@@ -525,14 +527,15 @@ class AssistantService implements AssistantServiceInterface {
 	 * Resolve (load or create) the Conversation this turn runs against.
 	 *
 	 * @param string|null $sessionId Existing conversation UUID, or null to create one.
-	 * @param string $userId Current user id.
-	 * @param string $app Calling app id (used to find/provision the dedicated Agent).
+	 * @param ConversationOwner $owner The person and app a conversation belongs to.
 	 *
 	 * @return ObjectEntity The resolved conversation.
 	 *
 	 * @throws Exception 404 when `$sessionId` does not resolve; 403 when it belongs to another user.
 	 */
-	private function resolveConversation(?string $sessionId, string $userId, string $app): ObjectEntity {
+	private function resolveConversation(?string $sessionId, ConversationOwner $owner): ObjectEntity {
+		$userId = $owner->userId;
+		$app = $owner->app;
 		if ($sessionId !== null && $sessionId !== '') {
 			$conversation = $this->objectService->find(
 				id: $sessionId,
@@ -590,14 +593,16 @@ class AssistantService implements AssistantServiceInterface {
 	private function findOrCreateAgent(string $app): ObjectEntity {
 		return $this->provisionAgent(
 			app: $app,
-			name: 'Case Assistant (' . $app . ')',
-			description: 'Auto-provisioned tool-free conversational agent for the ' . $app
+			agent: new AgentProvisioning(
+				name: 'Case Assistant (' . $app . ')',
+				description: 'Auto-provisioned tool-free conversational agent for the ' . $app
 				. ' case-assistant surface. Do not add tools — this Agent is deliberately locked '
 				. 'to zero tool execution (case-assistant-surface design.md Decision 1).',
-			prompt: 'You are a helpful case assistant. Answer only using the CASE CONTEXT '
+				prompt: 'You are a helpful case assistant. Answer only using the CASE CONTEXT '
 				. 'provided below and the conversation so far. If the context does not contain the '
 				. 'answer, say so honestly instead of guessing. You cannot take any action — you can '
 				. 'only discuss and explain.'
+			)
 		);
 	}//end findOrCreateAgent()
 
@@ -621,9 +626,7 @@ class AssistantService implements AssistantServiceInterface {
 	 * duplicate. Tenancy still applies to both.
 	 *
 	 * @param string $app Calling app id.
-	 * @param string $name The agent's fixed name.
-	 * @param string $description The agent's fixed description.
-	 * @param string $prompt The agent's fixed system prompt.
+	 * @param AgentProvisioning $agent The name, description and prompt of an assistant agent being provisioned.
 	 *
 	 * @return ObjectEntity The Agent object.
 	 *
@@ -631,7 +634,10 @@ class AssistantService implements AssistantServiceInterface {
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-case-assistant-surface/design.md#decision-1
 	 */
-	private function provisionAgent(string $app, string $name, string $description, string $prompt): ObjectEntity {
+	private function provisionAgent(string $app, AgentProvisioning $agent): ObjectEntity {
+		$name = $agent->name;
+		$description = $agent->description;
+		$prompt = $agent->prompt;
 		if ($this->appManager->isEnabledForUser($app) === false) {
 			throw new Exception('context.app is not an installed and enabled app: ' . $app, 400);
 		}
