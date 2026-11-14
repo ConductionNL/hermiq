@@ -50,6 +50,7 @@ namespace OCA\Hermiq\Service;
 
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\ContextAgentInteractionServiceInterface;
+use OCA\Hermiq\Service\ContextAgent\ConfirmationActor;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -197,8 +198,10 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 		// exists (the common single-turn case).
 		$confirmationOutcome = $this->applyConfirmation(
 			confirmation: $confirmation,
-			userId: $userId,
-			agentId: $agentId
+			actor: new ConfirmationActor(
+				userId: $userId,
+				agentId: $agentId
+			)
 		);
 
 		// Run one governed turn through Hermiq's engine (its own allowlist-gated tool
@@ -335,13 +338,14 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 	 * summary of what happened (for the audit line).
 	 *
 	 * @param int|null $confirmation The confirmation value (1 confirm, 0 deny, null absent).
-	 * @param string $userId The confirming user (must be the approval's reviewer).
-	 * @param string $agentId The agent the approval must belong to.
+	 * @param ConfirmationActor $actor The person and agent a confirmation is applied for.
 	 *
 	 * @return string A summary: 'no-confirmation', 'confirmation:no-pending',
 	 *                'confirmation:approved' or 'confirmation:denied'.
 	 */
-	private function applyConfirmation(?int $confirmation, string $userId, string $agentId): string {
+	private function applyConfirmation(?int $confirmation, ConfirmationActor $actor): string {
+		$userId = $actor->userId;
+		$agentId = $actor->agentId;
 		if ($confirmation === null) {
 			return 'no-confirmation';
 		}

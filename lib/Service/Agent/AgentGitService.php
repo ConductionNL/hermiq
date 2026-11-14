@@ -182,7 +182,13 @@ class AgentGitService implements AgentGitServiceInterface {
 	 */
 	public function pullPreview(string $agentId, string $uid, string $credentialId): array {
 		$agent = $this->stampedAgent(agentId: $agentId, uid: $uid);
-		[$fields, $scan] = $this->pulledFields(data: $agent->getObject(), uid: $uid, credentialId: $credentialId);
+		[$fields, $scan] = $this->pulledFields(
+			data: $agent->getObject(),
+			requester: new PullRequester(
+				uid: $uid,
+				credentialId: $credentialId
+			)
+		);
 
 		return ['changes' => $this->changes(data: $agent->getObject(), fields: $fields), 'scanReport' => $scan];
 	}//end pullPreview()
@@ -206,7 +212,7 @@ class AgentGitService implements AgentGitServiceInterface {
 	public function pullApply(string $agentId, string $uid, string $credentialId): ObjectEntity {
 		$agent = $this->stampedAgent(agentId: $agentId, uid: $uid);
 		$data = $agent->getObject();
-		[$fields, , $hash] = $this->pulledFields(data: $data, uid: $uid, credentialId: $credentialId);
+		[$fields, , $hash] = $this->pulledFields(data: $data, requester: new PullRequester(uid: $uid, credentialId: $credentialId));
 
 		foreach ($fields as $key => $value) {
 			$data[$key] = $value;
@@ -221,14 +227,15 @@ class AgentGitService implements AgentGitServiceInterface {
 	 * Fetch, scan and map the repository's package to agent fields.
 	 *
 	 * @param array<string, mixed> $data The agent's data (for its coordinates).
-	 * @param string $uid The caller.
-	 * @param string $credentialId The caller's GitHub credential.
+	 * @param PullRequester $requester Who pulls an agent from git, and with which credential.
 	 *
 	 * @return array{0: array<string, mixed>, 1: array<string, mixed>, 2: string} [agent fields, scan report, package hash].
 	 *
 	 * @throws RuntimeException 422 on a dangerous verdict, 502 when the package cannot be read.
 	 */
-	private function pulledFields(array $data, string $uid, string $credentialId): array {
+	private function pulledFields(array $data, PullRequester $requester): array {
+		$uid = $requester->uid;
+		$credentialId = $requester->credentialId;
 		$gitRef = null;
 		if ((string)($data['gitRef'] ?? '') !== '') {
 			$gitRef = (string)$data['gitRef'];

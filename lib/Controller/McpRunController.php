@@ -56,6 +56,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Controller\Mcp\ToolCallRequest;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\GuardrailPolicyServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\RunStepBusInterface;
@@ -458,7 +459,14 @@ class McpRunController extends Controller {
 		}
 
 		if ($method === 'tools/call') {
-			return $this->handleToolCall(id: $id, params: $params, agentId: $agentId, conversationId: $conversationId);
+			return $this->handleToolCall(
+				id: $id,
+				call: new ToolCallRequest(
+					params: $params,
+					agentId: $agentId,
+					conversationId: $conversationId
+				)
+			);
 		}
 
 		return $this->jsonRpcError(
@@ -534,16 +542,16 @@ class McpRunController extends Controller {
 	 * or a pending approval returns `result.isError: true` and executes nothing.
 	 *
 	 * @param mixed $id The JSON-RPC request id.
-	 * @param array<string, mixed> $params The call params (`name`, `arguments`).
-	 * @param string $agentId The run's agent UUID.
-	 * @param string $conversationId The conversation this run belongs to, so a step
-	 *                               published on the bus reaches the right stream.
+	 * @param ToolCallRequest $call One MCP tool call and the agent and conversation it runs for.
 	 *
 	 * @return Response The JSON-RPC response (200; tool-level errors carry isError).
 	 *
 	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-governed-refusal-is-visible-to-the-model-not-a-transport-failure
 	 */
-	private function handleToolCall(mixed $id, array $params, string $agentId, string $conversationId = ''): Response {
+	private function handleToolCall(mixed $id, ToolCallRequest $call): Response {
+		$params = $call->params;
+		$agentId = $call->agentId;
+		$conversationId = $call->conversationId;
 		$name = (string)($params['name'] ?? '');
 		if ($name === '') {
 			return $this->jsonRpcError(id: $id, code: -32602, message: 'Invalid params', status: Http::STATUS_BAD_REQUEST);

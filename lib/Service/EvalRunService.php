@@ -58,6 +58,10 @@ use OCA\Hermiq\BackgroundJob\SkillLearningsCaptureJob;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\EvalRunServiceInterface;
 use OCA\Hermiq\Service\Engine\ContextAssembler;
+use OCA\Hermiq\Service\Eval\EvalRunRecord;
+use OCA\Hermiq\Service\Eval\EvalRunScores;
+use OCA\Hermiq\Service\Eval\EvalRunSubject;
+use OCA\Hermiq\Service\Eval\L5EvidenceContext;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -529,19 +533,24 @@ class EvalRunService implements EvalRunServiceInterface {
 		}
 
 		$saved = $this->persistEvalRun(
-			datasetId: $run['datasetId'],
-			agentId: $run['agentId'],
-			organisation: $run['organisation'],
-			agentVersionId: null,
-			status: $status,
-			startedAt: $run['startedAt'],
-			endedAt: new DateTimeImmutable('now', new DateTimeZone('UTC')),
-			results: $halves['draft']['results'],
-			passRate: $draftPassRate,
-			regressionGateResult: 'not_applicable',
-			previousPassRate: null,
-			regressionThresholdPercent: 0,
-			extra: [
+			record: new EvalRunRecord(
+				subject: new EvalRunSubject(
+					datasetId: $run['datasetId'],
+					agentId: $run['agentId'],
+					organisation: $run['organisation'],
+					agentVersionId: null
+				),
+				status: $status,
+				startedAt: $run['startedAt'],
+				endedAt: new DateTimeImmutable('now', new DateTimeZone('UTC')),
+				scores: new EvalRunScores(
+					results: $halves['draft']['results'],
+					passRate: $draftPassRate,
+					regressionGateResult: 'not_applicable',
+					previousPassRate: null,
+					regressionThresholdPercent: 0
+				),
+				extra: [
 				'baselineResults' => $halves['active']['results'],
 				'baselinePassRate' => $activePassRate,
 				'skillResults' => [
@@ -553,6 +562,7 @@ class EvalRunService implements EvalRunServiceInterface {
 					],
 				],
 			]
+			)
 		);
 
 		// Both halves' usage in ONE audit entry — the EvalRun UUID is already in
@@ -934,19 +944,25 @@ class EvalRunService implements EvalRunServiceInterface {
 	 */
 	private function recordRun(array $run, array $outcome): ObjectEntity {
 		$saved = $this->persistEvalRun(
-			datasetId: $run['datasetId'],
-			agentId: $run['agentId'],
-			organisation: $run['organisation'],
-			agentVersionId: $run['agentVersionId'],
-			status: $outcome['status'],
-			startedAt: $run['startedAt'],
-			endedAt: $outcome['endedAt'],
-			results: $outcome['results'],
-			passRate: $outcome['passRate'],
-			regressionGateResult: $outcome['regressionGateResult'],
-			previousPassRate: $outcome['previousPassRate'],
-			regressionThresholdPercent: $outcome['thresholdPercent'],
-			extra: ($outcome['paired'] ?? [])
+			record: new EvalRunRecord(
+				subject: new EvalRunSubject(
+					datasetId: $run['datasetId'],
+					agentId: $run['agentId'],
+					organisation: $run['organisation'],
+					agentVersionId: $run['agentVersionId']
+				),
+				status: $outcome['status'],
+				startedAt: $run['startedAt'],
+				endedAt: $outcome['endedAt'],
+				scores: new EvalRunScores(
+					results: $outcome['results'],
+					passRate: $outcome['passRate'],
+					regressionGateResult: $outcome['regressionGateResult'],
+					previousPassRate: $outcome['previousPassRate'],
+					regressionThresholdPercent: $outcome['thresholdPercent']
+				),
+				extra: ($outcome['paired'] ?? [])
+			)
 		);
 
 		$recorded = $this->recordedRun(evalRun: $saved, run: $run);
@@ -984,9 +1000,11 @@ class EvalRunService implements EvalRunServiceInterface {
 
 		$this->writeL5Evidence(
 			skillResults: $outcome['paired']['skillResults'],
-			datasetId: $run['datasetId'],
-			attributionMode: $run['mode'],
-			endedAt: $outcome['endedAt']
+			l5Context: new L5EvidenceContext(
+				datasetId: $run['datasetId'],
+				attributionMode: $run['mode'],
+				endedAt: $outcome['endedAt']
+			)
 		);
 	}//end recordPairedEvidence()
 
@@ -1406,23 +1424,7 @@ class EvalRunService implements EvalRunServiceInterface {
 	 * `BudgetService::create()`'s `@self.organisation` trick) rather than the
 	 * acting user's own active organisation.
 	 *
-	 * @param string $datasetId The dataset UUID.
-	 * @param string $agentId The agent UUID.
-	 * @param string $organisation The agent's organisation.
-	 * @param string|null $agentVersionId Inert field.
-	 * @param string $status completed|failed.
-	 * @param DateTimeImmutable $startedAt When the run began.
-	 * @param DateTimeImmutable $endedAt When the run finished.
-	 * @param array<int,array<string,mixed>> $results Per-case results.
-	 * @param float $passRate Aggregate pass-rate.
-	 * @param string $regressionGateResult passed|failed|not_applicable.
-	 * @param float|null $previousPassRate The compared-against prior run's pass-rate.
-	 * @param int $regressionThresholdPercent The effective threshold applied.
-	 * @param array<string,mixed> $extra Paired-mode fields (skill-evals:
-	 *                                   baselineMode, attributionMode,
-	 *                                   skillResults, joint-mode
-	 *                                   baselineResults/baselinePassRate);
-	 *                                   empty for plain runs.
+	 * @param EvalRunRecord $record What one stored eval run records.
 	 *
 	 * @return ObjectEntity The persisted EvalRun.
 	 *
@@ -1431,21 +1433,20 @@ class EvalRunService implements EvalRunServiceInterface {
 	 * @SuppressWarnings(PHPMD.LongVariable)           $regressionThresholdPercent mirrors
 	 *   the persisted EvalRun schema field of the same name — the clarity IS the length.
 	 */
-	private function persistEvalRun(
-		string $datasetId,
-		string $agentId,
-		string $organisation,
-		?string $agentVersionId,
-		string $status,
-		DateTimeImmutable $startedAt,
-		DateTimeImmutable $endedAt,
-		array $results,
-		float $passRate,
-		string $regressionGateResult,
-		?float $previousPassRate,
-		int $regressionThresholdPercent,
-		array $extra = [],
-	): ObjectEntity {
+	private function persistEvalRun(EvalRunRecord $record): ObjectEntity {
+		$datasetId = $record->datasetId;
+		$agentId = $record->agentId;
+		$organisation = $record->organisation;
+		$agentVersionId = $record->agentVersionId;
+		$status = $record->status;
+		$startedAt = $record->startedAt;
+		$endedAt = $record->endedAt;
+		$results = $record->results;
+		$passRate = $record->passRate;
+		$regressionGateResult = $record->regressionGateResult;
+		$previousPassRate = $record->previousPassRate;
+		$regressionThresholdPercent = $record->regressionThresholdPercent;
+		$extra = $record->extra;
 		$evalRunData = [
 			'datasetId' => $datasetId,
 			'agentId' => $agentId,
@@ -1489,18 +1490,24 @@ class EvalRunService implements EvalRunServiceInterface {
 		$endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 
 		$saved = $this->persistEvalRun(
-			datasetId: $trigger->datasetId(),
-			agentId: $trigger->agentId,
-			organisation: $trigger->organisation,
-			agentVersionId: $trigger->agentVersionId,
-			status: $status,
-			startedAt: $trigger->startedAt,
-			endedAt: $endedAt,
-			results: [],
-			passRate: 0.0,
-			regressionGateResult: 'not_applicable',
-			previousPassRate: null,
-			regressionThresholdPercent: 0
+			record: new EvalRunRecord(
+				subject: new EvalRunSubject(
+					datasetId: $trigger->datasetId(),
+					agentId: $trigger->agentId,
+					organisation: $trigger->organisation,
+					agentVersionId: $trigger->agentVersionId
+				),
+				status: $status,
+				startedAt: $trigger->startedAt,
+				endedAt: $endedAt,
+				scores: new EvalRunScores(
+					results: [],
+					passRate: 0.0,
+					regressionGateResult: 'not_applicable',
+					previousPassRate: null,
+					regressionThresholdPercent: 0
+				)
+			)
 		);
 
 		$recorded = new RecordedEvalRun(evalRun: $saved, startedAt: $trigger->startedAt);
@@ -1741,15 +1748,16 @@ class EvalRunService implements EvalRunServiceInterface {
 	 * others' evidence.
 	 *
 	 * @param array<int,array<string,mixed>> $skillResults The run's per-skill entries.
-	 * @param string $datasetId The dataset UUID.
-	 * @param string $attributionMode joint|per-skill (the run's snapshot).
-	 * @param DateTimeImmutable $endedAt The run's endedAt (becomes lastValidated).
+	 * @param L5EvidenceContext $l5Context The dataset, attribution and time the level-5 evidence belongs to.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/specs/agent-evals/spec.md#requirement-a-completed-paired-run-is-the-only-writer-of-l5-evidence
 	 */
-	private function writeL5Evidence(array $skillResults, string $datasetId, string $attributionMode, DateTimeImmutable $endedAt): void {
+	private function writeL5Evidence(array $skillResults, L5EvidenceContext $l5Context): void {
+		$datasetId = $l5Context->datasetId;
+		$attributionMode = $l5Context->attributionMode;
+		$endedAt = $l5Context->endedAt;
 		foreach ($skillResults as $entry) {
 			$skillId = (string)($entry['skillId'] ?? '');
 			if ($skillId === '') {
