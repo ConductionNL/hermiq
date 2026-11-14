@@ -27,7 +27,8 @@ Kind: code. Size M. Rows `hermiq:dm-prompt-cache`, `integriq:gw-ai-cache`.
 - **acceptance_criteria**:
   - GIVEN a response with cache_read_input_tokens WHEN the run is recorded THEN cacheReadTokens is set and promptTokens includes it
 - [ ] Implement
-  > 2026-11-13: the Anthropic half is built: `parseAnthropicResponse()` reads `cache_read_input_tokens` and `cache_creation_input_tokens`, `promptTokens` includes them, and the turn's usage carries `cacheReadTokens` / `cacheWriteTokens` summed over the tool loop (`ProviderFactoryAnthropicCachingTest`). Left: the OpenAI `cached_tokens` read and the line on `src/views/Runs.vue`.
+  > 2026-11-13: the Anthropic half is built: `parseAnthropicResponse()` reads `cache_read_input_tokens` and `cache_creation_input_tokens`, `promptTokens` includes them, and the turn's usage carries `cacheReadTokens` / `cacheWriteTokens` summed over the tool loop (`ProviderFactoryAnthropicCachingTest`). Left: the line on `src/views/Runs.vue`.
+  > 2026-11-14: the OpenAI half is built: `LlphantChatCall::openAiUsage()` reads `usage.prompt_tokens_details.cached_tokens` of the last response as `cacheReadTokens` (OpenAI's `prompt_tokens` already includes it, so `promptTokens` does too; `LlphantChatCallTest::testOpenAiCachedPromptTokensAreReported`). Left: `src/views/Runs.vue` shows no token counts yet, so the cache line needs the usage columns first.
 - [ ] Test (PHPUnit on parsing; one live Anthropic check)
 
 ### Task 4: The AnswerCacheEntry schema and the agent setting
