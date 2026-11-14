@@ -20,6 +20,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\Llm;
 
+use OCA\Hermiq\Service\Llm\RunTokenRequest;
 use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCA\Hermiq\Tests\Unit\Support\InMemoryRunTokenStore;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -85,6 +86,34 @@ final class RunTokenServiceTest extends TestCase {
 		$this->assertSame('conv-1', $binding['conversationId']);
 
 	}//end testMintThenVerifyReturnsBinding()
+
+	/**
+	 * A sign-in token carries its hosts and dies with its TTL; a run token carries none.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/agent-credentials/spec.md#requirement-a-user-can-sign-in-with-a-claude-subscription-req-signin-001
+	 */
+	public function testASignInTokenCarriesItsHostsUntilItExpires(): void {
+		$service = $this->service(new InMemoryRunTokenStore());
+		$request = new RunTokenRequest(runId: 'sign-in:1', agentId: '');
+		$request->userId = 'alice';
+		$request->ttlSeconds = 600;
+		$request->egressHosts = ['claude.ai', 'console.anthropic.com'];
+
+		$token = $service->mintFor(request: $request);
+
+		$this->assertSame(
+			['runId' => 'sign-in:1', 'agentId' => '', 'userId' => 'alice', 'conversationId' => '', 'egressHosts' => ['claude.ai', 'console.anthropic.com']],
+			$service->verify(token: $token)
+		);
+		$run = $service->mint(runId: 'run-1', agentId: 'agent-1', userId: 'alice');
+		$this->assertArrayNotHasKey('egressHosts', $service->verify(token: $run));
+
+		$this->now += 600;
+		$this->assertNull($service->verify(token: $token));
+
+	}//end testASignInTokenCarriesItsHostsUntilItExpires()
 
 	/**
 	 * A missing/empty/unknown token is rejected.

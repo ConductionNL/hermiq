@@ -226,6 +226,35 @@ final class McpRunControllerTest extends TestCase {
 	}//end testMissingTokenIsRejected()
 
 	/**
+	 * A sign-in token reaches no tools: 401 before any tool is listed.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/agent-credentials/spec.md#requirement-a-user-can-sign-in-with-a-claude-subscription-req-signin-001
+	 */
+	public function testASignInTokenIsRefusedBeforeAnyTool(): void {
+		$tokens = $this->createMock(RunTokenService::class);
+		$tokens->method('verify')->willReturn(
+			['runId' => 'sign-in:x', 'agentId' => '', 'userId' => 'alice', 'conversationId' => '', 'egressHosts' => ['claude.ai']]
+		);
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->expects($this->never())->method('listTools');
+
+		$controller = $this->controller(
+			'Bearer sign-in',
+			'{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}',
+			$tokens,
+			$this->createMock(ObjectService::class),
+			$facade,
+			$this->createMock(ToolLoop::class),
+			$this->createMock(ToolSearchService::class)
+		);
+
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->handle()->getStatus());
+
+	}//end testASignInTokenIsRefusedBeforeAnyTool()
+
+	/**
 	 * A rejected run token is RECORDED, under the SAME action as
 	 * EgressAuthorizeController — one token space, one counter, so an attacker
 	 * cannot halve the cost by alternating between the two endpoints.

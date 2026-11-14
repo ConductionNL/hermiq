@@ -56,8 +56,10 @@ Kind: code. Size L. Rows `hermiq:mo-openai-compat`, `hermiq:dm-responses-api`, `
 - **acceptance_criteria**:
   - GIVEN a completed sign-in WHEN hermiq answers the browser THEN only the credential id and label are returned and nothing is logged
   - GIVEN no runner WHEN the settings open THEN the button is replaced by the stated text
-- [ ] Implement
+- [x] Implement
+      > 2026-11-14: `SubscriptionLoginService` mints a SIGN-IN run token (ten minutes, `egressHosts` = the vendor's sign-in hosts) and starts the runner's sign-in; the finish passes the code on, receives the token once and mints it through OpenRegister's `CredentialBrokerService::mintCredential()` as the session user's personal credential for hermiq only, then spends the sign-in token. The browser gets `{id, label}`; the token is in no object, config value, log line or answer. Only the user who started a sign-in can finish it. `EgressAuthorizeController` admits a sign-in token to its own hosts on 443 and nothing else; `McpRunController` refuses it. `SubscriptionLoginController` (`GET/POST /api/subscription-login`, `POST /api/subscription-login/{id}/code`, `#[NoAdminRequired]`, session user only). In the app's own settings dialog, beside Credentials, `SubscriptionSignIn.vue` shows a button per offered sign-in, or "Subscription sign-in needs the Hermiq LLM runner app."; `SubscriptionSignInModal.vue` walks it. The admin provider modal offers no sign-in.
 - [ ] Test (PHPUnit with a stubbed runner and broker and a capturing logger; Playwright under tests/e2e/spec-coverage/ for the no-runner state)
+      > PHPUnit done: `SubscriptionLoginServiceTest` (10), `SubscriptionLoginControllerTest` (3), sign-in cases in `RunTokenServiceTest`, `EgressAuthorizeControllerTest` and `McpRunControllerTest`; vitest `subscription-sign-in.spec.js` (6) covers the no-runner state. Playwright needs a running Nextcloud and is left open.
 
 ### Task 6: Personal scope, and the ChatGPT sign-in
 - **spec_ref**: `openspec/changes/models-provider-connections/specs/agent-credentials/spec.md#requirement-a-chatgpt-subscription-can-sign-in-where-the-codex-cli-allows-it-req-signin-004`
@@ -65,8 +67,10 @@ Kind: code. Size L. Rows `hermiq:mo-openai-compat`, `hermiq:dm-responses-api`, `
 - **acceptance_criteria**:
   - GIVEN any sign-in WHEN the credential is created THEN its scope is personal and the admin modal offers no sign-in
   - GIVEN a pinned Codex CLI with device sign-in WHEN a user signs in THEN a personal openai-cli credential is stored and a cli turn uses it through a 0600 auth file in the throwaway home
-- [ ] Implement
-- [ ] Test (PHPUnit; runner tests with a stub Codex CLI)
+- [x] Implement
+      > 2026-11-14: every sign-in credential is minted with scope `personal` (fixed in the service, never taken from input); the admin modal offers no sign-in. The ChatGPT sign-in runs `codex login --device-auth`, offered only when the runner's pinned Codex CLI names that flag in its help; it stores a personal `openai-cli` credential (declared in `src/credentials.json`). The runner's OpenAI adapter writes a `CODEX_AUTH_JSON` credential into the turn's throwaway home as `.codex/auth.json`, mode 0600, never into the environment. Not in this task's files and left for a follow-up: hermiq has no `cli` execution mode on its OpenAI provider yet, so nothing dispatches an OpenAI turn to the runner with that credential.
+- [x] Test (PHPUnit; runner tests with a stub Codex CLI)
+      > `SubscriptionLoginServiceTest` (ChatGPT case, scope assertions); runner `test/login.test.js` (device sign-in with a stub Codex CLI, the 0600 auth file).
 
 ## Verification
 - [ ] `openspec validate models-provider-connections --type change --strict` passes
