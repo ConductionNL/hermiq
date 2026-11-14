@@ -16,6 +16,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
 use OCA\Hermiq\Service\Engine\ContextRetrievalHandler;
 use OCA\Hermiq\Service\Graph\GraphContextRetriever;
+use OCA\Hermiq\Service\KnowledgeBase\KnowledgeBaseRetrieval;
 use OCA\Hermiq\Service\RetrievalScope\FileScopeResolver;
 use OCA\Hermiq\Service\RetrievalScope\ValidatedFileSet;
 use OCA\Hermiq\Service\RetrievalScope\ValidatedMode;
@@ -50,10 +51,11 @@ class ContextRetrievalValidatedModeTest extends TestCase {
 	 * @param array<string, mixed> $agentData   The agent.
 	 * @param list<int>            $tagged      The validated files.
 	 * @param array<string, mixed> $ragSettings The session's settings.
+	 * @param KnowledgeBaseRetrieval|null $knowledgeBases The agent's knowledge bases, or none.
 	 *
 	 * @return array<string, mixed>
 	 */
-	private function retrieve(array $agentData, array $tagged, array $ragSettings = []): array {
+	private function retrieve(array $agentData, array $tagged, array $ragSettings = [], ?KnowledgeBaseRetrieval $knowledgeBases = null): array {
 		$graph = $this->createMock(GraphContextRetriever::class);
 		$graph->method('retrieve')->willReturn(['results' => self::rows(), 'relations' => 'relations of every object']);
 		$resolver = $this->createMock(FileScopeResolver::class);
@@ -65,7 +67,7 @@ class ContextRetrievalValidatedModeTest extends TestCase {
 		$agent->setUuid('agent-uuid');
 		$agent->setObject($agentData + ['name' => 'Informatiepunt', 'views' => ['view-1'], 'ragSearchMode' => 'graph', 'graphEnabled' => true]);
 
-		$handler = new ContextRetrievalHandler($this->createMock(ObjectService::class), new NullLogger(), $graph, null, $resolver, null, $validated);
+		$handler = new ContextRetrievalHandler($this->createMock(ObjectService::class), new NullLogger(), $graph, null, $resolver, null, $validated, $knowledgeBases);
 
 		return $handler->retrieveContext(query: 'openingstijden', agent: $agent, selectedViews: ['extra-view'], ragSettings: $ragSettings);
 	}//end retrieve()
@@ -121,4 +123,35 @@ class ContextRetrievalValidatedModeTest extends TestCase {
 	public function testTheDefaultFloorApplies(): void {
 		$this->assertSame(ValidatedMode::DEFAULT_FLOOR, $this->retrieve(['answerOnlyFromValidated' => true], [12])['retrievalScope']['floor']);
 	}//end testTheDefaultFloorApplies()
+	/**
+	 * Rows from the agent's knowledge bases: one file outside the validated set, one inside it.
+	 *
+	 * @return list<array<string, mixed>>
+	 */
+	private static function knowledgeBaseRows(): array {
+		return [
+			['entity_type' => 'file', 'entity_id' => 20, 'similarity' => 0.88, 'chunk_text' => 'Inkoopvoorwaarden', 'metadata' => ['file_name' => 'inkoop.pdf']],
+			['entity_type' => 'file', 'entity_id' => 13, 'similarity' => 0.7, 'chunk_text' => 'Tarieven', 'metadata' => ['file_name' => 'tarieven.pdf']],
+		];
+	}//end knowledgeBaseRows()
+
+	public function testKnowledgeBaseRowsInValidatedModeKeepToTheValidatedFiles(): void {
+		$knowledgeBases = $this->createMock(KnowledgeBaseRetrieval::class);
+		$knowledgeBases->method('rows')->willReturn(self::knowledgeBaseRows());
+
+		$context = $this->retrieve(['answerOnlyFromValidated' => true, 'ragMinSimilarity' => 0.55], [12, 13], [], $knowledgeBases);
+
+		$this->assertSame([13, 12], array_column($context['sources'], 'id'));
+		$this->assertSame(2, $context['retrievalScope']['passed']);
+	}
+
+	public function testKnowledgeBaseRowsOutsideValidatedModeAllCount(): void {
+		$knowledgeBases = $this->createMock(KnowledgeBaseRetrieval::class);
+		$knowledgeBases->method('rows')->willReturn(self::knowledgeBaseRows());
+
+		$context = $this->retrieve([], [12, 13], [], $knowledgeBases);
+
+		$this->assertSame([20, 13], array_slice(array_column($context['sources'], 'id'), 0, 2));
+	}
+
 }//end class
