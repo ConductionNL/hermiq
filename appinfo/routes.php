@@ -183,6 +183,9 @@ $routes = [
         // Advisory AI-oversight records about one subject, for whoever may open that subject.
         ['name' => 'aiOversight#subject', 'url' => '/api/ai-oversight/subject', 'verb' => 'GET'],
         ['name' => 'aiOversight#subjectExport', 'url' => '/api/ai-oversight/subject/export', 'verb' => 'GET'],
+        // agent-authored-marking: mark an agent-authored file as reviewed, and the label counts.
+        ['name' => 'aiLabel#markReviewed', 'url' => '/api/ai-label/files/{fileId}/reviewed', 'verb' => 'POST', 'requirements' => ['fileId' => '\\d+']],
+        ['name' => 'aiLabel#stats', 'url' => '/api/ai-label/stats', 'verb' => 'GET'],
 
         // Human-approval gate (human-approval-gate-enforcement): reviewer inbox + decisions.
         // Approval verification contract (hermiq#1045): another app asks for a signed verdict.
@@ -263,6 +266,13 @@ $routes = [
             'url'          => '/api/agents/{agentId}/tool-invocations',
             'verb'         => 'GET',
             'requirements' => ['agentId' => '[^/]+'],
+        ],
+        // verify-row-scenarios (row ov-tool-oversight): mark one tool call as misuse, with a reason.
+        [
+            'name'         => 'toolOversight#markToolInvocation',
+            'url'          => '/api/agents/{agentId}/tool-invocations/{callId}/mark',
+            'verb'         => 'POST',
+            'requirements' => ['agentId' => '[^/]+', 'callId' => '[^/]+'],
         ],
 
         // Tenant ops (multi-tenant-ops): per-org quota status + EU AI Act audit export (tenant-scoped).
@@ -613,6 +623,10 @@ $routes = [
         // see design.md for why it is a sibling of assistant#converse, not a
         // reuse of it as-is.
         ['name' => 'assistant#detectPii', 'url' => '/api/assistant/detect-pii', 'verb' => 'POST'],
+        // Paste to fill (forms-smart-paste-fill): proposals from pasted text, and
+        // whether the form may offer it. Gated by the `form-fill` AiFeature.
+        ['name' => 'formFill#fill', 'url' => '/api/assistant/form-fill', 'verb' => 'POST'],
+        ['name' => 'formFill#available', 'url' => '/api/assistant/form-fill/available', 'verb' => 'GET'],
 
         // Sessions: CRUD + turns + archive lifecycle (restore/permanent).
         //
@@ -803,6 +817,9 @@ $routes = [
         // authorization (ADR-005 semantic-auth — see each controller's docblock).
         // Endpoint 1 — the governed MCP server (initialize/tools/list/tools/call).
         ['name' => 'mcpRun#handle', 'url' => '/api/mcp/run', 'verb' => 'POST'],
+        // The MCP client's GET for a server-to-client stream: none is offered, so 405
+        // (persistent-llm-process task 4). Without it the GET reached the SPA catch-all.
+        ['name' => 'mcpRunStream#refuse', 'url' => '/api/mcp/run', 'verb' => 'GET'],
         // Endpoint 2 — the governed egress Policy Decision Point (per-CONNECT allow/deny).
         ['name' => 'egressAuthorize#authorize', 'url' => '/api/egress/authorize', 'verb' => 'POST'],
 

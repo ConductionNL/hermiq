@@ -37,6 +37,18 @@
         ],
         [
             "registerEventListener",
+            "OCA\\OpenRegister\\Event\\ObjectCreatingEvent",
+            "OCA\\Hermiq\\Listener\\AgentActingUserGuardListener",
+            0
+        ],
+        [
+            "registerEventListener",
+            "OCA\\OpenRegister\\Event\\ObjectUpdatingEvent",
+            "OCA\\Hermiq\\Listener\\AgentActingUserGuardListener",
+            0
+        ],
+        [
+            "registerEventListener",
             "OCA\\OpenRegister\\Service\\Flow\\RegisterFlowNodesEvent",
             "OCA\\Hermiq\\Flow\\HermiqFlowNodeListener",
             0
@@ -373,6 +385,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\FormFillEngineInterface",
+            "OCA\\Hermiq\\Service\\FormFillEngine"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\LessonAuthoringEngineInterface",
             "OCA\\Hermiq\\Service\\LessonAuthoringEngine"
         ],
@@ -588,6 +605,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\SkillMergeServiceInterface",
+            "OCA\\Hermiq\\Service\\SkillMergeService"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\SkillMaturityServiceInterface",
             "OCA\\Hermiq\\Service\\SkillMaturityService"
         ],
@@ -755,6 +777,14 @@
         [
             "registerTaskProcessingProvider",
             "OCA\\Hermiq\\TaskProcessing\\Text2TextHeadlineProvider"
+        ],
+        [
+            "registerTaskProcessingProvider",
+            "OCA\\Hermiq\\TaskProcessing\\Text2TextReformulationProvider"
+        ],
+        [
+            "registerTaskProcessingProvider",
+            "OCA\\Hermiq\\TaskProcessing\\Text2TextTranslateProvider"
         ],
         [
             "registerTaskProcessingProvider",

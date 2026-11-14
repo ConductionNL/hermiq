@@ -67,6 +67,7 @@ class ToolInvocationRowsTest extends TestCase {
 
 		$this->assertSame(
 			[
+				'callId' => '',
 				'at' => '2026-11-01T10:00:00+00:00',
 				'toolId' => 'openregister.objects.save',
 				'actingUser' => 'alice',
