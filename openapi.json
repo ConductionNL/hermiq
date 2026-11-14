@@ -301,6 +301,107 @@
         }
     ],
     "paths": {
+        "/actions": {
+            "get": {
+                "operationId": "action-matrix-index",
+                "summary": "List the action matrix",
+                "description": "Every governance action with its label, description, the groups allowed to run it and whether it differs from the default, and the groups that exist. Nextcloud administrators only.",
+                "tags": [
+                    "action-matrix"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    }
+                }
+            }
+        },
+        "/actions/{action}": {
+            "put": {
+                "operationId": "action-matrix-update",
+                "summary": "Change the groups of one action",
+                "description": "Replaces the groups allowed to run one action; admin is always kept, and saving the default groups is the reset. Nextcloud administrators only.",
+                "tags": [
+                    "action-matrix"
+                ],
+                "parameters": [
+                    {
+                        "name": "action",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "The action, for example aifeature.acknowledge."
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "groups"
+                                ],
+                                "properties": {
+                                    "groups": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "description": "The group ids allowed to run the action."
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    }
+                }
+            }
+        },
         "/agent-templates": {
             "get": {
                 "operationId": "agent-template-index",

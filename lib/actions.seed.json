@@ -1,29 +1,175 @@
 {
-  "$comment": "ADR-023 action-authorization matrix seed. Each entry maps a dot-separated action name to an array of group IDs allowed to invoke it. The special 'admin' group means Nextcloud admins; admins always pass regardless. Empty array or ['admin'] means admin-only. Admins customize via Admin Settings > App Template > Actions. Add entries below as the app grows — one per ActionAuthService::requireAction() call site. Template ships with an example commented pattern; remove the $comment field and add real actions when implementing your app.",
+  "$comment": "ADR-023 action-authorization matrix seed. Each entry maps a dot-separated action name to an array of group IDs allowed to invoke it. The special 'admin' group means Nextcloud admins; admins always pass regardless. Empty array or ['admin'] means admin-only. Administrators change the stored matrix in the section 'Rechten per actie' on the tenant management page; these values are the defaults it resets to. Add an entry to 'actions' and a label and description to 'labels' for every ActionAuthService::requireAction() call site.",
   "actions": {
-    "aifeature.acknowledge": ["admin"],
-    "aifeature.enable": ["admin"],
-    "aifeature.disable": ["admin"],
-    "aifeature.bind": ["admin"],
-    "assistantprompt.administer": ["admin"],
-    "assistantprompt.disable-all": ["admin"],
-    "reportgroup.ungroup": ["admin"],
-    "aifeature.publish-to-algoritmeregister": ["admin"],
-    "aifeature.withdraw-from-algoritmeregister": ["admin"],
-    "skill.approve-quarantined": ["admin"],
-    "skill.override-scan-verdict": ["admin"],
-    "skill.publish-hub": ["admin"],
-    "skill.attest-maturity": ["admin"],
-    "skill.review-draft": ["admin"],
-    "agenttemplate.approve-quarantined": ["admin"],
-    "agent.set-acting-user": ["admin"],
-    "agenttemplate.override-scan-verdict": ["admin"],
-    "tenantops.attest-review": ["admin"],
-    "tenantops.reassign-agent": ["admin"],
-    "tenantops.create-incident": ["admin"],
-    "tenantops.update-retention": ["admin"],
-    "compliance.view-dashboard": ["admin"],
-    "compliance.export-pack": ["admin"],
-    "compliance.view-factsheet": ["admin"]
+    "aifeature.acknowledge": [
+      "admin"
+    ],
+    "aifeature.enable": [
+      "admin"
+    ],
+    "aifeature.disable": [
+      "admin"
+    ],
+    "aifeature.bind": [
+      "admin"
+    ],
+    "assistantprompt.administer": [
+      "admin"
+    ],
+    "assistantprompt.disable-all": [
+      "admin"
+    ],
+    "reportgroup.ungroup": [
+      "admin"
+    ],
+    "aifeature.publish-to-algoritmeregister": [
+      "admin"
+    ],
+    "aifeature.withdraw-from-algoritmeregister": [
+      "admin"
+    ],
+    "skill.approve-quarantined": [
+      "admin"
+    ],
+    "skill.override-scan-verdict": [
+      "admin"
+    ],
+    "skill.publish-hub": [
+      "admin"
+    ],
+    "skill.attest-maturity": [
+      "admin"
+    ],
+    "skill.review-draft": [
+      "admin"
+    ],
+    "agenttemplate.approve-quarantined": [
+      "admin"
+    ],
+    "agent.set-acting-user": [
+      "admin"
+    ],
+    "agenttemplate.override-scan-verdict": [
+      "admin"
+    ],
+    "tenantops.attest-review": [
+      "admin"
+    ],
+    "tenantops.reassign-agent": [
+      "admin"
+    ],
+    "tenantops.create-incident": [
+      "admin"
+    ],
+    "tenantops.update-retention": [
+      "admin"
+    ],
+    "compliance.view-dashboard": [
+      "admin"
+    ],
+    "compliance.export-pack": [
+      "admin"
+    ],
+    "compliance.view-factsheet": [
+      "admin"
+    ]
+  },
+  "labels": {
+    "aifeature.acknowledge": {
+      "label": "Acknowledge an AI feature",
+      "description": "Confirm that an AI feature has been reviewed before people may use it."
+    },
+    "aifeature.enable": {
+      "label": "Switch on an AI feature",
+      "description": "Make a registered AI feature available to its users."
+    },
+    "aifeature.disable": {
+      "label": "Switch off an AI feature",
+      "description": "Stop an AI feature from being used."
+    },
+    "aifeature.bind": {
+      "label": "Link an AI feature to an agent",
+      "description": "Connect a registered AI feature to the agent that runs it."
+    },
+    "assistantprompt.administer": {
+      "label": "Manage assistant prompts",
+      "description": "Create, change and remove the prompts the assistant offers."
+    },
+    "assistantprompt.disable-all": {
+      "label": "Switch off all assistant prompts",
+      "description": "Turn every assistant prompt off at once."
+    },
+    "reportgroup.ungroup": {
+      "label": "Split a report group",
+      "description": "Undo the grouping of related reports."
+    },
+    "aifeature.publish-to-algoritmeregister": {
+      "label": "Publish an AI feature to the algorithm register",
+      "description": "Send an AI feature's description to the public algorithm register."
+    },
+    "aifeature.withdraw-from-algoritmeregister": {
+      "label": "Withdraw an AI feature from the algorithm register",
+      "description": "Remove an AI feature's entry from the public algorithm register."
+    },
+    "skill.approve-quarantined": {
+      "label": "Approve a quarantined skill",
+      "description": "Release a skill that was held back after a scan."
+    },
+    "skill.override-scan-verdict": {
+      "label": "Override a skill's scan result",
+      "description": "Accept a skill despite the outcome of its security scan."
+    },
+    "skill.publish-hub": {
+      "label": "Publish a skill to the hub",
+      "description": "Share a skill through the skill hub."
+    },
+    "skill.attest-maturity": {
+      "label": "Confirm a skill's maturity",
+      "description": "Record that a skill meets its stated maturity level."
+    },
+    "skill.review-draft": {
+      "label": "Review a draft skill",
+      "description": "Accept or reject a skill that is still a draft."
+    },
+    "agenttemplate.approve-quarantined": {
+      "label": "Approve a quarantined agent template",
+      "description": "Release an agent template that was held back after a scan."
+    },
+    "agent.set-acting-user": {
+      "label": "Set the account an agent works as",
+      "description": "Name the user account whose rights an agent runs with."
+    },
+    "agenttemplate.override-scan-verdict": {
+      "label": "Override an agent template's scan result",
+      "description": "Accept an agent template despite the outcome of its security scan."
+    },
+    "tenantops.attest-review": {
+      "label": "Confirm an access review",
+      "description": "Record that an agent's access was reviewed."
+    },
+    "tenantops.reassign-agent": {
+      "label": "Reassign an agent",
+      "description": "Give an agent a new user to act as."
+    },
+    "tenantops.create-incident": {
+      "label": "Record an incident",
+      "description": "Create an incident record for an organisation."
+    },
+    "tenantops.update-retention": {
+      "label": "Change the retention period",
+      "description": "Set how long run records are kept."
+    },
+    "compliance.view-dashboard": {
+      "label": "View the compliance dashboard",
+      "description": "Open the overview of compliance status."
+    },
+    "compliance.export-pack": {
+      "label": "Export the compliance pack",
+      "description": "Download the bundle of compliance evidence."
+    },
+    "compliance.view-factsheet": {
+      "label": "View an AI factsheet",
+      "description": "Open the factsheet that describes an AI feature."
+    }
   }
 }
