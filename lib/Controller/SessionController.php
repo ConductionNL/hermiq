@@ -282,16 +282,9 @@ class SessionController extends Controller {
 	public function show(string $uuid): JSONResponse {
 		try {
 			$userId = $this->requireUserId();
-			[$readAs, $shared] = $this->readThroughShare(uuid: $uuid, userId: $userId);
-			if ($readAs === 'refused') {
-				return $this->notFoundResponse();
-			}
-
-			if ($readAs === 'recipient' && $shared !== null) {
-				$response = $this->serializeSharedConversation(conversation: $shared, userId: $userId);
-				$response['messageCount'] = $this->countMessages(conversationId: $uuid);
-
-				return new JSONResponse(data: $response, statusCode: 200);
+			$sharedResponse = $this->sharedShow(uuid: $uuid, userId: $userId);
+			if ($sharedResponse !== null) {
+				return $sharedResponse;
 			}
 
 			$conversation = $this->objectService->find(
@@ -352,14 +345,9 @@ class SessionController extends Controller {
 	public function messages(string $uuid): JSONResponse {
 		try {
 			$userId = $this->requireUserId();
-			[$readAs] = $this->readThroughShare(uuid: $uuid, userId: $userId);
-			if ($readAs === 'refused') {
-				return $this->notFoundResponse();
-			}
-
-			if ($readAs === 'recipient') {
-				// A recipient reads the turns and acts on nothing: no pending approvals.
-				return $this->messagePage(uuid: $uuid, pendingApprovals: []);
+			$sharedResponse = $this->sharedMessages(uuid: $uuid, userId: $userId);
+			if ($sharedResponse !== null) {
+				return $sharedResponse;
 			}
 
 			$conversation = $this->objectService->find(
@@ -1259,17 +1247,8 @@ class SessionController extends Controller {
 			return ['owner', null];
 		}
 
-		try {
-			$session = $this->objectService->find(
-				id: $uuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
-				_rbac: false
-			);
-		} catch (Exception) {
-			return ['owner', null];
-		}
-
+		// An unreadable session is left to the owner path, which answers it as before.
+		$session = $this->findUnchecked(uuid: $uuid);
 		if ($session === null || $this->participation->mayTakeTurn(conversationData: $session->getObject(), userId: $userId) === true) {
 			return ['owner', null];
 		}
@@ -1280,6 +1259,76 @@ class SessionController extends Controller {
 
 		return ['refused', null];
 	}//end readThroughShare()
+
+	/**
+	 * The session read past the caller's rights; null when absent or the read fails.
+	 *
+	 * @param string $uuid The session uuid.
+	 *
+	 * @return ObjectEntity|null
+	 */
+	private function findUnchecked(string $uuid): ?ObjectEntity {
+		try {
+			return $this->objectService->find(
+				id: $uuid,
+				register: self::REGISTER_SLUG,
+				schema: self::CONVERSATION_SCHEMA,
+				_rbac: false
+			);
+		} catch (Exception) {
+			return null;
+		}
+	}//end findUnchecked()
+
+	/**
+	 * The answer of `show` for a caller who is not the owner: not found when
+	 * refused, the shared read-only view for a share recipient, else null so
+	 * the owner path runs.
+	 *
+	 * @param string $uuid   The session uuid.
+	 * @param string $userId The caller.
+	 *
+	 * @return JSONResponse|null
+	 */
+	private function sharedShow(string $uuid, string $userId): ?JSONResponse {
+		[$readAs, $shared] = $this->readThroughShare(uuid: $uuid, userId: $userId);
+		if ($readAs === 'refused') {
+			return $this->notFoundResponse();
+		}
+
+		if ($readAs !== 'recipient' || $shared === null) {
+			return null;
+		}
+
+		$response = $this->serializeSharedConversation(conversation: $shared, userId: $userId);
+		$response['messageCount'] = $this->countMessages(conversationId: $uuid);
+
+		return new JSONResponse(data: $response, statusCode: 200);
+	}//end sharedShow()
+
+	/**
+	 * The answer of `messages` for a caller who is not the owner: not found
+	 * when refused, the turns without pending approvals for a share
+	 * recipient, else null so the owner path runs.
+	 *
+	 * @param string $uuid   The session uuid.
+	 * @param string $userId The caller.
+	 *
+	 * @return JSONResponse|null
+	 */
+	private function sharedMessages(string $uuid, string $userId): ?JSONResponse {
+		[$readAs] = $this->readThroughShare(uuid: $uuid, userId: $userId);
+		if ($readAs === 'refused') {
+			return $this->notFoundResponse();
+		}
+
+		if ($readAs === 'recipient') {
+			// A recipient reads the turns and acts on nothing: no pending approvals.
+			return $this->messagePage(uuid: $uuid, pendingApprovals: []);
+		}
+
+		return null;
+	}//end sharedMessages()
 
 	/**
 	 * The sessions shared with the caller, for the "Shared with you" group on /chat.

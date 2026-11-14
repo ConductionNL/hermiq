@@ -206,15 +206,31 @@ class SessionShareService implements SessionShareServiceInterface {
 			return $this->withSharer(share: $shares[$direct]);
 		}
 
-		$groups = $this->groupsOf(uid: $uid);
+		$share = self::groupShare(shares: $shares, groups: $this->groupsOf(uid: $uid));
+		if ($share === null) {
+			return null;
+		}
+
+		return $this->withSharer(share: $share);
+	}//end shareFor()
+
+	/**
+	 * The first share with one of these groups.
+	 *
+	 * @param list<array{type: string, id: string, sharedBy: string, sharedAt: string}> $shares The session's shares.
+	 * @param array<int, string>                                                         $groups The user's group ids.
+	 *
+	 * @return array{type: string, id: string, sharedBy: string, sharedAt: string}|null
+	 */
+	private static function groupShare(array $shares, array $groups): ?array {
 		foreach ($shares as $share) {
 			if ($share['type'] === 'group' && in_array($share['id'], $groups, true) === true) {
-				return $this->withSharer(share: $share);
+				return $share;
 			}
 		}
 
 		return null;
-	}//end shareFor()
+	}//end groupShare()
 
 	/**
 	 * The share with the display name of the owner who made it, for "Shared by".
@@ -246,18 +262,28 @@ class SessionShareService implements SessionShareServiceInterface {
 			return null;
 		}
 
-		try {
-			$session = $this->objectService->find(id: $uuid, register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA, _rbac: false);
-		} catch (Throwable) {
-			return null;
-		}
-
+		$session = $this->findSession(uuid: $uuid);
 		if ($session === null || $this->shareFor(sessionData: $session->getObject(), uid: $uid) === null) {
 			return null;
 		}
 
 		return $session;
 	}//end sharedSession()
+
+	/**
+	 * The stored session, read past the caller's rights; null when absent or unreadable.
+	 *
+	 * @param string $uuid The session uuid.
+	 *
+	 * @return ObjectEntity|null
+	 */
+	private function findSession(string $uuid): ?ObjectEntity {
+		try {
+			return $this->objectService->find(id: $uuid, register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA, _rbac: false);
+		} catch (Throwable) {
+			return null;
+		}
+	}//end findSession()
 
 	/**
 	 * The sessions shared with the user, directly or through a group, newest first.
@@ -280,23 +306,7 @@ class SessionShareService implements SessionShareServiceInterface {
 
 		$sessions = [];
 		foreach ($keys as $key) {
-			$found = $this->objectService
-				->setRegister(self::REGISTER_SLUG)
-				->setSchema(self::SESSION_SCHEMA)
-				->findAll(
-				config: [
-					'filters' => ['shareKeys' => $key],
-					'sort' => ['updated' => 'DESC'],
-					'limit' => self::MAX_SHARED_SCAN,
-				],
-				_rbac: false
-				);
-			foreach ($found as $session) {
-				// The filter narrows; the share entry decides.
-				if ($session instanceof ObjectEntity && $this->shareFor(sessionData: $session->getObject(), uid: $uid) !== null) {
-					$sessions[(string)$session->getUuid()] = $session;
-				}
-			}
+			$sessions = array_merge($sessions, $this->sharedUnder(key: $key, uid: $uid));
 		}
 
 		$sessions = array_values($sessions);
@@ -307,6 +317,37 @@ class SessionShareService implements SessionShareServiceInterface {
 
 		return $sessions;
 	}//end sharedWith()
+
+	/**
+	 * The sessions stored under one share key that the user really has a share of, by uuid.
+	 *
+	 * @param string $key The share key, `user:<uid>` or `group:<gid>`.
+	 * @param string $uid The user.
+	 *
+	 * @return array<string, ObjectEntity>
+	 */
+	private function sharedUnder(string $key, string $uid): array {
+		$sessions = [];
+		$found = $this->objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::SESSION_SCHEMA)
+			->findAll(
+				config: [
+					'filters' => ['shareKeys' => $key],
+					'sort' => ['updated' => 'DESC'],
+					'limit' => self::MAX_SHARED_SCAN,
+				],
+				_rbac: false
+			);
+		foreach ($found as $session) {
+			// The filter narrows; the share entry decides.
+			if ($session instanceof ObjectEntity && $this->shareFor(sessionData: $session->getObject(), uid: $uid) !== null) {
+				$sessions[(string)$session->getUuid()] = $session;
+			}
+		}
+
+		return $sessions;
+	}//end sharedUnder()
 
 	/**
 	 * The shares stored on a session, each with a known type and an id.
@@ -325,11 +366,7 @@ class SessionShareService implements SessionShareServiceInterface {
 
 		$shares = [];
 		foreach ($stored as $share) {
-			if (is_array($share) === false
-				|| in_array(($share['type'] ?? null), self::TYPES, true) === false
-				|| is_string($share['id'] ?? null) === false
-				|| $share['id'] === ''
-			) {
+			if (self::isShare(share: $share) === false) {
 				continue;
 			}
 
@@ -343,6 +380,20 @@ class SessionShareService implements SessionShareServiceInterface {
 
 		return $shares;
 	}//end shares()
+
+	/**
+	 * Whether a stored entry is a share: a known type and a non-empty id.
+	 *
+	 * @param mixed $share The stored entry.
+	 *
+	 * @return bool
+	 */
+	private static function isShare(mixed $share): bool {
+		return is_array($share) === true
+			&& in_array(($share['type'] ?? null), self::TYPES, true) === true
+			&& is_string($share['id'] ?? null) === true
+			&& $share['id'] !== '';
+	}//end isShare()
 
 	/**
 	 * The session, when the caller owns it.
