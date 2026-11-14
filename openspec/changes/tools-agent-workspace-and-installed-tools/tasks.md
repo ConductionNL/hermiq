@@ -22,6 +22,7 @@ Kind: code. Size L. Rows `hermiq:dm-agent-workspace`, `hermiq:dm-install-cli-too
   - GIVEN a workspace over the input cap WHEN a run is asked THEN it is refused with the limit named
 - [ ] Implement
 - [ ] Test (PHPUnit with a stubbed sandbox, including a returned path that tries to leave the workspace)
+  > 2026-11-14, partly built: `WorkspaceTransfer` packs the workspace (or the named `paths`) into run files within the 10 MB input cap, refusing over it with the message from design D2, and writes back only the files a run created or changed, through `WorkspacePathGuard::forWrite()` and inside the workspace budget (a run over budget writes nothing); a returned path outside the workspace or into `.git` is refused and reported while the rest lands. Text travels as UTF-8, anything else as base64. PHPUnit `WorkspaceTransferTest` with the test playing the sandbox. Still open: `useWorkspace` on `hermiq.runCode` in `RunCodeTool`, which is not on development yet (tools-code-sandbox is in its own open build); both boxes stay unticked until that call site exists.
 
 ### Task 3: The Files panel and saving to Files
 - **spec_ref**: `openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-the-user-sees-the-workspace-and-can-keep-a-file-req-wksp-003`
