@@ -167,6 +167,13 @@ $routes = [
             'requirements' => ['id' => '[^/]+'],
         ],
 
+        // Public web chat (delivery-public-web-chat): a visitor who has not signed in
+        // asks a website channel, named by its token. PublicChatController carries
+        // #[PublicPage]; the channel's tool-free agent reads only anonymous content.
+        ['name' => 'publicChat#message',   'url' => '/api/public/{channelToken}/messages', 'verb' => 'POST',    'requirements' => ['channelToken' => '[A-Za-z0-9]{16,64}']],
+        ['name' => 'publicChat#preflight', 'url' => '/api/public/{channelToken}/messages', 'verb' => 'OPTIONS', 'requirements' => ['channelToken' => '[A-Za-z0-9]{16,64}']],
+        ['name' => 'publicChatPage#page',  'url' => '/public/{channelToken}',              'verb' => 'GET',     'requirements' => ['channelToken' => '[A-Za-z0-9]{16,64}']],
+
         // Agent version history (agent-versioning): owner/invited-scoped read of the
         // Agent's OpenRegister AuditTrail as a version timeline + diff, and owner-only
         // rollback. No new storage — reads/replays the SAME AuditTrail SaveObject

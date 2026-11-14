@@ -1,0 +1,99 @@
+/* SPDX-License-Identifier: EUPL-1.2 */
+/* The public chat window: Nextcloud's CSS variables only, so the instance's theme and contrast apply. */
+.hermiq-public-chat {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-height: 100vh;
+	padding: 12px;
+	background: var(--color-main-background);
+	color: var(--color-main-text);
+	font-family: var(--font-face);
+}
+
+.hermiq-public-chat__title {
+	margin: 0;
+	font-size: 1.25em;
+}
+
+.hermiq-public-chat__disclosure {
+	margin: 0;
+	padding: 8px;
+	border-radius: var(--border-radius);
+	background: var(--color-background-dark);
+	color: var(--color-main-text);
+}
+
+.hermiq-public-chat__log {
+	flex: 1;
+	margin: 0;
+	padding: 0;
+	overflow-y: auto;
+	list-style: none;
+}
+
+.hermiq-public-chat__message {
+	margin: 8px 0;
+	padding: 8px;
+	border-radius: var(--border-radius);
+}
+
+.hermiq-public-chat__message p {
+	margin: 0;
+	white-space: pre-wrap;
+}
+
+.hermiq-public-chat__message--visitor {
+	background: var(--color-primary-element-light);
+	color: var(--color-primary-element-light-text);
+}
+
+.hermiq-public-chat__message--assistant {
+	background: var(--color-background-hover);
+}
+
+.hermiq-public-chat__sources-label {
+	margin-top: 4px;
+	font-weight: bold;
+}
+
+.hermiq-public-chat__sources a {
+	color: var(--color-primary-element);
+	text-decoration: underline;
+}
+
+.hermiq-public-chat__form {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.hermiq-public-chat__form textarea {
+	width: 100%;
+	color: var(--color-main-text);
+	background: var(--color-main-background);
+	border: 2px solid var(--color-border-maxcontrast);
+	border-radius: var(--border-radius);
+}
+
+.hermiq-public-chat__form textarea:focus-visible,
+.hermiq-public-chat__form button:focus-visible {
+	outline: 2px solid var(--color-primary-element);
+	outline-offset: 2px;
+}
+
+.hermiq-public-chat__form button {
+	align-self: flex-end;
+	padding: 8px 16px;
+	border: 0;
+	border-radius: var(--border-radius-element, var(--border-radius));
+	background: var(--color-primary-element);
+	color: var(--color-primary-element-text);
+	cursor: pointer;
+}
+
+.hermiq-public-chat__form button:disabled {
+	opacity: .7;
+	cursor: default;
+}

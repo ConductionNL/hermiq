@@ -206,6 +206,17 @@ class SeedAiFeatures implements IRepairStep {
 				'lifecycle' => 'disabled',
 				'tenantId' => '',
 			],
+			[
+				// delivery-public-web-chat D5: an organisation decides to go public,
+				// so the public chat channel stays off until the DPO acknowledges it.
+				'slug' => 'public-chat',
+				'name' => 'Public web chat',
+				'description' => 'An agent answers visitors of a public website or portal who have not signed in, '
+					. 'only from content the organisation declared public, without tools.',
+				'riskCategory' => 'limited',
+				'lifecycle' => 'disabled',
+				'tenantId' => '',
+			],
 		];
 
 	}//end seedFeatures()

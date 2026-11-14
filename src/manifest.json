@@ -94,6 +94,15 @@
 			"order": 40
 		},
 		{
+			"id": "PublicChatMenu",
+			"label": "Public chat",
+			"icon": "ChatOutline",
+			"route": "PublicChat",
+			"section": "settings",
+			"order": 45,
+			"permission": "admin"
+		},
+		{
 			"id": "EvalDatasets",
 			"label": "Evaluations",
 			"icon": "ChartLine",
@@ -1350,6 +1359,43 @@
 			"component": "GuardrailPolicySettings",
 			"_note": "Settings-section page: a per-organisation policy FORM (GuardrailPolicy has no name/title property — inputFilters/outputFilters/toolPolicy/enabled only), so the built-in index page type has no meaningful columns to list. Reached from the nav settings foldout (section:settings).",
 			"title": "Guardrail policy"
+		},
+		{
+			"id": "PublicChat",
+			"route": "/settings/public-chat",
+			"type": "index",
+			"title": "Public chat",
+			"permission": "admin",
+			"_note": "delivery-public-web-chat task 6 (REQ-PUBCHAT-001): the public chat channels, rows of hermiq's agentpublicchannel objects. The form-dialog slot mounts PublicChannelFormModal: an agent picker that offers only agents without tools (PublicChannelGuardListener refuses one with tools on save and gives a new channel its token), the allowed origins, the public sources, the visitor notice and the questions per day; a saved website channel shows its script and iframe snippets. Channels only answer while the public-chat AI feature is enabled.",
+			"config": {
+				"register": "hermiq",
+				"schema": "agentpublicchannel",
+				"defaultSort": {
+					"field": "name",
+					"direction": "asc"
+				},
+				"columns": [
+					{
+						"key": "name",
+						"label": "Channel"
+					},
+					{
+						"key": "kind",
+						"label": "Kind"
+					},
+					{
+						"key": "enabled",
+						"label": "Answers visitors"
+					},
+					{
+						"key": "dailyQuestionLimit",
+						"label": "Questions per day"
+					}
+				]
+			},
+			"slots": {
+				"form-dialog": "PublicChannelFormModal"
+			}
 		},
 		{
 			"id": "AlgorithmRegister",

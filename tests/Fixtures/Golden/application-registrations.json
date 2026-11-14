@@ -49,6 +49,18 @@
         ],
         [
             "registerEventListener",
+            "OCA\\OpenRegister\\Event\\ObjectCreatingEvent",
+            "OCA\\Hermiq\\Listener\\PublicChannelGuardListener",
+            0
+        ],
+        [
+            "registerEventListener",
+            "OCA\\OpenRegister\\Event\\ObjectUpdatingEvent",
+            "OCA\\Hermiq\\Listener\\PublicChannelGuardListener",
+            0
+        ],
+        [
+            "registerEventListener",
             "OCA\\OpenRegister\\Service\\Flow\\RegisterFlowNodesEvent",
             "OCA\\Hermiq\\Flow\\HermiqFlowNodeListener",
             0

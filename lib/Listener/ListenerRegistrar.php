@@ -138,6 +138,10 @@ final class ListenerRegistrar {
 		// on every write path (agent-acting-identity-picker, REQ-AGID-002).
 		$context->registerEventListener(event: ObjectCreatingEvent::class, listener: AgentActingUserGuardListener::class);
 		$context->registerEventListener(event: ObjectUpdatingEvent::class, listener: AgentActingUserGuardListener::class);
+		// Public web chat (delivery-public-web-chat): a channel's agent holds no tools,
+		// its origins are origins, and a new channel gets its random token.
+		$context->registerEventListener(event: ObjectCreatingEvent::class, listener: PublicChannelGuardListener::class);
+		$context->registerEventListener(event: ObjectUpdatingEvent::class, listener: PublicChannelGuardListener::class);
 	}//end registerAgentObjectListeners()
 
 	/**

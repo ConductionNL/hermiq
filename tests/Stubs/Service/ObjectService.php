@@ -58,6 +58,36 @@ class ObjectService {
 	}//end runAsSystem()
 
 	/**
+	 * Run a callable as an anonymous caller.
+	 *
+	 * Mirrors the real `runAsAnonymous()`: the callable runs and its value is
+	 * returned. The real method clears the session user and any token grant
+	 * for the duration, so only `public` read rules decide.
+	 *
+	 * @param callable $operation The operation to run as anonymous.
+	 *
+	 * @return mixed Whatever $operation returns.
+	 */
+	public function runAsAnonymous(callable $operation) {
+		return $operation();
+	}//end runAsAnonymous()
+
+	/**
+	 * Run a callable acting for one organisation, as a caller who is not a Nextcloud user.
+	 *
+	 * Mirrors the real `runForOrganisation()`, which runs the callable inside
+	 * `runAsAnonymous()` with the organisation fixed for tenancy decisions.
+	 *
+	 * @param string   $organisationUuid The organisation to act for.
+	 * @param callable $operation        The operation to run.
+	 *
+	 * @return mixed Whatever $operation returns.
+	 */
+	public function runForOrganisation(string $organisationUuid, callable $operation) {
+		return $operation();
+	}//end runForOrganisation()
+
+	/**
 	 * Set the active register context.
 	 *
 	 * @param mixed $register Register slug/id/entity.
