@@ -175,4 +175,19 @@ final class DelegatedRunStoreTest extends TestCase {
 		self::assertFalse($store->timeOut(id: $id));
 		self::assertSame('done', $this->runs->records[$id]['state']);
 	}//end testADonePartDoesNotTimeOut()
+
+	/**
+	 * A part is run by a job as its stored owner, so no person may write one through the object API.
+	 *
+	 * @return void
+	 */
+	public function testTheSchemaKeepsPartsOutOfTheObjectApi(): void {
+		$register = json_decode((string)file_get_contents(__DIR__ . '/../../../../lib/Settings/hermiq_register.json'), true);
+		$schema   = $register['components']['schemas']['DelegatedRun'];
+
+		self::assertSame('delegatedrun', $schema['slug']);
+		foreach (['read', 'create', 'update', 'delete'] as $action) {
+			self::assertSame(['admin'], $schema['authorization'][$action], $action . ' must be admin-only');
+		}
+	}//end testTheSchemaKeepsPartsOutOfTheObjectApi()
 }//end class
