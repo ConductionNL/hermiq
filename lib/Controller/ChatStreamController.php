@@ -232,6 +232,8 @@ class ChatStreamController extends Controller {
 			// Compliance-ai-literacy: an organisation may require the course first.
 			$this->literacy?->assertMayUseAgents(uid: $turn['userId']);
 
+			// The trace carries a question the agent asks the person (oversight-ask-and-hold).
+			$trace = new RunTraceCollector();
 			$result = $this->engine->processMessage(
 				conversationId: $turn['conversationId'],
 				userId: $turn['userId'],
@@ -243,9 +245,10 @@ class ChatStreamController extends Controller {
 				channel: $channel,
 				// Chat-how-an-answer-came-about D1: a trace on this path too, so a
 				// streamed answer gets the same provenance record as a sent one.
-				trace: new RunTraceCollector(),
+				trace: $trace,
 				attachments: $turn['attachments']
 			);
+			$result['question'] = $trace->question();
 
 			$this->replayRunSteps(conversationId: $turn['conversationId']);
 			$this->emitAndExit(eventType: 'final', payload: $this->finalPayload(result: $result, turn: $turn));
@@ -521,6 +524,9 @@ class ChatStreamController extends Controller {
 			'sources' => array_values((array)($result['sources'] ?? [])),
 			// Chat-how-an-answer-came-about: how the answer came about, as stored on it.
 			'provenance' => ($result['provenance'] ?? null),
+			// Oversight-ask-and-hold: the question the agent asked, with its suggested
+			// answers, or null. On `final`, so the six-event envelope is unchanged.
+			'question' => ($result['question'] ?? null),
 		];
 	}//end finalPayload()
 

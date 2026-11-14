@@ -88,9 +88,13 @@ use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
+use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Service\Approval\ApprovalDecision;
 use OCA\Hermiq\Service\Approval\ApprovalTarget;
 use OCA\Hermiq\Service\Approval\ApprovalTaskBridge;
+use OCA\Hermiq\Service\Approval\DraftEditRefused;
+use OCA\Hermiq\Service\Approval\DraftRelease;
+use OCA\Hermiq\Service\Approval\QuestionAnswer;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -1392,6 +1396,16 @@ class ApprovalService implements ApprovalServiceInterface {
 			}
 		}
 
+		// Oversight-ask-and-hold: a question is answered, never just approved
+		// (answerQuestion()), and approving a draft releases it as written.
+		if ((string)($data['sourceType'] ?? '') === 'question') {
+			return ['status' => 'pending', 'ran' => false];
+		}
+
+		if ((string)($data['sourceType'] ?? '') === 'draft') {
+			return $this->releaseDraft(approval: $approval, deciderUid: $deciderUid, edits: []);
+		}
+
 		$data['status'] = 'approved';
 		$data['decidedBy'] = $deciderUid;
 		$data['decidedAt'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
@@ -1538,6 +1552,492 @@ class ApprovalService implements ApprovalServiceInterface {
 	}//end deny()
 
 	/**
+	 * Idempotently ensure one pending question Approval for a scheduled run
+	 * that asked a person a question (hermiq.askPerson in an unattended run).
+	 *
+	 * Routed like the schedule's own gate: to its reviewer, or else its owner.
+	 * One open question per schedule: a second ask while one waits returns it.
+	 *
+	 * @param ObjectEntity $schedule The schedule whose run asked.
+	 * @param array<string, mixed> $question The question: `{text, options, allowOther}`.
+	 * @param string $runId The run that asked, so its history links the question.
+	 *
+	 * @return ObjectEntity The pending question Approval.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 */
+	public function ensurePendingQuestion(ObjectEntity $schedule, array $question, string $runId = ''): ObjectEntity {
+		$scheduleId = (string)$schedule->getUuid();
+		$open = $this->findPendingOfSourceType(scheduleId: $scheduleId, sourceType: 'question');
+		if ($open !== null) {
+			return $open;
+		}
+
+		$data = $schedule->getObject();
+		$payload = $this->heldPayload(
+			schedule: $schedule,
+			sourceType: 'question',
+			draftPayload: [
+				'question' => [
+					'text' => (string)($question['text'] ?? ''),
+					'options' => array_values(array_map('strval', (array)($question['options'] ?? []))),
+					'allowOther' => (($question['allowOther'] ?? false) === true),
+				],
+				'runId' => $runId,
+				'answer' => null,
+				'answeredRunId' => null,
+			]
+		);
+		$payload['prompt'] = (string)($data['prompt'] ?? '');
+
+		return $this->persistAndNotify(schedule: $schedule, payload: $payload);
+	}//end ensurePendingQuestion()
+
+	/**
+	 * Answer a pending question: record the answer and dispatch the run again
+	 * with its prompt, the question and the answer.
+	 *
+	 * @param ObjectEntity $approval The pending question Approval.
+	 * @param string $deciderUid The reviewer answering.
+	 * @param string $answer The chosen or typed answer.
+	 *
+	 * @return array{status: string, ran: bool} The resulting status and whether the run was dispatched.
+	 *
+	 * @throws InvalidArgumentException When the approval is not a pending question or the answer is refused.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 */
+	public function answerQuestion(ObjectEntity $approval, string $deciderUid, string $answer): array {
+		$data = $approval->getObject();
+		if ((string)($data['sourceType'] ?? '') !== 'question' || (string)($data['status'] ?? '') !== 'pending') {
+			throw new InvalidArgumentException('This approval is not a question waiting for an answer.');
+		}
+
+		$draft = (array)($data['draftPayload'] ?? []);
+		$question = (array)($draft['question'] ?? []);
+		$answer = QuestionAnswer::validated(question: $question, answer: $answer);
+
+		$draft['answer'] = $answer;
+		$data['draftPayload'] = $draft;
+		$data['status'] = 'approved';
+		$data['decidedBy'] = $deciderUid;
+		$data['decidedAt'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
+		$this->saveDecision(approval: $approval, data: $data, decision: new ApprovalDecision(action: 'approve', reason: ''), deciderUid: $deciderUid);
+
+		$ran = $this->runAnsweredSchedule(
+			scheduleId: (string)($data['scheduleId'] ?? ''),
+			prompt: QuestionAnswer::promptWithAnswer(
+				prompt: (string)($data['prompt'] ?? ''),
+				question: (string)($question['text'] ?? ''),
+				answer: $answer
+			)
+		);
+
+		if ($ran['runId'] !== '') {
+			$draft['answeredRunId'] = $ran['runId'];
+			$data['draftPayload'] = $draft;
+			$this->persistApproval(
+				data: $data,
+				target: new ApprovalTarget(uuid: (string)$approval->getUuid(), owner: (string)($approval->getOwner() ?? ''))
+			);
+		}
+
+		return ['status' => 'approved', 'ran' => $ran['ran']];
+	}//end answerQuestion()
+
+	/**
+	 * Deny every pending question that has waited longer than seven days.
+	 *
+	 * @param DateTimeImmutable|null $now The current moment (null: now).
+	 *
+	 * @return int The number of questions expired.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 */
+	public function expireUnansweredQuestions(?DateTimeImmutable $now = null): int {
+		$now ??= new DateTimeImmutable('now', new DateTimeZone('UTC'));
+		$objects = $this->objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::APPROVAL_SCHEMA)
+			->findAll(
+				config: ['filters' => ['sourceType' => 'question', 'status' => 'pending']],
+				_rbac: false,
+				_multitenancy: false
+			);
+
+		$expired = 0;
+		foreach ($objects as $object) {
+			if (($object instanceof ObjectEntity) === false) {
+				continue;
+			}
+
+			$data = $object->getObject();
+			if ((string)($data['sourceType'] ?? '') !== 'question'
+				|| (string)($data['status'] ?? '') !== 'pending'
+				|| QuestionAnswer::isExpired(requestedAt: (string)($data['requestedAt'] ?? ''), now: $now) === false
+			) {
+				continue;
+			}
+
+			$this->deny(approval: $object, deciderUid: 'system', reason: QuestionAnswer::EXPIRED_REASON);
+			$expired++;
+		}
+
+		return $expired;
+	}//end expireUnansweredQuestions()
+
+	/**
+	 * Hold a scheduled run's output for review instead of delivering it.
+	 *
+	 * @param ObjectEntity $schedule The schedule whose run produced the output.
+	 * @param string $channel The channel the output would have gone to.
+	 * @param string $output The output.
+	 * @param string|null $conversationUuid The run's conversation, for a Talk delivery.
+	 *
+	 * @return ObjectEntity The pending draft Approval.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	public function ensurePendingDraft(ObjectEntity $schedule, string $channel, string $output, ?string $conversationUuid = null): ObjectEntity {
+		$payload = $this->heldPayload(
+			schedule: $schedule,
+			sourceType: 'draft',
+			draftPayload: [
+				'kind' => DraftRelease::KIND_DELIVERY,
+				'channel' => $channel,
+				'output' => $output,
+				'conversationUuid' => $conversationUuid,
+			]
+		);
+
+		return $this->persistAndNotify(schedule: $schedule, payload: $payload);
+	}//end ensurePendingDraft()
+
+	/**
+	 * Hold an outbound message tool call of an agent with `holdOutput` for review.
+	 *
+	 * The tool runs with the released arguments on release, as the agent's
+	 * owner; only the fields in `$editable` may be changed by the reviewer.
+	 *
+	 * @param string $agentId The agent that called the tool.
+	 * @param string $toolId The tool id, e.g. `hermiq.sendMail`.
+	 * @param array<string, mixed> $arguments The tool arguments.
+	 * @param list<string> $editable The arguments a reviewer may edit.
+	 *
+	 * @return ObjectEntity The pending draft Approval.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	public function ensurePendingToolDraft(
+		string $agentId,
+		string $toolId,
+		array $arguments,
+		array $editable = DraftRelease::DEFAULT_EDITABLE
+	): ObjectEntity {
+		$owner = $this->resolveAgentOwner(agentId: $agentId);
+		$payload = [
+			'status' => 'pending',
+			'sourceType' => 'draft',
+			'agentId' => $agentId,
+			'toolId' => $toolId,
+			'draftPayload' => [
+				'kind' => DraftRelease::KIND_TOOL,
+				'toolId' => $toolId,
+				'arguments' => $arguments,
+				'editable' => array_values($editable),
+			],
+			'requestedAt' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
+			'reviewer' => $owner,
+			'reviewerType' => 'user',
+			'decidedAt' => null,
+			'decidedBy' => null,
+			'reason' => null,
+		];
+
+		$approval = $this->persistApproval(data: $payload, target: new ApprovalTarget(uuid: null, owner: $owner));
+		try {
+			$this->deliveryService->deliverApprovalRequestForToolInvocation(
+				approval: $approval,
+				reviewerUids: $this->reviewerUids(reviewer: $owner, reviewerType: 'user')
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq could not notify the reviewer of draft ' . ((string)$approval->getUuid()) . ': ' . $e->getMessage(),
+				['exception' => $e]
+			);
+		}
+
+		return $approval;
+	}//end ensurePendingToolDraft()
+
+	/**
+	 * Release a held draft: send it as the agent wrote it, or with the
+	 * reviewer's edits, and record both texts on the Approval.
+	 *
+	 * @param ObjectEntity $approval The pending draft Approval.
+	 * @param string $deciderUid The reviewer releasing it.
+	 * @param array<string, mixed> $edits The edited fields (`output`, or the tool's editable arguments).
+	 *
+	 * @return array{status: string, ran: bool} The resulting status and whether it was sent.
+	 *
+	 * @throws DraftEditRefused When an edit changes a field that may not be edited.
+	 * @throws InvalidArgumentException When the approval is not a pending draft.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	public function releaseDraft(ObjectEntity $approval, string $deciderUid, array $edits = []): array {
+		$data = $approval->getObject();
+		if ((string)($data['sourceType'] ?? '') !== 'draft' || (string)($data['status'] ?? '') !== 'pending') {
+			throw new InvalidArgumentException('This approval is not a draft waiting for review.');
+		}
+
+		$release = (new DraftRelease(draft: (array)($data['draftPayload'] ?? [])))->released(edits: $edits);
+
+		$data['draftPayload'] = $release['draft'];
+		$data['editedOutput'] = null;
+		if ($release['edited'] === true) {
+			$data['editedOutput'] = ['original' => $release['original'], 'sent' => $release['sent']];
+		}
+
+		$data['status'] = 'approved';
+		$data['decidedBy'] = $deciderUid;
+		$data['decidedAt'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
+		$this->saveDecision(approval: $approval, data: $data, decision: new ApprovalDecision(action: 'approve', reason: ''), deciderUid: $deciderUid);
+
+		return ['status' => 'approved', 'ran' => $this->sendReleasedDraft(approval: $approval, data: $data)];
+	}//end releaseDraft()
+
+	/**
+	 * Send a released draft the way the run would have sent it.
+	 *
+	 * @param ObjectEntity $approval The released Approval (its owner acts for a tool draft).
+	 * @param array<string, mixed> $data The released Approval payload.
+	 *
+	 * @return bool Whether it was sent.
+	 */
+	private function sendReleasedDraft(ObjectEntity $approval, array $data): bool {
+		$draft = (array)($data['draftPayload'] ?? []);
+		if ((new DraftRelease(draft: $draft))->kind() === DraftRelease::KIND_TOOL) {
+			return $this->runReleasedTool(owner: (string)($approval->getOwner() ?? ''), draft: $draft);
+		}
+
+		$schedule = $this->loadSchedule(scheduleId: (string)($data['scheduleId'] ?? ''));
+		if ($schedule === null) {
+			return false;
+		}
+
+		$conversationUuid = $draft['conversationUuid'] ?? null;
+		if (is_string($conversationUuid) === false || $conversationUuid === '') {
+			$conversationUuid = null;
+		}
+
+		$result = $this->deliveryService->deliver(
+			channel: (string)($draft['channel'] ?? 'none'),
+			output: (string)($draft['output'] ?? ''),
+			schedule: $schedule,
+			conversationUuid: $conversationUuid
+		);
+
+		return $result->isDelivered();
+	}//end sendReleasedDraft()
+
+	/**
+	 * Run a released outbound message tool call as the agent's owner.
+	 *
+	 * @param string $owner The agent owner, who the tool acts as.
+	 * @param array<string, mixed> $draft The released draft: `{toolId, arguments}`.
+	 *
+	 * @return bool Whether the tool ran without an error.
+	 */
+	private function runReleasedTool(string $owner, array $draft): bool {
+		$user = null;
+		if ($owner !== '') {
+			$user = $this->userManager->get($owner);
+		}
+
+		if ($user === null) {
+			$this->logger->warning('Hermiq could not send a released draft: its owner does not exist.');
+			return false;
+		}
+
+		$priorUser = $this->userSession->getUser();
+		$this->userSession->setUser($user);
+		try {
+			$result = $this->container->get(HermiqToolProvider::class)->invokeTool(
+				toolId: (string)($draft['toolId'] ?? ''),
+				arguments: (array)($draft['arguments'] ?? [])
+			);
+		} finally {
+			$this->userSession->setUser($priorUser);
+		}
+
+		return isset($result['error']) === false;
+	}//end runReleasedTool()
+
+	/**
+	 * The Approval payload of a question or draft held for a schedule's run.
+	 *
+	 * @param ObjectEntity $schedule The schedule.
+	 * @param string $sourceType `question` or `draft`.
+	 * @param array<string, mixed> $draftPayload What is held.
+	 *
+	 * @return array<string, mixed> The payload.
+	 */
+	private function heldPayload(ObjectEntity $schedule, string $sourceType, array $draftPayload): array {
+		[$reviewer, $reviewerType] = $this->resolveReviewer(schedule: $schedule);
+		$data = $schedule->getObject();
+
+		return [
+			'status' => 'pending',
+			'sourceType' => $sourceType,
+			'scheduleId' => (string)$schedule->getUuid(),
+			'agentId' => (string)($data['agentId'] ?? ''),
+			'draftPayload' => $draftPayload,
+			'requestedAt' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
+			'reviewer' => $reviewer,
+			'reviewerType' => $reviewerType,
+			'decidedAt' => null,
+			'decidedBy' => null,
+			'reason' => null,
+		];
+	}//end heldPayload()
+
+	/**
+	 * Persist a held Approval for a schedule and notify its reviewer, never fatal.
+	 *
+	 * @param ObjectEntity $schedule The schedule.
+	 * @param array<string, mixed> $payload The Approval payload.
+	 *
+	 * @return ObjectEntity The persisted Approval.
+	 */
+	private function persistAndNotify(ObjectEntity $schedule, array $payload): ObjectEntity {
+		$approval = $this->persistApproval(
+			data: $payload,
+			target: new ApprovalTarget(uuid: null, owner: (string)($schedule->getOwner() ?? ''))
+		);
+
+		try {
+			$this->deliveryService->deliverApprovalRequest(
+				schedule: $schedule,
+				approval: $approval,
+				reviewerUids: $this->reviewerUids(reviewer: (string)$payload['reviewer'], reviewerType: (string)$payload['reviewerType'])
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq could not notify the reviewer of approval ' . ((string)$approval->getUuid()) . ': ' . $e->getMessage(),
+				['exception' => $e]
+			);
+		}
+
+		return $approval;
+	}//end persistAndNotify()
+
+	/**
+	 * Save a decided Approval, audit it and release its task mirror.
+	 *
+	 * @param ObjectEntity $approval The Approval.
+	 * @param array<string, mixed> $data The decided payload.
+	 * @param ApprovalDecision $decision The decision, for the audit.
+	 * @param string $deciderUid Who decided.
+	 *
+	 * @return void
+	 */
+	private function saveDecision(ObjectEntity $approval, array $data, ApprovalDecision $decision, string $deciderUid): void {
+		$this->persistApproval(
+			data: $data,
+			target: new ApprovalTarget(uuid: (string)$approval->getUuid(), owner: (string)($approval->getOwner() ?? ''))
+		);
+		$this->writeDecisionAudit(approval: $approval, decision: $decision);
+		$this->taskBridge->releaseFor(approval: $approval, decision: 'approved', deciderUid: $deciderUid);
+	}//end saveDecision()
+
+	/**
+	 * Dispatch a schedule again with the answered prompt, bypassing its gate.
+	 *
+	 * @param string $scheduleId The schedule.
+	 * @param string $prompt The prompt with the question and the answer.
+	 *
+	 * @return array{ran: bool, runId: string} Whether it ran, and the new run's id.
+	 */
+	private function runAnsweredSchedule(string $scheduleId, string $prompt): array {
+		$schedule = $this->loadSchedule(scheduleId: $scheduleId);
+		if ($schedule === null) {
+			return ['ran' => false, 'runId' => ''];
+		}
+
+		$scheduleService = $this->container->get(ScheduleService::class);
+		$scheduleService->runNow(schedule: $schedule, bypassApprovalGate: true, prompt: $prompt);
+
+		return ['ran' => true, 'runId' => $scheduleService->getLastRunId()];
+	}//end runAnsweredSchedule()
+
+	/**
+	 * Load a schedule by id, or null.
+	 *
+	 * @param string $scheduleId The schedule UUID.
+	 *
+	 * @return ObjectEntity|null The schedule.
+	 */
+	private function loadSchedule(string $scheduleId): ?ObjectEntity {
+		if ($scheduleId === '') {
+			return null;
+		}
+
+		$schedule = $this->objectService->find(
+			id: $scheduleId,
+			register: self::REGISTER_SLUG,
+			schema: self::SCHEDULE_SCHEMA,
+			_rbac: false,
+			_multitenancy: false
+		);
+		if (($schedule instanceof ObjectEntity) === false) {
+			$this->logger->warning('Hermiq schedule ' . $scheduleId . ' could not be loaded.');
+			return null;
+		}
+
+		return $schedule;
+	}//end loadSchedule()
+
+	/**
+	 * Find the pending Approval of one source type for a schedule, if one exists.
+	 *
+	 * @param string $scheduleId The schedule UUID.
+	 * @param string $sourceType The source type.
+	 *
+	 * @return ObjectEntity|null The pending approval, or null.
+	 */
+	private function findPendingOfSourceType(string $scheduleId, string $sourceType): ?ObjectEntity {
+		if ($scheduleId === '') {
+			return null;
+		}
+
+		$objects = $this->objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::APPROVAL_SCHEMA)
+			->findAll(
+				config: ['filters' => ['scheduleId' => $scheduleId, 'status' => 'pending', 'sourceType' => $sourceType]],
+				_rbac: false,
+				_multitenancy: false
+			);
+
+		foreach ($objects as $object) {
+			if (($object instanceof ObjectEntity) === false) {
+				continue;
+			}
+
+			$data = $object->getObject();
+			if ((string)($data['scheduleId'] ?? '') === $scheduleId
+				&& (string)($data['status'] ?? '') === 'pending'
+				&& (string)($data['sourceType'] ?? '') === $sourceType
+			) {
+				return $object;
+			}
+		}
+
+		return null;
+	}//end findPendingOfSourceType()
+
+	/**
 	 * Find the open pending Approval for a schedule, if one exists.
 	 *
 	 * @param string $scheduleId The schedule UUID.
@@ -1562,8 +2062,11 @@ class ApprovalService implements ApprovalServiceInterface {
 			}
 
 			$data = $object->getObject();
+			// A question or draft held for the schedule's run is not its gate
+			// approval (oversight-ask-and-hold): it must not stand in for one.
 			if ((string)($data['scheduleId'] ?? '') === $scheduleId
 				&& (string)($data['status'] ?? '') === 'pending'
+				&& in_array((string)($data['sourceType'] ?? 'schedule'), ['question', 'draft'], true) === false
 			) {
 				return $object;
 			}

@@ -235,7 +235,7 @@ class HermiqToolProviderTest extends TestCase {
 		$this->assertNotContains('hermiq.completeTask', $ids);
 		$this->assertContains('hermiq.listTasks', $ids);
 		$this->assertContains('hermiq.createTask', $ids);
-		$this->assertCount(42, $ids);
+		$this->assertCount(43, $ids);
 
 	}//end testCompleteTaskIsAbsentWithoutAReplacePath()
 
@@ -416,8 +416,9 @@ class HermiqToolProviderTest extends TestCase {
 		//   (hermiq-runner-git-capability),
 		// + hermiq.graphNeighbors/graphPath (knowledge-graph),
 		// + hermiq.listTasks/createTask/completeTask (tools-nextcloud-tasks),
+		// + hermiq.askPerson (oversight-ask-and-hold),
 		// all registered through this same provider.
-		$this->assertCount(43, $tools);
+		$this->assertCount(44, $tools);
 
 		$ids = array_column($tools, 'id');
 		$this->assertContains('hermiq.listFiles', $ids);
@@ -468,6 +469,8 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.sendMail' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'create'],
 			'hermiq.listDeckBoards' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.searchTools' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			// oversight-ask-and-hold: handled in the engine, which records the question and ends the turn.
+			'hermiq.askPerson' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			// Discovery reads the catalogue and writes nothing.
 			'hermiq.listAvailableTools' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			// `scope: write` and `readOnlyHint: false` — raising a request PERSISTS a
@@ -519,7 +522,7 @@ class HermiqToolProviderTest extends TestCase {
 		];
 
 		$tools = $this->provider('alice')->getTools();
-		$this->assertCount(43, $tools, 'This test must be updated if a tool is added or removed.');
+		$this->assertCount(44, $tools, 'This test must be updated if a tool is added or removed.');
 
 		$seen = [];
 		foreach ($tools as $tool) {
@@ -561,6 +564,7 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.sendMail' => ToolReachResolver::REACH_EXTERNAL,
 			'hermiq.listDeckBoards' => ToolReachResolver::REACH_USER,
 			'hermiq.searchTools' => ToolReachResolver::REACH_SELF,
+			'hermiq.askPerson' => ToolReachResolver::REACH_SELF,
 			// `self`: reads the instance catalogue and this agent's own grants, and
 			// returns metadata only — nothing dispatchable, nothing outside the agent.
 			'hermiq.listAvailableTools' => ToolReachResolver::REACH_SELF,
@@ -671,6 +675,7 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.sendMail' => ['mail', 'send'],
 			'hermiq.listDeckBoards' => ['deckBoard', 'list'],
 			'hermiq.searchTools' => ['tool', 'search'],
+			'hermiq.askPerson' => ['question', 'ask'],
 			'hermiq.listAvailableTools' => ['tool', 'list'],
 			// `request`: this one asks a HUMAN for a grant.
 			'hermiq.requestToolAccess' => ['toolAccess', 'request'],

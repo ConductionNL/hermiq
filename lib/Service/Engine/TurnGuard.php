@@ -101,6 +101,19 @@ class TurnGuard {
 	}//end admit()
 
 	/**
+	 * End the turn on purpose: the next tool call is refused and the turn closes.
+	 *
+	 * @param string $reason Why the turn ends.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
+	 */
+	public function stop(string $reason): void {
+		$this->stopReason = $reason;
+	}//end stop()
+
+	/**
 	 * The tool result a refused call returns to the model.
 	 *
 	 * @param string $reason The stop reason.

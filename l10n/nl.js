@@ -1992,7 +1992,25 @@ OC.L10N.register(
         "The organisation's output filter masked part of the answer.": "Het uitvoerfilter van de organisatie heeft een deel van het antwoord afgeschermd.",
         "_Used %n document: %s._::_Used %n documents: %s._": ["%n document gebruikt: %s.","%n documenten gebruikt: %s."],
         "_Called %n tool: %s._::_Called %n tools: %s._": ["%n tool aangeroepen: %s.","%n tools aangeroepen: %s."],
-        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n aanroep is geweigerd: %s.","%n aanroepen zijn geweigerd: %s."]
+        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n aanroep is geweigerd: %s.","%n aanroepen zijn geweigerd: %s."],
+        "Question from the agent": "Vraag van de agent",
+        "Suggested answers": "Voorgestelde antwoorden",
+        "Your own answer": "Je eigen antwoord",
+        "Send answer": "Antwoord versturen",
+        "Review draft": "Concept nakijken",
+        "Could not release the draft": "Het concept kon niet worden vrijgegeven",
+        "Goes to": "Gaat naar",
+        "Text": "Tekst",
+        "Discard": "Weggooien",
+        "Release": "Vrijgeven",
+        "Edit and release": "Bewerken en vrijgeven",
+        "Show": "Tonen",
+        "All": "Alle",
+        "Drafts ({count})": "Concepten ({count})",
+        "No drafts waiting": "Geen concepten in afwachting",
+        "Text an agent wants to send is held here when its owner asked to check it first.": "Tekst die een agent wil versturen wacht hier als de eigenaar heeft gevraagd die eerst te controleren.",
+        "Review": "Nakijken",
+        "Discard draft": "Concept weggooien"
     },
     "nplurals=2; plural=(n != 1);"
 )

@@ -2718,7 +2718,24 @@ OC.L10N.register(
         "The organisation's output filter masked part of the answer.": "The organisation's output filter masked part of the answer.",
         "_Used %n document: %s._::_Used %n documents: %s._": ["Used %n document: %s.","Used %n documents: %s."],
         "_Called %n tool: %s._::_Called %n tools: %s._": ["Called %n tool: %s.","Called %n tools: %s."],
-        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n call was refused: %s.","%n calls were refused: %s."]
+        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n call was refused: %s.","%n calls were refused: %s."],
+        "Question from the agent": "Question from the agent",
+        "Suggested answers": "Suggested answers",
+        "Your own answer": "Your own answer",
+        "Send answer": "Send answer",
+        "Review draft": "Review draft",
+        "Could not release the draft": "Could not release the draft",
+        "Goes to": "Goes to",
+        "Discard": "Discard",
+        "Release": "Release",
+        "Edit and release": "Edit and release",
+        "Show": "Show",
+        "All": "All",
+        "Drafts ({count})": "Drafts ({count})",
+        "No drafts waiting": "No drafts waiting",
+        "Text an agent wants to send is held here when its owner asked to check it first.": "Text an agent wants to send is held here when its owner asked to check it first.",
+        "Review": "Review",
+        "Discard draft": "Discard draft"
     },
     "nplurals=2; plural=(n != 1);"
 )

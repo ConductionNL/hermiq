@@ -195,6 +195,9 @@ $routes = [
         ['name' => 'approval#deny',    'url' => '/api/approvals/{approvalId}/deny', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
         // One route for the chat's approval card: {decision: granted|refused}.
         ['name' => 'approval#resolve', 'url' => '/api/approvals/{approvalId}/resolve', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
+        // Oversight-ask-and-hold: answer an agent's question, release a held draft.
+        ['name' => 'approval#answer',  'url' => '/api/approvals/{approvalId}/answer', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
+        ['name' => 'approval#release', 'url' => '/api/approvals/{approvalId}/release', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
 
         // Per-organisation kill-switch (human-approval-gate-enforcement): read + toggle.
         [

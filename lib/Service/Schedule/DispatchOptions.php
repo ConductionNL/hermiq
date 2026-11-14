@@ -42,6 +42,8 @@ final class DispatchOptions {
 	 * @param array<int,string> $engagedOrganisations Organisations whose kill-switch is engaged.
 	 * @param bool $bypassApprovalGate When true, skip the requiresApproval gate
 	 *                                 (an approved occurrence running via approve()).
+	 * @param string|null $prompt The prompt for this occurrence instead of the schedule's own,
+	 *                            e.g. with a person's answer to the run's question.
 	 *
 	 * @spec exclude Parameter object, no functional requirement of its own.
 	 *
@@ -52,6 +54,7 @@ final class DispatchOptions {
 		public readonly DateTimeImmutable $now,
 		public readonly array $engagedOrganisations = [],
 		public readonly bool $bypassApprovalGate = false,
+		public readonly ?string $prompt = null,
 	) {
 	}//end __construct()
 }//end class

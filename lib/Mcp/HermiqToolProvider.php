@@ -317,6 +317,36 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'read',
 		],
 		[
+			'id' => AppIdentity::APP_ID . '.askPerson',
+			'subject' => 'question',
+			'action' => 'ask',
+			// Asks the person in the conversation; touches nothing outside the run.
+			'reach' => ToolReachResolver::REACH_SELF,
+			'name' => 'Ask a person',
+			'description' => 'Ask the person a question when you cannot go on without their answer, with up to four '
+				. 'suggested answers. This ends your turn: after calling it, end your answer and wait. The person\'s '
+				. 'answer arrives as their next message.',
+			'inputSchema' => [
+				'type' => 'object',
+				'properties' => [
+					'question' => ['type' => 'string', 'maxLength' => 500, 'description' => 'The question, in one or two sentences.'],
+					'options' => [
+						'type' => 'array',
+						'maxItems' => 4,
+						'items' => ['type' => 'string', 'maxLength' => 80],
+						'description' => 'Up to four suggested answers, each shown as a button.',
+					],
+					'allowOther' => ['type' => 'boolean', 'description' => 'Whether the person may also answer in their own words.'],
+				],
+				'required' => ['question'],
+			],
+			// Handled inside the Hermiq engine: it records the question and ends the turn.
+			'readOnlyHint' => true,
+			'destructiveHint' => false,
+			'idempotentHint' => true,
+			'scope' => 'read',
+		],
+		[
 			'id' => AppIdentity::APP_ID . '.listAvailableTools',
 			'subject' => 'tool',
 			'action' => 'list',
@@ -1001,6 +1031,11 @@ class HermiqToolProvider implements IMcpToolProvider {
 			AppIdentity::APP_ID . '.searchTools' => $this->error(
 				code: 'internal_only',
 				message: 'hermiq.searchTools is handled internally by the Hermiq engine and is not invocable via the facade.'
+			),
+			// Oversight-ask-and-hold: the engine handles askPerson; outside a run there is nobody to ask.
+			AppIdentity::APP_ID . '.askPerson' => $this->error(
+				code: 'internal_only',
+				message: 'hermiq.askPerson is handled internally by the Hermiq engine and is not invocable via the facade.'
 			),
 			default => null,
 		};

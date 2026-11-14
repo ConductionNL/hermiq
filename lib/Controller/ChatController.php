@@ -347,6 +347,9 @@ class ChatController extends Controller {
 			// Add conversation UUID to result for frontend.
 			$result['conversation'] = $conversation->getUuid();
 
+			// Oversight-ask-and-hold: the question the agent asked the person, or null.
+			$result['question'] = $trace->question();
+
 			// The tool calls this turn made over the governed MCP transport.
 			// `CnAiMessageList` already renders `message.toolCalls` with
 			// expand/collapse — it was simply never given any, because those
