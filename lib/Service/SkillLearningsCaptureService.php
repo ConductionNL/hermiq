@@ -51,6 +51,7 @@ use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\SkillLearnings\CaptureSource;
 use OCA\Hermiq\Service\SkillLearnings\CaptureUsage;
 use OCA\Hermiq\Service\SkillLearnings\ExtractionInput;
+use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Service\ObjectService;
@@ -175,6 +176,7 @@ class SkillLearningsCaptureService implements SkillLearningsCaptureServiceInterf
 	 * @param RedactionService $redactionService The agent-memory redaction path, applied verbatim
 	 *                                           to every observation BEFORE persist.
 	 * @param LoggerInterface $logger PSR-3 logger (every failure is logged, never thrown).
+	 * @param TraceExportQueue|null $traceExportQueue Hands the finished run to trace export (observability-export-traces).
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
@@ -183,6 +185,7 @@ class SkillLearningsCaptureService implements SkillLearningsCaptureServiceInterf
 		private readonly BudgetService $budgetService,
 		private readonly RedactionService $redactionService,
 		private readonly LoggerInterface $logger,
+		private readonly ?TraceExportQueue $traceExportQueue = null,
 	) {
 	}//end __construct()
 
@@ -884,23 +887,25 @@ class SkillLearningsCaptureService implements SkillLearningsCaptureServiceInterf
 				return;
 			}
 
+			$runContext = [
+				'status' => 'skill_capture',
+				'runType' => 'skill-capture',
+				'runId' => $runId,
+				'agentId' => $agentId,
+				'dryRun' => false,
+				'usage' => [
+					'promptTokens' => $promptTokens,
+					'completionTokens' => $completionTokens,
+				],
+			];
 			$this->auditTrailMapper->recordObjectEvent(
 				event: new ObjectAuditEvent(
 					object: $schedule,
 					action: 'run',
-					context: [
-						'status' => 'skill_capture',
-						'runType' => 'skill-capture',
-						'runId' => $runId,
-						'agentId' => $agentId,
-						'dryRun' => false,
-						'usage' => [
-							'promptTokens' => $promptTokens,
-							'completionTokens' => $completionTokens,
-						],
-					]
+					context: $runContext
 				)
 			);
+			$this->traceExportQueue?->enqueueRun(context: $runContext, trigger: 'skill');
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				sprintf('Hermiq learnings capture could not record usage for run %s: %s', $runId, $e->getMessage()),
