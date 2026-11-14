@@ -33,7 +33,7 @@ Kind: code. Size M. Rows `hermiq:sc-list`, `sc-manual-event-choice`, `sc-nl`.
 - **files**: `lib/Service/ScheduleWhenParser.php`, `lib/Controller/ScheduleWhenController.php`, `appinfo/routes.php`, `src/modals/ScheduleFormModal.vue`
 - **acceptance_criteria**:
   - GIVEN the phrase table in English and Dutch WHEN parsed THEN each gives the expected rule; an unreadable text gives 422 with an example
-- [ ] Implement
+- [x] Implement
 - [ ] Test (PHPUnit table test of at least 30 phrases; the model fallback with a stubbed provider; Playwright for the readback)
 
 ## Verification

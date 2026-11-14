@@ -2682,7 +2682,12 @@ OC.L10N.register(
         "The approval state machine: pending -> approved/denied for every gating sourceType. `overridden` is ADVISORY-ONLY and terminal-at-creation — the human accepted the AI's suggestion in principle but supplied a different value (advisoryContext.actualValue). It is not reachable from `pending` and no gating flow may produce it. `unused` is ADVISORY-ONLY and terminal-at-creation too: the suggestion was shown and nobody acted on it before the surface was closed, the suggestion expired or a newer one replaced it (advisoryContext.unusedBecause).": "The approval state machine: pending -> approved/denied for every gating sourceType. `overridden` is ADVISORY-ONLY and terminal-at-creation — the human accepted the AI's suggestion in principle but supplied a different value (advisoryContext.actualValue). It is not reachable from `pending` and no gating flow may produce it. `unused` is ADVISORY-ONLY and terminal-at-creation too: the suggestion was shown and nobody acted on it before the surface was closed, the suggestion expired or a newer one replaced it (advisoryContext.unusedBecause).",
         "Unused because": "Unused because",
         "Why a shown suggestion went unused (status=unused): the surface was closed, the suggestion expired, or a newer suggestion replaced it. Empty for every other status.": "Why a shown suggestion went unused (status=unused): the surface was closed, the suggestion expired, or a newer suggestion replaced it. Empty for every other status.",
-        "The tool grants could not be read, so nothing was saved. Reload the page and try again.": "The tool grants could not be read, so nothing was saved. Reload the page and try again."
+        "The tool grants could not be read, so nothing was saved. Reload the page and try again.": "The tool grants could not be read, so nothing was saved. Reload the page and try again.",
+        "When should it run?": "When should it run?",
+        "every weekday at eight": "every weekday at eight",
+        "Next runs": "Next runs",
+        "Advanced": "Advanced",
+        "I could not read that. Try for example: every weekday at 8:00.": "I could not read that. Try for example: every weekday at 8:00."
     },
     "nplurals=2; plural=(n != 1);"
 )
