@@ -690,6 +690,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\TalkMessageToolInterface",
+            "OCA\\Hermiq\\Service\\NcNative\\TalkMessageTool"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\ToolAccessRequestServiceInterface",
             "OCA\\Hermiq\\Service\\ToolAccessRequestService"
         ],

@@ -235,7 +235,7 @@ class HermiqToolProviderTest extends TestCase {
 		$this->assertNotContains('hermiq.completeTask', $ids);
 		$this->assertContains('hermiq.listTasks', $ids);
 		$this->assertContains('hermiq.createTask', $ids);
-		$this->assertCount(42, $ids);
+		$this->assertCount(43, $ids);
 
 	}//end testCompleteTaskIsAbsentWithoutAReplacePath()
 
@@ -272,6 +272,38 @@ class HermiqToolProviderTest extends TestCase {
 		);
 
 	}//end testTaskToolsRouteToTaskWriteService()
+
+	/**
+	 * The Talk message tool reaches TalkMessageTool with the session uid and the
+	 * run-injected agent id (tools-post-a-talk-message).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-post-a-talk-message/specs/nc-native-tools/spec.md#requirement-an-agent-can-post-a-message-in-a-talk-conversation-it-is-a-member-of-req-nctalk-001
+	 */
+	public function testTheTalkMessageToolRoutesToTalkMessageTool(): void {
+		$calls = [];
+		$talk = $this->createMock(\OCA\Hermiq\Kernel\Contracts\TalkMessageToolInterface::class);
+		$talk->method('invoke')->willReturnCallback(
+			function (string $uid, string $toolId, array $arguments) use (&$calls): array {
+				$calls[] = [$uid, $toolId, ($arguments['agentId'] ?? null), ($arguments['conversation'] ?? null)];
+				return ['posted' => true];
+			}
+		);
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturnCallback(
+			static fn (string $id): ?object => ($id === \OCA\Hermiq\Kernel\Contracts\TalkMessageToolInterface::class ? $talk : null)
+		);
+
+		$result = $this->provider(uid: 'alice', container: $container)->invokeTool(
+			'hermiq.sendTalkMessage',
+			['agentId' => 'agent-7', 'conversation' => 'servicedesk', 'message' => 'Hallo']
+		);
+
+		$this->assertSame(['posted' => true], $result);
+		$this->assertSame([['alice', 'hermiq.sendTalkMessage', 'agent-7', 'servicedesk']], $calls);
+
+	}//end testTheTalkMessageToolRoutesToTalkMessageTool()
 
 	/**
 	 * Each nc-native-write tool id dispatches to its own write-service method,
@@ -416,8 +448,9 @@ class HermiqToolProviderTest extends TestCase {
 		//   (hermiq-runner-git-capability),
 		// + hermiq.graphNeighbors/graphPath (knowledge-graph),
 		// + hermiq.listTasks/createTask/completeTask (tools-nextcloud-tasks),
+		// + hermiq.sendTalkMessage (tools-post-a-talk-message),
 		// all registered through this same provider.
-		$this->assertCount(43, $tools);
+		$this->assertCount(44, $tools);
 
 		$ids = array_column($tools, 'id');
 		$this->assertContains('hermiq.listFiles', $ids);
@@ -516,10 +549,12 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listTasks' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.createTask' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
 			'hermiq.completeTask' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'update'],
+			// tools-post-a-talk-message: a write, but nothing is lost by it.
+			'hermiq.sendTalkMessage' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
 		];
 
 		$tools = $this->provider('alice')->getTools();
-		$this->assertCount(43, $tools, 'This test must be updated if a tool is added or removed.');
+		$this->assertCount(44, $tools, 'This test must be updated if a tool is added or removed.');
 
 		$seen = [];
 		foreach ($tools as $tool) {
@@ -609,6 +644,8 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listTasks' => ToolReachResolver::REACH_USER,
 			'hermiq.createTask' => ToolReachResolver::REACH_INSTANCE,
 			'hermiq.completeTask' => ToolReachResolver::REACH_INSTANCE,
+			// `instance` (medium risk): every member of the conversation reads the message.
+			'hermiq.sendTalkMessage' => ToolReachResolver::REACH_INSTANCE,
 		];
 
 		$tools = $this->provider('alice')->getTools();
@@ -711,6 +748,7 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listTasks' => ['task', 'list'],
 			'hermiq.createTask' => ['task', 'create'],
 			'hermiq.completeTask' => ['task', 'complete'],
+			'hermiq.sendTalkMessage' => ['talkMessage', 'create'],
 		];
 
 		$tools = $this->provider('alice')->getTools();
