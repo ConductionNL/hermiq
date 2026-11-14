@@ -75,7 +75,7 @@ final class RunWritersEnqueueTest extends TestCase {
 		$engine = (string)file_get_contents(dirname(__DIR__, 4) . '/lib/Service/Engine/Engine.php');
 
 		self::assertStringContainsString('->enqueueChatTurn(', $engine);
-		self::assertStringContainsString('$this->exportTurn(turn: $turn, envelope: $envelope, timings: $timings);', $engine);
+		self::assertStringContainsString('return $this->exportTurn(turn: $turn, envelope: $this->turnEnvelope(turn: $turn, timings: $timings), timings: $timings);', $engine);
 
 	}//end testTheChatTurnEnqueues()
 }//end class

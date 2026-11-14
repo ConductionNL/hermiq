@@ -63,16 +63,6 @@ class OtlpPayloadBuilder {
 	 * @spec openspec/changes/observability-export-traces/tasks.md#task-2-the-exporter
 	 */
 	public function build(array $traces, array $resource = []): array {
-		$spans = [];
-		foreach ($traces as $trace) {
-			$traceId = (string)($trace['traceId'] ?? bin2hex(random_bytes(16)));
-			$rootId = bin2hex(random_bytes(8));
-			$spans[] = $this->span(span: (array)$trace['root'], traceId: $traceId, spanId: $rootId, parentId: '');
-			foreach ((array)($trace['children'] ?? []) as $child) {
-				$spans[] = $this->span(span: (array)$child, traceId: $traceId, spanId: bin2hex(random_bytes(8)), parentId: $rootId);
-			}
-		}
-
 		$resourceAttributes = ['service.name' => 'hermiq'];
 		foreach ($resource as $key => $value) {
 			if ($value !== '') {
@@ -80,16 +70,13 @@ class OtlpPayloadBuilder {
 			}
 		}
 
+		$scope = ['scope' => ['name' => 'hermiq'], 'spans' => $this->spans(traces: $traces)];
+
 		return [
 			'resourceSpans' => [
 				[
 					'resource' => ['attributes' => $this->attributes(values: $resourceAttributes)],
-					'scopeSpans' => [
-						[
-							'scope' => ['name' => 'hermiq'],
-							'spans' => $spans,
-						],
-					],
+					'scopeSpans' => [$scope],
 				],
 			],
 		];
@@ -97,19 +84,39 @@ class OtlpPayloadBuilder {
 	}//end build()
 
 	/**
+	 * Every span of the batch: each trace's root, then its children under it.
+	 *
+	 * @param list<array<string, mixed>> $traces The trace records.
+	 *
+	 * @return list<array<string, mixed>> The OTLP spans.
+	 */
+	private function spans(array $traces): array {
+		$spans = [];
+		foreach ($traces as $trace) {
+			$ids = ['traceId' => (string)($trace['traceId'] ?? bin2hex(random_bytes(16))), 'parentId' => ''];
+			$rootId = bin2hex(random_bytes(8));
+			$spans[] = $this->span(span: (array)$trace['root'], ids: $ids + ['spanId' => $rootId]);
+			foreach ((array)($trace['children'] ?? []) as $child) {
+				$spans[] = $this->span(span: (array)$child, ids: ['spanId' => bin2hex(random_bytes(8)), 'parentId' => $rootId] + $ids);
+			}
+		}
+
+		return $spans;
+
+	}//end spans()
+
+	/**
 	 * One OTLP span.
 	 *
-	 * @param array<string, mixed> $span     The span record.
-	 * @param string               $traceId  The 32-hex trace id.
-	 * @param string               $spanId   The 16-hex span id.
-	 * @param string               $parentId The parent's span id, '' for a root.
+	 * @param array<string, mixed>  $span The span record: name, start, end, status, attributes.
+	 * @param array<string, string> $ids  traceId, spanId and parentId ('' for a root span).
 	 *
-	 * @return array<string, mixed>
+	 * @return array<string, mixed> The OTLP span.
 	 */
-	private function span(array $span, string $traceId, string $spanId, string $parentId): array {
+	private function span(array $span, array $ids): array {
 		$otlp = [
-			'traceId' => $traceId,
-			'spanId' => $spanId,
+			'traceId' => $ids['traceId'],
+			'spanId' => $ids['spanId'],
 			'name' => (string)($span['name'] ?? 'hermiq.span'),
 			'kind' => self::KIND_INTERNAL,
 			// 64-bit nanoseconds travel as strings in OTLP JSON.
@@ -118,8 +125,8 @@ class OtlpPayloadBuilder {
 			'attributes' => $this->attributes(values: (array)($span['attributes'] ?? [])),
 			'status' => ['code' => $this->statusCode(status: (string)($span['status'] ?? 'ok'))],
 		];
-		if ($parentId !== '') {
-			$otlp['parentSpanId'] = $parentId;
+		if ($ids['parentId'] !== '') {
+			$otlp['parentSpanId'] = $ids['parentId'];
 		}
 
 		return $otlp;

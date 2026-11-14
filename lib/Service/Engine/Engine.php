@@ -372,10 +372,7 @@ class Engine implements EngineInterface {
 			$turn['provenance'] = (new AnswerProvenance())->build(trace: $trace, sources: $turn['sources']);
 			$turn['assistantStored'] = $this->storeAnswer(turn: $turn);
 
-			$envelope = $this->turnEnvelope(turn: $turn, timings: $timings);
-			$this->exportTurn(turn: $turn, envelope: $envelope, timings: $timings);
-
-			return $envelope;
+			return $this->exportTurn(turn: $turn, envelope: $this->turnEnvelope(turn: $turn, timings: $timings), timings: $timings);
 		} catch (Exception $e) {
 			$this->logger->error(
 				message: '[Engine] Message processing failed',
@@ -711,13 +708,13 @@ class Engine implements EngineInterface {
 	 * @param array<string, mixed> $envelope The turn's result envelope.
 	 * @param array<string, float> $timings  The context, history and llm timings, in seconds.
 	 *
-	 * @return void
+	 * @return array<string, mixed> The envelope, unchanged.
 	 *
 	 * @spec openspec/changes/observability-export-traces/tasks.md#task-4-every-run-writer-and-the-chat-turn-enqueue
 	 */
-	private function exportTurn(array $turn, array $envelope, array $timings): void {
+	private function exportTurn(array $turn, array $envelope, array $timings): array {
 		if ($this->traceExportQueue === null || ($turn['dryRun'] ?? false) === true) {
-			return;
+			return $envelope;
 		}
 
 		$endedAt = microtime(true);
@@ -735,6 +732,8 @@ class Engine implements EngineInterface {
 			],
 			organisation: (string)($turn['organisation'] ?? '')
 		);
+
+		return $envelope;
 	}//end exportTurn()
 
 	/**

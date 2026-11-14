@@ -84,62 +84,88 @@ class TraceExportSender {
 	public function send(array $payload, array $settings): array {
 		$endpoint = (string)($settings['endpoint'] ?? '');
 		$allowPrivate = (($settings['allowPrivateEndpoint'] ?? false) === true);
+		$refusal = $this->refusal(endpoint: $endpoint, allowPrivate: $allowPrivate);
+		if ($refusal !== null) {
+			return $refusal;
+		}
 
+		$authorization = $this->authorization(settings: $settings);
+		if ($authorization === null) {
+			return $this->failed(retry: false, message: 'The trace export credential could not be resolved from the credential broker.');
+		}
+
+		$options = $this->requestOptions(payload: $payload, authorization: $authorization);
+		$options['nextcloud'] = ['allow_local_address' => $allowPrivate];
+
+		return $this->post(endpoint: $endpoint, options: $options);
+
+	}//end send()
+
+	/**
+	 * The outcome when the egress guard refuses the endpoint, or null when it allows it.
+	 *
+	 * @param string $endpoint     The collector URL.
+	 * @param bool   $allowPrivate Whether the administrator allowed a private or plain-http endpoint.
+	 *
+	 * @return array{ok: bool, retry: bool, status: int, message: string}|null The refusal, or null.
+	 */
+	private function refusal(string $endpoint, bool $allowPrivate): ?array {
 		$verdict = $this->egressGuard->assertSafe(
 			url: $endpoint,
 			isAdminConfiguredEndpoint: $allowPrivate,
 			allowInsecureHttp: $allowPrivate
 		);
-		if (($verdict['allowed'] ?? false) !== true) {
-			$reason = (string)($verdict['message'] ?? ($verdict['code'] ?? 'not allowed'));
-			return $this->outcome(ok: false, retry: false, status: 0, message: 'The endpoint was refused: ' . $reason);
+		if (($verdict['allowed'] ?? false) === true) {
+			return null;
 		}
 
-		$authorization = $this->authorization(settings: $settings);
-		if ($authorization === null) {
-			$message = 'The trace export credential could not be resolved from the credential broker.';
-			return $this->outcome(ok: false, retry: false, status: 0, message: $message);
-		}
+		$reason = (string)($verdict['message'] ?? ($verdict['code'] ?? 'not allowed'));
 
-		return $this->post(endpoint: $endpoint, payload: $payload, authorization: $authorization, allowPrivate: $allowPrivate);
+		return $this->failed(retry: false, message: 'The endpoint was refused: ' . $reason);
 
-	}//end send()
+	}//end refusal()
 
 	/**
-	 * POST the body and read the answer.
+	 * The HTTP client options for one batch, without the local-address switch.
 	 *
-	 * @param string               $endpoint      The OTLP traces URL.
-	 * @param array<string, mixed> $payload       The body.
+	 * @param array<string, mixed> $payload       The OTLP body.
 	 * @param string               $authorization The Authorization header value.
-	 * @param bool                 $allowPrivate  Whether the admin allowed a local collector.
 	 *
-	 * @return array{ok: bool, retry: bool, status: int, message: string}
+	 * @return array<string, mixed> The options.
 	 */
-	private function post(string $endpoint, array $payload, string $authorization, bool $allowPrivate): array {
+	private function requestOptions(array $payload, string $authorization): array {
+		return [
+			'body' => (string)json_encode($payload, JSON_UNESCAPED_SLASHES),
+			'headers' => [
+				'Content-Type' => 'application/json',
+				'Authorization' => $authorization,
+			],
+			'timeout' => self::TIMEOUT_SECONDS,
+			'http_errors' => false,
+		];
+
+	}//end requestOptions()
+
+	/**
+	 * POST the batch to the collector.
+	 *
+	 * @param string               $endpoint The collector URL.
+	 * @param array<string, mixed> $options  The HTTP client options.
+	 *
+	 * @return array{ok: bool, retry: bool, status: int, message: string} The outcome.
+	 */
+	private function post(string $endpoint, array $options): array {
 		try {
-			$response = $this->clientService->newClient()->post(
-				$endpoint,
-				[
-					'body' => (string)json_encode($payload, JSON_UNESCAPED_SLASHES),
-					'headers' => [
-						'Content-Type' => 'application/json',
-						'Authorization' => $authorization,
-					],
-					'timeout' => self::TIMEOUT_SECONDS,
-					'http_errors' => false,
-					'nextcloud' => ['allow_local_address' => $allowPrivate],
-				]
-			);
-			$status = $response->getStatusCode();
+			$status = $this->clientService->newClient()->post($endpoint, $options)->getStatusCode();
 		} catch (Throwable $e) {
-			return $this->outcome(ok: false, retry: true, status: 0, message: 'The collector could not be reached: ' . $e->getMessage());
+			return $this->failed(retry: true, message: 'The collector could not be reached: ' . $e->getMessage());
 		}
 
 		if ($status >= 200 && $status < 300) {
-			return $this->outcome(ok: true, retry: false, status: $status, message: '');
+			return ['ok' => true, 'retry' => false, 'status' => $status, 'message' => ''];
 		}
 
-		return $this->outcome(ok: false, retry: true, status: $status, message: 'The collector answered HTTP ' . $status . '.');
+		return ['ok' => false, 'retry' => true, 'status' => $status, 'message' => 'The collector answered HTTP ' . $status . '.'];
 
 	}//end post()
 
@@ -198,22 +224,15 @@ class TraceExportSender {
 	}//end secret()
 
 	/**
-	 * An outcome.
+	 * A batch that was not delivered and got no HTTP status.
 	 *
-	 * @param bool   $ok      Whether the batch was accepted.
 	 * @param bool   $retry   Whether trying again can help.
-	 * @param int    $status  The HTTP status, 0 when there was none.
-	 * @param string $message What went wrong, '' on success.
+	 * @param string $message Why.
 	 *
-	 * @return array{ok: bool, retry: bool, status: int, message: string}
+	 * @return array{ok: bool, retry: bool, status: int, message: string} The outcome.
 	 */
-	private function outcome(bool $ok, bool $retry, int $status, string $message): array {
-		return [
-			'ok' => $ok,
-			'retry' => $retry,
-			'status' => $status,
-			'message' => $message,
-		];
+	private function failed(bool $retry, string $message): array {
+		return ['ok' => false, 'retry' => $retry, 'status' => 0, 'message' => $message];
 
-	}//end outcome()
+	}//end failed()
 }//end class

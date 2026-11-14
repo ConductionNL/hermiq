@@ -230,6 +230,20 @@ class TraceExportQueue {
 	}//end hasPending()
 
 	/**
+	 * Queue the trace export job with an argument: `[]` to drain the queue, or a retry.
+	 *
+	 * @param array<string, mixed> $argument The job argument.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/observability-export-traces/tasks.md#task-3-the-queue-the-job-and-the-broker-call
+	 */
+	public function requeue(array $argument): void {
+		$this->jobList->add(TraceExportJob::class, $argument);
+
+	}//end requeue()
+
+	/**
 	 * Keep a trace and make sure a job will send it.
 	 *
 	 * @param array<string, mixed> $trace The trace record.

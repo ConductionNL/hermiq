@@ -84,123 +84,189 @@ class TraceExporter {
 	 */
 	public function fromRun(array $context, string $trigger, string $content, string $organisation = ''): array {
 		$start = $this->nanos(value: ($context['startedAt'] ?? null));
-		$end = max($start, $this->nanos(value: ($context['endedAt'] ?? null)));
+		$root = ['start' => $start, 'end' => $this->nanos(value: ($context['endedAt'] ?? null)), 'attributes' => $this->runAttributes(context: $context, trigger: $trigger)];
+		$text = ['user' => ($context['runAsUser'] ?? ''), 'input' => ($context['prompt'] ?? ''), 'output' => ($context['summary'] ?? '')];
 
-		$attributes = [
-			'hermiq.trigger' => $trigger,
-			'hermiq.agent.id' => (string)($context['agentId'] ?? ''),
-			'hermiq.run.id' => (string)($context['runId'] ?? ($context['correlationId'] ?? '')),
-			'hermiq.status' => (string)($context['status'] ?? ''),
-			'hermiq.duration_ms' => (int)(($end - $start) / 1000000),
-		];
-		$attributes += $this->userAttribute(uid: (string)($context['runAsUser'] ?? ''));
-		if ($content === 'redacted-text') {
-			$attributes['hermiq.input'] = $this->clean(text: (string)($context['prompt'] ?? ''), organisation: $organisation);
-			$attributes['hermiq.output'] = $this->clean(text: (string)($context['summary'] ?? ''), organisation: $organisation);
-		}
-
-		$status = $this->statusOf(status: $attributes['hermiq.status']);
-
-		return $this->trace(
-			root: $this->span(name: 'hermiq.run', start: $start, end: $end, status: $status, attributes: $attributes),
-			disclosure: (array)($context['providerDisclosure'] ?? []),
-			usage: (array)($context['usage'] ?? []),
-			steps: (array)($context['steps'] ?? [])
-		);
+		return $this->assemble(root: $root, source: $text + ['content' => $content, 'organisation' => $organisation] + $context);
 
 	}//end fromRun()
 
 	/**
-	 * The trace of a finished chat turn, from the engine's result envelope.
+	 * The trace of a chat turn, from what the engine recorded for it.
 	 *
-	 * @param array<string, mixed> $turn         The turn: `conversationId`, `userId`, `agentId`,
-	 *                                           `prompt`, `startedAt` (unix seconds as float) and
-	 *                                           the envelope's `message`, `usage` and `steps`.
+	 * @param array<string, mixed> $turn         The turn: agentId, conversationId, userId, startedAt, endedAt (seconds),
+	 *                                           providerDisclosure, usage, steps, and prompt and message for text.
 	 * @param string               $content      `metadata` or `redacted-text`.
-	 * @param string               $organisation The organisation of the turn, '' when none.
+	 * @param string               $organisation The organisation the turn belongs to, '' when none.
 	 *
 	 * @return array<string, mixed> The trace record.
 	 *
 	 * @spec openspec/changes/observability-export-traces/tasks.md#task-2-the-exporter
 	 */
 	public function fromChatTurn(array $turn, string $content, string $organisation = ''): array {
-		$start = (int)round(((float)($turn['startedAt'] ?? microtime(true))) * 1000000000);
-		$end = max($start, (int)round(((float)($turn['endedAt'] ?? microtime(true))) * 1000000000));
-
 		$attributes = [
 			'hermiq.trigger' => 'chat',
 			'hermiq.agent.id' => (string)($turn['agentId'] ?? ''),
 			'hermiq.conversation.id' => (string)($turn['conversationId'] ?? ''),
 			'hermiq.status' => 'ok',
-			'hermiq.duration_ms' => (int)(($end - $start) / 1000000),
 		];
-		$attributes += $this->userAttribute(uid: (string)($turn['userId'] ?? ''));
-		if ($content === 'redacted-text') {
-			$attributes['hermiq.input'] = $this->clean(text: (string)($turn['prompt'] ?? ''), organisation: $organisation);
-			$attributes['hermiq.output'] = $this->clean(text: (string)($turn['message'] ?? ''), organisation: $organisation);
-		}
+		$root = ['start' => $this->seconds(value: ($turn['startedAt'] ?? null)), 'end' => $this->seconds(value: ($turn['endedAt'] ?? null)), 'attributes' => $attributes];
+		$text = ['user' => ($turn['userId'] ?? ''), 'input' => ($turn['prompt'] ?? ''), 'output' => ($turn['message'] ?? '')];
 
-		return $this->trace(
-			root: $this->span(name: 'hermiq.run', start: $start, end: $end, status: 'ok', attributes: $attributes),
-			disclosure: (array)($turn['providerDisclosure'] ?? []),
-			usage: (array)($turn['usage'] ?? []),
-			steps: (array)($turn['steps'] ?? [])
-		);
+		return $this->assemble(root: $root, source: $text + ['content' => $content, 'organisation' => $organisation] + $turn);
 
 	}//end fromChatTurn()
 
 	/**
-	 * Assemble a trace from its root span, the model call and the steps.
+	 * The attributes of a run's root span that come from its audit context.
 	 *
-	 * @param array<string, mixed> $root       The root span.
-	 * @param array<string, mixed> $disclosure The provider disclosure (provider, model, residency, feature).
-	 * @param array<string, mixed> $usage      The token usage the driver reported.
-	 * @param array<int, mixed>    $steps      The run trace's steps.
+	 * @param array<string, mixed> $context The run's audit context.
+	 * @param string               $trigger What started the run.
+	 *
+	 * @return array<string, mixed> The attributes.
+	 */
+	private function runAttributes(array $context, string $trigger): array {
+		return [
+			'hermiq.trigger' => $trigger,
+			'hermiq.agent.id' => (string)($context['agentId'] ?? ''),
+			'hermiq.run.id' => (string)($context['runId'] ?? ($context['correlationId'] ?? '')),
+			'hermiq.status' => (string)($context['status'] ?? ''),
+		];
+
+	}//end runAttributes()
+
+	/**
+	 * The trace record: the root span completed with its duration, user hash and text,
+	 * and its child spans.
+	 *
+	 * @param array<string, mixed> $root   The root's start, end (nanoseconds) and attributes.
+	 * @param array<string, mixed> $source user, input, output, content, organisation,
+	 *                                     providerDisclosure, usage and steps.
 	 *
 	 * @return array<string, mixed> The trace record.
 	 */
-	private function trace(array $root, array $disclosure, array $usage, array $steps): array {
+	private function assemble(array $root, array $source): array {
+		$start = $root['start'];
+		$end = max($start, $root['end']);
+		$attributes = $root['attributes'] + ['hermiq.duration_ms' => (int)(($end - $start) / 1000000)];
+		$attributes += $this->userAttribute(uid: (string)$source['user']);
+		$attributes += $this->textAttributes(source: $source);
+		$status = $this->statusOf(status: (string)$attributes['hermiq.status']);
+
+		return $this->trace(
+			root: ['name' => 'hermiq.run', 'start' => $start, 'end' => $end, 'status' => $status, 'attributes' => $attributes],
+			source: $source
+		);
+
+	}//end assemble()
+
+	/**
+	 * The prompt and answer text attributes, only with `redacted-text`.
+	 *
+	 * @param array<string, mixed> $source input, output, content and organisation.
+	 *
+	 * @return array<string, string> The attributes, none for `metadata`.
+	 */
+	private function textAttributes(array $source): array {
+		if ($source['content'] !== 'redacted-text') {
+			return [];
+		}
+
+		$organisation = (string)$source['organisation'];
+
+		return [
+			'hermiq.input' => $this->clean(text: (string)$source['input'], organisation: $organisation),
+			'hermiq.output' => $this->clean(text: (string)$source['output'], organisation: $organisation),
+		];
+
+	}//end textAttributes()
+
+	/**
+	 * One trace record: the root span, the model span when anything is known about
+	 * the model call, and a span per recorded step.
+	 *
+	 * @param array<string, mixed> $root   The root span.
+	 * @param array<string, mixed> $source providerDisclosure, usage and steps.
+	 *
+	 * @return array<string, mixed> The trace record.
+	 */
+	private function trace(array $root, array $source): array {
 		$children = [];
-		$model = $this->modelSpan(root: $root, disclosure: $disclosure, usage: $usage);
+		$model = $this->modelSpan(root: $root, source: $source);
 		if ($model !== null) {
 			$children[] = $model;
 		}
 
-		foreach ($steps as $step) {
+		foreach ((array)($source['steps'] ?? []) as $step) {
 			if (is_array($step) === true) {
 				$children[] = $this->stepSpan(step: $step, root: $root);
 			}
 		}
 
-		return [
-			'traceId' => bin2hex(random_bytes(16)),
-			'root' => $root,
-			'children' => $children,
-		];
+		return ['traceId' => bin2hex(random_bytes(16)), 'root' => $root, 'children' => $children];
 
 	}//end trace()
 
 	/**
-	 * The model call's span, with OpenTelemetry's generative AI attribute names.
+	 * The model call span, with the GenAI semantic convention attributes.
 	 *
-	 * @param array<string, mixed> $root       The root span, whose end the call shares.
-	 * @param array<string, mixed> $disclosure The provider disclosure.
-	 * @param array<string, mixed> $usage      The token usage.
+	 * @param array<string, mixed> $root   The root span.
+	 * @param array<string, mixed> $source providerDisclosure (model, provider, residency, feature) and usage.
 	 *
-	 * @return array<string, mixed>|null The span, or null when nothing names a model call.
+	 * @return array<string, mixed>|null The span, or null when nothing is known about the call.
 	 */
-	private function modelSpan(array $root, array $disclosure, array $usage): ?array {
+	private function modelSpan(array $root, array $source): ?array {
+		$disclosure = (array)($source['providerDisclosure'] ?? []);
+		$usage = (array)($source['usage'] ?? []);
 		$model = (string)($disclosure['model'] ?? '');
-		$provider = (string)($disclosure['provider'] ?? '');
-		if ($model === '' && $provider === '' && $usage === []) {
+		if ($model === '' && (string)($disclosure['provider'] ?? '') === '' && $usage === []) {
 			return null;
 		}
 
+		return [
+			'name' => trim('chat ' . $model),
+			'start' => $this->modelStart(root: $root, usage: $usage),
+			'end' => $root['end'],
+			'status' => 'ok',
+			'attributes' => $this->modelAttributes(disclosure: $disclosure, usage: $usage),
+		];
+
+	}//end modelSpan()
+
+	/**
+	 * The GenAI attributes of the model call span.
+	 *
+	 * @param array<string, mixed> $disclosure The provider disclosure.
+	 * @param array<string, mixed> $usage      The token usage.
+	 *
+	 * @return array<string, mixed> The attributes.
+	 */
+	private function modelAttributes(array $disclosure, array $usage): array {
 		$attributes = [
 			'gen_ai.operation.name' => 'chat',
-			'gen_ai.system' => $provider,
-			'gen_ai.request.model' => $model,
+			'gen_ai.system' => (string)($disclosure['provider'] ?? ''),
+			'gen_ai.request.model' => (string)($disclosure['model'] ?? ''),
 		];
+		$attributes += $this->tokenAttributes(usage: $usage);
+		foreach (['residency', 'feature'] as $field) {
+			if ((string)($disclosure[$field] ?? '') !== '') {
+				$attributes['hermiq.' . $field] = (string)$disclosure[$field];
+			}
+		}
+
+		return $attributes;
+
+	}//end modelAttributes()
+
+	/**
+	 * The token counts of the model call, under either naming the providers use.
+	 *
+	 * @param array<string, mixed> $usage The token usage.
+	 *
+	 * @return array<string, integer> The attributes, only for counts that are known.
+	 */
+	private function tokenAttributes(array $usage): array {
+		$attributes = [];
 		$input = ($usage['promptTokens'] ?? ($usage['inputTokens'] ?? null));
 		$output = ($usage['completionTokens'] ?? ($usage['outputTokens'] ?? null));
 		if (is_numeric($input) === true) {
@@ -211,34 +277,59 @@ class TraceExporter {
 			$attributes['gen_ai.usage.output_tokens'] = (int)$output;
 		}
 
-		foreach (['residency', 'feature'] as $field) {
-			if ((string)($disclosure[$field] ?? '') !== '') {
-				$attributes['hermiq.' . $field] = (string)$disclosure[$field];
-			}
-		}
+		return $attributes;
 
-		$start = $root['start'];
-		if (is_numeric($usage['llmSeconds'] ?? null) === true) {
-			$start = max($root['start'], ($root['end'] - (int)round((float)$usage['llmSeconds'] * 1000000000)));
-		}
-
-		return $this->span(name: trim('chat ' . $model), start: $start, end: $root['end'], status: 'ok', attributes: $attributes);
-
-	}//end modelSpan()
+	}//end tokenAttributes()
 
 	/**
-	 * A step's span: its type, name, outcome and timing, and nothing else.
+	 * When the model call started: the root's end less the recorded model time, never
+	 * before the root's start.
 	 *
-	 * @param array<string, mixed> $step The run trace step.
-	 * @param array<string, mixed> $root The root span, for a step without timing.
+	 * @param array<string, mixed> $root  The root span.
+	 * @param array<string, mixed> $usage The token usage, with llmSeconds when recorded.
+	 *
+	 * @return integer The start in nanoseconds.
+	 */
+	private function modelStart(array $root, array $usage): int {
+		if (is_numeric($usage['llmSeconds'] ?? null) === false) {
+			return $root['start'];
+		}
+
+		return max($root['start'], ($root['end'] - (int)round((float)$usage['llmSeconds'] * 1000000000)));
+
+	}//end modelStart()
+
+	/**
+	 * A tool, guardrail or context step span: its name, type, timing and outcome only.
+	 *
+	 * @param array<string, mixed> $step One run trace entry.
+	 * @param array<string, mixed> $root The root span, whose start stands in for a missing time.
 	 *
 	 * @return array<string, mixed> The span.
 	 */
 	private function stepSpan(array $step, array $root): array {
 		$start = $this->nanos(value: ($step['startedAt'] ?? null), fallback: $root['start']);
-		$end = max($start, $this->nanos(value: ($step['endedAt'] ?? null), fallback: $start));
 		$type = (string)($step['type'] ?? 'step');
 
+		return [
+			'name' => (string)($step['name'] ?? $type),
+			'start' => $start,
+			'end' => max($start, $this->nanos(value: ($step['endedAt'] ?? null), fallback: $start)),
+			'status' => $this->statusOf(status: (string)($step['outcome'] ?? 'ok')),
+			'attributes' => $this->stepAttributes(step: $step, type: $type),
+		];
+
+	}//end stepSpan()
+
+	/**
+	 * A step span's attributes: its type and the allowed scalar fields.
+	 *
+	 * @param array<string, mixed> $step One run trace entry.
+	 * @param string               $type The step's type.
+	 *
+	 * @return array<string, mixed> The attributes.
+	 */
+	private function stepAttributes(array $step, string $type): array {
 		$attributes = ['hermiq.step.type' => 'hermiq.' . $type];
 		foreach (self::STEP_FIELDS as $field) {
 			if (isset($step[$field]) === true && is_scalar($step[$field]) === true) {
@@ -246,39 +337,9 @@ class TraceExporter {
 			}
 		}
 
-		$outcome = (string)($step['outcome'] ?? 'ok');
+		return $attributes;
 
-		return $this->span(
-			name: (string)($step['name'] ?? $type),
-			start: $start,
-			end: $end,
-			status: $this->statusOf(status: $outcome),
-			attributes: $attributes
-		);
-
-	}//end stepSpan()
-
-	/**
-	 * One span.
-	 *
-	 * @param string               $name       The span name.
-	 * @param int                  $start      Start, unix nanoseconds.
-	 * @param int                  $end        End, unix nanoseconds.
-	 * @param string               $status     `ok` or `error`.
-	 * @param array<string, mixed> $attributes Scalar attributes.
-	 *
-	 * @return array<string, mixed>
-	 */
-	private function span(string $name, int $start, int $end, string $status, array $attributes): array {
-		return [
-			'name' => $name,
-			'start' => $start,
-			'end' => $end,
-			'status' => $status,
-			'attributes' => $attributes,
-		];
-
-	}//end span()
+	}//end stepAttributes()
 
 	/**
 	 * Whether a run status or step outcome is an error.
@@ -332,22 +393,40 @@ class TraceExporter {
 			return '';
 		}
 
+		$filtered = $this->filtered(text: $text, organisation: $organisation);
+		if ($filtered === null) {
+			return $this->guardrails->withheldPlaceholder();
+		}
+
+		return mb_substr($this->redaction->redact($filtered), 0, self::TEXT_CAP);
+
+	}//end clean()
+
+	/**
+	 * Text after the organisation's output filter, as a string.
+	 *
+	 * @param string $text         The prompt or answer.
+	 * @param string $organisation The organisation whose output filter applies.
+	 *
+	 * @return string|null The filtered text, or null when the filter cannot be read.
+	 */
+	private function filtered(string $text, string $organisation): ?string {
 		try {
 			$filtered = $this->guardrails->filterOutputValue(
 				policy: $this->guardrails->effectivePolicyFor(organisation: $organisation),
 				value: $text
 			);
 		} catch (Throwable) {
-			return $this->guardrails->withheldPlaceholder();
+			return null;
 		}
 
 		if (is_string($filtered) === false) {
 			$filtered = (string)json_encode($filtered, (JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 		}
 
-		return mb_substr($this->redaction->redact($filtered), 0, self::TEXT_CAP);
+		return $filtered;
 
-	}//end clean()
+	}//end filtered()
 
 	/**
 	 * A timestamp as unix nanoseconds.
@@ -358,17 +437,9 @@ class TraceExporter {
 	 * @return int Unix nanoseconds.
 	 */
 	private function nanos(mixed $value, int $fallback = 0): int {
-		if (is_numeric($value) === true) {
-			return (int)round((float)$value * 1000000000);
-		}
-
-		if (is_string($value) === true && $value !== '') {
-			try {
-				$time = new DateTimeImmutable($value);
-				return ((int)$time->format('U') * 1000000000) + ((int)$time->format('u') * 1000);
-			} catch (Throwable) {
-				// Unparseable: fall through to the fallback.
-			}
+		$nanos = $this->parsed(value: $value);
+		if ($nanos !== null) {
+			return $nanos;
 		}
 
 		if ($fallback !== 0) {
@@ -378,4 +449,42 @@ class TraceExporter {
 		return (int)round(microtime(true) * 1000000000);
 
 	}//end nanos()
+
+	/**
+	 * A timestamp as unix nanoseconds, when it is one.
+	 *
+	 * @param mixed $value An ISO 8601 string, unix seconds, or nothing.
+	 *
+	 * @return int|null Unix nanoseconds, or null when the value is no usable timestamp.
+	 */
+	private function parsed(mixed $value): ?int {
+		if (is_numeric($value) === true) {
+			return (int)round((float)$value * 1000000000);
+		}
+
+		if (is_string($value) === false || $value === '') {
+			return null;
+		}
+
+		try {
+			$time = new DateTimeImmutable($value);
+		} catch (Throwable) {
+			return null;
+		}
+
+		return ((int)$time->format('U') * 1000000000) + ((int)$time->format('u') * 1000);
+
+	}//end parsed()
+
+	/**
+	 * A chat turn's time, unix seconds as recorded by the engine, as unix nanoseconds.
+	 *
+	 * @param mixed $value Unix seconds, or nothing for now.
+	 *
+	 * @return int Unix nanoseconds.
+	 */
+	private function seconds(mixed $value): int {
+		return (int)round(((float)($value ?? microtime(true))) * 1000000000);
+
+	}//end seconds()
 }//end class

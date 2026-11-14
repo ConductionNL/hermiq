@@ -33,7 +33,6 @@ use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
 use OCA\Hermiq\Service\TraceExport\TraceExportSender;
 use OCA\Hermiq\Service\TraceExport\TraceExportSettings;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\BackgroundJob\IJobList;
 use OCP\BackgroundJob\QueuedJob;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -68,11 +67,9 @@ class TraceExportJob extends QueuedJob {
 	 * Constructor.
 	 *
 	 * @param ITimeFactory                $time      Clock.
-	 * @param TraceExportQueue            $queue     The waiting traces and batches.
+	 * @param TraceExportQueue            $queue     The waiting traces and batches; re-queues a retry or the next batch.
 	 * @param TraceExportSettings         $settings  The export settings.
-	 * @param OtlpPayloadBuilder          $builder   Builds the OTLP body.
 	 * @param TraceExportSender           $sender    Sends it.
-	 * @param IJobList                    $jobList   Re-queues a retry or the next batch.
 	 * @param ConnectionReporter          $reporter  Reports the `trace-export` connection, throttled.
 	 * @param LoggerInterface             $logger    Logger.
 	 *
@@ -82,9 +79,7 @@ class TraceExportJob extends QueuedJob {
 		ITimeFactory $time,
 		private readonly TraceExportQueue $queue,
 		private readonly TraceExportSettings $settings,
-		private readonly OtlpPayloadBuilder $builder,
 		private readonly TraceExportSender $sender,
-		private readonly IJobList $jobList,
 		private readonly ConnectionReporter $reporter,
 		private readonly LoggerInterface $logger,
 	) {
@@ -119,24 +114,11 @@ class TraceExportJob extends QueuedJob {
 	 */
 	private function sendBatch(array $argument): void {
 		$settings = $this->settings->get();
+		if ($this->deferred(argument: $argument) === true || $this->disabled(argument: $argument, settings: $settings) === true) {
+			return;
+		}
+
 		$batch = (string)($argument['batch'] ?? '');
-		$attempt = (int)($argument['attempt'] ?? 0);
-
-		if ($batch !== '' && (int)($argument['notBefore'] ?? 0) > $this->time->getTime()) {
-			// Not yet time for this retry: put it back unchanged.
-			$this->jobList->add(self::class, $argument);
-			return;
-		}
-
-		if ($settings['enabled'] !== true) {
-			// Export was switched off: what waits is not sent.
-			if ($batch !== '') {
-				$this->queue->dropBatch(name: $batch);
-			}
-
-			return;
-		}
-
 		if ($batch === '') {
 			$batch = (string)$this->queue->takeBatch();
 		}
@@ -147,46 +129,95 @@ class TraceExportJob extends QueuedJob {
 		}
 
 		$resource = ['hermiq.organisation' => (string)$settings['organisation']];
-		$outcome = $this->sender->send(payload: $this->builder->build(traces: $traces, resource: $resource), settings: $settings);
-		$this->settle(batch: $batch, attempt: $attempt, outcome: $outcome);
-
+		$outcome = $this->sender->send(payload: (new OtlpPayloadBuilder())->build(traces: $traces, resource: $resource), settings: $settings);
+		$this->settle(batch: ['name' => $batch, 'attempt' => (int)($argument['attempt'] ?? 0)], outcome: $outcome);
 		if ($this->queue->hasPending() === true) {
-			$this->jobList->add(self::class, []);
+			$this->queue->requeue(argument: []);
 		}
 
 	}//end sendBatch()
 
 	/**
+	 * Put a retry back unchanged when its time has not come yet.
+	 *
+	 * @param array<string, mixed> $argument The job argument.
+	 *
+	 * @return bool True when the retry was put back.
+	 */
+	private function deferred(array $argument): bool {
+		if ((string)($argument['batch'] ?? '') === '' || (int)($argument['notBefore'] ?? 0) <= $this->time->getTime()) {
+			return false;
+		}
+
+		$this->queue->requeue(argument: $argument);
+		return true;
+
+	}//end deferred()
+
+	/**
+	 * When export was switched off, drop the batch that waits: it is not sent.
+	 *
+	 * @param array<string, mixed> $argument The job argument.
+	 * @param array<string, mixed> $settings The trace export settings.
+	 *
+	 * @return bool True when export is off.
+	 */
+	private function disabled(array $argument, array $settings): bool {
+		if ($settings['enabled'] === true) {
+			return false;
+		}
+
+		$batch = (string)($argument['batch'] ?? '');
+		if ($batch !== '') {
+			$this->queue->dropBatch(name: $batch);
+		}
+
+		return true;
+
+	}//end disabled()
+
+	/**
 	 * Report the outcome, and retry or drop a failed batch.
 	 *
-	 * @param string                                                      $batch   The batch name.
-	 * @param int                                                         $attempt The retries already made.
+	 * @param array{name: string, attempt: int}                          $batch   The batch name and the retries already made.
 	 * @param array{ok: bool, retry: bool, status: int, message: string} $outcome The send's outcome.
 	 *
 	 * @return void
 	 */
-	private function settle(string $batch, int $attempt, array $outcome): void {
+	private function settle(array $batch, array $outcome): void {
 		if ($outcome['ok'] === true) {
-			$this->queue->dropBatch(name: $batch);
+			$this->queue->dropBatch(name: $batch['name']);
 			$this->reporter->reportThrottled(key: self::CONNECTION_KEY, status: 'configured', message: 'Last batch sent at ' . gmdate('Y-m-d H:i') . ' UTC.');
 			return;
 		}
 
-		if ($outcome['retry'] === true && $attempt < self::MAX_RETRIES) {
-			$this->jobList->add(
-				self::class,
-				[
-					'batch' => $batch,
-					'attempt' => ($attempt + 1),
-					'notBefore' => ($this->time->getTime() + (self::BACKOFF_SECONDS * (2 ** $attempt))),
-				]
-			);
+		if ($outcome['retry'] === true && $batch['attempt'] < self::MAX_RETRIES) {
+			$this->retry(batch: $batch);
 			return;
 		}
 
-		$this->queue->dropBatch(name: $batch);
-		$this->logger->warning('[TraceExportJob] A trace batch was dropped after ' . ($attempt + 1) . ' tries: ' . $outcome['message']);
+		$this->queue->dropBatch(name: $batch['name']);
+		$this->logger->warning('[TraceExportJob] A trace batch was dropped after ' . ($batch['attempt'] + 1) . ' tries: ' . $outcome['message']);
 		$this->reporter->reportThrottled(key: self::CONNECTION_KEY, status: 'error', message: $outcome['message']);
 
 	}//end settle()
+
+	/**
+	 * Queue the next try of a batch, after an exponential backoff.
+	 *
+	 * @param array{name: string, attempt: int} $batch The batch name and the retries already made.
+	 *
+	 * @return void
+	 */
+	private function retry(array $batch): void {
+		$attempt = $batch['attempt'];
+		$this->queue->requeue(
+			argument: [
+				'batch' => $batch['name'],
+				'attempt' => ($attempt + 1),
+				'notBefore' => ($this->time->getTime() + (self::BACKOFF_SECONDS * (2 ** $attempt))),
+			]
+		);
+
+	}//end retry()
 }//end class

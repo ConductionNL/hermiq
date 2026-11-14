@@ -425,9 +425,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\TraceExport {
 				time: $time,
 				queue: $queue,
 				settings: $settings,
-				builder: new OtlpPayloadBuilder(),
 				sender: $this->sender(status: $status, verdict: ['allowed' => true], secret: 's', posted: $posted),
-				jobList: $this->jobList(),
 				reporter: $reporter,
 				logger: $logger
 			);
