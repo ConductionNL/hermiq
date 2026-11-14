@@ -63,14 +63,29 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 	 * The factory's guard and fallback branches, one decision per test.
 	 *
 	 * @covers \OCA\Hermiq\Service\Llm\ProviderFactory
+	 * @uses   \OCA\Hermiq\Service\Llm\AnthropicCliRunner
 	 * @uses   \OCA\Hermiq\Service\Llm\ProviderCallFailedException
 	 * @uses   \OCA\Hermiq\Service\Llm\BrokerHttpClient
 	 * @uses   \OCA\Hermiq\Service\Llm\ChatDriver
-	 * @uses   \OCA\Hermiq\Service\Llm\CliRunTokens
 	 * @uses   \OCA\Hermiq\Service\Llm\ChatDriverRequest
+	 * @uses   \OCA\Hermiq\Service\Llm\CliRunTokens
 	 * @uses   \OCA\Hermiq\Service\Llm\ModelPolicyViolationException
 	 */
 	final class ProviderFactoryBranchesTest extends TestCase {
+
+		/**
+		 * The cli decisions that live in the factory's collaborators, reached through the
+		 * factory's own wiring: method => [factory accessor, collaborator method].
+		 *
+		 * @var array<string, array{0: string, 1: string}>
+		 */
+		private const MOVED = [
+			'appApiGap' => ['cliRunner', 'appApiGap'],
+			'runnerGap' => ['cliRunner', 'runnerGap'],
+			'resolveCliToken' => ['cliRunner', 'resolveToken'],
+			'mapHistoryToCliMessages' => ['cliRunner', 'mapHistoryToCliMessages'],
+			'mintEgressRunToken' => ['cliRunTokens', 'mintEgressRunToken'],
+		];
 
 		/**
 		 * Build a factory with only the named collaborators.
@@ -104,6 +119,12 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 		 * @return mixed
 		 */
 		private function call(ProviderFactory $factory, string $method, array $args = []): mixed {
+			if (isset(self::MOVED[$method]) === true) {
+				[$accessor, $name] = self::MOVED[$method];
+				$owner = (new ReflectionMethod(ProviderFactory::class, $accessor))->invoke($factory);
+				return (new ReflectionMethod($owner, $name))->invokeArgs($owner, $args);
+			}
+
 			return (new ReflectionMethod(ProviderFactory::class, $method))->invokeArgs($factory, $args);
 		}//end call()
 
