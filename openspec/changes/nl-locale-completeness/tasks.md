@@ -14,7 +14,7 @@
 
 ## 2. Translate
 
-- [ ] 2.1 Write accurate Dutch translations for every key in `en.json` that is missing
+- [x] 2.1 Write accurate Dutch translations for every key in `en.json` that is missing
       or empty in `nl.json`. Use existing Conduction-app Dutch translations as a style
       reference where the same/similar string already exists in a sibling app's
       `l10n/nl.json` (e.g. "Save" → "Opslaan", "Settings" → "Instellingen" are already
@@ -25,7 +25,7 @@
 
 ## 3. Verify
 
-- [ ] 3.1 Re-run the audit script from 1.1 — zero keys should remain missing/empty.
+- [x] 3.1 Re-run the audit script from 1.1 — zero keys should remain missing/empty.
 - [x] 3.2 Validate `l10n/nl.json` is well-formed JSON (`python3 -m json.tool l10n/nl.json`
       or equivalent) after hand-editing.
 - [ ] 3.3 Manually switch a test user's language to Dutch (`nl`) on a dev instance and
