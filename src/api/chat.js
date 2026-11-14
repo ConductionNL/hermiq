@@ -155,6 +155,23 @@ export async function renameSession(uuid, title) {
 }
 
 /**
+ * Start a new session from one of a session's answers ("Fork from here"). The
+ * new session has the same agent and every turn up to and including that answer;
+ * the source stays as it was. Only the owner may fork: anyone else gets a 404.
+ *
+ * @param {string} uuid The source session UUID.
+ * @param {string} turnUuid The assistant turn to fork at.
+ * @return {Promise<{uuid: string, title: string, agentId: string, forkedFrom: object, messageCount: number}>} The new session.
+ * @spec openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
+ */
+export async function forkSession(uuid, turnUuid) {
+	const response = await axios.post(generateUrl(`${SESSIONS_BASE}/${uuid}/fork`), {
+		turnUuid,
+	})
+	return response.data
+}
+
+/**
  * Store the answers to the agent's start fields on a session, once, before its
  * first message (agents-instruction-variables). A refused answer comes back as
  * a 422 whose `problems` name the reason per field key.
