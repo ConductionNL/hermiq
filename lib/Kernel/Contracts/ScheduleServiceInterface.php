@@ -359,4 +359,27 @@ interface ScheduleServiceInterface {
 	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
 	 */
 	public function runNow(ObjectEntity $schedule, bool $bypassApprovalGate = false): void;
+
+	/**
+	 * The gate that holds a run of this agent now, or null: the agent is switched
+	 * off, the organisation's kill switch is engaged, or the budget's hard cap is
+	 * reached. Read-only.
+	 *
+	 * @param string $organisation The organisation.
+	 * @param string $agentId      The agent.
+	 *
+	 * @return string|null `skipped_agent_off`, `skipped_killswitch`, `skipped_budget`, or null.
+	 *
+	 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+	 */
+	public function gateFor(string $organisation, string $agentId): ?string;
+
+	/**
+	 * The LLM token and latency usage of the last run, `[]` when none was recorded.
+	 *
+	 * @return array<string, mixed> The usage.
+	 *
+	 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+	 */
+	public function getLastRunUsage(): array;
 }//end interface

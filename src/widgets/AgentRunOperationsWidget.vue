@@ -26,6 +26,109 @@
 -->
 <template>
 	<div class="agent-run-ops-widget">
+		<!-- How this agent starts (scheduling-overview-and-start-choice D2): one
+		     choice of the three ways an agent runs, each saying whether it is
+		     active. The detailed schedule and webhook sections below stay. -->
+		<section
+			class="agent-run-ops-widget__section agent-run-ops-widget__starts"
+			data-testid="agent-starts">
+			<h4>{{ t('hermiq', 'How this agent starts') }}</h4>
+
+			<div class="agent-run-ops-widget__start" data-testid="agent-start-manual">
+				<div class="agent-run-ops-widget__section-head">
+					<h5>{{ t('hermiq', 'By hand') }}</h5>
+					<span class="agent-run-ops-widget__badge agent-run-ops-widget__badge--ok">
+						{{ t('hermiq', 'Active') }}
+					</span>
+				</div>
+				<NcTextArea
+					v-model="manualPrompt"
+					:label="t('hermiq', 'What should the agent do?')"
+					:placeholder="t('hermiq', 'Summarise the open objections')"
+					resize="vertical" />
+				<div class="agent-run-ops-widget__actions">
+					<NcButton
+						variant="primary"
+						:disabled="manualRunning || manualPrompt.trim() === ''"
+						@click="runByHand">
+						<template #icon>
+							<NcLoadingIcon v-if="manualRunning" :size="20" />
+							<Play v-else :size="20" />
+						</template>
+						{{ t('hermiq', 'Run now') }}
+					</NcButton>
+				</div>
+				<p
+					v-if="manualMessage"
+					class="agent-run-ops-widget__manual-message"
+					role="status">
+					{{ manualMessage }}
+				</p>
+			</div>
+
+			<div class="agent-run-ops-widget__start" data-testid="agent-start-schedule">
+				<div class="agent-run-ops-widget__section-head">
+					<h5>{{ t('hermiq', 'On a schedule') }}</h5>
+					<span
+						class="agent-run-ops-widget__badge"
+						:class="activeSchedules.length > 0 ? 'agent-run-ops-widget__badge--ok' : 'agent-run-ops-widget__badge--off'">
+						{{ activeSchedules.length > 0 ? t('hermiq', 'Active') : t('hermiq', 'Not active') }}
+					</span>
+				</div>
+				<ul v-if="agentSchedules.length > 0" class="agent-run-ops-widget__start-list">
+					<li v-for="row in agentSchedules" :key="row.id">
+						{{ row.name || t('hermiq', 'Unnamed schedule') }}<template v-if="row.when">
+							— {{ row.when }}
+						</template>
+						<span class="agent-run-ops-widget__start-state">
+							{{ row.enabled ? t('hermiq', 'On') : t('hermiq', 'Paused') }}
+						</span>
+					</li>
+				</ul>
+				<div class="agent-run-ops-widget__actions">
+					<NcButton @click="addSchedule">
+						{{ t('hermiq', 'Add schedule') }}
+					</NcButton>
+				</div>
+			</div>
+
+			<div class="agent-run-ops-widget__start" data-testid="agent-start-event">
+				<div class="agent-run-ops-widget__section-head">
+					<h5>{{ t('hermiq', 'On an event') }}</h5>
+					<span
+						class="agent-run-ops-widget__badge"
+						:class="eventActive ? 'agent-run-ops-widget__badge--ok' : 'agent-run-ops-widget__badge--off'">
+						{{ eventActive ? t('hermiq', 'Active') : t('hermiq', 'Not active') }}
+					</span>
+				</div>
+				<ul v-if="agentFlows.length > 0 || webhookConfigured" class="agent-run-ops-widget__start-list">
+					<li v-for="flow in agentFlows" :key="flow.uuid || flow.id">
+						<a href="#" @click.prevent="openFlow(flow)">{{ flow.name }}</a>
+						<span class="agent-run-ops-widget__start-state">
+							{{ flow.enabled ? t('hermiq', 'On') : t('hermiq', 'Draft, not on yet') }}
+						</span>
+					</li>
+					<li v-if="webhookConfigured">
+						{{ t('hermiq', 'When another system calls a webhook') }}
+						<span class="agent-run-ops-widget__start-state">
+							{{ webhookStatus.enabled ? t('hermiq', 'On') : t('hermiq', 'Revoked') }}
+						</span>
+					</li>
+				</ul>
+				<div class="agent-run-ops-widget__actions">
+					<NcButton :disabled="draftBusy" @click="addObjectEvent">
+						<template v-if="draftBusy" #icon>
+							<NcLoadingIcon :size="20" />
+						</template>
+						{{ t('hermiq', 'When an object is created or changed') }}
+					</NcButton>
+					<NcButton @click="showWebhookPanel">
+						{{ t('hermiq', 'When another system calls a webhook') }}
+					</NcButton>
+				</div>
+			</div>
+		</section>
+
 		<div class="agent-run-ops-widget__section">
 			<div class="agent-run-ops-widget__section-head">
 				<h4>{{ t('hermiq', 'Schedule') }}</h4>
@@ -175,7 +278,7 @@
 			</p>
 		</section>
 
-		<div class="agent-run-ops-widget__section">
+		<div ref="webhookPanel" class="agent-run-ops-widget__section">
 			<div class="agent-run-ops-widget__section-head">
 				<h4>{{ t('hermiq', 'Webhook trigger') }}</h4>
 				<div class="agent-run-ops-widget__actions">
@@ -284,8 +387,8 @@
 		<ScheduleFormModal
 			:show="showScheduleForm"
 			:agentId="agentId"
-			:schedule="schedule"
-			@close="showScheduleForm = false"
+			:schedule="addingSchedule ? null : schedule"
+			@close="closeScheduleForm"
 			@saved="onScheduleSaved" />
 
 		<WebhookSecretDialog
@@ -298,13 +401,15 @@
 <script>
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import { emit } from '@nextcloud/event-bus'
-import { NcButton, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
+import { NcButton, NcLoadingIcon, NcNoteCard, NcTextArea } from '@nextcloud/vue'
 import BeakerOutline from 'vue-material-design-icons/BeakerOutline.vue'
 import Play from 'vue-material-design-icons/Play.vue'
 import ScheduleFormModal from '../modals/ScheduleFormModal.vue'
 import WebhookSecretDialog from '../modals/WebhookSecretDialog.vue'
 import { dryRunSchedule, runScheduleNow } from '../api/agents.js'
 import { getBudgetEstimate, getBudgetStatus } from '../api/budgets.js'
+import { createAgentEventDraft, listAgentFlows } from '../api/flows.js'
+import { listSchedules, runAgentByHand } from '../api/schedules.js'
 import {
 	createWebhookSecret,
 	getWebhookStatus,
@@ -324,6 +429,7 @@ export default {
 		NcButton,
 		NcLoadingIcon,
 		NcNoteCard,
+		NcTextArea,
 		Play,
 		ScheduleFormModal,
 		WebhookSecretDialog,
@@ -343,6 +449,14 @@ export default {
 			webhookBusy: false,
 			showWebhookSecretDialog: false,
 			revealedSecret: '',
+			// How this agent starts (scheduling-overview-and-start-choice D2).
+			manualPrompt: '',
+			manualRunning: false,
+			manualMessage: '',
+			agentSchedules: [],
+			agentFlows: [],
+			draftBusy: false,
+			addingSchedule: false,
 		}
 	},
 
@@ -378,6 +492,37 @@ export default {
 		 * @return {string} The trigger label.
 		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 		 */
+		/**
+		 * The agent's schedules that are on.
+		 *
+		 * @return {Array<object>}
+		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+		 */
+		activeSchedules() {
+			return this.agentSchedules.filter((row) => row.enabled !== false)
+		},
+
+		/**
+		 * Whether the webhook start exists at all, on or revoked.
+		 *
+		 * @return {boolean}
+		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+		 */
+		webhookConfigured() {
+			return Boolean(this.webhookStatus && this.webhookStatus.configured)
+		},
+
+		/**
+		 * Whether an event starts this agent: a flow that is on, or a webhook that is.
+		 *
+		 * @return {boolean}
+		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+		 */
+		eventActive() {
+			return this.agentFlows.some((flow) => flow.enabled === true)
+				|| (this.webhookConfigured && this.webhookStatus.enabled === true)
+		},
+
 		triggerLabel() {
 			if (!this.schedule) {
 				return '—'
@@ -423,7 +568,138 @@ export default {
 			} catch (e) {
 				this.schedule = null
 			}
-			await Promise.all([this.loadBudgetInfo(), this.loadWebhookStatus()])
+			await Promise.all([
+				this.loadBudgetInfo(),
+				this.loadWebhookStatus(),
+				this.loadStarts(),
+			])
+		},
+
+		/**
+		 * The agent's schedules and event flows, for "How this agent starts".
+		 * Either list failing leaves that row empty, never the whole widget.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+		 */
+		async loadStarts() {
+			const [schedules, flows] = await Promise.all([
+				listSchedules({ agentId: this.agentId }).catch(() => []),
+				listAgentFlows(this.agentId).catch(() => []),
+			])
+			this.agentSchedules = schedules
+			this.agentFlows = flows
+		},
+
+		/**
+		 * Run the agent by hand with the typed prompt, without a schedule. A held
+		 * run says which gate held it; a finished one refreshes run history.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+		 */
+		async runByHand() {
+			const prompt = this.manualPrompt.trim()
+			if (prompt === '' || this.manualRunning) {
+				return
+			}
+			this.manualRunning = true
+			this.manualMessage = ''
+			try {
+				await runAgentByHand(this.agentId, prompt)
+				this.manualMessage = this.t('hermiq', 'The run finished. It is in the run history.')
+				emit('cn:page:refresh')
+			} catch (e) {
+				this.manualMessage = this.heldMessage(e?.response?.data?.status)
+					|| e?.response?.data?.error
+					|| this.t('hermiq', 'The run failed.')
+			} finally {
+				this.manualRunning = false
+			}
+		},
+
+		/**
+		 * What a held run says, by the gate that held it.
+		 *
+		 * @param {string} status The gate status the server answered.
+		 * @return {string} The message, or '' for no gate.
+		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+		 */
+		heldMessage(status) {
+			const messages = {
+				skipped_agent_off: this.t('hermiq', 'This agent is switched off, so it did not run.'),
+				skipped_killswitch: this.t('hermiq', 'The emergency stop is on for this organisation, so the agent did not run.'),
+				skipped_budget: this.t('hermiq', 'The budget for this period is used up, so the agent did not run.'),
+			}
+			return messages[status] || ''
+		},
+
+		/**
+		 * Open the schedule form for a new schedule.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+		 */
+		addSchedule() {
+			this.addingSchedule = true
+			this.showScheduleForm = true
+		},
+
+		/**
+		 * Close the schedule form, back to editing the current schedule next time.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+		 */
+		closeScheduleForm() {
+			this.showScheduleForm = false
+			this.addingSchedule = false
+		},
+
+		/**
+		 * Create a draft flow with an object trigger and this agent's step, off
+		 * until the person switches it on, and open it on the canvas.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+		 */
+		async addObjectEvent() {
+			this.draftBusy = true
+			try {
+				const flow = await createAgentEventDraft(
+					this.agentId,
+					this.t('hermiq', 'When an object is created or changed'),
+				)
+				this.openFlow(flow)
+			} catch (e) {
+				showError(e?.response?.data?.error || this.t('hermiq', 'Could not create the draft flow.'))
+			} finally {
+				this.draftBusy = false
+			}
+		},
+
+		/**
+		 * Open a flow on the canvas.
+		 *
+		 * @param {object} flow The flow.
+		 * @return {void}
+		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+		 */
+		openFlow(flow) {
+			const id = flow?.uuid || flow?.id
+			if (id) {
+				this.$router.push({ name: 'FlowDetail', params: { id: String(id) } })
+			}
+		},
+
+		/**
+		 * Bring the webhook panel into view, the other way an event starts the agent.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+		 */
+		showWebhookPanel() {
+			this.$refs.webhookPanel?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
 		},
 
 		/**
@@ -612,6 +888,42 @@ export default {
 </script>
 
 <style scoped>
+.agent-run-ops-widget__starts {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.agent-run-ops-widget__start {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding-block-end: 12px;
+	border-bottom: 1px solid var(--color-border);
+}
+
+.agent-run-ops-widget__start h5 {
+	margin: 0;
+}
+
+.agent-run-ops-widget__start-list {
+	margin: 0;
+	padding-inline-start: 20px;
+}
+
+.agent-run-ops-widget__start-state {
+	margin-inline-start: 8px;
+	color: var(--color-text-maxcontrast);
+}
+
+.agent-run-ops-widget__badge--off {
+	color: var(--color-text-maxcontrast);
+}
+
+.agent-run-ops-widget__manual-message {
+	margin: 0;
+}
+
 .agent-run-ops-widget {
 	display: flex;
 	flex-direction: column;

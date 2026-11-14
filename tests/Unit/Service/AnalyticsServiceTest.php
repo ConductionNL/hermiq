@@ -346,6 +346,28 @@ class AnalyticsServiceTest extends TestCase {
 	}//end testListRunsIncludesFlowTriggeredRunsAndNamesTheChannel()
 
 	/**
+	 * A run by hand hangs on the agent and is listed with trigger `manual`.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+	 */
+	public function testListRunsNamesARunByHandManual(): void {
+		$schedules = [$this->schedule('s1', 'agentA')];
+
+		$manual = $this->runEntry('agentA', 'ok', 80, 'agentA');
+		$manual->setAction('manual-run');
+		$manual->setUuid('run-by-hand');
+		$manual->setCreated(new \DateTime('2026-09-03 09:00:00'));
+
+		$page = $this->service($schedules, [$manual])->listRuns();
+
+		$this->assertSame(1, $page['total']);
+		$this->assertSame(['run-by-hand', 'manual'], [$page['results'][0]['id'], $page['results'][0]['trigger']]);
+
+	}//end testListRunsNamesARunByHandManual()
+
+	/**
 	 * A run row carries the provider disclosure its record holds, data-use term
 	 * included, as it stood at run time; an older run without one reads empty.
 	 *

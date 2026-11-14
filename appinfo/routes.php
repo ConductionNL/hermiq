@@ -52,6 +52,14 @@ $routes = [
         // The OpenAPI document, public (NL API Design Rules, /core/publish-openapi).
         ['name' => 'openApi#show', 'url' => '/api/openapi.json', 'verb' => 'GET'],
 
+        // Plain words to a schedule rule, with readback and the next three runs
+        // (scheduling-overview-and-start-choice D3). Before the {scheduleId} routes.
+        ['name' => 'scheduleWhen#parse', 'url' => '/api/schedules/parse-when', 'verb' => 'POST'],
+
+        // The Schedules page: every schedule the caller may see, filtered per row by
+        // owner, agent access and organisation admin (scheduling-overview-and-start-choice D1).
+        ['name' => 'scheduleList#index', 'url' => '/api/schedules', 'verb' => 'GET'],
+
         // Run history — owner-scoped audit read for a schedule (run-audit-log).
         ['name' => 'runHistory#index', 'url' => '/api/schedules/{scheduleId}/runs', 'verb' => 'GET', 'requirements' => ['scheduleId' => '[^/]+']],
 
@@ -81,6 +89,10 @@ $routes = [
             'verb'         => 'POST',
             'requirements' => ['id' => '[^/]+'],
         ],
+
+        // Run by hand — a run of an agent with a prompt and no schedule, for a user who
+        // may use the agent, through the scheduled-run gates (scheduling-overview-and-start-choice D2).
+        ['name' => 'manualRun#run', 'url' => '/api/agents/{id}/run', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
 
         // Replay — owner-scoped re-run of a past run's recorded prompt as a dry-run,
         // with a step-by-step diff against the original (run-replay-and-dry-run).
