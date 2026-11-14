@@ -43,6 +43,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 	use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
 	use OCA\Hermiq\Service\Llm\ChatDriver;
 	use OCA\Hermiq\Service\Llm\ChatDriverRequest;
+	use OCA\Hermiq\Service\Llm\CliRunTokens;
 	use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 	use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
 	use OCA\Hermiq\Service\Llm\ProviderFactory;
@@ -63,6 +64,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 	 *
 	 * @covers \OCA\Hermiq\Service\Llm\ProviderFactory
 	 * @uses   \OCA\Hermiq\Service\Llm\AnthropicCliRunner
+	 * @uses   \OCA\Hermiq\Service\Llm\ProviderCallFailedException
 	 * @uses   \OCA\Hermiq\Service\Llm\BrokerHttpClient
 	 * @uses   \OCA\Hermiq\Service\Llm\ChatDriver
 	 * @uses   \OCA\Hermiq\Service\Llm\ChatDriverRequest
@@ -437,8 +439,12 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 			$tokens->expects(self::never())->method('mint');
 			$factory = $this->factory(['runTokenService' => $tokens]);
 
-			self::assertSame('', $this->call($factory, 'mintEgressRunToken', ['agentId' => 'agent-1', 'uid' => null]));
-			self::assertSame('', $this->call($factory, 'mintEgressRunToken', ['agentId' => 'agent-1', 'uid' => '']));
+			// The egress token is minted by the factory's CliRunTokens collaborator.
+			$cliRunTokens = $this->call($factory, 'cliRunTokens');
+			$mint         = new ReflectionMethod(CliRunTokens::class, 'mintEgressRunToken');
+
+			self::assertSame('', $mint->invokeArgs($cliRunTokens, ['agentId' => 'agent-1', 'uid' => null]));
+			self::assertSame('', $mint->invokeArgs($cliRunTokens, ['agentId' => 'agent-1', 'uid' => '']));
 		}//end testNoEgressTokenIsMintedWithoutAUser()
 
 		/**
@@ -469,7 +475,10 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 				);
 				self::fail('A refused call was answered.');
 			} catch (Exception $e) {
-				self::assertSame(Exception::class, get_class($e));
+				// Typed since models-several-models-per-turn task 2: a broker
+				// refusal is not a temporary failure, so it never moves a turn.
+				self::assertSame(\OCA\Hermiq\Service\Llm\ProviderCallFailedException::class, get_class($e));
+				self::assertSame(\OCA\Hermiq\Service\Llm\ProviderCallFailedException::UNKNOWN, $e->kind);
 				self::assertSame(
 					'Fireworks API request failed: Hermiq LLM: the credential broker refused or could not make the call.',
 					$e->getMessage()

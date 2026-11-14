@@ -801,6 +801,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @throws \Exception If the HTTP call fails or the response is malformed.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
+	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-2
 	 */
 	public function callFireworksChat(
 		string $credentialId,
@@ -825,8 +826,13 @@ class ProviderFactory implements ProviderFactoryInterface {
 		$httpCode = $psrResponse->getStatusCode();
 		$response = (string)$psrResponse->getBody();
 		if ($httpCode !== 200) {
-			throw ($this->fireworksStatusError(httpCode: $httpCode, model: $model)
+			$error = ($this->fireworksStatusError(httpCode: $httpCode, model: $model)
 				?? new Exception("Fireworks API error (HTTP {$httpCode}): " . $this->fireworksErrorMessage(response: $response)));
+			throw ProviderCallFailedException::fromHttpStatus(
+				status: $httpCode,
+				message: $error->getMessage(),
+				retryAfter: $psrResponse->getHeaderLine('retry-after')
+			);
 		}
 
 		return $this->fireworksAnswer(response: $response);
@@ -878,7 +884,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 		try {
 			return $client->sendRequest($request);
 		} catch (Throwable $e) {
-			throw new Exception('Fireworks API request failed: ' . $e->getMessage());
+			throw self::transportFailure(prefix: 'Fireworks API request failed: ', failure: $e);
 		}
 	}//end sendToFireworks()
 
@@ -1481,8 +1487,6 @@ class ProviderFactory implements ProviderFactoryInterface {
 	}//end poolKeyFor()
 
 	/**
-
-	/**
 	 * Start the pooled CLI process for a conversation WITHOUT running a turn.
 	 *
 	 * The first question of a conversation is always the slow one, because
@@ -1707,6 +1711,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @throws \Exception If the HTTP call fails or the response is malformed.
 	 *
 	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
+	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-2
 	 */
 	private function postToAnthropic(AnthropicToolLoop $loop, array $payload): array {
 		$psrResponse = $this->sendToAnthropic(loop: $loop, payload: $payload);
@@ -1714,9 +1719,15 @@ class ProviderFactory implements ProviderFactoryInterface {
 		$response = (string)$psrResponse->getBody();
 
 		if ($httpCode !== 200) {
-			throw ($this->anthropicStatusError(httpCode: $httpCode, model: $loop->run->model)
+			$error = ($this->anthropicStatusError(httpCode: $httpCode, model: $loop->run->model)
 				?? $this->anthropicRateLimitError(psrResponse: $psrResponse)
 				?? new Exception("Anthropic API error (HTTP {$httpCode}): " . $this->anthropicErrorMessage(response: $response)));
+			throw ProviderCallFailedException::fromHttpStatus(
+				status: $httpCode,
+				message: $error->getMessage(),
+				retryAfter: $psrResponse->getHeaderLine('retry-after'),
+				kind: self::anthropicRefusedCredential(psrResponse: $psrResponse)
+			);
 		}
 
 		$data = json_decode($response, true);
@@ -1757,9 +1768,52 @@ class ProviderFactory implements ProviderFactoryInterface {
 				)
 			);
 		} catch (Throwable $e) {
-			throw new Exception('Anthropic API request failed: ' . $e->getMessage());
+			throw self::transportFailure(prefix: 'Anthropic API request failed: ', failure: $e);
 		}
 	}//end sendToAnthropic()
+
+	/**
+	 * A request that did not get an answer, typed by what went wrong, with the message it always had.
+	 *
+	 * @param string    $prefix  The provider's message prefix.
+	 * @param Throwable $failure The client's failure.
+	 *
+	 * @return ProviderCallFailedException
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-2
+	 */
+	private static function transportFailure(string $prefix, Throwable $failure): ProviderCallFailedException {
+		$typed = ProviderCallFailedException::fromThrowable(failure: $failure);
+
+		return new ProviderCallFailedException(
+			message: $prefix . $failure->getMessage(),
+			kind: $typed->kind,
+			httpStatus: $typed->httpStatus,
+			previous: $failure
+		);
+	}//end transportFailure()
+
+	/**
+	 * An Anthropic 429 without retry-after or rate-limit counters is a credential the Messages API refuses:
+	 * a configuration error (auth), never a rate limit a fallback should hide.
+	 *
+	 * @param ResponseInterface $psrResponse The answer.
+	 *
+	 * @return string|null The auth kind for that case, else null (the status decides).
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-refusal-or-a-configuration-error-never-triggers-a-fallback-req-mfail-003
+	 */
+	private static function anthropicRefusedCredential(ResponseInterface $psrResponse): ?string {
+		if ($psrResponse->getStatusCode() !== 429
+			|| trim($psrResponse->getHeaderLine('retry-after')) !== ''
+			|| $psrResponse->hasHeader('anthropic-ratelimit-requests-remaining') === true
+			|| $psrResponse->hasHeader('anthropic-ratelimit-tokens-remaining') === true
+		) {
+			return null;
+		}
+
+		return ProviderCallFailedException::AUTH;
+	}//end anthropicRefusedCredential()
 
 	/**
 	 * The failure of a refused credential or an unknown model, or null for any
