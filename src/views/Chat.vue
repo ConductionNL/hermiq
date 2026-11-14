@@ -867,6 +867,7 @@ import {
 	stopGoal,
 	streamChatMessage,
 	uploadChatAttachment,
+	warmChat,
 } from '../api/chat.js'
 import { speechCapabilities } from '../api/speech.js'
 import { useAgentStore } from '../store/store.js'
@@ -1762,6 +1763,9 @@ export default {
 			if (!session.agentId) {
 				return
 			}
+			// Start the agent's CLI process while the person reads and types, not
+			// inside their first question. Fire and forget: it never throws.
+			warmChat(session.agentId, session.uuid)
 			const agent = await this.agentStore.fetchObject('agent', session.agentId)
 			this.currentAgent = agent || null
 		},
@@ -1779,6 +1783,7 @@ export default {
 			this.startError = ''
 			try {
 				const session = await createSession(agentUuid)
+				warmChat(agentUuid, session?.uuid)
 				this.currentAgent = agent
 				this.activeSession = session
 				this.messages = []
