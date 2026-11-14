@@ -380,6 +380,29 @@
 								</li>
 							</ul>
 
+							<!-- How this answer came about (chat-how-an-answer-came-about D5):
+							     sentences the server built from the stored record. A native
+							     details element is keyboard operable and announces its state. -->
+							<details
+								v-if="
+									message.role === 'assistant'
+									&& message.provenanceAccount
+									&& message.provenanceAccount.length > 0
+								"
+								class="chat-page__provenance"
+								data-testid="chat-message-provenance">
+								<summary class="chat-page__provenance-summary">
+									{{ t('hermiq', 'How this answer came about') }}
+								</summary>
+								<ul class="chat-page__provenance-list">
+									<li
+										v-for="(sentence, sentenceIndex) in message.provenanceAccount"
+										:key="sentenceIndex">
+										{{ sentence }}
+									</li>
+								</ul>
+							</details>
+
 							<!-- RAG sources -->
 							<div
 								v-if="message.sources && message.sources.length > 0"
@@ -396,9 +419,23 @@
 										v-if="source.type === 'file'"
 										:size="16" />
 									<CubeOutline v-else :size="16" />
-									<span class="chat-page__source-name">{{
-										source.name || source.id
+									<span
+										v-if="message.sources.length > 1 || source.passage"
+										class="chat-page__source-number">[{{ sourceIndex + 1 }}]</span>
+									<a
+										v-if="sourceFileId(source)"
+										class="chat-page__source-name"
+										:href="fileLink({ fileId: sourceFileId(source) })"
+										target="_blank"
+										rel="noopener noreferrer">{{ sourceName(source) }}</a>
+									<span v-else class="chat-page__source-name">{{
+										sourceName(source)
 									}}</span>
+									<span
+										v-if="sourcePage(source)"
+										class="chat-page__source-page">
+										{{ t('hermiq', 'page {page}', { page: sourcePage(source) }) }}
+									</span>
 									<span
 										v-if="source.similarity"
 										class="chat-page__source-match">
@@ -830,6 +867,7 @@ import {
 	stopGoal,
 	streamChatMessage,
 	uploadChatAttachment,
+	warmChat,
 } from '../api/chat.js'
 import { speechCapabilities } from '../api/speech.js'
 import { useAgentStore } from '../store/store.js'
@@ -839,6 +877,7 @@ import {
 	findingsByField,
 	scheduleFromDraft,
 } from '../utils/agentDraft.js'
+import { sourceFileId, sourceName, sourcePage } from '../utils/chatSources.js'
 import {
 	initialAnswers,
 	missingRequired,
@@ -1261,6 +1300,10 @@ export default {
 	},
 
 	methods: {
+		sourceFileId,
+		sourceName,
+		sourcePage,
+
 		/**
 		 * The name shown on a person's turn: "You" for the caller, the author's name
 		 * captured at send time for a colleague in a shared session.
@@ -1720,6 +1763,9 @@ export default {
 			if (!session.agentId) {
 				return
 			}
+			// Start the agent's CLI process while the person reads and types, not
+			// inside their first question. Fire and forget: it never throws.
+			warmChat(session.agentId, session.uuid)
 			const agent = await this.agentStore.fetchObject('agent', session.agentId)
 			this.currentAgent = agent || null
 		},
@@ -1737,6 +1783,7 @@ export default {
 			this.startError = ''
 			try {
 				const session = await createSession(agentUuid)
+				warmChat(agentUuid, session?.uuid)
 				this.currentAgent = agent
 				this.activeSession = session
 				this.messages = []
@@ -1932,6 +1979,7 @@ export default {
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 * @spec openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port/spec.md#requirement-the-chat-page-streams-the-answer-as-the-agent-writes-it-req-chstrm-001
 		 */
 		async sendViaStream(text, uuid, attachments = []) {
 			this.isStreaming = true
@@ -2145,6 +2193,7 @@ export default {
 		 * @param {string} type 'positive' or 'negative'.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 * @spec openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port/spec.md#requirement-a-person-rates-an-answer-up-or-down-with-an-optional-comment-req-chfb-001
 		 */
 		async sendFeedback(message, type) {
 			const cleared = message.feedback === type
@@ -2173,6 +2222,7 @@ export default {
 		 * @param {object} message The assistant message.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 * @spec openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port/spec.md#requirement-a-person-rates-an-answer-up-or-down-with-an-optional-comment-req-chfb-001
 		 */
 		async saveFeedbackComment(message) {
 			if (!message.feedbackComment || !message.feedbackComment.trim()) {
@@ -2768,6 +2818,28 @@ export default {
 
 /* ── Sources ──────────────────────────────────────────────────────── */
 
+.chat-page__provenance {
+	margin-top: 8px;
+	font-size: 0.9em;
+}
+
+.chat-page__provenance-summary {
+	cursor: pointer;
+	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__provenance-summary:focus-visible {
+	outline: 2px solid var(--color-primary-element);
+	outline-offset: 2px;
+}
+
+.chat-page__provenance-list {
+	margin: 4px 0 0;
+	padding-left: 20px;
+	list-style: disc;
+	color: var(--color-main-text);
+}
+
 .chat-page__sources {
 	margin-top: 10px;
 	padding-top: 10px;
@@ -2805,6 +2877,17 @@ export default {
 }
 
 .chat-page__source-match {
+	font-size: 11px;
+	color: var(--color-text-maxcontrast);
+}
+
+a.chat-page__source-name {
+	color: var(--color-main-text);
+	text-decoration: underline;
+}
+
+.chat-page__source-number,
+.chat-page__source-page {
 	font-size: 11px;
 	color: var(--color-text-maxcontrast);
 }

@@ -26,7 +26,9 @@ namespace OCA\Hermiq\Service\Engine;
 use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use LLPhant\Exception\MissingFeatureException;
+use OCA\Hermiq\Service\Llm\ProviderCallFailedException;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * One LLPhant model call of a turn. Built by ResponseGenerationHandler per call.
@@ -145,8 +147,32 @@ final class LlphantChatCall {
 	 * @return string The assistant's textual response.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-2
 	 */
 	private function invokeChat(OpenAIChat|OllamaChat $chat, ResponseTurnRun $run): string {
+		try {
+			return $this->callChat(chat: $chat, run: $run);
+		} catch (Throwable $failure) {
+			// Hermiq's own exceptions (policy, residency and redaction refusals,
+			// an unavailable provider) keep their class so every caller's catch
+			// still holds; only the client's failures are typed, once.
+			if (str_starts_with(get_class($failure), 'OCA\\Hermiq\\') === true) {
+				throw $failure;
+			}
+
+			throw ProviderCallFailedException::fromThrowable(failure: $failure);
+		}
+	}//end invokeChat()
+
+	/**
+	 * Call the chat client: streaming when a channel is open, else blocking.
+	 *
+	 * @param OpenAIChat|OllamaChat $chat The LLPhant chat.
+	 * @param ResponseTurnRun       $run  The turn.
+	 *
+	 * @return string The answer.
+	 */
+	private function callChat(OpenAIChat|OllamaChat $chat, ResponseTurnRun $run): string {
 		$ollamaWithTools = (($chat instanceof OllamaChat) === true && empty($run->progress->functions) === false);
 
 		// Both branches of `$chat`'s OpenAIChat|OllamaChat type declare
@@ -166,7 +192,7 @@ final class LlphantChatCall {
 		// providers without streaming support, and for Ollama-with-tools where
 		// the FacadeToolInvoker still fires from the blocking callFunction path.
 		return $chat->generateChat($run->messageHistory);
-	}//end invokeChat()
+	}//end callChat()
 
 	/**
 	 * Log that a provider advertising streaming could not deliver it.

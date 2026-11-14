@@ -14,9 +14,12 @@
 - [ ] 2.1 Answer language: pass the `answer_language` preference of the run's person into the
       context the engine assembles. Verify: unit test of the context assembly.
 - [ ] 2.2 Default agent: the chat reads `default_agent` when no agent is chosen. Verify: Vitest test.
-- [ ] 2.3 Ask before sending: when `ask_before_send` is on, the approval check adds an approval for
+- [x] 2.3 Ask before sending: when `ask_before_send` is on, the approval check adds an approval for
       outbound mail and send tools in runs started by that person, never removing a required one
       (REQ-PREF-002). Verify: unit tests for on, off with a required approval, and off without.
+      Built: `PersonalPreferences` reads `pref_ask-before-send` (the settings dialog sends the key
+      `ask-before-send`; the endpoint drops underscores), `OutboundToolRule` picks the turn's send tools,
+      and `FacadeToolInvoker` asks after every other gate. Tests: `FacadeToolInvokerAskBeforeSendTest`.
 - [ ] 2.4 Run done notification: when `notify_run_done` is on, a finished run sends a Nextcloud
       notification to the person who started it. Verify: unit test of the notifier call.
 
