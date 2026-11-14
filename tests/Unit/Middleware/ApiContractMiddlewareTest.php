@@ -41,13 +41,14 @@ class ApiContractMiddlewareTest extends TestCase {
 	 *
 	 * @param string|false $path     The request path info.
 	 * @param Response     $response The controller response.
+	 * @param string|null  $uri      The request URI, or null for one behind `/index.php`.
 	 *
 	 * @return Response The decorated response.
 	 */
-	private function decorate(string|false $path, Response $response): Response {
+	private function decorate(string|false $path, Response $response, ?string $uri=null): Response {
 		$request = $this->createMock(originalClassName: IRequest::class);
 		$request->method('getPathInfo')->willReturn($path);
-		$request->method('getRequestUri')->willReturn('/index.php'.(string) $path.'?q=1');
+		$request->method('getRequestUri')->willReturn($uri ?? '/index.php'.(string) $path.'?q=1');
 		$appManager = $this->createMock(originalClassName: IAppManager::class);
 		$appManager->method('getAppVersion')->willReturn('1.2.3');
 
@@ -197,6 +198,23 @@ class ApiContractMiddlewareTest extends TestCase {
 		$this->assertSame(expected: '@1794441600', actual: $headers['Deprecation']);
 		$this->assertSame(expected: '</index.php/apps/hermiq/api/v1/things/7/parts>; rel="successor-version"', actual: $headers['Link']);
 	}//end testUnversionedPathAnnouncesItsSuccessor()
+
+	/**
+	 * When the request URI does not carry the path info, the successor link has no prefix.
+	 *
+	 * @return void
+	 */
+	public function testSuccessorLinkWithoutThePathInTheUriHasNoPrefix(): void {
+		$response = $this->decorate(
+			path: '/apps/hermiq/api/things/7',
+			response: new JSONResponse(data: ['id' => 7]),
+			uri: '/rewritten/elsewhere'
+		);
+		$headers  = $this->headersOf(response: $response);
+
+		$this->assertSame(expected: '@1794441600', actual: $headers['Deprecation']);
+		$this->assertSame(expected: '</apps/hermiq/api/v1/things/7>; rel="successor-version"', actual: $headers['Link']);
+	}//end testSuccessorLinkWithoutThePathInTheUriHasNoPrefix()
 
 	/**
 	 * A versioned API path is not deprecated, and still carries the version.
