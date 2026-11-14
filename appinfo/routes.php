@@ -86,6 +86,10 @@ $routes = [
             'requirements' => ['id' => '[^/]+'],
         ],
 
+        // Run by hand — a run of an agent with a prompt and no schedule, for a user who
+        // may use the agent, through the scheduled-run gates (scheduling-overview-and-start-choice D2).
+        ['name' => 'manualRun#run', 'url' => '/api/agents/{id}/run', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+
         // Replay — owner-scoped re-run of a past run's recorded prompt as a dry-run,
         // with a step-by-step diff against the original (run-replay-and-dry-run).
         [

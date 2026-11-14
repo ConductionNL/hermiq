@@ -17,7 +17,7 @@ Kind: code. Size M. Rows `hermiq:sc-list`, `sc-manual-event-choice`, `sc-nl`.
 - **files**: `lib/Controller/AgentRunController.php`, `lib/Service/ScheduleService.php`, `appinfo/routes.php`
 - **acceptance_criteria**:
   - GIVEN a usable agent WHEN run by hand THEN the gates apply and history records trigger manual
-- [ ] Implement
+- [x] Implement
 - [ ] Test (PHPUnit for gates and access; Newman)
 
 ### Task 3: How this agent starts, on the agent page
