@@ -154,6 +154,24 @@ class DepartmentSwitchTest extends TestCase {
 	}//end testAgentsOutsideAnOffDepartmentAreNotHeld()
 
 	/**
+	 * An agent the object service answers with null for (not found without an
+	 * exception) is not held, rather than failing the run's gate check.
+	 *
+	 * @return void
+	 */
+	public function testAnAgentFoundAsNullIsNotHeld(): void {
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('setRegister')->willReturnSelf();
+		$objectService->method('setSchema')->willReturnSelf();
+		$objectService->method('findAll')->willReturnCallback(fn (): array => $this->departments);
+		$objectService->expects($this->once())->method('find')->willReturn(null);
+
+		$switch = new DepartmentSwitch(objectService: $objectService, logger: $this->logger);
+
+		$this->assertNull($switch->offDepartmentOf(agentId: 'agent-sd'));
+	}//end testAnAgentFoundAsNullIsNotHeld()
+
+	/**
 	 * A department list that cannot be read is logged as an error.
 	 *
 	 * @return void

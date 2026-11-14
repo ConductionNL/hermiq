@@ -134,6 +134,11 @@ final class DepartmentSwitch {
 			return null;
 		}
 
+		// An agent that cannot be found is not held by a department switch.
+		if ($agent instanceof ObjectEntity === false) {
+			return null;
+		}
+
 		$department = trim((string)($agent->getObject()['department'] ?? ''));
 		if ($department === '' || in_array($department, $this->offDepartments(), true) === false) {
 			return null;
