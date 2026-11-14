@@ -139,6 +139,7 @@ class EngineSwitchedOffTest extends TestCase {
 				'Service/EvalRunService.php',
 				'Service/FlowAgentRunService.php',
 				'Service/GoalService.php',
+				'Service/Schedule/ManualRunService.php',
 				'Service/ScheduleService.php',
 				'Service/WebhookAgentRunService.php',
 			],
