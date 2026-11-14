@@ -60,6 +60,10 @@
             "description": "Tenant-scoped agent-template-gallery endpoints."
         },
         {
+            "name": "agent-acting-user",
+            "description": "Whether an agent's declared acting user still resolves."
+        },
+        {
             "name": "agent-version",
             "description": "Owner/invited-scoped read + owner-only rollback endpoints over an Agent's version history (agent-versioning)."
         },
@@ -2593,6 +2597,62 @@
                     },
                     "400": {
                         "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    }
+                }
+            }
+        },
+        "/agents/{id}/acting-user": {
+            "get": {
+                "operationId": "agent-acting-user-show",
+                "summary": "The agent's declared acting user and whether it resolves",
+                "description": "The agent's declared acting user and whether it still resolves: the named account exists and is enabled. An agent with no declared account resolves. An agent the caller may not read answers 404. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "agent-acting-user"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The Agent UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "actingUser": {
+                                            "type": "string"
+                                        },
+                                        "resolves": {
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "required": [
+                                        "actingUser",
+                                        "resolves"
+                                    ]
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "$ref": "#/components/responses/Problem401"
