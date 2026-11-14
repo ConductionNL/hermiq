@@ -12,7 +12,8 @@ Kind: code. Size M. Rows `hermiq:dm-metadata-filter`, `td-validated-sources`.
   - GIVEN filters that match nothing WHEN a turn retrieves THEN no file search runs
 - [ ] Implement
   - Backend built: `Agent.ragFileFilters` (register 0.53.0), `lib/Service/RetrievalScope/FileScopeResolver.php` (one Nextcloud file search as the session user, owners expanded from groups, name LIKE, mtime range; null when unset, an empty set when nothing can match) and `ContextRetrievalHandler` (an empty set switches file search off; file rows outside the set are dropped).
-  - Open: the agent form fields in `src/modals/AgentFormModal.vue` with their l10n strings, and handing the set to the vector facade's `fileIds` once `vector-rag` ships the facade.
+  - Form built: owners (people and groups), file name pattern and modified after/before in `src/modals/AgentFormModal.vue`, read and written by `src/utils/retrievalScope.js`, with en/nl strings. A default the form leaves alone is not written onto an agent that never held it.
+  - Open: handing the set to the vector facade's `fileIds`. `vector-rag` has not shipped a public facade yet, so retrieval still takes the keyword path, where file rows outside the set are already dropped.
 - [x] Test (PHPUnit on the query built and on the empty case)
   - `FileScopeResolverTest`, `ContextRetrievalFileScopeTest`.
 
@@ -22,11 +23,11 @@ Kind: code. Size M. Rows `hermiq:dm-metadata-filter`, `td-validated-sources`.
 - **acceptance_criteria**:
   - GIVEN an administrator WHEN they create the tag and restrict it to a group THEN `validated_tag_id` is set and the tag's groups are that group
   - GIVEN a non-admin WHEN they call the route THEN the answer is 403
-- [ ] Implement
+- [x] Implement
   - Backend built: `GET|PUT|POST /api/settings/validated-tag` (`ValidatedTagSettingsController`, admin only) over `ValidatedTagSettings` (stores `validated_tag_id` only; creates the tag restricted and sets its groups through `ISystemTagManager`), documented in `openapi.json`.
-  - Open: the admin page section in `src/views/AdminRoot.vue` with its l10n strings.
+  - Admin section "Validated documents" in `src/views/AdminRoot.vue` (`src/components/settings/ValidatedTagSettings.vue`, `src/api/validatedTag.js`): shows the tag, creates it restricted with the groups that may assign it, and saves those groups; en/nl strings.
 - [ ] Test (PHPUnit; Playwright under `tests/e2e/spec-coverage/retrieval-scope.spec.ts`)
-  - PHPUnit done: `ValidatedTagSettingsTest`, `ValidatedTagSettingsControllerTest`. Playwright needs a live instance.
+  - PHPUnit done: `ValidatedTagSettingsTest`, `ValidatedTagSettingsControllerTest`; vitest `validated-tag-settings.spec.js`. Playwright needs a live instance.
 
 ### Task 3: Validated mode and the deterministic abstention
 - **spec_ref**: `openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-agent-in-validated-mode-refuses-without-asking-the-model-when-nothing-validated-matches-req-rscope-003`
@@ -54,9 +55,11 @@ Kind: code. Size M. Rows `hermiq:dm-metadata-filter`, `td-validated-sources`.
 - **files**: `lib/Settings/hermiq_register.json`, `lib/Service/Engine/Engine.php`, `src/views/Chat.vue`, `src/modals/AgentFormModal.vue`, `l10n/en.json`, `l10n/nl.json`
 - **acceptance_criteria**:
   - GIVEN an abstained turn WHEN the session is opened THEN the turn shows the mode, the floor and the best similarity
-- [ ] Implement
+- [x] Implement
   - Backend built: `SessionTurn.retrievalScope` (register 0.56.0) holds the file filters, `validated`, `floor`, `passed`, `bestSimilarity` and `abstained`, stored on every assistant turn by `MessageHistoryHandler::storeMessage()` and returned in the turn's envelope.
-  - Open: the display under an answer in `src/views/Chat.vue` and the validated-mode fields in `src/modals/AgentFormModal.vue`, with their l10n strings.
+  - `SessionController::serializeMessage()` returns the record on every stored turn (null without one), so the Chat page reads it after reloading the thread.
+  - Display under an answer in `src/views/Chat.vue`: the abstention line, the mode with its floor, the number of passages that passed and the best similarity, and a note when file filters applied (`scopeDisplay()` in `src/utils/retrievalScope.js`). The validated-mode fields (switch, minimum similarity, abstention message) are on the agent form. en/nl strings.
+  - Tests: vitest `retrieval-scope.spec.js`, `agent-form-retrieval-scope.spec.js`; PHPUnit `SessionControllerUncoveredPathsTest::testMessagesReturnTheRetrievalScope`.
 - [ ] Test (Playwright under `tests/e2e/spec-coverage/retrieval-scope.spec.ts` with a seeded abstained turn)
 
 ## Verification
