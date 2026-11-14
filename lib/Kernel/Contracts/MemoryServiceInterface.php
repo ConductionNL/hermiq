@@ -96,13 +96,14 @@ interface MemoryServiceInterface {
 	 * @param string $agentId The agent UUID.
 	 * @param string $entryId The id of the entry to correct.
 	 * @param string $text The corrected text (non-empty; the caller checks).
+	 * @param string|null $projectKey The project memory the entry is in, or null for the shared memory.
 	 *
 	 * @return ObjectEntity|null The persisted Memory object, or null when no live
 	 *                           entry carries `$entryId`.
 	 *
 	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
 	 */
-	public function correctMemoryEntry(string $agentId, string $entryId, string $text): ?ObjectEntity;
+	public function correctMemoryEntry(string $agentId, string $entryId, string $text, ?string $projectKey = null): ?ObjectEntity;
 
 	/**
 	 * Soft-delete one memory entry by id (never a hard delete): sets `deletedAt`,
@@ -218,4 +219,42 @@ interface MemoryServiceInterface {
 	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-5
 	 */
 	public function recallSessions(string $agentId, string $query, int $limit = 20): array;
+
+	/**
+	 * The projects an agent keeps a memory for, by key and readable name.
+	 *
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return array<int, array{projectKey: string, projectName: string}> The projects, by name.
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 */
+	public function listProjects(string $agentId): array;
+
+	/**
+	 * Get (or create) a project's memory and record its readable name.
+	 *
+	 * @param string $agentId     The agent UUID.
+	 * @param string $projectKey  The project key.
+	 * @param string $projectName The project's readable name; '' keeps the stored one.
+	 *
+	 * @return ObjectEntity The project's Memory object.
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 */
+	public function ensureProjectMemory(string $agentId, string $projectKey, string $projectName): ObjectEntity;
+
+	/**
+	 * Move one live entry between the shared memory and a project memory.
+	 *
+	 * @param string      $agentId The agent UUID.
+	 * @param string      $entryId The entry to move.
+	 * @param string|null $from    The project the entry is in, or null for the shared memory.
+	 * @param string|null $to      The project to move it to, or null for the shared memory.
+	 *
+	 * @return ObjectEntity|null The memory the entry is now in, or null when the source holds no live entry with that id.
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 */
+	public function moveMemoryEntry(string $agentId, string $entryId, ?string $from, ?string $to): ?ObjectEntity;
 }//end interface

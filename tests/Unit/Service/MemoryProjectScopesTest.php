@@ -27,6 +27,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service;
 
+use OCA\Hermiq\Service\Memory\MemoryEntryRef;
 use OCA\Hermiq\Service\MemoryLookup;
 use OCA\Hermiq\Service\MemoryService;
 use OCA\Hermiq\Service\RedactionService;
@@ -46,6 +47,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(MemoryService::class)]
 #[UsesClass(MemoryLookup::class)]
 #[UsesClass(RedactionService::class)]
+#[UsesClass(MemoryEntryRef::class)]
 class MemoryProjectScopesTest extends TestCase {
 
 	/**
@@ -300,4 +302,123 @@ class MemoryProjectScopesTest extends TestCase {
 		$this->assertSame(['found' => false, 'scope' => null], $service->forgetEntry(agentId: 'agent-1', subjectUid: null, entryId: 'mem-visie-e1'));
 		$this->assertSame([], $this->saved);
 	}//end testForgetNeverReachesAnotherProject()
+
+	/**
+	 * The projects are listed by name, with the key standing in for a missing name.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 */
+	public function testListProjectsByName(): void {
+		$this->stored[1]->setObject($this->stored[1]->getObject() + ['projectName' => 'Omgevingsvisie 2040']);
+
+		$this->assertSame(
+			[
+				['projectKey' => 'aanbesteding-wagenpark', 'projectName' => 'aanbesteding-wagenpark'],
+				['projectKey' => 'omgevingsvisie-2040', 'projectName' => 'Omgevingsvisie 2040'],
+			],
+			$this->service()->listProjects(agentId: 'agent-1')
+		);
+		$this->assertSame([], $this->service()->listProjects(agentId: 'agent-2'));
+	}//end testListProjectsByName()
+
+	/**
+	 * A new project's memory is created and named; a named one is left alone.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 */
+	public function testEnsureProjectMemoryNamesTheProject(): void {
+		$this->service()->ensureProjectMemory(agentId: 'agent-1', projectKey: 'begroting-2027', projectName: ' Begroting 2027 ');
+
+		$this->assertCount(2, $this->saved);
+		$this->assertSame('begroting-2027', $this->saved[0]['projectKey']);
+		$this->assertSame('Begroting 2027', $this->saved[1]['projectName']);
+
+		$this->saved = [];
+		$this->stored[1]->setObject($this->stored[1]->getObject() + ['projectName' => 'Omgevingsvisie 2040']);
+		$memory = $this->service()->ensureProjectMemory(agentId: 'agent-1', projectKey: 'omgevingsvisie-2040', projectName: 'Omgevingsvisie 2040');
+		$this->assertSame('mem-visie', $memory->getUuid());
+		$this->service()->ensureProjectMemory(agentId: 'agent-1', projectKey: 'omgevingsvisie-2040', projectName: '');
+		$this->assertSame([], $this->saved);
+	}//end testEnsureProjectMemoryNamesTheProject()
+
+	/**
+	 * Moving an entry to shared forgets it in the project and appends it, redacted, to shared.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 */
+	public function testMoveToSharedLeavesTheProject(): void {
+		$this->stored[1]->setObject(
+			['agentId' => 'agent-1', 'scope' => 'project', 'projectKey' => 'omgevingsvisie-2040', 'entries' => [['id' => 'b1', 'text' => 'Beleidsstukken gebruiken B1-taalniveau. Sleutel ghp_ABCDEF1234567890abcdef.', 'createdAt' => '2026-10-01T00:00:00+00:00']]]
+		);
+
+		$memory = $this->service()->moveMemoryEntry(agentId: 'agent-1', entryId: 'b1', from: 'omgevingsvisie-2040', to: null);
+
+		$this->assertNotNull($memory);
+		$this->assertCount(2, $this->saved);
+		$this->assertSame('omgevingsvisie-2040', $this->saved[0]['projectKey']);
+		$this->assertArrayHasKey('deletedAt', $this->saved[0]['entries'][0]);
+		$this->assertSame('shared', $this->saved[1]['scope']);
+		$moved = end($this->saved[1]['entries']);
+		$this->assertStringStartsWith('Beleidsstukken gebruiken B1-taalniveau.', $moved['text']);
+		$this->assertStringNotContainsString('ghp_ABCDEF1234567890abcdef', $moved['text']);
+		$this->assertNotSame('b1', $moved['id']);
+	}//end testMoveToSharedLeavesTheProject()
+
+	/**
+	 * A move to the same layer, of an unknown or forgotten entry, changes nothing.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 */
+	public function testAMoveThatCannotHappenChangesNothing(): void {
+		$service = $this->service();
+
+		$this->assertNull($service->moveMemoryEntry(agentId: 'agent-1', entryId: 'mem-shared-e1', from: null, to: ''));
+		$this->assertNull($service->moveMemoryEntry(agentId: 'agent-1', entryId: 'nope', from: null, to: 'omgevingsvisie-2040'));
+		$this->assertNull($service->moveMemoryEntry(agentId: 'agent-1', entryId: 'mem-wagen-e1', from: 'omgevingsvisie-2040', to: null));
+		$this->assertNull($service->moveMemoryEntry(agentId: 'agent-1', entryId: '', from: 'omgevingsvisie-2040', to: null));
+
+		$this->stored[0]->setObject(['agentId' => 'agent-1', 'scope' => 'shared', 'entries' => [['id' => 'gone', 'text' => 't', 'createdAt' => 'x', 'deletedAt' => 'y']]]);
+		$this->assertNull($service->moveMemoryEntry(agentId: 'agent-1', entryId: 'gone', from: null, to: 'omgevingsvisie-2040'));
+		$this->assertSame([], $this->saved);
+	}//end testAMoveThatCannotHappenChangesNothing()
+
+	/**
+	 * A correction in a project edits the project memory.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 */
+	public function testCorrectInAProjectEditsTheProject(): void {
+		$memory = $this->service()->correctMemoryEntry(agentId: 'agent-1', entryId: 'mem-visie-e1', text: 'De raad behandelt het ontwerp op 21 november 2026.', projectKey: 'omgevingsvisie-2040');
+
+		$this->assertNotNull($memory);
+		$this->assertSame('omgevingsvisie-2040', $this->saved[0]['projectKey']);
+		$this->assertNull($this->service()->correctMemoryEntry(agentId: 'agent-1', entryId: 'mem-visie-e1', text: 'x'));
+	}//end testCorrectInAProjectEditsTheProject()
+
+	/**
+	 * Project keys are short lower-case slugs.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 */
+	public function testIsProjectKey(): void {
+		$this->assertTrue(MemoryService::isProjectKey(key: 'omgevingsvisie-2040'));
+		$this->assertTrue(MemoryService::isProjectKey(key: 'a'));
+		$this->assertFalse(MemoryService::isProjectKey(key: ''));
+		$this->assertFalse(MemoryService::isProjectKey(key: '-start'));
+		$this->assertFalse(MemoryService::isProjectKey(key: 'Hoofd'));
+		$this->assertFalse(MemoryService::isProjectKey(key: 'a/b'));
+		$this->assertFalse(MemoryService::isProjectKey(key: str_repeat('a', 65)));
+	}//end testIsProjectKey()
 }//end class

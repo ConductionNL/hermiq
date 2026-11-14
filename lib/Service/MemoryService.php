@@ -184,6 +184,20 @@ class MemoryService implements MemoryServiceInterface {
 	}//end getMemory()
 
 	/**
+	 * Whether a value is a well-formed project key: a short lower-case slug, as
+	 * the Memory schema's `projectKey` pattern declares.
+	 *
+	 * @param string $key The candidate key.
+	 *
+	 * @return bool True when it is one.
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 */
+	public static function isProjectKey(string $key): bool {
+		return preg_match('/^[a-z0-9][a-z0-9-]{0,63}$/', $key) === 1;
+	}//end isProjectKey()
+
+	/**
 	 * The filters that find exactly one layer of an agent's memory.
 	 *
 	 * The shared layer is matched on its explicit scope, not on a missing
@@ -612,18 +626,19 @@ class MemoryService implements MemoryServiceInterface {
 	 * @param string $agentId The agent UUID.
 	 * @param string $entryId The id of the entry to correct.
 	 * @param string $text The corrected text (non-empty; the caller checks).
+	 * @param string|null $projectKey The project memory the entry is in, or null for the shared memory.
 	 *
 	 * @return ObjectEntity|null The persisted Memory object, or null when no live
 	 *                           entry carries `$entryId`.
 	 *
 	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
 	 */
-	public function correctMemoryEntry(string $agentId, string $entryId, string $text): ?ObjectEntity {
+	public function correctMemoryEntry(string $agentId, string $entryId, string $text, ?string $projectKey = null): ?ObjectEntity {
 		if (trim($entryId) === '') {
 			return null;
 		}
 
-		$memory = $this->getMemory(agentId: $agentId);
+		$memory = $this->getMemory(agentId: $agentId, projectKey: $projectKey);
 		$data = $memory->getObject();
 		$entries = $this->withEntryIds(entries: $this->normaliseEntries(entries: ($data['entries'] ?? [])));
 
@@ -659,6 +674,121 @@ class MemoryService implements MemoryServiceInterface {
 		);
 
 	}//end correctMemoryEntry()
+
+	/**
+	 * The projects an agent keeps a memory for, by key and readable name.
+	 *
+	 * A project without a stored name shows its key.
+	 *
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return array<int, array{projectKey: string, projectName: string}> The projects, by name.
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 */
+	public function listProjects(string $agentId): array {
+		$lookup  = new MemoryLookup(filters: ['agentId' => $agentId, 'scope' => self::SCOPE_PROJECT], limit: 200);
+		$byKey   = [];
+		foreach ($this->findMany(schema: self::MEMORY_SCHEMA, lookup: $lookup) as $memory) {
+			$data = $memory->getObject();
+			$key  = trim((string)($data['projectKey'] ?? ''));
+			if ($key === '' || isset($byKey[$key]) === true) {
+				continue;
+			}
+
+			$name = trim((string)($data['projectName'] ?? ''));
+			if ($name === '') {
+				$name = $key;
+			}
+
+			$byKey[$key] = ['projectKey' => $key, 'projectName' => $name];
+		}
+
+		$projects = array_values($byKey);
+		usort($projects, static fn (array $a, array $b): int => strcasecmp($a['projectName'], $b['projectName']));
+
+		return $projects;
+	}//end listProjects()
+
+	/**
+	 * Get (or create) a project's memory and record its readable name.
+	 *
+	 * @param string $agentId     The agent UUID.
+	 * @param string $projectKey  The project key.
+	 * @param string $projectName The project's readable name; '' keeps the stored one.
+	 *
+	 * @return ObjectEntity The project's Memory object.
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 */
+	public function ensureProjectMemory(string $agentId, string $projectKey, string $projectName): ObjectEntity {
+		$memory = $this->getMemory(agentId: $agentId, projectKey: $projectKey);
+		$name   = trim($projectName);
+		$data   = $memory->getObject();
+		if ($name === '' || ($data['projectName'] ?? '') === $name) {
+			return $memory;
+		}
+
+		$data['projectName'] = $name;
+
+		return $this->objectService->saveObject(
+			object: $data,
+			register: self::REGISTER_SLUG,
+			schema: self::MEMORY_SCHEMA,
+			uuid: (string)$memory->getUuid()
+		);
+	}//end ensureProjectMemory()
+
+	/**
+	 * Move one live entry between the shared memory and a project memory.
+	 *
+	 * A move is a remove plus an append: the entry is soft-deleted in the source,
+	 * so the history keeps it, and its text is appended to the target through the
+	 * same funnel as every write, so it is redacted again and the target's budget
+	 * stays right (design D5).
+	 *
+	 * @param string      $agentId The agent UUID.
+	 * @param string      $entryId The entry to move.
+	 * @param string|null $from    The project the entry is in, or null for the shared memory.
+	 * @param string|null $to      The project to move it to, or null for the shared memory.
+	 *
+	 * @return ObjectEntity|null The memory the entry is now in, or null when the source holds no live entry with that id.
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 */
+	public function moveMemoryEntry(string $agentId, string $entryId, ?string $from, ?string $to): ?ObjectEntity {
+		$fromKey = trim((string)$from);
+		$toKey   = trim((string)$to);
+		if (trim($entryId) === '' || $fromKey === $toKey) {
+			return null;
+		}
+
+		$source  = $this->getMemory(agentId: $agentId, projectKey: $fromKey);
+		$entries = $this->normaliseEntries(entries: ($source->getObject()['entries'] ?? []));
+		$text    = null;
+		foreach ($entries as $entry) {
+			if (($entry['id'] ?? '') === $entryId && $this->isDeleted(entry: $entry) === false) {
+				$text = (string)($entry['text'] ?? '');
+				break;
+			}
+		}
+
+		if ($text === null) {
+			return null;
+		}
+
+		$this->softDeleteEntry(
+			object: $source,
+			entryRef: new MemoryEntryRef(schema: self::MEMORY_SCHEMA, entryId: $entryId, defaultBudget: self::DEFAULT_MEMORY_BUDGET)
+		);
+
+		return $this->appendEntry(
+			object: $this->getMemory(agentId: $agentId, projectKey: $toKey),
+			schema: self::MEMORY_SCHEMA,
+			text: $text,
+			defaultBudget: self::DEFAULT_MEMORY_BUDGET
+		);
+	}//end moveMemoryEntry()
 
 	/**
 	 * Give every entry that has no `id` a fresh one.

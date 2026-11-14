@@ -225,6 +225,9 @@ $routes = [
         // memory-correct-and-forget: the owner corrects or forgets one entry.
         ['name' => 'memory#correctEntry',  'url' => '/api/agents/{agentId}/memory/entries/{entryId}', 'verb' => 'PUT', 'requirements' => ['agentId' => '[^/]+', 'entryId' => '[^/]+']],
         ['name' => 'memory#forgetEntry',   'url' => '/api/agents/{agentId}/memory/entries/{entryId}', 'verb' => 'DELETE', 'requirements' => ['agentId' => '[^/]+', 'entryId' => '[^/]+']],
+        // Memory-project-scopes: the projects of an agent's memory, and moving an entry between layers.
+        ['name' => 'memory#projects',      'url' => '/api/agents/{agentId}/memory/projects', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
+        ['name' => 'memory#moveEntry',     'url' => '/api/agents/{agentId}/memory/entries/{entryId}/move', 'verb' => 'POST', 'requirements' => ['agentId' => '[^/]+', 'entryId' => '[^/]+']],
 
         // Run analytics (run-analytics): tenant-scoped run metrics from OR AuditTrail (optional agentId).
         ['name' => 'analytics#index', 'url' => '/api/analytics', 'verb' => 'GET'],
