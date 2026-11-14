@@ -182,6 +182,9 @@ $routes = [
             'verb'         => 'POST',
             'requirements' => ['id' => '[^/]+', 'versionId' => '[^/]+'],
         ],
+        // An agent's published builds (pinned files and tools), and publishing one (owner-only).
+        ['name' => 'agentVersion#builds', 'url' => '/api/agents/{id}/builds', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'agentVersion#publishBuild', 'url' => '/api/agents/{id}/builds', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
 
         // Advisory AI-oversight records about one subject, for whoever may open that subject.
         ['name' => 'aiOversight#subject', 'url' => '/api/ai-oversight/subject', 'verb' => 'GET'],

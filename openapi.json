@@ -2840,6 +2840,234 @@
                 }
             }
         },
+        "/agents/{id}/builds": {
+            "get": {
+                "operationId": "agent-version-builds",
+                "summary": "An agent's published builds",
+                "description": "The agent's builds, newest first, with the pinned build and whether a versioned field changed since it (unpublishedChanges). A caller who may not read the agent gets 404. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "agent-version"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The Agent UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "builds": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "string"
+                                                    },
+                                                    "number": {
+                                                        "type": "integer"
+                                                    },
+                                                    "agentVersionId": {
+                                                        "type": "string",
+                                                        "nullable": true
+                                                    },
+                                                    "files": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "path": {
+                                                                    "type": "string"
+                                                                },
+                                                                "size": {
+                                                                    "type": "integer"
+                                                                }
+                                                            }
+                                                        }
+                                                    },
+                                                    "tools": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "object"
+                                                        }
+                                                    },
+                                                    "note": {
+                                                        "type": "string"
+                                                    },
+                                                    "createdBy": {
+                                                        "type": "string"
+                                                    },
+                                                    "createdByName": {
+                                                        "type": "string"
+                                                    },
+                                                    "createdAt": {
+                                                        "type": "string"
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "pinnedBuildId": {
+                                            "type": "string",
+                                            "nullable": true
+                                        },
+                                        "pinnedBuildNumber": {
+                                            "type": "integer",
+                                            "nullable": true
+                                        },
+                                        "unpublishedChanges": {
+                                            "type": "boolean"
+                                        },
+                                        "canPublish": {
+                                            "type": "boolean"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "agent-version-publish-build",
+                "summary": "Publish a build of an agent (owner-only)",
+                "description": "Freezes the caller's own workspace in the named conversation with the agent's current version and pins the build on the agent; every new conversation's workspace then starts from it. Only someone who may modify the agent publishes. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "agent-version"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The Agent UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "sessionId"
+                                ],
+                                "properties": {
+                                    "sessionId": {
+                                        "type": "string",
+                                        "description": "The caller's conversation whose workspace is published."
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "maxLength": 500
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The build was published and pinned.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "number": {
+                                            "type": "integer"
+                                        },
+                                        "agentVersionId": {
+                                            "type": "string",
+                                            "nullable": true
+                                        },
+                                        "files": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "path": {
+                                                        "type": "string"
+                                                    },
+                                                    "size": {
+                                                        "type": "integer"
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "tools": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        },
+                                        "note": {
+                                            "type": "string"
+                                        },
+                                        "createdBy": {
+                                            "type": "string"
+                                        },
+                                        "createdByName": {
+                                            "type": "string"
+                                        },
+                                        "createdAt": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    }
+                }
+            }
+        },
         "/agents/{id}/webhook-secret": {
             "post": {
                 "operationId": "agent-webhook-create",

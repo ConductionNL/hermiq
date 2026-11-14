@@ -64,6 +64,7 @@ use OCA\Hermiq\Kernel\Contracts\RunTokenServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolLoopInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolSearchServiceInterface;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
+use OCA\Hermiq\Service\AgentBuildService;
 use OCA\Hermiq\Service\Engine\RunToolCallCounter;
 use OCA\Hermiq\Service\Engine\TurnGuard;
 use OCA\Hermiq\Service\Workspace\RepoEffectingGrants;
@@ -178,6 +179,8 @@ class McpRunController extends Controller {
 	 *                                                 for the agent's tool call cap.
 	 * @param GuardrailPolicyServiceInterface|null $guardrailService Applies the output filters to
 	 *                                                      the steps shown in the chat.
+	 * @param AgentBuildService|null $agentBuilds Starts a new session workspace from the
+	 *                                            agent's pinned build.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
@@ -198,6 +201,7 @@ class McpRunController extends Controller {
 		private readonly ?WorkspaceRunScope $workspaceScope = null,
 		private readonly ?RunToolCallCounter $toolCallCounter = null,
 		private readonly ?GuardrailPolicyServiceInterface $guardrailService = null,
+		private readonly ?AgentBuildService $agentBuilds = null,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
@@ -370,35 +374,22 @@ class McpRunController extends Controller {
 		// The lifetime is the AGENT's setting, read from the stored agent; the
 		// conversation comes from the verified token. Neither is taken from the
 		// request body.
+		$agent = $this->loadAgent(agentId: (string)$binding['agentId']);
 		$this->workspaceScope->enter(
 			runId: $binding['runId'],
 			agentId: $binding['agentId'],
 			userId: $binding['userId'],
 			conversationId: (string)($binding['conversationId'] ?? ''),
-			workspaceMode: $this->workspaceModeOf(agentId: (string)$binding['agentId'])
+			workspaceMode: (string)($agent?->getObject()['workspaceMode'] ?? '')
 		);
 
-	}//end enterRunWorkspace()
-
-	/**
-	 * The agent's `workspaceMode`, or '' when the agent cannot be read.
-	 *
-	 * An unreadable agent keys its workspace by the run, the narrowest lifetime.
-	 *
-	 * @param string $agentId The agent from the token.
-	 *
-	 * @return string The mode.
-	 *
-	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-can-keep-a-workspace-for-the-whole-conversation-req-wksp-001
-	 */
-	private function workspaceModeOf(string $agentId): string {
-		$agent = $this->loadAgent(agentId: $agentId);
-		if ($agent === null) {
-			return '';
+		// A new conversation of an agent with a pinned build starts its workspace
+		// as a copy of that build; an open workspace is left as it is.
+		if ($agent !== null && $this->agentBuilds !== null && (string)$binding['runId'] !== '') {
+			$this->agentBuilds->startWorkspace(agent: $agent, workspaceKey: (string)$this->workspaceScope->current()['workspaceKey']);
 		}
 
-		return (string)($agent->getObject()['workspaceMode'] ?? '');
-	}//end workspaceModeOf()
+	}//end enterRunWorkspace()
 
 	/**
 	 * Refuse a token that failed verification, and count it with the brute-force

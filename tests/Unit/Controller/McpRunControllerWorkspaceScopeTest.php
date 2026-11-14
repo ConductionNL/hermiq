@@ -22,6 +22,7 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\McpRunController;
 use OCA\Hermiq\Service\Engine\RunStepBus;
+use OCA\Hermiq\Service\AgentBuildService;
 use OCA\Hermiq\Service\Engine\ToolLoop;
 use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCA\Hermiq\Service\ToolSearchService;
@@ -110,16 +111,43 @@ final class McpRunControllerWorkspaceScopeTest extends TestCase {
 	}//end testASessionAgentsRunReachesTheConversationsWorkspace()
 
 	/**
+	 * A run of an agent with a pinned build asks for its session workspace to start
+	 * from that build, under the key from the token.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning/spec.md#requirement-runs-of-a-published-agent-start-from-its-pinned-build-req-build-002
+	 */
+	public function testARunOfAnAgentWithAPinnedBuildStartsItsWorkspaceFromIt(): void {
+		$scope = new WorkspaceRunScope();
+		$tokens = $this->createMock(RunTokenService::class);
+		$tokens->method('verify')->willReturn(['runId' => 'run-7', 'agentId' => 'agent-1', 'userId' => 'alice', 'conversationId' => 'conv-1']);
+
+		$agent = new ObjectEntity();
+		$agent->setUuid('agent-1');
+		$agent->setObject(['workspaceMode' => 'session', 'pinnedBuildId' => 'build-3']);
+		$objects = $this->createMock(ObjectService::class);
+		$objects->method('find')->willReturn($agent);
+
+		$builds = $this->createMock(AgentBuildService::class);
+		$builds->expects(self::once())->method('startWorkspace')->with($agent, 'session:agent-1:conv-1:alice')->willReturn('build-3');
+
+		$body = '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}';
+		$this->controller(body: $body, tokens: $tokens, objects: $objects, scope: $scope, builds: $builds)->handle();
+	}//end testARunOfAnAgentWithAPinnedBuildStartsItsWorkspaceFromIt()
+
+	/**
 	 * Build the controller.
 	 *
 	 * @param string            $body    The raw JSON-RPC body.
 	 * @param RunTokenService   $tokens  The token service.
 	 * @param ObjectService     $objects The object service.
 	 * @param WorkspaceRunScope $scope   The run scope.
+	 * @param AgentBuildService|null $builds The build service, when the test needs it.
 	 *
 	 * @return McpRunController
 	 */
-	private function controller(string $body, RunTokenService $tokens, ObjectService $objects, WorkspaceRunScope $scope): McpRunController {
+	private function controller(string $body, RunTokenService $tokens, ObjectService $objects, WorkspaceRunScope $scope, ?AgentBuildService $builds = null): McpRunController {
 		$request = $this->createMock(IRequest::class);
 		$request->method('getHeader')->willReturnCallback(
 			static fn (string $name): string => ($name === 'Authorization') ? 'Bearer good' : ''
@@ -129,10 +157,10 @@ final class McpRunControllerWorkspaceScopeTest extends TestCase {
 		$userManager = $this->createMock(IUserManager::class);
 		$userManager->method('get')->willReturn($user);
 
-		return new class($request, $tokens, $objects, $this->createMock(ToolRegistryFacade::class), new ToolGrantResolver(), $this->createMock(ToolLoop::class), $this->createMock(ToolSearchService::class), $userManager, $this->createMock(IUserSession::class), $this->createMock(IThrottler::class), $this->createMock(RunStepBus::class), new NullLogger(), $scope, $body) extends McpRunController {
+		return new class($request, $tokens, $objects, $this->createMock(ToolRegistryFacade::class), new ToolGrantResolver(), $this->createMock(ToolLoop::class), $this->createMock(ToolSearchService::class), $userManager, $this->createMock(IUserSession::class), $this->createMock(IThrottler::class), $this->createMock(RunStepBus::class), new NullLogger(), $scope, $body, $builds) extends McpRunController {
 			// phpcs:ignore
-			public function __construct($request, $tokens, $objects, $facade, $grant, $toolLoop, $search, $userManager, $userSession, $throttler, $runStepBus, $logger, $scope, private string $rawBody) {
-				parent::__construct($request, $tokens, $objects, $facade, $grant, $toolLoop, $search, $userManager, $userSession, $throttler, $runStepBus, $logger, $scope);
+			public function __construct($request, $tokens, $objects, $facade, $grant, $toolLoop, $search, $userManager, $userSession, $throttler, $runStepBus, $logger, $scope, private string $rawBody, $builds) {
+				parent::__construct($request, $tokens, $objects, $facade, $grant, $toolLoop, $search, $userManager, $userSession, $throttler, $runStepBus, $logger, $scope, null, null, $builds);
 			}
 
 			protected function readRawBody(): string {

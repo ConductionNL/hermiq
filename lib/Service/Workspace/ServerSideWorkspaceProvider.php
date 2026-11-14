@@ -43,6 +43,7 @@ use OCP\IAppConfig;
 use OCP\IConfig;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use ZipArchive;
 
 /**
  * Run-keyed workspaces in app data.
@@ -355,6 +356,107 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider, ServerSideWorksp
 			$this->removeTree(path: $dir);
 		}
 	}//end discard()
+
+	/**
+	 * Whether a workspace is open under this key.
+	 *
+	 * @param string $runKey The workspace key.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning/spec.md#requirement-runs-of-a-published-agent-start-from-its-pinned-build-req-build-002
+	 */
+	public function exists(string $runKey): bool {
+		$dir = $this->dirFor(runKey: $runKey);
+		return $this->readMeta(dir: $dir) !== null && is_dir($dir . '/repo') === true;
+	}//end exists()
+
+	/**
+	 * Open a workspace under this key as a copy of a build's archive.
+	 *
+	 * The archive is extracted into a fresh directory, so nothing done in the
+	 * workspace afterwards reaches the archive. An entry naming an absolute path or
+	 * a parent directory refuses the whole archive. The budget is checked as after
+	 * a clone.
+	 *
+	 * @param string               $runKey      The workspace key.
+	 * @param string               $archivePath The build archive (zip) on disk.
+	 * @param array<string, mixed> $origin      repository, ref and buildId recorded in the workspace's metadata.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException When a workspace is already open, the archive is unreadable or unsafe, or over budget.
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning/spec.md#requirement-runs-of-a-published-agent-start-from-its-pinned-build-req-build-002
+	 */
+	public function restore(string $runKey, string $archivePath, array $origin): void {
+		if ($this->exists(runKey: $runKey) === true) {
+			throw new WorkspaceException(errorCode: WorkspaceException::INVALID_ARGUMENT, message: 'This workspace is already open.');
+		}
+
+		$dir = $this->dirFor(runKey: $runKey);
+		$zip = new ZipArchive();
+		if (is_file($archivePath) === false || $zip->open($archivePath) !== true) {
+			throw new WorkspaceException(errorCode: WorkspaceException::INVALID_ARGUMENT, message: 'The build archive could not be read.');
+		}
+
+		try {
+			for ($index = 0; $index < $zip->numFiles; $index++) {
+				$name = (string)$zip->getNameIndex($index);
+				if ($name === '' || str_starts_with($name, '/') === true || in_array('..', explode('/', $name), true) === true) {
+					throw new WorkspaceException(errorCode: WorkspaceException::INVALID_ARGUMENT, message: 'The build archive names a path outside the workspace.');
+				}
+			}
+
+			if (is_dir($dir) === true) {
+				$this->removeTree(path: $dir);
+			}
+
+			mkdir($dir . '/repo', 0700, true);
+			if ($zip->extractTo($dir . '/repo') !== true) {
+				$this->removeTree(path: $dir);
+				throw new WorkspaceException(errorCode: WorkspaceException::INVALID_ARGUMENT, message: 'The build archive could not be read.');
+			}
+		} finally {
+			$zip->close();
+		}
+
+		$this->assertWithinBudget(dir: $dir, runKey: $runKey);
+
+		$checkout = new CheckoutRequest(repository: (string)($origin['repository'] ?? ''), ref: (string)($origin['ref'] ?? ''));
+		$meta = $this->freshMeta(checkout: $checkout, runKey: $runKey);
+		$meta['buildId'] = (string)($origin['buildId'] ?? '');
+		$this->writeMeta(dir: $dir, meta: $meta);
+	}//end restore()
+
+	/**
+	 * The build a workspace was started from, or null.
+	 *
+	 * @param string $runKey The workspace key.
+	 *
+	 * @return string|null
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning/spec.md#requirement-runs-of-a-published-agent-start-from-its-pinned-build-req-build-002
+	 */
+	public function buildOf(string $runKey): ?string {
+		$buildId = (string)($this->readMeta(dir: $this->dirFor(runKey: $runKey))['buildId'] ?? '');
+		if ($buildId === '') {
+			return null;
+		}
+
+		return $buildId;
+	}//end buildOf()
+
+	/**
+	 * The directory build archives are kept in, beside the workspaces.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning/spec.md#requirement-an-agent-owner-can-publish-a-build-that-pins-files-and-installed-tools-req-build-001
+	 */
+	public function buildStore(): string {
+		return dirname($this->base()) . '/workspace-builds';
+	}//end buildStore()
 
 	/**
 	 * Remove every workspace idle for longer than the retention window.

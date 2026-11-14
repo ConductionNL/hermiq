@@ -307,6 +307,8 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *                          (what-the-model-reads-and-what-is-kept). Nullable and
 	 *                          trailing: a service built by hand in a test writes the
 	 *                          entry it always wrote.
+	 * @param AgentBuildService|null $agentBuilds The agent's pinned build, recorded on
+	 *                          the run next to the version. Nullable and trailing.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
 	 *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -333,6 +335,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		private readonly DelegationContext $delegationContext,
 		private readonly IJobList $jobList,
 		private readonly ?RunRetentionPolicy $retentionPolicy = null,
+		private readonly ?AgentBuildService $agentBuilds = null,
 	) {
 		$this->tenantKillSwitch = new TenantKillSwitch(objectService: $objectService, logger: $logger);
 	}//end __construct()
@@ -1835,6 +1838,9 @@ class ScheduleService implements ScheduleServiceInterface {
 				// this occurrence, captured at write time (null when unresolvable —
 				// never fatal to the run).
 				'agentVersion' => $this->agentVersionService->currentVersionId(agentUuid: $agentId),
+				// The build the agent pinned when this run was recorded, next to the
+				// version (tools-agent-workspace-and-installed-tools); null when none.
+				'buildId' => $this->agentBuilds?->pinnedBuildIdOf(agentUuid: $agentId),
 				// Run-replay-and-dry-run: the exact prompt text used for THIS run,
 				// persisted so a later replay is unaffected by any subsequent edit to
 				// the schedule's own `prompt` field — recorded for every run (real,
