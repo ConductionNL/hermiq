@@ -559,6 +559,51 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'idempotentHint' => false,
 			'scope' => 'create',
 		],
+		[
+			'id' => AppIdentity::APP_ID . '.delegateAgents',
+			// The same act as `delegateAgent`, for several independent parts at
+			// once: each part passes every gate a single delegation passes.
+			'subject' => 'agent',
+			'action' => 'delegate',
+			'reach' => ToolReachResolver::REACH_INSTANCE,
+			'name' => 'Delegate parts to several agents',
+			'description' => 'Hand several independent parts of one task to agents on your delegation allowlist, '
+				. 'in the same organisation, in one call. Use this instead of several delegateAgent calls when the '
+				. 'parts do not depend on each other. Each part runs the target agent in its own isolated '
+				. 'conversation. Returns one result per part, in the order of the parts: its final text, or why '
+				. 'it was refused or failed. A refused part does not stop the others.',
+			'inputSchema' => [
+				'type' => 'object',
+				'properties' => [
+					'parts' => [
+						'type' => 'array',
+						'minItems' => 1,
+						'description' => 'The parts, each with the agent to hand it to and its bounded task.',
+						'items' => [
+							'type' => 'object',
+							'properties' => [
+								'targetAgentId' => [
+									'type' => 'string',
+									'format' => 'uuid',
+									'description' => 'UUID of the agent for this part (must be on your delegation allowlist).',
+								],
+								'task' => [
+									'type' => 'string',
+									'description' => 'The bounded task/prompt for this part.',
+								],
+							],
+							'required' => ['targetAgentId', 'task'],
+						],
+					],
+				],
+				'required' => ['parts'],
+			],
+			// Real sub-agent runs, like delegateAgent: never read-only, never idempotent.
+			'readOnlyHint' => false,
+			'destructiveHint' => true,
+			'idempotentHint' => false,
+			'scope' => 'create',
+		],
 	];
 
 	/**
@@ -926,6 +971,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			AppIdentity::APP_ID . '.webSearch' => $this->webSearch(uid: $call->uid, query: $call->text(name: 'query')),
 			AppIdentity::APP_ID . '.webFetch' => $this->webFetch(url: $call->text(name: 'url')),
 			AppIdentity::APP_ID . '.delegateAgent' => $this->delegateAgent(arguments: $call->arguments),
+			AppIdentity::APP_ID . '.delegateAgents' => $this->delegateAgents(arguments: $call->arguments),
 			AppIdentity::APP_ID . '.listAvailableTools' => $this->accessRequests->listAvailable(
 				uid: $call->uid,
 				agentId: $call->agentId,
@@ -1395,6 +1441,32 @@ class HermiqToolProvider implements IMcpToolProvider {
 
 		return $this->delegationService->delegate(callerAgentId: $callerAgentId, targetAgentId: $targetAgentId, task: $task);
 	}//end delegateAgent()
+
+	/**
+	 * Delegate several independent parts to sub-agents in one call
+	 * (delegation-runs-in-parallel). Checks the tool's own input shape, then
+	 * forwards to `DelegationService::delegateMany()`, where every gate lives.
+	 *
+	 * @param array<string, mixed> $arguments The tool arguments (`parts`, plus the
+	 *                                        run-injected `agentId`).
+	 *
+	 * @return array<string, mixed> One result per part, or an error envelope.
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-several-parts-of-one-task-run-on-sub-agents-at-the-same-time-req-dlgpar-001
+	 */
+	private function delegateAgents(array $arguments): array {
+		$callerAgentId = trim((string)($arguments['agentId'] ?? ''));
+		if ($callerAgentId === '') {
+			return (new ToolErrorEnvelope())->noAgentContext();
+		}
+
+		$parts = ($arguments['parts'] ?? null);
+		if (is_array($parts) === false || $parts === [] || array_is_list($parts) === false) {
+			return $this->error(code: 'invalid_argument', message: 'parts must be a non-empty list of {targetAgentId, task}.');
+		}
+
+		return $this->delegationService->delegateMany(callerAgentId: $callerAgentId, parts: $parts);
+	}//end delegateAgents()
 
 	/**
 	 * Build a structured error envelope (invokeTool never throws).

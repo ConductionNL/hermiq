@@ -224,6 +224,73 @@ class ChatControllerTest extends TestCase {
 	}//end testSendMessageForeignConversationIsForbidden()
 
 	/**
+	 * A turn's scope reaches the engine unchanged in its RAG settings
+	 * (chat-about-a-document-cites-its-sources task 1).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 */
+	public function testSendMessagePassesTheScopeToTheEngine(): void {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'Wat is de beslistermijn?', 'scope' => ['type' => 'file', 'fileId' => '42']]);
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+
+		$seen = null;
+		$this->engine->expects($this->once())->method('processMessage')->willReturnCallback(
+			static function (string $conversationId, string $userId, string $userMessage, array $selectedViews, array $selectedTools, array $ragSettings) use (&$seen): array {
+				$seen = $ragSettings;
+				return ['message' => 'Acht weken [1].', 'messageId' => 'msg-1', 'sources' => [], 'timings' => [], 'usage' => []];
+			}
+		);
+
+		$response = $this->controller()->sendMessage();
+
+		$this->assertSame(200, $response->getStatus());
+		$this->assertSame(['type' => 'file', 'fileId' => 42], $seen['scope']);
+
+	}//end testSendMessagePassesTheScopeToTheEngine()
+
+	/**
+	 * A scope in any other shape is a 400, and an unopenable one the engine
+	 * refuses is a 404; neither shape ever reaches the model.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 */
+	public function testSendMessageRefusesABadScope(): void {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi', 'scope' => ['type' => 'register', 'fileId' => 42]]);
+		$this->engine->expects($this->never())->method('processMessage');
+
+		$response = $this->controller()->sendMessage();
+
+		$this->assertSame(400, $response->getStatus());
+
+	}//end testSendMessageRefusesABadScope()
+
+	/**
+	 * A scope the speaker cannot open is answered with 404.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 */
+	public function testSendMessageAnUnopenableScopeIsNotFound(): void {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi', 'scope' => ['type' => 'file', 'fileId' => 9]]);
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+		$this->engine->method('processMessage')->willThrowException(new \OCA\Hermiq\Service\Chat\TurnScopeException(status: 404));
+
+		$response = $this->controller()->sendMessage();
+
+		$this->assertSame(404, $response->getStatus());
+
+	}//end testSendMessageAnUnopenableScopeIsNotFound()
+
+	/**
 	 * The happy path delegates to Engine::processMessage with the conversation
 	 * UUID and echoes the conversation uuid back on the result.
 	 *
