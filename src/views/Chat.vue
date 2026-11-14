@@ -380,6 +380,29 @@
 								</li>
 							</ul>
 
+							<!-- How this answer came about (chat-how-an-answer-came-about D5):
+							     sentences the server built from the stored record. A native
+							     details element is keyboard operable and announces its state. -->
+							<details
+								v-if="
+									message.role === 'assistant'
+									&& message.provenanceAccount
+									&& message.provenanceAccount.length > 0
+								"
+								class="chat-page__provenance"
+								data-testid="chat-message-provenance">
+								<summary class="chat-page__provenance-summary">
+									{{ t('hermiq', 'How this answer came about') }}
+								</summary>
+								<ul class="chat-page__provenance-list">
+									<li
+										v-for="(sentence, sentenceIndex) in message.provenanceAccount"
+										:key="sentenceIndex">
+										{{ sentence }}
+									</li>
+								</ul>
+							</details>
+
 							<!-- RAG sources -->
 							<div
 								v-if="message.sources && message.sources.length > 0"
@@ -2767,6 +2790,28 @@ export default {
 }
 
 /* ── Sources ──────────────────────────────────────────────────────── */
+
+.chat-page__provenance {
+	margin-top: 8px;
+	font-size: 0.9em;
+}
+
+.chat-page__provenance-summary {
+	cursor: pointer;
+	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__provenance-summary:focus-visible {
+	outline: 2px solid var(--color-primary-element);
+	outline-offset: 2px;
+}
+
+.chat-page__provenance-list {
+	margin: 4px 0 0;
+	padding-left: 20px;
+	list-style: disc;
+	color: var(--color-main-text);
+}
 
 .chat-page__sources {
 	margin-top: 10px;
