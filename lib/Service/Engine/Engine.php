@@ -364,6 +364,8 @@ class Engine implements EngineInterface {
 				'answerAttachments' => ($this->images?->takeCreated() ?? []),
 				'sources' => $ragContext['sources'],
 			];
+			// Chat-how-an-answer-came-about D1: identities and outcomes, never content.
+			$turn['provenance'] = (new AnswerProvenance())->build(trace: $trace, sources: $turn['sources']);
 			$turn['assistantStored'] = $this->storeAnswer(turn: $turn);
 
 			return $this->turnEnvelope(turn: $turn, timings: $timings);
@@ -656,6 +658,8 @@ class Engine implements EngineInterface {
 			// Run-trace-observability: the collector's full ordered step
 			// timeline, empty when no collector was supplied.
 			'steps' => $turn['trace']?->toArray() ?? [],
+			// Chat-how-an-answer-came-about: the record stored on the answer.
+			'provenance' => $turn['provenance'],
 			// Skill-evals: the skill uuids actually exposed to this run's context,
 			// recorded on the run's audit entry for ALL runs.
 			'skillsUsed' => $turn['skillsUsed'],
@@ -705,6 +709,7 @@ class Engine implements EngineInterface {
 	 * @return ObjectEntity The stored assistant Message.
 	 *
 	 * @spec openspec/specs/agent-engine-port/spec.md
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
 	 */
 	private function storeAnswer(array $turn): ObjectEntity {
 		$assistantStored = $this->historyHandler->storeMessage(
@@ -712,7 +717,8 @@ class Engine implements EngineInterface {
 			role: 'assistant',
 			content: $turn['aiResponse'],
 			sources: $turn['sources'],
-			attachments: $turn['answerAttachments']
+			attachments: $turn['answerAttachments'],
+			provenance: $turn['provenance']
 		);
 
 		$this->queueTitleGeneration(

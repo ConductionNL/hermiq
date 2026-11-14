@@ -810,6 +810,9 @@ $routes = [
         // authorization (ADR-005 semantic-auth — see each controller's docblock).
         // Endpoint 1 — the governed MCP server (initialize/tools/list/tools/call).
         ['name' => 'mcpRun#handle', 'url' => '/api/mcp/run', 'verb' => 'POST'],
+        // The MCP client's GET for a server-to-client stream: none is offered, so 405
+        // (persistent-llm-process task 4). Without it the GET reached the SPA catch-all.
+        ['name' => 'mcpRunStream#refuse', 'url' => '/api/mcp/run', 'verb' => 'GET'],
         // Endpoint 2 — the governed egress Policy Decision Point (per-CONNECT allow/deny).
         ['name' => 'egressAuthorize#authorize', 'url' => '/api/egress/authorize', 'verb' => 'POST'],
 
