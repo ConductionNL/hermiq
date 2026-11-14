@@ -638,6 +638,8 @@ $routes = [
         // aliases rather than being removed with the rename.
         ['name' => 'session#index', 'url' => '/api/sessions', 'verb' => 'GET'],
         ['name' => 'session#create', 'url' => '/api/sessions', 'verb' => 'POST'],
+        // Archive, restore or delete several sessions at once (chat-session-search-and-bulk-delete, REQ-SSRCH-002).
+        ['name' => 'session#bulk', 'url' => '/api/sessions/bulk', 'verb' => 'POST'],
         ['name' => 'session#show', 'url' => '/api/sessions/{uuid}', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
         [
             'name'         => 'session#messages',

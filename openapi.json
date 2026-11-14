@@ -7212,7 +7212,18 @@
                     "500": {
                         "$ref": "#/components/responses/Problem500"
                     }
-                }
+                },
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "required": false,
+                        "description": "At least two characters: only the caller's own sessions whose title or turn text matches, each with a match (turnUuid and excerpt, or title).",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
             },
             "post": {
                 "operationId": "session-create",
@@ -10338,6 +10349,100 @@
                     },
                     "500": {
                         "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
+        },
+        "/sessions/bulk": {
+            "post": {
+                "operationId": "session-bulk",
+                "summary": "Archive, restore or delete several sessions",
+                "description": "Archive, restore or permanently delete 1 to 100 of the caller's own sessions. Each uuid answers ok, not_found (missing or not the caller's) or refused (the write failed). Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "session"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "action",
+                                    "uuids"
+                                ],
+                                "properties": {
+                                    "action": {
+                                        "type": "string",
+                                        "enum": [
+                                            "archive",
+                                            "restore",
+                                            "delete"
+                                        ]
+                                    },
+                                    "uuids": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 100,
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "action": {
+                                            "type": "string",
+                                            "enum": [
+                                                "archive",
+                                                "restore",
+                                                "delete"
+                                            ]
+                                        },
+                                        "results": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "uuid": {
+                                                        "type": "string"
+                                                    },
+                                                    "status": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "ok",
+                                                            "not_found",
+                                                            "refused"
+                                                        ]
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
                     }
                 }
             }
