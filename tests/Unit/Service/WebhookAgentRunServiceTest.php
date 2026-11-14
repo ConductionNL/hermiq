@@ -495,4 +495,115 @@ class WebhookAgentRunServiceTest extends TestCase {
 		$this->assertFalse($ran);
 
 	}//end testMissingAgentObjectIsSkipped()
+	/**
+	 * The service under test over the current doubles, with the given logger.
+	 *
+	 * @param LoggerInterface $logger The logger.
+	 *
+	 * @return WebhookAgentRunService
+	 */
+	private function serviceLoggingTo(LoggerInterface $logger): WebhookAgentRunService {
+		return new WebhookAgentRunService(
+			objectService: $this->objectService,
+			agentMapper: $this->agentMapper,
+			logger: $logger,
+			auditTrailMapper: $this->auditTrailMapper,
+			redactionService: new RedactionService($this->createMock(IConfig::class)),
+			scheduleService: $this->scheduleService,
+			approvalService: $this->approvalService,
+			budgetService: $this->budgetService,
+			agentVersionService: $this->agentVersionService,
+			skillVersionService: $this->createMock(SkillVersionService::class),
+		);
+	}//end serviceLoggingTo()
+
+	/**
+	 * A failure outside the agent turn (the kill-switch read throws) is logged
+	 * and the run reports false instead of throwing.
+	 *
+	 * @return void
+	 */
+	public function testAFailureBeforeTheTurnIsLoggedAndNeverThrows(): void {
+		$this->agentMapper->method('findByUuid')->willReturn($this->agent('dave', 'org-x'));
+		$this->objectService->method('find')->willReturn($this->agentObject());
+		$this->scheduleService->method('isOrganisationEngaged')->willThrowException(new RuntimeException('config table gone'));
+		$this->scheduleService->expects($this->never())->method('runAgentAsOwner');
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects($this->once())->method('warning')->with('Hermiq webhook-agent run failed: config table gone');
+
+		$this->assertFalse($this->serviceLoggingTo($logger)->run($this->context()));
+	}//end testAFailureBeforeTheTurnIsLoggedAndNeverThrows()
+
+	/**
+	 * A payload that is not an object reaches the agent and the audit as an empty object.
+	 *
+	 * @return void
+	 */
+	public function testANonObjectPayloadIsAnEmptyObject(): void {
+		$this->agentMapper->method('findByUuid')->willReturn($this->agent('dave'));
+		$this->objectService->method('find')->willReturn($this->agentObject());
+		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->scheduleService->expects($this->once())
+			->method('runAgentAsOwner')
+			->with('dave', 'agent-uuid-1', "Webhook payload:\n[]", '')
+			->willReturn('ok');
+
+		$this->assertTrue($this->service->run($this->context(['payload' => 'not an object'])));
+		$this->assertSame('ok', $this->auditCalls[0]['context']['status']);
+	}//end testANonObjectPayloadIsAnEmptyObject()
+
+	/**
+	 * A failing soft-threshold warning is logged and the run goes on.
+	 *
+	 * @return void
+	 */
+	public function testAFailingBudgetWarningDoesNotStopTheRun(): void {
+		$this->agentMapper->method('findByUuid')->willReturn($this->agent('dave', 'org-x'));
+		$this->objectService->method('find')->willReturn($this->agentObject());
+		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->scheduleService->expects($this->once())->method('runAgentAsOwner')->willReturn('ok');
+		$this->budgetService->method('checkAndDeliverWarnings')->willThrowException(new RuntimeException('mail down'));
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects($this->once())->method('warning')->with('Hermiq webhook-agent budget soft-threshold check failed: mail down');
+
+		$this->assertTrue($this->serviceLoggingTo($logger)->run($this->context()));
+	}//end testAFailingBudgetWarningDoesNotStopTheRun()
+
+	/**
+	 * A failing approval setup is logged; the run is still held and audited as awaiting approval.
+	 *
+	 * @return void
+	 */
+	public function testAFailingApprovalSetupStillHoldsTheRun(): void {
+		$this->agentMapper->method('findByUuid')->willReturn($this->agent('dave'));
+		$this->objectService->method('find')->willReturn($this->agentObject());
+		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->scheduleService->expects($this->never())->method('runAgentAsOwner');
+		$this->approvalService->method('ensurePendingApprovalForWebhookRun')->willThrowException(new RuntimeException('register down'));
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects($this->once())->method('warning')->with('Hermiq webhook-agent approval gate setup failed: register down');
+
+		$this->serviceLoggingTo($logger)->run($this->context(['requiresApproval' => true]));
+
+		$this->assertSame('awaiting_approval', $this->auditCalls[0]['context']['status']);
+	}//end testAFailingApprovalSetupStillHoldsTheRun()
+
+	/**
+	 * An audit write that fails is logged naming the agent, and the run still reports it ran.
+	 *
+	 * @return void
+	 */
+	public function testAFailingAuditWriteIsLogged(): void {
+		$this->agentMapper->method('findByUuid')->willReturn($this->agent('dave'));
+		$this->objectService->method('find')->willReturn($this->agentObject());
+		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->scheduleService->method('runAgentAsOwner')->willReturn('ok');
+		$audit = $this->createMock(AuditTrailMapper::class);
+		$audit->method('recordObjectEvent')->willThrowException(new RuntimeException('disk full'));
+		$this->auditTrailMapper = $audit;
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects($this->once())->method('warning')->with('Hermiq could not write webhook-agent run audit for agent agent-uuid-1: disk full');
+
+		$this->assertTrue($this->serviceLoggingTo($logger)->run($this->context()));
+	}//end testAFailingAuditWriteIsLogged()
 }//end class
