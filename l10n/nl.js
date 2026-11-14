@@ -2,6 +2,8 @@ OC.L10N.register(
     "hermiq",
     {
         "Open {name} in Files": "{name} openen in Bestanden",
+        "Anthropic reads the unchanged start of each request from its cache, which makes repeat turns cheaper and faster. The answer stays the same.": "Anthropic leest het ongewijzigde begin van elk verzoek uit zijn cache. Herhaalde beurten worden daardoor goedkoper en sneller. Het antwoord blijft hetzelfde.",
+        "Use the provider’s prompt cache": "De promptcache van de provider gebruiken",
         "Create an image": "Een afbeelding maken",
         "The image is saved in your Files under Hermiq/Generated images and marked as made by an agent.": "De afbeelding wordt in je Bestanden opgeslagen onder Hermiq/Generated images en gemarkeerd als gemaakt door een agent.",
         "What should the image show?": "Wat moet de afbeelding laten zien?",
