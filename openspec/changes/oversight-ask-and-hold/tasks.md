@@ -27,8 +27,9 @@ Kind: code. Size M. Rows `hermiq:dm-ask-mid-run`, `hermiq:ov-draft-hold`.
 - **files**: `src/views/Chat.vue`, `src/components/AgentQuestionCard.vue`, `l10n/en.json`, `l10n/nl.json`
 - **acceptance_criteria**:
   - GIVEN a final event with a question WHEN rendered THEN one button per option and a text box when allowed
-- [ ] Implement
+- [x] Implement
 - [ ] Test (Playwright with a stubbed stream)
+  - `AgentQuestionCard` shows the question under the answer it came with (the `final` payload's or the POST result's `messageId`), a button per suggested answer (at most four) and a text box when `allowOther`; `Chat.vue` `takeQuestion()` keeps it and `answerQuestion()` sends the choice as the next message. Vitest: `agent-question-card.spec.js` (6), `chat-agent-question.spec.js` (4). The Playwright run is a browser task and is left for a live run.
 
 ### Task 4: Questions in unattended runs
 - **spec_ref**: `openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002`

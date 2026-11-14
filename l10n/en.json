@@ -2738,7 +2738,11 @@
         "_%n call was refused: %s._::_%n calls were refused: %s._": [
             "%n call was refused: %s.",
             "%n calls were refused: %s."
-        ]
+        ],
+        "Question from the agent": "Question from the agent",
+        "Suggested answers": "Suggested answers",
+        "Your own answer": "Your own answer",
+        "Send answer": "Send answer"
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

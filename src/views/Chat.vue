@@ -403,6 +403,20 @@
 								</ul>
 							</details>
 
+							<!-- The question the agent asked with hermiq.askPerson
+							     (oversight-ask-and-hold D1): a button per suggested answer;
+							     the chosen one is sent as the next message. -->
+							<AgentQuestionCard
+								v-if="
+									message.role !== 'user'
+									&& pendingQuestion
+									&& (message.uuid || message.id)
+										=== pendingQuestionFor
+								"
+								:question="pendingQuestion"
+								:disabled="sending"
+								@answer="answerQuestion" />
+
 							<!-- RAG sources -->
 							<div
 								v-if="message.sources && message.sources.length > 0"
@@ -837,6 +851,7 @@ import StopCircleOutline from 'vue-material-design-icons/StopCircleOutline.vue'
 import ThumbDown from 'vue-material-design-icons/ThumbDown.vue'
 import ThumbUp from 'vue-material-design-icons/ThumbUp.vue'
 import Upload from 'vue-material-design-icons/Upload.vue'
+import AgentQuestionCard from '../components/AgentQuestionCard.vue'
 import AgentSelector from '../components/AgentSelector.vue'
 import DictateButton from '../components/DictateButton.vue'
 import ReadAloudButton from '../components/ReadAloudButton.vue'
@@ -913,6 +928,7 @@ export default {
 
 	components: {
 		AccountMultiplePlus,
+		AgentQuestionCard,
 		AgentSelector,
 		Archive,
 		ChatSettingsModal,
@@ -1024,6 +1040,10 @@ export default {
 			// assistant message they belong to (chat-attachments-and-images D6).
 			attachmentNotices: [],
 			attachmentNoticesFor: '',
+			// The question the agent asked in the last turn (hermiq.askPerson), and
+			// the id of the answer it belongs under (oversight-ask-and-hold).
+			pendingQuestion: null,
+			pendingQuestionFor: '',
 			// "Create an image" (chat-attachments-and-images D7).
 			imageAvailable: false,
 			showImageForm: false,
@@ -1680,6 +1700,8 @@ export default {
 			this.sendError = ''
 			this.attachmentNotices = []
 			this.attachmentNoticesFor = ''
+			this.pendingQuestion = null
+			this.pendingQuestionFor = ''
 			this.messagesLoading = true
 			try {
 				const [{ results }] = await Promise.all([
@@ -1910,6 +1932,8 @@ export default {
 			this.sendError = ''
 			this.attachmentNotices = []
 			this.attachmentNoticesFor = ''
+			this.pendingQuestion = null
+			this.pendingQuestionFor = ''
 			this.sending = true
 			return attached
 		},
@@ -2012,6 +2036,7 @@ export default {
 				)
 				this.attachmentNotices = finalPayload?.attachmentNotices || []
 				this.attachmentNoticesFor = finalPayload?.messageId || ''
+				this.takeQuestion(finalPayload)
 			} catch (e) {
 				if (e instanceof ChatStreamError && e.transport) {
 					// ADR-034 fallback ladder: degrade to the synchronous endpoint.
@@ -2035,7 +2060,7 @@ export default {
 		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 */
 		async sendViaPost(text, uuid, attachments = []) {
-			await sendChatMessage({
+			const result = await sendChatMessage({
 				message: text,
 				sessionUuid: uuid,
 				attachments,
@@ -2048,6 +2073,46 @@ export default {
 					numSourcesFiles: this.settings.numSourcesFiles,
 				},
 			})
+			this.takeQuestion(result)
+		},
+
+		/**
+		 * Keep the question a turn's result carries (hermiq.askPerson), under the
+		 * answer it came with. A turn without one clears the previous question.
+		 *
+		 * @param {object|null|undefined} result The stream's final payload or the POST result.
+		 * @return {void}
+		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
+		 */
+		takeQuestion(result) {
+			const question = result?.question
+			if (!question || typeof question.text !== 'string' || question.text.trim() === '') {
+				this.pendingQuestion = null
+				this.pendingQuestionFor = ''
+				return
+			}
+			this.pendingQuestion = {
+				text: question.text,
+				options: Array.isArray(question.options) ? question.options : [],
+				allowOther: question.allowOther === true,
+			}
+			this.pendingQuestionFor = String(result?.messageId || '')
+		},
+
+		/**
+		 * Send the person's answer to the agent's question as the next message.
+		 *
+		 * @param {string} answer The chosen or typed answer.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
+		 */
+		async answerQuestion(answer) {
+			const text = String(answer ?? '').trim()
+			if (text === '' || this.sending) {
+				return
+			}
+			this.currentMessage = text
+			await this.handleSend()
 		},
 
 		/**
