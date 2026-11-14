@@ -79,6 +79,7 @@ class FilesWriteService {
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
 	 * @spec openspec/changes/spec-coverage-built-rows/tasks.md
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/nc-native-tools/spec.md#REQ-SPCOV-005
 	 */
 	public function createFile(string $uid, array $arguments): array {
 		$path = $this->confinedPath(path: ($arguments['path'] ?? null));
@@ -185,6 +186,7 @@ class FilesWriteService {
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
 	 * @spec openspec/changes/spec-coverage-built-rows/tasks.md
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/nc-native-tools/spec.md#REQ-SPCOV-005
 	 */
 	public function moveFile(string $uid, array $arguments): array {
 		$from = $this->confinedPath(path: $arguments['from'] ?? null);

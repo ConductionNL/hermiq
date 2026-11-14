@@ -1015,6 +1015,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @param string $path The folder path relative to the user root.
 	 *
 	 * @return array<string, mixed> The listing, or an error envelope.
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/nc-native-tools/spec.md#REQ-SPCOV-005
 	 */
 	private function listFiles(string $uid, string $path): array {
 		$target = $this->listingTarget(userFolder: $this->rootFolder->getUserFolder($uid), path: $path);
@@ -1090,6 +1091,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @param string $path The file path relative to the user root.
 	 *
 	 * @return array<string, mixed> The content, or an error envelope.
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/nc-native-tools/spec.md#REQ-SPCOV-005
 	 */
 	private function readFile(string $uid, string $path): array {
 		if (trim($path, '/') === '') {
@@ -1158,6 +1160,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @param int $days The look-ahead window in days.
 	 *
 	 * @return array<string, mixed> The events, or an error envelope.
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/nc-native-tools/spec.md#REQ-SPCOV-006
 	 */
 	private function listCalendarEvents(string $uid, int $days): array {
 		$window = max(1, min(90, $days));

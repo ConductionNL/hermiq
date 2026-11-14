@@ -1,7 +1,9 @@
 ## 1. Traceability and the gaps the spec shows
 
-- [ ] 1.1 Point the `@spec` tags on the code named in the proposal table at the matching
+- [x] 1.1 Point the `@spec` tags on the code named in the proposal table at the matching
       REQ-SPCOV id (gate 16). Verify: the gate 46 anchor check resolves every new tag.
+      (20 tags across 13 lib files for REQ-SPCOV-002..012, 014, 015. REQ-SPCOV-001 and -013 are
+      manifest pages and the setup walkthrough, with no PHP method to carry a tag.)
 - [x] 1.2 Build `hermiq.createFile` and `hermiq.moveFile` in `NcNativeToolService`, scoped to
       the acting user's folder and default-denied like the other write tools (REQ-SPCOV-005).
       Verify: a unit test refuses a path outside `getUserFolder($uid)`.
