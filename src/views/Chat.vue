@@ -1135,23 +1135,6 @@ export default {
 
 	computed: {
 		/**
-		 * The tool steps drawn under the streaming answer: one per tool call,
-		 * and one per part of a parallel delegation, with its target agent
-		 * and state.
-		 *
-		 * @return {Array<object>} The steps.
-		 * @spec openspec/changes/delegation-runs-in-parallel/tasks.md#task-2-1
-		 */
-		streamingSteps() {
-			return chatToolSteps(this.streamingTools, (id) => {
-				const agent = this.agents.find(
-					(entry) => entry.id === id || entry.uuid === id,
-				)
-				return agent?.name || ''
-			})
-		},
-
-		/**
 		 * Whether "Fork from here" is offered: the owner of an open, unarchived session.
 		 *
 		 * @return {boolean}
@@ -1183,6 +1166,23 @@ export default {
 		 */
 		goalLine() {
 			return describeGoal(this.sessionGoal)
+		},
+
+		/**
+		 * The tool steps drawn under the streaming answer: one per tool call,
+		 * and one per part of a parallel delegation, with its target agent
+		 * and state.
+		 *
+		 * @return {Array<object>} The steps.
+		 * @spec openspec/changes/delegation-runs-in-parallel/tasks.md#task-2-1
+		 */
+		streamingSteps() {
+			return chatToolSteps(this.streamingTools, (id) => {
+				const agent = this.agents.find(
+					(entry) => entry.id === id || entry.uuid === id,
+				)
+				return agent?.name || ''
+			})
 		},
 
 		/**
