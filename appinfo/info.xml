@@ -104,6 +104,7 @@
             <step>OCA\Hermiq\Repair\SeedMessageTranslationFeature</step>
             <step>OCA\Hermiq\Repair\SeedRecordSummary</step>
             <step>OCA\Hermiq\Repair\SeedLessonAuthoringFeature</step>
+            <step>OCA\Hermiq\Repair\SeedFormFillFeature</step>
             <step>OCA\Hermiq\Repair\SeedComplianceControls</step>
             <!-- @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001 -->
             <step>OCA\Hermiq\Repair\SeedLiteracyLessons</step>
@@ -189,6 +190,7 @@
             <step>OCA\Hermiq\Repair\SeedMessageTranslationFeature</step>
             <step>OCA\Hermiq\Repair\SeedRecordSummary</step>
             <step>OCA\Hermiq\Repair\SeedLessonAuthoringFeature</step>
+            <step>OCA\Hermiq\Repair\SeedFormFillFeature</step>
             <step>OCA\Hermiq\Repair\SeedComplianceControls</step>
             <!-- @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001 -->
             <step>OCA\Hermiq\Repair\SeedLiteracyLessons</step>

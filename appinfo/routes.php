@@ -616,6 +616,10 @@ $routes = [
         // see design.md for why it is a sibling of assistant#converse, not a
         // reuse of it as-is.
         ['name' => 'assistant#detectPii', 'url' => '/api/assistant/detect-pii', 'verb' => 'POST'],
+        // Paste to fill (forms-smart-paste-fill): proposals from pasted text, and
+        // whether the form may offer it. Gated by the `form-fill` AiFeature.
+        ['name' => 'formFill#fill', 'url' => '/api/assistant/form-fill', 'verb' => 'POST'],
+        ['name' => 'formFill#available', 'url' => '/api/assistant/form-fill/available', 'verb' => 'GET'],
 
         // Sessions: CRUD + turns + archive lifecycle (restore/permanent).
         //
