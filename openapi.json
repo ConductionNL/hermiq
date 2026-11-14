@@ -8517,6 +8517,37 @@
                 }
             }
         },
+        "/settings/code-sandbox/test": {
+            "post": {
+                "operationId": "settings-code-sandbox-settings-test",
+                "summary": "Test (settings code sandbox settings)",
+                "description": "Runs print(1 + 1) in the chosen code sandbox and answers whether it printed 2, with the backend that is live. Needs a Nextcloud admin.",
+                "tags": [
+                    "settings-code-sandbox-settings"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "503": {
+                        "description": "No code sandbox can take the run, or it could not run the code."
+                    }
+                }
+            }
+        },
         "/setup/action/{actionId}": {
             "post": {
                 "operationId": "setup-run-action",

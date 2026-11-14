@@ -25,6 +25,7 @@ namespace OCA\Hermiq\Tests\Unit\Controller\Settings;
 use OCA\Hermiq\Controller\Settings\CodeSandboxSettingsController;
 use OCA\Hermiq\Service\CodeSandbox\CodeSandboxClient;
 use OCA\Hermiq\Service\CodeSandbox\CodeSandboxSettings;
+use OCA\Hermiq\Service\CodeSandbox\CodeSandboxUnavailableException;
 use OCP\AppFramework\Http\Attribute\AuthorizedAdminSetting;
 use OCP\IAppConfig;
 use OCP\IRequest;
@@ -51,7 +52,7 @@ class CodeSandboxSettingsControllerTest extends TestCase {
 	 *
 	 * @return CodeSandboxSettingsController
 	 */
-	private function controller(array $params = [], bool $available = true): CodeSandboxSettingsController {
+	private function controller(array $params = [], bool $available = true, ?CodeSandboxClient $client = null): CodeSandboxSettingsController {
 		$config = $this->createMock(IAppConfig::class);
 		$config->method('getValueString')->willReturnCallback(fn (string $app, string $key, string $default = ''): string => ($key === CodeSandboxSettings::CONFIG_KEY && $this->stored !== '') ? $this->stored : $default);
 		$config->method('setValueString')->willReturnCallback(
@@ -66,19 +67,21 @@ class CodeSandboxSettingsControllerTest extends TestCase {
 		$request = $this->createMock(IRequest::class);
 		$request->method('getParam')->willReturnCallback(static fn (string $key, $default = null) => ($params[$key] ?? $default));
 
-		$client = $this->createMock(CodeSandboxClient::class);
-		$client->method('isAvailable')->willReturn($available);
+		if ($client === null) {
+			$client = $this->createMock(CodeSandboxClient::class);
+			$client->method('isAvailable')->willReturn($available);
+		}
 
 		return new CodeSandboxSettingsController(request: $request, settings: new CodeSandboxSettings(appConfig: $config), client: $client);
 	}//end controller()
 
 	/**
-	 * Both routes are for admins only.
+	 * Every route is for admins only.
 	 *
 	 * @return void
 	 */
 	public function testBothRoutesAreAdminOnly(): void {
-		foreach (['get', 'update'] as $method) {
+		foreach (['get', 'update', 'test'] as $method) {
 			self::assertNotEmpty((new ReflectionMethod(CodeSandboxSettingsController::class, $method))->getAttributes(AuthorizedAdminSetting::class), $method);
 		}
 	}//end testBothRoutesAreAdminOnly()
@@ -134,4 +137,48 @@ class CodeSandboxSettingsControllerTest extends TestCase {
 			self::assertSame('', $this->stored);
 		}
 	}//end testADoubtfulChoiceIsRefusedAndStoresNothing()
+
+	/**
+	 * Spec scenario "An admin switches to a hosted sandbox", the test half: the
+	 * test runs `print(1 + 1)` and answers whether it printed 2, with the live backend.
+	 *
+	 * @return void
+	 */
+	public function testRunATestAnswersWhetherItPrintedTwo(): void {
+		$this->stored = '{"backend":"hosted","hostedSource":"hosted-sandbox"}';
+		$client = $this->createMock(CodeSandboxClient::class);
+		$client->expects(self::exactly(2))->method('run')
+			->with('python', 'print(1 + 1)', '', [], ['wallSeconds' => 10], null)
+			->willReturnOnConsecutiveCalls(
+				['exitCode' => 0, 'stdout' => "2\n", 'stderr' => '', 'durationMs' => 9, 'timedOut' => false, 'files' => [], 'limits' => []],
+				['exitCode' => 0, 'stdout' => "3\n", 'stderr' => '', 'durationMs' => 9, 'timedOut' => false, 'files' => [], 'limits' => []]
+			);
+		$controller = $this->controller(client: $client);
+
+		$passed = $controller->test();
+		self::assertSame(200, $passed->getStatus());
+		self::assertTrue($passed->getData()['passed']);
+		self::assertSame('2', $passed->getData()['output']);
+		self::assertSame('hosted', $passed->getData()['backend']);
+		self::assertSame('hosted-sandbox', $passed->getData()['hostedSource']);
+		self::assertSame('external', $passed->getData()['reach']);
+
+		self::assertFalse($controller->test()->getData()['passed']);
+	}//end testRunATestAnswersWhetherItPrintedTwo()
+
+	/**
+	 * No sandbox answers 503 with the reason and the stored choice.
+	 *
+	 * @return void
+	 */
+	public function testRunATestWithoutASandboxIs503(): void {
+		$client = $this->createMock(CodeSandboxClient::class);
+		$client->method('run')->willThrowException(new CodeSandboxUnavailableException(CodeSandboxUnavailableException::NOT_INSTALLED));
+
+		$response = $this->controller(client: $client)->test();
+
+		self::assertSame(503, $response->getStatus());
+		self::assertSame('No code sandbox is installed on this instance.', $response->getData()['error']);
+		self::assertSame('exapp', $response->getData()['backend']);
+	}//end testRunATestWithoutASandboxIs503()
 }//end class

@@ -52,8 +52,10 @@ Kind: code. Size L. Rows `hermiq:tl-code-exec`, `hermiq:fl-code-step`, `hermiq:d
 - **acceptance_criteria**:
   - GIVEN an admin WHEN they run the test THEN the result and the live backend are shown
   - GIVEN a runCode call WHEN it is traced THEN code, limits and exit code are kept and each output is cut to 4 KB and redacted
-- [ ] Implement
+- [x] Implement
+  - `CodeSandboxSettings.vue` in Admin settings (own or hosted with its integriq source, the live backend, "Run a test" through `POST /api/settings/code-sandbox/test`, which runs `print(1 + 1)`), `CodeRunTrace` (the `codeRun` trace extra from `FacadeToolInvoker`: code, language, limits, exit code, duration, `timedOut`, stdout and stderr cut to 4 KB and redacted, e-mail addresses masked, outputs withheld without a redaction service), en/nl strings.
 - [ ] Test (PHPUnit on the trace extra; Playwright under tests/e2e/spec-coverage/ on the admin section)
+  - PHPUnit (`CodeRunTraceTest`, the invoker's trace step, the test route) and vitest (`code-sandbox-settings.spec.js`) done; the Playwright run needs a live instance.
 
 ## Verification
 - [ ] `openspec validate tools-code-sandbox --type change --strict` passes

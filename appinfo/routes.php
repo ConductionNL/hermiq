@@ -43,6 +43,7 @@ $routes = [
         // Where code runs (tools-code-sandbox, Task 2): admin only.
         ['name' => 'Settings\CodeSandboxSettings#get',    'url' => '/api/settings/code-sandbox', 'verb' => 'GET'],
         ['name' => 'Settings\CodeSandboxSettings#update', 'url' => '/api/settings/code-sandbox', 'verb' => 'PATCH'],
+        ['name' => 'Settings\CodeSandboxSettings#test',   'url' => '/api/settings/code-sandbox/test', 'verb' => 'POST'],
 
         // Generic per-user preferences (used by shared nextcloud-vue widgets, e.g. CnSupportDialog).
         ['name' => 'preferences#getPreference', 'url' => '/api/preferences/{key}', 'verb' => 'GET'],

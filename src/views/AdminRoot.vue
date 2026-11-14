@@ -150,6 +150,17 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			:name="t('hermiq', 'Code sandbox')"
+			:description="
+				t(
+					'hermiq',
+					'Where the code an agent or a flow runs is executed: in the sandbox app on this server, or at a hosted sandbox provider reached through integriq.',
+				)
+			">
+			<CodeSandboxSettings />
+		</NcSettingsSection>
+
+		<NcSettingsSection
 			:name="t('hermiq', 'Talk chat bridge')"
 			:description="
 				t(
@@ -183,6 +194,7 @@ import { CnCredentials } from '@conduction/nextcloud-vue'
 import { NcButton, NcSettingsSection } from '@nextcloud/vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
 import AssistantPromptLibrary from '../components/settings/AssistantPromptLibrary.vue'
+import CodeSandboxSettings from '../components/settings/CodeSandboxSettings.vue'
 import IntakeSettings from '../components/settings/IntakeSettings.vue'
 import ReportGroupingSettings from '../components/settings/ReportGroupingSettings.vue'
 import RunRetentionSettings from '../components/settings/RunRetentionSettings.vue'
@@ -215,6 +227,7 @@ export default {
 		Cog,
 		LlmProviderModal,
 		NcButton,
+		CodeSandboxSettings,
 		IntakeSettings,
 		NcSettingsSection,
 		ReportGroupingSettings,

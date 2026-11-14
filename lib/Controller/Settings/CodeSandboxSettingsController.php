@@ -32,12 +32,14 @@ use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\CodeSandbox\CodeSandboxClient;
 use OCA\Hermiq\Service\CodeSandbox\CodeSandboxSettings;
+use OCA\Hermiq\Service\CodeSandbox\CodeSandboxUnavailableException;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\AuthorizedAdminSetting;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
+use RuntimeException;
 
 /**
  * Read and save the code sandbox backend.
@@ -45,6 +47,12 @@ use OCP\IRequest;
  * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-the-admin-chooses-where-code-runs-req-sandbox-004
  */
 class CodeSandboxSettingsController extends Controller {
+
+	/**
+	 * The admin's test run and its time limit.
+	 */
+	public const TEST_CODE = 'print(1 + 1)';
+	public const TEST_WALL_SECONDS = 10;
 
 	/**
 	 * Constructor.
@@ -99,4 +107,32 @@ class CodeSandboxSettingsController extends Controller {
 
 		return $this->get();
 	}//end update()
+
+	/**
+	 * Run `print(1 + 1)` in the chosen sandbox, for the admin's "Run a test".
+	 *
+	 * @return JSONResponse `{passed, output, exitCode, timedOut, backend, hostedSource, reach}`, or 503
+	 *   with the reason when no sandbox can take the run or it could not run.
+	 *
+	 * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#scenario-an-admin-switches-to-a-hosted-sandbox
+	 */
+	#[AuthorizedAdminSetting(AdminSettings::class)]
+	public function test(): JSONResponse {
+		try {
+			$result = $this->client->run(language: 'python', code: self::TEST_CODE, limits: ['wallSeconds' => self::TEST_WALL_SECONDS]);
+		} catch (CodeSandboxUnavailableException | RuntimeException $e) {
+			return new JSONResponse(['error' => $e->getMessage()] + $this->settings->toArray(), Http::STATUS_SERVICE_UNAVAILABLE);
+		}
+
+		$output = trim($result['stdout']);
+
+		return new JSONResponse(
+			[
+				'passed' => ($result['exitCode'] === 0 && $output === '2'),
+				'output' => $output,
+				'exitCode' => $result['exitCode'],
+				'timedOut' => $result['timedOut'],
+			] + $this->settings->toArray()
+		);
+	}//end test()
 }//end class
