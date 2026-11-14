@@ -104,6 +104,7 @@
             <step>OCA\Hermiq\Repair\SeedMessageTranslationFeature</step>
             <step>OCA\Hermiq\Repair\SeedRecordSummary</step>
             <step>OCA\Hermiq\Repair\SeedLessonAuthoringFeature</step>
+            <step>OCA\Hermiq\Repair\SeedFormFillFeature</step>
             <step>OCA\Hermiq\Repair\SeedComplianceControls</step>
             <!-- @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001 -->
             <step>OCA\Hermiq\Repair\SeedLiteracyLessons</step>
@@ -129,6 +130,10 @@
                  hand-created agents have no seed step of their own, so this is
                  their only path to getting the field backfilled. -->
             <step>OCA\Hermiq\Repair\BackfillAgentApplicationSlug</step>
+            <!-- @spec openspec/changes/tool-scope-security-default/specs/agent-tool-governance/spec.md#requirement-affected-agents-must-be-reportable -->
+            <!-- Read only: names every agent with no tools configured, so an operator
+                 grants deliberately. Changes no agent. -->
+            <step>OCA\Hermiq\Repair\ReportToolessAgents</step>
             <step>OCA\Hermiq\Repair\MigrateAgentData</step>
             <!--
               session-data-migration. Copies conversations onto the session schema; the
@@ -192,6 +197,7 @@
             <step>OCA\Hermiq\Repair\SeedMessageTranslationFeature</step>
             <step>OCA\Hermiq\Repair\SeedRecordSummary</step>
             <step>OCA\Hermiq\Repair\SeedLessonAuthoringFeature</step>
+            <step>OCA\Hermiq\Repair\SeedFormFillFeature</step>
             <step>OCA\Hermiq\Repair\SeedComplianceControls</step>
             <!-- @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001 -->
             <step>OCA\Hermiq\Repair\SeedLiteracyLessons</step>

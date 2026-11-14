@@ -9,8 +9,8 @@ Kind: code. Size M. Row `hermiq:td-bias-test`.
 - **files**: `lib/Settings/hermiq_register.json`, `lib/Service/EvalScoringService.php`, `lib/Service/EvalRunService.php`
 - **acceptance_criteria**:
   - GIVEN a pair WHEN run THEN two sessions, one judge call, both answers and the rationale stored
-- [ ] Implement
-- [ ] Test (PHPUnit with a stubbed provider for pass, fail and a malformed judge answer)
+- [x] Implement
+- [x] Test (PHPUnit with a stubbed provider for pass, fail and a malformed judge answer)
 
 ### Task 2: The bias template and "Use for this agent"
 - **spec_ref**: `openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002`
