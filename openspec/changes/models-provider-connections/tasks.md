@@ -45,8 +45,10 @@ Kind: code. Size L. Rows `hermiq:mo-openai-compat`, `hermiq:dm-responses-api`, `
   - GIVEN POST /login for anthropic WHEN the CLI prints its URL THEN the runner returns a login id and the URL
   - GIVEN a code on /login/{id}/code WHEN the CLI completes THEN the token is returned once and the home directory is gone
   - GIVEN a login that is not completed WHEN ten minutes pass THEN the sign-in hosts leave the egress allowlist
-- [ ] Implement
-- [ ] Test (runner tests with a stub CLI)
+- [x] Implement
+      > 2026-11-14: `exapp/llm-runner/src/login.js` runs the provider's sign-in command in a fresh throwaway home with the sign-in's own run token as its proxy identity; `GET /login` lists the providers that offer a sign-in (Codex only when its pinned CLI's `login --help` names `--device-auth`), `POST /login` answers a login id, the URL and for a device sign-in the code, `POST /login/{id}/code` passes the code on STDIN, waits for the CLI and returns the token once, then removes the home. An open sign-in is killed after ten minutes; the run token hermiq mints for it expires at the same moment, so the sign-in hosts leave the egress policy with it. `providers.js` declares each provider's sign-in (command, mode, token pattern or auth file, hosts).
+- [x] Test (runner tests with a stub CLI)
+      > `test/login.test.js` (11), wired into `test/test.sh` as (m).
 
 ### Task 5: Sign-in in hermiq, token straight to the broker
 - **spec_ref**: `openspec/changes/models-provider-connections/specs/agent-credentials/spec.md#requirement-a-signed-in-token-is-kept-only-in-the-broker-req-signin-002`

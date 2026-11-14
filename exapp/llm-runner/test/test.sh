@@ -363,6 +363,15 @@ else
 fi
 
 # =============================================================================
+# (m) Subscription sign-in through the vendor CLI (models-provider-connections):
+#     URL out, code in, token returned once, home removed, ten-minute limit,
+#     the ChatGPT auth file written 0600 into the turn's home
+# =============================================================================
+if node --test "${ROOT}/test/login.test.js" > "${WORK}/login.log" 2>&1; then
+    pass "(m) sign-in tests (code and device sign-in, cleanup, time limit, auth file)"
+else
+    fail "(m) sign-in tests failed"; cat "${WORK}/login.log" || true
+fi
 
 # =============================================================================
 echo

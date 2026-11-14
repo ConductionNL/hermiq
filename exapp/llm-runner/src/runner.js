@@ -375,6 +375,7 @@ function spawnTurn(turn) {
 		const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'llm-runner-'))
 		const settle = { scratch, provider: turn.provider, resolve, reject }
 		const mcpConfigPath = writeMcpConfig(turn.mcpConfig, scratch)
+		writeAuthFiles(turn.provider, turn.credentialEnv, scratch)
 		const args = turn.provider.args(turn.model, { mcpConfigPath })
 
 		// A governed turn MUST carry the lockdown flags, or the boundary is gone —
@@ -428,6 +429,37 @@ function writeMcpConfig(mcpConfig, scratch) {
 	fs.writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig), { mode: 0o600 })
 	fs.chmodSync(mcpConfigPath, 0o600)
 	return mcpConfigPath
+}
+
+/**
+ * Write the credentials a provider reads from a FILE into the scratch home.
+ *
+ * A signed-in ChatGPT subscription is the Codex CLI's own auth file
+ * (models-provider-connections D5): it goes to a 0600 file inside the throwaway
+ * home, never into the environment, and is removed with the scratch dir.
+ *
+ * @param {object} provider The provider adapter; `authFiles` maps a credential key to a home-relative path.
+ * @param {object} credentialEnv Caller-supplied credential map.
+ * @param {string} scratch The scratch dir (the child's HOME).
+ * @returns {Array<string>} The files written.
+ */
+function writeAuthFiles(provider, credentialEnv, scratch) {
+	const written = []
+	if (!provider.authFiles || !credentialEnv || typeof credentialEnv !== 'object') {
+		return written
+	}
+	for (const [key, relative] of Object.entries(provider.authFiles)) {
+		const value = credentialEnv[key]
+		if (typeof value !== 'string' || value === '') {
+			continue
+		}
+		const file = path.join(scratch, relative)
+		fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 })
+		fs.writeFileSync(file, value, { mode: 0o600 })
+		fs.chmodSync(file, 0o600)
+		written.push(file)
+	}
+	return written
 }
 
 /**
@@ -657,4 +689,5 @@ module.exports = {
 	assertGovernedArgs,
 	assertMcpEndpointReachable,
 	buildEgressProxyEnv,
+	writeAuthFiles,
 }
