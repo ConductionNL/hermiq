@@ -46,6 +46,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T14:43:20+00:00"
                 },
@@ -65,6 +66,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": "alice",
                     "created": null
                 }
@@ -102,6 +104,7 @@
                 "summary": "Checked the cases",
                 "attempt": 1,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T14:43:20+00:00",
                 "steps": [
@@ -192,6 +195,7 @@
                 "summary": "Checked the cases",
                 "attempt": "3",
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "",
                 "created": "2026-09-21T15:13:20+00:00",
                 "steps": [],
@@ -228,6 +232,7 @@
                 "summary": "",
                 "attempt": null,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "alice",
                 "created": null,
                 "steps": [
@@ -260,6 +265,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:13:20+00:00"
                 },
@@ -279,6 +285,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": null,
                     "created": null
                 },
@@ -298,6 +305,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": "",
                     "created": null
                 },
@@ -321,6 +329,7 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "usage": [],
                     "user": "",
                     "created": null
                 }
@@ -346,6 +355,7 @@
                     "model": null,
                     "location": ""
                 },
+                "usage": [],
                 "user": "",
                 "created": "2026-09-21T16:13:20+00:00",
                 "steps": [],
@@ -386,6 +396,7 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "usage": [],
                 "user": "",
                 "created": null,
                 "steps": [
@@ -438,6 +449,7 @@
                     "summary": 7,
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:43:20+00:00"
                 }
@@ -511,6 +523,7 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:43:20+00:00"
                 },
@@ -530,6 +543,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:43:20+00:00"
                 },
@@ -546,6 +560,7 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T15:13:20+00:00"
                 },
@@ -569,6 +584,7 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T14:43:20+00:00"
                 },
@@ -589,6 +605,7 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:13:20+00:00"
                 }
@@ -612,6 +629,7 @@
                 "summary": null,
                 "attempt": null,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T16:43:20+00:00",
                 "steps": [
@@ -656,6 +674,7 @@
                     "model": null,
                     "location": ""
                 },
+                "usage": [],
                 "user": null,
                 "created": "2026-09-21T14:43:20+00:00",
                 "steps": [
@@ -698,6 +717,7 @@
                 "summary": null,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "",
                 "created": "2026-09-21T16:43:20+00:00",
                 "steps": [],
@@ -734,6 +754,7 @@
                     "model": null,
                     "location": ""
                 },
+                "usage": [],
                 "user": null,
                 "created": "2026-09-21T16:43:20+00:00",
                 "steps": [],
@@ -767,6 +788,7 @@
                 "summary": null,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T14:43:20+00:00",
                 "steps": [],
@@ -787,6 +809,7 @@
                 "summary": null,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T14:43:20+00:00",
                 "steps": [],
@@ -821,6 +844,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:43:20+00:00"
                 }
@@ -846,6 +870,7 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "usage": [],
                 "user": null,
                 "created": "2026-09-21T15:43:20+00:00",
                 "steps": [
@@ -877,6 +902,7 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "usage": [],
                 "user": null,
                 "created": null,
                 "steps": [
@@ -916,6 +942,7 @@
                 "summary": null,
                 "attempt": "3",
                 "providerDisclosure": [],
+                "usage": [],
                 "user": null,
                 "created": "2026-09-21T14:13:20+00:00",
                 "steps": [
@@ -955,6 +982,7 @@
                 "summary": null,
                 "attempt": 1,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": null,
                 "created": null,
                 "steps": [
@@ -1016,6 +1044,7 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "usage": [],
                 "user": null,
                 "created": null,
                 "steps": [
@@ -1041,6 +1070,7 @@
                     "model": null,
                     "location": ""
                 },
+                "usage": [],
                 "user": null,
                 "created": null,
                 "steps": [],
@@ -1081,6 +1111,7 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "usage": [],
                 "user": "",
                 "created": null,
                 "steps": [
@@ -1155,6 +1186,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:43:20+00:00"
                 },
@@ -1171,6 +1203,7 @@
                     "summary": "",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T14:13:20+00:00"
                 },
@@ -1187,6 +1220,7 @@
                     "summary": "Checked the cases",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": null
                 }
@@ -1210,6 +1244,7 @@
                 "summary": "Checked the cases",
                 "attempt": null,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "",
                 "created": null,
                 "steps": [
@@ -1253,6 +1288,7 @@
                     "summary": null,
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:43:20+00:00"
                 }
@@ -1275,6 +1311,7 @@
                 "summary": null,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "",
                 "created": "2026-09-21T15:43:20+00:00",
                 "steps": [
@@ -1303,6 +1340,7 @@
                 "summary": "",
                 "attempt": "3",
                 "providerDisclosure": [],
+                "usage": [],
                 "user": null,
                 "created": "2026-09-21T16:43:20+00:00",
                 "steps": [],
@@ -1347,6 +1385,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:43:20+00:00"
                 },
@@ -1363,6 +1402,7 @@
                     "summary": 7,
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T15:13:20+00:00"
                 },
@@ -1382,6 +1422,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:43:20+00:00"
                 },
@@ -1403,6 +1444,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": "",
                     "created": null
                 },
@@ -1422,6 +1464,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": "",
                     "created": null
                 },
@@ -1441,6 +1484,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": "alice",
                     "created": null
                 }
@@ -1463,6 +1507,7 @@
                 "summary": 7,
                 "attempt": 1,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T15:13:20+00:00",
                 "steps": [
@@ -1501,6 +1546,7 @@
                     "summary": null,
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:13:20+00:00"
                 },
@@ -1517,6 +1563,7 @@
                     "summary": null,
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:13:20+00:00"
                 }
@@ -1569,6 +1616,7 @@
                 "summary": 7,
                 "attempt": null,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": null,
                 "created": "2026-09-21T16:43:20+00:00",
                 "steps": [],
@@ -1613,6 +1661,7 @@
                     "summary": 7,
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:13:20+00:00"
                 },
@@ -1632,6 +1681,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:13:20+00:00"
                 },
@@ -1648,6 +1698,7 @@
                     "summary": null,
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:43:20+00:00"
                 },
@@ -1673,6 +1724,7 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T14:13:20+00:00"
                 },
@@ -1692,6 +1744,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T14:13:20+00:00"
                 },
@@ -1708,6 +1761,7 @@
                     "summary": "",
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": null
                 }
@@ -1749,6 +1803,7 @@
                 "summary": 7,
                 "attempt": null,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T16:13:20+00:00",
                 "steps": [],
@@ -1785,6 +1840,7 @@
                     "model": null,
                     "location": ""
                 },
+                "usage": [],
                 "user": "",
                 "created": "2026-09-21T16:13:20+00:00",
                 "steps": [
@@ -1814,6 +1870,7 @@
                     "summary": "",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:13:20+00:00"
                 }
@@ -1865,6 +1922,7 @@
                 "summary": null,
                 "attempt": "3",
                 "providerDisclosure": [],
+                "usage": [],
                 "user": null,
                 "created": "2026-09-21T14:13:20+00:00",
                 "steps": [
@@ -1920,6 +1978,7 @@
                 "summary": null,
                 "attempt": "3",
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "",
                 "created": null,
                 "steps": [
@@ -1963,6 +2022,7 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:43:20+00:00"
                 },
@@ -1979,6 +2039,7 @@
                     "summary": null,
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": null
                 }
@@ -2041,6 +2102,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:13:20+00:00"
                 },
@@ -2060,6 +2122,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:13:20+00:00"
                 }
@@ -2085,6 +2148,7 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "usage": [],
                 "user": null,
                 "created": "2026-09-21T14:13:20+00:00",
                 "steps": [
@@ -2112,6 +2176,7 @@
                 "summary": null,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": null,
                 "created": null,
                 "steps": [
@@ -2178,6 +2243,7 @@
                     "summary": "Checked the cases",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:43:20+00:00"
                 },
@@ -2194,6 +2260,7 @@
                     "summary": "Checked the cases",
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:43:20+00:00"
                 }
@@ -2243,6 +2310,7 @@
                     "summary": "",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T14:43:20+00:00"
                 }
@@ -2270,6 +2338,7 @@
                 "summary": "",
                 "attempt": null,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "",
                 "created": "2026-09-21T14:43:20+00:00",
                 "steps": [
@@ -2299,6 +2368,7 @@
                     "summary": "Checked the cases",
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T15:13:20+00:00"
                 }
@@ -2331,6 +2401,7 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "usage": [],
                 "user": "",
                 "created": "2026-09-21T14:43:20+00:00",
                 "steps": [
@@ -2376,6 +2447,7 @@
                     "summary": 7,
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:13:20+00:00"
                 },
@@ -2397,6 +2469,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T14:43:20+00:00"
                 }
@@ -2439,6 +2512,7 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "usage": [],
                 "user": "alice",
                 "created": null,
                 "steps": [],
@@ -2472,6 +2546,7 @@
                 "summary": "",
                 "attempt": 1,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": null,
                 "created": "2026-09-21T16:43:20+00:00",
                 "steps": [
@@ -2516,6 +2591,7 @@
                     "model": null,
                     "location": ""
                 },
+                "usage": [],
                 "user": "alice",
                 "created": null,
                 "steps": [
@@ -2545,6 +2621,7 @@
                     "summary": "",
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:43:20+00:00"
                 }
@@ -2584,6 +2661,7 @@
                     "model": null,
                     "location": ""
                 },
+                "usage": [],
                 "user": "",
                 "created": "2026-09-21T14:13:20+00:00",
                 "steps": [
@@ -2630,6 +2708,7 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "usage": [],
                 "user": "",
                 "created": "2026-09-21T16:13:20+00:00",
                 "steps": [],
@@ -2657,6 +2736,7 @@
                     "summary": "",
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:13:20+00:00"
                 },
@@ -2673,6 +2753,7 @@
                     "summary": null,
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:43:20+00:00"
                 },
@@ -2696,6 +2777,7 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "usage": [],
                     "user": null,
                     "created": null
                 },
@@ -2715,6 +2797,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": "",
                     "created": null
                 }
@@ -2737,6 +2820,7 @@
                 "summary": null,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": null,
                 "created": "2026-09-21T14:43:20+00:00",
                 "steps": [],
@@ -2783,6 +2867,7 @@
                     "summary": "",
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:43:20+00:00"
                 },
@@ -2799,6 +2884,7 @@
                     "summary": "Checked the cases",
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": null
                 }
@@ -2830,6 +2916,7 @@
                     "summary": "Checked the cases",
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
                 },
@@ -2846,6 +2933,7 @@
                     "summary": "",
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:43:20+00:00"
                 },
@@ -2864,6 +2952,7 @@
                     "summary": "",
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T14:43:20+00:00"
                 },
@@ -2887,6 +2976,7 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "usage": [],
                     "user": "alice",
                     "created": null
                 },
@@ -2903,6 +2993,7 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": null
                 }
@@ -2946,6 +3037,7 @@
                     "model": null,
                     "location": ""
                 },
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T15:13:20+00:00",
                 "steps": [
@@ -2982,6 +3074,7 @@
                     "summary": null,
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:13:20+00:00"
                 },
@@ -2998,6 +3091,7 @@
                     "summary": 7,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T15:13:20+00:00"
                 },
@@ -3021,6 +3115,7 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "usage": [],
                     "user": null,
                     "created": null
                 }
@@ -3080,6 +3175,7 @@
                     "summary": "Checked the cases",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:13:20+00:00"
                 }
@@ -3103,6 +3199,7 @@
                 "summary": 7,
                 "attempt": 1,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "",
                 "created": "2026-09-21T15:13:20+00:00",
                 "steps": [
@@ -3159,6 +3256,7 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "usage": [],
                 "user": "",
                 "created": "2026-09-21T14:13:20+00:00",
                 "steps": [
@@ -3208,6 +3306,7 @@
                     "summary": null,
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:43:20+00:00"
                 },
@@ -3233,6 +3332,7 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T14:43:20+00:00"
                 }
@@ -3269,6 +3369,7 @@
                 "summary": null,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T15:43:20+00:00",
                 "steps": [],
@@ -3301,6 +3402,7 @@
                     "summary": 7,
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
                 }
@@ -3340,6 +3442,7 @@
                     "model": null,
                     "location": ""
                 },
+                "usage": [],
                 "user": null,
                 "created": null,
                 "steps": [
@@ -3393,6 +3496,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:43:20+00:00"
                 }
@@ -3426,6 +3530,7 @@
                     "summary": "Checked the cases",
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
                 },
@@ -3444,6 +3549,7 @@
                     "summary": 7,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:13:20+00:00"
                 },
@@ -3460,6 +3566,7 @@
                     "summary": "",
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": null
                 }
@@ -3498,6 +3605,7 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:43:20+00:00"
                 },
@@ -3517,6 +3625,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": "",
                     "created": null
                 },
@@ -3537,6 +3646,7 @@
                     "summary": "",
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": null
                 }
@@ -3567,6 +3677,7 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "usage": [],
                 "user": null,
                 "created": "2026-09-21T15:43:20+00:00",
                 "steps": [
@@ -3596,6 +3707,7 @@
                     "summary": "Checked the cases",
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:43:20+00:00"
                 },
@@ -3617,6 +3729,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T14:43:20+00:00"
                 },
@@ -3635,6 +3748,7 @@
                     "summary": "Checked the cases",
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:43:20+00:00"
                 },
@@ -3651,6 +3765,7 @@
                     "summary": null,
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T14:43:20+00:00"
                 }
@@ -3687,6 +3802,7 @@
                 "summary": "Checked the cases",
                 "attempt": "3",
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "",
                 "created": "2026-09-21T14:13:20+00:00",
                 "steps": [
@@ -3709,6 +3825,7 @@
                 "summary": "Checked the cases",
                 "attempt": "3",
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "",
                 "created": "2026-09-21T14:13:20+00:00",
                 "steps": [
@@ -3760,6 +3877,7 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:43:20+00:00"
                 },
@@ -3779,6 +3897,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:43:20+00:00"
                 },
@@ -3800,6 +3919,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:13:20+00:00"
                 }
@@ -3833,6 +3953,7 @@
                     "summary": "",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T14:43:20+00:00"
                 }
@@ -3869,6 +3990,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:43:20+00:00"
                 },
@@ -3888,6 +4010,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T15:43:20+00:00"
                 },
@@ -3909,6 +4032,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:43:20+00:00"
                 },
@@ -3925,6 +4049,7 @@
                     "summary": null,
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": null
                 }
@@ -3961,6 +4086,7 @@
                 "summary": "Checked the cases",
                 "attempt": null,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": null,
                 "created": "2026-09-21T16:13:20+00:00",
                 "steps": [],
@@ -3997,6 +4123,7 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "usage": [],
                 "user": "",
                 "created": "2026-09-21T16:13:20+00:00",
                 "steps": [],
@@ -4045,6 +4172,7 @@
                 "summary": 7,
                 "attempt": "3",
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "alice",
                 "created": null,
                 "steps": [
@@ -4087,6 +4215,7 @@
                 "summary": "Checked the cases",
                 "attempt": "3",
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T16:43:20+00:00",
                 "steps": [
@@ -4120,6 +4249,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": "alice",
                     "created": null
                 }
@@ -4146,6 +4276,7 @@
                     "model": null,
                     "location": ""
                 },
+                "usage": [],
                 "user": "alice",
                 "created": null,
                 "steps": [
@@ -4186,6 +4317,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": null,
                     "created": null
                 }
@@ -4233,6 +4365,7 @@
                     "summary": 7,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:43:20+00:00"
                 },
@@ -4249,6 +4382,7 @@
                     "summary": 7,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:13:20+00:00"
                 },
@@ -4274,6 +4408,7 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T14:43:20+00:00"
                 }
@@ -4324,6 +4459,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
                 },
@@ -4347,6 +4483,7 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T14:43:20+00:00"
                 }
@@ -4385,6 +4522,7 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:43:20+00:00"
                 },
@@ -4401,6 +4539,7 @@
                     "summary": 7,
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:13:20+00:00"
                 },
@@ -4424,6 +4563,7 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "usage": [],
                     "user": "",
                     "created": null
                 },
@@ -4440,6 +4580,7 @@
                     "summary": 7,
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": null
                 }
@@ -4469,6 +4610,7 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "usage": [],
                 "user": "",
                 "created": null,
                 "steps": [],
@@ -4496,6 +4638,7 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "usage": [],
                 "user": "",
                 "created": null,
                 "steps": [],
@@ -4532,6 +4675,7 @@
                 "summary": null,
                 "attempt": "3",
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "",
                 "created": null,
                 "steps": [
@@ -4586,6 +4730,7 @@
                 "summary": "Checked the cases",
                 "attempt": null,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "alice",
                 "created": null,
                 "steps": [
@@ -4623,6 +4768,7 @@
                     "summary": null,
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T14:43:20+00:00"
                 }
@@ -4654,6 +4800,7 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T16:13:20+00:00",
                 "steps": [
@@ -4696,6 +4843,7 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "usage": [],
                 "user": "",
                 "created": "2026-09-21T16:13:20+00:00",
                 "steps": [],
@@ -4741,6 +4889,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:43:20+00:00"
                 },
@@ -4760,6 +4909,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
                 },
@@ -4776,6 +4926,7 @@
                     "summary": null,
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
                 },
@@ -4792,6 +4943,7 @@
                     "summary": "",
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T14:43:20+00:00"
                 }
@@ -4818,6 +4970,7 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "usage": [],
                 "user": null,
                 "created": "2026-09-21T16:13:20+00:00",
                 "steps": [
@@ -4872,6 +5025,7 @@
                 "summary": null,
                 "attempt": null,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "",
                 "created": null,
                 "steps": [],
@@ -4899,6 +5053,7 @@
                     "summary": null,
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:13:20+00:00"
                 }
@@ -4923,6 +5078,7 @@
                 "summary": null,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": null,
                 "created": null,
                 "steps": [],
@@ -4946,6 +5102,7 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "usage": [],
                 "user": null,
                 "created": "2026-09-21T15:13:20+00:00",
                 "steps": [
@@ -5014,6 +5171,7 @@
                 "summary": null,
                 "attempt": 1,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T14:43:20+00:00",
                 "steps": [
@@ -5047,6 +5205,7 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T14:43:20+00:00",
                 "steps": [],
@@ -5090,6 +5249,7 @@
                     "summary": "",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
                 }
@@ -5121,6 +5281,7 @@
                     "summary": "",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:43:20+00:00"
                 },
@@ -5140,6 +5301,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": "",
                     "created": null
                 }
@@ -5165,6 +5327,7 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "usage": [],
                 "user": "",
                 "created": null,
                 "steps": [],
@@ -5198,6 +5361,7 @@
                 "summary": null,
                 "attempt": null,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": null,
                 "created": null,
                 "steps": [],
@@ -5218,6 +5382,7 @@
                 "summary": null,
                 "attempt": null,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": null,
                 "created": null,
                 "steps": [],
@@ -5263,6 +5428,7 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T15:43:20+00:00",
                 "steps": [
@@ -5297,6 +5463,7 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T14:43:20+00:00",
                 "steps": [
@@ -5355,6 +5522,7 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": null
                 },
@@ -5373,6 +5541,7 @@
                     "summary": "",
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": null
                 }
@@ -5398,6 +5567,7 @@
                     "model": null,
                     "location": ""
                 },
+                "usage": [],
                 "user": null,
                 "created": "2026-09-21T16:13:20+00:00",
                 "steps": [
@@ -5439,6 +5609,7 @@
                 "summary": "",
                 "attempt": null,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "",
                 "created": "2026-09-21T15:43:20+00:00",
                 "steps": [
@@ -5471,6 +5642,7 @@
                 "summary": 7,
                 "attempt": 1,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "alice",
                 "created": null,
                 "steps": [],
@@ -5517,6 +5689,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:43:20+00:00"
                 }
@@ -5542,6 +5715,7 @@
                 "summary": "Checked the cases",
                 "attempt": "3",
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T15:43:20+00:00",
                 "steps": [
@@ -5578,6 +5752,7 @@
                     "summary": 7,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
                 },
@@ -5599,6 +5774,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T15:43:20+00:00"
                 },
@@ -5618,6 +5794,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T14:13:20+00:00"
                 }
@@ -5656,6 +5833,7 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:43:20+00:00"
                 },
@@ -5672,6 +5850,7 @@
                     "summary": "Checked the cases",
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:13:20+00:00"
                 },
@@ -5690,6 +5869,7 @@
                     "summary": 7,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:13:20+00:00"
                 },
@@ -5706,6 +5886,7 @@
                     "summary": 7,
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": null
                 },
@@ -5722,6 +5903,7 @@
                     "summary": 7,
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": null
                 }
@@ -5744,6 +5926,7 @@
                 "summary": 7,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "alice",
                 "created": null,
                 "steps": [
@@ -5782,6 +5965,7 @@
                     "summary": "",
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T14:43:20+00:00"
                 }
@@ -5823,6 +6007,7 @@
                     "model": null,
                     "location": ""
                 },
+                "usage": [],
                 "user": null,
                 "created": "2026-09-21T16:43:20+00:00",
                 "steps": [
@@ -5865,6 +6050,7 @@
                 "summary": null,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": null,
                 "created": "2026-09-21T16:13:20+00:00",
                 "steps": [
@@ -5904,6 +6090,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": "alice",
                     "created": null
                 }
@@ -5926,6 +6113,7 @@
                 "summary": null,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "",
                 "created": null,
                 "steps": [
@@ -5958,6 +6146,7 @@
                     "summary": "",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:43:20+00:00"
                 },
@@ -5976,6 +6165,7 @@
                     "summary": "Checked the cases",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:13:20+00:00"
                 },
@@ -5992,6 +6182,7 @@
                     "summary": "Checked the cases",
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T14:43:20+00:00"
                 },
@@ -6008,6 +6199,7 @@
                     "summary": 7,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:13:20+00:00"
                 },
@@ -6024,6 +6216,7 @@
                     "summary": null,
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": null
                 }
@@ -6046,6 +6239,7 @@
                 "summary": "Checked the cases",
                 "attempt": 2,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T14:43:20+00:00",
                 "steps": [],
@@ -6076,6 +6270,7 @@
                     "summary": "",
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:13:20+00:00"
                 },
@@ -6092,6 +6287,7 @@
                     "summary": 7,
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": null
                 }
@@ -6126,6 +6322,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:43:20+00:00"
                 }
@@ -6159,6 +6356,7 @@
                     "summary": 7,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:43:20+00:00"
                 }
@@ -6184,6 +6382,7 @@
                     "model": null,
                     "location": ""
                 },
+                "usage": [],
                 "user": null,
                 "created": null,
                 "steps": [],
@@ -6207,6 +6406,7 @@
                     "model": null,
                     "location": ""
                 },
+                "usage": [],
                 "user": "",
                 "created": null,
                 "steps": [],
@@ -6241,6 +6441,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T14:13:20+00:00"
                 }
@@ -6272,6 +6473,7 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:43:20+00:00"
                 },
@@ -6295,6 +6497,7 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
                 },
@@ -6314,6 +6517,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T15:13:20+00:00"
                 },
@@ -6330,6 +6534,7 @@
                     "summary": "Checked the cases",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:13:20+00:00"
                 }
@@ -6353,6 +6558,7 @@
                 "summary": null,
                 "attempt": null,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": null,
                 "created": "2026-09-21T16:43:20+00:00",
                 "steps": [
@@ -6384,6 +6590,7 @@
                     "summary": "Checked the cases",
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:43:20+00:00"
                 }
@@ -6409,6 +6616,7 @@
                 "summary": "Checked the cases",
                 "attempt": "3",
                 "providerDisclosure": [],
+                "usage": [],
                 "user": null,
                 "created": "2026-09-21T14:43:20+00:00",
                 "steps": [
@@ -6460,6 +6668,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:13:20+00:00"
                 },
@@ -6485,6 +6694,7 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:13:20+00:00"
                 }
@@ -6516,6 +6726,7 @@
                     "summary": 7,
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:43:20+00:00"
                 }
@@ -6543,6 +6754,7 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T14:13:20+00:00",
                 "steps": [
@@ -6586,6 +6798,7 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:13:20+00:00"
                 }
@@ -6615,6 +6828,7 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "usage": [],
                 "user": null,
                 "created": "2026-09-21T14:13:20+00:00",
                 "steps": [
@@ -6664,6 +6878,7 @@
                 "summary": "Checked the cases",
                 "attempt": null,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T16:13:20+00:00",
                 "steps": [
@@ -6694,6 +6909,7 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "usage": [],
                 "user": "",
                 "created": "2026-09-21T15:43:20+00:00",
                 "steps": [],
@@ -6749,6 +6965,7 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:43:20+00:00"
                 }
@@ -6771,6 +6988,7 @@
                 "summary": "",
                 "attempt": 2,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": null,
                 "created": "2026-09-21T14:13:20+00:00",
                 "steps": [
@@ -6820,6 +7038,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:13:20+00:00"
                 }
@@ -6854,6 +7073,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:43:20+00:00"
                 },
@@ -6873,6 +7093,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:43:20+00:00"
                 },
@@ -6889,6 +7110,7 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:43:20+00:00"
                 }
@@ -6914,6 +7136,7 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "usage": [],
                 "user": "",
                 "created": "2026-09-21T16:43:20+00:00",
                 "steps": [],
@@ -6955,6 +7178,7 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "usage": [],
                 "user": null,
                 "created": "2026-09-21T16:13:20+00:00",
                 "steps": [
@@ -6993,6 +7217,7 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
                 },
@@ -7016,6 +7241,7 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "usage": [],
                     "user": null,
                     "created": null
                 }
@@ -7052,6 +7278,7 @@
                 "summary": null,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T14:13:20+00:00",
                 "steps": [],
@@ -7106,6 +7333,7 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T16:13:20+00:00",
                 "steps": [
@@ -7141,6 +7369,7 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T16:13:20+00:00",
                 "steps": [
@@ -7199,6 +7428,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": "alice",
                     "created": null
                 }
@@ -7226,6 +7456,7 @@
                     "model": null,
                     "location": ""
                 },
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T15:13:20+00:00",
                 "steps": [
@@ -7253,6 +7484,7 @@
                 "summary": "",
                 "attempt": null,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": null,
                 "created": null,
                 "steps": [
@@ -7311,6 +7543,7 @@
                 "summary": null,
                 "attempt": null,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "",
                 "created": "2026-09-21T15:13:20+00:00",
                 "steps": [
@@ -7351,6 +7584,7 @@
                 "summary": null,
                 "attempt": "3",
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "",
                 "created": null,
                 "steps": [],
@@ -7422,6 +7656,7 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:43:20+00:00"
                 }
@@ -7458,6 +7693,7 @@
                 "summary": "Checked the cases",
                 "attempt": "3",
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T14:13:20+00:00",
                 "steps": [
@@ -7494,6 +7730,7 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:43:20+00:00"
                 },
@@ -7519,6 +7756,7 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:43:20+00:00"
                 },
@@ -7535,6 +7773,7 @@
                     "summary": 7,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:13:20+00:00"
                 },
@@ -7554,6 +7793,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:43:20+00:00"
                 },
@@ -7570,6 +7810,7 @@
                     "summary": "",
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T15:43:20+00:00"
                 },
@@ -7589,6 +7830,7 @@
                         "model": null,
                         "location": ""
                     },
+                    "usage": [],
                     "user": null,
                     "created": null
                 }
@@ -7611,6 +7853,7 @@
                 "summary": "",
                 "attempt": 2,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T15:43:20+00:00",
                 "steps": [
@@ -7638,6 +7881,7 @@
                 "summary": 7,
                 "attempt": null,
                 "providerDisclosure": [],
+                "usage": [],
                 "user": "",
                 "created": "2026-09-21T16:13:20+00:00",
                 "steps": [
