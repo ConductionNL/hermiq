@@ -19,7 +19,7 @@ Kind: code. Size L. Rows `hermiq:mo-failover`, `hermiq:dm-model-ensemble`, `inte
 - **acceptance_criteria**:
   - GIVEN a provider answer of 429, 500, 401 or 400 WHEN the call fails THEN the exception carries kind rate_limit, server, auth or bad_request, and retry-after when sent
 - [x] Implement
-- [ ] Test (PHPUnit per status code on both direct-HTTP paths and the LLPhant wrapper) — both direct-HTTP paths done (`ProviderCallFailedTypingTest`); the wrapper in `LlphantChatCall::invokeChat()` is covered through `ProviderCallFailedException::fromThrowable()` only, a test through `invokeChat()` itself is left
+- [x] Test (PHPUnit per status code on both direct-HTTP paths and the LLPhant wrapper) — both direct-HTTP paths in `ProviderCallFailedTypingTest`; the wrapper through `LlphantChatCall::invokeChat()` in `LlphantChatCallTest` (429, 503, 401, 403, 400, timeout, connection; hermiq's own exceptions keep their class)
 
 ### Task 3: The fallback loop with the same gates per hop
 - **spec_ref**: `openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002`

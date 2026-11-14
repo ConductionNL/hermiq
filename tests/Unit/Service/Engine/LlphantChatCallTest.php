@@ -31,6 +31,8 @@ use OCA\Hermiq\Service\Engine\LlphantChatCall;
 use OCA\Hermiq\Service\Engine\ResponseTurnRun;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
 use OCA\Hermiq\Service\Llm\ChatDriver;
+use OCA\Hermiq\Service\Llm\ProviderCallFailedException;
+use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
 use OpenAI\Responses\Chat\CreateResponse;
 use OpenAI\Responses\Meta\MetaInformation;
 use PHPUnit\Framework\TestCase;
@@ -286,4 +288,58 @@ class LlphantChatCallTest extends TestCase {
 			MetaInformation::from([])
 		);
 	}//end response()
+	/**
+	 * A client failure out of the LLPhant call is typed once by its status
+	 * (429, 5xx, 401/403, 400) or its transport (timeout, connection), with
+	 * the client's message and the failure kept as its cause; only the
+	 * temporary kinds move a turn.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-refusal-or-a-configuration-error-never-triggers-a-fallback-req-mfail-003
+	 */
+	public function testAClientFailureIsTypedByItsStatusOrTransport(): void {
+		$cases = [
+			['HTTP 429 Too Many Requests', ProviderCallFailedException::RATE_LIMIT, 429, true],
+			['The server answered with status code 503', ProviderCallFailedException::SERVER, 503, true],
+			['HTTP 401 Unauthorized', ProviderCallFailedException::AUTH, 401, false],
+			['HTTP 403 Forbidden', ProviderCallFailedException::AUTH, 403, false],
+			['HTTP 400 Bad Request', ProviderCallFailedException::BAD_REQUEST, 400, false],
+			['cURL error 28: Operation timed out', ProviderCallFailedException::TIMEOUT, null, true],
+			['Connection refused', ProviderCallFailedException::CONNECTION, null, true],
+		];
+		foreach ($cases as [$message, $kind, $status, $moves]) {
+			$cause = new \RuntimeException($message);
+			$chat = $this->createMock(OpenAIChat::class);
+			$chat->method('generateChat')->willThrowException($cause);
+			try {
+				(new LlphantChatCall(chat: $chat, logger: new NullLogger()))->generate(run: $this->turn(channel: null));
+				$this->fail('the failure is thrown: ' . $message);
+			} catch (ProviderCallFailedException $failure) {
+				$this->assertSame([$kind, $status, $moves, $message], [$failure->kind, $failure->httpStatus, $failure->movesTurn(), $failure->getMessage()], $message);
+				$this->assertSame($cause, $failure->getPrevious());
+			}
+		}
+	}//end testAClientFailureIsTypedByItsStatusOrTransport()
+
+	/**
+	 * Hermiq's own exceptions keep their class through the call, so every
+	 * caller's catch still holds; an unavailable provider out of a streamed
+	 * call is not typed twice.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-2
+	 */
+	public function testHermiqsOwnExceptionsKeepTheirClass(): void {
+		$unavailable = new ProviderUnavailableException('The credential broker is down');
+		$chat = $this->createMock(OllamaChat::class);
+		$chat->method('generateChat')->willThrowException($unavailable);
+		try {
+			(new LlphantChatCall(chat: $chat, logger: new NullLogger()))->generate(run: $this->turn(channel: null));
+			$this->fail('thrown');
+		} catch (\Throwable $failure) {
+			$this->assertSame($unavailable, $failure);
+		}
+	}//end testHermiqsOwnExceptionsKeepTheirClass()
 }//end class
