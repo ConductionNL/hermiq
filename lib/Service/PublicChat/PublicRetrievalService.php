@@ -162,6 +162,20 @@ class PublicRetrievalService {
 	}//end intersectScope()
 
 	/**
+	 * The scope a turn on a channel may read, narrowed by what the caller asked.
+	 *
+	 * @param array<string, mixed> $channel   The channel, with its `sourceScope`.
+	 * @param array|null           $requested What the caller asked for, or null.
+	 *
+	 * @return list<array{register: string, schema: string}>
+	 *
+	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-sibling-apps-reach-the-same-channel-in-process-without-an-identity-req-pubchat-004
+	 */
+	public function scopeFor(array $channel, ?array $requested): array {
+		return self::intersectScope(channelScope: ($channel['sourceScope'] ?? []), requested: $requested);
+	}//end scopeFor()
+
+	/**
 	 * The objects an anonymous caller may read that match the question, inside the scope.
 	 *
 	 * @param array<int, array{register: string, schema: string}> $scope        The scope, already intersected.

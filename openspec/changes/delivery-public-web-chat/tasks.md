@@ -25,8 +25,8 @@ Kind: code. Size L. Row `hermiq:dl-embed-web`.
 - **files**: `lib/PublicChat/PublicChatEntryPoint.php`, `lib/Service/PublicChat/PublicChatService.php`
 - **acceptance_criteria**:
   - GIVEN an app scope wider than the channel's WHEN asked THEN the intersection is used; GIVEN a stopped agent THEN "not available"
-- [ ] Implement
-- [ ] Test (PHPUnit including guardrail block, kill switch, feature off)
+- [x] Implement (`PublicChatEntryPoint::ask()`, `PublicChatService` for the turn, `PublicChatGate` for channel, feature, kill switch, agent and daily limit, `PublicChannelStore` for system reads and the token-keyed conversation)
+- [x] Test (PHPUnit including guardrail block, kill switch, feature off: `PublicChatServiceTest`, `PublicChannelStoreTest`, `PublicChatEntryPointTest`)
 
 ### Task 4: The public endpoint, rate limits and CORS
 - **spec_ref**: `openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003`
