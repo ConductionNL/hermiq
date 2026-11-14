@@ -170,12 +170,18 @@
 			<NcButton :disabled="!backup || !backup.ownerUid || backupQueued" @click="onBackupNow">
 				{{ backupQueued ? t('hermiq', 'Backup queued') : t('hermiq', 'Back up now') }}
 			</NcButton>
+			<NcButton data-testid="restore-open" @click="showRestoreDialog = true">
+				{{ t('hermiq', 'Restore') }}
+			</NcButton>
 
 			<BackupSettingsModal
 				:show="showBackupModal"
 				:settings="backup"
 				@close="showBackupModal = false"
 				@saved="backup = $event" />
+			<RestoreDialog
+				:show="showRestoreDialog"
+				@close="showRestoreDialog = false" />
 		</NcSettingsSection>
 
 		<NcSettingsSection
@@ -218,6 +224,7 @@ import RunRetentionSettings from '../components/settings/RunRetentionSettings.vu
 import TalkBridgeSettings from '../components/settings/TalkBridgeSettings.vue'
 import BackupSettingsModal from '../modals/BackupSettingsModal.vue'
 import LlmProviderModal from '../modals/LlmProviderModal.vue'
+import RestoreDialog from '../modals/RestoreDialog.vue'
 import WebResearchSettingsModal from '../modals/WebResearchSettingsModal.vue'
 import AiFeatureRegister from './AiFeatureRegister.vue'
 import { backupNow, getBackupSettings } from '../api/backup.js'
@@ -246,6 +253,7 @@ export default {
 		CnCredentials,
 		Cog,
 		LlmProviderModal,
+		RestoreDialog,
 		NcButton,
 		IntakeSettings,
 		NcSettingsSection,
@@ -264,6 +272,7 @@ export default {
 			// operations-backup-and-restore: the stored backup settings, null until read.
 			backup: null,
 			showBackupModal: false,
+			showRestoreDialog: false,
 			backupQueued: false,
 			// The app's own manifest.json — read-only, for CnCredentials'
 			// "what {app} uses" informational list (agent-credentials).

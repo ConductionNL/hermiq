@@ -20,6 +20,7 @@ vi.mock('../../src/components/settings/RunRetentionSettings.vue', () => ({ defau
 vi.mock('../../src/components/settings/TalkBridgeSettings.vue', () => ({ default: { name: 'TalkBridgeSettings', render: () => null } }))
 vi.mock('../../src/modals/LlmProviderModal.vue', () => ({ default: { name: 'LlmProviderModal', props: ['show'], emits: ['close', 'saved'], render: () => null } }))
 vi.mock('../../src/modals/BackupSettingsModal.vue', () => ({ default: { name: 'BackupSettingsModal', props: ['show', 'settings'], emits: ['close', 'saved'], render: () => null } }))
+vi.mock('../../src/modals/RestoreDialog.vue', () => ({ default: { name: 'RestoreDialog', props: ['show'], emits: ['close'], render: () => null } }))
 vi.mock('../../src/modals/WebResearchSettingsModal.vue', () => ({ default: { name: 'WebResearchSettingsModal', props: ['show'], emits: ['close', 'saved'], render: () => null } }))
 vi.mock('../../src/views/AiFeatureRegister.vue', () => ({ default: { name: 'AiFeatureRegister', render: () => null } }))
 vi.mock('../../src/api/llm.js', () => ({ getLlmSettings: vi.fn() }))
@@ -49,6 +50,7 @@ const CHILDREN = [
 	'IntakeSettings',
 	'LlmProviderModal',
 	'ReportGroupingSettings',
+	'RestoreDialog',
 	'RunRetentionSettings',
 	'TalkBridgeSettings',
 	'WebResearchSettingsModal',
@@ -176,6 +178,19 @@ describe('AdminRoot', () => {
 		 * @return {object} The button.
 		 */
 		const backUpNow = (w) => w.findAllComponents({ name: 'NcButton' }).find((b) => b.text().includes('Back up now') || b.text().includes('Backup queued'))
+
+		it('opens the restore dialog and closes it again', async () => {
+			llm.getLlmSettings.mockResolvedValue({})
+			webResearch.getWebResearchSettings.mockResolvedValue({})
+			const w = await mountPanel()
+			const dialog = () => w.findComponent({ name: 'RestoreDialog' })
+
+			expect(dialog().props('show')).toBe(false)
+			await w.findAllComponents({ name: 'NcButton' }).find((b) => b.attributes('data-data-testid') === 'restore-open').vm.$emit('click')
+			expect(dialog().props('show')).toBe(true)
+			await dialog().vm.$emit('close')
+			expect(dialog().props('show')).toBe(false)
+		})
 
 		it('says backups are off and offers no backup before settings are saved', async () => {
 			llm.getLlmSettings.mockResolvedValue({})
