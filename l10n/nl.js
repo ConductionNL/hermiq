@@ -1,6 +1,13 @@
 OC.L10N.register(
     "hermiq",
     {
+        "Oversight": "Toezicht",
+        "Misuse": "Misbruik",
+        "Mark": "Markeren",
+        "by {operator} on {date}": "door {operator} op {date}",
+        "Mark tool call": "Toolaanroep markeren",
+        "Could not mark the tool call": "De toolaanroep kon niet worden gemarkeerd",
+        "Why is this call misuse? A mark needs a reason.": "Waarom is deze aanroep misbruik? Een markering heeft een reden nodig.",
         "Open {name} in Files": "{name} openen in Bestanden",
         "Create an image": "Een afbeelding maken",
         "The image is saved in your Files under Hermiq/Generated images and marked as made by an agent.": "De afbeelding wordt in je Bestanden opgeslagen onder Hermiq/Generated images en gemarkeerd als gemaakt door een agent.",
@@ -1992,14 +1999,7 @@ OC.L10N.register(
         "The organisation's output filter masked part of the answer.": "Het uitvoerfilter van de organisatie heeft een deel van het antwoord afgeschermd.",
         "_Used %n document: %s._::_Used %n documents: %s._": ["%n document gebruikt: %s.","%n documenten gebruikt: %s."],
         "_Called %n tool: %s._::_Called %n tools: %s._": ["%n tool aangeroepen: %s.","%n tools aangeroepen: %s."],
-        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n aanroep is geweigerd: %s.","%n aanroepen zijn geweigerd: %s."],
-        "Oversight": "Toezicht",
-        "Misuse": "Misbruik",
-        "Mark": "Markeren",
-        "by {operator} on {date}": "door {operator} op {date}",
-        "Mark tool call": "Toolaanroep markeren",
-        "Could not mark the tool call": "De toolaanroep kon niet worden gemarkeerd",
-        "Why is this call misuse? A mark needs a reason.": "Waarom is deze aanroep misbruik? Een markering heeft een reden nodig."
+        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n aanroep is geweigerd: %s.","%n aanroepen zijn geweigerd: %s."]
     },
     "nplurals=2; plural=(n != 1);"
 )

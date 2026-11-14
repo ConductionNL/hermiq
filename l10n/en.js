@@ -1,6 +1,13 @@
 OC.L10N.register(
     "hermiq",
     {
+        "Oversight": "Oversight",
+        "Misuse": "Misuse",
+        "Mark": "Mark",
+        "by {operator} on {date}": "by {operator} on {date}",
+        "Mark tool call": "Mark tool call",
+        "Could not mark the tool call": "Could not mark the tool call",
+        "Why is this call misuse? A mark needs a reason.": "Why is this call misuse? A mark needs a reason.",
         "Open {name} in Files": "Open {name} in Files",
         "Create an image": "Create an image",
         "The image is saved in your Files under Hermiq/Generated images and marked as made by an agent.": "The image is saved in your Files under Hermiq/Generated images and marked as made by an agent.",
@@ -2718,14 +2725,7 @@ OC.L10N.register(
         "The organisation's output filter masked part of the answer.": "The organisation's output filter masked part of the answer.",
         "_Used %n document: %s._::_Used %n documents: %s._": ["Used %n document: %s.","Used %n documents: %s."],
         "_Called %n tool: %s._::_Called %n tools: %s._": ["Called %n tool: %s.","Called %n tools: %s."],
-        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n call was refused: %s.","%n calls were refused: %s."],
-        "Oversight": "Oversight",
-        "Misuse": "Misuse",
-        "Mark": "Mark",
-        "by {operator} on {date}": "by {operator} on {date}",
-        "Mark tool call": "Mark tool call",
-        "Could not mark the tool call": "Could not mark the tool call",
-        "Why is this call misuse? A mark needs a reason.": "Why is this call misuse? A mark needs a reason."
+        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n call was refused: %s.","%n calls were refused: %s."]
     },
     "nplurals=2; plural=(n != 1);"
 )
