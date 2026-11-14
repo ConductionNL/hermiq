@@ -770,6 +770,14 @@
         ],
         [
             "registerTaskProcessingProvider",
+            "OCA\\Hermiq\\TaskProcessing\\Text2TextReformulationProvider"
+        ],
+        [
+            "registerTaskProcessingProvider",
+            "OCA\\Hermiq\\TaskProcessing\\Text2TextTranslateProvider"
+        ],
+        [
+            "registerTaskProcessingProvider",
             "OCA\\Hermiq\\TaskProcessing\\ContextAgentProvider"
         ],
         [
