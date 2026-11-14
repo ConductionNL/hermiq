@@ -770,4 +770,45 @@ class ToolLoopTest extends TestCase {
 		$this->assertSame(['hermiq.readFile', ImageToolDescriptors::GENERATE_IMAGE], array_column($with, 'mcpId'));
 
 	}//end testTheImageToolIsOfferedOnlyWithItsGrant()
+	/**
+	 * An agent with only the read grant of a register schema is offered its
+	 * search and get tools and never its update: the update is refused before it
+	 * can be called, so the record stays as it was. With the schema's write grant
+	 * the update is offered and goes through (spec-coverage-built-rows).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-tool-governance/spec.md#requirement-an-agent-reads-and-updates-register-records-within-its-grant-req-spcov-015
+	 */
+	public function testARegisterUpdateNeedsTheSchemasWriteGrant(): void {
+		$catalog = [
+			['name' => 'dossiq_permitapplication_search', 'mcpId' => 'dossiq.permitapplication.search'],
+			['name' => 'dossiq_permitapplication_get', 'mcpId' => 'dossiq.permitapplication.get'],
+			['name' => 'dossiq_permitapplication_create', 'mcpId' => 'dossiq.permitapplication.create'],
+			['name' => 'dossiq_permitapplication_update', 'mcpId' => 'dossiq.permitapplication.update'],
+		];
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->method('listTools')->willReturnCallback(
+			static function (array $whitelist) use ($catalog): array {
+				if ($whitelist === []) {
+					return $catalog;
+				}
+
+				return array_values(array_filter($catalog, static fn (array $tool): bool => in_array($tool['mcpId'], $whitelist, true)));
+			}
+		);
+		$loop = $this->loop(facade: $facade);
+
+		$readOnly = array_column($loop->listAgentFunctions(agent: $this->agent(tools: ['dossiq.permitapplication.*'])), 'mcpId');
+		sort($readOnly);
+		$this->assertSame(['dossiq.permitapplication.get', 'dossiq.permitapplication.search'], $readOnly);
+
+		$writable = array_column($loop->listAgentFunctions(agent: $this->agent(tools: ['dossiq.permitapplication.*:write'])), 'mcpId');
+		sort($writable);
+		$this->assertSame(
+			['dossiq.permitapplication.create', 'dossiq.permitapplication.get', 'dossiq.permitapplication.search', 'dossiq.permitapplication.update'],
+			$writable
+		);
+
+	}//end testARegisterUpdateNeedsTheSchemasWriteGrant()
 }//end class
