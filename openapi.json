@@ -260,6 +260,10 @@
             "description": "The settings talk bridge settings endpoints."
         },
         {
+            "name": "settings-code-sandbox-settings",
+            "description": "The settings code sandbox settings endpoints."
+        },
+        {
             "name": "settings-web-research-settings",
             "description": "The settings web research settings endpoints."
         },
@@ -8116,6 +8120,63 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/settings/code-sandbox": {
+            "get": {
+                "operationId": "settings-code-sandbox-settings-get",
+                "summary": "Get (settings code sandbox settings)",
+                "description": "Get (settings code sandbox settings). Needs a Nextcloud admin.",
+                "tags": [
+                    "settings-code-sandbox-settings"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "settings-code-sandbox-settings-update",
+                "summary": "Update (settings code sandbox settings)",
+                "description": "Update (settings code sandbox settings). Needs a Nextcloud admin.",
+                "tags": [
+                    "settings-code-sandbox-settings"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "422": {
+                        "description": "The choice is refused: an unknown backend, or a hosted backend without its source. Nothing is stored."
                     }
                 }
             }

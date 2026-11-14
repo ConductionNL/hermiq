@@ -40,6 +40,9 @@ $routes = [
         ['name' => 'Settings\TalkBridgeSettings#bindRoom',  'url' => '/api/settings/talk-bridge/room', 'verb' => 'PUT'],
         ['name' => 'Settings\WebResearchSettings#get',    'url' => '/api/settings/web-research', 'verb' => 'GET'],
         ['name' => 'Settings\WebResearchSettings#update', 'url' => '/api/settings/web-research', 'verb' => 'PATCH'],
+        // Where code runs (tools-code-sandbox, Task 2): admin only.
+        ['name' => 'Settings\CodeSandboxSettings#get',    'url' => '/api/settings/code-sandbox', 'verb' => 'GET'],
+        ['name' => 'Settings\CodeSandboxSettings#update', 'url' => '/api/settings/code-sandbox', 'verb' => 'PATCH'],
 
         // Generic per-user preferences (used by shared nextcloud-vue widgets, e.g. CnSupportDialog).
         ['name' => 'preferences#getPreference', 'url' => '/api/preferences/{key}', 'verb' => 'GET'],

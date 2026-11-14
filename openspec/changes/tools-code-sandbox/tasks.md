@@ -21,7 +21,7 @@ Kind: code. Size L. Rows `hermiq:tl-code-exec`, `hermiq:fl-code-step`, `hermiq:d
   - GIVEN backend exapp WHEN a run is dispatched THEN it goes through AppAPI to hermiq-code-sandbox
   - GIVEN backend hosted WHEN a run is dispatched THEN it goes through integriq's CallService on the chosen source and nowhere else
 - [ ] Implement
-  - Done: `CodeSandboxSettings` (backend `exapp` default or `hosted` with a source; any doubtful stored value reads as `exapp`; reach `self` / `external`) and `CodeSandboxClient` (the `exapp` path through AppAPI `POST /run` with clamped limits; "No code sandbox is installed on this instance." when AppAPI or the ExApp is absent). Open: the hosted dispatch through integriq's CallService (a hosted choice refuses every run until then, sending nothing), `CodeSandboxSettingsController` and its routes.
+  - Done: `CodeSandboxSettings` (backend `exapp` default or `hosted` with a source; any doubtful stored value reads as `exapp`; reach `self` / `external`) and `CodeSandboxClient` (the `exapp` path through AppAPI `POST /run` with clamped limits; "No code sandbox is installed on this instance." when AppAPI or the ExApp is absent). `CodeSandboxSettingsController` (admin only) reads the choice with whether it can take runs and saves it, refusing an unknown backend or a hosted one without its source with 422; routes `GET`/`PATCH /api/settings/code-sandbox`, documented in `openapi.json`; `CodeSandboxSettingsControllerTest`. Open: the hosted dispatch through integriq's CallService (a hosted choice refuses every run until then, sending nothing).
 - [ ] Test (PHPUnit with AppAPI and CallService stubbed; Newman on the admin settings routes)
 
 ### Task 3: The runCode tool and its AI feature gate
