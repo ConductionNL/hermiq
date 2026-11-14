@@ -183,6 +183,9 @@ $routes = [
         // Advisory AI-oversight records about one subject, for whoever may open that subject.
         ['name' => 'aiOversight#subject', 'url' => '/api/ai-oversight/subject', 'verb' => 'GET'],
         ['name' => 'aiOversight#subjectExport', 'url' => '/api/ai-oversight/subject/export', 'verb' => 'GET'],
+        // agent-authored-marking: mark an agent-authored file as reviewed, and the label counts.
+        ['name' => 'aiLabel#markReviewed', 'url' => '/api/ai-label/files/{fileId}/reviewed', 'verb' => 'POST', 'requirements' => ['fileId' => '\\d+']],
+        ['name' => 'aiLabel#stats', 'url' => '/api/ai-label/stats', 'verb' => 'GET'],
 
         // Human-approval gate (human-approval-gate-enforcement): reviewer inbox + decisions.
         // Approval verification contract (hermiq#1045): another app asks for a signed verdict.
