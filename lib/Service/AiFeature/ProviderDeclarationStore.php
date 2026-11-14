@@ -23,14 +23,14 @@
  * @link https://conduction.nl
  *
  * @spec openspec/specs/provider-data-use/spec.md#requirement-a-configured-provider-states-what-it-does-with-data-req-notrain-001
- * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
+ * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\AiFeature;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCP\IAppConfig;
 
 /**
@@ -62,7 +62,7 @@ final class ProviderDeclarationStore {
 	 * @spec openspec/specs/provider-data-use/spec.md#requirement-a-configured-provider-states-what-it-does-with-data-req-notrain-001
 	 */
 	public function stored(): array {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, $this->key, '');
+		$raw = $this->appConfig->getValueString(AppIdentity::APP_ID, $this->key, '');
 		if ($raw === '') {
 			return [];
 		}
@@ -107,6 +107,6 @@ final class ProviderDeclarationStore {
 		$stored = $this->stored();
 		$stored[$provider] = $entry;
 
-		$this->appConfig->setValueString(Application::APP_ID, $this->key, (string)json_encode($stored));
+		$this->appConfig->setValueString(AppIdentity::APP_ID, $this->key, (string)json_encode($stored));
 	}//end put()
 }//end class

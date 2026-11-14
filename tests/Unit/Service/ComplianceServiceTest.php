@@ -28,11 +28,12 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\AiFeatureService;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\ComplianceService;
 use OCA\Hermiq\Service\OrganisationControlService;
-use OCA\Hermiq\Service\OrganisationModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\Hermiq\Service\OrganisationOpsService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -158,8 +159,9 @@ class ComplianceServiceTest extends TestCase {
 	 * @param OrganisationOpsService|null $tenantOpsService Optional custom mock.
 	 * @param ApprovalService|null $approvalService Optional custom mock.
 	 * @param OrganisationControlService|null $tenantControlService Optional custom mock.
-	 * @param OrganisationModelPolicyService|null $modelPolicyService Optional custom mock.
+	 * @param EffectiveModelPolicy|null $modelPolicyService Optional custom mock.
 	 * @param AiFeatureService|null $aiFeatureService Optional custom mock.
+	 * @param AiFeatureLookup|null $aiFeatureLookup Optional custom mock.
 	 *
 	 * @return ComplianceService
 	 */
@@ -168,16 +170,18 @@ class ComplianceServiceTest extends TestCase {
 		?OrganisationOpsService $tenantOpsService = null,
 		?ApprovalService $approvalService = null,
 		?OrganisationControlService $tenantControlService = null,
-		?OrganisationModelPolicyService $modelPolicyService = null,
+		?EffectiveModelPolicy $modelPolicyService = null,
 		?AiFeatureService $aiFeatureService = null,
+		?AiFeatureLookup $aiFeatureLookup = null,
 	): ComplianceService {
 		return new ComplianceService(
 			objectService: $objectService,
 			tenantOpsService: ($tenantOpsService ?? $this->createMock(OrganisationOpsService::class)),
 			approvalService: ($approvalService ?? $this->createMock(ApprovalService::class)),
 			tenantControlService: ($tenantControlService ?? $this->createMock(OrganisationControlService::class)),
-			modelPolicyService: ($modelPolicyService ?? $this->createMock(OrganisationModelPolicyService::class)),
+			modelPolicyService: ($modelPolicyService ?? $this->createMock(EffectiveModelPolicy::class)),
 			aiFeatureService: ($aiFeatureService ?? $this->createMock(AiFeatureService::class)),
+			aiFeatureLookup: ($aiFeatureLookup ?? $this->createMock(AiFeatureLookup::class)),
 		);
 
 	}//end service()
@@ -190,7 +194,7 @@ class ComplianceServiceTest extends TestCase {
 	 * @param OrganisationOpsService|null $tenantOpsService Optional custom mock.
 	 * @param ApprovalService|null $approvalService Optional custom mock.
 	 * @param OrganisationControlService|null $tenantControlService Optional custom mock.
-	 * @param OrganisationModelPolicyService|null $modelPolicyService Optional custom mock.
+	 * @param EffectiveModelPolicy|null $modelPolicyService Optional custom mock.
 	 * @param AiFeatureService|null $aiFeatureService Optional custom mock.
 	 *
 	 * @return array<string, mixed> The computed control row (status/detail).
@@ -200,7 +204,7 @@ class ComplianceServiceTest extends TestCase {
 		?OrganisationOpsService $tenantOpsService = null,
 		?ApprovalService $approvalService = null,
 		?OrganisationControlService $tenantControlService = null,
-		?OrganisationModelPolicyService $modelPolicyService = null,
+		?EffectiveModelPolicy $modelPolicyService = null,
 		?AiFeatureService $aiFeatureService = null,
 	): array {
 		$service = $this->service(
@@ -237,8 +241,9 @@ class ComplianceServiceTest extends TestCase {
 			tenantOpsService: $this->createMock(OrganisationOpsService::class),
 			approvalService: $this->createMock(ApprovalService::class),
 			tenantControlService: $this->createMock(OrganisationControlService::class),
-			modelPolicyService: $this->createMock(OrganisationModelPolicyService::class),
+			modelPolicyService: $this->createMock(EffectiveModelPolicy::class),
 			aiFeatureService: $this->createMock(AiFeatureService::class),
+			aiFeatureLookup: $this->createMock(AiFeatureLookup::class),
 			literacyReport: $report,
 		);
 
@@ -343,21 +348,21 @@ class ComplianceServiceTest extends TestCase {
 	 * @spec openspec/changes/compliance-control-packs/tasks.md#task-3-complianceservice-computed-evidence-mapping
 	 */
 	public function testModelPolicyEvidenceThreeStates(): void {
-		$own = $this->createMock(OrganisationModelPolicyService::class);
+		$own = $this->createMock(EffectiveModelPolicy::class);
 		$own->method('effectivePolicyFor')->willReturn(['source' => 'organisation', 'allowed' => [['provider' => 'openai', 'models' => []]]]);
 		$this->assertSame(
 			'satisfied',
 			$this->statusFor(evidenceSource: 'model-policy-risk-control', modelPolicyService: $own)['status']
 		);
 
-		$instance = $this->createMock(OrganisationModelPolicyService::class);
+		$instance = $this->createMock(EffectiveModelPolicy::class);
 		$instance->method('effectivePolicyFor')->willReturn(['source' => 'instance', 'allowed' => [['provider' => 'openai', 'models' => []]]]);
 		$this->assertSame(
 			'partial',
 			$this->statusFor(evidenceSource: 'model-policy-risk-control', modelPolicyService: $instance)['status']
 		);
 
-		$fallback = $this->createMock(OrganisationModelPolicyService::class);
+		$fallback = $this->createMock(EffectiveModelPolicy::class);
 		$fallback->method('effectivePolicyFor')->willReturn(['source' => 'fallback', 'allowed' => []]);
 		$this->assertSame(
 			'unevidenced',
@@ -541,8 +546,8 @@ class ComplianceServiceTest extends TestCase {
 			['description' => 'Oops', 'impact' => 'Minor', 'linkedAgentId' => 'agent-1', 'createdAt' => '2026-01-02T00:00:00+00:00']
 		);
 
-		$aiFeatureService = $this->createMock(AiFeatureService::class);
-		$aiFeatureService->method('findBySlug')->willReturn(
+		$aiFeatureLookup = $this->createMock(AiFeatureLookup::class);
+		$aiFeatureLookup->method('findBySlug')->willReturn(
 			$this->object('af-1', ['riskCategory' => 'high', 'lifecycle' => 'enabled', 'dpoAckBy' => 'dpo', 'dpoAckAt' => '2026-01-01T00:00:00+00:00'])
 		);
 
@@ -559,7 +564,7 @@ class ComplianceServiceTest extends TestCase {
 		$service = $this->service(
 			objectService: $this->objectService(['agent' => [$agent], 'incident' => [$incident]]),
 			approvalService: $approvalService,
-			aiFeatureService: $aiFeatureService,
+			aiFeatureLookup: $aiFeatureLookup,
 		);
 
 		$factsheet = $service->factsheet(agentId: 'agent-1');

@@ -171,6 +171,7 @@ class ExposedStageDispatchService extends StageDispatchService {
  * @uses \OCA\Hermiq\Service\Llm\RunTokenService
  * @uses \OCA\Hermiq\Service\StageOptions
  * @uses \OCA\Hermiq\Service\StageRequest
+ * @uses \OCA\Hermiq\Service\Llm\RunTokenRequest
  */
 class StageDispatchServiceTest extends TestCase {
 

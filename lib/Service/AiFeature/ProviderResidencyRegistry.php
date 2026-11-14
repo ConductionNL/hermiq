@@ -25,7 +25,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
+ * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
  */
 
 declare(strict_types=1);
@@ -33,36 +33,16 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\AiFeature;
 
 use InvalidArgumentException;
+use OCA\Hermiq\Kernel\Contracts\ProviderResidencyRegistryInterface;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCP\IAppConfig;
 
 /**
  * Reads and writes the administered residency label of each configured provider.
  *
- * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
+ * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
  */
-class ProviderResidencyRegistry {
-
-	/**
-	 * The provider runs inside the organisation's own premises.
-	 *
-	 * @var string
-	 */
-	public const RESIDENCY_ON_PREMISE = 'on-premise';
-
-	/**
-	 * The provider runs in the European Union.
-	 *
-	 * @var string
-	 */
-	public const RESIDENCY_EU = 'eu';
-
-	/**
-	 * The provider runs outside the European Union.
-	 *
-	 * @var string
-	 */
-	public const RESIDENCY_OUTSIDE_EU = 'outside-eu';
+class ProviderResidencyRegistry implements ProviderResidencyRegistryInterface {
 
 	/**
 	 * No administrator has stated where this provider runs. Never a guess, and
@@ -71,17 +51,6 @@ class ProviderResidencyRegistry {
 	 * @var string
 	 */
 	public const RESIDENCY_UNDECLARED = 'undeclared';
-
-	/**
-	 * The residencies an administrator may state.
-	 *
-	 * @var array<int, string>
-	 */
-	public const DECLARABLE_RESIDENCIES = [
-		self::RESIDENCY_ON_PREMISE,
-		self::RESIDENCY_EU,
-		self::RESIDENCY_OUTSIDE_EU,
-	];
 
 	/**
 	 * The IAppConfig key holding the JSON map of declarations.
@@ -105,7 +74,7 @@ class ProviderResidencyRegistry {
 	 *
 	 * @return array<string, array{provider: string, residency: string, location: string}> The declarations.
 	 *
-	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
 	 */
 	public function all(): array {
 		return $this->store()->each(read: fn (string $provider): array => $this->forProvider(provider: $provider));
@@ -120,7 +89,7 @@ class ProviderResidencyRegistry {
 	 *
 	 * @return array{provider: string, residency: string, location: string} The declaration.
 	 *
-	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
 	 */
 	public function forProvider(string $provider): array {
 		$entry = ($this->store()->stored()[$provider] ?? null);
@@ -155,7 +124,7 @@ class ProviderResidencyRegistry {
 	 *
 	 * @throws InvalidArgumentException When the provider or the residency is not a supported value.
 	 *
-	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
 	 */
 	public function declareResidency(string $provider, string $residency, string $location = ''): array {
 		if (in_array($provider, LlmSettingsHandler::ALLOWED_CHAT_PROVIDERS, true) === false) {

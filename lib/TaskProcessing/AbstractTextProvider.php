@@ -41,7 +41,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\TaskProcessing;
 
-use OCA\Hermiq\Service\Llm\ProviderFactory;
+use OCA\Hermiq\Kernel\Contracts\ProviderFactoryInterface;
 use OCP\TaskProcessing\Exception\ProcessingException;
 use OCP\TaskProcessing\ISynchronousProvider;
 use Psr\Log\LoggerInterface;
@@ -58,13 +58,13 @@ abstract class AbstractTextProvider implements ISynchronousProvider {
 	/**
 	 * Constructor.
 	 *
-	 * @param ProviderFactory $providerFactory Hermiq's configured-LLM generation seam.
+	 * @param ProviderFactoryInterface $providerFactory Hermiq's configured-LLM generation seam.
 	 * @param LoggerInterface $logger Logger.
 	 *
 	 * @return void
 	 */
 	public function __construct(
-		protected readonly ProviderFactory $providerFactory,
+		protected readonly ProviderFactoryInterface $providerFactory,
 		protected readonly LoggerInterface $logger,
 	) {
 	}//end __construct()

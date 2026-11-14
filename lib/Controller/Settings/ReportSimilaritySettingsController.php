@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
+ * @spec openspec/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
  */
 
 declare(strict_types=1);
@@ -29,8 +29,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller\Settings;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\ReportSimilarity\ReportSimilaritySettings;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ReportSimilaritySettingsInterface;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -43,7 +43,7 @@ use Throwable;
 /**
  * Read and set the grouping thresholds and windows.
  *
- * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#requirement-the-comparison-window-must-be-bounded-and-administered
+ * @spec openspec/specs/report-similarity/spec.md#requirement-the-comparison-window-must-be-bounded-and-administered
  */
 class ReportSimilaritySettingsController extends Controller {
 
@@ -51,17 +51,17 @@ class ReportSimilaritySettingsController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request.
-	 * @param ReportSimilaritySettings $settings The thresholds and windows.
+	 * @param ReportSimilaritySettingsInterface $settings The thresholds and windows.
 	 * @param LoggerInterface $logger Logger.
 	 *
 	 * @return void
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly ReportSimilaritySettings $settings,
+		private readonly ReportSimilaritySettingsInterface $settings,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 
@@ -70,7 +70,7 @@ class ReportSimilaritySettingsController extends Controller {
 	 *
 	 * @return JSONResponse The settings.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function get(): JSONResponse {
@@ -91,7 +91,7 @@ class ReportSimilaritySettingsController extends Controller {
 	 *
 	 * @return JSONResponse The stored settings, or 422 naming what was wrong.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function update(): JSONResponse {

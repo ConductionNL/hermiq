@@ -25,7 +25,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
+ * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
  */
 
 declare(strict_types=1);
@@ -33,8 +33,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\LessonAuthoringEngine;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\LessonAuthoringEngineInterface;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -48,7 +48,7 @@ use Throwable;
 /**
  * Auth, allowlist and limits over LessonAuthoringEngine.
  *
- * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
+ * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
  */
 class LessonAuthoringController extends Controller {
 
@@ -99,16 +99,16 @@ class LessonAuthoringController extends Controller {
 	 *
 	 * @param IRequest $request The request object.
 	 * @param IUserSession $userSession Resolves the requesting user (401 if absent).
-	 * @param LessonAuthoringEngine $engine The gated lesson authoring pipeline.
+	 * @param LessonAuthoringEngineInterface $engine The gated lesson authoring pipeline.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
 		IRequest $request,
 		private readonly IUserSession $userSession,
-		private readonly LessonAuthoringEngine $engine,
+		private readonly LessonAuthoringEngineInterface $engine,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -118,14 +118,14 @@ class LessonAuthoringController extends Controller {
 	 *
 	 * @no-admin-idor-exempt Looks up no caller-supplied id: lesson content in, draft out, no object to authorise.
 	 *
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-004-draft-a-lesson-outline-from-learning-goals
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-004-draft-a-lesson-outline-from-learning-goals
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
 	 */
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 30, period: 60)]
 	public function outline(): JSONResponse {
 		return $this->handle(
-			action: LessonAuthoringEngine::ACTION_OUTLINE,
+			action: LessonAuthoringEngineInterface::ACTION_OUTLINE,
 			read: fn (): array => [
 				'goalTitles' => $this->required(value: $this->goalTitles(), field: 'goalTitles'),
 				'lessonText' => $this->lessonText(),
@@ -147,14 +147,14 @@ class LessonAuthoringController extends Controller {
 	 *
 	 * @no-admin-idor-exempt Looks up no caller-supplied id: lesson content in, draft out, no object to authorise.
 	 *
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-005-suggest-questions-for-a-lesson
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-005-suggest-questions-for-a-lesson
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
 	 */
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 30, period: 60)]
 	public function questions(): JSONResponse {
 		return $this->handle(
-			action: LessonAuthoringEngine::ACTION_QUESTIONS,
+			action: LessonAuthoringEngineInterface::ACTION_QUESTIONS,
 			read: fn (): array => [
 				'lessonText' => $this->required(value: $this->lessonText(), field: 'lessonText'),
 				'goalTitles' => $this->goalTitles(),
@@ -178,14 +178,14 @@ class LessonAuthoringController extends Controller {
 	 *
 	 * @no-admin-idor-exempt Looks up no caller-supplied id: lesson content in, draft out, no object to authorise.
 	 *
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-006-rewrite-a-text-at-a-lower-reading-level
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-006-rewrite-a-text-at-a-lower-reading-level
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
 	 */
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 30, period: 60)]
 	public function simplify(): JSONResponse {
 		return $this->handle(
-			action: LessonAuthoringEngine::ACTION_SIMPLIFY,
+			action: LessonAuthoringEngineInterface::ACTION_SIMPLIFY,
 			read: fn (): array => [
 				'lessonText' => $this->required(value: $this->lessonText(), field: 'lessonText'),
 				'readingLevel' => $this->readingLevel(),
@@ -205,14 +205,14 @@ class LessonAuthoringController extends Controller {
 	 *
 	 * @no-admin-idor-exempt Looks up no caller-supplied id: lesson content in, draft out, no object to authorise.
 	 *
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-007-suggest-which-given-goals-a-lesson-covers
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-007-suggest-which-given-goals-a-lesson-covers
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
 	 */
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 30, period: 60)]
 	public function goalSuggestions(): JSONResponse {
 		return $this->handle(
-			action: LessonAuthoringEngine::ACTION_GOAL_SUGGESTIONS,
+			action: LessonAuthoringEngineInterface::ACTION_GOAL_SUGGESTIONS,
 			read: fn (): array => [
 				'lessonText' => $this->required(value: $this->lessonText(), field: 'lessonText'),
 				'goalTitles' => $this->required(value: $this->goalTitles(), field: 'goalTitles'),
@@ -305,21 +305,29 @@ class LessonAuthoringController extends Controller {
 			throw new InvalidArgumentException('goalTitles must hold at most ' . self::MAX_GOALS . ' items');
 		}
 
-		$titles = [];
-		foreach ($value as $title) {
-			if (is_string($title) === false || trim($title) === '') {
-				throw new InvalidArgumentException('goalTitles must hold non-empty strings only');
-			}
+		return array_map(fn (mixed $title): string => $this->goalTitle(title: $title), $value);
+	}//end goalTitles()
 
-			if (mb_strlen(trim($title)) > self::MAX_GOAL_TITLE) {
-				throw new InvalidArgumentException('each goal title must be at most ' . self::MAX_GOAL_TITLE . ' characters');
-			}
-
-			$titles[] = trim($title);
+	/**
+	 * One goal title, trimmed.
+	 *
+	 * @param mixed $title The submitted title.
+	 *
+	 * @return string The trimmed title.
+	 *
+	 * @throws InvalidArgumentException When it is not a non-empty string within the limit.
+	 */
+	private function goalTitle(mixed $title): string {
+		if (is_string($title) === false || trim($title) === '') {
+			throw new InvalidArgumentException('goalTitles must hold non-empty strings only');
 		}
 
-		return $titles;
-	}//end goalTitles()
+		if (mb_strlen(trim($title)) > self::MAX_GOAL_TITLE) {
+			throw new InvalidArgumentException('each goal title must be at most ' . self::MAX_GOAL_TITLE . ' characters');
+		}
+
+		return trim($title);
+	}//end goalTitle()
 
 	/**
 	 * `language`, a BCP-47 tag; DEFAULT_LANGUAGE when absent.
@@ -354,22 +362,44 @@ class LessonAuthoringController extends Controller {
 			return self::DEFAULT_QUESTION_COUNT;
 		}
 
-		if (is_string($value) === true && ctype_digit($value) === true) {
-			$value = (int)$value;
-		}
-
-		if (is_int($value) === false
-			|| $value < LessonAuthoringEngine::MIN_QUESTIONS
-			|| $value > LessonAuthoringEngine::MAX_QUESTIONS
-		) {
+		$value = $this->digitsAsInt(value: $value);
+		if ($this->isQuestionCount(value: $value) === false) {
 			throw new InvalidArgumentException(
-				'questionCount must be a whole number from ' . LessonAuthoringEngine::MIN_QUESTIONS
-				. ' to ' . LessonAuthoringEngine::MAX_QUESTIONS
+				'questionCount must be a whole number from ' . LessonAuthoringEngineInterface::MIN_QUESTIONS
+				. ' to ' . LessonAuthoringEngineInterface::MAX_QUESTIONS
 			);
 		}
 
 		return $value;
 	}//end questionCount()
+
+	/**
+	 * A string of digits as an int; any other value unchanged.
+	 *
+	 * @param mixed $value The submitted value.
+	 *
+	 * @return mixed The int, or the value as given.
+	 */
+	private function digitsAsInt(mixed $value): mixed {
+		if (is_string($value) === true && ctype_digit($value) === true) {
+			return (int)$value;
+		}
+
+		return $value;
+	}//end digitsAsInt()
+
+	/**
+	 * Whether a value is a whole number within the engine's question range.
+	 *
+	 * @param mixed $value The candidate count.
+	 *
+	 * @return boolean True when it is an int from MIN_QUESTIONS to MAX_QUESTIONS.
+	 */
+	private function isQuestionCount(mixed $value): bool {
+		return is_int($value) === true
+			&& $value >= LessonAuthoringEngineInterface::MIN_QUESTIONS
+			&& $value <= LessonAuthoringEngineInterface::MAX_QUESTIONS;
+	}//end isQuestionCount()
 
 	/**
 	 * `readingLevel`, one of the engine's levels; the engine default when absent.
@@ -379,14 +409,14 @@ class LessonAuthoringController extends Controller {
 	 * @throws InvalidArgumentException When it is not a known level.
 	 */
 	private function readingLevel(): string {
-		$value = $this->request->getParam('readingLevel', LessonAuthoringEngine::DEFAULT_READING_LEVEL);
+		$value = $this->request->getParam('readingLevel', LessonAuthoringEngineInterface::DEFAULT_READING_LEVEL);
 		if ($value === null || $value === '') {
-			return LessonAuthoringEngine::DEFAULT_READING_LEVEL;
+			return LessonAuthoringEngineInterface::DEFAULT_READING_LEVEL;
 		}
 
-		if (is_string($value) === false || array_key_exists($value, LessonAuthoringEngine::READING_LEVELS) === false) {
+		if (is_string($value) === false || array_key_exists($value, LessonAuthoringEngineInterface::READING_LEVELS) === false) {
 			throw new InvalidArgumentException(
-				'readingLevel must be one of ' . implode(', ', array_keys(LessonAuthoringEngine::READING_LEVELS))
+				'readingLevel must be one of ' . implode(', ', array_keys(LessonAuthoringEngineInterface::READING_LEVELS))
 			);
 		}
 

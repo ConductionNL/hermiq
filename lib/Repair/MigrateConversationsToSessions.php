@@ -46,13 +46,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+ * @spec openspec/specs/session-data-migration/spec.md
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
+use OCA\Hermiq\Repair\Migration\FamilyMigration;
+use OCA\Hermiq\Repair\Migration\MigratedConversation;
+use OCA\Hermiq\Repair\Migration\ProvenanceTarget;
 use OCA\Hermiq\Repair\Support\RegisterScopedSchema;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -66,7 +69,7 @@ use Throwable;
 /**
  * Copies conversation/message objects onto the session/session-turn schemas.
  *
- * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+ * @spec openspec/specs/session-data-migration/spec.md
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) A one-shot data migration touches both
  *   worlds by design: OpenRegister's object layer and its mapper for the archived read,
@@ -171,7 +174,7 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
 	public function run(IOutput $output): void {
 		// Ask before reaching. Every OpenRegister class this step uses is resolved
@@ -213,21 +216,25 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
 	private function runInner(ObjectService $objectService, IOutput $output): void {
 		$sessions = $this->migrateFamily(
 			objectService: $objectService,
-			output: $output,
-			sourceSchema: self::CONVERSATION_SCHEMA,
-			targetSchema: self::SESSION_SCHEMA
+			family: new FamilyMigration(
+				output: $output,
+				sourceSchema: self::CONVERSATION_SCHEMA,
+				targetSchema: self::SESSION_SCHEMA
+			)
 		);
 
 		$turns = $this->migrateFamily(
 			objectService: $objectService,
-			output: $output,
-			sourceSchema: self::MESSAGE_SCHEMA,
-			targetSchema: self::SESSION_TURN_SCHEMA
+			family: new FamilyMigration(
+				output: $output,
+				sourceSchema: self::MESSAGE_SCHEMA,
+				targetSchema: self::SESSION_TURN_SCHEMA
+			)
 		);
 
 		$detail = sprintf(
@@ -255,20 +262,16 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 * Copy one source schema onto its target, live rows and archived rows alike.
 	 *
 	 * @param ObjectService $objectService OpenRegister's object read/write path.
-	 * @param IOutput       $output        Repair output channel.
-	 * @param string        $sourceSchema  Schema slug to read from.
-	 * @param string        $targetSchema  Schema slug to write to.
+	 * @param FamilyMigration $family One schema family being moved, and where progress is reported.
 	 *
 	 * @return array{copied: int, present: int, failed: int} The per-family counts.
 	 *
-	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
-	private function migrateFamily(
-		ObjectService $objectService,
-		IOutput $output,
-		string $sourceSchema,
-		string $targetSchema
-	): array {
+	private function migrateFamily(ObjectService $objectService, FamilyMigration $family): array {
+		$output = $family->output;
+		$sourceSchema = $family->sourceSchema;
+		$targetSchema = $family->targetSchema;
 		$counts = [
 			'copied' => 0,
 			'present' => 0,
@@ -292,10 +295,12 @@ class MigrateConversationsToSessions implements IRepairStep {
 
 			$written = $this->persist(
 				objectService: $objectService,
-				sourceSchema: $sourceSchema,
-				targetSchema: $targetSchema,
-				uuid: $uuid,
-				source: $source
+				migrated: new MigratedConversation(
+					sourceSchema: $sourceSchema,
+					targetSchema: $targetSchema,
+					uuid: $uuid,
+					source: $source
+				)
 			);
 
 			$bucket = 'failed';
@@ -339,39 +344,69 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 *
 	 * @return array<int, ObjectEntity> Source objects, live first then archived.
 	 *
-	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
 	private function readSource(ObjectService $objectService, string $schema): array {
-		$rows = [];
+		$rows = $this->liveRows(objectService: $objectService, schema: $schema);
 
+		return array_values($this->withArchivedRows(rows: $rows, schema: $schema));
+	}//end readSource()
+
+	/**
+	 * The live objects of a source schema, by uuid; a failed read is logged and yields none.
+	 *
+	 * @param ObjectService $objectService OpenRegister's object service.
+	 * @param string $schema The source schema slug.
+	 *
+	 * @return array<string, ObjectEntity> The live objects by uuid.
+	 */
+	private function liveRows(ObjectService $objectService, string $schema): array {
 		try {
 			$live = $objectService->setRegister(self::REGISTER_SLUG)->setSchema($schema)
 				->searchObjectsPaginated(query: ['_limit' => 10000]);
-			foreach (($live['results'] ?? []) as $object) {
-				if ($object instanceof ObjectEntity) {
-					$rows[(string) $object->getUuid()] = $object;
-				}
-			}
 		} catch (Throwable $e) {
 			$this->logger->error(
 				'[hermiq] session-data-migration: live read of ' . $schema . ' failed: ' . $e->getMessage()
 			);
+			return [];
 		}
 
-		try {
-			$schemaId = $this->schemas->idFor(registerSlug: self::REGISTER_SLUG, schemaSlug: $schema);
-			$mapper = $this->container->get(\OCA\OpenRegister\Db\MagicMapper::class);
-			$deleted = $mapper->findDeletedAcrossAllMagicTables(limit: 10000, offset: 0);
-			foreach ($deleted as $object) {
-				if (($object instanceof ObjectEntity) === false) {
-					continue;
-				}
+		return $this->entitiesByUuid(objects: ($live['results'] ?? []));
 
-				if ($schemaId === null || (string) $object->getSchema() !== $schemaId) {
-					continue;
-				}
+	}//end liveRows()
 
+	/**
+	 * The object entities among the read results, by uuid.
+	 *
+	 * @param iterable<mixed> $objects The read results.
+	 *
+	 * @return array<string, ObjectEntity> The entities by uuid.
+	 */
+	private function entitiesByUuid(iterable $objects): array {
+		$rows = [];
+		foreach ($objects as $object) {
+			if ($object instanceof ObjectEntity) {
 				$rows[(string) $object->getUuid()] = $object;
+			}
+		}
+
+		return $rows;
+
+	}//end entitiesByUuid()
+
+	/**
+	 * Add the archived (soft-deleted) objects of the source schema; an archived copy
+	 * replaces a live one with the same uuid in place. A failed read is logged loudly.
+	 *
+	 * @param array<string, ObjectEntity> $rows The objects read so far, by uuid.
+	 * @param string $schema The source schema slug.
+	 *
+	 * @return array<string, ObjectEntity> The objects by uuid.
+	 */
+	private function withArchivedRows(array $rows, string $schema): array {
+		try {
+			foreach ($this->archivedRows(schema: $schema) as $uuid => $object) {
+				$rows[$uuid] = $object;
 			}
 		} catch (Throwable $e) {
 			// Loud, not swallowed: without this read the archived objects are simply
@@ -381,10 +416,34 @@ class MigrateConversationsToSessions implements IRepairStep {
 				'[hermiq] session-data-migration: ARCHIVED read of ' . $schema
 				. ' failed, archived objects were NOT migrated: ' . $e->getMessage()
 			);
-		}//end try
+		}
 
-		return array_values($rows);
-	}//end readSource()
+		return $rows;
+
+	}//end withArchivedRows()
+
+	/**
+	 * The archived objects of the source schema, by uuid; none when the schema is unknown.
+	 *
+	 * @param string $schema The source schema slug.
+	 *
+	 * @return array<string, ObjectEntity> The archived objects by uuid.
+	 */
+	private function archivedRows(string $schema): array {
+		$schemaId = $this->schemas->idFor(registerSlug: self::REGISTER_SLUG, schemaSlug: $schema);
+		$mapper = $this->container->get(\OCA\OpenRegister\Db\MagicMapper::class);
+		$deleted = $mapper->findDeletedAcrossAllMagicTables(limit: 10000, offset: 0);
+
+		$rows = [];
+		foreach ($deleted as $object) {
+			if ($object instanceof ObjectEntity && $schemaId !== null && (string) $object->getSchema() === $schemaId) {
+				$rows[(string) $object->getUuid()] = $object;
+			}
+		}
+
+		return $rows;
+
+	}//end archivedRows()
 
 	/**
 	 * Whether a target object already exists under this uuid.
@@ -394,7 +453,7 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 *
 	 * @return bool True when it exists.
 	 *
-	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
 	private function objectExists(string $schema, string $uuid): bool {
 		try {
@@ -444,22 +503,17 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 * out of the payload is written away rather than left alone.
 	 *
 	 * @param ObjectService $objectService OpenRegister's object write path.
-	 * @param string        $sourceSchema  Source schema slug, for the archive-marker copy.
-	 * @param string        $targetSchema  Target schema slug.
-	 * @param string        $uuid          The uuid to preserve.
-	 * @param ObjectEntity  $source        The source object.
+	 * @param MigratedConversation $migrated One conversation being moved to a session, and its source and target schemas.
 	 *
 	 * @return bool True when the write succeeded.
 	 *
-	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
-	private function persist(
-		ObjectService $objectService,
-		string $sourceSchema,
-		string $targetSchema,
-		string $uuid,
-		ObjectEntity $source
-	): bool {
+	private function persist(ObjectService $objectService, MigratedConversation $migrated): bool {
+		$sourceSchema = $migrated->sourceSchema;
+		$targetSchema = $migrated->targetSchema;
+		$uuid = $migrated->uuid;
+		$source = $migrated->source;
 		// `getObject()` is declared `: array`, so no shape guard is needed here.
 		$data = $source->getObject();
 
@@ -495,8 +549,10 @@ class MigrateConversationsToSessions implements IRepairStep {
 
 			$this->carryProvenance(
 				sourceSchema: $sourceSchema,
-				targetSchema: $targetSchema,
-				uuid: $uuid
+				target: new ProvenanceTarget(
+					targetSchema: $targetSchema,
+					uuid: $uuid
+				)
 			);
 			return true;
 		} catch (Throwable $e) {
@@ -522,14 +578,15 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 * three were measured on this step before this method existed.
 	 *
 	 * @param string $sourceSchema Source schema slug, read for the original values.
-	 * @param string $targetSchema Target schema slug, written to.
-	 * @param string $uuid         The uuid on both sides.
+	 * @param ProvenanceTarget $target The object whose provenance is carried to its new schema.
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
-	private function carryProvenance(string $sourceSchema, string $targetSchema, string $uuid): void {
+	private function carryProvenance(string $sourceSchema, ProvenanceTarget $target): void {
+		$targetSchema = $target->targetSchema;
+		$uuid = $target->uuid;
 		try {
 			$sourceTable = $this->magicTableFor(schemaSlug: $sourceSchema);
 			$targetTable = $this->magicTableFor(schemaSlug: $targetSchema);
@@ -638,7 +695,7 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 *
 	 * @return array<string, mixed> The `@self` block, or [] when nothing is worth carrying.
 	 *
-	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
 	private function buildSelf(ObjectEntity $source): array {
 		$self = [];
@@ -671,10 +728,6 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 * @spec exclude Local scalar coercion helper; no behavioural spec.
 	 */
 	private function stringOrNull(mixed $value): ?string {
-		if ($value === null) {
-			return null;
-		}
-
 		if ($value instanceof \DateTimeInterface) {
 			return $value->format('c');
 		}
@@ -699,13 +752,13 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
 	private function recordOutcome(string $outcome, string $detail = ''): void {
 		try {
-			$this->appConfig->setValueString(\OCA\Hermiq\AppInfo\Application::APP_ID, self::OUTCOME_KEY, $outcome);
+			$this->appConfig->setValueString(\OCA\Hermiq\Kernel\AppIdentity::APP_ID, self::OUTCOME_KEY, $outcome);
 			$this->appConfig->setValueString(
-				\OCA\Hermiq\AppInfo\Application::APP_ID,
+				\OCA\Hermiq\Kernel\AppIdentity::APP_ID,
 				self::OUTCOME_DETAIL_KEY,
 				$detail
 			);

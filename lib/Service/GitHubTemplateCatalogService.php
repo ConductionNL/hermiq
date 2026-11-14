@@ -49,6 +49,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\GitHubTemplateCatalogServiceInterface;
 use OCA\Hermiq\Service\Connection\ConnectionReporter;
 use OCP\Http\Client\IClientService;
 use OCP\ICache;
@@ -71,27 +72,13 @@ use Throwable;
  *
  * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
  */
-class GitHubTemplateCatalogService {
+class GitHubTemplateCatalogService implements GitHubTemplateCatalogServiceInterface {
 	/**
 	 * The fixed GitHub API host — compile-time constant, no SSRF surface.
 	 *
 	 * @var string
 	 */
 	private const API_BASE = 'https://api.github.com';
-
-	/**
-	 * The `AgentTemplate` kind — the original (and default) discovery kind.
-	 *
-	 * @var string
-	 */
-	public const KIND_AGENT_TEMPLATE = 'agent-template';
-
-	/**
-	 * The `Skill` kind (hermiq-github-store) — agentskills.io packages.
-	 *
-	 * @var string
-	 */
-	public const KIND_SKILL = 'skill';
 
 	/**
 	 * Per-kind discovery topic (hermiq-github-store: generalised from the single
@@ -251,13 +238,6 @@ class GitHubTemplateCatalogService {
 	public const OUTCOME_RATE_LIMITED = 'github_rate_limited';
 
 	/**
-	 * Outcome: transport failure / non-2xx that is not a rate limit.
-	 *
-	 * @var string
-	 */
-	public const OUTCOME_UNREACHABLE = 'github_unreachable';
-
-	/**
 	 * The distributed cache, or null when no cache backend is available.
 	 *
 	 * @var ICache|null
@@ -363,16 +343,30 @@ class GitHubTemplateCatalogService {
 	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 */
 	public function search(?string $query, ?string $actingUserId, ?string $credentialId = null, string $kind = self::KIND_AGENT_TEMPLATE): array {
-		$term = trim((string)$query);
-		$normalise = strtolower($term);
-		$cacheKey = 'search:' . $kind . ':' . md5($normalise . '|' . ((string)$credentialId));
+		$search = new CatalogSearch(kind: $kind, caller: new CatalogCaller(actingUserId: $actingUserId, credentialId: $credentialId));
 
+		return $this->searchCatalog(term: trim((string)$query), search: $search);
+	}//end search()
+
+	/**
+	 * Answer a search from the cache, or from GitHub and cache the answer.
+	 *
+	 * @param string        $term   The trimmed free-text term, '' for none.
+	 * @param CatalogSearch $search The search.
+	 *
+	 * @return array{outcome:string,cards:array<int,array<string,mixed>>,brokerUsed:bool,rateLimited:bool}
+	 *
+	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-degrade-gracefully-when-github-is-rate-limited-or-unreachable
+	 */
+	private function searchCatalog(string $term, CatalogSearch $search): array {
+		$cacheKey = $this->searchCacheKey(term: $term, search: $search);
 		$cached = $this->cacheGet(key: $cacheKey);
 		if (is_array($cached) === true) {
 			return $cached;
 		}
 
-		$result = $this->get(path: $this->searchPath(kind: $kind, term: $term), actingUserId: $actingUserId, credentialId: $credentialId);
+		$result = $this->get(path: $this->searchPath(kind: $search->kind, term: $term), caller: $search->caller);
 		// A live answer is the one moment hermiq meets GitHub; a cached one met nothing.
 		$this->reportSearchOutcome(result: $result);
 		if ($result['ok'] === false) {
@@ -381,23 +375,47 @@ class GitHubTemplateCatalogService {
 			return $this->payload->searchFailure(result: $result);
 		}
 
+		$payload = $this->searchAnswer(cards: $this->searchCards(result: $result, search: $search), result: $result);
+		$this->cacheSet(key: $cacheKey, value: $payload);
+
+		return $payload;
+	}//end searchCatalog()
+
+	/**
+	 * The cache key of a search: its kind, its lower-cased term and its credential.
+	 *
+	 * @param string        $term   The trimmed free-text term.
+	 * @param CatalogSearch $search The search.
+	 *
+	 * @return string The key.
+	 */
+	private function searchCacheKey(string $term, CatalogSearch $search): string {
+		return 'search:' . $search->kind . ':' . md5(strtolower($term) . '|' . ((string)$search->caller->credentialId));
+	}//end searchCacheKey()
+
+	/**
+	 * The cards built from a search answer's hits (a hit that is not a list entry is skipped).
+	 *
+	 * @param array{ok:bool,status:int,body:string,rateLimited:bool,brokerUsed:bool} $result The GET result.
+	 * @param CatalogSearch $search The search.
+	 *
+	 * @return array<int,array<string,mixed>> The cards.
+	 */
+	private function searchCards(array $result, CatalogSearch $search): array {
 		$cards = [];
 		foreach ($this->payload->searchItems(body: $result['body'], max: self::MAX_HITS) as $item) {
 			if (is_array($item) === false) {
 				continue;
 			}
 
-			$card = $this->buildCard(item: $item, kind: $kind, actingUserId: $actingUserId, credentialId: $credentialId);
+			$card = $this->buildCard(item: $item, search: $search);
 			if ($card !== null) {
 				$cards[] = $card;
 			}
 		}
 
-		$payload = $this->searchAnswer(cards: $cards, result: $result);
-		$this->cacheSet(key: $cacheKey, value: $payload, ttl: self::SEARCH_TTL);
-
-		return $payload;
-	}//end search()
+		return $cards;
+	}//end searchCards()
 
 	/**
 	 * The repository-search API path for a kind's topic, with the term appended when given.
@@ -536,7 +554,7 @@ class GitHubTemplateCatalogService {
 	 *
 	 * @return array<int, array{name: string, content: string}> The auxiliary files.
 	 *
-	 * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+	 * @spec openspec/changes/archive/2026-09-06-skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
 	 */
 	public function fetchAuxFiles(
 		string $kind,
@@ -575,7 +593,7 @@ class GitHubTemplateCatalogService {
 	 *
 	 * @return array<int, array{name: string, content: string}> The auxiliary files.
 	 *
-	 * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+	 * @spec openspec/changes/archive/2026-09-06-skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
 	 */
 	private function auxFilesOf(CatalogFetch $fetch): array {
 		if ($fetch->truncated === true) {
@@ -681,11 +699,7 @@ class GitHubTemplateCatalogService {
 	 */
 	private function fetchArchiveBlobs(CatalogFetch $fetch, callable $accept): ?array {
 		$treeRef = ($fetch->ref ?? 'HEAD');
-		$result = $this->get(
-			path: $fetch->apiPath() . '/tarball/' . rawurlencode($treeRef),
-			actingUserId: $fetch->actingUserId,
-			credentialId: $fetch->credentialId
-		);
+		$result = $this->fetchGet(fetch: $fetch, path: '/tarball/' . rawurlencode($treeRef));
 		if ($result['ok'] === false) {
 			return null;
 		}
@@ -712,22 +726,29 @@ class GitHubTemplateCatalogService {
 			$treeRef = 'HEAD';
 		}
 
-		$result = $this->get(
-			path: $fetch->apiPath() . '/git/trees/' . rawurlencode($treeRef) . '?recursive=1',
-			actingUserId: $fetch->actingUserId,
-			credentialId: $fetch->credentialId
-		);
+		$result = $this->fetchGet(fetch: $fetch, path: '/git/trees/' . rawurlencode($treeRef) . '?recursive=1');
 		if ($result['ok'] === false) {
 			return null;
 		}
 
-		$decoded = json_decode($result['body'], true);
+		return $this->treeEntries(body: $result['body']);
+	}//end fetchTree()
+
+	/**
+	 * The entries of a git-tree answer, or null when it holds no tree list.
+	 *
+	 * @param string $body The answer body.
+	 *
+	 * @return array<int,mixed>|null The tree entries.
+	 */
+	private function treeEntries(string $body): ?array {
+		$decoded = json_decode($body, true);
 		if (is_array($decoded) === false || is_array($decoded['tree'] ?? null) === false) {
 			return null;
 		}
 
 		return $decoded['tree'];
-	}//end fetchTree()
+	}//end treeEntries()
 
 	/**
 	 * Fetch a BUNDLE repository as a `path => contents` map (skill-bundle-publish).
@@ -750,7 +771,7 @@ class GitHubTemplateCatalogService {
 	 * @return array{files:array<string,string>,truncated:bool}|null The bundle tree,
 	 *                                                               or null when the repo is not a bundle / unreachable.
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	public function fetchBundle(
 		string $owner,
@@ -809,7 +830,7 @@ class GitHubTemplateCatalogService {
 	 * @return array{files:array<string,string>,truncated:bool}|null The bundle tree,
 	 *                                                               or null when the repo has no readable manifest.
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	private function fetchBundlePerFile(CatalogFetch $fetch): ?array {
 		$manifest = $this->fetchFileContents(fetch: $fetch, path: self::BUNDLE_MANIFEST_FILE);
@@ -847,35 +868,45 @@ class GitHubTemplateCatalogService {
 	 * file is missing/unparseable — the hit is surfaced, never dropped). Every
 	 * card is tagged with its `kind` (hermiq-github-store).
 	 *
-	 * @param array<string,mixed> $item A GitHub search-result item.
-	 * @param string $kind The discovery kind (`KIND_AGENT_TEMPLATE`|`KIND_SKILL`).
-	 * @param string|null $actingUserId The session UID (broker identity), or null.
-	 * @param string|null $credentialId Optional allowed `github` credential.
+	 * @param array<string,mixed> $item   A GitHub search-result item.
+	 * @param CatalogSearch       $search The search: its kind and caller.
 	 *
 	 * @return array<string,mixed>|null The card, or null when the item lacks an owner/name.
 	 */
-	private function buildCard(array $item, string $kind, ?string $actingUserId, ?string $credentialId): ?array {
+	private function buildCard(array $item, CatalogSearch $search): ?array {
 		$coordinates = $this->payload->hitCoordinates(item: $item);
 		if ($coordinates === null) {
 			return null;
 		}
 
-		$contents = $this->fetchPackageFile(
-			kind: $kind,
-			owner: $coordinates['owner'],
-			repo: $coordinates['repo'],
-			ref: null,
-			actingUserId: $actingUserId,
-			credentialId: $credentialId
-		);
+		$contents = $this->hitPackageFile(coordinates: $coordinates, search: $search);
 
 		$base = $coordinates + [
 			'stars' => (int)($item['stargazers_count'] ?? 0),
-			'kind' => $kind,
+			'kind' => $search->kind,
 		];
 
 		return $this->payload->card(base: $base, contents: $contents);
 	}//end buildCard()
+
+	/**
+	 * A search hit's package file, read for the search's caller at the default branch.
+	 *
+	 * @param array{owner:string,repo:string} $coordinates The hit's repository.
+	 * @param CatalogSearch                   $search      The search.
+	 *
+	 * @return string|null The raw package string, or null when missing/unreadable/invalid.
+	 */
+	private function hitPackageFile(array $coordinates, CatalogSearch $search): ?string {
+		return $this->fetchPackageFile(
+			kind: $search->kind,
+			owner: $coordinates['owner'],
+			repo: $coordinates['repo'],
+			ref: null,
+			actingUserId: $search->caller->actingUserId,
+			credentialId: $search->caller->credentialId
+		);
+	}//end hitPackageFile()
 
 	/**
 	 * Fetch a single file's decoded contents via the GitHub contents API.
@@ -886,12 +917,9 @@ class GitHubTemplateCatalogService {
 	 * @return string|null The decoded file contents, or null when absent/unreadable.
 	 */
 	private function fetchFileContents(CatalogFetch $fetch, string $path): ?string {
-		$apiPath = $fetch->apiPath() . '/contents/' . implode('/', array_map('rawurlencode', explode('/', $path)));
-		if ($fetch->ref !== null && $fetch->ref !== '') {
-			$apiPath .= '?ref=' . rawurlencode($fetch->ref);
-		}
+		$apiPath = $this->contentsPath(fetch: $fetch, path: $path);
 
-		$result = $this->get(path: $apiPath, actingUserId: $fetch->actingUserId, credentialId: $fetch->credentialId);
+		$result = $this->get(path: $apiPath, caller: $this->callerOf(fetch: $fetch));
 		if ($result['ok'] === false) {
 			// Rate-limit exhaustion specifically flagged: a failed per-file fetch
 			// silently reads to a caller as "file absent", not "fetch failed" —
@@ -915,6 +943,23 @@ class GitHubTemplateCatalogService {
 
 		return $this->payload->fileContents(body: $result['body']);
 	}//end fetchFileContents()
+
+	/**
+	 * The contents-API path of a repo-relative file at the read's ref.
+	 *
+	 * @param CatalogFetch $fetch The read: repository and ref.
+	 * @param string       $path  Repo-relative file path.
+	 *
+	 * @return string The API path.
+	 */
+	private function contentsPath(CatalogFetch $fetch, string $path): string {
+		$apiPath = $fetch->apiPath() . '/contents/' . implode('/', array_map('rawurlencode', explode('/', $path)));
+		if ($fetch->ref !== null && $fetch->ref !== '') {
+			$apiPath .= '?ref=' . rawurlencode($fetch->ref);
+		}
+
+		return $apiPath;
+	}//end contentsPath()
 
 	/**
 	 * Tell integriq what a live store search met, at most once an hour per status.
@@ -956,15 +1001,15 @@ class GitHubTemplateCatalogService {
 	 * Perform a GET — via the broker when a credential is supplied and the broker
 	 * admits the call, else anonymously (feature-detect + fall back).
 	 *
-	 * @param string $path The GitHub-relative path (starts with `/`).
-	 * @param string|null $actingUserId The session UID (broker owner-guard identity), or null.
-	 * @param string|null $credentialId Optional allowed `github` credential.
+	 * @param string        $path   The GitHub-relative path (starts with `/`).
+	 * @param CatalogCaller $caller The session UID (broker owner-guard identity) and
+	 *                              the optional allowed `github` credential.
 	 *
 	 * @return array{ok:bool,status:int,body:string,rateLimited:bool,brokerUsed:bool}
 	 */
-	private function get(string $path, ?string $actingUserId, ?string $credentialId): array {
-		if ($credentialId !== null && $credentialId !== '' && $this->isBrokerAvailable() === true) {
-			$brokered = $this->brokerGet(path: $path, credentialId: $credentialId, actingUserId: $actingUserId);
+	private function get(string $path, CatalogCaller $caller): array {
+		if ($caller->hasCredential() === true && $this->isBrokerAvailable() === true) {
+			$brokered = $this->brokerGet(path: $path, caller: $caller);
 			if ($brokered !== null) {
 				return $brokered;
 			}
@@ -976,47 +1021,93 @@ class GitHubTemplateCatalogService {
 	}//end get()
 
 	/**
+	 * A GET of a path under the read's repository, for the read's caller.
+	 *
+	 * @param CatalogFetch $fetch The read.
+	 * @param string       $path  The path below `/repos/<owner>/<repo>`.
+	 *
+	 * @return array{ok:bool,status:int,body:string,rateLimited:bool,brokerUsed:bool}
+	 */
+	private function fetchGet(CatalogFetch $fetch, string $path): array {
+		return $this->get(path: $fetch->apiPath() . $path, caller: $this->callerOf(fetch: $fetch));
+	}//end fetchGet()
+
+	/**
+	 * The caller a read was assigned.
+	 *
+	 * @param CatalogFetch $fetch The read.
+	 *
+	 * @return CatalogCaller
+	 */
+	private function callerOf(CatalogFetch $fetch): CatalogCaller {
+		return new CatalogCaller(actingUserId: $fetch->actingUserId, credentialId: $fetch->credentialId);
+	}//end callerOf()
+
+	/**
 	 * Route a GET through the OpenRegister credential broker.
 	 *
-	 * @param string $path The GitHub-relative path.
-	 * @param string $credentialId The `github` credential UUID.
-	 * @param string|null $actingUserId The session UID for the broker owner guard.
+	 * @param string        $path   The GitHub-relative path.
+	 * @param CatalogCaller $caller The `github` credential and the session UID for the
+	 *                              broker owner guard.
 	 *
 	 * @return array{ok:bool,status:int,body:string,rateLimited:bool,brokerUsed:bool}|null Null when the broker
 	 *                                                                                     denies the call (caller falls back to anonymous).
-	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) The optional OpenRegister broker is named by
-	 *   class-string and resolved through the injected container, so this class stays
-	 *   constructible when the broker is absent (feature-detected via class_exists).
 	 */
-	private function brokerGet(string $path, string $credentialId, ?string $actingUserId): ?array {
+	private function brokerGet(string $path, CatalogCaller $caller): ?array {
 		try {
-			$broker = $this->serviceContainer()->get(self::BROKER_CLASS);
-			$response = $broker->request(
-				$credentialId,
-				self::APP_ID,
-				'GET',
-				$path,
-				['Accept' => 'application/vnd.github+json'],
-				null,
-				$actingUserId
-			);
+			$response = $this->brokerRequest(path: $path, caller: $caller);
 		} catch (Throwable $e) {
 			$this->logger->debug('Hermiq GitHub template catalog: broker call not admitted, falling back to anonymous.');
 			return null;
 		}
 
+		return $this->brokerResult(response: $response);
+	}//end brokerGet()
+
+	/**
+	 * The GET result of a broker answer.
+	 *
+	 * @param mixed $response The broker's answer (`status`, `body`).
+	 *
+	 * @return array{ok:bool,status:int,body:string,rateLimited:bool,brokerUsed:bool}
+	 */
+	private function brokerResult(mixed $response): array {
 		$status = (int)($response['status'] ?? 0);
-		$body = (string)($response['body'] ?? '');
 
 		return [
 			'ok' => ($status >= 200 && $status < 300),
 			'status' => $status,
-			'body' => $body,
+			'body' => (string)($response['body'] ?? ''),
 			'rateLimited' => ($status === 403 || $status === 429),
 			'brokerUsed' => true,
 		];
-	}//end brokerGet()
+	}//end brokerResult()
+
+	/**
+	 * Ask the broker to make the GET with the caller's credential, as hermiq.
+	 *
+	 * @param string        $path   The GitHub-relative path.
+	 * @param CatalogCaller $caller The credential and the acting user.
+	 *
+	 * @return mixed The broker's answer (`status`, `body`).
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) The optional OpenRegister broker is named by
+	 *   class-string and resolved through the injected container, so this class stays
+	 *   constructible when the broker is absent (feature-detected via class_exists).
+	 */
+	private function brokerRequest(string $path, CatalogCaller $caller): mixed {
+		$broker = $this->serviceContainer()->get(self::BROKER_CLASS);
+
+		return $broker->request(
+			(string)$caller->credentialId,
+			self::APP_ID,
+			'GET',
+			$path,
+			['Accept' => 'application/vnd.github+json'],
+			null,
+			$caller->actingUserId
+		);
+	}//end brokerRequest()
 
 	/**
 	 * Perform an anonymous GET against the fixed GitHub host.
@@ -1117,19 +1208,19 @@ class GitHubTemplateCatalogService {
 	}//end cacheGet()
 
 	/**
-	 * Write a value to the short-TTL cache (no-op when no cache backend).
+	 * Write a search answer to the short-TTL cache for SEARCH_TTL seconds (no-op
+	 * when no cache backend).
 	 *
 	 * @param string $key The cache key.
 	 * @param mixed $value The value to cache.
-	 * @param int $ttl The TTL in seconds.
 	 *
 	 * @return void
 	 */
-	private function cacheSet(string $key, mixed $value, int $ttl): void {
+	private function cacheSet(string $key, mixed $value): void {
 		if ($this->cache === null) {
 			return;
 		}
 
-		$this->cache->set($key, $value, $ttl);
+		$this->cache->set($key, $value, self::SEARCH_TTL);
 	}//end cacheSet()
 }//end class

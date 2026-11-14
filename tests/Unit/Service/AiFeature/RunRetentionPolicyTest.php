@@ -30,7 +30,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
 use OCA\Hermiq\Service\AiFeature\RunRetentionPolicy;
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\IAppConfig;
 use PHPUnit\Framework\TestCase;
@@ -70,14 +70,14 @@ class RunRetentionPolicyTest extends TestCase {
 	}//end appConfig()
 
 	/**
-	 * An AiFeatureService double answering findBySlug from a slug-keyed map.
+	 * An AiFeatureLookup double answering findBySlug from a slug-keyed map.
 	 *
 	 * @param array<string, array<string, mixed>> $features The features, by slug.
 	 *
-	 * @return AiFeatureService The double.
+	 * @return AiFeatureLookup The double.
 	 */
-	private function features(array $features): AiFeatureService {
-		$service = $this->createMock(AiFeatureService::class);
+	private function features(array $features): AiFeatureLookup {
+		$service = $this->createMock(AiFeatureLookup::class);
 		$service->method('findBySlug')->willReturnCallback(
 			static function (string $slug) use ($features): ?ObjectEntity {
 				if (isset($features[$slug]) === false) {
@@ -106,6 +106,24 @@ class RunRetentionPolicyTest extends TestCase {
 
 		$this->assertSame(RunRetentionPolicy::DEFAULT_DAYS, $policy->defaultDays());
 	}//end testAnUnconfiguredInstanceStillHasARetention()
+
+	/**
+	 * A stored default that is not a number, or outside the allowed range, reads as
+	 * the shipped default; a valid one is used as is.
+	 *
+	 * @return void
+	 */
+	public function testAnUnusableStoredDefaultReadsAsTheShippedDefault(): void {
+		foreach (['abc', '0', '-5', '3651'] as $raw) {
+			$policy = new RunRetentionPolicy($this->appConfig(['runRetentionDays' => $raw]), $this->features([]));
+			$this->assertSame(RunRetentionPolicy::DEFAULT_DAYS, $policy->defaultDays(), 'stored: ' . $raw);
+		}
+
+		foreach (['1' => 1, '30' => 30, '3650' => 3650] as $raw => $days) {
+			$policy = new RunRetentionPolicy($this->appConfig(['runRetentionDays' => (string)$raw]), $this->features([]));
+			$this->assertSame($days, $policy->defaultDays());
+		}
+	}//end testAnUnusableStoredDefaultReadsAsTheShippedDefault()
 
 	/**
 	 * A run carries the default that applied when it was written.
@@ -188,7 +206,7 @@ class RunRetentionPolicyTest extends TestCase {
 		];
 		$config = $this->appConfig(initial: ['runRetentionDays' => '30']);
 		$policy = new RunRetentionPolicy(appConfig: $config, features: $this->features(features: $features));
-		$failing = $this->createMock(originalClassName: AiFeatureService::class);
+		$failing = $this->createMock(originalClassName: AiFeatureLookup::class);
 		$failing->method('findBySlug')->willThrowException(new \RuntimeException(message: 'register gone'));
 		$broken = new RunRetentionPolicy(appConfig: $this->appConfig(initial: ['runRetentionDays' => '30']), features: $failing);
 

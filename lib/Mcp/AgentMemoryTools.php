@@ -22,21 +22,21 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
+ * @spec openspec/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Mcp;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\MemoryService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\MemoryServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 
 /**
  * The agent self-service memory tools of the hermiq MCP provider.
  *
- * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
+ * @spec openspec/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
  */
 final class AgentMemoryTools {
 
@@ -50,10 +50,10 @@ final class AgentMemoryTools {
 	/**
 	 * Build the memory tools over the agent memory store.
 	 *
-	 * @param MemoryService $memoryService The agent memory store.
+	 * @param MemoryServiceInterface $memoryService The agent memory store.
 	 */
 	public function __construct(
-		private readonly MemoryService $memoryService,
+		private readonly MemoryServiceInterface $memoryService,
 	) {
 		$this->errors = new ToolErrorEnvelope();
 	}//end __construct()
@@ -66,13 +66,13 @@ final class AgentMemoryTools {
 	 *
 	 * @return array<string, mixed>|null The result, or null when $toolId is not a memory tool.
 	 *
-	 * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
 	 */
 	public function invoke(string $toolId, NativeToolCall $call): ?array {
 		return match ($toolId) {
-			Application::APP_ID . '.rememberMemory' => $this->rememberMemory(uid: $call->uid, arguments: $call->arguments),
-			Application::APP_ID . '.recallMemory' => $this->recallMemory(uid: $call->uid, arguments: $call->arguments),
-			Application::APP_ID . '.forgetMemory' => $this->forgetMemory(uid: $call->uid, arguments: $call->arguments),
+			AppIdentity::APP_ID . '.rememberMemory' => $this->rememberMemory(uid: $call->uid, arguments: $call->arguments),
+			AppIdentity::APP_ID . '.recallMemory' => $this->recallMemory(uid: $call->uid, arguments: $call->arguments),
+			AppIdentity::APP_ID . '.forgetMemory' => $this->forgetMemory(uid: $call->uid, arguments: $call->arguments),
 			default => null,
 		};
 	}//end invoke()
@@ -94,7 +94,7 @@ final class AgentMemoryTools {
 	 *
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
-	 * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
 	 */
 	private function rememberMemory(string $uid, array $arguments): array {
 		$agentId = trim((string)($arguments['agentId'] ?? ''));
@@ -162,7 +162,7 @@ final class AgentMemoryTools {
 	 *
 	 * @return array<string, mixed> The combined result, or an error envelope.
 	 *
-	 * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-recall-tool
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-agent-self-service-memory-recall-tool
 	 */
 	private function recallMemory(string $uid, array $arguments): array {
 		$agentId = trim((string)($arguments['agentId'] ?? ''));
@@ -205,7 +205,7 @@ final class AgentMemoryTools {
 	 *
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
-	 * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-forget-tool-soft-delete-only
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-agent-self-service-memory-forget-tool-soft-delete-only
 	 */
 	private function forgetMemory(string $uid, array $arguments): array {
 		$agentId = trim((string)($arguments['agentId'] ?? ''));

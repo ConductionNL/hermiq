@@ -34,7 +34,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Command;
 
-use OCA\Hermiq\Service\Approval\ApprovalTaskBridge;
+use OCA\Hermiq\Kernel\Contracts\ApprovalTaskBridgeInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -69,12 +69,12 @@ class RollbackApprovalTaskMirror extends Command {
 	 * Constructor.
 	 *
 	 * @param ObjectService $objectService Reads pending Approvals and clears the backlinks.
-	 * @param ApprovalTaskBridge $taskBridge Terminates the mirror tasks (never throws).
+	 * @param ApprovalTaskBridgeInterface $taskBridge Terminates the mirror tasks (never throws).
 	 * @param LoggerInterface $logger Diagnostics.
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
-		private readonly ApprovalTaskBridge $taskBridge,
+		private readonly ApprovalTaskBridgeInterface $taskBridge,
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct();

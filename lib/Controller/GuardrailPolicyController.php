@@ -32,7 +32,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
+ * @spec openspec/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
  */
 
 declare(strict_types=1);
@@ -40,8 +40,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\GuardrailPolicyService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\GuardrailPolicyServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\AppFramework\Controller;
@@ -63,14 +63,14 @@ use Throwable;
  *   (policy service, user session, group manager, org mapper, logger) plus the HTTP
  *   response/exception types every endpoint returns.
  *
- * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
+ * @spec openspec/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
  */
 class GuardrailPolicyController extends Controller {
 	/**
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param GuardrailPolicyService $guardrailPolicy The guardrail-policy read/write path.
+	 * @param GuardrailPolicyServiceInterface $guardrailPolicy The guardrail-policy read/write path.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IGroupManager $groupManager Instance-admin check.
 	 * @param OrganisationMapper $organisationMapper OpenRegister organisation lookup
@@ -80,13 +80,13 @@ class GuardrailPolicyController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly GuardrailPolicyService $guardrailPolicy,
+		private readonly GuardrailPolicyServiceInterface $guardrailPolicy,
 		private readonly IUserSession $userSession,
 		private readonly IGroupManager $groupManager,
 		private readonly OrganisationMapper $organisationMapper,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -99,7 +99,7 @@ class GuardrailPolicyController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
 	 */
 	public function effective(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -162,7 +162,7 @@ class GuardrailPolicyController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
 	 */
 	public function index(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -199,7 +199,7 @@ class GuardrailPolicyController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
 	 */
 	public function create(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -237,7 +237,7 @@ class GuardrailPolicyController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
 	 */
 	public function update(string $policyId): JSONResponse {
 		$user = $this->userSession->getUser();

@@ -39,6 +39,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\AiFeature;
 
+use OCA\Hermiq\Kernel\Contracts\DocumentFeatureRunInterface;
 use OCA\Hermiq\Service\AiFeatureService;
 use OCA\Hermiq\Service\Chat\AttachmentTextReader;
 use OCA\Hermiq\Service\GuardrailBlockedException;
@@ -55,7 +56,7 @@ use Throwable;
  *
  * @spec openspec/changes/ai-feature-run-on-a-document/specs/ai-feature-governance/spec.md#requirement-an-app-can-run-an-ai-feature-on-a-document-it-names-and-the-gates-apply-to-that-document
  */
-class DocumentFeatureRun {
+class DocumentFeatureRun implements DocumentFeatureRunInterface {
 
 	/**
 	 * The longest instruction an app may send with a run.
@@ -67,7 +68,7 @@ class DocumentFeatureRun {
 	/**
 	 * Constructor.
 	 *
-	 * @param AiFeatureService            $features        Reads the feature register.
+	 * @param AiFeatureLookup             $features        Reads the feature register.
 	 * @param LiteracyRequirement         $literacy        The course requirement and the caller's organisation.
 	 * @param IRootFolder                 $rootFolder      Resolves the document in the caller's Files.
 	 * @param AttachmentTextReader        $textReader      Reads a file's text as the caller.
@@ -77,7 +78,7 @@ class DocumentFeatureRun {
 	 * @return void
 	 */
 	public function __construct(
-		private readonly AiFeatureService $features,
+		private readonly AiFeatureLookup $features,
 		private readonly LiteracyRequirement $literacy,
 		private readonly IRootFolder $rootFolder,
 		private readonly AttachmentTextReader $textReader,

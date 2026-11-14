@@ -15,13 +15,14 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+ * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Agent;
 
+use OCA\Hermiq\Kernel\Contracts\AgentObjectMatcherInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\RegisterMapper;
 use OCA\OpenRegister\Db\SchemaMapper;
@@ -32,9 +33,9 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+ * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
  */
-class AgentObjectMatcher {
+class AgentObjectMatcher implements AgentObjectMatcherInterface {
 
 	/**
 	 * Schema slug for agents.
@@ -77,7 +78,7 @@ class AgentObjectMatcher {
 	 *
 	 * @return bool True when this is a Hermiq agent object.
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
 	 */
 	public function isAgent(ObjectEntity $object): bool {
 		$schema = (string)$object->getSchema();

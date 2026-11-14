@@ -42,7 +42,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md
+ * @spec openspec/specs/conversational-intake/spec.md
  */
 
 declare(strict_types=1);
@@ -51,8 +51,9 @@ namespace OCA\Hermiq\Service\Intake;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\Hermiq\Kernel\Contracts\IntakeServiceInterface;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
+use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -65,9 +66,9 @@ use Throwable;
  *   conversation store, the declared tool grant, the threshold setting and the audit
  *   trail — each a distinct single-responsibility collaborator.
  *
- * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md
+ * @spec openspec/specs/conversational-intake/spec.md
  */
-class IntakeService {
+class IntakeService implements IntakeServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -189,7 +190,7 @@ class IntakeService {
 	 *
 	 * @return array<string, mixed> The conversation as it now stands.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-starting-by-e-mail-and-continuing-in-the-portal
+	 * @spec openspec/specs/conversational-intake/spec.md#scenario-starting-by-e-mail-and-continuing-in-the-portal
 	 */
 	public function receive(
 		string $person,
@@ -198,37 +199,76 @@ class IntakeService {
 		string $text,
 		?DateTimeImmutable $now = null,
 	): array {
-		$at = ($now ?? new DateTimeImmutable('now', new DateTimeZone('UTC')));
+		$message = new IntakeMessage(person: $person, subject: $subject);
+		$message->channel = $channel;
+		$message->text = $text;
+		$message->at = ($now ?? new DateTimeImmutable('now', new DateTimeZone('UTC')));
 
-		$existing = $this->openConversationFor(person: $person, subject: $subject);
+		return $this->receiveMessage(message: $message);
+	}//end receive()
 
-		$data = [
-			'person' => $person,
-			'subject' => $subject,
-			'state' => self::STATE_OPEN,
-			'messages' => [],
-		];
+	/**
+	 * Add the message to the person's open conversation about its subject, opening
+	 * one if there is none.
+	 *
+	 * @param IntakeMessage $message The received message.
+	 *
+	 * @return array<string, mixed> The conversation as it now stands.
+	 *
+	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-starting-by-e-mail-and-continuing-in-the-portal
+	 */
+	private function receiveMessage(IntakeMessage $message): array {
+		$existing = $this->openConversationFor(person: $message->person, subject: $message->subject);
+
+		$data = $this->newConversation(message: $message);
 		$uuid = null;
-
 		if ($existing !== null) {
 			$data = $existing->getObject();
 			$uuid = (string)$existing->getUuid();
 		}
 
-		$messages = ($data['messages'] ?? []);
+		$data['messages'] = $this->withMessage(messages: ($data['messages'] ?? []), message: $message);
+
+		return $this->shape(conversation: $this->save(data: $data, uuid: $uuid));
+	}//end receiveMessage()
+
+	/**
+	 * A new, open conversation of the message's person about its subject.
+	 *
+	 * @param IntakeMessage $message The received message.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function newConversation(IntakeMessage $message): array {
+		return [
+			'person' => $message->person,
+			'subject' => $message->subject,
+			'state' => self::STATE_OPEN,
+			'messages' => [],
+		];
+	}//end newConversation()
+
+	/**
+	 * The conversation's messages with the received one appended (a non-list starts over).
+	 *
+	 * @param mixed         $messages The stored messages.
+	 * @param IntakeMessage $message  The received message.
+	 *
+	 * @return array<int, mixed>
+	 */
+	private function withMessage(mixed $messages, IntakeMessage $message): array {
 		if (is_array($messages) === false) {
 			$messages = [];
 		}
 
 		$messages[] = [
-			'channel' => $channel,
-			'text' => $text,
-			'at' => $at->format('c'),
+			'channel' => $message->channel,
+			'text' => $message->text,
+			'at' => $message->at->format('c'),
 		];
-		$data['messages'] = $messages;
 
-		return $this->shape(conversation: $this->save(data: $data, uuid: $uuid));
-	}//end receive()
+		return $messages;
+	}//end withMessage()
 
 	/**
 	 * Score the escalation of a conversation, preferring the owning app's own rule
@@ -240,7 +280,7 @@ class IntakeService {
 	 *
 	 * @return array<string, mixed>|null The conversation, or null when there is no such conversation.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-the-deterministic-score-wins
+	 * @spec openspec/specs/conversational-intake/spec.md#scenario-the-deterministic-score-wins
 	 */
 	public function scoreEscalation(string $conversationId, ?array $deterministic, ?array $model = null): ?array {
 		$conversation = $this->find(conversationId: $conversationId);
@@ -287,7 +327,7 @@ class IntakeService {
 	 *
 	 * @throws IntakeRefusedException When the grant does not cover the tool.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-a-verdict-travels-into-the-conversation-with-its-author
+	 * @spec openspec/specs/conversational-intake/spec.md#scenario-a-verdict-travels-into-the-conversation-with-its-author
 	 */
 	public function review(
 		string $conversationId,
@@ -295,13 +335,31 @@ class IntakeService {
 		array $arguments,
 		?DateTimeImmutable $now = null,
 	): ?array {
+		$review = new IntakeReview(toolId: $toolId, arguments: $arguments);
+		$review->at = ($now ?? new DateTimeImmutable('now', new DateTimeZone('UTC')));
+
+		return $this->reviewConversation(conversationId: $conversationId, review: $review);
+	}//end review()
+
+	/**
+	 * Call the declared review tool and carry its verdict into the conversation.
+	 *
+	 * @param string       $conversationId The conversation uuid.
+	 * @param IntakeReview $review         The review request.
+	 *
+	 * @return array<string, mixed>|null The conversation, or null when there is no such conversation.
+	 *
+	 * @throws IntakeRefusedException When the grant does not cover the tool.
+	 *
+	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-a-verdict-travels-into-the-conversation-with-its-author
+	 */
+	private function reviewConversation(string $conversationId, IntakeReview $review): ?array {
 		$conversation = $this->find(conversationId: $conversationId);
 		if ($conversation === null) {
 			return null;
 		}
 
-		$at = ($now ?? new DateTimeImmutable('now', new DateTimeZone('UTC')));
-		$answer = $this->grant->call(toolId: $toolId, arguments: $arguments);
+		$answer = $this->grant->call(toolId: $review->toolId, arguments: $review->arguments);
 
 		$data = $conversation->getObject();
 		$reviews = ($data['reviews'] ?? []);
@@ -309,18 +367,30 @@ class IntakeService {
 			$reviews = [];
 		}
 
-		$reviews[] = [
-			'tool' => $toolId,
-			'reviewer' => $this->reviewerFrom(result: $answer['result'], toolId: $toolId),
-			'verdict' => $answer['result'],
-			'failed' => $answer['isError'],
-			'at' => $at->format('c'),
-		];
-
+		$reviews[] = $this->reviewEntry(review: $review, answer: $answer);
 		$data['reviews'] = $reviews;
 
 		return $this->shape(conversation: $this->save(data: $data, uuid: $conversationId));
-	}//end review()
+	}//end reviewConversation()
+
+	/**
+	 * The review as the conversation records it: which tool, who stands behind the
+	 * verdict, the verdict, whether the call failed, and when.
+	 *
+	 * @param IntakeReview         $review The review request.
+	 * @param array<string, mixed> $answer The tool's answer (`result`, `isError`).
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function reviewEntry(IntakeReview $review, array $answer): array {
+		return [
+			'tool' => $review->toolId,
+			'reviewer' => $this->reviewerFrom(result: $answer['result'], toolId: $review->toolId),
+			'verdict' => $answer['result'],
+			'failed' => $answer['isError'],
+			'at' => $review->at->format('c'),
+		];
+	}//end reviewEntry()
 
 	/**
 	 * End the conversation: file it when the classification is confident enough,
@@ -334,7 +404,7 @@ class IntakeService {
 	 *
 	 * @return array<string, mixed>|null The conversation in its terminal state, or null when absent.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-an-uncertain-intake-does-not-guess
+	 * @spec openspec/specs/conversational-intake/spec.md#scenario-an-uncertain-intake-does-not-guess
 	 */
 	public function conclude(
 		string $conversationId,
@@ -343,87 +413,153 @@ class IntakeService {
 		string $intakeTool,
 		?DateTimeImmutable $now = null,
 	): ?array {
+		$conclusion = new IntakeConclusion(classification: $classification, catalogue: $catalogue);
+		$conclusion->intakeTool = $intakeTool;
+		$conclusion->at = ($now ?? new DateTimeImmutable('now', new DateTimeZone('UTC')));
+
+		return $this->concludeConversation(conversationId: $conversationId, conclusion: $conclusion);
+	}//end conclude()
+
+	/**
+	 * End the conversation, store and record its terminal state.
+	 *
+	 * @param string           $conversationId The conversation uuid.
+	 * @param IntakeConclusion $conclusion     How it is to end.
+	 *
+	 * @return array<string, mixed>|null The conversation in its terminal state, or null when absent.
+	 *
+	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-an-uncertain-intake-does-not-guess
+	 */
+	private function concludeConversation(string $conversationId, IntakeConclusion $conclusion): ?array {
 		$conversation = $this->find(conversationId: $conversationId);
 		if ($conversation === null) {
 			return null;
 		}
 
-		$at = ($now ?? new DateTimeImmutable('now', new DateTimeZone('UTC')));
-		$data = $conversation->getObject();
-
-		$type = trim((string)($classification['type'] ?? ''));
-		$confidence = (float)($classification['confidence'] ?? 0.0);
-		$threshold = $this->settings->abstentionThreshold();
-
-		$data['classification'] = [
-			'type' => $type,
-			'confidence' => $confidence,
-			'threshold' => $threshold,
-			'catalogue' => array_values(array_map('strval', $catalogue)),
-		];
-
-		// The catalogue is the municipality's, and a type outside it is not a
-		// low-confidence proposal but an invented one, which is worse: it reads as
-		// an answer and belongs to nobody's process.
-		$inCatalogue = ($type !== '' && in_array($type, array_map('strval', $catalogue), true));
-
-		if ($inCatalogue === false || $confidence < $threshold) {
-			$reason = 'the classification was less certain than the threshold this instance requires';
-			if ($inCatalogue === false) {
-				$reason = 'the proposed request type is not in the catalogue this municipality declares';
-			}
-
-			$data = $this->handOver(
-				data: $data,
-				reason: $reason,
-				at: $at
-			);
-
-			$stored = $this->save(data: $data, uuid: $conversationId);
-			$this->record(conversationId: $conversationId, data: $data);
-
-			return $this->shape(conversation: $stored);
-		}
-
-		$filing = $this->grant->call(
-			toolId: $intakeTool,
-			arguments: [
-				'type' => $type,
-				'subject' => (string)($data['subject'] ?? ''),
-				'person' => (string)($data['person'] ?? ''),
-				'messages' => ($data['messages'] ?? []),
-			]
-		);
-
-		if ($filing['isError'] === true) {
-			// The owning app refused or failed to create. A citizen must not be
-			// dropped because a filing failed, so this is a handover like any other
-			// ending that is not a filed request.
-			$data = $this->handOver(
-				data: $data,
-				reason: 'the owning app did not create a record for this request',
-				at: $at
-			);
-
-			$stored = $this->save(data: $data, uuid: $conversationId);
-			$this->record(conversationId: $conversationId, data: $data);
-
-			return $this->shape(conversation: $stored);
-		}
-
-		$data['state'] = self::STATE_FILED;
-		$data['filed'] = [
-			'tool' => $intakeTool,
-			'type' => $type,
-			'record' => $filing['result'],
-			'at' => $at->format('c'),
-		];
+		$data = $this->classified(data: $conversation->getObject(), conclusion: $conclusion);
+		$data = $this->concluded(data: $data, conclusion: $conclusion);
 
 		$stored = $this->save(data: $data, uuid: $conversationId);
 		$this->record(conversationId: $conversationId, data: $data);
 
 		return $this->shape(conversation: $stored);
-	}//end conclude()
+	}//end concludeConversation()
+
+	/**
+	 * The conversation data with the classification it is concluded on: the
+	 * proposed type and confidence, the threshold applied and the catalogue.
+	 *
+	 * @param array<string, mixed> $data       The conversation data.
+	 * @param IntakeConclusion     $conclusion How it is to end.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function classified(array $data, IntakeConclusion $conclusion): array {
+		$data['classification'] = [
+			'type' => $conclusion->type(),
+			'confidence' => $conclusion->confidence(),
+			'threshold' => $this->settings->abstentionThreshold(),
+			'catalogue' => $conclusion->catalogueTypes(),
+		];
+
+		return $data;
+	}//end classified()
+
+	/**
+	 * File the conversation when the classification is confident enough and the
+	 * owning app creates the record; hand it to a person otherwise.
+	 *
+	 * @param array<string, mixed> $data       The classified conversation data.
+	 * @param IntakeConclusion     $conclusion How it is to end.
+	 *
+	 * @return array<string, mixed> The conversation data in its terminal state.
+	 *
+	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-an-uncertain-intake-does-not-guess
+	 */
+	private function concluded(array $data, IntakeConclusion $conclusion): array {
+		$reason = $this->abstentionReason(data: $data, conclusion: $conclusion);
+		if ($reason !== null) {
+			return $this->handOver(data: $data, reason: $reason, at: $conclusion->at);
+		}
+
+		$filing = $this->file(data: $data, conclusion: $conclusion);
+		if ($filing['isError'] === true) {
+			// The owning app refused or failed to create. A citizen must not be
+			// dropped because a filing failed, so this is a handover like any other
+			// ending that is not a filed request.
+			return $this->handOver(data: $data, reason: 'the owning app did not create a record for this request', at: $conclusion->at);
+		}
+
+		$data['state'] = self::STATE_FILED;
+		$data['filed'] = $this->filedEntry(conclusion: $conclusion, record: $filing['result']);
+
+		return $data;
+	}//end concluded()
+
+	/**
+	 * Why the intake must not file, or null when it may.
+	 *
+	 * The catalogue is the municipality's, and a type outside it is not a
+	 * low-confidence proposal but an invented one, which is worse: it reads as
+	 * an answer and belongs to nobody's process.
+	 *
+	 * @param array<string, mixed> $data       The classified conversation data.
+	 * @param IntakeConclusion     $conclusion How it is to end.
+	 *
+	 * @return string|null
+	 *
+	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-an-uncertain-intake-does-not-guess
+	 */
+	private function abstentionReason(array $data, IntakeConclusion $conclusion): ?string {
+		if ($conclusion->inCatalogue() === false) {
+			return 'the proposed request type is not in the catalogue this municipality declares';
+		}
+
+		if ($conclusion->confidence() < $data['classification']['threshold']) {
+			return 'the classification was less certain than the threshold this instance requires';
+		}
+
+		return null;
+	}//end abstentionReason()
+
+	/**
+	 * Ask the owning app's create-only intake tool to file the request.
+	 *
+	 * @param array<string, mixed> $data       The classified conversation data.
+	 * @param IntakeConclusion     $conclusion How it is to end.
+	 *
+	 * @return array<string, mixed> The tool's answer (`result`, `isError`).
+	 *
+	 * @throws IntakeRefusedException When the grant does not cover the tool.
+	 */
+	private function file(array $data, IntakeConclusion $conclusion): array {
+		return $this->grant->call(
+			toolId: $conclusion->intakeTool,
+			arguments: [
+				'type' => $conclusion->type(),
+				'subject' => (string)($data['subject'] ?? ''),
+				'person' => (string)($data['person'] ?? ''),
+				'messages' => ($data['messages'] ?? []),
+			]
+		);
+	}//end file()
+
+	/**
+	 * The filing as the conversation records it.
+	 *
+	 * @param IntakeConclusion $conclusion How it ended.
+	 * @param mixed            $record     The record the owning app created.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function filedEntry(IntakeConclusion $conclusion, mixed $record): array {
+		return [
+			'tool' => $conclusion->intakeTool,
+			'type' => $conclusion->type(),
+			'record' => $record,
+			'at' => $conclusion->at->format('c'),
+		];
+	}//end filedEntry()
 
 	/**
 	 * One conversation, as a reader sees it.
@@ -432,7 +568,7 @@ class IntakeService {
 	 *
 	 * @return array<string, mixed>|null The conversation, or null.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#requirement-no-conversation-must-dead-end
+	 * @spec openspec/specs/conversational-intake/spec.md#requirement-no-conversation-must-dead-end
 	 */
 	public function conversation(string $conversationId): ?array {
 		$conversation = $this->find(conversationId: $conversationId);
@@ -453,7 +589,7 @@ class IntakeService {
 	 *
 	 * @return array<string, mixed> The conversation data, handed over.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-an-unhelpable-conversation-reaches-a-person
+	 * @spec openspec/specs/conversational-intake/spec.md#scenario-an-unhelpable-conversation-reaches-a-person
 	 */
 	private function handOver(array $data, string $reason, DateTimeImmutable $at): array {
 		$data['state'] = self::STATE_HANDOVER;
@@ -499,7 +635,7 @@ class IntakeService {
 	 *
 	 * @return ObjectEntity|null The conversation, or null.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#requirement-one-conversation-must-span-the-channels-a-person-uses
+	 * @spec openspec/specs/conversational-intake/spec.md#requirement-one-conversation-must-span-the-channels-a-person-uses
 	 */
 	private function openConversationFor(string $person, string $subject): ?ObjectEntity {
 		try {
@@ -605,7 +741,7 @@ class IntakeService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#requirement-intake-must-be-registered-as-an-ai-feature-with-its-own-risk-category
+	 * @spec openspec/specs/conversational-intake/spec.md#requirement-intake-must-be-registered-as-an-ai-feature-with-its-own-risk-category
 	 */
 	private function record(string $conversationId, array $data): void {
 		try {

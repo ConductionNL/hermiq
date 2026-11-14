@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
  */
 
 declare(strict_types=1);
@@ -35,7 +35,7 @@ use Throwable;
 /**
  * Mints, and consumes, the run token of one `cli` turn or warm-up.
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
  */
 final class CliRunTokens {
 
@@ -115,7 +115,7 @@ final class CliRunTokens {
 	 *
 	 * @throws ProviderUnavailableException When a tool-requiring turn cannot be governed (503).
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
 	 */
 	public function mintTurnTokens(CliTurn $turn): void {
 		if (empty($turn->functions) === false) {
@@ -150,7 +150,7 @@ final class CliRunTokens {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
 	 */
 	public function consumeColdRunToken(CliTurn $turn): void {
 		$consume = ($turn->runToken !== null && $this->runTokenService !== null);
@@ -171,7 +171,7 @@ final class CliRunTokens {
 	 *
 	 * @throws ProviderUnavailableException When the turn cannot be governed (503).
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
 	 *
 	 */
 	private function mintGovernedRunToken(CliTurn $turn): string {
@@ -313,7 +313,7 @@ final class CliRunTokens {
 	 *
 	 * @return string The token, or '' when one could not be minted.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
 	 */
 	private function mintEgressRunToken(?string $agentId, ?string $uid): string {
 		if ($this->runTokenService === null || $uid === null || $uid === '') {
@@ -358,7 +358,7 @@ final class CliRunTokens {
 	 *   is a second copy of the rewrite rule, and a second copy is what puts the egress
 	 *   PDP and this config into disagreement about where the endpoint is.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
 	 */
 	private function buildGovernedMcpConfig(string $runToken): array {
 		return [

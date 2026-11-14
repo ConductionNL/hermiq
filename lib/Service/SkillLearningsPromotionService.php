@@ -39,6 +39,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\SkillLearningsPromotionServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -49,7 +50,7 @@ use Throwable;
  *
  * @spec openspec/specs/skill-learnings/spec.md#requirement-promotion-is-a-mechanical-two-stage-background-pass
  */
-class SkillLearningsPromotionService {
+class SkillLearningsPromotionService implements SkillLearningsPromotionServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -273,40 +274,64 @@ class SkillLearningsPromotionService {
 	 * @spec openspec/specs/skill-learnings/spec.md#requirement-promotion-is-a-mechanical-two-stage-background-pass
 	 */
 	private function sortCandidates(array $candidates): array {
-		$kept = [];
-		$promoted = [];
-		$dropped = 0;
+		$sorted = ['kept' => [], 'promoted' => [], 'dropped' => 0];
 
 		foreach ($candidates as $candidate) {
-			if ($candidate['raw'] !== null) {
-				// Unparseable/legacy line: never destroyed by promotion, but it ages
-				// out via the same expiry rule when a loose date is extractable.
-				if ($this->rawLineExpired(line: (string)$candidate['raw']) === true) {
-					$dropped++;
-					continue;
-				}
-
-				$kept[] = $candidate;
+			$bucket = $this->candidateBucket(candidate: $candidate);
+			if ($bucket === 'dropped') {
+				$sorted['dropped']++;
 				continue;
 			}
 
-			$distinctRuns = count(array_unique($candidate['runs']));
+			$sorted[$bucket][] = $candidate;
+		}
 
-			if ($distinctRuns >= self::CONFIRMATION_THRESHOLD || $candidate['evalFail'] !== '') {
-				$promoted[] = $candidate;
-				continue;
-			}
-
-			if ($this->isExpired(date: $candidate['date']) === true) {
-				$dropped++;
-				continue;
-			}
-
-			$kept[] = $candidate;
-		}//end foreach
-
-		return ['kept' => $kept, 'promoted' => $promoted, 'dropped' => $dropped];
+		return $sorted;
 	}//end sortCandidates()
+
+	/**
+	 * The bucket one candidate lands in: `promoted`, `dropped` or `kept`.
+	 *
+	 * A parsed candidate is promoted on enough distinct confirming runs or an eval
+	 * failure, before expiry is considered; otherwise it is dropped once expired.
+	 *
+	 * @param array<string, mixed> $candidate One candidate.
+	 *
+	 * @return string The bucket.
+	 */
+	private function candidateBucket(array $candidate): string {
+		if ($candidate['raw'] !== null) {
+			return $this->rawLineBucket(line: (string)$candidate['raw']);
+		}
+
+		if (count(array_unique($candidate['runs'])) >= self::CONFIRMATION_THRESHOLD || $candidate['evalFail'] !== '') {
+			return 'promoted';
+		}
+
+		if ($this->isExpired(date: $candidate['date']) === true) {
+			return 'dropped';
+		}
+
+		return 'kept';
+
+	}//end candidateBucket()
+
+	/**
+	 * The bucket of an unparseable/legacy line: never destroyed by promotion, but it
+	 * ages out via the same expiry rule when a loose date is extractable.
+	 *
+	 * @param string $line The raw line.
+	 *
+	 * @return string `dropped` when expired, `kept` otherwise.
+	 */
+	private function rawLineBucket(string $line): string {
+		if ($this->rawLineExpired(line: $line) === true) {
+			return 'dropped';
+		}
+
+		return 'kept';
+
+	}//end rawLineBucket()
 
 	/**
 	 * Append promoted candidates to `learnings.md` under their tagged sections,
@@ -326,22 +351,8 @@ class SkillLearningsPromotionService {
 		}
 
 		$lines = explode("\n", rtrim($content, "\n"));
-
 		foreach ($promoted as $candidate) {
-			$heading = (self::SECTION_HEADINGS[(string)$candidate['section']] ?? '');
-			if ($heading === '') {
-				// Defensive: an unknown tag never lands anywhere near Consolidated
-				// Principles — it is simply not promoted into the file.
-				continue;
-			}
-
-			$provenance = 'promoted ' . $this->today() . ' | runs: ' . implode(',', array_unique($candidate['runs']));
-			if ($candidate['evalFail'] !== '') {
-				$provenance .= ' | eval-fail: ' . $candidate['evalFail'];
-			}
-
-			$entry = '- ' . $candidate['text'] . ' <!-- ' . $provenance . ' -->';
-			$lines = $this->insertUnderHeading(lines: $lines, heading: '## ' . $heading, entry: $entry);
+			$lines = $this->withPromotedEntry(lines: $lines, candidate: $candidate);
 		}
 
 		return implode("\n", $lines) . "\n";
@@ -391,36 +402,86 @@ class SkillLearningsPromotionService {
 	}//end countLearningsEntries()
 
 	/**
-	 * Insert an entry directly under a section heading (after any existing entries of
-	 * that section), appending the heading at the end when the file lacks it.
+	 * Add one promoted candidate to the file lines as an entry with its provenance,
+	 * directly under its section heading (after any existing entries of that section),
+	 * appending the heading at the end when the file lacks it.
 	 *
 	 * @param array<int, string> $lines The file lines.
-	 * @param string $heading The exact heading line (e.g. `## Domain Knowledge`).
-	 * @param string $entry The entry line to insert.
+	 * @param array<string, mixed> $candidate The promoted candidate.
 	 *
 	 * @return array<int, string> The updated lines.
 	 *
 	 * @spec openspec/specs/skill-learnings/spec.md#requirement-promotion-is-a-mechanical-two-stage-background-pass
 	 */
-	private function insertUnderHeading(array $lines, string $heading, string $entry): array {
-		$headingIndex = null;
-		foreach ($lines as $index => $line) {
-			if (trim($line) === $heading) {
-				$headingIndex = $index;
-				break;
-			}
-		}
-
-		if ($headingIndex === null) {
-			// A hand-edited file missing the section: append the heading + entry at
-			// the END of the file, never inside another section.
-			$lines[] = '';
-			$lines[] = $heading;
-			$lines[] = $entry;
+	private function withPromotedEntry(array $lines, array $candidate): array {
+		$heading = (self::SECTION_HEADINGS[(string)$candidate['section']] ?? '');
+		if ($heading === '') {
+			// Defensive: an unknown tag never lands anywhere near Consolidated
+			// Principles — it is simply not promoted into the file.
 			return $lines;
 		}
 
-		// Walk forward to the end of this section (the next `## ` heading or EOF).
+		$entry = '- ' . $candidate['text'] . ' <!-- ' . $this->provenanceOf(candidate: $candidate) . ' -->';
+		$position = $this->entryPosition(lines: $lines, heading: '## ' . $heading);
+		if ($position === null) {
+			// A hand-edited file missing the section: append the heading + entry at
+			// the END of the file, never inside another section.
+			array_push($lines, '', '## ' . $heading, $entry);
+			return $lines;
+		}
+
+		array_splice($lines, $position, 0, [$entry]);
+		return $lines;
+
+	}//end withPromotedEntry()
+
+	/**
+	 * The provenance comment of a promoted entry: the day, the distinct confirming
+	 * runs, and the eval failure when there was one.
+	 *
+	 * @param array<string, mixed> $candidate The promoted candidate.
+	 *
+	 * @return string The provenance.
+	 */
+	private function provenanceOf(array $candidate): string {
+		$provenance = 'promoted ' . $this->today() . ' | runs: ' . implode(',', array_unique($candidate['runs']));
+		if ($candidate['evalFail'] !== '') {
+			$provenance .= ' | eval-fail: ' . $candidate['evalFail'];
+		}
+
+		return $provenance;
+
+	}//end provenanceOf()
+
+	/**
+	 * Where a new entry of a section goes: after the section's last entry.
+	 *
+	 * @param array<int, string> $lines The file lines.
+	 * @param string $heading The exact heading line (e.g. `## Domain Knowledge`).
+	 *
+	 * @return int|null The line index, or null when the file lacks the heading.
+	 */
+	private function entryPosition(array $lines, string $heading): ?int {
+		foreach ($lines as $index => $line) {
+			if (trim($line) === $heading) {
+				return $this->sectionEnd(lines: $lines, headingIndex: $index);
+			}
+		}
+
+		return null;
+
+	}//end entryPosition()
+
+	/**
+	 * The end of the section under a heading: the next `## ` heading or EOF, backed
+	 * up over trailing blank lines so entries stay grouped under the heading.
+	 *
+	 * @param array<int, string> $lines The file lines.
+	 * @param int $headingIndex The heading's line index.
+	 *
+	 * @return int The line index after the section's last entry.
+	 */
+	private function sectionEnd(array $lines, int $headingIndex): int {
 		$insertAt = count($lines);
 		$total = count($lines);
 		for ($i = ($headingIndex + 1); $i < $total; $i++) {
@@ -430,15 +491,13 @@ class SkillLearningsPromotionService {
 			}
 		}
 
-		// Back up over trailing blank lines so entries stay grouped under the heading.
 		while ($insertAt > ($headingIndex + 1) && trim($lines[($insertAt - 1)]) === '') {
 			$insertAt--;
 		}
 
-		array_splice($lines, $insertAt, 0, [$entry]);
+		return $insertAt;
 
-		return $lines;
-	}//end insertUnderHeading()
+	}//end sectionEnd()
 
 	/**
 	 * Whether a candidate's last-touched date is beyond the expiry window.

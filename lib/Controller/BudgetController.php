@@ -31,8 +31,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\BudgetService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\BudgetServiceInterface;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
@@ -62,7 +62,7 @@ class BudgetController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param BudgetService $budgetService The budget read/write service.
+	 * @param BudgetServiceInterface $budgetService The budget read/write service.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IGroupManager $groupManager Instance-admin check.
 	 * @param OrganisationMapper $organisationMapper OpenRegister organisation lookup (owner check).
@@ -72,14 +72,14 @@ class BudgetController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly BudgetService $budgetService,
+		private readonly BudgetServiceInterface $budgetService,
 		private readonly IUserSession $userSession,
 		private readonly IGroupManager $groupManager,
 		private readonly OrganisationMapper $organisationMapper,
 		private readonly ObjectService $objectService,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -151,7 +151,7 @@ class BudgetController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/cost-guardrails/specs/run-analytics/spec.md#requirement-pre-run-cost-estimate-derived-from-trailing-per-agent-run-history
+	 * @spec openspec/specs/run-analytics/spec.md#requirement-pre-run-cost-estimate-derived-from-trailing-per-agent-run-history
 	 *
 	 * @no-admin-idor-exempt the agent lookup runs under OpenRegister's RBAC,
 	 * which is on by default. estimateNextRun() reaches the agent through
@@ -289,8 +289,8 @@ class BudgetController extends Controller {
 			// that gate this call would be an IDOR.
 			$this->objectService->deleteObject(
 				uuid: $budgetId,
-				register: BudgetService::REGISTER_SLUG,
-				schema: BudgetService::BUDGET_SCHEMA,
+				register: BudgetServiceInterface::REGISTER_SLUG,
+				schema: BudgetServiceInterface::BUDGET_SCHEMA,
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -315,20 +315,7 @@ class BudgetController extends Controller {
 	 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
 	 */
 	private function mayAdminister(string $organisation, IUser $user): bool {
-		if ($organisation === '') {
-			return false;
-		}
-
-		if ($this->groupManager->isAdmin($user->getUID()) === true) {
-			return true;
-		}
-
-		try {
-			$org = $this->organisationMapper->findByUuid($organisation);
-		} catch (Throwable $e) {
-			return false;
-		}
-
-		return (string)($org->getOwner() ?? '') === $user->getUID();
+		$administrators = new OrganisationAdministrators(groupManager: $this->groupManager, organisationMapper: $this->organisationMapper);
+		return $administrators->mayAdminister(organisation: $organisation, user: $user);
 	}//end mayAdminister()
 }//end class

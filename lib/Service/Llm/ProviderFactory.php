@@ -47,8 +47,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
- * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-2
  */
 
 declare(strict_types=1);
@@ -62,10 +62,11 @@ use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use LLPhant\OllamaConfig;
 use LLPhant\OpenAIConfig;
+use OCA\Hermiq\Kernel\Contracts\ProviderFactoryInterface;
+use OCA\Hermiq\Service\AiFeature\DataUseGate;
+use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
 use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
-use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
-use OCA\Hermiq\Service\AiFeature\DataUseGate;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCP\App\IAppManager;
 use OCP\Http\Client\IResponse;
@@ -79,7 +80,6 @@ use OpenAI;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
-use stdClass;
 use Throwable;
 
 /**
@@ -104,9 +104,9 @@ use Throwable;
  * direct-HTTP branch lives here in full (see ExcessiveClassComplexity above); the length
  * is the sum of those individually simple branches.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
  */
-class ProviderFactory {
+class ProviderFactory implements ProviderFactoryInterface {
 
 	/**
 	 * Slack (SECONDS) added to the runner's own timeout to form Hermiq's.
@@ -180,6 +180,13 @@ class ProviderFactory {
 	 * @var CliRunTokens|null
 	 */
 	private ?CliRunTokens $cliRunTokens = null;
+
+	/**
+	 * The Anthropic Messages API wire shapes, built on first use.
+	 *
+	 * @var AnthropicMessageFormat|null
+	 */
+	private ?AnthropicMessageFormat $anthropicFormat = null;
 
 	/**
 	 * Constructor.
@@ -290,10 +297,10 @@ class ProviderFactory {
 	 *   distinct injected collaborator (several nullable/defaulted for backward-compatible
 	 *   test call sites), not a logic-bearing argument list.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
 	 * @spec openspec/changes/llm-cli-runner-exapp/specs/llm-cli-runner-exapp/spec.md#requirement-optional-cli-execution-mode-routes-turns-through-the-runner-exapp
-	 * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
 	 */
 	public function __construct(
 		private readonly LlmSettingsHandler $settingsHandler,
@@ -332,6 +339,19 @@ class ProviderFactory {
 
 		return $this->cliRunTokens;
 	}//end cliRunTokens()
+
+	/**
+	 * The Anthropic Messages API wire shapes.
+	 *
+	 * @return AnthropicMessageFormat
+	 */
+	private function anthropicFormat(): AnthropicMessageFormat {
+		if ($this->anthropicFormat === null) {
+			$this->anthropicFormat = new AnthropicMessageFormat();
+		}
+
+		return $this->anthropicFormat;
+	}//end anthropicFormat()
 
 	/**
 	 * The tokens the most recent hosted chat call reported.
@@ -382,7 +402,7 @@ class ProviderFactory {
 	 *
 	 * @return array LLM configuration (see LlmSettingsHandler::getLLMSettingsOnly()).
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
 	 */
 	public function getLlmConfig(): array {
 		return $this->settingsHandler->getLLMSettingsOnly();
@@ -433,9 +453,9 @@ class ProviderFactory {
 	 *                                       reads no unredacted document and the one it was
 	 *                                       handed has no recorded redaction.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-2
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
 	 */
 	/**
 	 * Build the driver for one named provider.
@@ -551,9 +571,9 @@ class ProviderFactory {
 	 *                                       reads no unredacted document and the one it was
 	 *                                       handed has no recorded redaction.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-2
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
 	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
@@ -686,7 +706,7 @@ class ProviderFactory {
 	 *
 	 * @throws ModelPolicyViolationException When the pair is outside the effective policy.
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
 	 */
 	private function enforceModelPolicy(?string $organisation, string $provider, string $model): void {
 		if ($organisation === null || $this->modelPolicyService === null) {
@@ -734,7 +754,7 @@ class ProviderFactory {
 	 *
 	 * @throws PinnedCredentialRefusedException When the pin for `$provider` cannot be used.
 	 *
-	 * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
 	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
 	 */
 	private function resolveCredentialOverride(string $provider, ?string $organisation, ?array $pinned = null): ?string {
@@ -780,7 +800,7 @@ class ProviderFactory {
 	 *
 	 * @throws \Exception If the HTTP call fails or the response is malformed.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
 	 */
 	public function callFireworksChat(
 		string $credentialId,
@@ -948,7 +968,7 @@ class ProviderFactory {
 	 *
 	 * @return array<string, string> The request headers.
 	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
+	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
 	 */
 	public function buildAnthropicHeaders(string $authMode): array {
 		$headers = [
@@ -1035,7 +1055,7 @@ class ProviderFactory {
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Mirrors callFireworksChat's direct-HTTP signature
 	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
+	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
 	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-execution-mode-selects-the-anthropic-transport-and-defaults-to-http
 	 */
 	public function callAnthropicChat(
@@ -1118,7 +1138,7 @@ class ProviderFactory {
 	 */
 	private function callAnthropicHttp(AnthropicChatRun $run): string {
 		$loop = new AnthropicToolLoop(run: $run, defaultCap: self::MAX_TOOL_ITERATIONS);
-		$mapped = $this->mapHistoryToAnthropicMessages(messageHistory: $run->messageHistory);
+		$mapped = $this->anthropicFormat()->mapHistoryToAnthropicMessages(messageHistory: $run->messageHistory);
 		$loop->system = $mapped['system'];
 		$loop->messages = $mapped['messages'];
 		$loop->tools = $this->offeredAnthropicTools(run: $run);
@@ -1152,7 +1172,7 @@ class ProviderFactory {
 		}
 
 		if ($run->toolExecutor !== null) {
-			return $this->buildAnthropicTools(functions: $run->functions);
+			return $this->anthropicFormat()->buildAnthropicTools(functions: $run->functions);
 		}
 
 		$this->logger->warning(
@@ -1174,7 +1194,7 @@ class ProviderFactory {
 	 * @return bool True when the loop needs another request.
 	 */
 	private function anthropicRound(AnthropicToolLoop $loop): bool {
-		$parsed = $this->parseAnthropicResponse(
+		$parsed = $this->anthropicFormat()->parseAnthropicResponse(
 			data: $this->postToAnthropic(loop: $loop, payload: $this->anthropicPayload(loop: $loop))
 		);
 		$loop->text = $parsed['text'];
@@ -1266,7 +1286,7 @@ class ProviderFactory {
 
 		$loop->messages[] = [
 			'role' => 'user',
-			'content' => $this->buildAnthropicToolResultBlocks(toolResults: $toolResults),
+			'content' => $this->anthropicFormat()->buildAnthropicToolResultBlocks(toolResults: $toolResults),
 		];
 	}//end runAnthropicToolCalls()
 
@@ -1369,7 +1389,7 @@ class ProviderFactory {
 	 *                                      credential cannot be resolved or is organisation-scope
 	 *                                      (503), or the dispatch fails (503).
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
 	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-cli-completion-is-mapped-back-into-the-driver-response-and-the-sse-envelope
 	 */
 	private function callAnthropicCli(
@@ -1584,8 +1604,8 @@ class ProviderFactory {
 	 * @throws ProviderUnavailableException On any transport, status, or shape failure (503).
 	 *
 	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
 	 */
 	private function dispatchCliTurn(CliTurn $turn, string $token): string {
 		$body = $this->cliRunner()->send(turn: $turn, token: $token);
@@ -1645,54 +1665,6 @@ class ProviderFactory {
 	}//end mapCliCompletion()
 
 	/**
-	 * Split an LLPhant message history into Anthropic's `{system, messages}` shape.
-	 *
-	 * System turns are concatenated into the top-level `system` string (Anthropic keeps
-	 * the system prompt out of `messages`); user/assistant turns become
-	 * `{role, content}` entries.
-	 *
-	 * @param array $messageHistory Array of LLPhant Message objects.
-	 *
-	 * @return array{system: string, messages: array<int, array<string, mixed>>}
-	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
-	 */
-	public function mapHistoryToAnthropicMessages(array $messageHistory): array {
-		$systemParts = [];
-		$messages = [];
-		foreach ($messageHistory as $msg) {
-			$role = $msg->role->value;
-			if ($role === 'system') {
-				$systemParts[] = (string)$msg->content;
-				continue;
-			}
-
-			// @todo llm-cli-runner-exapp / anthropic-agent-provider — Hermiq's engine never
-			// stores prior tool_use/tool_result turns as LLPhant messages today (tool turns
-			// live only inside this call's Anthropic loop). If a future history carries them
-			// (e.g. LLPhant Message::toolCalls), map them to tool_use/tool_result content
-			// blocks here. Until then, pass text turns through — the common path.
-			// Chat-attachments-and-images: a turn with native parts carries its image
-			// and document blocks ahead of the text.
-			if ($msg instanceof AttachmentMessage) {
-				$messages[] = ['role' => $role, 'content' => $msg->anthropicContent()];
-				continue;
-			}
-
-			$messages[] = [
-				'role' => $role,
-				'content' => (string)$msg->content,
-			];
-		}
-
-		return [
-			'system' => implode("\n\n", $systemParts),
-			'messages' => $messages,
-		];
-
-	}//end mapHistoryToAnthropicMessages()
-
-	/**
 	 * Map LLPhant history onto Fireworks' OpenAI-compatible `messages`.
 	 *
 	 * Text turns become `{role, content}`. A turn with native parts carries the
@@ -1722,192 +1694,6 @@ class ProviderFactory {
 	}//end mapHistoryToFireworksMessages()
 
 	/**
-	 * Map OpenAI-style function definitions to Anthropic `tools`.
-	 *
-	 * OpenAI's `{name, description, parameters}` becomes Anthropic's `{name, description,
-	 * input_schema}` (the ONLY structural difference is `parameters` → `input_schema`).
-	 * Entries without a name are skipped; a missing schema defaults to an empty object
-	 * schema so the model still sees a valid, argument-less tool.
-	 *
-	 * @param array $functions OpenAI-style function definitions.
-	 *
-	 * @return array<int, array<string, mixed>> Anthropic tool definitions.
-	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
-	 */
-	public function buildAnthropicTools(array $functions): array {
-		$tools = [];
-		foreach ($functions as $function) {
-			if (is_array($function) === false || isset($function['name']) === false) {
-				continue;
-			}
-
-			$schema = $function['parameters'] ?? null;
-			if (is_array($schema) === false) {
-				$schema = ['type' => 'object'];
-			}
-
-			if (isset($schema['type']) === false) {
-				$schema['type'] = 'object';
-			}
-
-			// Anthropic requires `input_schema.properties` to be a JSON object.
-			// An argument-less tool has an empty properties map, and PHP's
-			// json_encode emits an empty PHP array as `[]` (a JSON array), which
-			// Anthropic rejects with "Input should be an object". Force an empty
-			// stdClass so it serialises as `{}`.
-			// `isset()` is already false for a null properties, so an explicit
-			// `=== null` here would be unreachable.
-			if (isset($schema['properties']) === false || $schema['properties'] === []) {
-				$schema['properties'] = new stdClass();
-			}
-
-			$tools[] = [
-				'name' => (string)$function['name'],
-				'description' => (string)($function['description'] ?? ''),
-				'input_schema' => $schema,
-			];
-		}//end foreach
-
-		return $tools;
-	}//end buildAnthropicTools()
-
-	/**
-	 * Parse an Anthropic Messages API response into the engine-facing shape.
-	 *
-	 * Concatenates every `type: "text"` content block into `text`, extracts every
-	 * `type: "tool_use"` block into `toolCalls` (`{id, name, input}` — the same
-	 * descriptor shape the runner path normalises into), and carries the `stop_reason`,
-	 * the raw `content` array (echoed back verbatim as the assistant tool_use turn on the
-	 * next loop pass), and token `usage`.
-	 *
-	 * @param array $data Decoded Anthropic Messages API response.
-	 *
-	 * @return array{text: string, toolCalls: array<int, array<string, mixed>>,
-	 *     stopReason: string, content: array<int, mixed>, usage: array<string, int>}
-	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
-	 */
-	public function parseAnthropicResponse(array $data): array {
-		$content = [];
-		if (is_array($data['content'] ?? null) === true) {
-			$content = $data['content'];
-		}
-
-		return [
-			'text' => $this->anthropicText(content: $content),
-			'toolCalls' => $this->anthropicToolCalls(content: $content),
-			'stopReason' => (string)($data['stop_reason'] ?? ''),
-			'content' => $content,
-			'usage' => $this->anthropicUsage(data: $data),
-		];
-
-	}//end parseAnthropicResponse()
-
-	/**
-	 * The concatenated text of every `text` block.
-	 *
-	 * @param array<int, mixed> $content The response's content blocks.
-	 *
-	 * @return string
-	 */
-	private function anthropicText(array $content): string {
-		$text = '';
-		foreach ($content as $block) {
-			if (is_array($block) === true && ($block['type'] ?? '') === 'text') {
-				$text .= (string)($block['text'] ?? '');
-			}
-		}
-
-		return $text;
-	}//end anthropicText()
-
-	/**
-	 * Every `tool_use` block as `{id, name, input}`, with a non-array input as `[]`.
-	 *
-	 * @param array<int, mixed> $content The response's content blocks.
-	 *
-	 * @return array<int, array<string, mixed>>
-	 */
-	private function anthropicToolCalls(array $content): array {
-		$toolCalls = [];
-		foreach ($content as $block) {
-			if (is_array($block) === false || ($block['type'] ?? '') !== 'tool_use') {
-				continue;
-			}
-
-			$input = ($block['input'] ?? []);
-			if (is_array($input) === false) {
-				$input = [];
-			}
-
-			$toolCalls[] = [
-				'id' => (string)($block['id'] ?? ''),
-				'name' => (string)($block['name'] ?? ''),
-				'input' => $input,
-			];
-		}
-
-		return $toolCalls;
-	}//end anthropicToolCalls()
-
-	/**
-	 * The response's token usage, or `[]` when it reports none.
-	 *
-	 * @param array<string, mixed> $data Decoded Anthropic Messages API response.
-	 *
-	 * @return array<string, int>
-	 */
-	private function anthropicUsage(array $data): array {
-		$rawUsage = ($data['usage'] ?? []);
-		if (is_array($rawUsage) === false) {
-			return [];
-		}
-
-		return [
-			'promptTokens' => (int)($rawUsage['input_tokens'] ?? 0),
-			'completionTokens' => (int)($rawUsage['output_tokens'] ?? 0),
-		];
-	}//end anthropicUsage()
-
-	/**
-	 * Build the Anthropic `tool_result` content blocks for one user turn.
-	 *
-	 * Each `{tool_use_id, content, is_error?}` becomes a `{type: "tool_result",
-	 * tool_use_id, content}` block (with `is_error` passed through when set). This is the
-	 * inverse of `parseAnthropicResponse()`'s tool_use extraction — a governed tool
-	 * result round-trips back into an Anthropic content block.
-	 *
-	 * @param array $toolResults `[{tool_use_id: string, content: string, is_error?: bool}, ...]`.
-	 *
-	 * @return array<int, array<string, mixed>> Anthropic tool_result content blocks.
-	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
-	 */
-	public function buildAnthropicToolResultBlocks(array $toolResults): array {
-		$blocks = [];
-		foreach ($toolResults as $toolResult) {
-			if (is_array($toolResult) === false) {
-				continue;
-			}
-
-			$block = [
-				'type' => 'tool_result',
-				'tool_use_id' => (string)($toolResult['tool_use_id'] ?? ''),
-				'content' => (string)($toolResult['content'] ?? ''),
-			];
-
-			if (($toolResult['is_error'] ?? false) === true) {
-				$block['is_error'] = true;
-			}
-
-			$blocks[] = $block;
-		}
-
-		return $blocks;
-	}//end buildAnthropicToolResultBlocks()
-
-	/**
 	 * POST one Anthropic Messages request through the broker and return the decoded body.
 	 *
 	 * Extracted so the tool loop can issue multiple round-trips without duplicating the
@@ -1920,7 +1706,7 @@ class ProviderFactory {
 	 *
 	 * @throws \Exception If the HTTP call fails or the response is malformed.
 	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
+	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
 	 */
 	private function postToAnthropic(AnthropicToolLoop $loop, array $payload): array {
 		$psrResponse = $this->sendToAnthropic(loop: $loop, payload: $payload);
@@ -2072,7 +1858,7 @@ class ProviderFactory {
 	 * @throws ProviderUnavailableException When no TaskProcessing provider is installed,
 	 *                                      or the task fails/returns no output.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-2
 	 */
 	public function generateViaNextcloud(string $prompt, ?string $userId = null, ?string $customId = null): string {
 		if ($this->taskManager->hasProviders() === false) {
@@ -2154,7 +1940,7 @@ class ProviderFactory {
 	 * Mirrors the accepted `ScheduleService::runNow($bypassApprovalGate)` precedent.
 	 *
 	 * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-2-1
-	 * @spec openspec/changes/agent-evals/tasks.md#task-4-providerfactorygeneratetext-optional-organisation-param
+	 * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-4-providerfactorygeneratetext-optional-organisation-param
 	 * @spec openspec/changes/ai-feature-run-on-a-document/specs/ai-feature-governance/spec.md#requirement-an-app-can-run-an-ai-feature-on-a-document-it-names-and-the-gates-apply-to-that-document
 	 */
 	public function generateText(
@@ -2285,7 +2071,7 @@ class ProviderFactory {
 	 *
 	 * @throws ProviderUnavailableException When the OpenAI API key is not configured.
 	 *
-	 * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
 	 */
 	private function createOpenAiDriver(array $openaiConfig, ChatDriverRequest $request): ChatDriver {
 		$credentialId = $this->overriddenCredentialId(
@@ -2445,7 +2231,7 @@ class ProviderFactory {
 	 *
 	 * @throws ProviderUnavailableException When the Fireworks API key is not configured.
 	 *
-	 * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
 	 */
 	private function createFireworksDriver(array $fireworksConfig, ChatDriverRequest $request): ChatDriver {
 		$credentialId = $this->overriddenCredentialId(
@@ -2492,7 +2278,7 @@ class ProviderFactory {
 	 *                                      OpenRegister credential broker is unavailable (503),
 	 *                                      mirroring createOpenAiDriver().
 	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
 	 */
 	private function createAnthropicDriver(array $anthropicConfig, ChatDriverRequest $request): ChatDriver {
 		$credentialId = (string)($anthropicConfig['credentialId'] ?? '');
@@ -2557,7 +2343,7 @@ class ProviderFactory {
 	 *
 	 * @return string The model id to send to Anthropic.
 	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
 	 */
 	private function resolveAnthropicModel(string $configuredModel, ?string $agentModel): string {
 		if (empty($agentModel) === true) {

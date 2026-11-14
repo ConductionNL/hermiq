@@ -53,7 +53,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/delivery-channels/tasks.md#task-2-webhooksecretservice-icredentialsmanager-backed-mintrotaterevoke
+ * @spec openspec/changes/archive/2026-07-13-delivery-channels/tasks.md#task-2-webhooksecretservice-icredentialsmanager-backed-mintrotaterevoke
  */
 
 declare(strict_types=1);
@@ -62,6 +62,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\ScheduleWebhookSecretServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserManager;
@@ -75,9 +76,9 @@ use Throwable;
  * Mints, rotates, revokes, and reports the status of a per-schedule outbound
  * webhook signing secret custodied in `ICredentialsManager`.
  *
- * @spec openspec/changes/delivery-channels/tasks.md#task-2-webhooksecretservice-icredentialsmanager-backed-mintrotaterevoke
+ * @spec openspec/changes/archive/2026-07-13-delivery-channels/tasks.md#task-2-webhooksecretservice-icredentialsmanager-backed-mintrotaterevoke
  */
-class ScheduleWebhookSecretService {
+class ScheduleWebhookSecretService implements ScheduleWebhookSecretServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq schedule objects.
@@ -144,7 +145,7 @@ class ScheduleWebhookSecretService {
 	 *
 	 * @return string The credential identifier.
 	 *
-	 * @spec openspec/changes/delivery-channels/tasks.md#task-2-webhooksecretservice-icredentialsmanager-backed-mintrotaterevoke
+	 * @spec openspec/changes/archive/2026-07-13-delivery-channels/tasks.md#task-2-webhooksecretservice-icredentialsmanager-backed-mintrotaterevoke
 	 */
 	public static function credentialIdentifier(string $scheduleUuid): string {
 		return self::CREDENTIAL_IDENTIFIER_PREFIX . $scheduleUuid;
@@ -160,7 +161,7 @@ class ScheduleWebhookSecretService {
 	 *
 	 * @throws RuntimeException When a secret already exists for this schedule (409 — use rotate()).
 	 *
-	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
 	 */
 	public function mint(ObjectEntity $schedule): array {
 		if ($this->isConfigured(schedule: $schedule) === true) {
@@ -181,7 +182,7 @@ class ScheduleWebhookSecretService {
 	 *
 	 * @throws RuntimeException When no secret exists yet for this schedule (404 — use mint()).
 	 *
-	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
 	 */
 	public function rotate(ObjectEntity $schedule): array {
 		if ($this->isConfigured(schedule: $schedule) === false) {
@@ -200,7 +201,7 @@ class ScheduleWebhookSecretService {
 	 *
 	 * @return ObjectEntity The persisted schedule with `deliverWebhookSecretConfigured=false`.
 	 *
-	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
 	 */
 	public function revoke(ObjectEntity $schedule): ObjectEntity {
 		$uuid = (string)$schedule->getUuid();
@@ -220,7 +221,7 @@ class ScheduleWebhookSecretService {
 	 *
 	 * @return array<string, mixed> The status payload.
 	 *
-	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
 	 */
 	public function status(ObjectEntity $schedule): array {
 		$data = $schedule->getObject();
@@ -243,7 +244,7 @@ class ScheduleWebhookSecretService {
 	 *
 	 * @return string|null The plaintext secret, or null when unavailable.
 	 *
-	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-a-signed-outbound-webhook-mvp
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-a-signed-outbound-webhook-mvp
 	 */
 	public function retrieveSecret(ObjectEntity $schedule): ?string {
 		try {
@@ -273,7 +274,7 @@ class ScheduleWebhookSecretService {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/delivery-channels/tasks.md#task-2-webhooksecretservice-icredentialsmanager-backed-mintrotaterevoke
+	 * @spec openspec/changes/archive/2026-07-13-delivery-channels/tasks.md#task-2-webhooksecretservice-icredentialsmanager-backed-mintrotaterevoke
 	 */
 	private function isConfigured(ObjectEntity $schedule): bool {
 		$data = $schedule->getObject();
@@ -290,7 +291,7 @@ class ScheduleWebhookSecretService {
 	 *
 	 * @return array{secret:string, rotatedAt:string} The new plaintext secret and timestamp.
 	 *
-	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
 	 */
 	private function storeNewSecret(ObjectEntity $schedule): array {
 		$secret = $this->generateSecret();
@@ -314,7 +315,7 @@ class ScheduleWebhookSecretService {
 	 *
 	 * @return string The plaintext secret.
 	 *
-	 * @spec openspec/changes/delivery-channels/tasks.md#task-2-webhooksecretservice-icredentialsmanager-backed-mintrotaterevoke
+	 * @spec openspec/changes/archive/2026-07-13-delivery-channels/tasks.md#task-2-webhooksecretservice-icredentialsmanager-backed-mintrotaterevoke
 	 */
 	private function generateSecret(): string {
 		return self::SECRET_PREFIX . bin2hex(random_bytes(self::SECRET_ENTROPY_BYTES));
@@ -332,7 +333,7 @@ class ScheduleWebhookSecretService {
 	 *
 	 * @return ObjectEntity The persisted object.
 	 *
-	 * @spec openspec/changes/delivery-channels/tasks.md#task-2-webhooksecretservice-icredentialsmanager-backed-mintrotaterevoke
+	 * @spec openspec/changes/archive/2026-07-13-delivery-channels/tasks.md#task-2-webhooksecretservice-icredentialsmanager-backed-mintrotaterevoke
 	 */
 	private function persist(ObjectEntity $schedule, array $data): ObjectEntity {
 		$owner = (string)($schedule->getOwner() ?? '');

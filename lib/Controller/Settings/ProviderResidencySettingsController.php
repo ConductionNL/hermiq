@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
+ * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
  */
 
 declare(strict_types=1);
@@ -29,8 +29,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller\Settings;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\AiFeature\ProviderResidencyRegistry;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ProviderResidencyRegistryInterface;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -43,7 +43,7 @@ use Throwable;
 /**
  * Read and state where each configured provider runs.
  *
- * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
+ * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
  */
 class ProviderResidencySettingsController extends Controller {
 
@@ -51,17 +51,17 @@ class ProviderResidencySettingsController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request.
-	 * @param ProviderResidencyRegistry $registry Reads/writes the declarations.
+	 * @param ProviderResidencyRegistryInterface $registry Reads/writes the declarations.
 	 * @param LoggerInterface $logger Logger.
 	 *
 	 * @return void
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly ProviderResidencyRegistry $registry,
+		private readonly ProviderResidencyRegistryInterface $registry,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 
@@ -70,7 +70,7 @@ class ProviderResidencySettingsController extends Controller {
 	 *
 	 * @return JSONResponse The declarations.
 	 *
-	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function get(): JSONResponse {
@@ -87,7 +87,7 @@ class ProviderResidencySettingsController extends Controller {
 		return new JSONResponse(
 			[
 				'residencies' => $declarations,
-				'allowed' => ProviderResidencyRegistry::DECLARABLE_RESIDENCIES,
+				'allowed' => ProviderResidencyRegistryInterface::DECLARABLE_RESIDENCIES,
 			]
 		);
 
@@ -100,7 +100,7 @@ class ProviderResidencySettingsController extends Controller {
 	 *
 	 * @return JSONResponse The stored declaration, or 422 on an unsupported value.
 	 *
-	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function declareResidency(string $provider): JSONResponse {

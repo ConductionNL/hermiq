@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#requirement-a-scheduled-job-must-enforce-retention-and-must-report-that-it-did
+ * @spec openspec/specs/run-audit-log/spec.md#requirement-a-scheduled-job-must-enforce-retention-and-must-report-that-it-did
  */
 
 declare(strict_types=1);
@@ -29,8 +29,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller\Settings;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\AiFeature\RunRetentionPolicy;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\RunRetentionPolicyInterface;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -43,7 +43,7 @@ use Throwable;
 /**
  * Read and set the instance retention, and read the last cleanup.
  *
- * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#requirement-every-ai-run-must-carry-the-retention-that-applied-when-it-was-written
+ * @spec openspec/specs/run-audit-log/spec.md#requirement-every-ai-run-must-carry-the-retention-that-applied-when-it-was-written
  */
 class RunRetentionSettingsController extends Controller {
 
@@ -51,17 +51,17 @@ class RunRetentionSettingsController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request.
-	 * @param RunRetentionPolicy $policy Resolves and reports retention.
+	 * @param RunRetentionPolicyInterface $policy Resolves and reports retention.
 	 * @param LoggerInterface $logger Logger.
 	 *
 	 * @return void
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly RunRetentionPolicy $policy,
+		private readonly RunRetentionPolicyInterface $policy,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 
@@ -70,7 +70,7 @@ class RunRetentionSettingsController extends Controller {
 	 *
 	 * @return JSONResponse The default in days, the permitted range and the report.
 	 *
-	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#scenario-the-last-cleanup-is-an-answerable-question
+	 * @spec openspec/specs/run-audit-log/spec.md#scenario-the-last-cleanup-is-an-answerable-question
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function get(): JSONResponse {
@@ -78,8 +78,8 @@ class RunRetentionSettingsController extends Controller {
 			return new JSONResponse(
 				[
 					'defaultDays' => $this->policy->defaultDays(),
-					'minimumDays' => RunRetentionPolicy::MINIMUM_DAYS,
-					'maximumDays' => RunRetentionPolicy::MAXIMUM_DAYS,
+					'minimumDays' => RunRetentionPolicyInterface::MINIMUM_DAYS,
+					'maximumDays' => RunRetentionPolicyInterface::MAXIMUM_DAYS,
 					'lastCleanup' => $this->policy->lastCleanup(),
 				]
 			);
@@ -98,7 +98,7 @@ class RunRetentionSettingsController extends Controller {
 	 *
 	 * @return JSONResponse The stored default, or 422 when it is outside the permitted range.
 	 *
-	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#scenario-changing-the-default-does-not-move-an-old-promise
+	 * @spec openspec/specs/run-audit-log/spec.md#scenario-changing-the-default-does-not-move-an-old-promise
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function update(): JSONResponse {

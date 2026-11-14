@@ -21,15 +21,15 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md#requirement-req-005-the-rest-endpoint-requires-authentication-and-validates-its-input
+ * @spec openspec/specs/message-translation/spec.md#requirement-req-005-the-rest-endpoint-requires-authentication-and-validates-its-input
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\MessageTranslationEngine;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\MessageTranslationEngineInterface;
 use OCA\Hermiq\Service\Translation\TranslationDisclosure;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -42,7 +42,7 @@ use Throwable;
 /**
  * Auth + validation shell over MessageTranslationEngine.
  *
- * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md#requirement-req-005-the-rest-endpoint-requires-authentication-and-validates-its-input
+ * @spec openspec/specs/message-translation/spec.md#requirement-req-005-the-rest-endpoint-requires-authentication-and-validates-its-input
  */
 class MessageTranslationController extends Controller {
 
@@ -66,7 +66,7 @@ class MessageTranslationController extends Controller {
 	 *
 	 * @param IRequest $request The request object.
 	 * @param IUserSession $userSession Resolves the requesting user (401 if absent).
-	 * @param MessageTranslationEngine $engine The gated translation pipeline.
+	 * @param MessageTranslationEngineInterface $engine The gated translation pipeline.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param TranslationDisclosure|null $disclosure The language-tag check. Nullable and
 	 *                                               trailing so a controller built by
@@ -75,11 +75,11 @@ class MessageTranslationController extends Controller {
 	public function __construct(
 		IRequest $request,
 		private readonly IUserSession $userSession,
-		private readonly MessageTranslationEngine $engine,
+		private readonly MessageTranslationEngineInterface $engine,
 		private readonly LoggerInterface $logger,
 		?TranslationDisclosure $disclosure=null,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 		$this->disclosure = $disclosure ?? new TranslationDisclosure();
 	}//end __construct()
 
@@ -91,8 +91,8 @@ class MessageTranslationController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md#requirement-req-005-the-rest-endpoint-requires-authentication-and-validates-its-input
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-010-language-tags-and-the-original-reference-are-validated-before-any-prompt
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-005-the-rest-endpoint-requires-authentication-and-validates-its-input
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-010-language-tags-and-the-original-reference-are-validated-before-any-prompt
 	 */
 	public function translate(): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -133,7 +133,7 @@ class MessageTranslationController extends Controller {
 	 * @return array{sourceText: string, targetLanguage: string, sourceLanguage: string|null, originalRef: string, glossary: array}|string
 	 *         The validated input, or the 400 message.
 	 *
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-010-language-tags-and-the-original-reference-are-validated-before-any-prompt
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-010-language-tags-and-the-original-reference-are-validated-before-any-prompt
 	 */
 	private function readInput(): array|string {
 		$sourceText = $this->requiredParam(name: 'sourceText');
@@ -221,7 +221,7 @@ class MessageTranslationController extends Controller {
 	 *
 	 * @return string|null The 400 message, or null when all three are acceptable.
 	 *
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-010-language-tags-and-the-original-reference-are-validated-before-any-prompt
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-010-language-tags-and-the-original-reference-are-validated-before-any-prompt
 	 */
 	private function provenanceError(string $targetLanguage, mixed $sourceLanguage, mixed $originalRef): ?string {
 		if ($this->disclosure->isLanguageTag(tag: $targetLanguage) === false) {

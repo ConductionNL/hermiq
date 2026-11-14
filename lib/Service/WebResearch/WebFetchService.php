@@ -36,15 +36,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-webfetch-extracts-readable-text-with-a-content-type-gate
- * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-fetched-content-is-delimited-as-untrusted-before-reaching-the-llm
- * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-egress-guard-blocks-ssrf-shaped-destinations-for-webfetch
+ * @spec openspec/specs/web-research-tool/spec.md#requirement-webfetch-extracts-readable-text-with-a-content-type-gate
+ * @spec openspec/specs/web-research-tool/spec.md#requirement-fetched-content-is-delimited-as-untrusted-before-reaching-the-llm
+ * @spec openspec/specs/web-research-tool/spec.md#requirement-egress-guard-blocks-ssrf-shaped-destinations-for-webfetch
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\WebResearch;
 
+use OCA\Hermiq\Kernel\Contracts\WebFetchServiceInterface;
 use OCP\Http\Client\IClientService;
 use OCP\Http\Client\IResponse;
 use Psr\Log\LoggerInterface;
@@ -54,9 +55,9 @@ use Throwable;
  * `hermiq.webFetch`'s implementation: guarded GET → content-type gate → extract →
  * truncate → delimit.
  *
- * @spec openspec/changes/web-research-tool/tasks.md#task-5-webfetchservice--readabletextextractor
+ * @spec openspec/changes/archive/2026-07-14-web-research-tool/tasks.md#task-5-webfetchservice--readabletextextractor
  */
-class WebFetchService {
+class WebFetchService implements WebFetchServiceInterface {
 
 	/**
 	 * The only accepted response content types (base type, parameters stripped).
@@ -108,7 +109,7 @@ class WebFetchService {
 	 *                              `{error: {code, message}}` (plus, for a redirect,
 	 *                              a `location` field).
 	 *
-	 * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#scenario-an-agent-fetches-an-html-page
+	 * @spec openspec/specs/web-research-tool/spec.md#scenario-an-agent-fetches-an-html-page
 	 */
 	public function fetch(string $url): array {
 		$run = new WebFetchRun(url: $url, config: $this->settingsHandler->getWebResearchSettingsOnly());

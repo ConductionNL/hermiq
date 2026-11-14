@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+ * @spec openspec/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
  */
 
 declare(strict_types=1);
@@ -29,7 +29,7 @@ namespace OCA\Hermiq\Service\Credential;
 /**
  * The provider and actor of one credential resolution.
  *
- * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+ * @spec openspec/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
  */
 final class CredentialLookup {
 

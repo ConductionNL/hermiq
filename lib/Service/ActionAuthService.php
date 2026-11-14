@@ -13,7 +13,7 @@
  *   - Action RBAC (who can invoke which controller method) is this service.
  *   - Admin-only operations (editing the matrix itself, app config, backup/
  *     restore, integrations, credentials) bypass this service and use
- *     #[AuthorizedAdminSetting(Application::APP_ID)] at the route layer.
+ *     #[AuthorizedAdminSetting(AppIdentity::APP_ID)] at the route layer.
  *
  * Controllers call `requireAction` which throws OCSForbiddenException when
  * the caller's groups don't intersect the matrix entry for the action.
@@ -38,9 +38,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
 use OCP\AppFramework\OCS\OCSForbiddenException;
-use OCP\IAppConfig;
 use OCP\IGroupManager;
 use OCP\IUser;
 
@@ -53,17 +52,15 @@ use OCP\IUser;
  *
  * @spec openspec/architecture/adr-023-action-authorization.md
  */
-class ActionAuthService {
-	private const CONFIG_KEY = 'actions';
-
+class ActionAuthService implements ActionAuthServiceInterface {
 	/**
 	 * Constructor.
 	 *
-	 * @param IAppConfig $appConfig IAppConfig for reading/writing the matrix
+	 * @param ActionMatrix $actionMatrix The stored action matrix
 	 * @param IGroupManager $groupManager Group manager for resolving user groups
 	 */
 	public function __construct(
-		private IAppConfig $appConfig,
+		private ActionMatrix $actionMatrix,
 		private IGroupManager $groupManager,
 	) {
 	}//end __construct()
@@ -89,7 +86,7 @@ class ActionAuthService {
 			return;
 		}
 
-		$allowedGroups = $this->getAllowedGroups(action: $action);
+		$allowedGroups = $this->actionMatrix->getAllowedGroups(action: $action);
 
 		// An "admin"-only entry means non-admins never pass (admin already
 		// returned above). Empty entry means nobody is allowed.
@@ -134,126 +131,4 @@ class ActionAuthService {
 
 	}//end can()
 
-	/**
-	 * Get the list of groups allowed to perform the action.
-	 *
-	 * Returns the matrix entry for the action, or ["admin"] as the safe
-	 * default when the action is not in the matrix.
-	 *
-	 * @param string $action Dot-separated action name.
-	 *
-	 * @return array<int, string>
-	 *
-	 * @spec openspec/architecture/adr-023-action-authorization.md
-	 */
-	public function getAllowedGroups(string $action): array {
-		$matrix = $this->getMatrix();
-		return $matrix[$action] ?? ['admin'];
-	}//end getAllowedGroups()
-
-	/**
-	 * Get the full action-to-groups matrix.
-	 *
-	 * Reads the JSON-encoded matrix from IAppConfig. Missing or malformed
-	 * config returns an empty array (default-deny — admin-only for every
-	 * action since getAllowedGroups falls back to ["admin"]).
-	 *
-	 * @return array<string, array<int, string>>
-	 *
-	 * @spec openspec/architecture/adr-023-action-authorization.md
-	 */
-	public function getMatrix(): array {
-		// Normalize: discard any non-array values + any non-string group entries.
-		$matrix = [];
-		foreach ($this->storedMatrix() as $action => $groups) {
-			if (is_string($action) === true && is_array($groups) === true) {
-				$matrix[$action] = $this->groupsOf(groups: $groups);
-			}
-		}
-
-		return $matrix;
-	}//end getMatrix()
-
-	/**
-	 * The stored matrix as decoded, or empty when it is unreadable or not an object.
-	 *
-	 * @return array<array-key, mixed>
-	 */
-	private function storedMatrix(): array {
-		$json = $this->appConfig->getValueString(Application::APP_ID, self::CONFIG_KEY, '{}');
-
-		try {
-			$decoded = json_decode($json, associative: true, depth: 512, flags: JSON_THROW_ON_ERROR);
-		} catch (\JsonException $e) {
-			return [];
-		}
-
-		if (is_array($decoded) === false) {
-			return [];
-		}
-
-		return $decoded;
-	}//end storedMatrix()
-
-	/**
-	 * An action's groups: each non-empty string once, in first-seen order.
-	 *
-	 * @param array<array-key, mixed> $groups The stored group entries.
-	 *
-	 * @return list<string>
-	 */
-	private function groupsOf(array $groups): array {
-		$clean = [];
-		foreach ($groups as $group) {
-			if (is_string($group) === true && $group !== '') {
-				$clean[] = $group;
-			}
-		}
-
-		return array_values(array_unique($clean));
-	}//end groupsOf()
-
-	/**
-	 * Set the full action-to-groups matrix.
-	 *
-	 * Caller MUST enforce admin-only before invoking (this method does not
-	 * gate writes — it's called from an admin-only settings endpoint).
-	 *
-	 * @param array<string, array<int, string>> $matrix The new matrix.
-	 *
-	 * @return void
-	 *
-	 * @throws \JsonException When the matrix cannot be encoded.
-	 *
-	 * @spec openspec/architecture/adr-023-action-authorization.md
-	 */
-	public function setMatrix(array $matrix): void {
-		// Normalize on write — same shape as getMatrix returns.
-		$normalized = [];
-		foreach ($matrix as $action => $groups) {
-			$clean = [];
-			foreach ($groups as $g) {
-				if ($g !== '') {
-					$clean[] = $g;
-				}
-			}
-
-			$normalized[$action] = array_values(array_unique($clean));
-		}
-
-		$json = json_encode($normalized, flags: JSON_THROW_ON_ERROR);
-		$this->appConfig->setValueString(Application::APP_ID, self::CONFIG_KEY, $json);
-
-	}//end setMatrix()
-
-	/**
-	 * List all action keys currently in the matrix.
-	 *
-	 * @return array<int, string>
-	 *
-	 * @spec openspec/architecture/adr-023-action-authorization.md
-	 */
-	public function getActions(): array {
-		return array_keys($this->getMatrix());
-	}//end getActions()
 }//end class

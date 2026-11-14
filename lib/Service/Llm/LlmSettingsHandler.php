@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
  */
 
 declare(strict_types=1);
@@ -30,16 +30,16 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Llm;
 
 use Exception;
+use OCA\Hermiq\Kernel\Contracts\LlmSettingsHandlerInterface;
 use OCP\IAppConfig;
 use RuntimeException;
 
 /**
  * Handler for the `hermiq.llm` IAppConfig key.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
  */
-class LlmSettingsHandler {
-
+class LlmSettingsHandler implements LlmSettingsHandlerInterface {
 
 	/**
 	 * The shape of the `hermiq.llm` configuration, with every field's default.
@@ -102,16 +102,6 @@ class LlmSettingsHandler {
 	];
 
 	/**
-	 * The allowed `chatProvider` values. `nextcloud` is additive to OR's original three
-	 * (openai, ollama, fireworks) — plan §8 move 1, background/non-interactive only.
-	 * `anthropic` is additive too (anthropic-agent-provider) — Claude via API key or a
-	 * Claude Max OAuth subscription, broker-injected like openai/fireworks.
-	 *
-	 * @var string[]
-	 */
-	public const ALLOWED_CHAT_PROVIDERS = ['openai', 'ollama', 'fireworks', 'nextcloud', 'anthropic'];
-
-	/**
 	 * Constructor.
 	 *
 	 * @param IAppConfig $appConfig Nextcloud app configuration service.
@@ -119,7 +109,7 @@ class LlmSettingsHandler {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
 	 */
 	public function __construct(
 		private readonly IAppConfig $appConfig,
@@ -135,7 +125,7 @@ class LlmSettingsHandler {
 	 *
 	 * @throws \RuntimeException If the stored config cannot be decoded.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
 	 */
 	public function getLLMSettingsOnly(): array {
 		try {
@@ -192,7 +182,7 @@ class LlmSettingsHandler {
 	 *
 	 * @throws \RuntimeException If persisting fails.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
 	 */
 	public function updateLLMSettingsOnly(array $llmData): array {
 		try {

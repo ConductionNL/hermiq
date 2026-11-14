@@ -34,7 +34,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
+ * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
  */
 
 declare(strict_types=1);
@@ -43,14 +43,17 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\DelegationServiceInterface;
+use OCA\Hermiq\Service\Delegation\DelegatedTurn;
+use OCA\Hermiq\Service\Delegation\DelegationAuditEntry;
 use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\Engine\DelegationFrame;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
-use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
-use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
+use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use OCP\IUserSession;
@@ -71,9 +74,9 @@ use Throwable;
  *   constructor collaborator named after its class (OrganisationModelPolicyService) —
  *   shortening it would obscure which service is injected.
  *
- * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
+ * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
  */
-class DelegationService {
+class DelegationService implements DelegationServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -137,9 +140,9 @@ class DelegationService {
 	 * @param IAppConfig $appConfig Reads `delegation.maxDepth`/`delegation.maxFanOut`.
 	 * @param DelegationContext $delegationContext Trusted, request-scoped call-stack — the
 	 *                                             ONLY source of depth/ancestry/fan-out/anchor.
-	 * @param OrganisationModelPolicyService $tenantModelPolicyService GATE 4: the target agent's provider/model
-	 *                                                           against the organisation's effective
-	 *                                                           ModelPolicy.
+	 * @param EffectiveModelPolicy $tenantModelPolicyService GATE 4: the target agent's provider/model
+	 *                                                       against the organisation's effective
+	 *                                                       ModelPolicy.
 	 * @param ScheduleService $scheduleService GATE 5 (kill-switch, reused) and the actual
 	 *                                         governed dispatch (`runAgentAsOwner()`,
 	 *                                         `getLastRunId()`).
@@ -165,7 +168,7 @@ class DelegationService {
 		private readonly ObjectService $objectService,
 		private readonly IAppConfig $appConfig,
 		private readonly DelegationContext $delegationContext,
-		private readonly OrganisationModelPolicyService $tenantModelPolicyService,
+		private readonly EffectiveModelPolicy $tenantModelPolicyService,
 		private readonly ScheduleService $scheduleService,
 		private readonly BudgetService $budgetService,
 		private readonly AuditTrailMapper $auditTrailMapper,
@@ -191,7 +194,7 @@ class DelegationService {
 	 * @return array<string, mixed> `{targetAgentId, result}` on success, or
 	 *                              `{error: {code, message}}` on refusal/failure.
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
 	 *
 	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) A fixed, ordered gate sequence
 	 *   (self/cycle → allowlist → depth/fan-out → same-organisation → model-policy →
@@ -271,10 +274,12 @@ class DelegationService {
 		// construction.
 		return $this->runDelegatedTurn(
 			targetAgent: $targetAgent,
-			task: $task,
-			organisation: $callerOrganisation,
-			callerFrame: $callerFrame,
-			effectiveReach: $this->effectiveReachFor(targetData: $targetData)
+			turn: new DelegatedTurn(
+				task: $task,
+				organisation: $callerOrganisation,
+				callerFrame: $callerFrame,
+				effectiveReach: $this->effectiveReachFor(targetData: $targetData)
+			)
 		);
 
 	}//end delegate()
@@ -308,7 +313,7 @@ class DelegationService {
 	 * @SuppressWarnings(PHPMD.StaticAccess) `ToolReachResolver` is a pure classification
 	 *   function, called statically wherever reach is decided so the answers cannot drift.
 	 *
-	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-a-delegation-cannot-launder-reach
+	 * @spec openspec/specs/agent-capability-reach/spec.md#requirement-a-delegation-cannot-launder-reach
 	 */
 	private function effectiveReachFor(array $targetData): string {
 		// The delegation tool's own reach is the floor.
@@ -338,7 +343,7 @@ class DelegationService {
 	 *
 	 * @return array<string, mixed>|null The refusal envelope, or null when neither applies.
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
 	 */
 	private function checkSelfAndCycle(string $callerAgentId, string $targetAgentId): ?array {
 		if ($targetAgentId === $callerAgentId) {
@@ -365,7 +370,7 @@ class DelegationService {
 	 *
 	 * @return array<string, mixed>|null The refusal envelope, or null when allowed.
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-is-refused-by-default-until-explicitly-allowlisted
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-is-refused-by-default-until-explicitly-allowlisted
 	 */
 	private function checkAllowlist(?ObjectEntity $callerAgent, string $targetAgentId): ?array {
 		$allowlist = [];
@@ -391,7 +396,7 @@ class DelegationService {
 	 *
 	 * @return array<string, mixed>|null The refusal envelope, or null when within bounds.
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
 	 */
 	private function checkBounds(?DelegationFrame $frame): ?array {
 		$depth = ($frame->depth ?? 0);
@@ -429,7 +434,7 @@ class DelegationService {
 	 *
 	 * @return array<string, mixed>|null The refusal envelope, or null when allowed/unchecked.
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-is-refused-when-gated-by-kill-switch-budget-or-a-target-requiring-approval
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-is-refused-when-gated-by-kill-switch-budget-or-a-target-requiring-approval
 	 */
 	private function checkModelPolicy(string $organisation, array $targetData): ?array {
 		$provider = trim((string)($targetData['provider'] ?? ''));
@@ -460,7 +465,7 @@ class DelegationService {
 	 *
 	 * @return array<string, mixed>|null The refusal envelope, or null when not blocked.
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-is-refused-when-gated-by-kill-switch-budget-or-a-target-requiring-approval
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-is-refused-when-gated-by-kill-switch-budget-or-a-target-requiring-approval
 	 */
 	private function checkBudget(string $organisation, string $targetAgentId): ?array {
 		try {
@@ -492,31 +497,19 @@ class DelegationService {
 	 * anchored the same way — never throws.
 	 *
 	 * @param ObjectEntity $targetAgent The resolved target Agent object.
-	 * @param string $task The bounded task/prompt (LLM-supplied).
-	 * @param string $organisation The caller's organisation.
-	 * @param DelegationFrame|null $callerFrame The calling agent's own current frame
-	 *                                          (its `runId` becomes this sub-run's
-	 *                                          `parentRunId`; its `anchor` is reused
-	 *                                          verbatim).
-	 * @param string $effectiveReach The composed reach of this delegation
-	 *                               (`effectiveReachFor()`), carried onto the
-	 *                               result so the calling turn can account for
-	 *                               it. Defaults to the delegation tool's own
-	 *                               `instance` — never lower.
+	 * @param DelegatedTurn $turn The task one agent delegates to another, and the frame it runs in.
 	 *
 	 * @return array<string, mixed> `{targetAgentId, result, effectiveReach}` on success, or a
 	 *                              `delegation_failed` error envelope.
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegated-runs-inherit-the-parents-acting-user-attribution
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-is-traceable-as-one-auditable-tree
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegated-runs-inherit-the-parents-acting-user-attribution
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-is-traceable-as-one-auditable-tree
 	 */
-	private function runDelegatedTurn(
-		ObjectEntity $targetAgent,
-		string $task,
-		string $organisation,
-		?DelegationFrame $callerFrame,
-		string $effectiveReach = ToolReachResolver::REACH_INSTANCE,
-	): array {
+	private function runDelegatedTurn(ObjectEntity $targetAgent, DelegatedTurn $turn): array {
+		$task = $turn->task;
+		$organisation = $turn->organisation;
+		$callerFrame = $turn->callerFrame;
+		$effectiveReach = $turn->effectiveReach;
 		$targetAgentId = (string)$targetAgent->getUuid();
 
 		$owner = (string)($this->userSession->getUser()?->getUID() ?? '');
@@ -553,12 +546,14 @@ class DelegationService {
 
 		$this->writeDelegationAudit(
 			auditTarget: ($anchor ?? $targetAgent),
-			targetAgentId: $targetAgentId,
-			status: $status,
-			summary: $result,
-			runId: $this->scheduleService->getLastRunId(),
-			parentRunId: $callerFrame?->runId,
-			startedAt: $startedAt
+			entry: new DelegationAuditEntry(
+				targetAgentId: $targetAgentId,
+				status: $status,
+				summary: $result,
+				runId: $this->scheduleService->getLastRunId(),
+				parentRunId: $callerFrame?->runId,
+				startedAt: $startedAt
+			)
 		);
 
 		if ($status === 'error') {
@@ -583,26 +578,19 @@ class DelegationService {
 	 * @param ObjectEntity $auditTarget The object this entry is written against
 	 *                                  (the shared anchor, or the target agent
 	 *                                  itself when no anchor is available).
-	 * @param string $targetAgentId The delegated-to agent's UUID.
-	 * @param string $status `ok`|`error`.
-	 * @param string $summary The raw run output/error (redacted here).
-	 * @param string $runId This sub-run's own fresh run identifier.
-	 * @param string|null $parentRunId The calling run's own `runId`.
-	 * @param DateTimeImmutable $startedAt When the delegated turn began.
+	 * @param DelegationAuditEntry $entry What one delegation audit entry records.
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-is-traceable-as-one-auditable-tree
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-is-traceable-as-one-auditable-tree
 	 */
-	private function writeDelegationAudit(
-		ObjectEntity $auditTarget,
-		string $targetAgentId,
-		string $status,
-		string $summary,
-		string $runId,
-		?string $parentRunId,
-		DateTimeImmutable $startedAt,
-	): void {
+	private function writeDelegationAudit(ObjectEntity $auditTarget, DelegationAuditEntry $entry): void {
+		$targetAgentId = $entry->targetAgentId;
+		$status = $entry->status;
+		$summary = $entry->summary;
+		$runId = $entry->runId;
+		$parentRunId = $entry->parentRunId;
+		$startedAt = $entry->startedAt;
 		try {
 			$endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 
@@ -673,7 +661,7 @@ class DelegationService {
 	 * @return int
 	 */
 	private function maxDepth(): int {
-		return max(1, (int)$this->appConfig->getValueString(Application::APP_ID, self::MAX_DEPTH_KEY, self::DEFAULT_MAX_DEPTH));
+		return max(1, (int)$this->appConfig->getValueString(AppIdentity::APP_ID, self::MAX_DEPTH_KEY, self::DEFAULT_MAX_DEPTH));
 	}//end maxDepth()
 
 	/**
@@ -683,7 +671,7 @@ class DelegationService {
 	 * @return int
 	 */
 	private function maxFanOut(): int {
-		return max(1, (int)$this->appConfig->getValueString(Application::APP_ID, self::MAX_FAN_OUT_KEY, self::DEFAULT_MAX_FAN_OUT));
+		return max(1, (int)$this->appConfig->getValueString(AppIdentity::APP_ID, self::MAX_FAN_OUT_KEY, self::DEFAULT_MAX_FAN_OUT));
 	}//end maxFanOut()
 
 	/**

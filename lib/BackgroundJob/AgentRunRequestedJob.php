@@ -22,14 +22,14 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/flow-agent-listener/tasks.md#1-listener-and-queued-job
+ * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#1-listener-and-queued-job
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\BackgroundJob;
 
-use OCA\Hermiq\Service\FlowAgentRunService;
+use OCA\Hermiq\Kernel\Contracts\FlowAgentRunServiceInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\QueuedJob;
 
@@ -38,18 +38,18 @@ use OCP\BackgroundJob\QueuedJob;
  *
  * @psalm-api
  *
- * @spec openspec/changes/flow-agent-listener/tasks.md#task-1-3
+ * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#task-1-3
  */
 class AgentRunRequestedJob extends QueuedJob {
 	/**
 	 * Constructor.
 	 *
 	 * @param ITimeFactory $time Time factory for the base job.
-	 * @param FlowAgentRunService $flowAgentRunService Runs the governed dispatch.
+	 * @param FlowAgentRunServiceInterface $flowAgentRunService Runs the governed dispatch.
 	 */
 	public function __construct(
 		ITimeFactory $time,
-		private readonly FlowAgentRunService $flowAgentRunService,
+		private readonly FlowAgentRunServiceInterface $flowAgentRunService,
 	) {
 		parent::__construct(time: $time);
 	}//end __construct()
@@ -64,7 +64,7 @@ class AgentRunRequestedJob extends QueuedJob {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#task-1-3
 	 */
 	protected function run($argument): void {
 		$payload = $argument;

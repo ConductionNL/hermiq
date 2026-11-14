@@ -37,6 +37,7 @@ use OCA\Hermiq\Service\AiFeature\ProviderDataUseRegistry;
 use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCP\App\IAppManager;
 use OCP\IUser;
@@ -268,10 +269,11 @@ class ProviderFactoryTest extends TestCase {
 
 		$policy = $this->createMock(OrganisationModelPolicyService::class);
 		$policy->method('isAllowed')->willReturn(true);
-		$policy->method('requiresNoTraining')->willReturn(true);
+		$effective = $this->createMock(EffectiveModelPolicy::class);
+		$effective->method('requiresNoTraining')->willReturn(true);
 		$config = $this->createMock(IAppConfig::class);
 		$config->method('getValueString')->willReturn('');
-		$gate = new DataUseGate($policy, new ProviderDataUseRegistry($config));
+		$gate = new DataUseGate($effective, new ProviderDataUseRegistry($config));
 
 		$factory = new ProviderFactory(
 			$settings,
@@ -1014,67 +1016,6 @@ class ProviderFactoryTest extends TestCase {
 		$this->assertSame('cred-instance-fireworks', $driver->credentialId);
 
 	}//end testResolverReturningNullKeepsTheConfiguredCredential()
-
-	/**
-	 * An argument-less tool must serialise `input_schema.properties` as a JSON
-	 * object (`{}`), not an array (`[]`). PHP's json_encode emits an empty PHP
-	 * array as `[]`, which the Anthropic Messages API rejects with HTTP 400
-	 * ("Input should be an object"), so an empty/absent properties map is forced
-	 * to a stdClass.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
-	 */
-	public function testBuildAnthropicToolsEmptyPropertiesSerialisesAsObject(): void {
-		[$factory] = $this->factory();
-
-		$tools = $factory->buildAnthropicTools(
-			[
-				['name' => 'no_args', 'description' => 'A tool with no parameters'],
-				['name' => 'empty_props', 'parameters' => ['type' => 'object', 'properties' => []]],
-			]
-		);
-
-		$this->assertInstanceOf(\stdClass::class, $tools[0]['input_schema']['properties']);
-		$this->assertSame('object', $tools[0]['input_schema']['type']);
-		$this->assertInstanceOf(\stdClass::class, $tools[1]['input_schema']['properties']);
-
-		$json = json_encode($tools);
-		$this->assertStringNotContainsString('"properties":[]', $json);
-		$this->assertStringContainsString('"properties":{}', $json);
-
-	}//end testBuildAnthropicToolsEmptyPropertiesSerialisesAsObject()
-
-	/**
-	 * A tool that declares real parameters keeps its properties object intact
-	 * and is not clobbered by the empty-properties guard.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
-	 */
-	public function testBuildAnthropicToolsPreservesRealProperties(): void {
-		[$factory] = $this->factory();
-
-		$tools = $factory->buildAnthropicTools(
-			[
-				[
-					'name' => 'search',
-					'description' => 'Search',
-					'parameters' => [
-						'type' => 'object',
-						'properties' => ['query' => ['type' => 'string']],
-						'required' => ['query'],
-					],
-				],
-			]
-		);
-
-		$this->assertSame(['query' => ['type' => 'string']], $tools[0]['input_schema']['properties']);
-		$this->assertSame(['query'], $tools[0]['input_schema']['required']);
-
-	}//end testBuildAnthropicToolsPreservesRealProperties()
 
 	/*
 	 * cli-runner-text-turn-dispatch — `executionMode: cli` (the hermiq-llm-runner ExApp).

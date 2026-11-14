@@ -29,27 +29,28 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\AgentAccessService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\EngineInterface;
+use OCA\Hermiq\Kernel\Contracts\LiteracyRequirementInterface;
+use OCA\Hermiq\Kernel\Contracts\RunStepBusInterface;
+use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Service\AppAssistantResolver;
 use OCA\Hermiq\Service\Chat\ChatRefusalFrame;
 use OCA\Hermiq\Service\Chat\SessionSubject;
-use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
-use OCA\Hermiq\Service\Engine\Engine;
-use OCA\Hermiq\Service\Engine\RunStepBus;
+use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
-use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
+use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolutionException;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
-use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Response;
@@ -68,7 +69,7 @@ use Throwable;
  * synchronous fallback (zero `token` events + one `final`) applies — both
  * shapes are part of the contract, so clients never branch.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) SSE controller composes Engine +
  * ObjectService + IUserSession + IDBConnection + LoggerInterface; each handles a
@@ -131,7 +132,7 @@ class ChatStreamController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param Engine $engine In-app agent engine facade (ported ChatService).
+	 * @param EngineInterface $engine In-app agent engine facade (ported ChatService).
 	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IDBConnection $db Database connection, used to finalise any open
@@ -143,33 +144,33 @@ class ChatStreamController extends Controller {
 	 *                    — the message is built HERE, from the exception's
 	 *                    structured data, because a service throwing it has no
 	 *                    business knowing the reader's locale (ADR-007).
-	 * @param RunStepBus $runStepBus Publishes run steps to whichever surface is watching.
-	 * @param ToolAccessRequestService $accessRequests Raises and resolves an agent's
+	 * @param RunStepBusInterface $runStepBus Publishes run steps to whichever surface is watching.
+	 * @param ToolAccessRequestServiceInterface $accessRequests Raises and resolves an agent's
 	 *                                                 requests for tools it lacks.
-	 * @param AgentAccessService $agentAccess The one per-agent access predicate.
-	 * @param LiteracyRequirement|null $literacy The course requirement (compliance-ai-literacy).
+	 * @param AgentAccessServiceInterface $agentAccess The one per-agent access predicate.
+	 * @param LiteracyRequirementInterface|null $literacy The course requirement (compliance-ai-literacy).
 	 * @param AppAssistantResolver|null $assistants The agent for an app when a chat names none (agents-bound-to-their-app).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly Engine $engine,
+		private readonly EngineInterface $engine,
 		private readonly ObjectService $objectService,
 		private readonly IUserSession $userSession,
 		private readonly IDBConnection $db,
 		private readonly LoggerInterface $logger,
 		private readonly IL10N $l10n,
-		private readonly RunStepBus $runStepBus,
-		private readonly ToolAccessRequestService $accessRequests,
-		private readonly AgentAccessService $agentAccess,
-		private readonly ?LiteracyRequirement $literacy = null,
+		private readonly RunStepBusInterface $runStepBus,
+		private readonly ToolAccessRequestServiceInterface $accessRequests,
+		private readonly AgentAccessServiceInterface $agentAccess,
+		private readonly ?LiteracyRequirementInterface $literacy = null,
 		private readonly ?AppAssistantResolver $assistants = null,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -191,7 +192,7 @@ class ChatStreamController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port/spec.md#requirement-the-chat-page-streams-the-answer-as-the-agent-writes-it-req-chstrm-001
 	 */
 	public function stream(): Response {
 		// Clear every output buffer layer (PHP, NC framework, any plugin) so the
@@ -238,6 +239,9 @@ class ChatStreamController extends Controller {
 				ragSettings: [],
 				context: $turn['contextArr'],
 				channel: $channel,
+				// Chat-how-an-answer-came-about D1: a trace on this path too, so a
+				// streamed answer gets the same provenance record as a sent one.
+				trace: new RunTraceCollector(),
 				attachments: $turn['attachments']
 			);
 
@@ -271,7 +275,7 @@ class ChatStreamController extends Controller {
 	 *
 	 * @return array{userId: string, message: string, agentUuid: string, conversationUuid: string, context: mixed, contextArr: array, attachments: array}
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
 	private function readTurn(string $userId): array {
 		$rawBody = $this->readRequestBody();
@@ -322,7 +326,7 @@ class ChatStreamController extends Controller {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
 	private function turnAgent(array $turn): string {
 		if ($turn['conversationUuid'] !== '' || $turn['agentUuid'] !== '') {
@@ -354,7 +358,7 @@ class ChatStreamController extends Controller {
 	 *
 	 * @return ObjectEntity
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
 	private function turnConversation(array $turn): ObjectEntity {
 		try {
@@ -382,7 +386,7 @@ class ChatStreamController extends Controller {
 	 *
 	 * @return StreamYieldChannel
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
 	private function streamChannel(): StreamYieldChannel {
 		$channel = new StreamYieldChannel();
@@ -420,7 +424,7 @@ class ChatStreamController extends Controller {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
 	private function replayRunSteps(string $conversationId): void {
 		foreach ($this->runStepBus->drain(conversationId: $conversationId) as $step) {
@@ -458,7 +462,8 @@ class ChatStreamController extends Controller {
 	 *
 	 * @return array<string, mixed>
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#scenario-a-streamed-answer-gets-the-same-record-as-a-sent-one
 	 */
 	private function finalPayload(array $result, array $turn): array {
 		return [
@@ -480,6 +485,8 @@ class ChatStreamController extends Controller {
 			// Chat-attachments-and-images D8: the answer's attachments, such as an
 			// image the agent created, so a client can show them without a reload.
 			'attachments' => array_values((array)($result['attachments'] ?? [])),
+			// Chat-how-an-answer-came-about: how the answer came about, as stored on it.
+			'provenance' => ($result['provenance'] ?? null),
 		];
 	}//end finalPayload()
 
@@ -496,7 +503,7 @@ class ChatStreamController extends Controller {
 	 *
 	 * @return never
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
 	private function emitToolGrantsUnresolved(ToolGrantResolutionException $exception): never {
 		$this->logger->error(
@@ -540,7 +547,7 @@ class ChatStreamController extends Controller {
 	 *
 	 * @return never
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
 	private function emitFailure(Throwable $exception): never {
 		$frames = new ChatRefusalFrame(l10n: $this->l10n);
@@ -593,7 +600,7 @@ class ChatStreamController extends Controller {
 	 * the final frame; exit cannot be replaced by a return because the calling flow in stream() must
 	 * stop unconditionally.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
 	protected function emitAndExit(string $eventType, array $payload): never {
 		$this->emitSseEvent(eventType: $eventType, payload: $payload);
@@ -614,7 +621,7 @@ class ChatStreamController extends Controller {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
 	private function safeShutdown(bool $rollback): void {
 		try {
@@ -649,7 +656,7 @@ class ChatStreamController extends Controller {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
 	protected function emitSseEvent(string $eventType, array $payload): void {
 		echo 'event: ' . $eventType . "\n";
@@ -663,7 +670,7 @@ class ChatStreamController extends Controller {
 	 *
 	 * @return float Seconds since the Unix epoch.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
 	protected function now(): float {
 		return microtime(true);
@@ -676,7 +683,7 @@ class ChatStreamController extends Controller {
 	 *
 	 * @return string The raw request body ('' when unreadable).
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
 	protected function readRequestBody(): string {
 		$rawBody = file_get_contents('php://input');
@@ -706,7 +713,7 @@ class ChatStreamController extends Controller {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
 	protected function forwardWithHeartbeat(string $eventType, array $payload): void {
 		$now = $this->now();
@@ -727,7 +734,7 @@ class ChatStreamController extends Controller {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
 	protected function clearOutputBuffers(): void {
 		while (ob_get_level() > 0) {
@@ -742,7 +749,7 @@ class ChatStreamController extends Controller {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
 	protected function emitSseHeaders(): void {
 		header('Content-Type: text/event-stream');
@@ -762,7 +769,7 @@ class ChatStreamController extends Controller {
 	 *
 	 * @return string The accessible agent uuid, or '' when none is found.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
 	 */
 	private function pickFallbackAgentForUser(string $userId, string $applicationSlug = ''): string {
@@ -800,8 +807,8 @@ class ChatStreamController extends Controller {
 	 *                          (translated into `stream_failed` by the outer
 	 *                          catch, matching OR's DoesNotExist behavior).
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
-	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
 	 */
 	private function resolveConversation(array $turn): ObjectEntity {
 		$conversationUuid = $turn['conversationUuid'];

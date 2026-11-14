@@ -37,15 +37,15 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+ * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Listener;
 
-use OCA\Hermiq\Service\Agent\AgentObjectMatcher;
-use OCA\Hermiq\Service\Talk\TalkBotInstaller;
+use OCA\Hermiq\Kernel\Contracts\AgentObjectMatcherInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkBotInstallerInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Event\ObjectCreatedEvent;
 use OCA\OpenRegister\Event\ObjectDeletedEvent;
@@ -62,7 +62,7 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+ * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
  */
 class AgentBotLifecycleListener implements IEventListener {
 
@@ -70,13 +70,13 @@ class AgentBotLifecycleListener implements IEventListener {
 	/**
 	 * Constructor.
 	 *
-	 * @param TalkBotInstaller $installer Installs/renames/removes the per-agent bot.
-	 * @param AgentObjectMatcher $agents Tells a Hermiq agent from other objects.
+	 * @param TalkBotInstallerInterface $installer Installs/renames/removes the per-agent bot.
+	 * @param AgentObjectMatcherInterface $agents Tells a Hermiq agent from other objects.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
-		private readonly TalkBotInstaller $installer,
-		private readonly AgentObjectMatcher $agents,
+		private readonly TalkBotInstallerInterface $installer,
+		private readonly AgentObjectMatcherInterface $agents,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()
@@ -88,7 +88,7 @@ class AgentBotLifecycleListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
 	 */
 	public function handle(Event $event): void {
 		try {
@@ -113,7 +113,7 @@ class AgentBotLifecycleListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
 	 */
 	private function apply(Event $event): void {
 		[$object, $deleted] = $this->resolve(event: $event);
@@ -147,7 +147,7 @@ class AgentBotLifecycleListener implements IEventListener {
 	 *
 	 * @return string|null
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
 	 */
 	private function agentIdOf(mixed $object): ?string {
 		if (($object instanceof ObjectEntity) === false || $this->agents->isAgent(object: $object) === false) {
@@ -180,7 +180,7 @@ class AgentBotLifecycleListener implements IEventListener {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
 	 */
 	private function mustStopAnswering(ObjectEntity $agent): bool {
 		if ($agent->getDeleted() !== null && $agent->getDeleted() !== []) {
@@ -198,7 +198,7 @@ class AgentBotLifecycleListener implements IEventListener {
 	 *
 	 * @return array{0: ObjectEntity|null, 1: bool} The object and the deleted flag.
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
 	 */
 	private function resolve(Event $event): array {
 		if ($event instanceof ObjectCreatedEvent) {

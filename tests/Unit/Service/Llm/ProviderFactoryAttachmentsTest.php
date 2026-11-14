@@ -28,10 +28,10 @@ use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\AiFeature\ProviderResidencyRegistry;
 use OCA\Hermiq\Service\AiFeature\RedactionOutcomeReader;
 use OCA\Hermiq\Service\AiFeature\RedactionRequiredException;
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
-use OCA\Hermiq\Service\OrganisationModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\App\IAppManager;
@@ -55,7 +55,7 @@ class ProviderFactoryAttachmentsTest extends TestCase {
 	 * @return ProviderFactory
 	 */
 	private function factory(): ProviderFactory {
-		$features = $this->createMock(AiFeatureService::class);
+		$features = $this->createMock(AiFeatureLookup::class);
 		$features->method('findBySlug')->willReturnCallback(
 			static function (string $slug): ?ObjectEntity {
 				$entity = new ObjectEntity();
@@ -64,7 +64,7 @@ class ProviderFactoryAttachmentsTest extends TestCase {
 			}
 		);
 
-		$policy = $this->createMock(OrganisationModelPolicyService::class);
+		$policy = $this->createMock(EffectiveModelPolicy::class);
 		$policy->method('isAllowed')->willReturn(true);
 		$policy->method('effectivePolicyFor')->willReturn(['source' => 'organisation', 'allowed' => [], 'defaultModel' => null]);
 

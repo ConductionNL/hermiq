@@ -30,9 +30,10 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Controller\Chat\ImageTurn;
+use OCA\Hermiq\Kernel\Contracts\ImageGenerationServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\MessageHistoryHandlerInterface;
 use OCA\Hermiq\Service\Chat\ImageGenerationException;
-use OCA\Hermiq\Service\Chat\ImageGenerationService;
-use OCA\Hermiq\Service\Engine\MessageHistoryHandler;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
@@ -69,9 +70,9 @@ class ChatImageController extends Controller {
 	 * @param string                    $appName       The app id.
 	 * @param IRequest                  $request       The request.
 	 * @param IUserSession              $userSession   The signed-in person.
-	 * @param ImageGenerationService    $images        Creates and marks the image.
+	 * @param ImageGenerationServiceInterface    $images        Creates and marks the image.
 	 * @param ObjectService             $objectService Reads the session.
-	 * @param MessageHistoryHandler     $history       Stores the two turns.
+	 * @param MessageHistoryHandlerInterface     $history       Stores the two turns.
 	 * @param ConversationParticipation $participation Owner-or-listed-participant guard.
 	 * @param IL10N                     $l10n          Messages in the person's language.
 	 * @param LoggerInterface           $logger        Logger.
@@ -80,9 +81,9 @@ class ChatImageController extends Controller {
 		string $appName,
 		IRequest $request,
 		private readonly IUserSession $userSession,
-		private readonly ImageGenerationService $images,
+		private readonly ImageGenerationServiceInterface $images,
 		private readonly ObjectService $objectService,
-		private readonly MessageHistoryHandler $history,
+		private readonly MessageHistoryHandlerInterface $history,
 		private readonly ConversationParticipation $participation,
 		private readonly IL10N $l10n,
 		private readonly LoggerInterface $logger,
@@ -146,21 +147,30 @@ class ChatImageController extends Controller {
 			return $this->refusal(message: $e->getMessage(), code: $e->errorCode, status: (self::STATUS_FOR[$e->errorCode] ?? 502));
 		}
 
-		return $this->storeTurns(sessionId: $sessionId, uid: $uid, displayName: $user->getDisplayName(), prompt: $prompt, created: $created);
+		return $this->storeTurns(
+			sessionId: $sessionId,
+			turn: new ImageTurn(
+				uid: $uid,
+				displayName: $user->getDisplayName(),
+				prompt: $prompt,
+				created: $created
+			)
+		);
 	}//end create()
 
 	/**
 	 * Store the description and the image as two turns and answer with both.
 	 *
 	 * @param string               $sessionId   The session.
-	 * @param string               $uid         The person.
-	 * @param string               $displayName Their display name at send time.
-	 * @param string               $prompt      The description.
-	 * @param array<string, mixed> $created     What the service created.
+	 * @param ImageTurn $turn The person's image request and the image created for it.
 	 *
 	 * @return JSONResponse The two turns, or a 500 when they could not be stored.
 	 */
-	private function storeTurns(string $sessionId, string $uid, string $displayName, string $prompt, array $created): JSONResponse {
+	private function storeTurns(string $sessionId, ImageTurn $turn): JSONResponse {
+		$uid = $turn->uid;
+		$displayName = $turn->displayName;
+		$prompt = $turn->prompt;
+		$created = $turn->created;
 		$attachment = $this->images->asAttachment(created: $created);
 		$answer = $this->l10n->t('Here is the image you asked for.');
 

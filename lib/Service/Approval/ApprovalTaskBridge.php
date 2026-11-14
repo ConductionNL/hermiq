@@ -39,6 +39,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Approval;
 
+use OCA\Hermiq\Kernel\Contracts\ApprovalTaskBridgeInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Task\TaskService;
 use Psr\Container\ContainerInterface;
@@ -50,7 +51,7 @@ use Throwable;
  *
  * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-every-pending-approval-is-mirrored-as-one-openregister-task
  */
-class ApprovalTaskBridge {
+class ApprovalTaskBridge implements ApprovalTaskBridgeInterface {
 
 	/**
 	 * FQN of OpenRegister's task service, as a string on purpose: a cross-app

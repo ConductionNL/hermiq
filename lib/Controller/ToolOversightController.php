@@ -37,8 +37,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use DateTimeImmutable;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\Agent\GrantWaiverAudit;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\GrantWaiverAuditInterface;
 use OCA\Hermiq\Service\ToolAccessDecision;
 use OCA\Hermiq\Service\ToolInvocationRows;
 use OCA\Hermiq\Service\ToolOversight\ToolOversightServices;
@@ -74,7 +74,7 @@ class ToolOversightController extends Controller {
 	 *
 	 * @var string
 	 */
-	public const WAIVER_AUDIT_ACTION = GrantWaiverAudit::ACTION;
+	public const WAIVER_AUDIT_ACTION = GrantWaiverAuditInterface::ACTION;
 
 	/**
 	 * Constructor.
@@ -92,7 +92,7 @@ class ToolOversightController extends Controller {
 		private readonly LoggerInterface $logger,
 		private readonly ToolOversightServices $services,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -106,7 +106,7 @@ class ToolOversightController extends Controller {
 	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/design.md#api-design
-	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-the-reach-of-every-catalogue-entry-is-readable-through-the-tool-catalogue-api
+	 * @spec openspec/specs/agent-capability-reach/spec.md#scenario-the-reach-of-every-catalogue-entry-is-readable-through-the-tool-catalogue-api
 	 */
 	public function toolCatalog(string $agentId): JSONResponse {
 		$agent = $this->viewableAgent(agentId: $agentId);
@@ -142,7 +142,7 @@ class ToolOversightController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
 	 *
 	 * @psalm-suppress TypeDoesNotContainType OCP 35 types getUID() as
 	 *   non-empty-string; Nextcloud 32-34 can still return '', so the guard stays.

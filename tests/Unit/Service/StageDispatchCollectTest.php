@@ -86,6 +86,7 @@ class ExposedCollectStageDispatchService extends StageDispatchService {
  * @uses \OCA\Hermiq\Service\Llm\RunTokenService
  * @uses \OCA\Hermiq\Service\StageOptions
  * @uses \OCA\Hermiq\Service\StageRequest
+ * @uses \OCA\Hermiq\Service\Llm\RunTokenRequest
  */
 final class StageDispatchCollectTest extends TestCase {
 

@@ -154,4 +154,57 @@ class RollbackApprovalTaskMirrorTest extends TestCase {
 		$this->assertStringContainsString('Would roll back approval appr-1', $tester->getDisplay());
 
 	}//end testDryRunWritesNothing()
+
+	/**
+	 * When the approvals cannot be read the command says so and exits 1,
+	 * touching no task.
+	 *
+	 * @return void
+	 */
+	public function testAnUnreadableApprovalListFailsTheCommand(): void {
+		$this->objectService->method('findAll')->willThrowException(new \RuntimeException('register missing'));
+		$this->taskBridge->expects($this->never())->method('releaseFor');
+		$this->objectService->expects($this->never())->method('saveObject');
+
+		$tester = $this->tester();
+		$this->assertSame(1, $tester->execute([]));
+		$this->assertStringContainsString('Could not read approvals: register missing', $tester->getDisplay());
+	}//end testAnUnreadableApprovalListFailsTheCommand()
+
+	/**
+	 * A backlink that cannot be cleared is reported and logged, the other
+	 * approvals still roll back, and the command exits 1.
+	 *
+	 * @return void
+	 */
+	public function testAFailedClearIsReportedAndFailsTheCommand(): void {
+		$broken = $this->approval('appr-1', ['status' => 'pending', 'taskUuid' => 'task-1', 'locked' => true]);
+		$fine = $this->approval('appr-2', ['status' => 'pending', 'taskUuid' => 'task-2']);
+		$this->objectService->method('findAll')->willReturn(['not-an-entity', $broken, $fine]);
+
+		$this->taskBridge->expects($this->exactly(2))->method('releaseFor');
+		$this->objectService->method('saveObject')->willReturnCallback(
+			static function (array $object, ...$rest): ObjectEntity {
+				unset($rest);
+				if (isset($object['locked']) === true) {
+					throw new \RuntimeException('locked');
+				}
+
+				return new ObjectEntity();
+			}
+		);
+
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects($this->once())
+			->method('warning')
+			->with('RollbackApprovalTaskMirror could not clear taskUuid on approval appr-1: locked');
+
+		$tester = new CommandTester(new RollbackApprovalTaskMirror($this->objectService, $this->taskBridge, $logger));
+		$this->assertSame(1, $tester->execute([]));
+
+		$display = $tester->getDisplay();
+		$this->assertStringContainsString('Could not clear the backlink on approval appr-1: locked', $display);
+		$this->assertStringContainsString('Rolled back approval appr-2 (task task-2).', $display);
+		$this->assertStringContainsString('Rollback: 1 approvals rolled back, 1 failed.', $display);
+	}//end testAFailedClearIsReportedAndFailsTheCommand()
 }//end class

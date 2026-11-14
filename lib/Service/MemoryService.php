@@ -27,7 +27,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-memory/tasks.md#2-memoryservice
+ * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#2-memoryservice
  */
 
 declare(strict_types=1);
@@ -36,6 +36,8 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\MemoryServiceInterface;
+use OCA\Hermiq\Service\Memory\MemoryEntryRef;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserSession;
@@ -52,12 +54,12 @@ use OCP\IUserSession;
  *   independently simple and unit-tested; agent-memory-tools' additions
  *   (forgetEntry/recallEntries/soft-delete helpers) follow the same shape.
  *
- * @spec openspec/changes/agent-memory/tasks.md#2-memoryservice
- * @spec openspec/changes/agent-memory-tools/tasks.md#task-2
- * @spec openspec/changes/agent-memory-tools/tasks.md#task-3
- * @spec openspec/changes/agent-memory-tools/tasks.md#task-4
+ * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#2-memoryservice
+ * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-2
+ * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-3
+ * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-4
  */
-class MemoryService {
+class MemoryService implements MemoryServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -124,7 +126,7 @@ class MemoryService {
 	 *                                  only guard — and `listUserProfiles()` can scope to
 	 *                                  the caller's own `subjectUid`.
 	 *
-	 * @spec openspec/changes/agent-memory-tools/tasks.md#task-2
+	 * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-2
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
@@ -140,7 +142,7 @@ class MemoryService {
 	 *
 	 * @return ObjectEntity The agent's Memory object.
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-1
 	 */
 	public function getMemory(string $agentId): ObjectEntity {
 		$existing = $this->findOne(schema: self::MEMORY_SCHEMA, filters: ['agentId' => $agentId]);
@@ -169,7 +171,7 @@ class MemoryService {
 	 *
 	 * @return ObjectEntity The UserProfile object.
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-1
 	 */
 	public function getUserProfile(string $agentId, string $subjectUid): ObjectEntity {
 		$existing = $this->findOne(
@@ -209,7 +211,7 @@ class MemoryService {
 	 *
 	 * @return ObjectEntity The persisted Memory object.
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-2
 	 */
 	public function appendMemoryEntry(string $agentId, string $text): ObjectEntity {
 		$memory = $this->getMemory(agentId: $agentId);
@@ -225,7 +227,7 @@ class MemoryService {
 	 *
 	 * @return ObjectEntity The persisted UserProfile object.
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-2
 	 */
 	public function appendUserProfileEntry(string $agentId, string $subjectUid, string $text): ObjectEntity {
 		$profile = $this->getUserProfile(agentId: $agentId, subjectUid: $subjectUid);
@@ -244,7 +246,7 @@ class MemoryService {
 	 *
 	 * @return ObjectEntity The persisted Memory object.
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-2-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-3
 	 */
 	public function consolidateMemory(string $agentId, array $entries): ObjectEntity {
 		$memory = $this->getMemory(agentId: $agentId);
@@ -294,7 +296,7 @@ class MemoryService {
 	 *
 	 * @return array<int, ObjectEntity> The CALLER's own Session objects for this agent.
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-2-4
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-4
 	 */
 	public function listSessions(string $agentId): array {
 		$user = $this->userSession->getUser();
@@ -308,10 +310,12 @@ class MemoryService {
 
 		return $this->findMany(
 			schema: self::SESSION_SCHEMA,
-			filters: [
-				'agentId' => $agentId,
-				'@self.owner' => $user->getUID(),
-			]
+			lookup: new MemoryLookup(
+				filters: [
+					'agentId' => $agentId,
+					'@self.owner' => $user->getUID(),
+				]
+			)
 		);
 
 	}//end listSessions()
@@ -327,7 +331,7 @@ class MemoryService {
 	 *
 	 * @return array<int, ObjectEntity> The CALLER's own UserProfile object(s) for this agent.
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-1
 	 */
 	public function listUserProfiles(string $agentId): array {
 		$user = $this->userSession->getUser();
@@ -340,10 +344,12 @@ class MemoryService {
 
 		return $this->findMany(
 			schema: self::USER_PROFILE_SCHEMA,
-			filters: [
-				'agentId' => $agentId,
-				'subjectUid' => $user->getUID(),
-			]
+			lookup: new MemoryLookup(
+				filters: [
+					'agentId' => $agentId,
+					'subjectUid' => $user->getUID(),
+				]
+			)
 		);
 
 	}//end listUserProfiles()
@@ -363,7 +369,7 @@ class MemoryService {
 	 *
 	 * @return array<int, ObjectEntity> The matching SessionTurn objects (tenant-scoped).
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-2-5
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-5
 	 */
 	public function recallSessions(string $agentId, string $query, int $limit = 20): array {
 		$user = $this->userSession->getUser();
@@ -381,15 +387,16 @@ class MemoryService {
 			return [];
 		}
 
-		return $this->findMany(
-			schema: self::SESSION_TURN_SCHEMA,
+		$lookup = new MemoryLookup(
 			filters: [
 				'agentId' => $agentId,
 				'@self.owner' => $user->getUID(),
 			],
-			search: $query,
 			limit: $limit
 		);
+		$lookup->search = $query;
+
+		return $this->findMany(schema: self::SESSION_TURN_SCHEMA, lookup: $lookup);
 
 	}//end recallSessions()
 
@@ -413,31 +420,57 @@ class MemoryService {
 	 *
 	 * @return array{memoryEntries: array<int, array<string, string>>, userProfileEntries: array<int, array<string, string>>}
 	 *
-	 * @spec openspec/changes/agent-memory-tools/tasks.md#task-4
+	 * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-4
 	 */
 	public function recallEntries(string $agentId, ?string $subjectUid, string $query, int $limit = 20): array {
-		$memoryEntries = [];
-		foreach ($this->findMany(schema: self::MEMORY_SCHEMA, filters: ['agentId' => $agentId], search: $query, limit: $limit) as $object) {
-			$memoryEntries = array_merge($memoryEntries, $this->matchingEntries(object: $object, query: $query));
-		}
-
-		$userProfileEntries = [];
-		if ($subjectUid !== null && $subjectUid !== '') {
-			$profileFilters = [
-				'agentId' => $agentId,
-				'subjectUid' => $subjectUid,
-			];
-			foreach ($this->findMany(schema: self::USER_PROFILE_SCHEMA, filters: $profileFilters, search: $query, limit: $limit) as $object) {
-				$userProfileEntries = array_merge($userProfileEntries, $this->matchingEntries(object: $object, query: $query));
-			}
-		}
+		$lookup = new MemoryLookup(filters: ['agentId' => $agentId], limit: $limit);
+		$lookup->search = $query;
 
 		return [
-			'memoryEntries' => $memoryEntries,
-			'userProfileEntries' => $userProfileEntries,
+			'memoryEntries' => $this->recalledEntries(schema: self::MEMORY_SCHEMA, lookup: $lookup),
+			'userProfileEntries' => $this->profileEntries(lookup: $lookup, subjectUid: $subjectUid),
 		];
 
 	}//end recallEntries()
+
+	/**
+	 * The acting user's own UserProfile entries matching the memory read, or none
+	 * without an acting user — never any other subject's profile.
+	 *
+	 * @param MemoryLookup $lookup     The agent's memory read (filters, limit, search).
+	 * @param string|null  $subjectUid The acting user id, or null/'' for none.
+	 *
+	 * @return array<int, array<string, string>>
+	 *
+	 * @spec openspec/changes/agent-memory-tools/tasks.md#task-4
+	 */
+	private function profileEntries(MemoryLookup $lookup, ?string $subjectUid): array {
+		if ($subjectUid === null || $subjectUid === '') {
+			return [];
+		}
+
+		$profileLookup = new MemoryLookup(filters: $lookup->filters + ['subjectUid' => $subjectUid], limit: $lookup->limit);
+		$profileLookup->search = $lookup->search;
+
+		return $this->recalledEntries(schema: self::USER_PROFILE_SCHEMA, lookup: $profileLookup);
+	}//end profileEntries()
+
+	/**
+	 * The live entries matching the read's search term in every object the read finds.
+	 *
+	 * @param string       $schema The schema slug.
+	 * @param MemoryLookup $lookup The read.
+	 *
+	 * @return array<int, array<string, string>>
+	 */
+	private function recalledEntries(string $schema, MemoryLookup $lookup): array {
+		$entries = [];
+		foreach ($this->findMany(schema: $schema, lookup: $lookup) as $object) {
+			$entries = array_merge($entries, $this->matchingEntries(object: $object, query: (string)$lookup->search));
+		}
+
+		return $entries;
+	}//end recalledEntries()
 
 	/**
 	 * Soft-delete one memory entry by id (never a hard delete): sets `deletedAt`,
@@ -459,7 +492,7 @@ class MemoryService {
 	 * @return array{found: bool, scope: (string|null)} Whether a match was found, and
 	 *                                                  in which object ('memory'|'userProfile') when it was.
 	 *
-	 * @spec openspec/changes/agent-memory-tools/tasks.md#task-3
+	 * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-3
 	 */
 	public function forgetEntry(string $agentId, ?string $subjectUid, string $entryId): array {
 		if (trim($entryId) === '') {
@@ -469,9 +502,11 @@ class MemoryService {
 		$memory = $this->getMemory(agentId: $agentId);
 		$memoryFound = $this->softDeleteEntry(
 			object: $memory,
-			schema: self::MEMORY_SCHEMA,
-			entryId: $entryId,
-			defaultBudget: self::DEFAULT_MEMORY_BUDGET
+			entryRef: new MemoryEntryRef(
+				schema: self::MEMORY_SCHEMA,
+				entryId: $entryId,
+				defaultBudget: self::DEFAULT_MEMORY_BUDGET
+			)
 		);
 		if ($memoryFound === true) {
 			return ['found' => true, 'scope' => 'memory'];
@@ -481,9 +516,11 @@ class MemoryService {
 			$profile = $this->getUserProfile(agentId: $agentId, subjectUid: $subjectUid);
 			$profileFound = $this->softDeleteEntry(
 				object: $profile,
-				schema: self::USER_PROFILE_SCHEMA,
-				entryId: $entryId,
-				defaultBudget: self::DEFAULT_PROFILE_BUDGET
+				entryRef: new MemoryEntryRef(
+					schema: self::USER_PROFILE_SCHEMA,
+					entryId: $entryId,
+					defaultBudget: self::DEFAULT_PROFILE_BUDGET
+				)
 			);
 			if ($profileFound === true) {
 				return ['found' => true, 'scope' => 'userProfile'];
@@ -592,7 +629,7 @@ class MemoryService {
 	 *
 	 * @return ObjectEntity The persisted object.
 	 *
-	 * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-memory-writes-are-redacted-before-persist
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-memory-writes-are-redacted-before-persist
 	 */
 	private function appendEntry(ObjectEntity $object, string $schema, string $text, int $defaultBudget): ObjectEntity {
 		$data = $object->getObject();
@@ -621,15 +658,16 @@ class MemoryService {
 	 * Soft-delete the entry matching `$entryId` inside one Memory/UserProfile object.
 	 *
 	 * @param ObjectEntity $object The Memory/UserProfile object to search.
-	 * @param string $schema The schema slug to save under.
-	 * @param string $entryId The entry id to soft-delete.
-	 * @param int $defaultBudget The budget to assume when the object stores none.
+	 * @param MemoryEntryRef $entryRef Which memory entry is removed, and the budget it is counted against.
 	 *
 	 * @return bool True when a matching entry was found (and soft-deleted, or was
 	 *              already soft-deleted — idempotent); false when no entry in this
 	 *              object carries `$entryId`.
 	 */
-	private function softDeleteEntry(ObjectEntity $object, string $schema, string $entryId, int $defaultBudget): bool {
+	private function softDeleteEntry(ObjectEntity $object, MemoryEntryRef $entryRef): bool {
+		$schema = $entryRef->schema;
+		$entryId = $entryRef->entryId;
+		$defaultBudget = $entryRef->defaultBudget;
 		$data = $object->getObject();
 		$entries = $this->normaliseEntries(entries: ($data['entries'] ?? []));
 
@@ -778,7 +816,7 @@ class MemoryService {
 	 *
 	 * @return string The generated UUID v4.
 	 *
-	 * @spec openspec/changes/agent-memory-tools/design.md#decision-2-entry-level-id--deletedat-not-a-separate-or-object-per-entry
+	 * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/design.md#decision-2-entry-level-id--deletedat-not-a-separate-or-object-per-entry
 	 */
 	private function generateEntryId(): string {
 		$data = random_bytes(16);
@@ -797,7 +835,7 @@ class MemoryService {
 	 * @return ObjectEntity|null The first match, or null.
 	 */
 	private function findOne(string $schema, array $filters): ?ObjectEntity {
-		$matches = $this->findMany(schema: $schema, filters: $filters, limit: 1);
+		$matches = $this->findMany(schema: $schema, lookup: new MemoryLookup(filters: $filters, limit: 1));
 		if ($matches === []) {
 			return null;
 		}
@@ -808,35 +846,18 @@ class MemoryService {
 	/**
 	 * Find matching objects in the caller's tenant context (RBAC + multitenancy ON).
 	 *
-	 * @param string $schema The schema slug.
-	 * @param array<string,mixed> $filters The equality filters.
-	 * @param string|null $search Optional full-text search term.
-	 * @param int $limit Maximum objects to return.
+	 * @param string       $schema The schema slug.
+	 * @param MemoryLookup $lookup The filters, limit and optional search term.
 	 *
 	 * @return array<int, ObjectEntity> The matching objects.
 	 */
-	private function findMany(string $schema, array $filters, ?string $search = null, int $limit = 100): array {
-		$config = [
-			'filters' => $filters,
-			'limit' => $limit,
-		];
-		if ($search !== null && $search !== '') {
-			$config['search'] = $search;
-		}
-
+	private function findMany(string $schema, MemoryLookup $lookup): array {
 		$objects = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema($schema)
-			->findAll(config: $config);
+			->findAll(config: $lookup->config());
 
-		$out = [];
-		foreach ($objects as $object) {
-			if ($object instanceof ObjectEntity) {
-				$out[] = $object;
-			}
-		}
-
-		return $out;
+		return array_values(array_filter($objects, static fn (mixed $object): bool => $object instanceof ObjectEntity));
 	}//end findMany()
 
 	/**

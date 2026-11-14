@@ -24,7 +24,7 @@
  * (catalog/discovery operations, mirroring how `import`/`export` already live here):
  * `githubSearch()` + `githubInstall()`, a close port of
  * `AgentTemplateController::githubSearch()`/`::githubInstall()` scoped to
- * `GitHubTemplateCatalogService::KIND_SKILL`. `githubInstall()` is a thin adapter in
+ * `GitHubTemplateCatalogServiceInterface::KIND_SKILL`. `githubInstall()` is a thin adapter in
  * front of the UNCHANGED `SkillMarketplaceService::installFromSource(source: 'hub')`
  * — no new quarantine/scan logic (design.md Decision 2). The GitHub token never
  * enters Hermiq: both endpoints only ever pass a broker `credentialId` to
@@ -42,7 +42,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
+ * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#4-controller-routes
  * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-skill-through-the-skill-quarantine-gate
  */
 
@@ -50,15 +50,15 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\AgentAccessService;
-use OCA\Hermiq\Service\GitHubTemplateCatalogService;
-use OCA\Hermiq\Service\GitHubTemplatePushService;
-use OCA\Hermiq\Service\SeedCustodyService;
-use OCA\Hermiq\Service\SkillBundleInstaller;
-use OCA\Hermiq\Service\SkillBundleSerializer;
-use OCA\Hermiq\Service\SkillMarketplaceService;
-use OCA\Hermiq\Service\SkillService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\GitHubTemplateCatalogServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\GitHubTemplatePushServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SeedCustodyServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillBundleInstallerInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillBundleSerializerInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillMarketplaceServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -83,7 +83,7 @@ use Throwable;
  *   seam (catalog, marketplace, bundle serialiser, push service) plus the response
  *   and exception types the routes return.
  *
- * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
+ * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#4-controller-routes
  */
 class SkillController extends Controller {
 	/**
@@ -106,36 +106,36 @@ class SkillController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param SkillService $skillService The skill read/write path.
+	 * @param SkillServiceInterface $skillService The skill read/write path.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param GitHubTemplateCatalogService $catalogService GitHub search/fetch (hermiq-github-store).
-	 * @param SkillMarketplaceService $marketplaceService Quarantine install path (hermiq-github-store).
-	 * @param SkillBundleSerializer $bundleSerializer Bundle tree (de)serialiser (skill-bundle-publish).
-	 * @param GitHubTemplatePushService $pushService Bundle publish (skill-bundle-publish).
-	 * @param SkillBundleInstaller $bundleInstaller Bundle install, shared with OpenBuild (apply-v2-channels).
-	 * @param SeedCustodyService $seedCustody Owner-or-seed-custodian check (skill write guard).
-	 * @param AgentAccessService $agentAccess Per-agent authorization (install/uninstall guard).
+	 * @param GitHubTemplateCatalogServiceInterface $catalogService GitHub search/fetch (hermiq-github-store).
+	 * @param SkillMarketplaceServiceInterface $marketplaceService Quarantine install path (hermiq-github-store).
+	 * @param SkillBundleSerializerInterface $bundleSerializer Bundle tree (de)serialiser (skill-bundle-publish).
+	 * @param GitHubTemplatePushServiceInterface $pushService Bundle publish (skill-bundle-publish).
+	 * @param SkillBundleInstallerInterface $bundleInstaller Bundle install, shared with OpenBuild (apply-v2-channels).
+	 * @param SeedCustodyServiceInterface $seedCustody Owner-or-seed-custodian check (skill write guard).
+	 * @param AgentAccessServiceInterface $agentAccess Per-agent authorization (install/uninstall guard).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
 	 *
-	 * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
+	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#4-controller-routes
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly SkillService $skillService,
+		private readonly SkillServiceInterface $skillService,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
-		private readonly GitHubTemplateCatalogService $catalogService,
-		private readonly SkillMarketplaceService $marketplaceService,
-		private readonly SkillBundleSerializer $bundleSerializer,
-		private readonly GitHubTemplatePushService $pushService,
-		private readonly SkillBundleInstaller $bundleInstaller,
-		private readonly SeedCustodyService $seedCustody,
-		private readonly AgentAccessService $agentAccess,
+		private readonly GitHubTemplateCatalogServiceInterface $catalogService,
+		private readonly SkillMarketplaceServiceInterface $marketplaceService,
+		private readonly SkillBundleSerializerInterface $bundleSerializer,
+		private readonly GitHubTemplatePushServiceInterface $pushService,
+		private readonly SkillBundleInstallerInterface $bundleInstaller,
+		private readonly SeedCustodyServiceInterface $seedCustody,
+		private readonly AgentAccessServiceInterface $agentAccess,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -146,7 +146,7 @@ class SkillController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
+	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#4-controller-routes
 	 */
 	public function index(): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -171,7 +171,7 @@ class SkillController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
+	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#4-controller-routes
 	 */
 	public function import(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -204,7 +204,7 @@ class SkillController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
+	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#4-controller-routes
 	 */
 	public function export(string $id): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -290,7 +290,7 @@ class SkillController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
+	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#4-controller-routes
 	 */
 	public function install(string $id): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -331,7 +331,7 @@ class SkillController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-capability-detail-surface/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
+	 * @spec openspec/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
 	 */
 	public function uninstall(string $id, string $agentId): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -363,7 +363,7 @@ class SkillController extends Controller {
 	/**
 	 * Search GitHub for `topic:hermiq-skill` repos (hermiq-github-store) — a close
 	 * port of `AgentTemplateController::githubSearch()` scoped to
-	 * `GitHubTemplateCatalogService::KIND_SKILL`.
+	 * `GitHubTemplateCatalogServiceInterface::KIND_SKILL`.
 	 *
 	 * Login-required (in-body 401 guard). Returns the normalised, kind-tagged cards
 	 * plus a `brokerCredentialAvailable`/`brokerUsed`/`rateLimited` hint; never
@@ -394,7 +394,7 @@ class SkillController extends Controller {
 				query: $query,
 				actingUserId: $user->getUID(),
 				credentialId: $this->credentialParam(),
-				kind: GitHubTemplateCatalogService::KIND_SKILL
+				kind: GitHubTemplateCatalogServiceInterface::KIND_SKILL
 			);
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq skill github search failed: ' . $e->getMessage(), ['exception' => $e]);
@@ -442,7 +442,7 @@ class SkillController extends Controller {
 			$store = new GitHubSkillStore(catalog: $this->catalogService, marketplace: $this->marketplaceService);
 			$skill = $store->install(target: $target);
 			if ($skill === null) {
-				return new JSONResponse(['error' => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE], Http::STATUS_NOT_FOUND);
+				return new JSONResponse(['error' => GitHubTemplateCatalogServiceInterface::OUTCOME_UNREACHABLE], Http::STATUS_NOT_FOUND);
 			}
 
 			return new JSONResponse($this->shape(object: $skill), Http::STATUS_CREATED);
@@ -564,7 +564,7 @@ class SkillController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	public function bundlePublish(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -682,7 +682,7 @@ class SkillController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
 	 */
 	public function bundleInstall(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -790,7 +790,7 @@ class SkillController extends Controller {
 	 *
 	 * @return JSONResponse|null A 400 when the coordinates are unusable, else null.
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/contract.md
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/contract.md
 	 */
 	private function rejectBadCoordinates(string $owner, string $repo, ?string $ref): ?JSONResponse {
 		if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
@@ -822,7 +822,7 @@ class SkillController extends Controller {
 	 *
 	 * @return array{payloads:array<int,array<string,mixed>>,outcomes:array<int,array<string,mixed>>}
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	private function collectPublishablePayloads(array $skillIds): array {
 		return (new PublishableSkills(skillService: $this->skillService, logger: $this->logger))->collect(skillIds: $skillIds);
@@ -897,7 +897,7 @@ class SkillController extends Controller {
 	 *
 	 * @return array{outcomes:array<int,array<string,mixed>>,counts:array<string,int>}
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
 	 */
 	private function installBundleSkills(array $parsed, string $createdBy, string $owner = '', string $repo = ''): array {
 		return $this->bundleInstaller->installParsed(

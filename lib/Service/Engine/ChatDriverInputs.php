@@ -18,7 +18,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
  */
 
 declare(strict_types=1);
@@ -28,7 +28,7 @@ namespace OCA\Hermiq\Service\Engine;
 /**
  * The chat-driver inputs of one turn, read from its run.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
  */
 final class ChatDriverInputs {
 
@@ -47,7 +47,7 @@ final class ChatDriverInputs {
 	 *
 	 * @return string|null
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function model(): ?string {
 		$agentModel = $this->run->agentData()['model'] ?? null;
@@ -63,7 +63,7 @@ final class ChatDriverInputs {
 	 *
 	 * @return float|null
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function temperature(): ?float {
 		$temperature = ($this->run->agentData()['temperature'] ?? null);
@@ -81,7 +81,7 @@ final class ChatDriverInputs {
 	 *
 	 * @return int|null
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function maxTokens(): ?int {
 		$maxTokens = ($this->run->agentData()['maxTokens'] ?? null);
@@ -99,7 +99,7 @@ final class ChatDriverInputs {
 	 *
 	 * @return string|null
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function organisation(): ?string {
 		if ($this->run->agent === null) {
@@ -115,7 +115,7 @@ final class ChatDriverInputs {
 	 *
 	 * @return string|null
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function aiFeature(): ?string {
 		$aiFeature = $this->run->agentData()['aiFeature'] ?? null;
@@ -134,7 +134,7 @@ final class ChatDriverInputs {
 	 *
 	 * @return string|null
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function documentReference(): ?string {
 		foreach (['fileId', 'documentId', 'objectId'] as $key) {
@@ -153,7 +153,7 @@ final class ChatDriverInputs {
 	 *
 	 * @return array<mixed>
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function credentialIds(): array {
 		return (array)($this->run->agentData()['credentialIds'] ?? []);
@@ -165,7 +165,7 @@ final class ChatDriverInputs {
 	 *
 	 * @return array<int, string>
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function attachmentReferences(): array {
 		return array_map(

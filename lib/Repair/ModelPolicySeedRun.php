@@ -18,30 +18,30 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
+ * @spec openspec/changes/archive/2026-07-12-tenant-model-policy/tasks.md#task-9-seed-data
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\Hermiq\Service\OrganisationModelPolicyService;
+use OCA\Hermiq\Kernel\Contracts\OrganisationModelPolicyServiceInterface;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\Migration\IOutput;
 
 /**
  * One model-policy seed run.
  *
- * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
+ * @spec openspec/changes/archive/2026-07-12-tenant-model-policy/tasks.md#task-9-seed-data
  */
 final class ModelPolicySeedRun {
 
 	/**
 	 * The policy write-path.
 	 *
-	 * @var OrganisationModelPolicyService
+	 * @var OrganisationModelPolicyServiceInterface
 	 */
-	public OrganisationModelPolicyService $policyService;
+	public OrganisationModelPolicyServiceInterface $policyService;
 
 	/**
 	 * The organisation lookup.

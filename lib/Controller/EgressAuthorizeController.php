@@ -39,19 +39,19 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\Llm\GovernedMcpEndpoint;
-use OCA\Hermiq\Service\Llm\RunTokenService;
-use OCA\Hermiq\Service\WebResearch\WebResearchEgressGuard;
-use OCA\Hermiq\Service\WebResearch\WebResearchSettingsHandler;
-use OCA\Hermiq\Service\Workspace\ForgeEgressPolicy;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ForgeEgressPolicyInterface;
+use OCA\Hermiq\Kernel\Contracts\GovernedMcpEndpointInterface;
+use OCA\Hermiq\Kernel\Contracts\RunTokenServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\WebResearchEgressGuardInterface;
+use OCA\Hermiq\Kernel\Contracts\WebResearchSettingsHandlerInterface;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\AnonRateLimit;
@@ -66,7 +66,7 @@ use OCP\Security\Bruteforce\IThrottler;
  * The token-gated egress PDP: answers allow/deny per CONNECT from the shared
  * `WebResearchEgressGuard` policy.
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
  */
 class EgressAuthorizeController extends Controller {
 
@@ -81,32 +81,32 @@ class EgressAuthorizeController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param RunTokenService $runTokenService Verifies the per-run bearer token
+	 * @param RunTokenServiceInterface $runTokenService Verifies the per-run bearer token
 	 *                                         (the SAME token Endpoint 1 uses).
-	 * @param WebResearchEgressGuard $guard THE shared egress policy source (public,
+	 * @param WebResearchEgressGuardInterface $guard THE shared egress policy source (public,
 	 *                                      dependency-free — no second allowlist).
-	 * @param WebResearchSettingsHandler $settingsHandler Reads the same allowlist/denylist/insecure
+	 * @param WebResearchSettingsHandlerInterface $settingsHandler Reads the same allowlist/denylist/insecure
 	 *                                                    knobs `hermiq.webFetch` reads.
 	 * @param IThrottler $throttler Brute-force protection for rejected per-run tokens.
-	 * @param GovernedMcpEndpoint $mcpEndpoint Recognises Hermiq's OWN governed MCP
+	 * @param GovernedMcpEndpointInterface $mcpEndpoint Recognises Hermiq's OWN governed MCP
 	 *                                         origin — the one destination the
 	 *                                         web-research SSRF policy cannot judge,
 	 *                                         because it is the control plane rather
 	 *                                         than an internet host.
-	 * @param ForgeEgressPolicy   $forgePolicy The per-run rule for the forge host: reachable
+	 * @param ForgeEgressPolicyInterface   $forgePolicy The per-run rule for the forge host: reachable
 	 *                                         only for a run whose agent holds a resolving
 	 *                                         grant for a workspace tool that needs it.
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly RunTokenService $runTokenService,
-		private readonly WebResearchEgressGuard $guard,
-		private readonly WebResearchSettingsHandler $settingsHandler,
+		private readonly RunTokenServiceInterface $runTokenService,
+		private readonly WebResearchEgressGuardInterface $guard,
+		private readonly WebResearchSettingsHandlerInterface $settingsHandler,
 		private readonly IThrottler $throttler,
-		private readonly GovernedMcpEndpoint $mcpEndpoint,
-		private readonly ForgeEgressPolicy $forgePolicy,
+		private readonly GovernedMcpEndpointInterface $mcpEndpoint,
+		private readonly ForgeEgressPolicyInterface $forgePolicy,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 
@@ -120,8 +120,8 @@ class EgressAuthorizeController extends Controller {
 	 *
 	 * @return JSONResponse The verdict, or a 400/401 error.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-the-proxy-denies-a-non-allowlisted-host-at-the-network-layer
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-one-policy-source-governs-both-layers
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-the-proxy-denies-a-non-allowlisted-host-at-the-network-layer
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-one-policy-source-governs-both-layers
 	 */
 	#[PublicPage]
 	#[NoCSRFRequired]
@@ -247,7 +247,7 @@ class EgressAuthorizeController extends Controller {
 	 *
 	 * @return JSONResponse The fail-closed 401.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
 	 */
 	private function refuseToken(string $token): JSONResponse {
 		// The per-run token IS the authorization, so a failed verify is a
@@ -297,7 +297,7 @@ class EgressAuthorizeController extends Controller {
 	 *
 	 * @return string The raw request body, or '' when unreadable.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
 	 */
 	protected function readRawBody(): string {
 		$body = file_get_contents('php://input');

@@ -25,16 +25,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#requirement-an-intake-conversation-must-be-able-to-file-on-its-own-surface
+ * @spec openspec/specs/conversational-intake/spec.md#requirement-an-intake-conversation-must-be-able-to-file-on-its-own-surface
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\IntakeServiceInterface;
 use OCA\Hermiq\Service\Intake\IntakeRefusedException;
-use OCA\Hermiq\Service\Intake\IntakeService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -46,7 +46,7 @@ use Throwable;
 /**
  * Receives intake messages, concludes conversations and carries verdicts.
  *
- * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md
+ * @spec openspec/specs/conversational-intake/spec.md
  */
 class IntakeController extends Controller {
 
@@ -54,17 +54,17 @@ class IntakeController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param IntakeService $intake The intake conversation.
+	 * @param IntakeServiceInterface $intake The intake conversation.
 	 * @param IUserSession $userSession Resolves the calling app's principal.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly IntakeService $intake,
+		private readonly IntakeServiceInterface $intake,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 
@@ -76,7 +76,7 @@ class IntakeController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-starting-by-e-mail-and-continuing-in-the-portal
+	 * @spec openspec/specs/conversational-intake/spec.md#scenario-starting-by-e-mail-and-continuing-in-the-portal
 	 */
 	public function receive(): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -118,7 +118,7 @@ class IntakeController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#requirement-no-conversation-must-dead-end
+	 * @spec openspec/specs/conversational-intake/spec.md#requirement-no-conversation-must-dead-end
 	 */
 	public function show(string $conversationId): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -143,7 +143,7 @@ class IntakeController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-an-uncertain-intake-does-not-guess
+	 * @spec openspec/specs/conversational-intake/spec.md#scenario-an-uncertain-intake-does-not-guess
 	 */
 	public function conclude(string $conversationId): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -211,7 +211,7 @@ class IntakeController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-a-verdict-travels-into-the-conversation-with-its-author
+	 * @spec openspec/specs/conversational-intake/spec.md#scenario-a-verdict-travels-into-the-conversation-with-its-author
 	 */
 	public function review(string $conversationId): JSONResponse {
 		if ($this->userSession->getUser() === null) {

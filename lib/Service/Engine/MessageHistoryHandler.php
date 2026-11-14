@@ -20,8 +20,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-2
  */
 
 declare(strict_types=1);
@@ -29,6 +29,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Engine;
 
 use LLPhant\Chat\Message as LLPhantMessage;
+use OCA\Hermiq\Kernel\Contracts\MessageHistoryHandlerInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -37,9 +38,9 @@ use Psr\Log\LoggerInterface;
  * Handles message storage and conversation history building against the
  * hermiq-register `Message` object.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
  */
-class MessageHistoryHandler {
+class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	use SanitizesForSaveTrait;
 
 	/**
@@ -71,7 +72,7 @@ class MessageHistoryHandler {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
@@ -91,7 +92,7 @@ class MessageHistoryHandler {
 	 *
 	 * @return array<int, LLPhantMessage> Array of LLPhant Message objects.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function buildMessageHistory(string $conversationId): array {
 		$messages = $this->recentMessages(conversationId: $conversationId);
@@ -149,7 +150,7 @@ class MessageHistoryHandler {
 	 *
 	 * @return list<ObjectEntity>
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
 	 */
 	private function recentMessages(string $conversationId): array {
@@ -203,67 +204,157 @@ class MessageHistoryHandler {
 	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Labelling is decided once over the
 	 * whole recent window, so it is handed in rather than recomputed per subset.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
 	 */
 	private function toLlmHistory(array $messages, bool $isMultiSpeaker): array {
 		$history = [];
 		foreach ($messages as $message) {
-			$data = $message->getObject();
-			$role = $data['role'] ?? null;
-			$content = $data['content'] ?? null;
-
-			if (empty($role) === true || empty($content) === true) {
-				$this->logger->warning(
-					message: '[MessageHistoryHandler] Skipping message with missing role or content',
-					context: [
-						'file' => __FILE__,
-						'line' => __LINE__,
-						'hasRole' => empty($role) === false,
-						'hasContent' => empty($content) === false,
-					]
-				);
-				continue;
+			$llmMessage = $this->toLlmMessage(data: $message->getObject(), isMultiSpeaker: $isMultiSpeaker);
+			if ($llmMessage !== null) {
+				$history[] = $llmMessage;
 			}
+		}
 
-			if (in_array($role, ['user', 'assistant', 'system'], true) === false) {
-				$this->logger->warning(
-					message: '[MessageHistoryHandler] Unknown message role',
-					context: [
-						'file' => __FILE__,
-						'line' => __LINE__,
-						'role' => $role,
-					]
-				);
-				continue;
-			}
+		$this->logHistoryBuilt(historyCount: count($history));
 
-			if ($role === 'user' && $isMultiSpeaker === true) {
-				$content = $this->labelWithAuthor(content: $content, data: $data);
-			}
+		return $history;
+	}//end toLlmHistory()
 
-			if ($role === 'user') {
-				$content = $this->withAttachmentLines(content: (string)$content, data: $data);
-			}
+	/**
+	 * One stored turn as an LLPhant message; a turn without a role or content, or
+	 * with an unknown role, is skipped.
+	 *
+	 * @param array<string, mixed> $data The stored turn.
+	 * @param bool $isMultiSpeaker Whether to label human turns with their author.
+	 *
+	 * @return LLPhantMessage|null The message, or null when the turn is skipped.
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) LLPhant's Message role factories
+	 * (Message::user()/assistant()/system()) are the library's public API;
+	 * there is no injectable seam.
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Labelling is decided once over the
+	 * whole recent window, so it is handed in rather than recomputed per turn.
+	 */
+	private function toLlmMessage(array $data, bool $isMultiSpeaker): ?LLPhantMessage {
+		$role = $this->usableRole(data: $data);
+		if ($role === null) {
+			return null;
+		}
 
-			$history[] = match ($role) {
-				'user' => LLPhantMessage::user($content),
-				'assistant' => LLPhantMessage::assistant($content),
-				'system' => LLPhantMessage::system($content),
-			};
-		}//end foreach
+		return match ($role) {
+			'user' => LLPhantMessage::user($this->userTurnContent(data: $data, isMultiSpeaker: $isMultiSpeaker)),
+			'assistant' => LLPhantMessage::assistant($data['content']),
+			'system' => LLPhantMessage::system($data['content']),
+		};
 
+	}//end toLlmMessage()
+
+	/**
+	 * The role of a stored turn that has a role and content and a role the model
+	 * knows; a turn that does not is logged.
+	 *
+	 * @param array<string, mixed> $data The stored turn.
+	 *
+	 * @return 'user'|'assistant'|'system'|null The role, or null when the turn is skipped.
+	 */
+	private function usableRole(array $data): ?string {
+		$role = $data['role'] ?? null;
+		$content = $data['content'] ?? null;
+		if (empty($role) === true || empty($content) === true) {
+			$this->logMissingRoleOrContent(role: $role, content: $content);
+			return null;
+		}
+
+		if (in_array($role, ['user', 'assistant', 'system'], true) === false) {
+			$this->logUnknownRole(role: $role);
+			return null;
+		}
+
+		return $role;
+
+	}//end usableRole()
+
+	/**
+	 * The text of a human turn: labelled with its author in a shared session, then
+	 * followed by its attachment lines.
+	 *
+	 * @param array<string, mixed> $data The stored turn.
+	 * @param bool $isMultiSpeaker Whether to label human turns with their author.
+	 *
+	 * @return string The turn's text.
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Labelling is decided once over the
+	 * whole recent window, so it is handed in rather than recomputed per turn.
+	 */
+	private function userTurnContent(array $data, bool $isMultiSpeaker): string {
+		$content = $data['content'];
+		if ($isMultiSpeaker === true) {
+			$content = $this->labelWithAuthor(content: $content, data: $data);
+		}
+
+		return $this->withAttachmentLines(content: (string)$content, data: $data);
+
+	}//end userTurnContent()
+
+	/**
+	 * Log a stored turn skipped for a missing role or content.
+	 *
+	 * @param mixed $role The turn's role.
+	 * @param mixed $content The turn's content.
+	 *
+	 * @return void
+	 */
+	private function logMissingRoleOrContent(mixed $role, mixed $content): void {
+		$this->logger->warning(
+			message: '[MessageHistoryHandler] Skipping message with missing role or content',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'hasRole' => empty($role) === false,
+				'hasContent' => empty($content) === false,
+			]
+		);
+
+	}//end logMissingRoleOrContent()
+
+	/**
+	 * Log a stored turn skipped for a role the model does not know.
+	 *
+	 * @param mixed $role The turn's role.
+	 *
+	 * @return void
+	 */
+	private function logUnknownRole(mixed $role): void {
+		$this->logger->warning(
+			message: '[MessageHistoryHandler] Unknown message role',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'role' => $role,
+			]
+		);
+
+	}//end logUnknownRole()
+
+	/**
+	 * Log the size of a built history.
+	 *
+	 * @param int $historyCount The number of messages in the history.
+	 *
+	 * @return void
+	 */
+	private function logHistoryBuilt(int $historyCount): void {
 		$this->logger->info(
 			message: '[MessageHistoryHandler] Message history built',
 			context: [
 				'file' => __FILE__,
 				'line' => __LINE__,
-				'historyCount' => count($history),
+				'historyCount' => $historyCount,
 			]
 		);
 
-		return $history;
-	}//end toLlmHistory()
+	}//end logHistoryBuilt()
 
 	/**
 	 * Attach authorship to a message payload, for human turns only.
@@ -279,7 +370,7 @@ class MessageHistoryHandler {
 	 *
 	 * @return array The payload, with authorship attached where applicable.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
 	 */
 	private function withAuthorship(array $payload, string $role, ?string $authorId, ?string $authorDisplayName): array {
 		if ($role !== 'user') {
@@ -308,18 +399,13 @@ class MessageHistoryHandler {
 	 *
 	 * @return bool True when two or more distinct human authors are present.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-the-model-can-tell-speakers-apart
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-the-model-can-tell-speakers-apart
 	 */
 	private function hasMultipleHumanAuthors(array $messages): bool {
 		$authors = [];
 		foreach ($messages as $message) {
-			$data = $message->getObject();
-			if (($data['role'] ?? null) !== 'user') {
-				continue;
-			}
-
-			$authorId = ($data['authorId'] ?? null);
-			if (is_string($authorId) === true && $authorId !== '' && in_array($authorId, $authors, true) === false) {
+			$authorId = $this->humanAuthorOf(data: $message->getObject());
+			if ($authorId !== null && in_array($authorId, $authors, true) === false) {
 				$authors[] = $authorId;
 				if (count($authors) > 1) {
 					return true;
@@ -329,6 +415,27 @@ class MessageHistoryHandler {
 
 		return false;
 	}//end hasMultipleHumanAuthors()
+
+	/**
+	 * The author uid of a human turn.
+	 *
+	 * @param array<string, mixed> $data The stored turn.
+	 *
+	 * @return string|null The author uid, or null for another role or no author.
+	 */
+	private function humanAuthorOf(array $data): ?string {
+		if (($data['role'] ?? null) !== 'user') {
+			return null;
+		}
+
+		$authorId = ($data['authorId'] ?? null);
+		if (is_string($authorId) === true && $authorId !== '') {
+			return $authorId;
+		}
+
+		return null;
+
+	}//end humanAuthorOf()
 
 	/**
 	 * Prefix a human turn with its author so the model can attribute it.
@@ -343,7 +450,7 @@ class MessageHistoryHandler {
 	 *
 	 * @return string The content, attributed where possible.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-the-model-can-tell-speakers-apart
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-the-model-can-tell-speakers-apart
 	 */
 	private function labelWithAuthor(string $content, array $data): string {
 		$label = ($data['authorDisplayName'] ?? null);
@@ -371,26 +478,36 @@ class MessageHistoryHandler {
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	private function withAttachmentLines(string $content, array $data): string {
-		$attachments = ($data['attachments'] ?? []);
-		if (is_array($attachments) === false || $attachments === []) {
-			return $content;
-		}
-
-		$lines = [];
-		foreach ($attachments as $attachment) {
-			if (is_array($attachment) === false || isset($attachment['fileId']) === false) {
-				continue;
-			}
-
-			$lines[] = sprintf('Attached earlier: %s, file %s', (string)($attachment['name'] ?? ''), (string)$attachment['fileId']);
-		}
-
+		$lines = $this->attachmentLines(attachments: ($data['attachments'] ?? []));
 		if ($lines === []) {
 			return $content;
 		}
 
 		return $content . "\n\n" . implode("\n", $lines);
 	}//end withAttachmentLines()
+
+	/**
+	 * One `Attached earlier:` line per stored attachment that has a file id.
+	 *
+	 * @param mixed $attachments The stored turn's `attachments` value.
+	 *
+	 * @return array<int, string> The lines.
+	 */
+	private function attachmentLines(mixed $attachments): array {
+		if (is_array($attachments) === false) {
+			return [];
+		}
+
+		$lines = [];
+		foreach ($attachments as $attachment) {
+			if (is_array($attachment) === true && isset($attachment['fileId']) === true) {
+				$lines[] = sprintf('Attached earlier: %s, file %s', (string)($attachment['name'] ?? ''), (string)$attachment['fileId']);
+			}
+		}
+
+		return $lines;
+
+	}//end attachmentLines()
 
 	/**
 	 * Store a message as a `Message` OR object.
@@ -404,13 +521,16 @@ class MessageHistoryHandler {
 	 * @param string|null $authorDisplayName That human's display name AT SEND TIME (talk-shared-sessions).
 	 * @param array $attachments The turn's attachments as references (fileId, name, mimeType,
 	 *                           size, origin), resolved as the speaker; never bytes or text.
+	 * @param array|null $provenance How an assistant answer came about: model, sources and step
+	 *                               outcomes, never content (chat-how-an-answer-came-about).
 	 *
 	 * @return ObjectEntity The persisted Message object.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-2
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
 	 */
 	public function storeMessage(
 		string $conversationId,
@@ -421,6 +541,7 @@ class MessageHistoryHandler {
 		?string $authorId = null,
 		?string $authorDisplayName = null,
 		array $attachments = [],
+		?array $provenance = null,
 	): ObjectEntity {
 		$payload = [
 			'sessionId' => $conversationId,
@@ -438,6 +559,10 @@ class MessageHistoryHandler {
 
 		if ($attachments !== []) {
 			$payload['attachments'] = array_values($attachments);
+		}
+
+		if ($provenance !== null) {
+			$payload['provenance'] = $provenance;
 		}
 
 		$payload = $this->withAuthorship(

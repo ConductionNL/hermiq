@@ -47,3 +47,10 @@ submitted in the patch.
 - **GIVEN** `hermiq.llm.openaiConfig.apiKey` is already set
 - **WHEN** an authorized admin `PATCH`es an `openaiConfig.apiKey` of `""`
 - **THEN** the previously-stored key MUST be preserved
+
+#### Scenario: An admin runs the agents on a local Ollama server
+
+- **GIVEN** an authorized admin and an Ollama server at `http://ollama.intern:11434` serving `qwen2.5`
+- **WHEN** they `PATCH /api/settings/llm` with `chatProvider: "ollama"`, that URL and that model
+- **THEN** the persisted configuration MUST have `chatProvider` = `ollama`
+- **AND** the next chat turn MUST be answered by that server, with no request to a commercial provider

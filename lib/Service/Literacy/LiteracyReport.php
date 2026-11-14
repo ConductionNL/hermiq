@@ -27,6 +27,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Literacy;
 
 use DateTime;
+use OCA\Hermiq\Kernel\Contracts\LiteracyReportInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 
@@ -35,7 +36,7 @@ use OCA\OpenRegister\Service\ObjectService;
  *
  * @spec openspec/specs/compliance-control-packs/spec.md#requirement-the-ai-act-article-4-control-reads-its-status-from-completions-req-ailit-003
  */
-class LiteracyReport {
+class LiteracyReport implements LiteracyReportInterface {
 
 	/**
 	 * The chat session schema: a session with a person's userId means they used an agent.

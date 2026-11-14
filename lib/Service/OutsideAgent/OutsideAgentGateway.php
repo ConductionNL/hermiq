@@ -31,13 +31,14 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-both-gates-must-open-before-a-tool-runs
+ * @spec openspec/specs/agent-tool-governance/spec.md#requirement-both-gates-must-open-before-a-tool-runs
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\OutsideAgent;
 
+use OCA\Hermiq\Kernel\Contracts\OutsideAgentGatewayInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
@@ -47,9 +48,9 @@ use Throwable;
 /**
  * Resolves a registration, applies both gates and narrows the response.
  *
- * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-every-outside-call-must-be-authorised-as-the-calling-principal
+ * @spec openspec/specs/agent-tool-governance/spec.md#requirement-every-outside-call-must-be-authorised-as-the-calling-principal
  */
-class OutsideAgentGateway {
+class OutsideAgentGateway implements OutsideAgentGatewayInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -88,7 +89,7 @@ class OutsideAgentGateway {
 	 *
 	 * @return array<string, mixed>|null The registration data, or null.
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-an-outside-agent-must-reach-declared-tools-through-a-registration
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-outside-agent-must-reach-declared-tools-through-a-registration
 	 */
 	public function registrationFor(string $principal): ?array {
 		if (trim($principal) === '') {
@@ -165,7 +166,7 @@ class OutsideAgentGateway {
 	 *
 	 * @throws OutsideCallRefusedException When the gate refuses.
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#scenario-a-write-tool-is-denied-unless-granted
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-write-tool-is-denied-unless-granted
 	 */
 	public function assertGranted(?array $registration, string $toolId, string $principal): void {
 		$call = new OutsideCall(toolId: $toolId, principal: $principal);
@@ -254,7 +255,7 @@ class OutsideAgentGateway {
 	 *
 	 * @throws OutsideCallRefusedException When either gate refuses.
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-both-gates-must-open-before-a-tool-runs
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-both-gates-must-open-before-a-tool-runs
 	 */
 	public function call(string $principal, string $toolId, array $arguments): array {
 		$registration = $this->registrationFor(principal: $principal);
@@ -338,7 +339,7 @@ class OutsideAgentGateway {
 	 *
 	 * @return array<array-key, mixed> The narrowed response.
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-a-registration-may-narrow-what-a-tool-response-carries
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-a-registration-may-narrow-what-a-tool-response-carries
 	 */
 	public function narrow(array $registration, array $result): array {
 		$allowlist = ($registration['fieldAllowlist'] ?? []);

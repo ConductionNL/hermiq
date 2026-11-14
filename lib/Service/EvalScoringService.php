@@ -27,7 +27,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-evals/tasks.md#task-5-evalscoringservice-deterministic--llm-judge
+ * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-5-evalscoringservice-deterministic--llm-judge
  */
 
 declare(strict_types=1);
@@ -42,7 +42,7 @@ use Throwable;
 /**
  * Deterministic + LLM-as-judge scoring for one EvalCase.
  *
- * @spec openspec/changes/agent-evals/tasks.md#task-5-evalscoringservice-deterministic--llm-judge
+ * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-5-evalscoringservice-deterministic--llm-judge
  */
 class EvalScoringService {
 
@@ -83,8 +83,8 @@ class EvalScoringService {
 	 *
 	 * @return array{passed:bool,errorMessage:?string,score:?float,judgeRationale:?string}
 	 *
-	 * @spec openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-deterministic-scoring
-	 * @spec openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-llm-as-judge-scoring-goes-through-the-existing-providerfactory-chokepoint
+	 * @spec openspec/specs/agent-evals/spec.md#requirement-deterministic-scoring
+	 * @spec openspec/specs/agent-evals/spec.md#requirement-llm-as-judge-scoring-goes-through-the-existing-providerfactory-chokepoint
 	 */
 	public function score(array $case, string $actualOutput, ?string $organisation = null): array {
 		$expectationType = (string)($case['expectationType'] ?? '');
@@ -121,7 +121,7 @@ class EvalScoringService {
 	 *
 	 * @return array{passed:bool,errorMessage:?string,score:?float,judgeRationale:?string}
 	 *
-	 * @spec openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-deterministic-scoring
+	 * @spec openspec/specs/agent-evals/spec.md#requirement-deterministic-scoring
 	 */
 	private function scoreContains(array $case, string $actualOutput, bool $expectPresence): array {
 		$expectedSubstring = (string)($case['expectedSubstring'] ?? '');
@@ -146,7 +146,7 @@ class EvalScoringService {
 	 *
 	 * @return array{passed:bool,errorMessage:?string,score:?float,judgeRationale:?string}
 	 *
-	 * @spec openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-deterministic-scoring
+	 * @spec openspec/specs/agent-evals/spec.md#requirement-deterministic-scoring
 	 */
 	private function scoreJsonPathEquals(array $case, string $actualOutput): array {
 		$jsonPath = (string)($case['jsonPath'] ?? '');
@@ -241,7 +241,7 @@ class EvalScoringService {
 	 *
 	 * @return array{passed:bool,errorMessage:?string,score:?float,judgeRationale:?string}
 	 *
-	 * @spec openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-llm-as-judge-scoring-goes-through-the-existing-providerfactory-chokepoint
+	 * @spec openspec/specs/agent-evals/spec.md#requirement-llm-as-judge-scoring-goes-through-the-existing-providerfactory-chokepoint
 	 */
 	private function scoreRubric(array $case, JudgedOutput $output): array {
 		$rubric = (string)($case['rubric'] ?? '');
@@ -265,7 +265,7 @@ class EvalScoringService {
 	 *
 	 * @return float
 	 *
-	 * @spec openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-llm-as-judge-scoring-goes-through-the-existing-providerfactory-chokepoint
+	 * @spec openspec/specs/agent-evals/spec.md#requirement-llm-as-judge-scoring-goes-through-the-existing-providerfactory-chokepoint
 	 */
 	private function rubricThreshold(array $case): float {
 		if (isset($case['rubricPassThreshold']) === true && is_numeric($case['rubricPassThreshold']) === true) {
@@ -283,7 +283,7 @@ class EvalScoringService {
 	 *
 	 * @return string|array{passed:bool,errorMessage:?string,score:?float,judgeRationale:?string}
 	 *
-	 * @spec openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-llm-as-judge-scoring-goes-through-the-existing-providerfactory-chokepoint
+	 * @spec openspec/specs/agent-evals/spec.md#requirement-llm-as-judge-scoring-goes-through-the-existing-providerfactory-chokepoint
 	 */
 	private function askJudge(string $prompt, ?string $organisation): string|array {
 		try {
@@ -308,7 +308,7 @@ class EvalScoringService {
 	 *
 	 * @return array{passed:bool,errorMessage:?string,score:?float,judgeRationale:?string}
 	 *
-	 * @spec openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-llm-as-judge-scoring-goes-through-the-existing-providerfactory-chokepoint
+	 * @spec openspec/specs/agent-evals/spec.md#requirement-llm-as-judge-scoring-goes-through-the-existing-providerfactory-chokepoint
 	 */
 	private function verdict(string $response, float $threshold): array {
 		[$score, $rationale] = $this->parseJudgeResponse(response: $response);

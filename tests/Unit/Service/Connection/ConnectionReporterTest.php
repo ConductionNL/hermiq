@@ -51,6 +51,7 @@ require_once __DIR__ . '/../../../Stubs/Integriq/Event/ConnectionStatusReportedE
  * design D6 of the hydra change connection-registry.
  *
  * @covers \OCA\Hermiq\Service\Connection\ConnectionReporter
+ * @covers \OCA\Hermiq\Service\Connection\ConnectionStatus
  */
 class ConnectionReporterTest extends TestCase {
 

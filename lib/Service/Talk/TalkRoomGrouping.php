@@ -35,13 +35,14 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-room-grouping/tasks.md#2-tag-resolver
+ * @spec openspec/changes/archive/2026-07-28-talk-room-grouping/tasks.md#2-tag-resolver
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Talk;
 
+use OCA\Hermiq\Kernel\Contracts\TalkRoomGroupingInterface;
 use OCP\IConfig;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -54,7 +55,7 @@ use Throwable;
  *
  * @spec openspec/specs/talk-room-grouping/spec.md#requirement-a-bound-agent-room-is-filed-under-each-participants-hermiq-tag
  */
-class TalkRoomGrouping {
+class TalkRoomGrouping implements TalkRoomGroupingInterface {
 
 	/**
 	 * The tag name shown in the user's conversation list.
@@ -115,7 +116,7 @@ class TalkRoomGrouping {
 	 *
 	 * @return bool True when tag grouping can be attempted.
 	 *
-	 * @spec openspec/changes/talk-room-grouping/specs/talk-room-grouping/spec.md#requirement-grouping-never-breaks-anything-it-touches
+	 * @spec openspec/specs/talk-room-grouping/spec.md#requirement-grouping-never-breaks-anything-it-touches
 	 */
 	public function isSupported(): bool {
 		return $this->bridge->isAvailable() === true && class_exists(self::TAG_SERVICE) === true;
@@ -190,7 +191,7 @@ class TalkRoomGrouping {
 	 *
 	 * @return bool True when grouping is enabled for this user.
 	 *
-	 * @spec openspec/changes/talk-room-grouping/specs/talk-room-grouping/spec.md#requirement-grouping-is-per-user-optional
+	 * @spec openspec/specs/talk-room-grouping/spec.md#requirement-grouping-is-per-user-optional
 	 */
 	public function isEnabledFor(string $uid): bool {
 		return ($this->config->getUserValue($uid, 'hermiq', self::PREFERENCE_KEY, 'yes') !== 'no');
@@ -294,7 +295,7 @@ class TalkRoomGrouping {
 	 *
 	 * @return string|null The tag id, or null when it cannot be resolved.
 	 *
-	 * @spec openspec/changes/talk-room-grouping/specs/talk-room-grouping/spec.md#requirement-a-hermiq-conversation-tag-is-created-per-user-on-demand
+	 * @spec openspec/specs/talk-room-grouping/spec.md#requirement-a-hermiq-conversation-tag-is-created-per-user-on-demand
 	 */
 	private function ensureTag(string $uid): ?string {
 		$tagService = $this->container->get(self::TAG_SERVICE);
@@ -345,7 +346,7 @@ class TalkRoomGrouping {
 	 *
 	 * @return string|null The tag id, or null when the user has none.
 	 *
-	 * @spec openspec/changes/talk-room-grouping/specs/talk-room-grouping/spec.md#requirement-a-hermiq-conversation-tag-is-created-per-user-on-demand
+	 * @spec openspec/specs/talk-room-grouping/spec.md#requirement-a-hermiq-conversation-tag-is-created-per-user-on-demand
 	 */
 	private function findTag(string $uid): ?string {
 		try {

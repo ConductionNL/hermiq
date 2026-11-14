@@ -562,7 +562,7 @@ final class AnthropicCliRunner {
 	/**
 	 * Flatten an LLPhant message history into the runner's `messages` shape.
 	 *
-	 * Deliberately NOT {@see mapHistoryToAnthropicMessages()}: that hoists system turns into a
+	 * Deliberately NOT {@see AnthropicMessageFormat::mapHistoryToAnthropicMessages()}: that hoists system turns into a
 	 * separate top-level `system` field, which the Messages API requires but the runner has NO
 	 * field for. Reusing it here would SILENTLY DROP the system prompt — the agent's entire
 	 * persona and instructions — on every `cli` turn. The runner's `buildPrompt()` renders each
