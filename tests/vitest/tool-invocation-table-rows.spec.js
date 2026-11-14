@@ -26,6 +26,8 @@ vi.mock('@nextcloud/vue', () => ({
 	},
 	NcEmptyContent: { props: ['name'], render() { return h('div', { class: 'empty' }, this.name) } },
 	NcLoadingIcon: { render: () => h('span', { class: 'spinner' }) },
+	NcModal: { props: ['show'], render() { return this.show ? h('div', { class: 'modal' }, this.$slots.default?.()) : null } },
+	NcTextArea: { props: ['modelValue'], render: () => h('textarea') },
 	NcNoteCard: { props: ['type', 'heading'], render() { return h('div', { class: `note note--${this.type}` }, this.$slots.default?.()) } },
 }))
 
@@ -84,9 +86,9 @@ describe('ToolInvocationTable rows', () => {
 		const rows = w.findAll('tbody tr')
 
 		expect(rows).toHaveLength(3)
-		expect(cells(rows[0])).toEqual(['13-11-2026 10:00', 'openregister.search', 'alice', 'abcdef012345…', '3 result(s)', 'obj-1, obj-2'])
-		expect(cells(rows[1])).toEqual(['—', 'not recorded', '—', 'short', 'Error', '—'])
-		expect(cells(rows[2])).toEqual(['13-11-2026 10:00', 'not recorded', '—', 'not recorded', '—', '—'])
+		expect(cells(rows[0])).toEqual(['13-11-2026 10:00', 'openregister.search', 'alice', 'abcdef012345…', '3 result(s)', 'obj-1, obj-2', '—'])
+		expect(cells(rows[1])).toEqual(['—', 'not recorded', '—', 'short', 'Error', '—', '—'])
+		expect(cells(rows[2])).toEqual(['13-11-2026 10:00', 'not recorded', '—', 'not recorded', '—', '—', '—'])
 		expect(rows[1].find('td:nth-child(5) span').classes()).toContain('tool-oversight__badge--error')
 		expect(rows[0].find('td:nth-child(5) span').classes()).toContain('tool-oversight__badge--ok')
 		expect(w.find('.tool-oversight__retention').text()).toBe('Retention: 90 days')

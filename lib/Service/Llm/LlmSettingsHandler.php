@@ -94,6 +94,8 @@ class LlmSettingsHandler implements LlmSettingsHandlerInterface {
 			'scope' => 'organisation',
 			'baseUrl' => 'https://api.anthropic.com/v1',
 			'executionMode' => 'http',
+			'promptCaching' => true,
+			'promptCacheTtl' => '5m',
 		],
 		'vectorConfig' => [
 			'backend' => 'php',

@@ -24,6 +24,7 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\AiLabelStatsService;
 use OCA\Hermiq\Service\NcNative\AgentArtefactMarker;
+use OCA\Hermiq\Service\NcNative\MarkedObjectCounter;
 use OCP\Files\File;
 use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
@@ -31,6 +32,8 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Tests for the label counts.
+ *
+ * @covers \OCA\Hermiq\Service\AiLabelStatsService
  */
 class AiLabelStatsServiceTest extends TestCase {
 
@@ -40,10 +43,18 @@ class AiLabelStatsServiceTest extends TestCase {
 	 * @param list<string> $authored The agent-authored file ids.
 	 * @param list<string> $reviewed The reviewed file ids.
 	 * @param list<int>    $readable The ids the viewer can read.
+	 * @param array{count: int, truncated: bool} $contacts      The marked contacts.
+	 * @param array{count: int, truncated: bool} $calendarItems The marked calendar items.
 	 *
 	 * @return AiLabelStatsService
 	 */
-	private function service(array $authored, array $reviewed, array $readable): AiLabelStatsService {
+	private function service(
+		array $authored,
+		array $reviewed,
+		array $readable,
+		array $contacts = ['count' => 0, 'truncated' => false],
+		array $calendarItems = ['count' => 0, 'truncated' => false],
+	): AiLabelStatsService {
 		$marker = $this->createMock(AgentArtefactMarker::class);
 		$marker->method('taggedFiles')->willReturnCallback(
 			static fn (string $name): array => ($name === AgentArtefactMarker::TAG_NAME
@@ -61,7 +72,11 @@ class AiLabelStatsServiceTest extends TestCase {
 		$root = $this->createMock(IRootFolder::class);
 		$root->expects($this->atMost(1))->method('getUserFolder')->with('olga')->willReturn($folder);
 
-		return new AiLabelStatsService(marker: $marker, rootFolder: $root);
+		$objects = $this->createMock(MarkedObjectCounter::class);
+		$objects->expects($this->once())->method('contacts')->with(AgentArtefactMarker::OBJECT_PROPERTY)->willReturn($contacts);
+		$objects->expects($this->once())->method('calendarItems')->with('olga', AgentArtefactMarker::OBJECT_PROPERTY)->willReturn($calendarItems);
+
+		return new AiLabelStatsService(marker: $marker, rootFolder: $root, objects: $objects);
 	}//end service()
 
 	/**
@@ -72,7 +87,19 @@ class AiLabelStatsServiceTest extends TestCase {
 	public function testFourFilesOneReviewedIsAQuarter(): void {
 		$stats = $this->service(authored: ['1', '2', '3', '4'], reviewed: ['2'], readable: [1, 2, 3, 4])->stats(uid: 'olga');
 
-		$this->assertSame(['files' => 4, 'reviewed' => 1, 'reviewedShare' => 25, 'tagId' => '3', 'truncated' => false], $stats);
+		$this->assertSame(
+			[
+				'files' => 4,
+				'reviewed' => 1,
+				'reviewedShare' => 25,
+				'tagId' => '3',
+				'truncated' => false,
+				'contacts' => 0,
+				'calendarItems' => 0,
+				'objectsTruncated' => false,
+			],
+			$stats
+		);
 	}
 
 	/**
@@ -96,6 +123,56 @@ class AiLabelStatsServiceTest extends TestCase {
 	public function testNoTaggedFilesIsZero(): void {
 		$stats = $this->service(authored: [], reviewed: [], readable: [])->stats(uid: 'olga');
 
-		$this->assertSame(['files' => 0, 'reviewed' => 0, 'reviewedShare' => 0, 'tagId' => '3', 'truncated' => false], $stats);
+		$this->assertSame(
+			[
+				'files' => 0,
+				'reviewed' => 0,
+				'reviewedShare' => 0,
+				'tagId' => '3',
+				'truncated' => false,
+				'contacts' => 0,
+				'calendarItems' => 0,
+				'objectsTruncated' => false,
+			],
+			$stats
+		);
+	}
+
+	/**
+	 * The marked contacts and calendar items the viewer can see are counted next to the files.
+	 *
+	 * @return void
+	 */
+	public function testCountsMarkedContactsAndCalendarItems(): void {
+		$stats = $this->service(
+			authored: ['1'],
+			reviewed: [],
+			readable: [1],
+			contacts: ['count' => 3, 'truncated' => false],
+			calendarItems: ['count' => 5, 'truncated' => false]
+		)->stats(uid: 'olga');
+
+		$this->assertSame(3, $stats['contacts']);
+		$this->assertSame(5, $stats['calendarItems']);
+		$this->assertFalse($stats['objectsTruncated']);
+		$this->assertSame(1, $stats['files']);
+	}
+
+	/**
+	 * A capped contact or calendar read says the object counts are truncated.
+	 *
+	 * @return void
+	 */
+	public function testACappedObjectReadIsTruncated(): void {
+		$stats = $this->service(
+			authored: [],
+			reviewed: [],
+			readable: [],
+			contacts: ['count' => 1, 'truncated' => false],
+			calendarItems: ['count' => MarkedObjectCounter::MAX_OBJECTS, 'truncated' => true]
+		)->stats(uid: 'olga');
+
+		$this->assertTrue($stats['objectsTruncated']);
+		$this->assertFalse($stats['truncated']);
 	}
 }

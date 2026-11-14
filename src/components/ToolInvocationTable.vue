@@ -53,7 +53,7 @@
 				</p>
 				<div class="tool-oversight__exports">
 					<NcButton
-						type="tertiary"
+						variant="tertiary"
 						:disabled="!data.rows.length"
 						@click="exportAs('csv')">
 						<template #icon>
@@ -62,7 +62,7 @@
 						{{ t('hermiq', 'Export CSV') }}
 					</NcButton>
 					<NcButton
-						type="tertiary"
+						variant="tertiary"
 						:disabled="!data.rows.length"
 						@click="exportAs('json')">
 						<template #icon>
@@ -115,6 +115,9 @@
 							<th scope="col">
 								{{ t('hermiq', 'Data touched') }}
 							</th>
+							<th scope="col">
+								{{ t('hermiq', 'Oversight') }}
+							</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -156,11 +159,34 @@
 								>
 								<span v-else>—</span>
 							</td>
+							<td>
+								<template v-if="row.mark">
+									<span class="tool-oversight__badge tool-oversight__badge--misuse">{{
+										t('hermiq', 'Misuse')
+									}}</span>
+									<span class="tool-oversight__mark-by">{{ markedByLabel(row.mark) }}</span>
+								</template>
+								<NcButton
+									v-else-if="row.callId"
+									variant="tertiary"
+									class="tool-oversight__mark"
+									@click="openMark(row)">
+									{{ t('hermiq', 'Mark') }}
+								</NcButton>
+								<span v-else>—</span>
+							</td>
 						</tr>
 					</tbody>
 				</table>
 			</div>
 		</template>
+
+		<ToolCallMarkModal
+			:show="markRow !== null"
+			:agentId="agentId"
+			:row="markRow"
+			@marked="applyMark"
+			@close="markRow = null" />
 	</section>
 </template>
 
@@ -168,6 +194,7 @@
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import Download from 'vue-material-design-icons/Download.vue'
 import History from 'vue-material-design-icons/History.vue'
+import ToolCallMarkModal from '../modals/ToolCallMarkModal.vue'
 import {
 	getToolInvocations,
 	toolInvocationsExportUrl,
@@ -201,6 +228,7 @@ export default {
 		NcEmptyContent,
 		NcLoadingIcon,
 		NcNoteCard,
+		ToolCallMarkModal,
 	},
 
 	props: {
@@ -216,6 +244,8 @@ export default {
 			data: null,
 			loading: true,
 			error: '',
+			/** The row the Mark modal is open for, or null. */
+			markRow: null,
 		}
 	},
 
@@ -332,6 +362,45 @@ export default {
 		},
 
 		/**
+		 * Who marked a call and when, beside its "Misuse" label.
+		 *
+		 * @param {object} mark The row's mark: { markedBy, markedAt }.
+		 * @return {string} The label.
+		 * @spec openspec/changes/verify-row-scenarios/specs/agent-tool-governance/spec.md#scenario-an-operator-marks-a-tool-call-as-misuse
+		 */
+		markedByLabel(mark) {
+			return this.t('hermiq', 'by {operator} on {date}', {
+				operator: mark.markedBy || '—',
+				date: this.formatDate(mark.markedAt),
+			})
+		},
+
+		/**
+		 * Open the Mark modal for one row.
+		 *
+		 * @param {object} row The oversight row.
+		 * @return {void}
+		 * @spec openspec/changes/verify-row-scenarios/specs/agent-tool-governance/spec.md#scenario-an-operator-marks-a-tool-call-as-misuse
+		 */
+		openMark(row) {
+			this.markRow = row
+		},
+
+		/**
+		 * Show a recorded mark on its row, without reloading the activity.
+		 *
+		 * @param {object} mark The mark the server recorded: { callId, label, reason, markedBy, markedAt }.
+		 * @return {void}
+		 * @spec openspec/changes/verify-row-scenarios/specs/agent-tool-governance/spec.md#scenario-an-operator-marks-a-tool-call-as-misuse
+		 */
+		applyMark(mark) {
+			const row = this.data && this.data.rows.find((candidate) => candidate.callId === mark.callId)
+			if (row) {
+				row.mark = mark
+			}
+		},
+
+		/**
 		 * The result cell's class.
 		 *
 		 * @param {object} row The oversight row.
@@ -432,6 +501,18 @@ export default {
 .tool-oversight__badge--ok {
 	background-color: var(--color-background-dark);
 	color: var(--color-main-text);
+}
+
+.tool-oversight__badge--misuse {
+	background-color: var(--color-warning);
+	color: var(--color-warning-text, var(--color-main-text));
+}
+
+.tool-oversight__mark-by {
+	display: block;
+	margin-block-start: 4px;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.85em;
 }
 
 .tool-oversight__badge--error {

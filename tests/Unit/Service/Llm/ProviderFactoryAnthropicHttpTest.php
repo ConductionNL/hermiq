@@ -84,8 +84,13 @@ class ProviderFactoryAnthropicHttpTest extends TestCase {
 		$userSession = $this->createMock(IUserSession::class);
 		$userSession->method('getUser')->willReturn($user);
 
+		// These tests pin the plain request; the prompt-cache breakpoints, which
+		// are on by default, are pinned in ProviderFactoryAnthropicCachingTest.
+		$settings = $this->createMock(LlmSettingsHandler::class);
+		$settings->method('getLLMSettingsOnly')->willReturn(['anthropicConfig' => ['promptCaching' => false]]);
+
 		return new ProviderFactory(
-			$this->createMock(LlmSettingsHandler::class),
+			$settings,
 			$this->createMock(IManager::class),
 			$userSession,
 			new NullLogger(),
