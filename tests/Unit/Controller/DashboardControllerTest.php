@@ -32,6 +32,7 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\DashboardController;
 use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
+use OCA\Hermiq\Service\DashboardPageState;
 use OCA\Hermiq\Tenant\ManageableOrganisations;
 use OCP\App\IAppManager;
 use OCP\AppFramework\Services\IInitialState;
@@ -117,12 +118,14 @@ class DashboardControllerTest extends TestCase {
 
 		return new DashboardController(
 			$this->createMock(IRequest::class),
-			$initialState,
-			$session,
-			$groupManager,
-			$tenants,
-			$appManager,
-			$this->actions
+			new DashboardPageState(
+				$initialState,
+				$session,
+				$groupManager,
+				$tenants,
+				$appManager,
+				$this->actions
+			)
 		);
 
 	}//end controller()
