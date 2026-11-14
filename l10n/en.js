@@ -1,6 +1,13 @@
 OC.L10N.register(
     "hermiq",
     {
+        "Oversight": "Oversight",
+        "Misuse": "Misuse",
+        "Mark": "Mark",
+        "by {operator} on {date}": "by {operator} on {date}",
+        "Mark tool call": "Mark tool call",
+        "Could not mark the tool call": "Could not mark the tool call",
+        "Why is this call misuse? A mark needs a reason.": "Why is this call misuse? A mark needs a reason.",
         "Open {name} in Files": "Open {name} in Files",
         "Create an image": "Create an image",
         "The image is saved in your Files under Hermiq/Generated images and marked as made by an agent.": "The image is saved in your Files under Hermiq/Generated images and marked as made by an agent.",
