@@ -155,7 +155,7 @@ class ConversationTitleWriter implements ConversationTitleWriterInterface {
 		$this->userSession->setUser($user);
 
 		try {
-			$this->writeAsOwner(conversationId: $conversationId, userMessage: $userMessage, userId: $userId);
+			$this->writeAsOwner(conversationId: $conversationId, request: new TitleRequest(userMessage: $userMessage, userId: $userId));
 		} finally {
 			// Restored unconditionally: this job runs in a shared worker process, so a
 			// leaked session would hand the NEXT job this user's identity.
@@ -168,14 +168,15 @@ class ConversationTitleWriter implements ConversationTitleWriterInterface {
 	 * Generate and persist the title, with the owner already impersonated.
 	 *
 	 * @param string $conversationId The conversation UUID.
-	 * @param string $userMessage The first user message to name it from.
-	 * @param string $userId The impersonated owner's UID.
+	 * @param TitleRequest $request The turn a conversation title is written from.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
 	 */
-	private function writeAsOwner(string $conversationId, string $userMessage, string $userId): void {
+	private function writeAsOwner(string $conversationId, TitleRequest $request): void {
+		$userMessage = $request->userMessage;
+		$userId = $request->userId;
 		try {
 			$conversation = $this->objectService->find(
 				id: $conversationId,

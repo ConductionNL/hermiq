@@ -124,7 +124,7 @@ final class SpeechTranslationControllerTest extends TestCase {
 
 		$history = $this->createMock(MessageHistoryHandlerInterface::class);
 		$history->method('storeMessage')->willReturnCallback(
-			function (string $conversationId, string $role, string $content, ?array $sources = null, ?array $context = null, ?string $authorId = null, ?string $authorDisplayName = null, array $attachments = [], ?array $translation = null): ObjectEntity {
+			function (string $conversationId, string $role, string $content, ?array $sources = null, ?array $context = null, ?string $authorId = null, ?string $authorDisplayName = null, array $attachments = [], ?array $provenance = null, ?array $translation = null): ObjectEntity {
 				$this->stored[] = compact('conversationId', 'role', 'content', 'authorId', 'attachments', 'translation');
 				$turn = new ObjectEntity();
 				$turn->setUuid('turn-' . count($this->stored));

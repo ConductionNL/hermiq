@@ -35,6 +35,7 @@ use DateTimeZone;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\AiFeatureServiceInterface;
 use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
+use OCA\Hermiq\Service\AiFeature\FeatureTransition;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Exception\HookStoppedException;
 use OCA\OpenRegister\Service\ObjectService;
@@ -288,7 +289,7 @@ class AiFeatureService implements AiFeatureServiceInterface {
 	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-4
 	 */
 	public function enable(string $id): string {
-		return $this->transition(id: $id, target: self::RESULT_ENABLED, from: [self::RESULT_DISABLED]);
+		return $this->transition(id: $id, change: new FeatureTransition(target: self::RESULT_ENABLED, from: [self::RESULT_DISABLED]));
 	}//end enable()
 
 	/**
@@ -301,7 +302,7 @@ class AiFeatureService implements AiFeatureServiceInterface {
 	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-4
 	 */
 	public function disable(string $id): string {
-		return $this->transition(id: $id, target: self::RESULT_DISABLED, from: [self::RESULT_ENABLED]);
+		return $this->transition(id: $id, change: new FeatureTransition(target: self::RESULT_DISABLED, from: [self::RESULT_ENABLED]));
 	}//end disable()
 
 	/**
@@ -314,14 +315,15 @@ class AiFeatureService implements AiFeatureServiceInterface {
 	 * so a genuinely-disallowed transition is reported as RESULT_INVALID without a write.
 	 *
 	 * @param string $id The AiFeature UUID.
-	 * @param string $target The target lifecycle value.
-	 * @param array<int,string> $from The lifecycle values from which the transition is allowed.
+	 * @param FeatureTransition $change The lifecycle state an AI feature moves to, and the states it may move from.
 	 *
 	 * @return string One of the RESULT_* outcomes.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-4
 	 */
-	private function transition(string $id, string $target, array $from): string {
+	private function transition(string $id, FeatureTransition $change): string {
+		$target = $change->target;
+		$from = $change->from;
 		$feature = $this->getFeature(id: $id);
 		if ($feature === null) {
 			return self::RESULT_NOT_FOUND;
