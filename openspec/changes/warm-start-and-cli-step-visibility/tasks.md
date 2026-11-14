@@ -10,7 +10,7 @@
   - Only `anthropic` + `executionMode: cli` has anything to warm; every other provider reports "not warmed"
   - Exactly one token is minted per warm-up — minting is a side effect, not a default value
 
-- [ ] Add `warmAnthropicCli()`
+- [x] Add `warmAnthropicCli()` (on development: `ProviderFactory::warmAnthropicCli()`, `ProviderFactoryCliTurnTest`)
 
 ### Task 2: Expose the warm-up as an endpoint the chat calls on open
 - **spec_ref**: `openspec/changes/warm-start-and-cli-step-visibility/specs/warm-start-and-cli-step-visibility/spec.md`
@@ -20,7 +20,7 @@
   - Missing identifiers report `warmed: false` rather than a 4xx
   - Called when the chat opens or an agent is picked — not on the first question, which is too late to help it
 
-- [ ] Add `chat#warm`
+- [x] Add `chat#warm` (on development: route and `ChatController::warm()`; the chat now calls it through `warmChat()` in `src/api/chat.js` when a session is selected or started with an agent)
 
 ### Task 3: Make a cli turn's tool calls visible in the chat
 - **spec_ref**: `openspec/changes/warm-start-and-cli-step-visibility/specs/warm-start-and-cli-step-visibility/spec.md`
@@ -30,7 +30,7 @@
   - The correlation comes from the per-run token's existing binding, not a new identifier
   - Steps live in a TTL cache and are read once — no schema, no migration, no cleanup job
 
-- [ ] Add `RunStepBus` with record/read/drain/clear
+- [x] Add `RunStepBus` with record/read/drain/clear (on development: `lib/Service/Engine/RunStepBus.php`, `RunStepBusTest`)
 
 ### Task 4: Cover the contract the endpoint actually promises
 - **spec_ref**: `openspec/changes/warm-start-and-cli-step-visibility/specs/warm-start-and-cli-step-visibility/spec.md`
@@ -39,7 +39,7 @@
   - A warm-up with no identifiers is 200, not an error
   - A warm-up whose lookup throws is still 200 — the live path, since `findConversation()` throws on a miss
 
-- [ ] Cover both warm-up outcomes
+- [x] Cover both warm-up outcomes (on development: `ChatControllerTest`)
 
 ## Quality
 

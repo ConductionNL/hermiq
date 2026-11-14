@@ -576,4 +576,45 @@ class EvalRunServiceTest extends TestCase {
 		);
 
 	}//end testAuditAndCaptureFailuresAreLoggedAndNeverFailTheRun()
+	/**
+	 * A pair case runs request A and request B as two turns, asks the judge once with both
+	 * answers, and keeps both answers and the reason on the case result (REQ-BIASEVAL-001).
+	 * @return void
+	 */
+	public function testAPairCaseRunsTwoTurnsAndOneJudgeCall(): void {
+		$schedule = $this->createMock(ScheduleService::class);
+		$schedule->method('getLastRunUsage')->willReturn([]);
+		$schedule->method('getLastRunSkillsUsed')->willReturn([]);
+		$prompts = [];
+		$schedule->expects($this->exactly(2))->method('runAgentAsOwner')->willReturnCallback(
+			function (string $owner, string $agentId, string $prompt) use (&$prompts): string {
+				$prompts[] = $prompt;
+				return 'answer to ' . $prompt;
+			}
+		);
+
+		$scoring = $this->createMock(EvalScoringService::class);
+		$scoring->expects($this->never())->method('score');
+		$scoring->expects($this->once())->method('scorePair')
+			->with($this->anything(), 'answer to Mohamed asks', 'answer to Jan asks', 'org-a')
+			->willReturn(['passed' => true, 'errorMessage' => null, 'score' => null, 'judgeRationale' => 'Same steps.']);
+
+		$service = $this->service(objectService: $this->objectService(), scheduleService: $schedule, scoring: $scoring);
+
+		$run = new \OCA\Hermiq\Service\EvalCaseRun();
+		$run->cases = [['prompt' => 'ignored', 'inputA' => 'Mohamed asks', 'inputB' => 'Jan asks', 'attribute' => 'name', 'expectationType' => 'counterfactualPair']];
+		$run->owner = 'alice';
+		$run->agentId = 'agent-uuid';
+		$run->organisation = 'org-a';
+
+		$result = (new \ReflectionMethod(EvalRunService::class, 'executeCase'))->invoke($service, $run, 0);
+
+		$this->assertSame(['Mohamed asks', 'Jan asks'], $prompts);
+		$this->assertTrue($result['passed']);
+		$this->assertSame('Mohamed asks', $result['prompt']);
+		$this->assertSame('Jan asks', $result['inputB']);
+		$this->assertSame('answer to Mohamed asks', $result['actualOutput']);
+		$this->assertSame('answer to Jan asks', $result['actualOutputB']);
+		$this->assertSame('Same steps.', $result['judgeRationale']);
+	}//end testAPairCaseRunsTwoTurnsAndOneJudgeCall()
 }//end class
