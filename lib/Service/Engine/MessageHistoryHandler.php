@@ -523,6 +523,9 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	 *                           size, origin), resolved as the speaker; never bytes or text.
 	 * @param array|null $provenance How an assistant answer came about: model, sources and step
 	 *                               outcomes, never content (chat-how-an-answer-came-about).
+	 * @param string|null $reasoning The model's reasoning, already filtered and redacted;
+	 *                               null or '' stores none (chat-how-an-answer-came-about D3).
+	 * @param bool $reasoningWithheld True when the output filter blocked the reasoning.
 	 *
 	 * @return ObjectEntity The persisted Message object.
 	 *
@@ -542,6 +545,8 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 		?string $authorDisplayName = null,
 		array $attachments = [],
 		?array $provenance = null,
+		?string $reasoning = null,
+		bool $reasoningWithheld = false,
 	): ObjectEntity {
 		$payload = [
 			'sessionId' => $conversationId,
@@ -563,6 +568,15 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 
 		if ($provenance !== null) {
 			$payload['provenance'] = $provenance;
+		}
+
+		// Chat-how-an-answer-came-about D3: the reasoning arrives filtered and redacted.
+		if ($reasoning !== null && $reasoning !== '') {
+			$payload['reasoning'] = $reasoning;
+		}
+
+		if ($reasoningWithheld === true) {
+			$payload['reasoningWithheld'] = true;
 		}
 
 		$payload = $this->withAuthorship(

@@ -120,6 +120,39 @@ class MessageHistoryHandlerTest extends TestCase {
 	}//end testStoreMessageAttachesOptionalFieldsOnlyWhenPresent()
 
 	/**
+	 * The reasoning and the withheld mark are stored only when there is something
+	 * to say (chat-how-an-answer-came-about D3).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+	 */
+	public function testTheReasoningIsStoredOnlyWhenThere(): void {
+		$saved = [];
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('saveObject')->willReturnCallback(
+			function (array $object) use (&$saved): ObjectEntity {
+				$saved[] = $object;
+				$entity = new ObjectEntity();
+				$entity->setUuid('msg-' . count($saved));
+				return $entity;
+			}
+		);
+		$handler = new MessageHistoryHandler($objectService, new NullLogger());
+
+		$handler->storeMessage(conversationId: 'c', role: 'assistant', content: 'A', reasoning: 'Because.');
+		$handler->storeMessage(conversationId: 'c', role: 'assistant', content: 'B', reasoning: null, reasoningWithheld: true);
+		$handler->storeMessage(conversationId: 'c', role: 'assistant', content: 'C', reasoning: '');
+
+		$this->assertSame('Because.', $saved[0]['reasoning']);
+		$this->assertArrayNotHasKey('reasoningWithheld', $saved[0]);
+		$this->assertArrayNotHasKey('reasoning', $saved[1]);
+		$this->assertTrue($saved[1]['reasoningWithheld']);
+		$this->assertArrayNotHasKey('reasoning', $saved[2]);
+		$this->assertArrayNotHasKey('reasoningWithheld', $saved[2]);
+	}//end testTheReasoningIsStoredOnlyWhenThere()
+
+	/**
 	 * A turn in a non-admin's session is stored past OpenRegister's create check
 	 * (hermiq#1086).
 	 *

@@ -495,6 +495,8 @@ class ChatStreamController extends Controller {
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#scenario-a-streamed-answer-gets-the-same-record-as-a-sent-one
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
 	 */
 	private function finalPayload(array $result, array $turn): array {
 		return [
@@ -521,6 +523,13 @@ class ChatStreamController extends Controller {
 			'sources' => array_values((array)($result['sources'] ?? [])),
 			// Chat-how-an-answer-came-about: how the answer came about, as stored on it.
 			'provenance' => ($result['provenance'] ?? null),
+			// Chat-how-an-answer-came-about D3: the model's reasoning travels ONLY here,
+			// never as `token` events and never as a new event type: a companion appends
+			// every token delta to the answer (hydra ADR-034 Decision 6).
+			'reasoning' => ($result['reasoning'] ?? null),
+			'reasoningWithheld' => (($result['reasoningWithheld'] ?? false) === true),
+			// D4: how full the model's context is after this turn.
+			'contextUsage' => ($result['contextUsage'] ?? null),
 		];
 	}//end finalPayload()
 

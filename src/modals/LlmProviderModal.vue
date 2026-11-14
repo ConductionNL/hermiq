@@ -205,6 +205,16 @@
 					<p v-else class="llm-provider-modal__hint">
 						{{ t('hermiq', 'Enter a model first.') }}
 					</p>
+					<!-- chat-how-an-answer-came-about D4: the model's context window, for the
+					     context readout under the message box. Blank means not known. -->
+					<NcTextField
+						v-if="currentModel"
+						v-model="contextWindow"
+						data-testid="llm-context-window"
+						type="number"
+						min="1"
+						:label="t('hermiq', 'Context window (tokens)')"
+						:helperText="t('hermiq', 'How many tokens the model can read at once. Leave empty when you do not know; the chat then shows the tokens used only.')" />
 				</fieldset>
 
 				<!-- models-no-training-guarantee: where the provider runs and what it
@@ -300,6 +310,8 @@ export default {
 
 			// Declared native inputs per `provider/model` (hermiq.modelCapabilities).
 			modelCapabilities: {},
+			// Declared context window per `provider/model` (hermiq.modelContextWindows).
+			modelContextWindows: {},
 
 			form: {
 				openaiConfig: { chatModel: '', credentialId: '' },
@@ -437,6 +449,40 @@ export default {
 		},
 
 		/**
+		 * The declared context window of the current model, as the field shows it.
+		 *
+		 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+		 */
+		contextWindow: {
+			/**
+			 * The window, or '' when none is declared.
+			 *
+			 * @return {number|string} The window.
+			 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+			 */
+			get() {
+				return this.modelContextWindows[this.capabilityKey] ?? ''
+			},
+
+			/**
+			 * Declare the window for the current model; anything but a positive whole number clears it.
+			 *
+			 * @param {number|string} value The field's value.
+			 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+			 */
+			set(value) {
+				if (this.capabilityKey === '') {
+					return
+				}
+				const tokens = Number(value)
+				this.modelContextWindows = {
+					...this.modelContextWindows,
+					[this.capabilityKey]: Number.isInteger(tokens) && tokens > 0 ? tokens : null,
+				}
+			},
+		},
+
+		/**
 		 * "Reads PDFs" for the current model.
 		 *
 		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
@@ -539,6 +585,7 @@ export default {
 			this.fireworksKeySet = config.fireworksApiKeySet === true
 			applyStoredConfig(this.form, config)
 			this.modelCapabilities = { ...(config.modelCapabilities || {}) }
+			this.modelContextWindows = { ...(config.modelContextWindows || {}) }
 		},
 
 		/**
@@ -734,6 +781,11 @@ export default {
 			}
 			payload.modelCapabilities = {
 				[this.capabilityKey]: this.modelCapabilities[this.capabilityKey] || [],
+			}
+			// A blank window is sent as null, which removes the declaration.
+			const window = this.modelContextWindows[this.capabilityKey]
+			payload.modelContextWindows = {
+				[this.capabilityKey]: Number.isInteger(window) && window > 0 ? window : null,
 			}
 		},
 

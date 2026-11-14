@@ -1258,6 +1258,10 @@ class SessionController extends Controller {
 			// and its sentences in the reader's language; null on a turn without one.
 			'provenance' => ($data['provenance'] ?? null),
 			'provenanceAccount' => $this->provenanceAccount(record: ($data['provenance'] ?? null)),
+			// The model's reasoning as stored (filtered and redacted), or null, and whether
+			// the organisation's filter withheld it (chat-how-an-answer-came-about D3).
+			'reasoning' => ($data['reasoning'] ?? null),
+			'reasoningWithheld' => (($data['reasoningWithheld'] ?? false) === true),
 			'created' => $message->getCreated()?->format('c'),
 		];
 	}//end serializeMessage()

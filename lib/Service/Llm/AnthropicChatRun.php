@@ -97,6 +97,14 @@ final class AnthropicChatRun {
 	public ?int $maxToolCalls = null;
 
 	/**
+	 * Whether the agent's owner asked for the model's reasoning (Agent.showReasoning):
+	 * the request then asks for extended thinking (chat-how-an-answer-came-about D3).
+	 *
+	 * @var boolean
+	 */
+	public bool $showReasoning = false;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param string $credentialId Broker credential UUID — NOT a secret.

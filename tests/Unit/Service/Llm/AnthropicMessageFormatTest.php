@@ -186,11 +186,38 @@ class AnthropicMessageFormatTest extends TestCase {
 		$format = $this->format();
 
 		$this->assertSame(
-			['text' => '', 'toolCalls' => [], 'stopReason' => '', 'content' => [], 'usage' => ['promptTokens' => 0, 'completionTokens' => 0]],
+			['text' => '', 'toolCalls' => [], 'stopReason' => '', 'content' => [], 'usage' => ['promptTokens' => 0, 'completionTokens' => 0], 'reasoning' => ''],
 			$format->parseAnthropicResponse([])
 		);
 		$this->assertSame([], $format->parseAnthropicResponse(['content' => 'x', 'usage' => 'none'])['usage']);
 	}//end testEmptyResponseIsParsed()
+
+	/**
+	 * Thinking blocks become the reasoning, apart from the answer text; a redacted
+	 * thinking block and an empty one add nothing (chat-how-an-answer-came-about D3).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+	 */
+	public function testThinkingBlocksAreTheReasoningNotTheAnswer(): void {
+		$parsed = $this->format()->parseAnthropicResponse(
+			[
+				'content' => [
+					['type' => 'thinking', 'thinking' => ' Compare the two schemes. ', 'signature' => 'sig'],
+					['type' => 'redacted_thinking', 'data' => 'opaque'],
+					['type' => 'thinking', 'thinking' => ''],
+					['type' => 'text', 'text' => 'Scheme A pays more.'],
+					['type' => 'thinking', 'thinking' => 'Check the deadline.'],
+				],
+				'stop_reason' => 'end_turn',
+			]
+		);
+
+		$this->assertSame('Scheme A pays more.', $parsed['text']);
+		$this->assertSame("Compare the two schemes.\n\nCheck the deadline.", $parsed['reasoning']);
+		$this->assertStringNotContainsString('Compare', $parsed['text']);
+	}//end testThinkingBlocksAreTheReasoningNotTheAnswer()
 
 	/**
 	 * Tool results become tool_result blocks; is_error passes only when strictly true.
