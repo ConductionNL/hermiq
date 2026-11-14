@@ -38,7 +38,8 @@ Kind: code. Size M. Row `hermiq:ob-external-tracing`.
   - GIVEN export on WHEN a scheduled, flow, webhook or chat run completes THEN one entry is enqueued and the run's result is unchanged
   - GIVEN the source tree WHEN the writer test scans for `run` and `agent-run` audit writes THEN each one calls `enqueue()`
 - [x] Implement
-- [ ] Test (PHPUnit per writer, plus the scan test)
+- [x] Test (PHPUnit per writer, plus the scan test)
+  - 2026-11-14: the schedule, flow and webhook writers each hand their audited context to `enqueueRun()` once (`ScheduleServiceTest`, `FlowAgentRunServiceTest`, `WebhookAgentRunServiceTest`). The webhook test found the writer passing the incoming context, which has no status, timings or summary and holds the payload unredacted; it now passes the audited context.
 
 ### Task 5: The copy notice and the live check
 - **spec_ref**: `openspec/changes/observability-export-traces/specs/trace-export/spec.md#requirement-the-export-is-a-copy-and-the-audit-trail-stays-the-record-req-trex-004`

@@ -563,7 +563,7 @@ class WebhookAgentRunService implements WebhookAgentRunServiceInterface {
 					context: $auditContext
 				)
 			);
-			$this->traceExportQueue?->enqueueRun(context: $context, trigger: 'webhook');
+			$this->traceExportQueue?->enqueueRun(context: $auditContext, trigger: 'webhook');
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				sprintf(
