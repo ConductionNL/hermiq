@@ -1371,6 +1371,23 @@
         "Running with no object. The flow must fetch its own work.": "Running with no object. The flow must fetch its own work.",
         "Solid": "Solid",
         "Start symbol": "Start symbol",
+        "Merge proposals": "Merge proposals",
+        "The curator found skills that duplicate each other. Merging archives the duplicate and moves its agents to the skill that stays; nothing is deleted.": "The curator found skills that duplicate each other. Merging archives the duplicate and moves its agents to the skill that stays; nothing is deleted.",
+        "Goes": "Goes",
+        "Stays": "Stays",
+        "Merge": "Merge",
+        "Keep both": "Keep both",
+        "Could not load the merge proposals": "Could not load the merge proposals",
+        "{duplicate} was merged into {survivor}.": "{duplicate} was merged into {survivor}.",
+        "Both skills were kept.": "Both skills were kept.",
+        "Both skills have the same instructions.": "Both skills have the same instructions.",
+        "Both skills have the same name.": "Both skills have the same name.",
+        "_used by %n agent_::_used by %n agents_": [
+            "used by %n agent",
+            "used by %n agents"
+        ],
+        "used by %n agent": "used by %n agent",
+        "used by %n agents": "used by %n agents",
         "The API key is not set here: it is resolved when the agent runs, from your personal credential or your organisation's, under Settings → Agent credentials.": "The API key is not set here: it is resolved when the agent runs, from your personal credential or your organisation's, under Settings → Agent credentials.",
         "Thick": "Thick",
         "Thickness": "Thickness",
@@ -2738,24 +2755,7 @@
         "_%n call was refused: %s._::_%n calls were refused: %s._": [
             "%n call was refused: %s.",
             "%n calls were refused: %s."
-        ],
-        "Merge proposals": "Merge proposals",
-        "The curator found skills that duplicate each other. Merging archives the duplicate and moves its agents to the skill that stays; nothing is deleted.": "The curator found skills that duplicate each other. Merging archives the duplicate and moves its agents to the skill that stays; nothing is deleted.",
-        "Goes": "Goes",
-        "Stays": "Stays",
-        "Merge": "Merge",
-        "Keep both": "Keep both",
-        "Could not load the merge proposals": "Could not load the merge proposals",
-        "{duplicate} was merged into {survivor}.": "{duplicate} was merged into {survivor}.",
-        "Both skills were kept.": "Both skills were kept.",
-        "Both skills have the same instructions.": "Both skills have the same instructions.",
-        "Both skills have the same name.": "Both skills have the same name.",
-        "_used by %n agent_::_used by %n agents_": [
-            "used by %n agent",
-            "used by %n agents"
-        ],
-        "used by %n agent": "used by %n agent",
-        "used by %n agents": "used by %n agents"
+        ]
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"
