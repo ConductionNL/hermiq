@@ -28,6 +28,9 @@ const DUTCH = {
 	'Notes and files': 'Notities en bestanden',
 	'Reviewed afterwards': 'Achteraf nagekeken',
 	'Show the files labelled {label} in Files': 'De bestanden met het label {label} tonen in Bestanden',
+	Contacts: 'Contacten',
+	'Calendar items': 'Agenda-items',
+	'More contacts or calendar items exist than were counted.': 'Er zijn meer contacten of agenda-items dan er zijn geteld.',
 }
 
 /**
@@ -67,6 +70,22 @@ describe('AiLabelSection', () => {
 		expect(http.get).toHaveBeenCalledWith('/index.php/apps/hermiq/api/ai-label/stats')
 		expect(wrapper.get('[data-testid="ai-label-files"]').text()).toBe('4')
 		expect(wrapper.get('[data-testid="ai-label-reviewed"]').text()).toBe('25%')
+	})
+
+	it('shows the agent-authored contacts and calendar items next to the files', async () => {
+		const wrapper = await render({ files: 4, reviewed: 1, reviewedShare: 25, tagId: '3', truncated: false, contacts: 3, calendarItems: 7, objectsTruncated: false })
+
+		expect(wrapper.get('[data-testid="ai-label-contacts"]').text()).toBe('3')
+		expect(wrapper.get('[data-testid="ai-label-calendar-items"]').text()).toBe('7')
+		expect(wrapper.text()).toContain('Contacten')
+		expect(wrapper.text()).toContain('Agenda-items')
+		expect(wrapper.find('[data-testid="ai-label-objects-truncated"]').exists()).toBe(false)
+	})
+
+	it('says when more contacts or calendar items exist than were counted', async () => {
+		const wrapper = await render({ files: 0, reviewed: 0, reviewedShare: 0, tagId: '3', truncated: false, contacts: 5000, calendarItems: 2, objectsTruncated: true })
+
+		expect(wrapper.get('[data-testid="ai-label-objects-truncated"]').text()).toBe('Er zijn meer contacten of agenda-items dan er zijn geteld.')
 	})
 
 	it('names the label "Gemaakt met AI" and never the stored tag name', async () => {
