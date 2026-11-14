@@ -601,4 +601,109 @@ final class TaskWriteServiceTest extends TestCase {
 
 	}//end testAFailingCalendarNeverThrows()
 
+	/**
+	 * An unknown status or an unparseable dueBefore is refused before any list is read.
+	 *
+	 * @return void
+	 */
+	public function testInvalidListArgumentsAreRefused(): void {
+		$service = $this->service($this->standardCalendars(), $this->backend($this->standardComponents()));
+
+		foreach ([['status' => 'done'], ['dueBefore' => 'tomorrow-ish']] as $arguments) {
+			$result = $service->invoke(uid: 'alice', toolId: 'hermiq.listTasks', arguments: $arguments);
+			$this->assertSame('invalid_argument', $result['error']['code'] ?? null, json_encode($arguments));
+			$this->assertSame('status is open, completed or all; dueBefore is an ISO-8601 date.', $result['error']['message']);
+		}
+
+		$this->assertSame([], $this->searched);
+
+	}//end testInvalidListArgumentsAreRefused()
+
+	/**
+	 * A backend that throws while the lists are gathered becomes a structured error.
+	 *
+	 * @return void
+	 */
+	public function testABackendThatThrowsIsReportedAsUnreachable(): void {
+		$backend = new class {
+			/**
+			 * @return array<int, array<string, mixed>>
+			 */
+			public function getCalendarsForUser($principalUri) {
+				throw new RuntimeException('dav down');
+			}
+		};
+		$service = $this->service($this->standardCalendars(), $backend);
+
+		$result = $service->invoke(uid: 'alice', toolId: 'hermiq.listTasks', arguments: []);
+
+		$this->assertSame('tasks_failed', $result['error']['code'] ?? null);
+		$this->assertSame('The task lists could not be reached.', $result['error']['message']);
+
+	}//end testABackendThatThrowsIsReportedAsUnreachable()
+
+	/**
+	 * A completion the backend refuses to store is reported, not thrown.
+	 *
+	 * @return void
+	 */
+	public function testAFailedCompletionWriteIsReported(): void {
+		$uid = '7c1e2a4b-5d6f-4a8b-9c0d-1e2f3a4b5c6d';
+		$own = [$this->row(uid: $uid, summary: 'Terugbellen')];
+		$inner = $this->backend(
+			$this->standardComponents(),
+			['id-werkvoorraad-burgerzaken/' . $uid . '.ics' => TaskCalendarObjectTest::TASKS_APP_FIXTURE]
+		);
+		$backend = new class($inner) {
+			/**
+			 * @param object $inner The working backend double.
+			 */
+			public function __construct(private object $inner) {
+			}
+
+			/**
+			 * @return array<int, array<string, mixed>>
+			 */
+			public function getCalendarsForUser($principalUri) {
+				return $this->inner->getCalendarsForUser($principalUri);
+			}
+
+			/**
+			 * @return array<string, mixed>|null
+			 */
+			public function getCalendarObject($calendarId, $objectUri, int $calendarType = 0) {
+				return $this->inner->getCalendarObject($calendarId, $objectUri);
+			}
+
+			/**
+			 * @return string
+			 */
+			public function updateCalendarObject($calendarId, $objectUri, $calendarData, $calendarType = 0) {
+				throw new RuntimeException('412 precondition failed');
+			}
+		};
+		$service = $this->service($this->standardCalendars($own), $backend);
+
+		$result = $service->invoke(uid: 'alice', toolId: 'hermiq.completeTask', arguments: ['uid' => $uid]);
+
+		$this->assertSame('task_write_failed', $result['error']['code'] ?? null, json_encode($result));
+		$this->assertSame('The task could not be completed.', $result['error']['message']);
+
+	}//end testAFailedCompletionWriteIsReported()
+
+	/**
+	 * A priority inside 1..9 is accepted and the task is created.
+	 *
+	 * @return void
+	 */
+	public function testAPriorityInRangeIsAccepted(): void {
+		$service = $this->service($this->standardCalendars(), $this->backend($this->standardComponents()));
+
+		$result = $service->invoke(uid: 'alice', toolId: 'hermiq.createTask', arguments: ['summary' => 'x', 'priority' => '3']);
+
+		$this->assertTrue($result['created'] ?? false, json_encode($result));
+		$this->assertCount(1, $this->stored['werkvoorraad-burgerzaken']);
+
+	}//end testAPriorityInRangeIsAccepted()
+
 }//end class

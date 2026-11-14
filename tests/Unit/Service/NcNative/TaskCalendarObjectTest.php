@@ -252,4 +252,36 @@ final class TaskCalendarObjectTest extends TestCase {
 
 	}//end testDueDateTimeIsUtcAndFoldingKeepsCharactersWhole()
 
+	/**
+	 * A task whose VTODO is never closed is not rewritten.
+	 *
+	 * @return void
+	 */
+	public function testAnUnterminatedTaskIsNotRewritten(): void {
+		$ics = "BEGIN:VCALENDAR\r\nBEGIN:VTODO\r\nUID:x\r\nSUMMARY:open ended\r\nEND:VCALENDAR\r\n";
+
+		$this->assertNull((new TaskCalendarObject())->complete(ics: $ics, markValue: 'hermiq', now: new DateTimeImmutable()));
+
+	}//end testAnUnterminatedTaskIsNotRewritten()
+
+	/**
+	 * An object written with bare LF line endings keeps them.
+	 *
+	 * @return void
+	 */
+	public function testLfLineEndingsArePreserved(): void {
+		$ics = "BEGIN:VCALENDAR\nBEGIN:VTODO\nUID:x\nSTATUS:NEEDS-ACTION\nEND:VTODO\nEND:VCALENDAR\n";
+
+		$completed = (string)(new TaskCalendarObject())->complete(
+			ics: $ics,
+			markValue: 'hermiq:a',
+			now: new DateTimeImmutable('2026-10-01T12:00:00Z')
+		);
+
+		$this->assertStringNotContainsString("\r\n", $completed);
+		$this->assertStringContainsString("\nSTATUS:COMPLETED\nCOMPLETED:20261001T120000Z\nPERCENT-COMPLETE:100\n", $completed);
+		$this->assertStringNotContainsString('NEEDS-ACTION', $completed);
+
+	}//end testLfLineEndingsArePreserved()
+
 }//end class

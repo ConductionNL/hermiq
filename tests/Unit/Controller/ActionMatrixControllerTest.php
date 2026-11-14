@@ -117,7 +117,7 @@ final class ActionMatrixControllerTest extends TestCase {
 		$data = $this->controller()->index()->getData();
 
 		$this->assertSame(['admin', 'auditors', 'beheer', 'dpo'], $data['groups']);
-		$this->assertCount(24, $data['actions']);
+		$this->assertCount(25, $data['actions']);
 		$this->assertSame(
 			[
 				'action' => 'aifeature.acknowledge',

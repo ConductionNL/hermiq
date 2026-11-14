@@ -294,6 +294,10 @@
         {
             "name": "tool-oversight",
             "description": "Tool-catalog / tool-grants / tool-invocations endpoints."
+        },
+        {
+            "name": "ai-label",
+            "description": "The AI label on what agents write."
         }
     ],
     "paths": {
@@ -1867,6 +1871,83 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/Problem401"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
+        },
+        "/agents/{agentId}/tool-invocations/{callId}/mark": {
+            "post": {
+                "operationId": "tool-oversight-mark-tool-invocation",
+                "summary": "Mark one of the agent's tool calls as misuse, with a reason",
+                "description": "Mark one of the agent's tool calls as misuse, with a reason. The mark is written on the agent, so the agent's audit trail records the operator, the call and the reason, and the tool activity shows it on the call. Only who may modify the agent marks its calls; a mark without a reason is refused. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "tool-oversight"
+                ],
+                "parameters": [
+                    {
+                        "name": "agentId",
+                        "in": "path",
+                        "required": true,
+                        "description": "Agent UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "callId",
+                        "in": "path",
+                        "required": true,
+                        "description": "The call, as its tool activity row names it (`callId`).",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "reason": {
+                                        "type": "string",
+                                        "description": "Why the call is misuse."
+                                    }
+                                },
+                                "required": [
+                                    "reason"
+                                ],
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The call is marked.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
                     },
                     "500": {
                         "$ref": "#/components/responses/Problem500"
@@ -3515,6 +3596,79 @@
                 }
             }
         },
+        "/ai-label/files/{fileId}/reviewed": {
+            "post": {
+                "operationId": "ai-label-mark-reviewed",
+                "summary": "Mark an agent-authored file as reviewed",
+                "description": "Adds the reviewed system tag next to the agent-authored tag on a file the caller can read. A file the caller cannot open answers 404; a file without the agent-authored tag answers 409. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "ai-label"
+                ],
+                "parameters": [
+                    {
+                        "name": "fileId",
+                        "in": "path",
+                        "required": true,
+                        "description": "The Nextcloud file id.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The file is marked as reviewed.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "404": {
+                        "description": "No file the caller can read has this id."
+                    },
+                    "409": {
+                        "description": "The file is not marked as made with AI."
+                    }
+                }
+            }
+        },
+        "/ai-label/stats": {
+            "get": {
+                "operationId": "ai-label-stats",
+                "summary": "The AI label counts for the caller",
+                "description": "The number of agent-authored files the caller can read, how many are marked as reviewed, the reviewed share in percent, and the agent-authored tag id for a link to Files. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "ai-label"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The counts.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
         "/analytics": {
             "get": {
                 "operationId": "analytics-index",
@@ -4063,6 +4217,119 @@
                         }
                     }
                 },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/assistant/form-fill": {
+            "post": {
+                "operationId": "form-fill-fill",
+                "summary": "Propose form field values from pasted text (forms-smart-paste-fill)",
+                "description": "Propose form field values from pasted text (forms-smart-paste-fill). Gated by the form-fill AI feature; answers {values, draft: true, notice}, or {available: false, reason}. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "assistant"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "text": {
+                                        "type": "string",
+                                        "maxLength": 10000,
+                                        "description": "The pasted text, 1 to 10,000 characters."
+                                    },
+                                    "fields": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 50,
+                                        "description": "The fields the proposals may fill.",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "key": {
+                                                    "type": "string",
+                                                    "pattern": "^[A-Za-z0-9_.-]{1,64}$"
+                                                },
+                                                "label": {
+                                                    "type": "string"
+                                                },
+                                                "type": {
+                                                    "type": "string"
+                                                },
+                                                "options": {
+                                                    "type": "array",
+                                                    "items": {}
+                                                }
+                                            },
+                                            "required": [
+                                                "key"
+                                            ]
+                                        }
+                                    },
+                                    "language": {
+                                        "type": "string",
+                                        "description": "BCP-47 tag of the form's language; nl when absent."
+                                    }
+                                },
+                                "required": [
+                                    "text",
+                                    "fields"
+                                ],
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/assistant/form-fill/available": {
+            "get": {
+                "operationId": "form-fill-available",
+                "summary": "Whether Paste to fill may show (forms-smart-paste-fill)",
+                "description": "Whether Paste to fill may show: {available: bool} from the form-fill AI feature alone, without a model call. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "assistant"
+                ],
                 "responses": {
                     "200": {
                         "description": "The request succeeded.",

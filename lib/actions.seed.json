@@ -46,6 +46,9 @@
     "agenttemplate.approve-quarantined": [
       "admin"
     ],
+    "agent.set-acting-user": [
+      "admin"
+    ],
     "agenttemplate.override-scan-verdict": [
       "admin"
     ],
@@ -131,6 +134,10 @@
     "agenttemplate.approve-quarantined": {
       "label": "Approve a quarantined agent template",
       "description": "Release an agent template that was held back after a scan."
+    },
+    "agent.set-acting-user": {
+      "label": "Set the account an agent works as",
+      "description": "Name the user account whose rights an agent runs with."
     },
     "agenttemplate.override-scan-verdict": {
       "label": "Override an agent template's scan result",
