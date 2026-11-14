@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('@conduction/nextcloud-vue', () => ({
 	CnCredentials: { name: 'CnCredentials', props: ['scope', 'appId', 'appName', 'appCredentials'], render: () => null },
 }))
+vi.mock('../../src/components/settings/CodeSandboxSettings.vue', () => ({ default: { name: 'CodeSandboxSettings', render: () => null } }))
 vi.mock('../../src/components/settings/AssistantPromptLibrary.vue', () => ({ default: { name: 'AssistantPromptLibrary', render: () => null } }))
 vi.mock('../../src/components/settings/IntakeSettings.vue', () => ({ default: { name: 'IntakeSettings', render: () => null } }))
 vi.mock('../../src/components/settings/ReportGroupingSettings.vue', () => ({ default: { name: 'ReportGroupingSettings', render: () => null } }))
@@ -42,6 +43,7 @@ const t = (app, text, vars = {}) => text.replace(/\{(\w+)\}/g, (m, k) => (k in v
 const CHILDREN = [
 	'AiFeatureRegister',
 	'AssistantPromptLibrary',
+	'CodeSandboxSettings',
 	'IntakeSettings',
 	'LlmProviderModal',
 	'ReportGroupingSettings',
@@ -147,6 +149,7 @@ describe('AdminRoot', () => {
 			'Report grouping',
 			'Assistant prompts',
 			'AI run retention',
+			'Code sandbox',
 			'Talk chat bridge',
 			'Organisation credentials',
 		])
