@@ -26,6 +26,8 @@ namespace OCA\Hermiq\Repair;
 
 use OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -122,8 +124,7 @@ class SeedLiteracyLessons implements IRepairStep {
 			try {
 				$objectService->saveObject(
 					object: $lesson,
-					register: self::REGISTER_SLUG,
-					schema: self::SCHEMA_SLUG,
+					options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG)),
 					_rbac: false,
 					_multitenancy: false
 				);

@@ -54,6 +54,9 @@ use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
@@ -841,9 +844,10 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 
 		$this->objectService->saveObject(
 			object: $payload,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: (string)($draftData['skillId'] ?? ''),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: (string)($draftData['skillId'] ?? '')
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1245,8 +1249,7 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 
 		$draft = $this->objectService->find(
 			id: $draftId,
-			register: self::REGISTER_SLUG,
-			schema: self::DRAFT_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::DRAFT_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1871,8 +1874,7 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 
 		$skill = $this->objectService->find(
 			id: $skillId,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1914,9 +1916,10 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 		try {
 			return $this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::DRAFT_SCHEMA,
-				uuid: $uuid,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::DRAFT_SCHEMA),
+					uuid: $uuid
+				),
 				_rbac: false,
 				_multitenancy: false
 			);

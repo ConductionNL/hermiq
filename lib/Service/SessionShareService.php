@@ -41,6 +41,9 @@ use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\SessionShareServiceInterface;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IGroupManager;
 use OCP\IUserManager;
@@ -279,7 +282,11 @@ class SessionShareService implements SessionShareServiceInterface {
 	 */
 	private function findSession(string $uuid): ?ObjectEntity {
 		try {
-			return $this->objectService->find(id: $uuid, register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA, _rbac: false);
+			return $this->objectService->find(
+				id: $uuid,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA),
+				_rbac: false
+			);
 		} catch (Throwable) {
 			return null;
 		}
@@ -406,7 +413,7 @@ class SessionShareService implements SessionShareServiceInterface {
 	 * @throws SessionShareException 404 for anyone but the owner.
 	 */
 	private function ownedSession(string $uuid, string $callerUid): ObjectEntity {
-		$session = $this->objectService->find(id: $uuid, register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA);
+		$session = $this->objectService->find(id: $uuid, options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA));
 		if ($session === null || $callerUid === '' || ($session->getObject()['userId'] ?? null) !== $callerUid) {
 			throw new SessionShareException('Session not found.', 404);
 		}
@@ -544,9 +551,10 @@ class SessionShareService implements SessionShareServiceInterface {
 		);
 		$this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $payload),
-			register: self::REGISTER_SLUG,
-			schema: self::SESSION_SCHEMA,
-			uuid: $uuid
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA),
+				uuid: $uuid
+			)
 		);
 	}//end saveShares()
 

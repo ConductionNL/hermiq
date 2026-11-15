@@ -35,6 +35,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectPatch;
 
 /**
  * Tests for the agent applicationSlug backfill's write behaviour.
@@ -125,7 +126,9 @@ class BackfillAgentApplicationSlugTest extends TestCase {
 			}
 		);
 		$objectService->method('patchObject')->willReturnCallback(
-			function (string $objectId, array $data) use (&$patchCalls, $agents): ObjectEntity {
+			function (ObjectPatch $patch) use (&$patchCalls, $agents): ObjectEntity {
+				$objectId = $patch->objectId;
+				$data = $patch->data;
 				$patchCalls[] = [$objectId, $data];
 				return $agents[0];
 			}
@@ -409,7 +412,9 @@ class BackfillAgentApplicationSlugTest extends TestCase {
 			}
 		);
 		$objectService->method('patchObject')->willReturnCallback(
-			static function (string $objectId, array $data) use (&$patched, $agent): ObjectEntity {
+			static function (ObjectPatch $patch) use (&$patched, $agent): ObjectEntity {
+				$objectId = $patch->objectId;
+				$data = $patch->data;
 				$patched[] = $objectId;
 				return $agent;
 			}

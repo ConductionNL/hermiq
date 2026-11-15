@@ -40,6 +40,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 
 /**
  * Tests the room rows and bot detection of the admin-panel status reporter.
@@ -237,7 +238,7 @@ class TalkBridgeStatusRoomsTest extends TestCase {
 	 */
 	public function testEveryBoundRoomIsDescribed(): void {
 		$this->objectService->method('find')->willReturnCallback(
-			fn (string $id, mixed $_extend, bool $files, mixed $register, mixed $schema): ?ObjectEntity => ($register === 'hermiq' && $schema === 'agent' && $id === 'agent-1') ? $this->agent('Planner') : $this->agent('')
+			fn (string $id, ?ObjectFindOptions $options = null): ?ObjectEntity => (($options?->register) === 'hermiq' && ($options?->schema) === 'agent' && $id === 'agent-1') ? $this->agent('Planner') : $this->agent('')
 		);
 		$this->agentBinding->method('agentForRoom')->willReturnCallback(
 			static fn (string $roomToken): ?string => ($roomToken === 'tok-a') ? 'agent-1' : null
