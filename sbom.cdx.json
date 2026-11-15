@@ -7,7 +7,7 @@
     "tools": [
       {
         "name": "composer",
-        "version": "2.10.2"
+        "version": "2.8.12"
       },
       {
         "vendor": "cyclonedx",
@@ -5897,6 +5897,40 @@
         {
           "name": "cdx:npm:package:path",
           "value": "node_modules/@humanwhocodes/retry"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "nonrecursive-glob-match",
+      "group": "@isaacs",
+      "version": "1.1.0",
+      "bom-ref": "hermiq@0.1.0|@isaacs/nonrecursive-glob-match@1.1.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "BlueOak-1.0.0"
+          }
+        }
+      ],
+      "purl": "pkg:npm/%40isaacs/nonrecursive-glob-match@1.1.0",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/@isaacs/nonrecursive-glob-match/-/nonrecursive-glob-match-1.1.0.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "18f9bf0dbbe4e512e68519f15c86bb9d3a4ad31b65e04d308f432c96cb8d889d45211394fb6fbd960502fdd805ec4cb84025a17c4b20c6294c44c09d1cf7c37f"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/@isaacs/nonrecursive-glob-match"
         }
       ]
     },
@@ -13016,10 +13050,6 @@
       ],
       "properties": [
         {
-          "name": "cdx:npm:package:development",
-          "value": "true"
-        },
-        {
           "name": "cdx:npm:package:path",
           "value": "node_modules/balanced-match"
         }
@@ -13263,8 +13293,8 @@
     {
       "type": "library",
       "name": "brace-expansion",
-      "version": "5.0.9",
-      "bom-ref": "hermiq@0.1.0|brace-expansion@5.0.9",
+      "version": "5.0.13",
+      "bom-ref": "hermiq@0.1.0|brace-expansion@5.0.13",
       "licenses": [
         {
           "license": {
@@ -13272,25 +13302,21 @@
           }
         }
       ],
-      "purl": "pkg:npm/brace-expansion@5.0.9",
+      "purl": "pkg:npm/brace-expansion@5.0.13",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.9.tgz",
+          "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.13.tgz",
           "type": "distribution",
           "hashes": [
             {
               "alg": "SHA-512",
-              "content": "49c43822ebc8105d533253fb66dfaf8c9ffff7394f6f64837315b13376e4f2ceade8619d27b28ed5d09c4e274e3c929e3d6df42c4ff6713ef00b23e1a3dfd6c6"
+              "content": "561ddd9856dce3065ea31eccf48ff42fd19f15df374aee3ec82724fce17d1a2fcffdd0079f4453ed7e0af51ee030d3210dc9370ef851e905ec9d07638e0c0dbd"
             }
           ],
           "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
         }
       ],
       "properties": [
-        {
-          "name": "cdx:npm:package:development",
-          "value": "true"
-        },
         {
           "name": "cdx:npm:package:path",
           "value": "node_modules/brace-expansion"
@@ -25827,8 +25853,8 @@
     {
       "type": "library",
       "name": "pbkdf2",
-      "version": "3.1.6",
-      "bom-ref": "hermiq@0.1.0|pbkdf2@3.1.6",
+      "version": "3.1.7",
+      "bom-ref": "hermiq@0.1.0|pbkdf2@3.1.7",
       "licenses": [
         {
           "license": {
@@ -25836,15 +25862,15 @@
           }
         }
       ],
-      "purl": "pkg:npm/pbkdf2@3.1.6",
+      "purl": "pkg:npm/pbkdf2@3.1.7",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/pbkdf2/-/pbkdf2-3.1.6.tgz",
+          "url": "https://registry.npmjs.org/pbkdf2/-/pbkdf2-3.1.7.tgz",
           "type": "distribution",
           "hashes": [
             {
               "alg": "SHA-512",
-              "content": "053e9e7a53c1d44c861e8f290b4a3d065ea4e9261584a3b58c46ddde5713aedafb5c77633fc056d58a5f095dc6f4ac24c606adb64f92e6adbf46fbadb42b12d6"
+              "content": "9d2e26bc5815c14ade70f4d176976c78cd9fc2975f9d7d3f1e26c0f03801450b628540331d0609154da5f8e944b625eda6a92b32f08f0f0c973149c0483b7a43"
             }
           ],
           "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
@@ -27035,8 +27061,8 @@
     {
       "type": "library",
       "name": "qs",
-      "version": "6.16.0",
-      "bom-ref": "hermiq@0.1.0|qs@6.16.0",
+      "version": "6.17.1",
+      "bom-ref": "hermiq@0.1.0|qs@6.17.1",
       "licenses": [
         {
           "license": {
@@ -27044,15 +27070,15 @@
           }
         }
       ],
-      "purl": "pkg:npm/qs@6.16.0",
+      "purl": "pkg:npm/qs@6.17.1",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/qs/-/qs-6.16.0.tgz",
+          "url": "https://registry.npmjs.org/qs/-/qs-6.17.1.tgz",
           "type": "distribution",
           "hashes": [
             {
               "alg": "SHA-512",
-              "content": "87a7e1388691ac80f609b118d9faacfbbb7e517668f8c2c09d4e60448abce6e16d76250f09db00a4c947857a202953381ccd8355b22318d4d3607d8e7263f5bc"
+              "content": "8dddc23a468a5601945be647c841c21bd6c7ed1a1a6a25ae320cec2018d43158cb01a5865a9a14015c258d5bc11f146eff6a841e769d2c666b92eb585013d024"
             }
           ],
           "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
@@ -29836,8 +29862,8 @@
     {
       "type": "library",
       "name": "stylelint",
-      "version": "17.15.0",
-      "bom-ref": "hermiq@0.1.0|stylelint@17.15.0",
+      "version": "17.16.0",
+      "bom-ref": "hermiq@0.1.0|stylelint@17.16.0",
       "licenses": [
         {
           "license": {
@@ -29845,15 +29871,15 @@
           }
         }
       ],
-      "purl": "pkg:npm/stylelint@17.15.0",
+      "purl": "pkg:npm/stylelint@17.16.0",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/stylelint/-/stylelint-17.15.0.tgz",
+          "url": "https://registry.npmjs.org/stylelint/-/stylelint-17.16.0.tgz",
           "type": "distribution",
           "hashes": [
             {
               "alg": "SHA-512",
-              "content": "9962247ac610bd08dfe0abdd7aef67b3420bf3f2bfc2d8da1b13eab0f77a0e52d9bda4311b2b09b28731503ac17321d0e5595e024e2e48c6ade3232b5440fb3c"
+              "content": "7a39569db275df1d46537dbecd95daeac61026c28a93049dbf6078ac074edce59d126be148929c5e2e693a9850612cf26a3d645e9b8626bee970c04d7c322e3f"
             }
           ],
           "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
@@ -29874,7 +29900,7 @@
           "type": "library",
           "name": "ignore",
           "version": "7.0.7",
-          "bom-ref": "hermiq@0.1.0|stylelint@17.15.0|ignore@7.0.7",
+          "bom-ref": "hermiq@0.1.0|stylelint@17.16.0|ignore@7.0.7",
           "licenses": [
             {
               "license": {
@@ -32656,24 +32682,24 @@
         {
           "type": "library",
           "name": "minimatch",
-          "version": "9.0.9",
-          "bom-ref": "hermiq@0.1.0|webdav@5.10.0|minimatch@9.0.9",
+          "version": "11.0.8",
+          "bom-ref": "hermiq@0.1.0|webdav@5.10.0|minimatch@11.0.8",
           "licenses": [
             {
               "license": {
-                "id": "ISC"
+                "id": "BlueOak-1.0.0"
               }
             }
           ],
-          "purl": "pkg:npm/minimatch@9.0.9",
+          "purl": "pkg:npm/minimatch@11.0.8",
           "externalReferences": [
             {
-              "url": "https://registry.npmjs.org/minimatch/-/minimatch-9.0.9.tgz",
+              "url": "https://registry.npmjs.org/minimatch/-/minimatch-11.0.8.tgz",
               "type": "distribution",
               "hashes": [
                 {
                   "alg": "SHA-512",
-                  "content": "381c0137d00be1daa61139694b6cdab31faf4de59c956ce46e57d993b2930398f78de38e373fed4429d9a26532bcd83cdf02f966ff52b3a1cc2570202fc47662"
+                  "content": "9c542e6124d5ac6bf2b15069b39221fb405d9d814dfc28f70bcd7aafafa9ef22be147ad52c61383b837d005c3292b94d96f3361d8b7e45a775522ae8ea1f3c22"
                 }
               ],
               "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
@@ -32683,72 +32709,6 @@
             {
               "name": "cdx:npm:package:path",
               "value": "node_modules/webdav/node_modules/minimatch"
-            }
-          ]
-        },
-        {
-          "type": "library",
-          "name": "brace-expansion",
-          "version": "2.1.8",
-          "bom-ref": "hermiq@0.1.0|webdav@5.10.0|brace-expansion@2.1.8",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT"
-              }
-            }
-          ],
-          "purl": "pkg:npm/brace-expansion@2.1.8",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-2.1.8.tgz",
-              "type": "distribution",
-              "hashes": [
-                {
-                  "alg": "SHA-512",
-                  "content": "067943cc3610a29953b194af3e2f3a08dce66dc6f4ed7f2e7d1f1f935ce2bda8842655c9922ab5310c830959a559cb166e3e9a597a879ebc307af6eb9bf49a8a"
-                }
-              ],
-              "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/webdav/node_modules/brace-expansion"
-            }
-          ]
-        },
-        {
-          "type": "library",
-          "name": "balanced-match",
-          "version": "1.0.2",
-          "bom-ref": "hermiq@0.1.0|webdav@5.10.0|balanced-match@1.0.2",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT"
-              }
-            }
-          ],
-          "purl": "pkg:npm/balanced-match@1.0.2",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/balanced-match/-/balanced-match-1.0.2.tgz",
-              "type": "distribution",
-              "hashes": [
-                {
-                  "alg": "SHA-512",
-                  "content": "de849e50ed13315ebb84dd4099b5ec2b8c9aa94eed8e21e56f144364ea47d0a5bdf82797e1b440697d009f1b74b71d8cae94695b041a3f02252121098585393f"
-                }
-              ],
-              "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/webdav/node_modules/balanced-match"
             }
           ]
         }
