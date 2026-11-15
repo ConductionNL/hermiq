@@ -31,6 +31,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service;
 
 use OCA\Hermiq\Service\Talk\TalkSafeText;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
@@ -282,7 +283,12 @@ class ApprovalPreviewBuilder {
 		}
 
 		try {
-			$agent = $this->objectService->find(id: $agentId, register: 'hermiq', schema: 'agent', _rbac: false, _multitenancy: false);
+			$agent = $this->objectService->find(
+				id: $agentId,
+				options: new ObjectFindOptions(register: 'hermiq', schema: 'agent'),
+				_rbac: false,
+				_multitenancy: false
+			);
 		} catch (Throwable $e) {
 			return [];
 		}

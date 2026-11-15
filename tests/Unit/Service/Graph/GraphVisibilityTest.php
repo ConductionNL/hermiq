@@ -35,6 +35,7 @@ use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 
 /**
  * Tests for GraphVisibility and ActingUserScope.
@@ -93,7 +94,11 @@ class GraphVisibilityTest extends TestCase {
 
 		$objects = $this->createMock(ObjectService::class);
 		$objects->method('find')->willReturnCallback(
-			function (int|string $id, ?array $_extend = [], bool $withFiles = false, mixed $register = null, mixed $schema = null, bool $_rbac = true) use ($find): ?ObjectEntity {
+			function (int|string $id, ?ObjectFindOptions $options = null, bool $_rbac = true) use ($find): ?ObjectEntity {
+				$_extend = $options?->extend ?? [];
+				$withFiles = $options?->files ?? false;
+				$register = $options?->register;
+				$schema = $options?->schema;
 				$this->lookupsAs[] = $this->sessionUser?->getUID();
 
 				return $find((string)$id, (string)$schema, $_rbac, $this->sessionUser?->getUID());
