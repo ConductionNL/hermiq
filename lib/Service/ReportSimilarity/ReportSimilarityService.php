@@ -47,6 +47,9 @@ use OCA\Hermiq\Kernel\Contracts\ReportSimilarityServiceInterface;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -219,9 +222,10 @@ class ReportSimilarityService implements ReportSimilarityServiceInterface {
 
 		$stored = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG,
-			uuid: $groupId
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
+				uuid: $groupId
+			)
 		);
 
 		return $this->shape(group: $stored);
@@ -447,8 +451,7 @@ class ReportSimilarityService implements ReportSimilarityServiceInterface {
 
 		$stored = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG))
 		);
 
 		return array_merge(
@@ -505,9 +508,10 @@ class ReportSimilarityService implements ReportSimilarityServiceInterface {
 
 		$stored = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG,
-			uuid: (string)$group->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
+				uuid: (string)$group->getUuid()
+			)
 		);
 
 		return array_merge(
@@ -686,8 +690,7 @@ class ReportSimilarityService implements ReportSimilarityServiceInterface {
 		try {
 			return $this->objectService->find(
 				id: $groupId,
-				register: self::REGISTER_SLUG,
-				schema: self::SCHEMA_SLUG
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG)
 			);
 		} catch (Throwable $e) {
 			return null;
