@@ -23,14 +23,14 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
+ * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\BackgroundJob;
 
-use OCA\Hermiq\Service\WebhookAgentRunService;
+use OCA\Hermiq\Kernel\Contracts\WebhookAgentRunServiceInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\QueuedJob;
 
@@ -39,18 +39,18 @@ use OCP\BackgroundJob\QueuedJob;
  *
  * @psalm-api
  *
- * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
+ * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
  */
 class WebhookAgentRunJob extends QueuedJob {
 	/**
 	 * Constructor.
 	 *
 	 * @param ITimeFactory $time Time factory for the base job.
-	 * @param WebhookAgentRunService $webhookAgentRun Runs the governed dispatch.
+	 * @param WebhookAgentRunServiceInterface $webhookAgentRun Runs the governed dispatch.
 	 */
 	public function __construct(
 		ITimeFactory $time,
-		private readonly WebhookAgentRunService $webhookAgentRun,
+		private readonly WebhookAgentRunServiceInterface $webhookAgentRun,
 	) {
 		parent::__construct(time: $time);
 	}//end __construct()
@@ -64,7 +64,7 @@ class WebhookAgentRunJob extends QueuedJob {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
+	 * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
 	 */
 	protected function run($argument): void {
 		$context = $argument;

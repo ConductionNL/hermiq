@@ -248,6 +248,17 @@ import {
 	useEvalDatasetStore,
 	useEvalRunStore,
 } from '../store/store.js'
+import {
+	agentBaselineMode,
+	agentPickerOptions,
+	asList,
+	baselineCostNote,
+	deltaLabel,
+	formatDate,
+	latestDatasetRuns,
+	loadErrorMessage,
+	passRateLabel,
+} from './evalRunLabels.js'
 
 export default {
 	name: 'EvalRunPanelWidget',
@@ -292,10 +303,7 @@ export default {
 		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 */
 		agentOptions() {
-			return this.agents.map((agent) => ({
-				label: agent.name || agent.uuid || agent.id,
-				value: agent.uuid || agent.id,
-			}))
+			return agentPickerOptions(this.agents)
 		},
 
 		/**
@@ -327,10 +335,7 @@ export default {
 		 * @return {string} joint|per-skill.
 		 */
 		selectedAgentMode() {
-			const agent = this.agents.find(
-				(entry) => (entry.uuid || entry.id) === this.selectedAgent?.value,
-			)
-			return agent?.evalBaselineMode === 'per-skill' ? 'per-skill' : 'joint'
+			return agentBaselineMode(this.agents, this.selectedAgent?.value)
 		},
 
 		/**
@@ -341,18 +346,7 @@ export default {
 		 * @return {string} The translated cost note.
 		 */
 		costNote() {
-			if (this.selectedAgentMode === 'per-skill') {
-				const count = this.linkedSkillIds.length
-				return this.t(
-					'hermiq',
-					'Per-skill baseline: every case runs {times} times (one without-half per linked skill) — about {times}x the token cost of a normal run, counted against the same budgets.',
-					{ times: count + 1 },
-				)
-			}
-			return this.t(
-				'hermiq',
-				'Joint baseline: every case runs twice (all linked skills detached together) — about 2x the token cost of a normal run, counted against the same budgets. Link one skill per dataset for the cleanest attribution.',
-			)
+			return baselineCostNote(this.selectedAgentMode, this.linkedSkillIds.length + 1)
 		},
 	},
 
@@ -372,6 +366,10 @@ export default {
 	},
 
 	methods: {
+		deltaLabel,
+		formatDate,
+		passRateLabel,
+
 		/**
 		 * Load the caller's agents, this dataset (for its skillRefs), the skill
 		 * catalogue (for names), and this dataset's prior runs.
@@ -382,31 +380,32 @@ export default {
 		async load() {
 			this.error = ''
 			try {
-				const [agents, runs, dataset, skills] = await Promise.all([
-					this.agentStore.fetchCollection('agent').catch(() => []),
-					this.runStore.fetchCollection('evalrun').catch(() => []),
-					this.datasetStore
-						.fetchObject('evaldataset', this.datasetId)
-						.catch(() => null),
-					listSkills().catch(() => []),
-				])
-				this.agents = Array.isArray(agents) ? agents : []
+				const [agents, runs, dataset, skills] = await this.fetchPanelData()
+				this.agents = asList(agents)
 				this.dataset = dataset || null
-				this.skills = Array.isArray(skills) ? skills : []
-				this.runs = (Array.isArray(runs) ? runs : [])
-					.filter((runRow) => runRow.datasetId === this.datasetId)
-					.sort((a, b) =>
-						String(b.startedAt || '').localeCompare(
-							String(a.startedAt || ''),
-						),
-					)
-					.slice(0, 10)
+				this.skills = asList(skills)
+				this.runs = latestDatasetRuns(asList(runs), this.datasetId)
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = loadErrorMessage(e, this.t('hermiq', 'Unknown error'))
 			}
+		},
+
+		/**
+		 * Fetch the caller's agents and runs, this dataset and the skill catalogue
+		 * together; a failed read answers empty.
+		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
+		 * @return {Promise<Array>} agents, runs, dataset, skills.
+		 */
+		fetchPanelData() {
+			return Promise.all([
+				this.agentStore.fetchCollection('agent').catch(() => []),
+				this.runStore.fetchCollection('evalrun').catch(() => []),
+				this.datasetStore
+					.fetchObject('evaldataset', this.datasetId)
+					.catch(() => null),
+				listSkills().catch(() => []),
+			])
 		},
 
 		/**
@@ -545,41 +544,6 @@ export default {
 		},
 
 		/**
-		 * A signed delta label (sign + value, never color-only).
-		 *
-		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
-		 * @param {number} delta The baseline delta (-1..1).
-		 * @return {string} The label, e.g. "+30 pp" / "−10 pp" / "±0 pp".
-		 */
-		deltaLabel(delta) {
-			if (typeof delta !== 'number') {
-				return '—'
-			}
-			const points = Math.round(delta * 100)
-			if (points > 0) {
-				return `+${points} pp`
-			}
-			if (points < 0) {
-				return `−${Math.abs(points)} pp`
-			}
-			return '±0 pp'
-		},
-
-		/**
-		 * Human pass-rate percentage (the stored value is a 0..1 fraction).
-		 *
-		 * @param {number} passRate The 0..1 pass rate.
-		 * @return {string} A percentage label.
-		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
-		 */
-		passRateLabel(passRate) {
-			if (typeof passRate !== 'number') {
-				return '—'
-			}
-			return `${Math.round(passRate * 100)}%`
-		},
-
-		/**
 		 * Localised regression-gate label.
 		 *
 		 * @param {string} result The gate result.
@@ -631,20 +595,6 @@ export default {
 			return labels[status] || status
 		},
 
-		/**
-		 * Format an ISO timestamp for display.
-		 *
-		 * @spec exclude pure date-formatting display helper, no domain behaviour
-		 * @param {string} value The ISO timestamp.
-		 * @return {string} The formatted date, or an em dash.
-		 */
-		formatDate(value) {
-			if (!value) {
-				return '—'
-			}
-			const date = new Date(value)
-			return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
-		},
 	},
 }
 </script>

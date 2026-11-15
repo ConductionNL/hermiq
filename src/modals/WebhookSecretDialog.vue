@@ -10,8 +10,8 @@
   and never re-opens this dialog to re-reveal a past secret — the webhook panel
   itself only ever shows the masked secretPrefix afterward.
 
-  @spec openspec/changes/agent-webhook-trigger/tasks.md#task-7-agentdetail-webhook-panel-copy-once-secret-dialog
-  @spec openspec/changes/agent-webhook-trigger/specs/agent-management-ui/spec.md
+  @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-7-agentdetail-webhook-panel-copy-once-secret-dialog
+  @spec openspec/specs/agent-management-ui/spec.md
 -->
 <template>
 	<NcModal
@@ -65,9 +65,9 @@
 </template>
 
 <script>
-import { showError, showSuccess } from '@nextcloud/dialogs'
 import { NcButton, NcModal, NcNoteCard, NcTextField } from '@nextcloud/vue'
 import ContentCopy from 'vue-material-design-icons/ContentCopy.vue'
+import { copySecret, selectAll } from './secretReveal.js'
 
 export default {
 	name: 'WebhookSecretDialog',
@@ -97,40 +97,17 @@ export default {
 	emits: ['close'],
 
 	methods: {
-		/**
-		 * Select the full value in the readonly field for an easy manual copy.
-		 *
-		 * @param {FocusEvent} event The focus event.
-		 * @return {void}
-		 *
-		 * @spec openspec/changes/agent-webhook-trigger/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-webhook-trigger-in-place-mvp
-		 */
-		selectAll(event) {
-			if (event && event.target && typeof event.target.select === 'function') {
-				event.target.select()
-			}
-		},
+		selectAll,
 
 		/**
-		 * Copy the secret to the clipboard, with a graceful fallback message
-		 * when the Clipboard API is unavailable (e.g. an insecure context).
+		 * Copy the secret to the clipboard.
 		 *
 		 * @return {Promise<void>}
 		 *
-		 * @spec openspec/changes/agent-webhook-trigger/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-webhook-trigger-in-place-mvp
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-webhook-trigger-in-place-mvp
 		 */
-		async copy() {
-			try {
-				await navigator.clipboard.writeText(this.secret)
-				showSuccess(this.t('hermiq', 'Secret copied to clipboard.'))
-			} catch (e) {
-				showError(
-					this.t(
-						'hermiq',
-						'Could not copy automatically — select and copy the value manually.',
-					),
-				)
-			}
+		copy() {
+			return copySecret(this.secret)
 		},
 	},
 }

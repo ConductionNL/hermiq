@@ -163,6 +163,37 @@ class AgentBotLifecycleListenerTest extends TestCase {
 	}//end testDisablingTalkUninstallsTheBot()
 
 	/**
+	 * A soft-deleted (trashed) agent arrives as an update still carrying
+	 * talkEnabled: its bot is uninstalled, never reinstalled; an empty deleted
+	 * marker is an ordinary update.
+	 *
+	 * @return void
+	 */
+	public function testATrashedAgentUninstallsItsBot(): void {
+		$calls = [];
+		$this->installer->method('uninstallForAgent')->willReturnCallback(
+			function (string $agentId) use (&$calls): void {
+				$calls[] = 'uninstall ' . $agentId;
+			}
+		);
+		$this->installer->method('installForAgent')->willReturnCallback(
+			function (string $agentId, string $agentName) use (&$calls): void {
+				$calls[] = 'install ' . $agentId . ' ' . $agentName;
+			}
+		);
+		$trashed = $this->makeAgent();
+		$trashed->setDeleted(['deletedBy' => 'alice']);
+		$notTrashed = $this->makeAgent();
+		$notTrashed->setDeleted([]);
+
+		$this->listener->handle(event: new ObjectUpdatedEvent(newObject: $trashed, oldObject: $this->makeAgent()));
+		$this->listener->handle(event: new ObjectUpdatedEvent(newObject: $notTrashed, oldObject: $this->makeAgent()));
+
+		$this->assertSame(expected: ['uninstall agent-uuid-1', 'install agent-uuid-1 Release Notes Agent'], actual: $calls);
+
+	}//end testATrashedAgentUninstallsItsBot()
+
+	/**
 	 * Objects of other schemas are none of this listener's business — it is
 	 * registered on the GLOBAL object events, so it sees every write in the
 	 * instance and must ignore almost all of them.

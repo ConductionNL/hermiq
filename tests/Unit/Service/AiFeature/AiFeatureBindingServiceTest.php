@@ -30,7 +30,7 @@ use InvalidArgumentException;
 use OCA\Hermiq\Service\AiFeature\AiFeatureBindingService;
 use OCA\Hermiq\Service\AiFeature\ProviderResidencyRegistry;
 use OCA\Hermiq\Service\AiFeatureService;
-use OCA\Hermiq\Service\OrganisationModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
@@ -81,14 +81,14 @@ class AiFeatureBindingServiceTest extends TestCase {
 	}//end features()
 
 	/**
-	 * A OrganisationModelPolicyService double permitting exactly the given pairs.
+	 * A EffectiveModelPolicy double permitting exactly the given pairs.
 	 *
 	 * @param array<int, array{0: string, 1: string}> $allowedPairs The permitted pairs.
 	 *
-	 * @return OrganisationModelPolicyService The double.
+	 * @return EffectiveModelPolicy The double.
 	 */
-	private function policy(array $allowedPairs): OrganisationModelPolicyService {
-		$service = $this->createMock(OrganisationModelPolicyService::class);
+	private function policy(array $allowedPairs): EffectiveModelPolicy {
+		$service = $this->createMock(EffectiveModelPolicy::class);
 		$service->method('isAllowed')->willReturnCallback(
 			static function (string $organisation, string $provider, string $model) use ($allowedPairs): bool {
 				return in_array([$provider, $model], $allowedPairs, true);

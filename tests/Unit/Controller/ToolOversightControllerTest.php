@@ -33,11 +33,13 @@ use OCA\Hermiq\Service\Agent\AgentObjectMatcher;
 use OCA\Hermiq\Service\Agent\GrantWaiverAudit;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
+use OCA\Hermiq\Service\ToolOversight\ToolCallMarks;
 use OCA\Hermiq\Service\ToolOversight\ToolCatalogView;
 use OCA\Hermiq\Service\ToolOversight\ToolGrantWrites;
 use OCA\Hermiq\Service\ToolOversight\ToolInvocationLog;
 use OCA\Hermiq\Service\ToolOversight\ToolOversightAgents;
 use OCA\Hermiq\Service\ToolOversight\ToolOversightServices;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\Capability\ToolGrantSet;
 use OCA\OpenRegister\Db\AuditTrail;
@@ -77,6 +79,9 @@ use RuntimeException;
  * @uses   \OCA\Hermiq\Service\ToolAccessDecision
  * @uses   \OCA\Hermiq\Service\ToolInvocationRows
  * @uses   \OCA\Hermiq\Service\Workspace\RepoEffectingGrants
+ * @uses \OCA\Hermiq\Controller\ToolAccessResolution
+ * @uses \OCA\Hermiq\Controller\ToolInvocationExport
+ * @uses \OCA\Hermiq\Controller\ToolGrantUpdate
  */
 class ToolOversightControllerTest extends TestCase {
 
@@ -180,6 +185,7 @@ class ToolOversightControllerTest extends TestCase {
 			catalog: new ToolCatalogView($this->toolRegistry, new ToolGrantResolver(), $this->appConfig),
 			invocations: new ToolInvocationLog($this->objectService, $this->auditTrailMapper),
 			grants: new ToolGrantWrites($this->objectService, $this->createMock(ToolAccessRequestService::class)),
+			marks: new ToolCallMarks($this->objectService),
 		);
 
 		return new class($this->request, $this->userSession, $this->createMock(LoggerInterface::class), $services, $richAvailable) extends ToolOversightController {
@@ -376,6 +382,90 @@ class ToolOversightControllerTest extends TestCase {
 	}//end testToolCatalogThrowingLookupIsNotFound()
 
 	/**
+	 * The owner marks a tool call as misuse: 201 with the mark, written on the
+	 * agent with the operator's uid (row ov-tool-oversight).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/verify-row-scenarios/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art-12-14
+	 */
+	public function testTheOwnerMarksAToolCallAsMisuse(): void {
+		$this->objectService->method('find')->willReturn($this->agent(['name' => 'Woo-triage', 'tools' => ['hermiq.sendMail']], 'alice'));
+		$this->request->method('getParam')->with('reason')->willReturn('Sending mail is not part of this agent\'s task');
+
+		$saved = [];
+		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
+			function (array $object) use (&$saved): ObjectEntity {
+				$saved[] = $object;
+				return new ObjectEntity();
+			}
+		);
+
+		$response = $this->controller()->markToolInvocation('agent-1', 'call-17');
+
+		$this->assertSame(Http::STATUS_CREATED, $response->getStatus());
+		$this->assertSame(['callId', 'label', 'reason', 'markedBy', 'markedAt'], array_keys($response->getData()));
+		$this->assertSame('misuse', $response->getData()['label']);
+		$this->assertSame('alice', $response->getData()['markedBy']);
+		$this->assertSame([$response->getData()], $saved[0]['toolCallMarks']);
+	}//end testTheOwnerMarksAToolCallAsMisuse()
+
+	/**
+	 * A mark without a reason is refused with 400 and nothing is written.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/verify-row-scenarios/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art-12-14
+	 */
+	public function testAMarkWithoutAReasonIsRefused(): void {
+		$this->objectService->method('find')->willReturn($this->agent(['tools' => []], 'alice'));
+		$this->request->method('getParam')->with('reason')->willReturn('  ');
+		$this->objectService->expects($this->never())->method('saveObject');
+
+		$response = $this->controller()->markToolInvocation('agent-1', 'call-17');
+
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
+		$this->assertSame(['error' => 'A mark needs a reason.'], $response->getData());
+	}//end testAMarkWithoutAReasonIsRefused()
+
+	/**
+	 * Somebody who may not modify the agent cannot mark its calls.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/verify-row-scenarios/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art-12-14
+	 */
+	public function testANonOwnerCannotMark(): void {
+		$this->objectService->method('find')->willReturn($this->agent(['tools' => []], 'bob'));
+		$this->request->method('getParam')->willReturn('a reason');
+		$this->objectService->expects($this->never())->method('saveObject');
+
+		$this->assertSame(Http::STATUS_FORBIDDEN, $this->controller()->markToolInvocation('agent-1', 'call-17')->getStatus());
+	}//end testANonOwnerCannotMark()
+
+	/**
+	 * The tool activity shows a marked call with its mark.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/verify-row-scenarios/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art-12-14
+	 */
+	public function testTheToolActivityShowsTheMark(): void {
+		$mark = ['callId' => 'entry-1', 'label' => 'misuse', 'reason' => 'r', 'markedBy' => 'alice', 'markedAt' => '2026-11-13T10:00:00+00:00'];
+		$this->objectService->method('find')->willReturn($this->agent(['tools' => [], 'toolCallMarks' => [$mark]], 'alice'));
+		$this->objectService->method('findAll')->willReturn([]);
+		$entry = $this->mcpEntry('alice', 'hermiq.sendMail', '2026-11-12T10:00:00+00:00');
+		$entry->setUuid('entry-1');
+		$this->auditTrailMapper->method('findAll')->willReturn([$entry]);
+
+		$rows = $this->controller(richAvailable: true)->toolInvocations('agent-1')->getData()['rows'];
+
+		$this->assertCount(1, $rows);
+		$this->assertSame('entry-1', $rows[0]['callId']);
+		$this->assertSame($mark, $rows[0]['mark']);
+	}//end testTheToolActivityShowsTheMark()
+
+	/**
 	 * updateToolGrants persists the new grant array via ObjectService::saveObject
 	 * (single write-path) for the owner.
 	 *
@@ -461,7 +551,7 @@ class ToolOversightControllerTest extends TestCase {
 	public function testUpdateToolGrantsRefusesANonOwnerAddingAWaiver(): void {
 		$this->objectService->method('find')->willReturn($this->agent(['tools' => ['a.b.search']], 'carol'));
 		$this->objectService->expects($this->never())->method('saveObject');
-		$this->auditTrailMapper->expects($this->never())->method('createAuditTrailEntry');
+		$this->auditTrailMapper->expects($this->never())->method('recordObjectEvent');
 
 		$this->request->method('getParam')->with('grants')
 			->willReturn(['hermiq.sendMail' . ToolGrantResolver::WAIVER_FRAGMENT]);
@@ -486,10 +576,10 @@ class ToolOversightControllerTest extends TestCase {
 		$this->objectService->method('saveObject')->willReturnCallback($this->savingWithObjectEvent());
 
 		$captured = [];
-		$this->auditTrailMapper->expects($this->once())->method('createAuditTrailEntry')
+		$this->auditTrailMapper->expects($this->once())->method('recordObjectEvent')
 			->willReturnCallback(
-				function (ObjectEntity $object, string $action, array $context) use (&$captured) {
-					$captured = ['action' => $action, 'context' => $context];
+				function (ObjectAuditEvent $event) use (&$captured) {
+					$captured = ['action' => $event->action, 'context' => $event->context];
 					return new AuditTrail();
 				}
 			);
@@ -524,10 +614,10 @@ class ToolOversightControllerTest extends TestCase {
 		$this->objectService->method('saveObject')->willReturnCallback($this->savingWithObjectEvent());
 
 		$captured = [];
-		$this->auditTrailMapper->expects($this->once())->method('createAuditTrailEntry')
+		$this->auditTrailMapper->expects($this->once())->method('recordObjectEvent')
 			->willReturnCallback(
-				function (ObjectEntity $object, string $action, array $context) use (&$captured) {
-					$captured = ['action' => $action, 'context' => $context];
+				function (ObjectAuditEvent $event) use (&$captured) {
+					$captured = ['action' => $event->action, 'context' => $event->context];
 					return new AuditTrail();
 				}
 			);
@@ -558,7 +648,7 @@ class ToolOversightControllerTest extends TestCase {
 			->willReturn(['pipelinq.lead.search', 'pipelinq.lead.get']);
 		$this->objectService->method('saveObject')->willReturnCallback($this->savingWithObjectEvent());
 
-		$this->auditTrailMapper->expects($this->never())->method('createAuditTrailEntry');
+		$this->auditTrailMapper->expects($this->never())->method('recordObjectEvent');
 
 		$response = $this->controller()->updateToolGrants('agent-1');
 
@@ -579,7 +669,7 @@ class ToolOversightControllerTest extends TestCase {
 		$this->request->method('getParam')->with('grants')->willReturn(array_reverse($grants));
 		$this->objectService->method('saveObject')->willReturnCallback($this->savingWithObjectEvent());
 
-		$this->auditTrailMapper->expects($this->never())->method('createAuditTrailEntry');
+		$this->auditTrailMapper->expects($this->never())->method('recordObjectEvent');
 
 		$this->controller()->updateToolGrants('agent-1');
 

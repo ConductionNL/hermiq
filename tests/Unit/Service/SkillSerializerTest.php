@@ -316,4 +316,36 @@ class SkillSerializerTest extends TestCase {
 		$this->assertStringNotContainsString('HIJACKED', $package[SkillSerializer::SKILL_FILE]);
 
 	}//end testAuxiliaryEntryCannotOverwriteSkillFile()
+
+	/**
+	 * Serialising keeps every safe auxiliary file (content defaulting to empty) and
+	 * drops unsafe paths and malformed entries; a non-list files value is none.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-auxiliary-file-paths-are-validated-on-install
+	 */
+	public function testSerialisingKeepsOnlySafeAuxiliaryFiles(): void {
+		$serializer = new SkillSerializer();
+		$skill = ['frontmatter' => 'name: S', 'body' => "b\n"];
+
+		$package = $serializer->toPackageFiles(
+			skill: $skill + [
+				'files' => [
+					['name' => 'references/a.md', 'content' => 'A'],
+					'not an entry',
+					['name' => '../escape.md', 'content' => 'X'],
+					['name' => '/abs.md', 'content' => 'X'],
+					['name' => 'learnings.md'],
+					['content' => 'nameless'],
+				],
+			]
+		);
+		$bare = $serializer->toPackageFiles(skill: $skill + ['files' => 'not a list']);
+
+		$this->assertSame(expected: [SkillSerializer::SKILL_FILE, 'references/a.md', 'learnings.md'], actual: array_keys($package));
+		$this->assertSame(expected: ['A', ''], actual: [$package['references/a.md'], $package['learnings.md']]);
+		$this->assertSame(expected: [SkillSerializer::SKILL_FILE], actual: array_keys($bare));
+
+	}//end testSerialisingKeepsOnlySafeAuxiliaryFiles()
 }//end class

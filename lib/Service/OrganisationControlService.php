@@ -25,7 +25,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#5-kill-switch-toggle-endpoint
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#5-kill-switch-toggle-endpoint
  */
 
 declare(strict_types=1);
@@ -34,15 +34,16 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\OrganisationControlServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 
 /**
  * Reads and toggles the per-organisation kill-switch (TenantControl) via OpenRegister.
  *
- * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#5-kill-switch-toggle-endpoint
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#5-kill-switch-toggle-endpoint
  */
-class OrganisationControlService {
+class OrganisationControlService implements OrganisationControlServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -79,7 +80,7 @@ class OrganisationControlService {
 	 *
 	 * @return ObjectEntity|null The control object, or null when none exists.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-5-1
 	 */
 	public function getForOrganisation(string $organisation): ?ObjectEntity {
 		if ($organisation === '') {
@@ -118,7 +119,7 @@ class OrganisationControlService {
 	 *
 	 * @return ObjectEntity The persisted control object.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-5-1
 	 */
 	public function toggle(string $organisation, bool $engaged, ?string $reason, string $actorUid): ObjectEntity {
 		$now = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');

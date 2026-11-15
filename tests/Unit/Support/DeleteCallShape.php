@@ -24,7 +24,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Support;
 
-use OCA\OpenRegister\Service\Object\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
 
 /**
  * Flat views of a deleteObject() call.

@@ -41,7 +41,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\TaskProcessing;
 
-use OCA\Hermiq\Service\Llm\ProviderFactory;
+use OCA\Hermiq\Kernel\Contracts\ProviderFactoryInterface;
 use OCP\TaskProcessing\Exception\ProcessingException;
 use OCP\TaskProcessing\ISynchronousProvider;
 use Psr\Log\LoggerInterface;
@@ -58,13 +58,13 @@ abstract class AbstractTextProvider implements ISynchronousProvider {
 	/**
 	 * Constructor.
 	 *
-	 * @param ProviderFactory $providerFactory Hermiq's configured-LLM generation seam.
+	 * @param ProviderFactoryInterface $providerFactory Hermiq's configured-LLM generation seam.
 	 * @param LoggerInterface $logger Logger.
 	 *
 	 * @return void
 	 */
 	public function __construct(
-		protected readonly ProviderFactory $providerFactory,
+		protected readonly ProviderFactoryInterface $providerFactory,
 		protected readonly LoggerInterface $logger,
 	) {
 	}//end __construct()
@@ -80,6 +80,25 @@ abstract class AbstractTextProvider implements ISynchronousProvider {
 	 * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-1-3
 	 */
 	abstract protected function buildPrompt(string $input): string;
+
+	/**
+	 * The prompt for a task: by default the input text framed by buildPrompt().
+	 *
+	 * A task type whose input carries more than the text (a translation's
+	 * languages) overrides this to read the other slots.
+	 *
+	 * @param string               $text  The non-empty `input` text.
+	 * @param array<string, mixed> $input The whole task input.
+	 *
+	 * @return string The prompt.
+	 *
+	 * @throws ProcessingException When the input cannot be framed.
+	 *
+	 * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-4-1
+	 */
+	protected function promptFor(string $text, array $input): string {
+		return $this->buildPrompt(input: $text);
+	}//end promptFor()
 
 	/**
 	 * Run the task: frame the input, generate via Hermiq's configured LLM, return
@@ -105,9 +124,14 @@ abstract class AbstractTextProvider implements ISynchronousProvider {
 			throw new ProcessingException('Hermiq text provider requires a non-empty "input".');
 		}
 
+		// Framed before the generation, so an input the provider cannot frame
+		// (a translation without a target) is refused as such, not reported as
+		// a failed generation.
+		$prompt = $this->promptFor(text: $text, input: $input);
+
 		try {
 			$output = $this->providerFactory->generateText(
-				prompt: $this->buildPrompt(input: $text),
+				prompt: $prompt,
 				userId: $userId,
 				allowNextcloud: false
 			);

@@ -33,12 +33,13 @@ use OCA\Hermiq\Service\DeliveryResult;
 use OCA\Hermiq\Service\DeliveryService;
 use OCA\Hermiq\Service\EvalRunService;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
-use OCA\Hermiq\Service\ScheduleService;
 use OCA\Hermiq\Service\SkillConsolidationService;
 use OCA\Hermiq\Service\SkillLearningsCaptureService;
 use OCA\Hermiq\Service\SkillLearningsPromotionService;
 use OCA\Hermiq\Service\SkillMaturityService;
 use OCA\Hermiq\Service\SkillVersionService;
+use OCA\Hermiq\Service\TenantKillSwitch;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -52,6 +53,7 @@ use OCP\IUserManager;
 use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
+use Psr\Log\NullLogger;
 use Random\Engine\Mt19937;
 use Random\Randomizer;
 use ReflectionMethod;
@@ -64,6 +66,7 @@ use Stringable;
  * @covers \OCA\Hermiq\Service\SkillConsolidationService
  * @uses   \OCA\Hermiq\Service\SkillMaturityService
  * @uses   \OCA\Hermiq\Service\DeliveryResult
+ * @uses   \OCA\Hermiq\Service\TenantKillSwitch
  *
  * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
  */
@@ -221,9 +224,9 @@ class SkillDraftApplyGoldenTest extends TestCase {
 
 		$audit = $this->createMock(originalClassName: AuditTrailMapper::class);
 		$auditFails = ($this->random->getInt(0, 9) === 0);
-		$audit->method('createAuditTrailEntry')->willReturnCallback(
-			function (ObjectEntity $object, string $action, array $context = []) use (&$calls, $auditFails): AuditTrail {
-				$calls[] = ['createAuditTrailEntry', $object->getUuid(), $action, $context];
+		$audit->method('recordObjectEvent')->willReturnCallback(
+			function (ObjectAuditEvent $event) use (&$calls, $auditFails): AuditTrail {
+				$calls[] = ['recordObjectEvent', $event->object->getUuid(), $event->action, $event->context];
 				if ($auditFails === true) {
 					throw new RuntimeException('audit down');
 				}
@@ -262,7 +265,10 @@ class SkillDraftApplyGoldenTest extends TestCase {
 			promotionService: $this->createMock(originalClassName: SkillLearningsPromotionService::class),
 			captureService: $this->createMock(originalClassName: SkillLearningsCaptureService::class),
 			providerFactory: $this->createMock(originalClassName: ProviderFactory::class),
-			scheduleService: $this->createMock(originalClassName: ScheduleService::class),
+			tenantKillSwitch: new TenantKillSwitch(
+				objectService: $this->createMock(originalClassName: ObjectService::class),
+				logger: new NullLogger()
+			),
 			budgetService: $this->createMock(originalClassName: BudgetService::class),
 			contentScanService: $this->createMock(originalClassName: ContentScanService::class),
 			evalRunService: $this->createMock(originalClassName: EvalRunService::class),

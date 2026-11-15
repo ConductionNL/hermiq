@@ -331,11 +331,11 @@ class FacadeToolInvokerWaiverTest extends TestCase {
 		[, $waived] = $this->parse(['hermiq.readFile' . ToolGrantResolver::WAIVER_FRAGMENT]);
 
 		$this->assertFalse(
-			ToolGrantResolver::waives($waived, 'openregister.runFlow', ['flowId' => self::FLOW_A]),
+			ToolGrantResolver::waivedBy(($waived['openregister.runFlow'] ?? []), ['flowId' => self::FLOW_A]),
 			'A waiver must never generalise from the tool it names to any other.'
 		);
 		$this->assertTrue(
-			ToolGrantResolver::waives($waived, 'hermiq.readFile', []),
+			ToolGrantResolver::waivedBy(($waived['hermiq.readFile'] ?? []), []),
 			'Positive control: the tool that WAS waived still is.'
 		);
 	}//end testAWaiverOnOneToolDoesNotCoverAnother()
