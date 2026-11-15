@@ -31,7 +31,7 @@ use Psr\Log\LoggerInterface;
 /**
  * Covers the subject route: access is decided before anything is read.
  *
- * @spec openspec/changes/ai-oversight-subject-access/specs/ai-oversight/spec.md
+ * @spec openspec/specs/ai-oversight/spec.md
  */
 class AiOversightControllerTest extends TestCase {
 

@@ -16,9 +16,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\AiOversightAccess;
-use OCA\Hermiq\Service\AiOversightService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AiOversightAccessInterface;
+use OCA\Hermiq\Kernel\Contracts\AiOversightServiceInterface;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -35,7 +35,7 @@ use Throwable;
  * GET /api/ai-oversight/subject?originApp=&subjectId=[&subjectType=&limit=&offset=]
  * GET /api/ai-oversight/subject/export?originApp=&subjectId=[&subjectType=] (CSV, oversight role)
  *
- * @spec openspec/changes/ai-oversight-subject-access/specs/ai-oversight/spec.md
+ * @spec openspec/specs/ai-oversight/spec.md
  */
 class AiOversightController extends Controller {
 
@@ -55,8 +55,8 @@ class AiOversightController extends Controller {
 	 *
 	 * @param IRequest           $request     The request.
 	 * @param IUserSession       $userSession The signed-in user.
-	 * @param AiOversightAccess  $access      Decides who may read a subject's records.
-	 * @param AiOversightService $oversight   Reads the records.
+	 * @param AiOversightAccessInterface  $access      Decides who may read a subject's records.
+	 * @param AiOversightServiceInterface $oversight   Reads the records.
 	 * @param LoggerInterface    $logger      The logger.
 	 *
 	 * @return void
@@ -64,11 +64,11 @@ class AiOversightController extends Controller {
 	public function __construct(
 		IRequest $request,
 		private readonly IUserSession $userSession,
-		private readonly AiOversightAccess $access,
-		private readonly AiOversightService $oversight,
+		private readonly AiOversightAccessInterface $access,
+		private readonly AiOversightServiceInterface $oversight,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 
@@ -88,7 +88,7 @@ class AiOversightController extends Controller {
 	 *
 	 * @return JSONResponse `{results, total}`, or an error.
 	 *
-	 * @spec openspec/changes/ai-oversight-subject-access/specs/ai-oversight/spec.md
+	 * @spec openspec/specs/ai-oversight/spec.md
 	 */
 	#[NoAdminRequired]
 	public function subject(
@@ -98,35 +98,45 @@ class AiOversightController extends Controller {
 		int $limit=25,
 		int $offset=0
 	): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Not authenticated'], Http::STATUS_UNAUTHORIZED);
+		$listing = new SubjectListing(
+			originApp: $originApp,
+			subjectId: $subjectId,
+			subjectType: $subjectType,
+			limit: $limit,
+			offset: $offset
+		);
+		$uid = $this->readerOf(listing: $listing);
+		if ($uid instanceof JSONResponse) {
+			return $uid;
 		}
 
-		if ($originApp === '' || $subjectId === '') {
-			return new JSONResponse(['error' => 'originApp and subjectId are required'], Http::STATUS_BAD_REQUEST);
+		if ($this->access->maySeeSubject(userId: $uid, subjectId: $subjectId) === false) {
+			return $this->notAuthorized();
 		}
 
-		if ($this->access->maySeeSubject(userId: $user->getUID(), subjectId: $subjectId) === false) {
-			return new JSONResponse(['error' => 'Not authorized'], Http::STATUS_FORBIDDEN);
-		}
+		return $this->pageResponse(listing: $listing);
 
+	}//end subject()
+
+
+	/**
+	 * One page of the subject's records, or the 500 when it cannot be read.
+	 *
+	 * @param SubjectListing $listing The subject and the page, past the access check.
+	 *
+	 * @return JSONResponse
+	 */
+	private function pageResponse(SubjectListing $listing): JSONResponse {
 		try {
-			$page = $this->oversight->listForSubject(
-				originApp: $originApp,
-				subjectId: $subjectId,
-				subjectType: $subjectType,
-				limit: $limit,
-				offset: $offset
-			);
+			$page = $this->readPage(listing: $listing);
 		} catch (Throwable $e) {
 			$this->logger->error('AI oversight: subject listing failed', ['error' => $e->getMessage()]);
-			return new JSONResponse(['error' => 'The AI oversight records could not be read'], Http::STATUS_INTERNAL_SERVER_ERROR);
+			return $this->unreadable();
 		}
 
 		return new JSONResponse($page);
 
-	}//end subject()
+	}//end pageResponse()
 
 	/**
 	 * Download the advisory Approvals about one subject as CSV.
@@ -151,49 +161,132 @@ class AiOversightController extends Controller {
 		string $subjectId='',
 		string $subjectType=''
 	): JSONResponse|DataDownloadResponse {
+		$listing = new SubjectListing(originApp: $originApp, subjectId: $subjectId, subjectType: $subjectType);
+		$uid = $this->readerOf(listing: $listing);
+		if ($uid instanceof JSONResponse) {
+			return $uid;
+		}
+
+		if ($this->access->hasOversightRole(userId: $uid) === false
+			|| $this->access->maySeeSubject(userId: $uid, subjectId: $subjectId) === false
+		) {
+			return $this->notAuthorized();
+		}
+
+		return $this->exportResponse(listing: $listing);
+
+	}//end subjectExport()
+
+
+	/**
+	 * The subject's records as a CSV download, or the 500 when they cannot be read.
+	 *
+	 * @param SubjectListing $listing The subject, past the access check.
+	 *
+	 * @return JSONResponse|DataDownloadResponse
+	 */
+	private function exportResponse(SubjectListing $listing): JSONResponse|DataDownloadResponse {
+		try {
+			$rows = $this->exportRows(listing: $listing);
+		} catch (Throwable $e) {
+			$this->logger->error('AI oversight: subject export failed', ['error' => $e->getMessage()]);
+			return $this->unreadable();
+		}
+
+		return new DataDownloadResponse(
+			data: $this->toCsv(rows: array_slice($rows, 0, self::EXPORT_MAX_ROWS)),
+			filename: 'ai-oversight-'.$listing->originApp.'-'.$listing->subjectId.'.csv',
+			contentType: 'text/csv'
+		);
+
+	}//end exportResponse()
+
+
+	/**
+	 * The signed-in reader's uid, or the refusal: 401 with no user, 400 when the
+	 * origin app or the subject id is missing.
+	 *
+	 * @param SubjectListing $listing The listing asked for.
+	 *
+	 * @return string|JSONResponse
+	 */
+	private function readerOf(SubjectListing $listing): string|JSONResponse {
 		$user = $this->userSession->getUser();
 		if ($user === null) {
 			return new JSONResponse(['error' => 'Not authenticated'], Http::STATUS_UNAUTHORIZED);
 		}
 
-		if ($originApp === '' || $subjectId === '') {
+		if ($listing->isComplete() === false) {
 			return new JSONResponse(['error' => 'originApp and subjectId are required'], Http::STATUS_BAD_REQUEST);
 		}
 
-		$uid = $user->getUID();
-		if ($this->access->hasOversightRole(userId: $uid) === false
-			|| $this->access->maySeeSubject(userId: $uid, subjectId: $subjectId) === false
-		) {
-			return new JSONResponse(['error' => 'Not authorized'], Http::STATUS_FORBIDDEN);
-		}
+		return $user->getUID();
 
-		try {
-			$rows = [];
-			$read = 0;
-			do {
-				$page = $this->oversight->listForSubject(
-					originApp: $originApp,
-					subjectId: $subjectId,
-					subjectType: $subjectType,
-					limit: self::EXPORT_PAGE,
-					offset: $read
-				);
-				$rows  = array_merge($rows, $page['results']);
-				$read += count($page['results']);
-				$more  = $page['results'] !== [] && $read < min((int) $page['total'], self::EXPORT_MAX_ROWS);
-			} while ($more === true);
-		} catch (Throwable $e) {
-			$this->logger->error('AI oversight: subject export failed', ['error' => $e->getMessage()]);
-			return new JSONResponse(['error' => 'The AI oversight records could not be read'], Http::STATUS_INTERNAL_SERVER_ERROR);
-		}
+	}//end readerOf()
 
-		return new DataDownloadResponse(
-			data: $this->toCsv(rows: array_slice($rows, 0, self::EXPORT_MAX_ROWS)),
-			filename: 'ai-oversight-'.$originApp.'-'.$subjectId.'.csv',
-			contentType: 'text/csv'
+
+	/**
+	 * The 403 for a reader who may not read the subject's records.
+	 *
+	 * @return JSONResponse
+	 */
+	private function notAuthorized(): JSONResponse {
+		return new JSONResponse(['error' => 'Not authorized'], Http::STATUS_FORBIDDEN);
+
+	}//end notAuthorized()
+
+
+	/**
+	 * The 500 for records that could not be read.
+	 *
+	 * @return JSONResponse
+	 */
+	private function unreadable(): JSONResponse {
+		return new JSONResponse(['error' => 'The AI oversight records could not be read'], Http::STATUS_INTERNAL_SERVER_ERROR);
+
+	}//end unreadable()
+
+
+	/**
+	 * One page of the subject's records.
+	 *
+	 * @param SubjectListing $listing The subject and the page.
+	 *
+	 * @return array{results: array, total: int|string}
+	 */
+	private function readPage(SubjectListing $listing): array {
+		return $this->oversight->listForSubject(
+			originApp: $listing->originApp,
+			subjectId: $listing->subjectId,
+			subjectType: $listing->subjectType,
+			limit: $listing->limit,
+			offset: $listing->offset
 		);
 
-	}//end subjectExport()
+	}//end readPage()
+
+
+	/**
+	 * Every record about the subject, read EXPORT_PAGE at a time, newest first, until
+	 * the total or EXPORT_MAX_ROWS is reached or a page comes back empty.
+	 *
+	 * @param SubjectListing $listing The subject.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function exportRows(SubjectListing $listing): array {
+		$rows = [];
+		$read = 0;
+		do {
+			$page  = $this->readPage(listing: $listing->atPage(offset: $read, limit: self::EXPORT_PAGE));
+			$rows  = array_merge($rows, $page['results']);
+			$read += count($page['results']);
+			$more  = $page['results'] !== [] && $read < min((int) $page['total'], self::EXPORT_MAX_ROWS);
+		} while ($more === true);
+
+		return $rows;
+
+	}//end exportRows()
 
 
 	/**
@@ -213,29 +306,7 @@ class AiOversightController extends Controller {
 
 		fputcsv($handle, ['decidedAt', 'decidedBy', 'prompt', 'status', 'model'], ',', '"', '\\');
 		foreach ($rows as $row) {
-			$cells = [
-				$row['decidedAt'] ?? '',
-				$row['decidedBy'] ?? '',
-				$row['prompt'] ?? '',
-				$row['status'] ?? '',
-				$row['advisoryContext']['model'] ?? '',
-			];
-			$cells = array_map(
-				static function ($cell): string {
-					$text = '';
-					if (is_scalar($cell) === true) {
-						$text = (string) $cell;
-					}
-
-					if (preg_match('/^[=+\-@\t\r]/', $text) === 1) {
-						return "'".$text;
-					}
-
-					return $text;
-				},
-				$cells
-			);
-			fputcsv($handle, $cells, ',', '"', '\\');
+			fputcsv($handle, $this->csvCells(row: $row), ',', '"', '\\');
 		}
 
 		rewind($handle);
@@ -245,6 +316,50 @@ class AiOversightController extends Controller {
 		return $csv;
 
 	}//end toCsv()
+
+
+	/**
+	 * One record's CSV cells, each made safe for a spreadsheet.
+	 *
+	 * @param array<string, mixed> $row The record.
+	 *
+	 * @return array<int, string>
+	 */
+	private function csvCells(array $row): array {
+		$cells = [
+			$row['decidedAt'] ?? '',
+			$row['decidedBy'] ?? '',
+			$row['prompt'] ?? '',
+			$row['status'] ?? '',
+			$row['advisoryContext']['model'] ?? '',
+		];
+
+		return array_map(static fn ($cell): string => self::safeCell(cell: $cell), $cells);
+
+	}//end csvCells()
+
+
+	/**
+	 * A cell as text: blank when it is not scalar, with a leading quote when a
+	 * spreadsheet would read it as a formula.
+	 *
+	 * @param mixed $cell The cell.
+	 *
+	 * @return string
+	 */
+	private static function safeCell(mixed $cell): string {
+		$text = '';
+		if (is_scalar($cell) === true) {
+			$text = (string) $cell;
+		}
+
+		if (preg_match('/^[=+\-@\t\r]/', $text) === 1) {
+			return "'".$text;
+		}
+
+		return $text;
+
+	}//end safeCell()
 
 
 }//end class

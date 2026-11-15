@@ -170,4 +170,91 @@ final class WorkspacePathGuardTest extends TestCase {
 
 		self::assertSame(['lib/A.php', 'lib/B.php'], (new WorkspacePathGuard())->patchTargets(root: $this->root, patch: $patch));
 	}//end testAPlainPatchListsItsTargets()
+
+	public function testABinaryPatchOrOneNamingNoFileIsRejectedWithItsReason(): void {
+		$guard = new WorkspacePathGuard();
+		$cases = [
+			"diff --git a/i.png b/i.png\nGIT binary patch\nliteral 4\n" => 'The patch renames, copies or links a file, or is binary. Send plain content changes only.',
+			"@@ -1 +1 @@\n-a\n+b\n" => 'The patch names no file.',
+		];
+		foreach ($cases as $patch => $message) {
+			try {
+				$guard->patchTargets(root: $this->root, patch: $patch);
+				self::fail('The patch was accepted.');
+			} catch (WorkspaceException $e) {
+				self::assertSame(WorkspaceException::PATCH_REJECTED, $e->getErrorCode());
+				self::assertSame($message, $e->getMessage());
+			}
+		}
+	}//end testABinaryPatchOrOneNamingNoFileIsRejectedWithItsReason()
+
+	public function testPatchTargetsAreUnprefixedDeduplicatedAndSkipDevNull(): void {
+		$patch = "--- lib/A.php\n+++ b/lib/A.php\n--- a/lib/A.php\n+++ /dev/null\n";
+
+		self::assertSame(['lib/A.php'], (new WorkspacePathGuard())->patchTargets(root: $this->root, patch: $patch));
+	}//end testPatchTargetsAreUnprefixedDeduplicatedAndSkipDevNull()
+
+	public function testADanglingLinkIsRefusedAndAMissingRootIsAbsent(): void {
+		symlink($this->base . '/nowhere', $this->root . '/lib/dangling');
+		$guard = new WorkspacePathGuard();
+		try {
+			$guard->forRead(root: $this->root, relativePath: 'lib/dangling/x.txt');
+			self::fail('A dangling link was followed.');
+		} catch (WorkspaceException $e) {
+			self::assertSame(WorkspaceException::PATH_OUTSIDE_WORKSPACE, $e->getErrorCode());
+		}
+
+		try {
+			$guard->forRead(root: $this->base . '/no-such-root', relativePath: 'lib/A.php');
+			self::fail('A missing root was accepted.');
+		} catch (WorkspaceException $e) {
+			self::assertSame(WorkspaceException::WORKSPACE_ABSENT, $e->getErrorCode());
+			self::assertSame('No workspace is open for this run. Call workspace open first.', $e->getMessage());
+		}
+
+		self::assertSame(realpath($this->root) . '/lib/new/deeper.php', $guard->forWrite(root: $this->root, relativePath: 'lib/new/deeper.php'));
+		self::assertSame(realpath($this->root) . '/lib', $guard->forRead(root: $this->root, relativePath: 'lib'));
+	}//end testADanglingLinkIsRefusedAndAMissingRootIsAbsent()
+	/**
+	 * A plausible branch or tag name comes back trimmed.
+	 */
+	public function testAValidRefNameIsReturnedTrimmed(): void {
+		$guard = new WorkspacePathGuard();
+
+		self::assertSame('feature/x-1.2', $guard->refName(value: '  feature/x-1.2 '));
+		self::assertSame('v1.0.0', $guard->refName(value: 'v1.0.0'));
+	}//end testAValidRefNameIsReturnedTrimmed()
+
+	/**
+	 * A name that is empty, looks like an option, climbs, ends in `.lock` or
+	 * `/`, holds other characters or runs past 200 characters is refused.
+	 *
+	 * @dataProvider invalidRefNames
+	 */
+	public function testAnInvalidRefNameIsRefused(string $value): void {
+		try {
+			(new WorkspacePathGuard())->refName(value: $value);
+			self::fail('An invalid ref name was accepted: ' . $value);
+		} catch (WorkspaceException $e) {
+			self::assertSame(WorkspaceException::INVALID_ARGUMENT, $e->getErrorCode());
+			self::assertSame('Name a branch or tag with letters, digits, dots, dashes and slashes.', $e->getMessage());
+		}
+	}//end testAnInvalidRefNameIsRefused()
+
+	/**
+	 * Ref names the guard must refuse.
+	 *
+	 * @return array<string, array{0: string}>
+	 */
+	public static function invalidRefNames(): array {
+		return [
+			'empty' => ['   '],
+			'option' => ['--upload-pack=x'],
+			'climbs' => ['feature/../main'],
+			'lock' => ['main.lock'],
+			'trailing slash' => ['feature/'],
+			'space' => ['my branch'],
+			'too long' => [str_repeat('a', 201)],
+		];
+	}//end invalidRefNames()
 }//end class

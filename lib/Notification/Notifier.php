@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
+ * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#2-notifier-registration
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use OCP\Notification\UnknownNotificationException;
 /**
  * Parses Hermiq notifications into localised, rendered form.
  *
- * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
+ * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#2-notifier-registration
  */
 class Notifier implements INotifier {
 
@@ -66,6 +66,8 @@ class Notifier implements INotifier {
 		'skill_published_behind',
 		'skill_rollback_suggested',
 		'session_participant_added',
+		'run_done',
+		'session_shared',
 		'goal_reached',
 		'goal_exhausted',
 	];
@@ -87,7 +89,7 @@ class Notifier implements INotifier {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#2-notifier-registration
 	 */
 	public function getID(): string {
 		return self::APP_ID;
@@ -98,7 +100,7 @@ class Notifier implements INotifier {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#2-notifier-registration
 	 */
 	public function getName(): string {
 		return 'Hermiq';
@@ -114,7 +116,7 @@ class Notifier implements INotifier {
 	 *
 	 * @throws UnknownNotificationException When the notification is not a Hermiq one.
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#2-notifier-registration
 	 * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
 	 */
 	public function prepare(INotification $notification, string $languageCode): INotification {
@@ -137,6 +139,15 @@ class Notifier implements INotifier {
 		$notification->setIcon(
 			$this->urlGenerator->getAbsoluteURL($this->urlGenerator->imagePath(self::APP_ID, 'app-dark.svg'))
 		);
+
+		// Chat-fork-and-share-link: a shared session opens on its read-only page.
+		if ($subjectKey === 'session_shared' && $notification->getObjectId() !== '') {
+			$notification->setLink(
+				$this->urlGenerator->getAbsoluteURL(
+					rtrim($this->urlGenerator->linkToRoute('hermiq.dashboard.page'), '/') . '/chat/shared/' . rawurlencode($notification->getObjectId())
+				)
+			);
+		}
 
 		return $notification;
 	}//end prepare()
@@ -167,11 +178,38 @@ class Notifier implements INotifier {
 			'skill_published_behind' => $this->skillPublishedBehindText(name: $name, l: $l),
 			'skill_rollback_suggested' => $this->skillRollbackSuggestedText(name: $name, l: $l),
 			'session_participant_added' => $this->sessionParticipantAddedText(owner: (string)($subjectRaw['owner'] ?? ''), name: $name, l: $l),
+			'run_done' => $this->runDoneText(name: $name, succeeded: (($subjectRaw['result'] ?? '') === 'ok'), l: $l),
+			'session_shared' => $this->sessionSharedText(owner: (string)($subjectRaw['owner'] ?? ''), name: $name, l: $l),
 			'goal_reached' => $this->goalText(reached: true, name: $name, l: $l),
 			'goal_exhausted' => $this->goalText(reached: false, name: $name, l: $l),
 			default => $this->runCompleteText(name: $name, l: $l),
 		};
 	}//end resolveSubjectAndMessage()
+
+	/**
+	 * The `run_done` wording (personal-preferences): the agent and the result of a
+	 * run the recipient started, sent because they asked to be told.
+	 *
+	 * @param string $name      The agent's name, when known.
+	 * @param bool   $succeeded Whether the run succeeded.
+	 * @param IL10N  $l         The recipient-language localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 */
+	private function runDoneText(string $name, bool $succeeded, IL10N $l): array {
+		$subject = $l->t('Your agent run is done');
+		if ($name !== '') {
+			$subject = $l->t('%s is done', [$name]);
+		}
+
+		if ($succeeded === true) {
+			return [$subject, $l->t('The run finished successfully.')];
+		}
+
+		return [$subject, $l->t('The run ended with an error.')];
+	}//end runDoneText()
 
 	/**
 	 * The default `run_complete` wording (also the fallback for any subject key
@@ -182,7 +220,7 @@ class Notifier implements INotifier {
 	 *
 	 * @return array{0:string,1:string} The [subject, message] pair.
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#2-notifier-registration
 	 */
 	private function runCompleteText(string $name, IL10N $l): array {
 		$subject = $l->t('Scheduled agent run complete');
@@ -201,7 +239,7 @@ class Notifier implements INotifier {
 	 *
 	 * @return array{0:string,1:string} The [subject, message] pair.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
 	 */
 	private function approvalRequestedText(string $name, IL10N $l): array {
 		$subject = $l->t('Approval needed for an agent run');
@@ -339,6 +377,26 @@ class Notifier implements INotifier {
 
 		return [$subject, $l->t('Open Chat and find it under Shared with me. You can ask the agent questions in it.')];
 	}//end sessionParticipantAddedText()
+
+	/**
+	 * Text for `session_shared`: an owner shared a session read-only with the recipient.
+	 *
+	 * @param string $owner The owner's display name.
+	 * @param string $name  The session title.
+	 * @param IL10N  $l     The recipient's localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+	 */
+	private function sessionSharedText(string $owner, string $name, IL10N $l): array {
+		$subject = $l->t('A chat session was shared with you');
+		if ($owner !== '' && $name !== '') {
+			$subject = $l->t('%1$s shared the session \'%2$s\' with you', [$owner, $name]);
+		}
+
+		return [$subject, $l->t('You can read it in Chat under Shared with you. You cannot add to it.')];
+	}//end sessionSharedText()
 
 	/**
 	 * Text for `goal_reached` and `goal_exhausted`: a standing goal ended (agents-standing-goal).

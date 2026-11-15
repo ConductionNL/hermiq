@@ -38,8 +38,10 @@ namespace OCA\Hermiq\Repair;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\Service\SkillConsolidationService;
+use OCA\Hermiq\Kernel\Contracts\SkillConsolidationServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IURLGenerator;
 use OCP\Migration\IOutput;
@@ -185,8 +187,7 @@ class SeedSkillDraftExample implements IRepairStep {
 
 			$draft = $objectService->saveObject(
 				object: $this->draftPayload(skill: $skill),
-				register: self::REGISTER_SLUG,
-				schema: self::DRAFT_SCHEMA,
+				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::DRAFT_SCHEMA)),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -196,8 +197,7 @@ class SeedSkillDraftExample implements IRepairStep {
 			// payload — inbox-approving it exercises the real apply path.
 			$approval = $objectService->saveObject(
 				object: $this->approvalPayload(draft: $draft, skillId: $skillId),
-				register: self::REGISTER_SLUG,
-				schema: self::APPROVAL_SCHEMA,
+				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA)),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -208,9 +208,10 @@ class SeedSkillDraftExample implements IRepairStep {
 
 			$objectService->saveObject(
 				object: $draftData,
-				register: self::REGISTER_SLUG,
-				schema: self::DRAFT_SCHEMA,
-				uuid: (string)$draft->getUuid(),
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::DRAFT_SCHEMA),
+					uuid: (string)$draft->getUuid()
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -243,7 +244,7 @@ class SeedSkillDraftExample implements IRepairStep {
 			'skillId' => (string)$skill->getUuid(),
 			'baseVersionId' => $this->currentVersionId(skillUuid: (string)$skill->getUuid()),
 			'trigger' => 'threshold',
-			'status' => SkillConsolidationService::STATUS_AWAITING_APPROVAL,
+			'status' => SkillConsolidationServiceInterface::STATUS_AWAITING_APPROVAL,
 			'proposedFrontmatter' => (string)($data['frontmatter'] ?? ''),
 			'proposedBody' => $this->improvedBody(currentBody: (string)($data['body'] ?? '')),
 			'proposedFiles' => ($data['files'] ?? []),
@@ -321,7 +322,7 @@ class SeedSkillDraftExample implements IRepairStep {
 	 */
 	private function seedLearningRefs(array $data): array {
 		try {
-			$consolidation = $this->container->get(SkillConsolidationService::class);
+			$consolidation = $this->container->get(SkillConsolidationServiceInterface::class);
 			$entries = $consolidation->drivingEntries(data: $data);
 			$refs = array_map(static fn (array $entry): string => (string)$entry['ref'], $entries);
 			$refs = array_slice($refs, 0, 3);
@@ -381,7 +382,7 @@ class SeedSkillDraftExample implements IRepairStep {
 	 */
 	private function currentVersionId(string $skillUuid): string {
 		try {
-			$versionService = $this->container->get(\OCA\Hermiq\Service\SkillVersionService::class);
+			$versionService = $this->container->get(\OCA\Hermiq\Kernel\Contracts\SkillVersionServiceInterface::class);
 			return (string)($versionService->currentVersionId(skillUuid: $skillUuid) ?? '');
 		} catch (Throwable $e) {
 			return '';

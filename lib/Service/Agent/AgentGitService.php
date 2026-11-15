@@ -35,12 +35,15 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Agent;
 
+use OCA\Hermiq\Kernel\Contracts\AgentGitServiceInterface;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\AgentTemplateSerializer;
 use OCA\Hermiq\Service\AgentTemplateService;
 use OCA\Hermiq\Service\GitHubTemplateCatalogService;
 use OCA\Hermiq\Service\GitHubTemplatePushService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
 use RuntimeException;
@@ -53,7 +56,7 @@ use RuntimeException;
  *
  * @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
  */
-class AgentGitService {
+class AgentGitService implements AgentGitServiceInterface {
 
 	/**
 	 * Package field => agent field: the only fields a pull may change.
@@ -181,7 +184,13 @@ class AgentGitService {
 	 */
 	public function pullPreview(string $agentId, string $uid, string $credentialId): array {
 		$agent = $this->stampedAgent(agentId: $agentId, uid: $uid);
-		[$fields, $scan] = $this->pulledFields(data: $agent->getObject(), uid: $uid, credentialId: $credentialId);
+		[$fields, $scan] = $this->pulledFields(
+			data: $agent->getObject(),
+			requester: new PullRequester(
+				uid: $uid,
+				credentialId: $credentialId
+			)
+		);
 
 		return ['changes' => $this->changes(data: $agent->getObject(), fields: $fields), 'scanReport' => $scan];
 	}//end pullPreview()
@@ -205,7 +214,7 @@ class AgentGitService {
 	public function pullApply(string $agentId, string $uid, string $credentialId): ObjectEntity {
 		$agent = $this->stampedAgent(agentId: $agentId, uid: $uid);
 		$data = $agent->getObject();
-		[$fields, , $hash] = $this->pulledFields(data: $data, uid: $uid, credentialId: $credentialId);
+		[$fields, , $hash] = $this->pulledFields(data: $data, requester: new PullRequester(uid: $uid, credentialId: $credentialId));
 
 		foreach ($fields as $key => $value) {
 			$data[$key] = $value;
@@ -220,14 +229,15 @@ class AgentGitService {
 	 * Fetch, scan and map the repository's package to agent fields.
 	 *
 	 * @param array<string, mixed> $data The agent's data (for its coordinates).
-	 * @param string $uid The caller.
-	 * @param string $credentialId The caller's GitHub credential.
+	 * @param PullRequester $requester Who pulls an agent from git, and with which credential.
 	 *
 	 * @return array{0: array<string, mixed>, 1: array<string, mixed>, 2: string} [agent fields, scan report, package hash].
 	 *
 	 * @throws RuntimeException 422 on a dangerous verdict, 502 when the package cannot be read.
 	 */
-	private function pulledFields(array $data, string $uid, string $credentialId): array {
+	private function pulledFields(array $data, PullRequester $requester): array {
+		$uid = $requester->uid;
+		$credentialId = $requester->credentialId;
 		$gitRef = null;
 		if ((string)($data['gitRef'] ?? '') !== '') {
 			$gitRef = (string)$data['gitRef'];
@@ -373,9 +383,10 @@ class AgentGitService {
 	private function save(ObjectEntity $agent, array $data): ObjectEntity {
 		return $this->objectService->saveObject(
 			object: $data,
-			register: 'hermiq',
-			schema: 'agent',
-			uuid: (string)$agent->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: 'hermiq', schema: 'agent'),
+				uuid: (string)$agent->getUuid()
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

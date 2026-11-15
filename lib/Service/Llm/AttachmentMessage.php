@@ -12,7 +12,7 @@
  * - Ollama: LLPhant's OllamaChat reads `$images` off any VisionMessage and sends
  *   their base64 in the message's `images` array, so only image parts go there.
  * - Anthropic: `anthropicContent()` gives `image` and `document` blocks with a
- *   base64 source, then the text block; ProviderFactory::mapHistoryToAnthropicMessages()
+ *   base64 source, then the text block; AnthropicMessageFormat::mapHistoryToAnthropicMessages()
  *   uses it instead of casting the turn to a string.
  *
  * Which parts a driver may receive is decided before this message is built

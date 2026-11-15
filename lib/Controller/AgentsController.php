@@ -32,7 +32,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
  */
 
 declare(strict_types=1);
@@ -40,12 +40,16 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use Exception;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\Agent\AgentCatalog;
-use OCA\Hermiq\Service\AgentAccessService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\AgentCatalogInterface;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -61,7 +65,7 @@ use Psr\Log\LoggerInterface;
  * Every `@NoAdminRequired` method that takes an agent uuid guards per-object
  * access/ownership in the method body (gate-7 no-admin-idor).
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
  */
 class AgentsController extends Controller {
 	use SanitizesForSaveTrait;
@@ -141,10 +145,10 @@ class AgentsController extends Controller {
 	 * @param ToolRegistryFacade $toolRegistry OR's public tool read surface (gate-27 contract).
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param AgentAccessService $agentAccess The one per-agent access predicate.
-	 * @param AgentCatalog $catalog The agent list and row by who asks (agents-sharing-and-catalog-columns).
+	 * @param AgentAccessServiceInterface $agentAccess The one per-agent access predicate.
+	 * @param AgentCatalogInterface $catalog The agent list and row by who asks (agents-sharing-and-catalog-columns).
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	public function __construct(
 		IRequest $request,
@@ -152,10 +156,10 @@ class AgentsController extends Controller {
 		private readonly ToolRegistryFacade $toolRegistry,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
-		private readonly AgentAccessService $agentAccess,
-		private readonly AgentCatalog $catalog,
+		private readonly AgentAccessServiceInterface $agentAccess,
+		private readonly AgentCatalogInterface $catalog,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -170,7 +174,7 @@ class AgentsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	public function index(): JSONResponse {
 		try {
@@ -225,15 +229,14 @@ class AgentsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	public function show(string $id): JSONResponse {
 		try {
 			$userId = (string)$this->userSession->getUser()?->getUID();
 			$agent = $this->objectService->find(
 				id: $id,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 			);
 			if ($agent === null) {
 				return new JSONResponse(
@@ -292,7 +295,7 @@ class AgentsController extends Controller {
 	 * the session, so a caller cannot create an agent owned by, or inside the
 	 * organisation of, anyone else. New agents default to isPrivate: true.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	public function create(): JSONResponse {
 		try {
@@ -325,8 +328,7 @@ class AgentsController extends Controller {
 			// assigned by ObjectService).
 			$agent = $this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $data),
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA))
 			);
 
 			$this->logger->info(
@@ -378,15 +380,14 @@ class AgentsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	public function update(string $id): JSONResponse {
 		try {
 			$userId = (string)$this->userSession->getUser()?->getUID();
 			$agent = $this->objectService->find(
 				id: $id,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 			);
 			if ($agent === null) {
 				return new JSONResponse(
@@ -411,9 +412,10 @@ class AgentsController extends Controller {
 
 			$updatedAgent = $this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $payload),
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
-				uuid: $id
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+					uuid: $id
+				)
 			);
 
 			$this->logger->info(
@@ -459,7 +461,7 @@ class AgentsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	public function patch(string $id): JSONResponse {
 		// Delegate to update method (both handle partial updates).
@@ -479,7 +481,7 @@ class AgentsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	public function destroy(string $id): JSONResponse {
 		try {
@@ -493,8 +495,7 @@ class AgentsController extends Controller {
 
 			$agent = $this->objectService->find(
 				id: $id,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 			);
 			if ($agent === null) {
 				return new JSONResponse(
@@ -512,9 +513,10 @@ class AgentsController extends Controller {
 			}
 
 			$this->objectService->deleteObject(
-				uuid: $id,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				new ObjectDeletion(
+					uuid: $id,
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
+				)
 			);
 
 			$this->logger->info(
@@ -568,7 +570,7 @@ class AgentsController extends Controller {
 	 * so a caller cannot count another organisation's agents by any parameter
 	 * this endpoint accepts.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	public function stats(): JSONResponse {
 		try {
@@ -617,7 +619,7 @@ class AgentsController extends Controller {
 	 * of them is a separate decision enforced at call time by the tool-grant
 	 * check, not by hiding the catalogue.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	public function tools(): JSONResponse {
 		try {
@@ -668,7 +670,7 @@ class AgentsController extends Controller {
 	 *
 	 * @return array<string, mixed> The cleaned payload.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	private function stripProtectedKeys(array $data): array {
 		foreach (self::PROTECTED_KEYS as $key) {
@@ -686,7 +688,7 @@ class AgentsController extends Controller {
 	 *
 	 * @return int Agent count.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	private function countAgents(array $filters): int {
 		// Booleans MUST be normalised to the literal strings 'true'/'false'.
@@ -731,7 +733,7 @@ class AgentsController extends Controller {
 	 *
 	 * @return array<string, mixed> Serialized agent.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
 	private function serializeAgent(ObjectEntity $agent): array {
 		return array_merge(

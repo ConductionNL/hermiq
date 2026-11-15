@@ -28,7 +28,7 @@ use Psr\Log\LoggerInterface;
 /**
  * Covers the AI oversight group provisioning: created once, never touched again.
  *
- * @spec openspec/changes/ai-oversight-subject-access/specs/ai-oversight/spec.md
+ * @spec openspec/specs/ai-oversight/spec.md
  */
 class ProvisionAiOversightGroupTest extends TestCase {
 

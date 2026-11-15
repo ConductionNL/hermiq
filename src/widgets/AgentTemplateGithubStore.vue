@@ -27,10 +27,10 @@
   content-scan gates are untouched, so an installed row of either kind always
   lands `state: "quarantined"`.
 
-  @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
-  @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-degrade-gracefully-when-github-is-rate-limited-or-unreachable
-  @spec openspec/changes/hermiq-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
-  @spec openspec/changes/hermiq-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-skill-through-the-skill-quarantine-gate
+  @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+  @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-degrade-gracefully-when-github-is-rate-limited-or-unreachable
+  @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+  @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-skill-through-the-skill-quarantine-gate
 -->
 <template>
 	<div class="agent-template-github-store">
@@ -105,7 +105,7 @@
 					{{ card.name || card.owner + '/' + card.repo }}
 					<span class="agent-template-github-store__card-kind">{{
 						/**
-						 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+						 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 						 */
 						kindLabel(card.kind)
 					}}</span>
@@ -125,7 +125,7 @@
 				</NcNoteCard>
 				<NcButton
 					v-else
-					type="primary"
+					variant="primary"
 					:disabled="installingId === cardKey(card)"
 					@click="doInstall(card)">
 					{{
@@ -140,9 +140,7 @@
 </template>
 
 <script>
-import axios from '@nextcloud/axios'
 import { emit } from '@nextcloud/event-bus'
-import { generateUrl } from '@nextcloud/router'
 import {
 	NcButton,
 	NcEmptyContent,
@@ -156,6 +154,8 @@ import {
 	searchGithubTemplates,
 } from '../api/agentTemplates.js'
 import { installGithubSkill, searchGithubSkills } from '../api/skills.js'
+import { brokerCredentials, githubCredentialChoices } from '../modals/settingsModalMixins.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 /** Debounce delay (ms) before a typed search term triggers a request. */
 const SEARCH_DEBOUNCE_MS = 400
@@ -163,6 +163,40 @@ const SEARCH_DEBOUNCE_MS = 400
 /** The two discovery kinds this store searches (hermiq-github-store). */
 const KIND_AGENT_TEMPLATE = 'agent-template'
 const KIND_SKILL = 'skill'
+
+/**
+ * What a search that could not reach GitHub answers: no cards, and the outcome
+ * that says so.
+ *
+ * @return {object} A fresh unreachable search result.
+ * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+ */
+function unreachableSearch() {
+	return {
+		outcome: 'github_unreachable',
+		cards: [],
+		rateLimited: false,
+		brokerCredentialAvailable: false,
+	}
+}
+
+/**
+ * The outcome of a merged search: `ok` when any kind answered ok, else rate
+ * limited when any was, else the first kind's own outcome.
+ *
+ * @param {Array<object>} results The per-kind search results.
+ * @return {string} The outcome.
+ * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+ */
+function searchOutcome(results) {
+	if (results.some((r) => r.outcome === 'ok')) {
+		return 'ok'
+	}
+	if (results.some((r) => r.rateLimited === true)) {
+		return 'github_rate_limited'
+	}
+	return (results[0] && results[0].outcome) || 'ok'
+}
 
 export default {
 	name: 'AgentTemplateGithubStore',
@@ -175,6 +209,8 @@ export default {
 		NcSelect,
 		NcTextField,
 	},
+
+	mixins: [brokerCredentials, githubCredentialChoices],
 
 	data() {
 		return {
@@ -204,7 +240,7 @@ export default {
 		 * The kind-filter options (hermiq-github-store).
 		 *
 		 * @return {Array<object>} NcSelect options.
-		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		kindOptions() {
 			return [
@@ -220,24 +256,12 @@ export default {
 			]
 		},
 
-		/**
-		 * The caller's broker credentials scoped to the `github` provider, shaped
-		 * for NcSelect (mirrors LlmProviderModal.vue's `credentialsFor()`).
-		 *
-		 * @return {Array<object>} NcSelect options.
-		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
-		 */
-		githubCredentials() {
-			return this.credentials
-				.filter((c) => c.provider === 'github')
-				.map((c) => ({ label: c.name || c.id, value: c.id }))
-		},
 
 		/**
 		 * Whether to show the "add a credential to raise limits" hint.
 		 *
 		 * @return {boolean}
-		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		rateLimitHintVisible() {
 			return (
@@ -249,7 +273,7 @@ export default {
 		 * Whether to show the generic "could not reach GitHub" hint.
 		 *
 		 * @return {boolean}
-		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		unreachableHintVisible() {
 			return (
@@ -259,7 +283,7 @@ export default {
 	},
 
 	/**
-	 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 	 */
 	mounted() {
 		this.fetchCredentials()
@@ -267,31 +291,12 @@ export default {
 	},
 
 	methods: {
-		/**
-		 * Load the caller's broker credentials (for the optional GitHub picker).
-		 *
-		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
-		 */
-		async fetchCredentials() {
-			this.loadingCredentials = true
-			try {
-				const { data } = await axios.get(
-					generateUrl('/apps/openregister/api/credentials'),
-				)
-				this.credentials = data.results || []
-			} catch (e) {
-				this.credentials = []
-			} finally {
-				this.loadingCredentials = false
-			}
-		},
 
 		/**
 		 * Debounce a typed search term before re-searching.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		onQueryChange() {
 			clearTimeout(this.searchDebounceTimer)
@@ -303,7 +308,7 @@ export default {
 		 *
 		 * @param {string} kind The discovery kind.
 		 * @return {boolean}
-		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		kindActive(kind) {
 			return (
@@ -317,7 +322,7 @@ export default {
 		 *
 		 * @param {string} kind The discovery kind.
 		 * @return {string}
-		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		kindLabel(kind) {
 			return kind === KIND_SKILL
@@ -330,7 +335,7 @@ export default {
 		 *
 		 * @param {string} kind The discovery kind.
 		 * @return {string}
-		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		unparseableHint(kind) {
 			return kind === KIND_SKILL
@@ -352,52 +357,20 @@ export default {
 		 * as a non-blocking hint.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		async doSearch() {
 			this.loading = true
 			try {
-				const credentialId = this.selectedCredential?.value || null
-				const calls = []
-				if (this.kindActive(KIND_AGENT_TEMPLATE)) {
-					calls.push(
-						searchGithubTemplates(this.query, credentialId).catch(
-							() => ({
-								outcome: 'github_unreachable',
-								cards: [],
-								rateLimited: false,
-								brokerCredentialAvailable: false,
-							}),
-						),
-					)
-				}
-				if (this.kindActive(KIND_SKILL)) {
-					calls.push(
-						searchGithubSkills(this.query, credentialId).catch(() => ({
-							outcome: 'github_unreachable',
-							cards: [],
-							rateLimited: false,
-							brokerCredentialAvailable: false,
-						})),
-					)
-				}
-
-				const results = await Promise.all(calls)
+				const results = await Promise.all(
+					this.searchCalls(this.selectedCredential?.value || null),
+				)
 				this.cards = results.flatMap((r) => r.cards || [])
 				this.brokerCredentialAvailable = results.some(
 					(r) => r.brokerCredentialAvailable === true,
 				)
-
-				const anyOk = results.some((r) => r.outcome === 'ok')
-				const anyRateLimited = results.some((r) => r.rateLimited === true)
-				this.rateLimited = anyRateLimited
-				if (anyOk) {
-					this.outcome = 'ok'
-				} else if (anyRateLimited) {
-					this.outcome = 'github_rate_limited'
-				} else {
-					this.outcome = (results[0] && results[0].outcome) || 'ok'
-				}
+				this.rateLimited = results.some((r) => r.rateLimited === true)
+				this.outcome = searchOutcome(results)
 			} catch (e) {
 				this.cards = []
 				this.outcome = 'github_unreachable'
@@ -407,11 +380,29 @@ export default {
 		},
 
 		/**
+		 * One search per active kind; a search that fails answers unreachable.
+		 *
+		 * @param {string|null} credentialId The selected broker credential, if any.
+		 * @return {Array<Promise<object>>} The searches.
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+		 */
+		searchCalls(credentialId) {
+			const calls = []
+			if (this.kindActive(KIND_AGENT_TEMPLATE)) {
+				calls.push(searchGithubTemplates(this.query, credentialId).catch(unreachableSearch))
+			}
+			if (this.kindActive(KIND_SKILL)) {
+				calls.push(searchGithubSkills(this.query, credentialId).catch(unreachableSearch))
+			}
+			return calls
+		},
+
+		/**
 		 * A stable per-card key for the busy-state check.
 		 *
 		 * @param {object} card The result card.
 		 * @return {string} `kind:owner/repo`.
-		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		cardKey(card) {
 			return `${card.kind}:${card.owner}/${card.repo}`
@@ -426,7 +417,7 @@ export default {
 		 *
 		 * @param {object} card The result card to install.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		async doInstall(card) {
 			this.installError = ''
@@ -435,37 +426,58 @@ export default {
 			try {
 				const credentialId = this.selectedCredential?.value || null
 				if (card.kind === KIND_SKILL) {
-					await installGithubSkill({
-						owner: card.owner,
-						repo: card.repo,
-						credentialId,
-					})
-					this.installNotice = this.t(
-						'hermiq',
-						'Installed skill "{name}" — it is quarantined until reviewed. Find it on the Skills page.',
-						{ name: card.name || this.cardKey(card) },
-					)
+					await this.installSkill(card, credentialId)
 				} else {
-					await installGithubTemplate({
-						owner: card.owner,
-						repo: card.repo,
-						credentialId,
-					})
-					this.installNotice = this.t(
-						'hermiq',
-						'Installed "{name}" — it is quarantined until reviewed.',
-						{ name: card.name || this.cardKey(card) },
-					)
-					emit('cn:page:refresh', {})
+					await this.installTemplate(card, credentialId)
 				}
 			} catch (e) {
-				this.installError =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.installError = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.installingId = null
 			}
+		},
+
+		/**
+		 * Install a skill repo, quarantined, and say where to find it.
+		 *
+		 * @param {object} card The skill card.
+		 * @param {string|null} credentialId The chosen broker credential, or null.
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+		 */
+		async installSkill(card, credentialId) {
+			await installGithubSkill({
+				owner: card.owner,
+				repo: card.repo,
+				credentialId,
+			})
+			this.installNotice = this.t(
+				'hermiq',
+				'Installed skill "{name}" — it is quarantined until reviewed. Find it on the Skills page.',
+				{ name: card.name || this.cardKey(card) },
+			)
+		},
+
+		/**
+		 * Install an agent-template repo, quarantined, and refresh the page's table.
+		 *
+		 * @param {object} card The template card.
+		 * @param {string|null} credentialId The chosen broker credential, or null.
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+		 */
+		async installTemplate(card, credentialId) {
+			await installGithubTemplate({
+				owner: card.owner,
+				repo: card.repo,
+				credentialId,
+			})
+			this.installNotice = this.t(
+				'hermiq',
+				'Installed "{name}" — it is quarantined until reviewed.',
+				{ name: card.name || this.cardKey(card) },
+			)
+			emit('cn:page:refresh', {})
 		},
 	},
 }

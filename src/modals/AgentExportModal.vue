@@ -74,6 +74,7 @@
 <script>
 import { NcButton, NcLoadingIcon, NcModal, NcNoteCard } from '@nextcloud/vue'
 import { exportAgentToTemplate, saveAgentAsTemplate } from '../api/agentTemplates.js'
+import { agentModalTarget } from '../dialogs/agentModalTarget.js'
 import { exportFileName } from '../utils/agentExport.js'
 
 export default {
@@ -86,24 +87,15 @@ export default {
 		NcNoteCard,
 	},
 
-	props: {
-		/** Whether the modal is visible. */
-		show: {
-			type: Boolean,
-			default: false,
-		},
+	mixins: [agentModalTarget],
 
+	props: {
 		/** `save` for Save as template; anything else exports to a file. */
 		mode: {
 			type: String,
 			default: 'export',
 		},
 
-		/** The agent; when absent, the route's `:id` (open-modal props are static). */
-		agentId: {
-			type: String,
-			default: '',
-		},
 	},
 
 	emits: ['close'],
@@ -127,15 +119,6 @@ export default {
 			return this.mode === 'save'
 		},
 
-		/**
-		 * The agent uuid: the prop, else the route's `:id`.
-		 *
-		 * @return {string}
-		 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agent-can-be-exported-to-a-file-from-its-page-req-agexp-001
-		 */
-		resolvedAgentId() {
-			return this.agentId || this.$route?.params?.id || ''
-		},
 	},
 
 	methods: {

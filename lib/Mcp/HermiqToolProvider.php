@@ -94,23 +94,22 @@ namespace OCA\Hermiq\Mcp;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeInterface;
-use OCA\Hermiq\Service\Chat\ImageGenerationService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\CourseRecommendationEngineInterface;
+use OCA\Hermiq\Kernel\Contracts\DelegationServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\GraphToolsInterface;
+use OCA\Hermiq\Kernel\Contracts\ImageGenerationServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\MailReadServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\MemoryServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\NcNativeWriteServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\TaskWriteServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\WebFetchServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\WebSearchClientInterface;
 use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
 use OCA\Hermiq\Service\Workspace\WorkspaceWrites;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\CourseRecommendationEngine;
-use OCA\Hermiq\Service\DelegationService;
-use OCA\OpenRegister\Service\Capability\ToolReachResolver;
-use OCA\Hermiq\Service\MemoryService;
-use OCA\Hermiq\Service\Graph\GraphTools;
-use OCA\Hermiq\Service\NcNative\MailReadService;
-use OCA\Hermiq\Service\NcNative\NcNativeWriteService;
-use OCA\Hermiq\Service\NcNative\TaskWriteService;
-use OCA\Hermiq\Service\ToolAccessRequestService;
-use OCA\Hermiq\Service\WebResearch\WebFetchService;
-use OCA\Hermiq\Service\WebResearch\WebSearchClient;
-use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Mcp\IMcpToolProvider;
+use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 use OCP\App\IAppManager;
 use OCP\Calendar\IManager as ICalendarManager;
 use OCP\Contacts\IManager as IContactsManager;
@@ -153,8 +152,8 @@ use Throwable;
  *   class's lines, `TOOL_DESCRIPTORS` alone is ~346 — a declarative table of tool
  *   metadata (id, reach, description, inputSchema, hints) with no control flow in it
  *   at all. The rule is counting a data literal. The table is deliberately adjacent to
- *   the `invokeTool()` switch that dispatches it, because a descriptor whose id no
- *   longer matches a case is a tool that advertises itself and then fails to run;
+ *   the `invokeTool()` lookups that dispatch it, because a descriptor whose id no
+ *   longer matches a handler is a tool that advertises itself and then fails to run;
  *   keeping the two in one file is what makes that mismatch visible in review.
  */
 class HermiqToolProvider implements IMcpToolProvider {
@@ -173,7 +172,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 */
 	private const TOOL_DESCRIPTORS = [
 		[
-			'id' => Application::APP_ID . '.listFiles',
+			'id' => AppIdentity::APP_ID . '.listFiles',
 			'subject' => 'file',
 			'action' => 'list',
 			// The acting user's own files — nothing they could not already list.
@@ -191,7 +190,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'read',
 		],
 		[
-			'id' => Application::APP_ID . '.readFile',
+			'id' => AppIdentity::APP_ID . '.readFile',
 			'subject' => 'file',
 			'action' => 'get',
 			'reach' => ToolReachResolver::REACH_USER,
@@ -208,7 +207,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'read',
 		],
 		[
-			'id' => Application::APP_ID . '.searchContacts',
+			'id' => AppIdentity::APP_ID . '.searchContacts',
 			'subject' => 'contact',
 			'action' => 'search',
 			// 🔴 `user`, NOT `instance`, even though the system addressbook
@@ -231,7 +230,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'read',
 		],
 		[
-			'id' => Application::APP_ID . '.listCalendarEvents',
+			'id' => AppIdentity::APP_ID . '.listCalendarEvents',
 			'subject' => 'calendarEvent',
 			'action' => 'list',
 			'reach' => ToolReachResolver::REACH_USER,
@@ -248,7 +247,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'read',
 		],
 		[
-			'id' => Application::APP_ID . '.sendMail',
+			'id' => AppIdentity::APP_ID . '.sendMail',
 			// `send`, not `create`. Sending is not creating a record someone can
 			// review before it leaves — it is irreversible and reaches a third
 			// party, and a matrix that files it under `create` invites granting
@@ -280,7 +279,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'create',
 		],
 		[
-			'id' => Application::APP_ID . '.listDeckBoards',
+			'id' => AppIdentity::APP_ID . '.listDeckBoards',
 			'subject' => 'deckBoard',
 			'action' => 'list',
 			'reach' => ToolReachResolver::REACH_USER,
@@ -297,7 +296,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'read',
 		],
 		[
-			'id' => Application::APP_ID . '.searchTools',
+			'id' => AppIdentity::APP_ID . '.searchTools',
 			'subject' => 'tool',
 			'action' => 'search',
 			// Reads the agent's own catalogue; touches nothing outside itself.
@@ -318,7 +317,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'read',
 		],
 		[
-			'id' => Application::APP_ID . '.listAvailableTools',
+			'id' => AppIdentity::APP_ID . '.listAvailableTools',
 			'subject' => 'tool',
 			'action' => 'list',
 			// Reads the instance catalogue and the agent's own grants; writes nothing.
@@ -340,7 +339,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'read',
 		],
 		[
-			'id' => Application::APP_ID . '.requestToolAccess',
+			'id' => AppIdentity::APP_ID . '.requestToolAccess',
 			// `request`, deliberately not a CRUD verb. This tool asks a HUMAN
 			// for a grant; forcing it into `create` would put the thing that
 			// escalates privilege in the same bucket as the things it escalates
@@ -369,7 +368,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'write',
 		],
 		[
-			'id' => Application::APP_ID . '.recommendCourses',
+			'id' => AppIdentity::APP_ID . '.recommendCourses',
 			'subject' => 'course',
 			'action' => 'recommend',
 			'reach' => ToolReachResolver::REACH_USER,
@@ -394,7 +393,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'update',
 		],
 		[
-			'id' => Application::APP_ID . '.rememberMemory',
+			'id' => AppIdentity::APP_ID . '.rememberMemory',
 			'subject' => 'memory',
 			'action' => 'create',
 			'reach' => ToolReachResolver::REACH_SELF,
@@ -422,7 +421,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'create',
 		],
 		[
-			'id' => Application::APP_ID . '.recallMemory',
+			'id' => AppIdentity::APP_ID . '.recallMemory',
 			'subject' => 'memory',
 			'action' => 'search',
 			'reach' => ToolReachResolver::REACH_SELF,
@@ -446,7 +445,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'read',
 		],
 		[
-			'id' => Application::APP_ID . '.forgetMemory',
+			'id' => AppIdentity::APP_ID . '.forgetMemory',
 			'subject' => 'memory',
 			'action' => 'delete',
 			// `delete` scope but `self` reach — reversible and private to the
@@ -473,7 +472,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'delete',
 		],
 		[
-			'id' => Application::APP_ID . '.webSearch',
+			'id' => AppIdentity::APP_ID . '.webSearch',
 			'subject' => 'web',
 			'action' => 'search',
 			// Egress. `scope: read` made this look inert; the query itself leaves
@@ -495,7 +494,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'read',
 		],
 		[
-			'id' => Application::APP_ID . '.webFetch',
+			'id' => AppIdentity::APP_ID . '.webFetch',
 			'subject' => 'web',
 			'action' => 'get',
 			// Fetches a CALLER-SUPPLIED url — the model chooses where the
@@ -519,7 +518,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'scope' => 'read',
 		],
 		[
-			'id' => Application::APP_ID . '.delegateAgent',
+			'id' => AppIdentity::APP_ID . '.delegateAgent',
 			// `delegate` is its own verb because the thing it does is hand the
 			// caller's authority to another agent. No CRUD verb describes that,
 			// and picking the nearest one would understate it.
@@ -559,6 +558,51 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'idempotentHint' => false,
 			'scope' => 'create',
 		],
+		[
+			'id' => AppIdentity::APP_ID . '.delegateAgents',
+			// The same act as `delegateAgent`, for several independent parts at
+			// once: each part passes every gate a single delegation passes.
+			'subject' => 'agent',
+			'action' => 'delegate',
+			'reach' => ToolReachResolver::REACH_INSTANCE,
+			'name' => 'Delegate parts to several agents',
+			'description' => 'Hand several independent parts of one task to agents on your delegation allowlist, '
+				. 'in the same organisation, in one call. Use this instead of several delegateAgent calls when the '
+				. 'parts do not depend on each other. Each part runs the target agent in its own isolated '
+				. 'conversation. Returns one result per part, in the order of the parts: its final text, or why '
+				. 'it was refused or failed. A refused part does not stop the others.',
+			'inputSchema' => [
+				'type' => 'object',
+				'properties' => [
+					'parts' => [
+						'type' => 'array',
+						'minItems' => 1,
+						'description' => 'The parts, each with the agent to hand it to and its bounded task.',
+						'items' => [
+							'type' => 'object',
+							'properties' => [
+								'targetAgentId' => [
+									'type' => 'string',
+									'format' => 'uuid',
+									'description' => 'UUID of the agent for this part (must be on your delegation allowlist).',
+								],
+								'task' => [
+									'type' => 'string',
+									'description' => 'The bounded task/prompt for this part.',
+								],
+							],
+							'required' => ['targetAgentId', 'task'],
+						],
+					],
+				],
+				'required' => ['parts'],
+			],
+			// Real sub-agent runs, like delegateAgent: never read-only, never idempotent.
+			'readOnlyHint' => false,
+			'destructiveHint' => true,
+			'idempotentHint' => false,
+			'scope' => 'create',
+		],
 	];
 
 	/**
@@ -571,34 +615,34 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @param IMailer $mailer Outbound email.
 	 * @param IAppManager $appManager App availability (Deck) + describe.
 	 * @param ContainerInterface $container Lazy Deck BoardService resolution.
-	 * @param CourseRecommendationEngine $courseEngine Shared engine backing `recommendCourses`
+	 * @param CourseRecommendationEngineInterface $courseEngine Shared engine backing `recommendCourses`
 	 *                                                 (ai-course-recommendations) — no
 	 *                                                 duplicated gating/scoring/signal-read
 	 *                                                 logic.
-	 * @param MemoryService $memoryService Shared service backing `rememberMemory`/
+	 * @param MemoryServiceInterface $memoryService Shared service backing `rememberMemory`/
 	 *                                     `recallMemory`/`forgetMemory`
 	 *                                     (agent-memory-tools) — no duplicated
 	 *                                     append/redact/recall/soft-delete logic.
-	 * @param WebSearchClient $webSearchClient Shared client backing `webSearch`
+	 * @param WebSearchClientInterface $webSearchClient Shared client backing `webSearch`
 	 *                                         (web-research-tool) —
 	 *                                         SSRF-guarded call to the
 	 *                                         admin-configured search backend.
-	 * @param WebFetchService $webFetchService Shared service backing `webFetch`
+	 * @param WebFetchServiceInterface $webFetchService Shared service backing `webFetch`
 	 *                                         (web-research-tool) —
 	 *                                         SSRF-guarded GET + readable-text
 	 *                                         extraction.
-	 * @param DelegationService $delegationService Shared governed dispatcher backing
+	 * @param DelegationServiceInterface $delegationService Shared governed dispatcher backing
 	 *                                             `delegateAgent` (sub-agent-delegation) —
 	 *                                             all self/cycle/allowlist/depth/fan-out/
 	 *                                             organisation/model-policy/kill-switch/
 	 *                                             budget/approval gating lives there.
-	 * @param NcNativeWriteService $writeService Facade over the Calendar/Contacts/Notes
+	 * @param NcNativeWriteServiceInterface $writeService Facade over the Calendar/Contacts/Notes
 	 *                                           write services (nc-native-write-tools) —
 	 *                                           ownership guards, ADR-088 marking and the
 	 *                                           lazy Notes resolution all live there.
-	 * @param MailReadService $mailReadService Read-only mail (nc-mail-read-tools) —
+	 * @param MailReadServiceInterface $mailReadService Read-only mail (nc-mail-read-tools) —
 	 *                                         AI-feature gate and lazy Mail resolution live there.
-	 * @param ToolAccessRequestService $accessRequests Discovery past the grant and the
+	 * @param ToolAccessRequestServiceInterface $accessRequests Discovery past the grant and the
 	 *                                                 request that can widen it
 	 *                                                 (tool-discovery-and-access-requests) —
 	 *                                                 backs `listAvailableTools` and
@@ -623,14 +667,14 @@ class HermiqToolProvider implements IMcpToolProvider {
 		private readonly IMailer $mailer,
 		private readonly IAppManager $appManager,
 		private readonly ContainerInterface $container,
-		private readonly CourseRecommendationEngine $courseEngine,
-		private readonly MemoryService $memoryService,
-		private readonly WebSearchClient $webSearchClient,
-		private readonly WebFetchService $webFetchService,
-		private readonly DelegationService $delegationService,
-		private readonly NcNativeWriteService $writeService,
-		private readonly MailReadService $mailReadService,
-		private readonly ToolAccessRequestService $accessRequests,
+		private readonly CourseRecommendationEngineInterface $courseEngine,
+		private readonly MemoryServiceInterface $memoryService,
+		private readonly WebSearchClientInterface $webSearchClient,
+		private readonly WebFetchServiceInterface $webFetchService,
+		private readonly DelegationServiceInterface $delegationService,
+		private readonly NcNativeWriteServiceInterface $writeService,
+		private readonly MailReadServiceInterface $mailReadService,
+		private readonly ToolAccessRequestServiceInterface $accessRequests,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()
@@ -640,10 +684,10 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *
 	 * @return string The app slug (matches info.xml `<id>`).
 	 *
-	 * @spec openspec/changes/nc-native-tools/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-nc-native-tools/tasks.md#task-1-1
 	 */
 	public function getAppId(): string {
-		return Application::APP_ID;
+		return AppIdentity::APP_ID;
 	}//end getAppId()
 
 	/**
@@ -651,7 +695,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *
 	 * @return array<int, array<string, mixed>> The tool descriptors.
 	 *
-	 * @spec openspec/changes/nc-native-tools/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-nc-native-tools/tasks.md#task-1-1
 	 */
 	public function getTools(): array {
 		// The five nc-native-write-tools descriptors live in their own class so
@@ -678,12 +722,12 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 */
 	private function taskDescriptors(): array {
 		try {
-			$tasks = $this->container->get(TaskWriteService::class);
+			$tasks = $this->container->get(TaskWriteServiceInterface::class);
 		} catch (Throwable) {
 			$tasks = null;
 		}
 
-		if ($tasks instanceof TaskWriteService && $tasks->canComplete() === true) {
+		if ($tasks instanceof TaskWriteServiceInterface && $tasks->canComplete() === true) {
 			return NcTaskToolDescriptors::ALL;
 		}
 
@@ -705,12 +749,12 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 */
 	private function imageDescriptors(): array {
 		try {
-			$images = $this->container->get(ImageGenerationService::class);
+			$images = $this->container->get(ImageGenerationServiceInterface::class);
 		} catch (Throwable) {
 			$images = null;
 		}
 
-		if ($images instanceof ImageGenerationService
+		if ($images instanceof ImageGenerationServiceInterface
 			&& $images->isAvailable(uid: $this->userSession->getUser()?->getUID()) === true
 		) {
 			return ImageToolDescriptors::ALL;
@@ -747,32 +791,41 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * user; GraphTools never throws.
 	 *
 	 * @param string $toolId The namespaced tool id.
-	 * @param string $uid The session user.
-	 * @param array<string, mixed> $arguments The tool arguments.
+	 * @param NativeToolCall $call The session user and the tool arguments.
 	 *
 	 * @return array<string, mixed>|null The result, or null when not routed here.
 	 *
 	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-exposed-as-governed-agent-tools
 	 */
-	private function routed(string $toolId, string $uid, array $arguments): ?array {
-		if (in_array($toolId, GraphToolDescriptors::IDS, true) === true) {
-			return $this->container->get(GraphTools::class)->invoke(uid: $uid, toolId: $toolId, arguments: $arguments);
-		}
-
-		if (in_array($toolId, NcTaskToolDescriptors::IDS, true) === true) {
-			return $this->container->get(TaskWriteService::class)->invoke(uid: $uid, toolId: $toolId, arguments: $arguments);
-		}
-
-		if (in_array($toolId, ImageToolDescriptors::IDS, true) === true) {
-			return $this->container->get(ImageGenerationService::class)->invoke(uid: $uid, toolId: $toolId, arguments: $arguments);
+	private function routed(string $toolId, NativeToolCall $call): ?array {
+		$service = $this->userScopedServiceFor(toolId: $toolId);
+		if ($service !== null) {
+			return $this->container->get($service)->invoke(uid: $call->uid, toolId: $toolId, arguments: $call->arguments);
 		}
 
 		if (in_array($toolId, WorkspaceToolDescriptors::IDS, true) === true) {
-			return $this->container->get($this->workspaceHalf(toolId: $toolId))->invoke(toolId: $toolId, arguments: $arguments);
+			return $this->container->get($this->workspaceHalf(toolId: $toolId))->invoke(toolId: $toolId, arguments: $call->arguments);
 		}
 
 		return null;
 	}//end routed()
+
+	/**
+	 * The service that owns a graph, Nextcloud task or image tool, checked in that order.
+	 *
+	 * @param string $toolId The namespaced tool id.
+	 *
+	 * @return string|null The owning service's class, or null for any other tool.
+	 */
+	private function userScopedServiceFor(string $toolId): ?string {
+		return match (true) {
+			in_array($toolId, GraphToolDescriptors::IDS, true) => GraphToolsInterface::class,
+			in_array($toolId, NcTaskToolDescriptors::IDS, true) => TaskWriteServiceInterface::class,
+			in_array($toolId, ImageToolDescriptors::IDS, true) => ImageGenerationServiceInterface::class,
+			default => null,
+		};
+
+	}//end userScopedServiceFor()
 
 	/**
 	 * Invoke a tool by id — authorises (scopes to the acting user) BEFORE any data access.
@@ -784,11 +837,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *
 	 * @return array<string, mixed> The JSON-encodable result.
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) A single dispatch switch over the tool
-	 *   catalogue — the branch count tracks the number of registered tools, not incidental
-	 *   complexity; each case delegates to its own single-responsibility handler.
-	 *
-	 * @spec openspec/changes/nc-native-tools/tasks.md#task-1-7
+	 * @spec openspec/changes/archive/2026-09-06-nc-native-tools/tasks.md#task-1-7
 	 */
 	public function invokeTool(string $toolId, array $arguments): array {
 		$user = $this->userSession->getUser();
@@ -796,96 +845,166 @@ class HermiqToolProvider implements IMcpToolProvider {
 			return $this->error(code: 'unauthenticated', message: 'No authenticated user.');
 		}
 
-		$uid = $user->getUID();
-		// Run-injected by FacadeToolInvoker for the tools whose ADR-088 mark
-		// records an authoring agent; never a value the LLM supplies for itself.
-		$agentId = (string)($arguments['agentId'] ?? '');
+		$call = new NativeToolCall(user: $user, arguments: $arguments);
 
-		$routed = $this->routed(toolId: $toolId, uid: $uid, arguments: $arguments);
-		if ($routed !== null) {
-			return $routed;
-		}
+		return $this->routed(toolId: $toolId, call: $call)
+			?? $this->runNative(toolId: $toolId, call: $call);
+	}//end invokeTool()
 
+	/**
+	 * Run one of this class's own tools; a failure becomes the `tool_failed` envelope.
+	 *
+	 * @param string $toolId The namespaced tool id.
+	 * @param NativeToolCall $call The acting user and arguments.
+	 *
+	 * @return array<string, mixed> The tool's result, or an error envelope.
+	 */
+	private function runNative(string $toolId, NativeToolCall $call): array {
 		try {
-			switch ($toolId) {
-				case Application::APP_ID . '.listFiles':
-					return $this->listFiles(uid: $uid, path: (string)($arguments['path'] ?? ''));
-				case Application::APP_ID . '.readFile':
-					return $this->readFile(uid: $uid, path: (string)($arguments['path'] ?? ''));
-				case Application::APP_ID . '.searchContacts':
-					return $this->searchContacts(query: (string)($arguments['query'] ?? ''));
-				case Application::APP_ID . '.listCalendarEvents':
-					return $this->listCalendarEvents(uid: $uid, days: (int)($arguments['days'] ?? 7));
-				case Application::APP_ID . '.sendMail':
-					return $this->sendMail(user: $user, arguments: $arguments);
-				case Application::APP_ID . '.listDeckBoards':
-					return $this->listDeckBoards();
-				case Application::APP_ID . '.createCalendarEvent':
-					return $this->writeService->createCalendarEvent(uid: $uid, arguments: $arguments, agentId: $agentId);
-				case Application::APP_ID . '.upsertContact':
-					return $this->writeService->upsertContact(uid: $uid, arguments: $arguments, agentId: $agentId);
-				case Application::APP_ID . '.listNotes':
-					return $this->writeService->listNotes(uid: $uid);
-				case Application::APP_ID . '.createNote':
-					// No agentId: a note is marked with a system tag, which cannot
-					// carry per-agent data — attribution lives in the run trace.
-					return $this->writeService->createNote(uid: $uid, arguments: $arguments);
-				case Application::APP_ID . '.updateNote':
-					return $this->writeService->updateNote(uid: $uid, arguments: $arguments);
-				case Application::APP_ID . '.listMailAccounts':
-					return $this->mailReadService->listAccounts(uid: $uid);
-				case Application::APP_ID . '.listMailMessages':
-					return $this->mailReadService->listMessages(uid: $uid, arguments: $arguments);
-				case Application::APP_ID . '.readMailMessage':
-					return $this->mailReadService->readMessage(uid: $uid, arguments: $arguments);
-				case Application::APP_ID . '.recommendCourses':
-					return $this->courseEngine->getOrRegenerate(learnerUid: $uid);
-				case Application::APP_ID . '.rememberMemory':
-					return $this->rememberMemory(uid: $uid, arguments: $arguments);
-				case Application::APP_ID . '.recallMemory':
-					return $this->recallMemory(uid: $uid, arguments: $arguments);
-				case Application::APP_ID . '.forgetMemory':
-					return $this->forgetMemory(uid: $uid, arguments: $arguments);
-				case Application::APP_ID . '.webSearch':
-					return $this->webSearch(uid: $uid, query: (string)($arguments['query'] ?? ''));
-				case Application::APP_ID . '.webFetch':
-					return $this->webFetch(url: (string)($arguments['url'] ?? ''));
-				case Application::APP_ID . '.delegateAgent':
-					return $this->delegateAgent(arguments: $arguments);
-				case Application::APP_ID . '.listAvailableTools':
-					return $this->accessRequests->listAvailable(
-						uid: $uid,
-						agentId: $agentId,
-						query: (string)($arguments['query'] ?? '')
-					);
-				case Application::APP_ID . '.requestToolAccess':
-					return $this->accessRequests->request(
-						uid: $uid,
-						agentId: $agentId,
-						toolId: (string)($arguments['toolId'] ?? ''),
-						reason: (string)($arguments['reason'] ?? '')
-					);
-				case Application::APP_ID . '.searchTools':
-					// Defensive fallback only — the Hermiq engine short-circuits this
-					// call directly to ToolSearchService before it ever reaches the
-					// facade (see class docblock). A caller that bypasses the engine
-					// gets a clear error instead of a silent no-op.
-					return $this->error(
-						code: 'internal_only',
-						message: 'hermiq.searchTools is handled internally by the Hermiq engine and is not invocable via the facade.'
-					);
-				default:
-					return $this->error(
-						code: 'unknown_tool',
-						message: "Unknown tool id '" . $toolId . "'. Available: " . implode(', ', array_column(self::TOOL_DESCRIPTORS, 'id')) . '.'
-					);
-			}//end switch
+			return $this->invokeFileOrPimTool(toolId: $toolId, call: $call)
+				?? $this->invokeNoteOrMailTool(toolId: $toolId, call: $call)
+				?? $this->invokeAttributedWriteTool(toolId: $toolId, call: $call)
+				?? (new AgentMemoryTools(memoryService: $this->memoryService))->invoke(toolId: $toolId, call: $call)
+				?? $this->invokeLookupOrDelegationTool(toolId: $toolId, call: $call)
+				?? $this->invokeToolAccessTool(toolId: $toolId, call: $call)
+				?? $this->unknownToolError(toolId: $toolId);
 		} catch (Throwable $e) {
 			$this->logger->warning('Hermiq nc-native tool failed: ' . $e->getMessage(), ['exception' => $e, 'tool' => $toolId]);
 			return $this->error(code: 'tool_failed', message: 'The tool call failed.');
 		}//end try
+	}//end runNative()
 
-	}//end invokeTool()
+	/**
+	 * The error envelope for a tool id this provider does not know.
+	 *
+	 * @param string $toolId The namespaced tool id.
+	 *
+	 * @return array<string, mixed> The `unknown_tool` error envelope.
+	 */
+	private function unknownToolError(string $toolId): array {
+		return $this->error(
+			code: 'unknown_tool',
+			message: "Unknown tool id '" . $toolId . "'. Available: " . implode(', ', array_column(self::TOOL_DESCRIPTORS, 'id')) . '.'
+		);
+	}//end unknownToolError()
+
+	/**
+	 * Files, contacts, calendar listing and outbound mail tools.
+	 *
+	 * @param string $toolId The namespaced tool id.
+	 * @param NativeToolCall $call The acting user and arguments.
+	 *
+	 * @return array<string, mixed>|null The result, or null when $toolId is not one of these.
+	 */
+	private function invokeFileOrPimTool(string $toolId, NativeToolCall $call): ?array {
+		return match ($toolId) {
+			AppIdentity::APP_ID . '.listFiles' => $this->listFiles(uid: $call->uid, path: $call->text(name: 'path')),
+			AppIdentity::APP_ID . '.readFile' => $this->readFile(uid: $call->uid, path: $call->text(name: 'path')),
+			AppIdentity::APP_ID . '.searchContacts' => $this->searchContacts(query: $call->text(name: 'query')),
+			AppIdentity::APP_ID . '.listCalendarEvents' => $this->listCalendarEvents(uid: $call->uid, days: (int)($call->arguments['days'] ?? 7)),
+			AppIdentity::APP_ID . '.sendMail' => $this->sendMail(user: $call->user, arguments: $call->arguments),
+			default => null,
+		};
+	}//end invokeFileOrPimTool()
+
+	/**
+	 * Note tools and mail reads.
+	 *
+	 * @param string $toolId The namespaced tool id.
+	 * @param NativeToolCall $call The acting user and arguments.
+	 *
+	 * @return array<string, mixed>|null The result, or null when $toolId is not one of these.
+	 */
+	private function invokeNoteOrMailTool(string $toolId, NativeToolCall $call): ?array {
+		return match ($toolId) {
+			AppIdentity::APP_ID . '.listNotes' => $this->writeService->listNotes(uid: $call->uid),
+			// No agentId: a note is marked with a system tag, which cannot
+			// carry per-agent data — attribution lives in the run trace.
+			AppIdentity::APP_ID . '.createNote' => $this->writeService->createNote(uid: $call->uid, arguments: $call->arguments),
+			AppIdentity::APP_ID . '.updateNote' => $this->writeService->updateNote(uid: $call->uid, arguments: $call->arguments),
+			AppIdentity::APP_ID . '.listMailAccounts' => $this->mailReadService->listAccounts(uid: $call->uid),
+			AppIdentity::APP_ID . '.listMailMessages' => $this->mailReadService->listMessages(uid: $call->uid, arguments: $call->arguments),
+			AppIdentity::APP_ID . '.readMailMessage' => $this->mailReadService->readMessage(uid: $call->uid, arguments: $call->arguments),
+			default => null,
+		};
+	}//end invokeNoteOrMailTool()
+
+	/**
+	 * Calendar and contact writes that record the authoring agent.
+	 *
+	 * @param string $toolId The namespaced tool id.
+	 * @param NativeToolCall $call The acting user and arguments.
+	 *
+	 * @return array<string, mixed>|null The result, or null when $toolId is not one of these.
+	 */
+	private function invokeAttributedWriteTool(string $toolId, NativeToolCall $call): ?array {
+		return match ($toolId) {
+			AppIdentity::APP_ID . '.createCalendarEvent' => $this->writeService->createCalendarEvent(
+				uid: $call->uid,
+				arguments: $call->arguments,
+				agentId: $call->agentId
+			),
+			AppIdentity::APP_ID . '.upsertContact' => $this->writeService->upsertContact(
+				uid: $call->uid,
+				arguments: $call->arguments,
+				agentId: $call->agentId
+			),
+			default => null,
+		};
+	}//end invokeAttributedWriteTool()
+
+	/**
+	 * Deck, course recommendation, web research, delegation and tool listing.
+	 *
+	 * @param string $toolId The namespaced tool id.
+	 * @param NativeToolCall $call The acting user and arguments.
+	 *
+	 * @return array<string, mixed>|null The result, or null when $toolId is not one of these.
+	 */
+	private function invokeLookupOrDelegationTool(string $toolId, NativeToolCall $call): ?array {
+		return match ($toolId) {
+			AppIdentity::APP_ID . '.listDeckBoards' => $this->listDeckBoards(),
+			AppIdentity::APP_ID . '.recommendCourses' => $this->courseEngine->getOrRegenerate(learnerUid: $call->uid),
+			AppIdentity::APP_ID . '.webSearch' => $this->webSearch(uid: $call->uid, query: $call->text(name: 'query')),
+			AppIdentity::APP_ID . '.webFetch' => $this->webFetch(url: $call->text(name: 'url')),
+			AppIdentity::APP_ID . '.delegateAgent' => $this->delegateAgent(arguments: $call->arguments),
+			AppIdentity::APP_ID . '.delegateAgents' => $this->delegateAgents(arguments: $call->arguments),
+			AppIdentity::APP_ID . '.listAvailableTools' => $this->accessRequests->listAvailable(
+				uid: $call->uid,
+				agentId: $call->agentId,
+				query: $call->text(name: 'query')
+			),
+			default => null,
+		};
+	}//end invokeLookupOrDelegationTool()
+
+	/**
+	 * The tool-access request and the internal-only searchTools fallback.
+	 *
+	 * @param string $toolId The namespaced tool id.
+	 * @param NativeToolCall $call The acting user and arguments.
+	 *
+	 * @return array<string, mixed>|null The result, or null when $toolId is not one of these.
+	 */
+	private function invokeToolAccessTool(string $toolId, NativeToolCall $call): ?array {
+		return match ($toolId) {
+			AppIdentity::APP_ID . '.requestToolAccess' => $this->accessRequests->request(
+				uid: $call->uid,
+				agentId: $call->agentId,
+				toolId: $call->text(name: 'toolId'),
+				reason: $call->text(name: 'reason')
+			),
+			// Defensive fallback only — the Hermiq engine short-circuits this
+			// call directly to ToolSearchService before it ever reaches the
+			// facade (see class docblock). A caller that bypasses the engine
+			// gets a clear error instead of a silent no-op.
+			AppIdentity::APP_ID . '.searchTools' => $this->error(
+				code: 'internal_only',
+				message: 'hermiq.searchTools is handled internally by the Hermiq engine and is not invocable via the facade.'
+			),
+			default => null,
+		};
+	}//end invokeToolAccessTool()
 
 	/**
 	 * List files in the acting user's folder at $path (IDOR: user folder only).
@@ -896,24 +1015,56 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @return array<string, mixed> The listing, or an error envelope.
 	 */
 	private function listFiles(string $uid, string $path): array {
-		$userFolder = $this->rootFolder->getUserFolder($uid);
-
-		$target = $userFolder;
-		if (trim($path, '/') !== '') {
-			if ($userFolder->nodeExists($path) === false) {
-				return $this->error(code: 'not_found', message: 'Path not found in your files.');
-			}
-
-			$node = $userFolder->get($path);
-			if (($node instanceof Folder) === false) {
-				return $this->error(code: 'not_a_folder', message: 'Path is not a folder.');
-			}
-
-			$target = $node;
+		$target = $this->listingTarget(userFolder: $this->rootFolder->getUserFolder($uid), path: $path);
+		if (($target instanceof Folder) === false) {
+			return $target;
 		}
 
+		$reportedPath = '/';
+		if ($path !== '') {
+			$reportedPath = $path;
+		}
+
+		return ['path' => $reportedPath, 'entries' => $this->folderEntries(folder: $target)];
+	}//end listFiles()
+
+	/**
+	 * The folder a listing reads: the user's root for an empty path, else the folder
+	 * at the path, or the error for a missing path or one that is not a folder.
+	 *
+	 * @param Folder $userFolder The acting user's folder.
+	 * @param string $path The requested path.
+	 *
+	 * @return Folder|array<string, mixed> The folder, or an error envelope.
+	 */
+	private function listingTarget(Folder $userFolder, string $path): Folder|array {
+		if (trim($path, '/') === '') {
+			return $userFolder;
+		}
+
+		if ($userFolder->nodeExists($path) === false) {
+			return $this->error(code: 'not_found', message: 'Path not found in your files.');
+		}
+
+		$node = $userFolder->get($path);
+		if (($node instanceof Folder) === false) {
+			return $this->error(code: 'not_a_folder', message: 'Path is not a folder.');
+		}
+
+		return $node;
+
+	}//end listingTarget()
+
+	/**
+	 * Each entry of a folder with its name, type (file or folder) and size.
+	 *
+	 * @param Folder $folder The folder.
+	 *
+	 * @return array<int, array<string, mixed>> The entries.
+	 */
+	private function folderEntries(Folder $folder): array {
 		$entries = [];
-		foreach ($target->getDirectoryListing() as $node) {
+		foreach ($folder->getDirectoryListing() as $node) {
 			$type = 'file';
 			if (($node instanceof Folder) === true) {
 				$type = 'folder';
@@ -926,13 +1077,9 @@ class HermiqToolProvider implements IMcpToolProvider {
 			];
 		}
 
-		$reportedPath = '/';
-		if ($path !== '') {
-			$reportedPath = $path;
-		}
+		return $entries;
 
-		return ['path' => $reportedPath, 'entries' => $entries];
-	}//end listFiles()
+	}//end folderEntries()
 
 	/**
 	 * Read a text file from the acting user's folder (IDOR: user folder only; size-capped).
@@ -1061,216 +1208,76 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @return array<string, mixed> The send result, or an error envelope.
 	 */
 	private function sendMail(\OCP\IUser $user, array $arguments): array {
-		$to = trim((string)($arguments['to'] ?? ''));
-		$subject = (string)($arguments['subject'] ?? '');
-		$body = (string)($arguments['body'] ?? '');
-
-		if ($to === '' || $subject === '' || $body === '') {
-			return $this->error(code: 'invalid_argument', message: 'to, subject and body are all required.');
+		$mail = $this->requestedMail(arguments: $arguments);
+		$refusal = $this->mailRefusal(mail: $mail);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
-		if ($this->mailer->validateMailAddress($to) === false) {
-			return $this->error(code: 'invalid_argument', message: 'The recipient address is not a valid email.');
-		}
-
-		$from = $user->getEMailAddress();
-		if ($from === null || $from === '') {
+		$mail['from'] = (string)$user->getEMailAddress();
+		if ($mail['from'] === '') {
 			return $this->error(code: 'no_sender', message: 'Your account has no email address to send from.');
 		}
 
+		return $this->deliverMail(mail: $mail, senderName: $user->getDisplayName());
+	}//end sendMail()
+
+	/**
+	 * The mail the tool call asks for: a trimmed recipient, the subject and the body.
+	 *
+	 * @param array<string, mixed> $arguments The tool arguments.
+	 *
+	 * @return array{to: string, subject: string, body: string} The requested mail.
+	 */
+	private function requestedMail(array $arguments): array {
+		return [
+			'to' => trim((string)($arguments['to'] ?? '')),
+			'subject' => (string)($arguments['subject'] ?? ''),
+			'body' => (string)($arguments['body'] ?? ''),
+		];
+
+	}//end requestedMail()
+
+	/**
+	 * Refuse a mail without a recipient, subject or body, or to an invalid address.
+	 *
+	 * @param array{to: string, subject: string, body: string} $mail The requested mail.
+	 *
+	 * @return array<string, mixed>|null The error envelope, or null when the mail may be sent.
+	 */
+	private function mailRefusal(array $mail): ?array {
+		if (in_array('', [$mail['to'], $mail['subject'], $mail['body']], true) === true) {
+			return $this->error(code: 'invalid_argument', message: 'to, subject and body are all required.');
+		}
+
+		if ($this->mailer->validateMailAddress($mail['to']) === false) {
+			return $this->error(code: 'invalid_argument', message: 'The recipient address is not a valid email.');
+		}
+
+		return null;
+
+	}//end mailRefusal()
+
+	/**
+	 * Compose and send a plain-text mail from the acting user.
+	 *
+	 * @param array{to: string, subject: string, body: string, from: string} $mail The mail.
+	 * @param string $senderName The sender's display name.
+	 *
+	 * @return array{sent: bool, failedRecipients: array<int, string>} The send outcome.
+	 */
+	private function deliverMail(array $mail, string $senderName): array {
 		$message = $this->mailer->createMessage();
-		$message->setFrom([$from => $user->getDisplayName()]);
-		$message->setTo([$to]);
-		$message->setSubject($subject);
-		$message->setPlainBody($body);
+		$message->setFrom([$mail['from'] => $senderName]);
+		$message->setTo([$mail['to']]);
+		$message->setSubject($mail['subject']);
+		$message->setPlainBody($mail['body']);
 
 		$failed = $this->mailer->send($message);
 
 		return ['sent' => ($failed === []), 'failedRecipients' => $failed];
-	}//end sendMail()
 
-	/**
-	 * Append a durable fact to the agent's own Memory (`scope: agent`) or to the
-	 * acting user's UserProfile for this agent (`scope: user`) — agent-memory-tools'
-	 * self-service write. Delegates verbatim to `MemoryService::appendMemoryEntry()`/
-	 * `appendUserProfileEntry()`, which redacts `content` before persist
-	 * (`MemoryService::appendEntry()`).
-	 *
-	 * @param string $uid The acting user id (IDOR: `scope: user`
-	 *                    only ever writes to THIS user's own
-	 *                    UserProfile, never a caller-supplied
-	 *                    `subjectUid`).
-	 * @param array<string, mixed> $arguments The tool arguments (`content`, `scope`,
-	 *                                        plus the run-injected `agentId` — see
-	 *                                        `FacadeToolInvoker::withAgentId()`).
-	 *
-	 * @return array<string, mixed> The result, or an error envelope.
-	 *
-	 * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
-	 */
-	private function rememberMemory(string $uid, array $arguments): array {
-		$agentId = trim((string)($arguments['agentId'] ?? ''));
-		if ($agentId === '') {
-			return $this->noAgentContextError();
-		}
-
-		$content = trim((string)($arguments['content'] ?? ''));
-		if ($content === '') {
-			return $this->error(code: 'invalid_argument', message: 'A non-empty content is required.');
-		}
-
-		$scope = (string)($arguments['scope'] ?? '');
-		if (in_array($scope, ['agent', 'user'], true) === false) {
-			return $this->error(code: 'invalid_argument', message: 'scope must be "agent" or "user".');
-		}
-
-		if ($scope === 'user') {
-			$memory = $this->memoryService->appendUserProfileEntry(agentId: $agentId, subjectUid: $uid, text: $content);
-			return $this->rememberedResult(scope: $scope, memory: $memory);
-		}
-
-		$memory = $this->memoryService->appendMemoryEntry(agentId: $agentId, text: $content);
-		return $this->rememberedResult(scope: $scope, memory: $memory);
-	}//end rememberMemory()
-
-	/**
-	 * Shape a persisted Memory/UserProfile object into `rememberMemory`'s result
-	 * payload, surfacing the newly-appended entry's id.
-	 *
-	 * @param string $scope The scope the entry was appended to (`agent`|`user`).
-	 * @param ObjectEntity $memory The persisted Memory/UserProfile object.
-	 *
-	 * @return array<string, mixed> The result payload.
-	 */
-	private function rememberedResult(string $scope, ObjectEntity $memory): array {
-		$data = $memory->getObject();
-		$entries = (array)($data['entries'] ?? []);
-		$newest = end($entries);
-
-		$entryId = null;
-		if (is_array($newest) === true) {
-			$entryId = ($newest['id'] ?? null);
-		}
-
-		return [
-			'remembered' => true,
-			'scope' => $scope,
-			'entryId' => $entryId,
-			'needsConsolidation' => (bool)($data['needsConsolidation'] ?? false),
-		];
-
-	}//end rememberedResult()
-
-	/**
-	 * Search the agent's own Memory/UserProfile entries and past SessionTurns for a
-	 * query — agent-memory-tools' self-service recall. Reuses the SAME OpenRegister
-	 * search substrate `recallSessions()` already uses (`MemoryService::recallEntries()`
-	 * + `recallSessions()`, merged into one result) — no second search index.
-	 *
-	 * @param string $uid The acting user id (whose own UserProfile
-	 *                    is also searched).
-	 * @param array<string, mixed> $arguments The tool arguments (`query`, plus the
-	 *                                        run-injected `agentId`).
-	 *
-	 * @return array<string, mixed> The combined result, or an error envelope.
-	 *
-	 * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-recall-tool
-	 */
-	private function recallMemory(string $uid, array $arguments): array {
-		$agentId = trim((string)($arguments['agentId'] ?? ''));
-		if ($agentId === '') {
-			return $this->noAgentContextError();
-		}
-
-		$query = trim((string)($arguments['query'] ?? ''));
-		if ($query === '') {
-			return $this->error(code: 'invalid_argument', message: 'A non-empty query is required.');
-		}
-
-		$entries = $this->memoryService->recallEntries(agentId: $agentId, subjectUid: $uid, query: $query);
-		$turns = $this->memoryService->recallSessions(agentId: $agentId, query: $query);
-
-		$sessionTurns = [];
-		foreach ($turns as $turn) {
-			$sessionTurns[] = $this->shapeSessionTurn(turn: $turn);
-		}
-
-		return [
-			'query' => $query,
-			'memoryEntries' => $entries['memoryEntries'],
-			'userProfileEntries' => $entries['userProfileEntries'],
-			'sessionTurns' => $sessionTurns,
-		];
-
-	}//end recallMemory()
-
-	/**
-	 * Soft-delete one memory entry by id — agent-memory-tools' self-service forget.
-	 * Scoped to the agent's own Memory and the ACTING user's own UserProfile only
-	 * (IDOR: never a caller-supplied `subjectUid`). Never a hard delete
-	 * (`MemoryService::forgetEntry()`); an unknown id is a structured not-found
-	 * result, never a thrown error.
-	 *
-	 * @param string $uid The acting user id.
-	 * @param array<string, mixed> $arguments The tool arguments (`id`, plus the
-	 *                                        run-injected `agentId`).
-	 *
-	 * @return array<string, mixed> The result, or an error envelope.
-	 *
-	 * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-forget-tool-soft-delete-only
-	 */
-	private function forgetMemory(string $uid, array $arguments): array {
-		$agentId = trim((string)($arguments['agentId'] ?? ''));
-		if ($agentId === '') {
-			return $this->noAgentContextError();
-		}
-
-		$entryId = trim((string)($arguments['id'] ?? ''));
-		if ($entryId === '') {
-			return $this->error(code: 'invalid_argument', message: 'A non-empty id is required.');
-		}
-
-		$result = $this->memoryService->forgetEntry(agentId: $agentId, subjectUid: $uid, entryId: $entryId);
-
-		if ($result['found'] === false) {
-			return ['found' => false, 'message' => 'No memory entry with that id was found.'];
-		}
-
-		return ['found' => true, 'scope' => $result['scope']];
-	}//end forgetMemory()
-
-	/**
-	 * Shape a SessionTurn ObjectEntity into the recall result's turn payload.
-	 *
-	 * @param ObjectEntity $turn The SessionTurn object.
-	 *
-	 * @return array<string, string> The shaped turn.
-	 */
-	private function shapeSessionTurn(ObjectEntity $turn): array {
-		$data = $turn->getObject();
-
-		return [
-			'role' => (string)($data['role'] ?? ''),
-			'content' => (string)($data['content'] ?? ''),
-			'createdAt' => (string)($data['createdAt'] ?? ''),
-		];
-
-	}//end shapeSessionTurn()
-
-	/**
-	 * The error envelope for a memory tool called with no agent context
-	 * (agent-less chat — `FacadeToolInvoker::withAgentId()` never injects an
-	 * `agentId` when the run has none).
-	 *
-	 * @return array<string, mixed> The error envelope.
-	 */
-	private function noAgentContextError(): array {
-		return $this->error(
-			code: 'no_agent_context',
-			message: 'This tool requires an agent context and cannot be called outside an agent run.'
-		);
-
-	}//end noAgentContextError()
+	}//end deliverMail()
 
 	/**
 	 * List the acting user's Deck boards (lazy dependency; error when Deck is absent).
@@ -1291,31 +1298,73 @@ class HermiqToolProvider implements IMcpToolProvider {
 			return $this->error(code: 'deck_unavailable', message: 'Could not read Deck boards.');
 		}
 
+		return ['boards' => $this->boardTitles(boards: $boards)];
+	}//end listDeckBoards()
+
+	/**
+	 * The scalar titles of the readable boards, in order.
+	 *
+	 * @param iterable<mixed> $boards The boards Deck returned.
+	 *
+	 * @return array<int, array{title: string}> The titles.
+	 */
+	private function boardTitles(iterable $boards): array {
 		$results = [];
 		foreach ($boards as $board) {
-			// 🔴 Was `method_exists($board, 'getTitle')`, which is false for every getter
-			// reached through `Entity::__call()`, so this listed NOTHING for its whole
-			// life. `property_exists()` is what `Entity::getter()` itself consults;
-			// `is_callable()` would only invert the silence. See DeckBoardMagicAccessorTest.
-			if (is_object($board) === false || property_exists($board, 'title') === false) {
-				continue;
+			$title = $this->boardTitle(board: $board);
+			if ($title !== null) {
+				$results[] = ['title' => $title];
 			}
+		}
 
-			try {
-				// Dynamic because it IS dynamic — `__call()` materialises the method.
-				$title = call_user_func([$board, 'getTitle']);
-			} catch (Throwable $e) {
-				$this->logger->warning('Hermiq skipped an unreadable Deck board: ' . $e->getMessage());
-				continue;
-			}
+		return $results;
 
-			if (is_scalar($title) === true) {
-				$results[] = ['title' => (string)$title];
-			}
-		}//end foreach
+	}//end boardTitles()
 
-		return ['boards' => $results];
-	}//end listDeckBoards()
+	/**
+	 * Whether a value is a Deck board entity carrying a title.
+	 *
+	 * @param mixed $board One board.
+	 *
+	 * @return bool True for a board with a title.
+	 */
+	private function isDeckBoard(mixed $board): bool {
+		return is_object($board) === true && property_exists($board, 'title') === true;
+
+	}//end isDeckBoard()
+
+	/**
+	 * One board's title; a board that is not a Deck entity, cannot be read, or has a
+	 * non-scalar title yields none.
+	 *
+	 * @param mixed $board One board.
+	 *
+	 * @return string|null The title, or null.
+	 */
+	private function boardTitle(mixed $board): ?string {
+		// 🔴 Was `method_exists($board, 'getTitle')`, which is false for every getter
+		// reached through `Entity::__call()`, so this listed NOTHING for its whole
+		// life. `property_exists()` is what `Entity::getter()` itself consults;
+		// `is_callable()` would only invert the silence. See DeckBoardMagicAccessorTest.
+		if ($this->isDeckBoard(board: $board) === false) {
+			return null;
+		}
+
+		try {
+			// Dynamic because it IS dynamic — `__call()` materialises the method.
+			$title = call_user_func([$board, 'getTitle']);
+		} catch (Throwable $e) {
+			$this->logger->warning('Hermiq skipped an unreadable Deck board: ' . $e->getMessage());
+			return null;
+		}
+
+		if (is_scalar($title) === true) {
+			return (string)$title;
+		}
+
+		return null;
+
+	}//end boardTitle()
 
 	/**
 	 * Search the configured web-research backend (web-research-tool). The acting
@@ -1327,7 +1376,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
-	 * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
+	 * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
 	 */
 	private function webSearch(string $uid, string $query): array {
 		if (trim($query) === '') {
@@ -1346,7 +1395,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
-	 * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-webfetch-extracts-readable-text-with-a-content-type-gate
+	 * @spec openspec/specs/web-research-tool/spec.md#requirement-webfetch-extracts-readable-text-with-a-content-type-gate
 	 */
 	private function webFetch(string $url): array {
 		if (trim($url) === '') {
@@ -1369,12 +1418,12 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-a-delegated-sub-agent-runs-in-an-isolated-conversation
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-a-delegated-sub-agent-runs-in-an-isolated-conversation
 	 */
 	private function delegateAgent(array $arguments): array {
 		$callerAgentId = trim((string)($arguments['agentId'] ?? ''));
 		if ($callerAgentId === '') {
-			return $this->noAgentContextError();
+			return (new ToolErrorEnvelope())->noAgentContext();
 		}
 
 		$targetAgentId = trim((string)($arguments['targetAgentId'] ?? ''));
@@ -1389,6 +1438,32 @@ class HermiqToolProvider implements IMcpToolProvider {
 
 		return $this->delegationService->delegate(callerAgentId: $callerAgentId, targetAgentId: $targetAgentId, task: $task);
 	}//end delegateAgent()
+
+	/**
+	 * Delegate several independent parts to sub-agents in one call
+	 * (delegation-runs-in-parallel). Checks the tool's own input shape, then
+	 * forwards to `DelegationService::delegateMany()`, where every gate lives.
+	 *
+	 * @param array<string, mixed> $arguments The tool arguments (`parts`, plus the
+	 *                                        run-injected `agentId`).
+	 *
+	 * @return array<string, mixed> One result per part, or an error envelope.
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-several-parts-of-one-task-run-on-sub-agents-at-the-same-time-req-dlgpar-001
+	 */
+	private function delegateAgents(array $arguments): array {
+		$callerAgentId = trim((string)($arguments['agentId'] ?? ''));
+		if ($callerAgentId === '') {
+			return (new ToolErrorEnvelope())->noAgentContext();
+		}
+
+		$parts = ($arguments['parts'] ?? null);
+		if (is_array($parts) === false || $parts === [] || array_is_list($parts) === false) {
+			return $this->error(code: 'invalid_argument', message: 'parts must be a non-empty list of {targetAgentId, task}.');
+		}
+
+		return $this->delegationService->delegateMany(callerAgentId: $callerAgentId, parts: $parts);
+	}//end delegateAgents()
 
 	/**
 	 * Build a structured error envelope (invokeTool never throws).

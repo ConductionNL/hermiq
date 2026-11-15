@@ -1,0 +1,5280 @@
+[
+    {
+        "caller": "alice",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "alice"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": null,
+        "status": 401,
+        "data": {
+            "error": "Unauthenticated"
+        },
+        "calls": [],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 500,
+        "data": {
+            "error": "Could not load tool catalog"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ]
+        ],
+        "log": [
+            "error Hermiq tool-catalog read failed: registry down exception"
+        ]
+    },
+    {
+        "caller": "root",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 0,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "openregister.objects.list",
+                    "name": "openregister.objects.list",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.search",
+                    "name": "pipelinq_lead_search",
+                    "description": "Search leads",
+                    "scope": "read",
+                    "reach": "user",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": false
+                },
+                {
+                    "id": "openregister.objects.list",
+                    "name": "openregister.objects.list",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "root"
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 200,
+        "data": {
+            "agentId": "agent-2",
+            "disclosureThreshold": 0,
+            "resolvedCount": 1,
+            "disclosureActive": true,
+            "tools": [
+                {
+                    "id": "hermiq.workspacePush",
+                    "name": "hermiq_workspacePush",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.delete",
+                    "name": "pipelinq_lead_delete",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "instance",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "hermiq.workspacePush",
+                    "name": "hermiq_workspacePush",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.update",
+                    "name": "pipelinq_lead_update",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "instance",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "carol"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "carol"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 200,
+        "data": {
+            "agentId": "agent-2",
+            "disclosureThreshold": 2,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "pipelinq.lead.update",
+                    "name": "pipelinq_lead_update",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "instance",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "root"
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 500,
+        "data": {
+            "error": "Could not load tool catalog"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ]
+        ],
+        "log": [
+            "error Hermiq tool-catalog read failed: registry down exception"
+        ]
+    },
+    {
+        "caller": "carol",
+        "status": 200,
+        "data": {
+            "agentId": "agent-2",
+            "disclosureThreshold": 0,
+            "resolvedCount": 1,
+            "disclosureActive": true,
+            "tools": []
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 1,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "hermiq.workspacePush",
+                    "name": "hermiq_workspacePush",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.update",
+                    "name": "pipelinq_lead_update",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "instance",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "root"
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 404,
+        "data": {
+            "error": "Agent not found"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": null,
+        "status": 401,
+        "data": {
+            "error": "Unauthenticated"
+        },
+        "calls": [],
+        "log": []
+    },
+    {
+        "caller": "alice",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "alice"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "carol"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 200,
+        "data": {
+            "agentId": "agent-2",
+            "disclosureThreshold": 1,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": []
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "root"
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "alice",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isInGroup",
+                "alice",
+                "team"
+            ],
+            [
+                "isAdmin",
+                "alice"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "carol"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "carol"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 200,
+        "data": {
+            "agentId": "agent-2",
+            "disclosureThreshold": 2,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "files.readFile",
+                    "name": "files.readFile",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "openregister.objects.list",
+                    "name": "openregister.objects.list",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 500,
+        "data": {
+            "error": "Could not load tool catalog"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ]
+        ],
+        "log": [
+            "error Hermiq tool-catalog read failed: registry down exception"
+        ]
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 404,
+        "data": {
+            "error": "Agent not found"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 404,
+        "data": {
+            "error": "Agent not found"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ]
+        ],
+        "log": [
+            "warning Hermiq agent lookup failed for agent-2: no such object exception"
+        ]
+    },
+    {
+        "caller": "bob",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 1,
+            "resolvedCount": 2,
+            "disclosureActive": true,
+            "tools": [
+                {
+                    "id": "pipelinq.lead.update",
+                    "name": "pipelinq_lead_update",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "instance",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": true,
+                    "grantedBy": "files.listFiles",
+                    "requiresExplicitGrant": false
+                },
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": true,
+                    "grantedBy": "files.listFiles",
+                    "requiresExplicitGrant": false
+                },
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": true,
+                    "grantedBy": "files.listFiles",
+                    "requiresExplicitGrant": false
+                },
+                {
+                    "id": "pipelinq.lead.delete",
+                    "name": "pipelinq_lead_delete",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "instance",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "alice",
+        "status": 200,
+        "data": {
+            "agentId": "agent-1",
+            "disclosureThreshold": 30,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "openregister.objects.list",
+                    "name": "openregister.objects.list",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.search",
+                    "name": "pipelinq_lead_search",
+                    "description": "Search leads",
+                    "scope": "read",
+                    "reach": "user",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": false
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": null,
+        "status": 401,
+        "data": {
+            "error": "Unauthenticated"
+        },
+        "calls": [],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 2,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "files.readFile",
+                    "name": "files.readFile",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "files.readFile",
+                    "name": "files.readFile",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "alice",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isInGroup",
+                "alice",
+                "team"
+            ],
+            [
+                "isAdmin",
+                "alice"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "alice",
+        "status": 200,
+        "data": {
+            "agentId": "agent-2",
+            "disclosureThreshold": 2,
+            "resolvedCount": 1,
+            "disclosureActive": false,
+            "tools": []
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 30,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "openregister.objects.list",
+                    "name": "openregister.objects.list",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "root"
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 500,
+        "data": {
+            "error": "Could not load tool catalog"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ]
+        ],
+        "log": [
+            "error Hermiq tool-catalog read failed: registry down exception"
+        ]
+    },
+    {
+        "caller": null,
+        "status": 401,
+        "data": {
+            "error": "Unauthenticated"
+        },
+        "calls": [],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 404,
+        "data": {
+            "error": "Agent not found"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 200,
+        "data": {
+            "agentId": "agent-1",
+            "disclosureThreshold": 1,
+            "resolvedCount": 2,
+            "disclosureActive": true,
+            "tools": [
+                {
+                    "id": "pipelinq.lead.delete",
+                    "name": "pipelinq_lead_delete",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "instance",
+                    "destructiveHint": true,
+                    "granted": true,
+                    "grantedBy": "pipelinq.lead.*:write",
+                    "requiresExplicitGrant": false
+                },
+                {
+                    "id": "openregister.objects.list",
+                    "name": "openregister.objects.list",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "openregister.objects.list",
+                    "name": "openregister.objects.list",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.search",
+                    "name": "pipelinq_lead_search",
+                    "description": "Search leads",
+                    "scope": "read",
+                    "reach": "user",
+                    "destructiveHint": false,
+                    "granted": true,
+                    "grantedBy": "pipelinq.lead.*:write",
+                    "requiresExplicitGrant": false
+                },
+                {
+                    "id": "openregister.objects.list",
+                    "name": "openregister.objects.list",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 404,
+        "data": {
+            "error": "Agent not found"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ]
+        ],
+        "log": [
+            "warning Hermiq agent lookup failed for agent-0: no such object exception"
+        ]
+    },
+    {
+        "caller": "alice",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "alice"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 200,
+        "data": {
+            "agentId": "agent-2",
+            "disclosureThreshold": 30,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "pipelinq.lead.delete",
+                    "name": "pipelinq_lead_delete",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "instance",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.update",
+                    "name": "pipelinq_lead_update",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "instance",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.update",
+                    "name": "pipelinq_lead_update",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "instance",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "files.readFile",
+                    "name": "files.readFile",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.update",
+                    "name": "pipelinq_lead_update",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "instance",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.update",
+                    "name": "pipelinq_lead_update",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "instance",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 1,
+            "resolvedCount": 2,
+            "disclosureActive": true,
+            "tools": [
+                {
+                    "id": "pipelinq.lead.search",
+                    "name": "pipelinq_lead_search",
+                    "description": "Search leads",
+                    "scope": "read",
+                    "reach": "user",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": false
+                },
+                {
+                    "id": "pipelinq.lead.search",
+                    "name": "pipelinq_lead_search",
+                    "description": "Search leads",
+                    "scope": "read",
+                    "reach": "user",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": false
+                },
+                {
+                    "id": "hermiq.workspacePush",
+                    "name": "hermiq_workspacePush",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 404,
+        "data": {
+            "error": "Agent not found"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 500,
+        "data": {
+            "error": "Could not load tool catalog"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "root"
+            ],
+            [
+                "listTools"
+            ]
+        ],
+        "log": [
+            "error Hermiq tool-catalog read failed: registry down exception"
+        ]
+    },
+    {
+        "caller": "carol",
+        "status": 404,
+        "data": {
+            "error": "Agent not found"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "alice",
+        "status": 200,
+        "data": {
+            "agentId": "agent-2",
+            "disclosureThreshold": 2,
+            "resolvedCount": 1,
+            "disclosureActive": false,
+            "tools": []
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "alice",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "alice"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 200,
+        "data": {
+            "agentId": "agent-1",
+            "disclosureThreshold": 2,
+            "resolvedCount": 2,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "pipelinq.lead.search",
+                    "name": "pipelinq_lead_search",
+                    "description": "Search leads",
+                    "scope": "read",
+                    "reach": "user",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": false
+                },
+                {
+                    "id": "pipelinq.lead.update",
+                    "name": "pipelinq_lead_update",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "instance",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "alice",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "alice"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 30,
+            "resolvedCount": 1,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "pipelinq.lead.search",
+                    "name": "pipelinq_lead_search",
+                    "description": "Search leads",
+                    "scope": "read",
+                    "reach": "user",
+                    "destructiveHint": false,
+                    "granted": true,
+                    "grantedBy": "pipelinq.lead.*:write",
+                    "requiresExplicitGrant": false
+                },
+                {
+                    "id": "pipelinq.lead.search",
+                    "name": "pipelinq_lead_search",
+                    "description": "Search leads",
+                    "scope": "read",
+                    "reach": "user",
+                    "destructiveHint": false,
+                    "granted": true,
+                    "grantedBy": "pipelinq.lead.*:write",
+                    "requiresExplicitGrant": false
+                },
+                {
+                    "id": "hermiq.workspacePush",
+                    "name": "hermiq_workspacePush",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "alice",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "alice"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": null,
+        "status": 401,
+        "data": {
+            "error": "Unauthenticated"
+        },
+        "calls": [],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 200,
+        "data": {
+            "agentId": "agent-2",
+            "disclosureThreshold": 1,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "pipelinq.lead.search",
+                    "name": "pipelinq_lead_search",
+                    "description": "Search leads",
+                    "scope": "read",
+                    "reach": "user",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": false
+                },
+                {
+                    "id": "pipelinq.lead.search",
+                    "name": "pipelinq_lead_search",
+                    "description": "Search leads",
+                    "scope": "read",
+                    "reach": "user",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": false
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "root"
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 1,
+            "resolvedCount": 3,
+            "disclosureActive": true,
+            "tools": [
+                {
+                    "id": "files.readFile",
+                    "name": "files.readFile",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "hermiq.workspacePush",
+                    "name": "hermiq_workspacePush",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.search",
+                    "name": "pipelinq_lead_search",
+                    "description": "Search leads",
+                    "scope": "read",
+                    "reach": "user",
+                    "destructiveHint": false,
+                    "granted": true,
+                    "grantedBy": "pipelinq.lead.*:write",
+                    "requiresExplicitGrant": false
+                },
+                {
+                    "id": "pipelinq.lead.update",
+                    "name": "pipelinq_lead_update",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "instance",
+                    "destructiveHint": false,
+                    "granted": true,
+                    "grantedBy": "pipelinq.lead.*:write",
+                    "requiresExplicitGrant": false
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": null,
+        "status": 401,
+        "data": {
+            "error": "Unauthenticated"
+        },
+        "calls": [],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 404,
+        "data": {
+            "error": "Agent not found"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 404,
+        "data": {
+            "error": "Agent not found"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ]
+        ],
+        "log": [
+            "warning Hermiq agent lookup failed for agent-0: no such object exception"
+        ]
+    },
+    {
+        "caller": "alice",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "alice"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 200,
+        "data": {
+            "agentId": "agent-2",
+            "disclosureThreshold": 30,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "pipelinq.lead.delete",
+                    "name": "pipelinq_lead_delete",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "instance",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.search",
+                    "name": "pipelinq_lead_search",
+                    "description": "Search leads",
+                    "scope": "read",
+                    "reach": "user",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": false
+                },
+                {
+                    "id": "pipelinq.lead.update",
+                    "name": "pipelinq_lead_update",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "instance",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "files.readFile",
+                    "name": "files.readFile",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "files.readFile",
+                    "name": "files.readFile",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "root"
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": null,
+        "status": 401,
+        "data": {
+            "error": "Unauthenticated"
+        },
+        "calls": [],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": null,
+        "status": 401,
+        "data": {
+            "error": "Unauthenticated"
+        },
+        "calls": [],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 30,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "pipelinq.lead.delete",
+                    "name": "pipelinq_lead_delete",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "instance",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "openregister.objects.list",
+                    "name": "openregister.objects.list",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.update",
+                    "name": "pipelinq_lead_update",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "instance",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "bob"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 200,
+        "data": {
+            "agentId": "agent-2",
+            "disclosureThreshold": 1,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "pipelinq.lead.delete",
+                    "name": "pipelinq_lead_delete",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "instance",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "hermiq.workspacePush",
+                    "name": "hermiq_workspacePush",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.delete",
+                    "name": "pipelinq_lead_delete",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "instance",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "files.readFile",
+                    "name": "files.readFile",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "alice",
+        "status": 200,
+        "data": {
+            "agentId": "agent-2",
+            "disclosureThreshold": 30,
+            "resolvedCount": 1,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "pipelinq.lead.update",
+                    "name": "pipelinq_lead_update",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "instance",
+                    "destructiveHint": false,
+                    "granted": true,
+                    "grantedBy": "pipelinq.lead.*:write",
+                    "requiresExplicitGrant": false
+                },
+                {
+                    "id": "hermiq.workspacePush",
+                    "name": "hermiq_workspacePush",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 0,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "files.readFile",
+                    "name": "files.readFile",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "hermiq.workspacePush",
+                    "name": "hermiq_workspacePush",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.search",
+                    "name": "pipelinq_lead_search",
+                    "description": "Search leads",
+                    "scope": "read",
+                    "reach": "user",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": false
+                },
+                {
+                    "id": "openregister.objects.list",
+                    "name": "openregister.objects.list",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "alice",
+        "status": 200,
+        "data": {
+            "agentId": "agent-1",
+            "disclosureThreshold": 1,
+            "resolvedCount": 1,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "pipelinq.lead.delete",
+                    "name": "pipelinq_lead_delete",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "instance",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "carol"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 0,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 200,
+        "data": {
+            "agentId": "agent-1",
+            "disclosureThreshold": 1,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "pipelinq.lead.update",
+                    "name": "pipelinq_lead_update",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "instance",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.update",
+                    "name": "pipelinq_lead_update",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "instance",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 500,
+        "data": {
+            "error": "Could not load tool catalog"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "root"
+            ],
+            [
+                "listTools"
+            ]
+        ],
+        "log": [
+            "error Hermiq tool-catalog read failed: registry down exception"
+        ]
+    },
+    {
+        "caller": null,
+        "status": 401,
+        "data": {
+            "error": "Unauthenticated"
+        },
+        "calls": [],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 200,
+        "data": {
+            "agentId": "agent-1",
+            "disclosureThreshold": 2,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 200,
+        "data": {
+            "agentId": "agent-2",
+            "disclosureThreshold": 30,
+            "resolvedCount": 2,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.search",
+                    "name": "pipelinq_lead_search",
+                    "description": "Search leads",
+                    "scope": "read",
+                    "reach": "user",
+                    "destructiveHint": false,
+                    "granted": true,
+                    "grantedBy": "pipelinq.lead.*:write",
+                    "requiresExplicitGrant": false
+                },
+                {
+                    "id": "files.readFile",
+                    "name": "files.readFile",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.update",
+                    "name": "pipelinq_lead_update",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "instance",
+                    "destructiveHint": false,
+                    "granted": true,
+                    "grantedBy": "pipelinq.lead.*:write",
+                    "requiresExplicitGrant": false
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 30,
+            "resolvedCount": 2,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "carol"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "alice",
+        "status": 200,
+        "data": {
+            "agentId": "agent-2",
+            "disclosureThreshold": 2,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "pipelinq.lead.update",
+                    "name": "pipelinq_lead_update",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "instance",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "hermiq.workspacePush",
+                    "name": "hermiq_workspacePush",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 0,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": []
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 200,
+        "data": {
+            "agentId": "agent-1",
+            "disclosureThreshold": 0,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "hermiq.workspacePush",
+                    "name": "hermiq_workspacePush",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.search",
+                    "name": "pipelinq_lead_search",
+                    "description": "Search leads",
+                    "scope": "read",
+                    "reach": "user",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": false
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "carol"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 30,
+            "resolvedCount": 1,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "pipelinq.lead.update",
+                    "name": "pipelinq_lead_update",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "instance",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 404,
+        "data": {
+            "error": "Agent not found"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ]
+        ],
+        "log": [
+            "warning Hermiq agent lookup failed for agent-1: no such object exception"
+        ]
+    },
+    {
+        "caller": null,
+        "status": 401,
+        "data": {
+            "error": "Unauthenticated"
+        },
+        "calls": [],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 0,
+            "resolvedCount": 2,
+            "disclosureActive": true,
+            "tools": [
+                {
+                    "id": "files.readFile",
+                    "name": "files.readFile",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.update",
+                    "name": "pipelinq_lead_update",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "instance",
+                    "destructiveHint": false,
+                    "granted": true,
+                    "grantedBy": "pipelinq.lead.*:write",
+                    "requiresExplicitGrant": false
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 200,
+        "data": {
+            "agentId": "agent-1",
+            "disclosureThreshold": 30,
+            "resolvedCount": 4,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "pipelinq.lead.delete",
+                    "name": "pipelinq_lead_delete",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "instance",
+                    "destructiveHint": true,
+                    "granted": true,
+                    "grantedBy": "pipelinq.lead.*:write",
+                    "requiresExplicitGrant": false
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "carol"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 0,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "hermiq.workspacePush",
+                    "name": "hermiq_workspacePush",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "hermiq.workspacePush",
+                    "name": "hermiq_workspacePush",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.delete",
+                    "name": "pipelinq_lead_delete",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "instance",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.search",
+                    "name": "pipelinq_lead_search",
+                    "description": "Search leads",
+                    "scope": "read",
+                    "reach": "user",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": false
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "root"
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "carol"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "bob"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "alice",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 2,
+            "resolvedCount": 2,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "files.readFile",
+                    "name": "files.readFile",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": true,
+                    "grantedBy": "files.readFile",
+                    "requiresExplicitGrant": false
+                },
+                {
+                    "id": "pipelinq.lead.delete",
+                    "name": "pipelinq_lead_delete",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "instance",
+                    "destructiveHint": true,
+                    "granted": true,
+                    "grantedBy": "pipelinq.lead.delete",
+                    "requiresExplicitGrant": false
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 200,
+        "data": {
+            "agentId": "agent-1",
+            "disclosureThreshold": 2,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "hermiq.workspacePush",
+                    "name": "hermiq_workspacePush",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "hermiq.workspacePush",
+                    "name": "hermiq_workspacePush",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "files.readFile",
+                    "name": "files.readFile",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "hermiq.workspacePush",
+                    "name": "hermiq_workspacePush",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 200,
+        "data": {
+            "agentId": "agent-2",
+            "disclosureThreshold": 1,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "files.readFile",
+                    "name": "files.readFile",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isInGroup",
+                "root",
+                "team"
+            ],
+            [
+                "isAdmin",
+                "root"
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 1,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "hermiq.workspacePush",
+                    "name": "hermiq_workspacePush",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.delete",
+                    "name": "pipelinq_lead_delete",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "instance",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 200,
+        "data": {
+            "agentId": "agent-1",
+            "disclosureThreshold": 0,
+            "resolvedCount": 2,
+            "disclosureActive": true,
+            "tools": [
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": true,
+                    "grantedBy": "files.listFiles",
+                    "requiresExplicitGrant": false
+                },
+                {
+                    "id": "openregister.objects.list",
+                    "name": "openregister.objects.list",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": true,
+                    "grantedBy": "openregister.objects.list",
+                    "requiresExplicitGrant": false
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 200,
+        "data": {
+            "agentId": "agent-2",
+            "disclosureThreshold": 1,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": []
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": null,
+        "status": 401,
+        "data": {
+            "error": "Unauthenticated"
+        },
+        "calls": [],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "bob"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 200,
+        "data": {
+            "agentId": "agent-2",
+            "disclosureThreshold": 0,
+            "resolvedCount": 2,
+            "disclosureActive": true,
+            "tools": [
+                {
+                    "id": "pipelinq.lead.search",
+                    "name": "pipelinq_lead_search",
+                    "description": "Search leads",
+                    "scope": "read",
+                    "reach": "user",
+                    "destructiveHint": false,
+                    "granted": true,
+                    "grantedBy": "pipelinq.lead.search",
+                    "requiresExplicitGrant": false
+                },
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": true,
+                    "grantedBy": "files.listFiles",
+                    "requiresExplicitGrant": false
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 0,
+            "resolvedCount": 1,
+            "disclosureActive": true,
+            "tools": []
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 404,
+        "data": {
+            "error": "Agent not found"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": null,
+        "status": 401,
+        "data": {
+            "error": "Unauthenticated"
+        },
+        "calls": [],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "bob"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": null,
+        "status": 401,
+        "data": {
+            "error": "Unauthenticated"
+        },
+        "calls": [],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 2,
+            "resolvedCount": 3,
+            "disclosureActive": true,
+            "tools": [
+                {
+                    "id": "openregister.objects.list",
+                    "name": "openregister.objects.list",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": true,
+                    "grantedBy": "openregister.objects.list",
+                    "requiresExplicitGrant": false
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 200,
+        "data": {
+            "agentId": "agent-1",
+            "disclosureThreshold": 1,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": []
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 404,
+        "data": {
+            "error": "Agent not found"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": null,
+        "status": 401,
+        "data": {
+            "error": "Unauthenticated"
+        },
+        "calls": [],
+        "log": []
+    },
+    {
+        "caller": "alice",
+        "status": 200,
+        "data": {
+            "agentId": "agent-1",
+            "disclosureThreshold": 2,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": []
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 404,
+        "data": {
+            "error": "Agent not found"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ]
+        ],
+        "log": [
+            "warning Hermiq agent lookup failed for agent-2: no such object exception"
+        ]
+    },
+    {
+        "caller": "root",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 2,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": []
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 200,
+        "data": {
+            "agentId": "agent-1",
+            "disclosureThreshold": 30,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": null,
+        "status": 401,
+        "data": {
+            "error": "Unauthenticated"
+        },
+        "calls": [],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 2,
+            "resolvedCount": 2,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isInGroup",
+                "carol",
+                "team"
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 200,
+        "data": {
+            "agentId": "agent-1",
+            "disclosureThreshold": 2,
+            "resolvedCount": 2,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.delete",
+                    "name": "pipelinq_lead_delete",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "instance",
+                    "destructiveHint": true,
+                    "granted": true,
+                    "grantedBy": "pipelinq.lead.*:write",
+                    "requiresExplicitGrant": false
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "root"
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "alice",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "alice"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 404,
+        "data": {
+            "error": "Agent not found"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "alice",
+        "status": 200,
+        "data": {
+            "agentId": "agent-1",
+            "disclosureThreshold": 2,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "pipelinq.lead.delete",
+                    "name": "pipelinq_lead_delete",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "instance",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.delete",
+                    "name": "pipelinq_lead_delete",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "instance",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "alice",
+        "status": 200,
+        "data": {
+            "agentId": "agent-2",
+            "disclosureThreshold": 0,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "files.readFile",
+                    "name": "files.readFile",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isInGroup",
+                "bob",
+                "team"
+            ],
+            [
+                "isAdmin",
+                "bob"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 200,
+        "data": {
+            "agentId": "agent-2",
+            "disclosureThreshold": 0,
+            "resolvedCount": 1,
+            "disclosureActive": true,
+            "tools": [
+                {
+                    "id": "files.readFile",
+                    "name": "files.readFile",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.search",
+                    "name": "pipelinq_lead_search",
+                    "description": "Search leads",
+                    "scope": "read",
+                    "reach": "user",
+                    "destructiveHint": false,
+                    "granted": true,
+                    "grantedBy": "pipelinq.lead.*:write",
+                    "requiresExplicitGrant": false
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": null,
+        "status": 401,
+        "data": {
+            "error": "Unauthenticated"
+        },
+        "calls": [],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 200,
+        "data": {
+            "agentId": "agent-1",
+            "disclosureThreshold": 2,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "root"
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "bob",
+        "status": 200,
+        "data": {
+            "agentId": "agent-2",
+            "disclosureThreshold": 30,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "pipelinq.lead.delete",
+                    "name": "pipelinq_lead_delete",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "instance",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "openregister.objects.list",
+                    "name": "openregister.objects.list",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "files.readFile",
+                    "name": "files.readFile",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "files.readFile",
+                    "name": "files.readFile",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 404,
+        "data": {
+            "error": "Agent not found"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ]
+        ],
+        "log": [
+            "warning Hermiq agent lookup failed for agent-0: no such object exception"
+        ]
+    },
+    {
+        "caller": "bob",
+        "status": 200,
+        "data": {
+            "agentId": "agent-1",
+            "disclosureThreshold": 1,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "files.listFiles",
+                    "name": "listFiles",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "carol",
+        "status": 200,
+        "data": {
+            "agentId": "agent-2",
+            "disclosureThreshold": 0,
+            "resolvedCount": 1,
+            "disclosureActive": true,
+            "tools": [
+                {
+                    "id": "hermiq.workspacePush",
+                    "name": "hermiq_workspacePush",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.delete",
+                    "name": "pipelinq_lead_delete",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "instance",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                ""
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "alice",
+        "status": 403,
+        "data": {
+            "error": "Access denied to this agent"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isInGroup",
+                "alice",
+                "team"
+            ],
+            [
+                "isAdmin",
+                "alice"
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 404,
+        "data": {
+            "error": "Agent not found"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "alice",
+        "status": 200,
+        "data": {
+            "agentId": "agent-0",
+            "disclosureThreshold": 2,
+            "resolvedCount": 1,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "pipelinq.lead.update",
+                    "name": "pipelinq_lead_update",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "instance",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.search",
+                    "name": "pipelinq_lead_search",
+                    "description": "Search leads",
+                    "scope": "read",
+                    "reach": "user",
+                    "destructiveHint": false,
+                    "granted": true,
+                    "grantedBy": "pipelinq.lead.*",
+                    "requiresExplicitGrant": false
+                },
+                {
+                    "id": "pipelinq.lead.delete",
+                    "name": "pipelinq_lead_delete",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "instance",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "pipelinq.lead.delete",
+                    "name": "pipelinq_lead_delete",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "instance",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "files.readFile",
+                    "name": "files.readFile",
+                    "description": "",
+                    "scope": "read",
+                    "reach": "external",
+                    "destructiveHint": false,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-0",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "alice",
+        "status": 404,
+        "data": {
+            "error": "Agent not found"
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-1",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ]
+        ],
+        "log": []
+    },
+    {
+        "caller": "root",
+        "status": 200,
+        "data": {
+            "agentId": "agent-2",
+            "disclosureThreshold": 1,
+            "resolvedCount": 0,
+            "disclosureActive": false,
+            "tools": [
+                {
+                    "id": "pipelinq.lead.delete",
+                    "name": "pipelinq_lead_delete",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "instance",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "hermiq.workspacePush",
+                    "name": "hermiq_workspacePush",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "hermiq.workspacePush",
+                    "name": "hermiq_workspacePush",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                },
+                {
+                    "id": "hermiq.workspacePush",
+                    "name": "hermiq_workspacePush",
+                    "description": "",
+                    "scope": "write",
+                    "reach": "external",
+                    "destructiveHint": true,
+                    "granted": false,
+                    "grantedBy": null,
+                    "requiresExplicitGrant": true
+                }
+            ]
+        },
+        "calls": [
+            [
+                "find",
+                {
+                    "id": "agent-2",
+                    "register": "hermiq",
+                    "schema": "agent"
+                }
+            ],
+            [
+                "isAdmin",
+                "root"
+            ],
+            [
+                "listTools"
+            ],
+            [
+                "getValueInt",
+                "hermiq",
+                "tools.disclosureThreshold",
+                30
+            ]
+        ],
+        "log": []
+    }
+]

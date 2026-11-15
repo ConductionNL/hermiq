@@ -35,12 +35,11 @@ class ExampleSetLindelaanAiOversightTest extends TestCase {
 		$statusOf = ['accepted' => 'approved', 'rejected' => 'denied', 'overridden' => 'overridden', 'ignored' => 'unused'];
 		$actions  = [];
 		foreach ($set['objects'] as $object) {
-			if ($object['schema'] !== 'approval') {
+			if ($object['schema'] !== 'approval' || $object['data']['sourceType'] !== 'advisory') {
 				continue;
 			}
 
 			$context = $object['data']['advisoryContext'];
-			$this->assertSame(expected: 'advisory', actual: $object['data']['sourceType']);
 			$this->assertSame(
 				expected: ['dossiq', 'case', '{{lookup:case}}'],
 				actual: [$context['originApp'], $context['subjectType'], $context['subjectId']]
