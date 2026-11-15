@@ -24,7 +24,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Settings;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCP\App\IAppManager;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\AppFramework\Services\IInitialState;
@@ -74,10 +74,10 @@ class AdminSettings implements IDelegatedSettings {
 	 *
 	 * @return TemplateResponse
 	 *
-	 * @spec openspec/changes/ai-features-to-admin/tasks.md#task-3-provide-is_admin--opencatalogi_available-from-the-admin-settings-bootstrap
+	 * @spec openspec/changes/archive/2026-07-15-ai-features-to-admin/tasks.md#task-3-provide-is_admin--opencatalogi_available-from-the-admin-settings-bootstrap
 	 */
 	public function getForm(): TemplateResponse {
-		$version = $this->appManager->getAppVersion(appId: Application::APP_ID);
+		$version = $this->appManager->getAppVersion(appId: AppIdentity::APP_ID);
 
 		$user = $this->userSession->getUser();
 		$isAdminNow = ($user !== null && $this->groupManager->isAdmin($user->getUID()) === true);
@@ -88,7 +88,7 @@ class AdminSettings implements IDelegatedSettings {
 		);
 
 		return new TemplateResponse(
-			Application::APP_ID,
+			AppIdentity::APP_ID,
 			'settings/admin',
 			['version' => $version]
 		);

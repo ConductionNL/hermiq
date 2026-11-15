@@ -15,29 +15,10 @@
 
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
+import { listOrNestedResults as toList } from './listEnvelope.js'
 
 /** Hermiq AI-features base path. */
 const AI_FEATURES_BASE = '/apps/hermiq/api/ai-features'
-
-/**
- * Normalise the various Hermiq list envelopes to a plain array.
- * Handles `{ results: [] }`, `{ data: { results: [] } }`, and a bare array.
- *
- * @param {object} data The response body.
- * @return {Array<object>} The extracted list (empty array on miss).
- */
-function toList(data) {
-	if (Array.isArray(data)) {
-		return data
-	}
-	if (Array.isArray(data?.results)) {
-		return data.results
-	}
-	if (Array.isArray(data?.data?.results)) {
-		return data.data.results
-	}
-	return []
-}
 
 /**
  * List the tenant's AI-feature governance objects (risk-classified).

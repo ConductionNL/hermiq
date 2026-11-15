@@ -152,6 +152,123 @@ final class GitHubTemplateCatalogServiceWireTest extends TestCase {
 	}//end testABrokeredReadNamesHermiqAndFallsBackToAnonymousWhenRefused()
 
 	/**
+	 * Golden: searches and package reads with a credential (empty, missing or set)
+	 * and an acting user (set or not) go through the broker only with a
+	 * credential, carry hermiq's id and the acting user, shape what the broker
+	 * answers (ok, rate-limited, failed) and fall back to an anonymous read when
+	 * the broker refuses, exactly as recorded. GOLDEN_RECORD=1 rewrites the fixture.
+	 *
+	 * @return void
+	 */
+	public function testBrokeredAndAnonymousReadsMatchTheRecordedFixture(): void {
+		$fixture = __DIR__ . '/../../Fixtures/Golden/github-catalog-reads.json';
+		$actual = [];
+		foreach (['cred-uuid', '', null] as $credentialId) {
+			foreach (['alice', null] as $actingUserId) {
+				$broker = $this->answeringBroker();
+				$container = $this->createMock(originalClassName: ContainerInterface::class);
+				$container->method('get')->willReturn($broker);
+				$this->urls = [];
+				$service = $this->service(
+					routes: [
+						'/search/repositories' => ['status' => 200, 'body' => '{"items":[{"name":"demo","owner":{"login":"acme"},"stargazers_count":3},{"name":"refuse","owner":{"login":"acme"}}]}'],
+						'/contents/' => $this->contents(text: '{"name":"Anonymous"}'),
+					],
+					container: $container
+				);
+				$reads = [
+					'search' => $service->search(query: 'notes', actingUserId: $actingUserId, credentialId: $credentialId),
+				];
+				foreach (['demo', 'limited', 'failing', 'refuse'] as $repo) {
+					$reads[$repo] = $service->fetchTemplateFile(owner: 'acme', repo: $repo, ref: 'v1', actingUserId: $actingUserId, credentialId: $credentialId);
+				}
+
+				$key = (string)json_encode(['credentialId' => $credentialId, 'actingUserId' => $actingUserId]);
+				$actual[$key] = ['reads' => $reads, 'broker' => $broker->recorded, 'anonymous' => $this->urls];
+			}
+		}
+
+		$actual = json_decode(json_encode($actual, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+		if (getenv('GOLDEN_RECORD') === '1') {
+			file_put_contents($fixture, json_encode($actual, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n");
+			$this->markTestSkipped('Fixture recorded.');
+		}
+
+		$expected = json_decode((string)file_get_contents($fixture), true, 512, JSON_THROW_ON_ERROR);
+		self::assertSame(expected: $expected, actual: $actual);
+	}//end testBrokeredAndAnonymousReadsMatchTheRecordedFixture()
+
+	/**
+	 * A broker double that records every call and answers by repository: `limited`
+	 * is rate-limited, `failing` answers 500, `refuse` is refused, anything else is
+	 * answered.
+	 *
+	 * @return CredentialBrokerService
+	 */
+	private function answeringBroker(): CredentialBrokerService {
+		return new class() extends CredentialBrokerService {
+			/**
+			 * Every call's arguments.
+			 *
+			 * @var array<int, array<int, mixed>>
+			 */
+			public array $recorded = [];
+
+			/**
+			 * No parent call: this double overrides everything it uses.
+			 *
+			 * @return void
+			 */
+			public function __construct() {
+			}//end __construct()
+
+			/**
+			 * Record the call and answer by repository.
+			 *
+			 * @param string $credentialId The credential.
+			 * @param string $appId The calling app.
+			 * @param string $method The HTTP method.
+			 * @param string $path The GitHub path.
+			 * @param array $headers The headers.
+			 * @param string|null $body The body.
+			 * @param string|null $actingUserId The acting user.
+			 *
+			 * @return array The answer.
+			 *
+			 * @throws RuntimeException For the refused repository.
+			 */
+			public function request(
+				string $credentialId,
+				string $appId,
+				string $method,
+				string $path,
+				array $headers = [],
+				?string $body = null,
+				?string $actingUserId = null,
+			): array {
+				$this->recorded[] = [$credentialId, $appId, $method, $path, $headers, $body, $actingUserId];
+				if (str_contains($path, '/refuse/') === true) {
+					throw new RuntimeException('app not in allowedApps');
+				}
+
+				if (str_contains($path, '/limited/') === true) {
+					return ['status' => 403, 'body' => '{"message":"rate limited"}'];
+				}
+
+				if (str_contains($path, '/failing/') === true) {
+					return ['status' => 500];
+				}
+
+				if (str_contains($path, '/search/') === true) {
+					return ['status' => 200, 'body' => '{"items":[{"name":"demo","owner":{"login":"acme"}}]}'];
+				}
+
+				return ['status' => 200, 'body' => (string)json_encode(['content' => base64_encode('{"name":"Brokered"}'), 'encoding' => 'base64'])];
+			}//end request()
+		};
+	}//end answeringBroker()
+
+	/**
 	 * A skill install fetches every blob beside the package file, and never the package twice.
 	 *
 	 * @return void

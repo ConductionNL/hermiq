@@ -30,7 +30,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#requirement-an-intake-conversation-must-be-able-to-file-on-its-own-surface
+ * @spec openspec/specs/conversational-intake/spec.md#requirement-an-intake-conversation-must-be-able-to-file-on-its-own-surface
  * @spec openspec/specs/conversational-intake/spec.md#requirement-an-intake-tool-is-recognised-by-its-mark-and-its-declared-create-taxonomy
  */
 
@@ -39,14 +39,14 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Intake;
 
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
  * Resolves the create-only intake tools and the declared reviews.
  *
- * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-intake-cannot-touch-an-existing-record
+ * @spec openspec/specs/conversational-intake/spec.md#scenario-intake-cannot-touch-an-existing-record
  */
 class IntakeToolGrant {
 
@@ -101,7 +101,7 @@ class IntakeToolGrant {
 	 *
 	 * @return array<int, array<string, mixed>> The descriptors.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-intake-cannot-touch-an-existing-record
+	 * @spec openspec/specs/conversational-intake/spec.md#scenario-intake-cannot-touch-an-existing-record
 	 */
 	public function intakeTools(): array {
 		return $this->annotated(annotation: self::INTAKE_ANNOTATION, createOnly: true);
@@ -114,7 +114,7 @@ class IntakeToolGrant {
 	 *
 	 * @return array<int, array<string, mixed>> The descriptors.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#requirement-an-external-review-must-be-a-declared-tool-whose-verdict-is-recorded
+	 * @spec openspec/specs/conversational-intake/spec.md#requirement-an-external-review-must-be-a-declared-tool-whose-verdict-is-recorded
 	 */
 	public function reviewTools(): array {
 		return $this->annotated(annotation: self::REVIEW_ANNOTATION, createOnly: false);
@@ -127,7 +127,7 @@ class IntakeToolGrant {
 	 *
 	 * @return bool True when it is a declared intake or review tool.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-intake-cannot-touch-an-existing-record
+	 * @spec openspec/specs/conversational-intake/spec.md#scenario-intake-cannot-touch-an-existing-record
 	 */
 	public function permits(string $toolId): bool {
 		foreach (array_merge($this->intakeTools(), $this->reviewTools()) as $descriptor) {
@@ -176,7 +176,7 @@ class IntakeToolGrant {
 	 *
 	 * @throws IntakeRefusedException When the grant does not cover this tool.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-a-conversation-ends-in-a-filed-request
+	 * @spec openspec/specs/conversational-intake/spec.md#scenario-a-conversation-ends-in-a-filed-request
 	 */
 	public function call(string $toolId, array $arguments): array {
 		if ($this->permits(toolId: $toolId) === false) {
@@ -186,7 +186,17 @@ class IntakeToolGrant {
 			);
 		}
 
-		$envelope = $this->toolRegistryFacade->invokeTool(toolId: $toolId, arguments: $arguments);
+		return $this->outcome(envelope: $this->toolRegistryFacade->invokeTool(toolId: $toolId, arguments: $arguments));
+	}//end call()
+
+	/**
+	 * The call's result and whether it is a refusal, read from the envelope and from inside the result.
+	 *
+	 * @param array<string, mixed> $envelope The facade's envelope.
+	 *
+	 * @return array{result: mixed, isError: bool}
+	 */
+	private function outcome(array $envelope): array {
 		$result = ($envelope['result'] ?? []);
 
 		// A refusal can arrive INSIDE the result. OpenRegister's provider bridge
@@ -202,8 +212,7 @@ class IntakeToolGrant {
 			'result' => $result,
 			'isError' => $isError,
 		];
-
-	}//end call()
+	}//end outcome()
 
 	/**
 	 * The catalogue entries carrying one annotation.
@@ -214,8 +223,28 @@ class IntakeToolGrant {
 	 * @return array<int, array<string, mixed>> The descriptors.
 	 */
 	private function annotated(string $annotation, bool $createOnly): array {
+		$out = [];
+		foreach ($this->catalogue() as $descriptor) {
+			if ($this->carries(descriptor: $descriptor, annotation: $annotation) === false) {
+				continue;
+			}
+
+			if ($createOnly === false || $this->admittedAsCreate(descriptor: $descriptor) === true) {
+				$out[] = $descriptor;
+			}
+		}
+
+		return $out;
+	}//end annotated()
+
+	/**
+	 * The whole tool catalogue; an unreadable one is logged and is empty.
+	 *
+	 * @return array<int|string, mixed>
+	 */
+	private function catalogue(): array {
 		try {
-			$catalog = $this->toolRegistryFacade->listTools(toolWhitelist: []);
+			return $this->toolRegistryFacade->listTools(toolWhitelist: []);
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				'Hermiq could not read the tool catalogue for the intake surface: ' . $e->getMessage(),
@@ -224,38 +253,49 @@ class IntakeToolGrant {
 
 			return [];
 		}
+	}//end catalogue()
 
-		$out = [];
-		foreach ($catalog as $descriptor) {
-			if (is_array($descriptor) === false) {
-				continue;
-			}
+	/**
+	 * Whether a catalogue entry is a descriptor with an id that carries the annotation set to true.
+	 *
+	 * @param mixed  $descriptor One catalogue entry.
+	 * @param string $annotation The annotation to look for.
+	 *
+	 * @return bool
+	 *
+	 * @phpstan-assert-if-true array<string, mixed> $descriptor
+	 */
+	private function carries(mixed $descriptor, string $annotation): bool {
+		if (is_array($descriptor) === false) {
+			return false;
+		}
 
-			$annotations = ($descriptor['annotations'] ?? []);
-			if (is_array($annotations) === false || ($annotations[$annotation] ?? false) !== true) {
-				continue;
-			}
+		$annotations = ($descriptor['annotations'] ?? []);
+		if (is_array($annotations) === false || ($annotations[$annotation] ?? false) !== true) {
+			return false;
+		}
 
-			$id = self::idOf(descriptor: $descriptor);
-			if ($id === '') {
-				continue;
-			}
+		return self::idOf(descriptor: $descriptor) !== '';
+	}//end carries()
 
-			if ($createOnly === true && $this->createsOnly(toolId: $id, descriptor: $descriptor) === false) {
-				$this->logger->warning(
-					sprintf(
-						"Hermiq ignored '%s' on the intake surface: it is annotated for intake but it is not a create-only tool.",
-						$id
-					)
-				);
-				continue;
-			}
+	/**
+	 * Whether a marked intake tool only creates; one that does not is ignored with a warning.
+	 *
+	 * @param array<string, mixed> $descriptor The descriptor.
+	 *
+	 * @return bool
+	 */
+	private function admittedAsCreate(array $descriptor): bool {
+		$id = self::idOf(descriptor: $descriptor);
+		if ($this->createsOnly(toolId: $id, descriptor: $descriptor) === true) {
+			return true;
+		}
 
-			$out[] = $descriptor;
-		}//end foreach
-
-		return $out;
-	}//end annotated()
+		$this->logger->warning(
+			sprintf("Hermiq ignored '%s' on the intake surface: it is annotated for intake but it is not a create-only tool.", $id)
+		);
+		return false;
+	}//end admittedAsCreate()
 
 	/**
 	 * Whether a tool only creates: it declares `scope: create` AND

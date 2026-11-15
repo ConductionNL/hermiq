@@ -8,7 +8,7 @@
   of its own and reports each change as a field and value; the parent owns
   the draft.
 
-  @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
+  @spec openspec/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
 -->
 <template>
 	<NcSelect
@@ -78,7 +78,7 @@ export default {
 		 * @param {string} value The stored action value.
 		 * @param {Array<object>} options The option list to search.
 		 * @return {object} The matching option.
-		 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
+		 * @spec openspec/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
 		 */
 		actionOption(value, options) {
 			return options.find((option) => option.value === value) || options[0]
@@ -90,7 +90,7 @@ export default {
 		 * @param {string} field The draft field.
 		 * @param {object|null} option The picked option.
 		 * @return {void}
-		 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
+		 * @spec openspec/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
 		 */
 		pick(field, option) {
 			this.$emit('change', { field, value: option ? option.value : 'off' })

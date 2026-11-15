@@ -4,7 +4,7 @@
  * Hermiq Chat Conversation Management Handler.
  *
  * Handler for conversation lifecycle management: title generation, summarisation.
- * Ported from `OCA\OpenRegister\Service\Chat\ConversationManagementHandler`,
+ * Ported from `OCA\OpenRegister\Mcp\Service\Chat\ConversationManagementHandler`,
  * re-pointed at the `Conversation`/`Message` OR objects (agent-engine-schemas) via
  * `ObjectService`, and at `ProviderFactory` instead of OR's inline per-provider
  * LLPhant config building.
@@ -34,8 +34,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-2
  */
 
 declare(strict_types=1);
@@ -47,6 +47,8 @@ use Exception;
 use LLPhant\Chat\Message as LLPhantMessage;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -54,7 +56,7 @@ use Throwable;
 /**
  * Handles conversation title generation, summarisation, and uniqueness.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
  */
 class ConversationManagementHandler {
 	use SanitizesForSaveTrait;
@@ -105,7 +107,7 @@ class ConversationManagementHandler {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
@@ -128,8 +130,8 @@ class ConversationManagementHandler {
 	 *
 	 * @return string Generated title.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
 	 */
 	public function generateConversationTitle(string $firstMessage, ?string $organisation = null): string {
 		$this->logger->info(
@@ -183,7 +185,7 @@ class ConversationManagementHandler {
 	 *
 	 * @return string Unique title, with a numeric suffix if needed.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function ensureUniqueTitle(string $baseTitle, string $userId, string $agentId): string {
 		$this->logger->info(
@@ -239,7 +241,7 @@ class ConversationManagementHandler {
 	 *
 	 * @return array<int, string>
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	private function titlesStartingWith(string $baseTitle, array $conversations): array {
 		$titles = [];
@@ -265,7 +267,7 @@ class ConversationManagementHandler {
 	 *
 	 * @return int
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	private function highestTitleSuffix(string $baseTitle, array $titles): int {
 		$maxNumber = 1;
@@ -290,8 +292,8 @@ class ConversationManagementHandler {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-2
 	 */
 	public function checkAndSummarize(ObjectEntity $conversation): void {
 		$data = $conversation->getObject();
@@ -337,9 +339,10 @@ class ConversationManagementHandler {
 
 			$this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $data),
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
-				uuid: $conversationUuid
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+					uuid: $conversationUuid
+				)
 			);
 
 			$this->logger->info(
@@ -372,7 +375,7 @@ class ConversationManagementHandler {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-2
 	 */
 	private function summaryIsDue(array $metadata): bool {
 		$tokenCount = $metadata['token_count'] ?? 0;
@@ -493,7 +496,7 @@ class ConversationManagementHandler {
 	 * @SuppressWarnings(PHPMD.StaticAccess) LLPhant's Message::user() factory is the
 	 * library's public API — there is no injectable seam.
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
 	 */
 	private function generateTextViaConfiguredLlm(string $prompt, ?string $organisation = null): string {
 		$llmConfig = $this->providerFactory->getLlmConfig();
@@ -535,7 +538,7 @@ class ConversationManagementHandler {
 	 *
 	 * @return string Fallback title.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	private function generateFallbackTitle(string $message): string {
 		$title = substr($message, 0, 60);

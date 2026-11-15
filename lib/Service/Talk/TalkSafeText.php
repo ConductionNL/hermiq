@@ -47,12 +47,19 @@ final class TalkSafeText {
 	/**
 	 * An id Talk shows as plain text: ASCII letters and digits, then also `.`,
 	 * `_` and `-`, at most 160 characters. No `@`, `:`, `/`, `*` or backtick, so
-	 * no mention or link can form; Talk links only with a scheme, and `_` inside
-	 * a word is not emphasis.
+	 * no mention or link can form; Talk links only with a scheme or a leading
+	 * `www.`, and `_` inside a word is not emphasis.
 	 *
 	 * @var string
 	 */
 	private const ID = '/^[A-Za-z0-9][A-Za-z0-9._\\-]{0,159}$/D';
+
+	/**
+	 * A name Talk autolinks without a scheme: `www.` at the start of a word.
+	 *
+	 * @var string
+	 */
+	private const AUTOLINKED = '/(^|[^A-Za-z0-9])www\\./i';
 
 	/**
 	 * A free-text name with its whitespace collapsed, when it is a plain label.
@@ -82,7 +89,7 @@ final class TalkSafeText {
 	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
 	 */
 	public function identifier(string $identifier): ?string {
-		if (preg_match(self::ID, $identifier) === 1) {
+		if (preg_match(self::ID, $identifier) === 1 && preg_match(self::AUTOLINKED, $identifier) !== 1) {
 			return $identifier;
 		}
 

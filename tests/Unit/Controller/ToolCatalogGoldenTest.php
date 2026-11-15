@@ -37,7 +37,7 @@ use OCA\Hermiq\Service\ToolOversight\ToolOversightServices;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IAppConfig;
@@ -52,6 +52,7 @@ use Random\Randomizer;
 use ReflectionMethod;
 use RuntimeException;
 use Stringable;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Golden comparison of the tool catalog endpoint.
@@ -177,6 +178,7 @@ class ToolCatalogGoldenTest extends TestCase {
 		$objectService = $this->createMock(originalClassName: ObjectService::class);
 		$objectService->method('find')->willReturnCallback(
 			function (mixed ...$args) use (&$calls, $agent): mixed {
+				$args = LegacyObjectArgs::positional(method: 'find', args: $args);
 				$calls[] = ['find', $this->passed(class: ObjectService::class, method: 'find', args: $args)];
 				if ($agent === 'throws') {
 					throw new DoesNotExistException('no such object');
@@ -356,7 +358,7 @@ class ToolCatalogGoldenTest extends TestCase {
 	 */
 	private function passed(string $class, string $method, array $args): array {
 		$out = [];
-		foreach ((new ReflectionMethod($class, $method))->getParameters() as $index => $param) {
+		foreach (LegacyObjectArgs::parameters($class, $method) as $index => $param) {
 			if (array_key_exists($index, $args) === false) {
 				continue;
 			}

@@ -27,15 +27,15 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#5-kill-switch-toggle-endpoint
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#5-kill-switch-toggle-endpoint
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\OrganisationControlService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\OrganisationControlServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\AppFramework\Controller;
@@ -51,14 +51,14 @@ use Throwable;
 /**
  * Org-owner/instance-admin-guarded kill-switch read + toggle endpoints.
  *
- * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#5-kill-switch-toggle-endpoint
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#5-kill-switch-toggle-endpoint
  */
 class OrganisationControlController extends Controller {
 	/**
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param OrganisationControlService $tenantControlService The kill-switch read/write path.
+	 * @param OrganisationControlServiceInterface $tenantControlService The kill-switch read/write path.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IGroupManager $groupManager Instance-admin check.
 	 * @param OrganisationMapper $organisationMapper OpenRegister organisation lookup (owner check).
@@ -66,17 +66,17 @@ class OrganisationControlController extends Controller {
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: distinct collaborators.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-5-1
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly OrganisationControlService $tenantControlService,
+		private readonly OrganisationControlServiceInterface $tenantControlService,
 		private readonly IUserSession $userSession,
 		private readonly IGroupManager $groupManager,
 		private readonly OrganisationMapper $organisationMapper,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -89,7 +89,7 @@ class OrganisationControlController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-5-1
 	 */
 	public function show(string $organisation): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -122,7 +122,7 @@ class OrganisationControlController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-5-1
 	 */
 	public function toggle(string $organisation): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -168,7 +168,7 @@ class OrganisationControlController extends Controller {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-5-1
 	 */
 	private function mayAdminister(string $organisation, IUser $user): bool {
 		if ($organisation === '') {

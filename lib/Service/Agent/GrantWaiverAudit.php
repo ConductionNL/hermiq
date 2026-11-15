@@ -36,6 +36,8 @@ namespace OCA\Hermiq\Service\Agent;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\GrantWaiverAuditInterface;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
@@ -51,14 +53,7 @@ use Throwable;
  *
  * @spec openspec/specs/agent-capability-reach/spec.md#requirement-waiving-approval-is-recorded-as-a-distinct-audited-event
  */
-class GrantWaiverAudit {
-
-	/**
-	 * AuditTrail action recorded when an approval waiver is added or removed.
-	 *
-	 * @var string
-	 */
-	public const ACTION = 'tool-grant-approval-waiver';
+class GrantWaiverAudit implements GrantWaiverAuditInterface {
 
 	/**
 	 * The actor recorded for a write without a signed-in user (cron, occ).
@@ -66,7 +61,6 @@ class GrantWaiverAudit {
 	 * @var string
 	 */
 	public const SYSTEM_ACTOR = 'system';
-
 
 	/**
 	 * Constructor.
@@ -133,15 +127,17 @@ class GrantWaiverAudit {
 		}
 
 		try {
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $agent,
-				action: self::ACTION,
-				context: [
-					'added' => $added,
-					'removed' => $removed,
-					'actor' => $this->actor(),
-					'at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
-				]
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $agent,
+					action: self::ACTION,
+					context: [
+						'added' => $added,
+						'removed' => $removed,
+						'actor' => $this->actor(),
+						'at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
+					]
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(
@@ -151,7 +147,6 @@ class GrantWaiverAudit {
 		}
 
 	}//end record()
-
 
 	/**
 	 * The acting user's id, or the system actor when nobody is signed in.

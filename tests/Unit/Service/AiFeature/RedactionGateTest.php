@@ -30,8 +30,8 @@ use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\AiFeature\ProviderResidencyRegistry;
 use OCA\Hermiq\Service\AiFeature\RedactionOutcomeReader;
 use OCA\Hermiq\Service\AiFeature\RedactionRequiredException;
-use OCA\Hermiq\Service\AiFeatureService;
-use OCA\Hermiq\Service\OrganisationModelPolicyService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\App\IAppManager;
@@ -47,14 +47,14 @@ use Psr\Log\NullLogger;
 class RedactionGateTest extends TestCase {
 
 	/**
-	 * An AiFeatureService double serving one feature.
+	 * An AiFeatureLookup double serving one feature.
 	 *
 	 * @param array<string, mixed> $data The feature's object data.
 	 *
-	 * @return AiFeatureService The double.
+	 * @return AiFeatureLookup The double.
 	 */
-	private function features(array $data): AiFeatureService {
-		$service = $this->createMock(AiFeatureService::class);
+	private function features(array $data): AiFeatureLookup {
+		$service = $this->createMock(AiFeatureLookup::class);
 		$service->method('findBySlug')->willReturnCallback(
 			static function (string $slug) use ($data): ?ObjectEntity {
 				if ($slug !== 'samenvatten') {
@@ -73,10 +73,10 @@ class RedactionGateTest extends TestCase {
 	/**
 	 * A model policy permitting the one pair these tests use.
 	 *
-	 * @return OrganisationModelPolicyService The double.
+	 * @return EffectiveModelPolicy The double.
 	 */
-	private function policy(): OrganisationModelPolicyService {
-		$service = $this->createMock(OrganisationModelPolicyService::class);
+	private function policy(): EffectiveModelPolicy {
+		$service = $this->createMock(EffectiveModelPolicy::class);
 		$service->method('isAllowed')->willReturn(true);
 		$service->method('effectivePolicyFor')->willReturn(
 			['source' => 'organisation', 'allowed' => [], 'defaultModel' => null]

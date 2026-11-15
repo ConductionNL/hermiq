@@ -87,11 +87,25 @@ class ContactWriteService {
 			);
 		}
 
+		$write = new ContactWrite(book: $book, name: $name);
+		$write->arguments = $arguments;
+		$write->agentId = $agentId;
+
+		return $this->save(write: $write, uid: $uid);
+
+	}//end upsert()
+
+	/**
+	 * Save the card in the address book; a failed or empty save is reported, never thrown.
+	 *
+	 * @param ContactWrite $write The contact being saved.
+	 * @param string $uid The acting user id, for the log.
+	 *
+	 * @return array<string, mixed> The result, or an error envelope.
+	 */
+	private function save(ContactWrite $write, string $uid): array {
 		try {
-			$saved = $this->contactsManager->createOrUpdate(
-				$this->properties(name: $name, arguments: $arguments, agentId: $agentId),
-				$book->getKey()
-			);
+			$saved = $this->contactsManager->createOrUpdate($this->properties(write: $write), $write->book->getKey());
 		} catch (Throwable $e) {
 			$this->logger->warning('Hermiq: contact upsert failed', ['exception' => $e, 'user' => $uid]);
 
@@ -104,28 +118,27 @@ class ContactWriteService {
 
 		return [
 			'saved' => true,
-			'name' => $name,
-			'addressBook' => $book->getDisplayName(),
+			'name' => $write->name,
+			'addressBook' => $write->book->getDisplayName(),
 			'artefact' => ['type' => 'contact', 'id' => (string)($saved['UID'] ?? '')],
 		];
 
-	}//end upsert()
+	}//end save()
 
 	/**
 	 * Assemble the vCard property map, including the ADR-088 mark.
 	 *
-	 * @param string $name The contact's full name.
-	 * @param array<string, mixed> $arguments The tool arguments.
-	 * @param string $agentId The invoking agent id.
+	 * @param ContactWrite $write The contact being saved.
 	 *
 	 * @return array<string, string> The vCard properties.
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored-req-ailbl-001
 	 */
-	private function properties(string $name, array $arguments, string $agentId): array {
-		$properties = ['FN' => $name];
+	private function properties(ContactWrite $write): array {
+		$properties = ['FN' => $write->name];
 
 		$optional = ['email' => 'EMAIL', 'phone' => 'TEL', 'organization' => 'ORG', 'uid' => 'UID'];
 		foreach ($optional as $argument => $property) {
-			$value = trim((string)($arguments[$argument] ?? ''));
+			$value = trim((string)($write->arguments[$argument] ?? ''));
 			if ($value !== '') {
 				$properties[$property] = $value;
 			}
@@ -134,7 +147,7 @@ class ContactWriteService {
 		// ADR-088 mark, written as part of the same card so the contact cannot
 		// exist unmarked. An `X-` property is used because system tags do not
 		// apply to CardDAV objects, and it survives sync and export.
-		$properties[AgentArtefactMarker::OBJECT_PROPERTY] = $this->marker->objectPropertyValue(agentId: $agentId);
+		$properties[AgentArtefactMarker::OBJECT_PROPERTY] = $this->marker->objectPropertyValue(agentId: $write->agentId);
 
 		return $properties;
 

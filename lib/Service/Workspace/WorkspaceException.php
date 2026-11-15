@@ -36,7 +36,14 @@ use RuntimeException;
  */
 class WorkspaceException extends RuntimeException {
 
-	public const TOKEN_INVALID = 'token_invalid';
+	public const RUN_SCOPE_INVALID = 'token_invalid';
+
+	/**
+	 * The former name of RUN_SCOPE_INVALID.
+	 *
+	 * @deprecated Use RUN_SCOPE_INVALID.
+	 */
+	public const TOKEN_INVALID = self::RUN_SCOPE_INVALID;
 
 	public const WORKSPACE_ABSENT = 'workspace_absent';
 

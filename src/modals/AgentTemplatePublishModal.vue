@@ -69,10 +69,9 @@
 </template>
 
 <script>
-import axios from '@nextcloud/axios'
-import { generateUrl } from '@nextcloud/router'
 import { NcButton, NcModal, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
 import { publishAgentTemplateToGithub } from '../api/agentTemplates.js'
+import { githubPublishForm } from './githubPublishForm.js'
 
 export default {
 	name: 'AgentTemplatePublishModal',
@@ -85,6 +84,8 @@ export default {
 		NcTextField,
 	},
 
+	mixins: [githubPublishForm],
+
 	props: {
 		/** The uuid of the template being published. */
 		templateId: {
@@ -95,121 +96,19 @@ export default {
 
 	emits: ['close', 'published'],
 
-	data() {
-		return {
-			form: {
-				owner: '',
-				repo: '',
-			},
-
-			visibility: { label: this.t('hermiq', 'Private'), value: 'private' },
-			credential: null,
-			credentials: [],
-			loadingCredentials: false,
-			publishing: false,
-			publishError: '',
-		}
-	},
-
-	computed: {
-		/**
-		 * The publish visibility options (mirrors OpenBuild's `ExportsController`
-		 * default: new repos default to `private`).
-		 *
-		 * @return {Array<object>} NcSelect options.
-		 *
-		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-let-a-template-owner-publish-it-to-a-new-tagged-github-repository
-		 */
-		visibilityOptions() {
-			return [
-				{ label: this.t('hermiq', 'Private'), value: 'private' },
-				{ label: this.t('hermiq', 'Public'), value: 'public' },
-			]
-		},
-
-		/**
-		 * The caller's broker credentials scoped to the `github` provider.
-		 *
-		 * @return {Array<object>} NcSelect options.
-		 *
-		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
-		 */
-		githubCredentials() {
-			return this.credentials
-				.filter((c) => c.provider === 'github')
-				.map((c) => ({ label: c.name || c.id, value: c.id }))
-		},
-
-		/**
-		 * Whether the publish form has everything it needs to submit.
-		 *
-		 * @return {boolean} True when the form can be submitted.
-		 *
-		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-validate-repo-coordinates-before-any-github-call
-		 */
-		canPublish() {
-			return (
-				this.form.owner.trim() !== ''
-				&& this.form.repo.trim() !== ''
-				&& !!this.credential
-			)
-		},
-	},
-
-	mounted() {
-		this.fetchCredentials()
-	},
-
 	methods: {
-		/**
-		 * Load the caller's broker credentials (for the GitHub credential picker).
-		 *
-		 * @return {Promise<void>}
-		 *
-		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
-		 */
-		async fetchCredentials() {
-			this.loadingCredentials = true
-			try {
-				const { data } = await axios.get(
-					generateUrl('/apps/openregister/api/credentials'),
-				)
-				this.credentials = data.results || []
-			} catch (e) {
-				this.credentials = []
-			} finally {
-				this.loadingCredentials = false
-			}
-		},
-
 		/**
 		 * Publish this template to a new GitHub repository tagged
 		 * `topic:hermiq-agent-template`. A broker `github` credential is
 		 * required — the GitHub token never reaches Hermiq.
 		 *
-		 * @return {Promise<void>}
-		 *
 		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-let-a-template-owner-publish-it-to-a-new-tagged-github-repository
+		 *
+		 * @param {object} payload The owner, repo, visibility and credentialId.
+		 * @return {Promise<object>} The endpoint's result, with `repoUrl`.
 		 */
-		async doPublish() {
-			this.publishing = true
-			this.publishError = ''
-			try {
-				const result = await publishAgentTemplateToGithub(this.templateId, {
-					owner: this.form.owner.trim(),
-					repo: this.form.repo.trim(),
-					visibility: this.visibility?.value || 'private',
-					credentialId: this.credential?.value,
-				})
-				this.$emit('published', result.repoUrl)
-			} catch (e) {
-				this.publishError =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
-			} finally {
-				this.publishing = false
-			}
+		publishToGithub(payload) {
+			return publishAgentTemplateToGithub(this.templateId, payload)
 		},
 	},
 }

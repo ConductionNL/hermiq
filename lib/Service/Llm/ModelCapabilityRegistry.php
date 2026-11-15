@@ -34,7 +34,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Llm;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ModelCapabilityRegistryInterface;
 use OCP\IAppConfig;
 
 /**
@@ -42,7 +43,7 @@ use OCP\IAppConfig;
  *
  * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
  */
-class ModelCapabilityRegistry {
+class ModelCapabilityRegistry implements ModelCapabilityRegistryInterface {
 
 	/**
 	 * The model reads images natively.
@@ -176,7 +177,7 @@ class ModelCapabilityRegistry {
 		}
 
 		$this->appConfig->setValueString(
-			Application::APP_ID,
+			AppIdentity::APP_ID,
 			self::CONFIG_KEY,
 			(string)json_encode($stored)
 		);
@@ -291,7 +292,7 @@ class ModelCapabilityRegistry {
 	 * @return array<mixed> The stored map.
 	 */
 	private function stored(): array {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, self::CONFIG_KEY, '');
+		$raw = $this->appConfig->getValueString(AppIdentity::APP_ID, self::CONFIG_KEY, '');
 		if ($raw === '') {
 			return [];
 		}

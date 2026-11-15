@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/session-about-a-subject/tasks.md
+ * @spec openspec/changes/archive/2026-11-12-session-about-a-subject/tasks.md
  */
 
 declare(strict_types=1);
@@ -28,13 +28,14 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Chat;
 
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Throwable;
 
 /**
  * Reads, records and filters on the subject of a session.
  *
- * @spec openspec/changes/session-about-a-subject/tasks.md
+ * @spec openspec/changes/archive/2026-11-12-session-about-a-subject/tasks.md
  */
 class SessionSubject {
 
@@ -43,7 +44,7 @@ class SessionSubject {
 	 *
 	 * @param ObjectService $objectService Reads the subject record as the caller.
 	 *
-	 * @spec openspec/changes/session-about-a-subject/tasks.md
+	 * @spec openspec/changes/archive/2026-11-12-session-about-a-subject/tasks.md
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
@@ -60,7 +61,7 @@ class SessionSubject {
 	 *
 	 * @return array<string, mixed> The payload.
 	 *
-	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
+	 * @spec openspec/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
 	 */
 	public function stamp(array $session, array $context): array {
 		$subject = $this->readableSubject(context: $context);
@@ -78,7 +79,7 @@ class SessionSubject {
 	 *
 	 * @return array<string, string>|null The subject.
 	 *
-	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
+	 * @spec openspec/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
 	 */
 	public function subjectOf(array $sessionData): ?array {
 		$metadata = ($sessionData['metadata'] ?? null);
@@ -103,7 +104,7 @@ class SessionSubject {
 	 *
 	 * @return array<string, mixed> The payload to save.
 	 *
-	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
+	 * @spec openspec/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
 	 */
 	public function writablePayload(array $stored, array $data): array {
 		$payload = $stored;
@@ -128,7 +129,7 @@ class SessionSubject {
 	 *
 	 * @return mixed The metadata to store.
 	 *
-	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
+	 * @spec openspec/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
 	 */
 	public function checkedMetadata(mixed $metadata, ?array $stored): mixed {
 		if (is_array($metadata) === false || array_key_exists('subject', $metadata) === false) {
@@ -154,7 +155,7 @@ class SessionSubject {
 	 *
 	 * @return array<string, string>|null The subject to store, or null to leave it out.
 	 *
-	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
+	 * @spec openspec/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
 	 */
 	private function writtenSubject(mixed $sent, ?array $stored): ?array {
 		if (is_array($sent) === false) {
@@ -177,7 +178,7 @@ class SessionSubject {
 	 *
 	 * @return ObjectEntity[] The sessions.
 	 *
-	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-the-session-list-can-be-narrowed-to-one-record
+	 * @spec openspec/specs/session-surface/spec.md#requirement-the-session-list-can-be-narrowed-to-one-record
 	 */
 	public function about(array $sessions, mixed $objectUuid): array {
 		$uuid = $this->text(value: $objectUuid);
@@ -236,8 +237,10 @@ class SessionSubject {
 		try {
 			$record = $this->objectService->find(
 				id: $subject['objectUuid'],
-				register: $this->orNull(value: $subject['register']),
-				schema: $this->orNull(value: $subject['schema'])
+				options: new ObjectFindOptions(
+					register: $this->orNull(value: $subject['register']),
+					schema: $this->orNull(value: $subject['schema'])
+				)
 			);
 		} catch (Throwable $e) {
 			$record = null;

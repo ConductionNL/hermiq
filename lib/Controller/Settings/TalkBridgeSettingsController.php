@@ -21,16 +21,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-chat-bridge/tasks.md#7-opt-in-and-admin-visibility
+ * @spec openspec/changes/archive/2026-07-30-talk-chat-bridge/tasks.md#7-opt-in-and-admin-visibility
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller\Settings;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\Talk\TalkAgentBinding;
-use OCA\Hermiq\Service\Talk\TalkBridgeStatus;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\TalkAgentBindingInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkBridgeStatusInterface;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -45,24 +45,24 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
+ * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
  */
 class TalkBridgeSettingsController extends Controller {
 	/**
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request.
-	 * @param TalkBridgeStatus $status Reports the bridge's effective configuration.
-	 * @param TalkAgentBinding $agentBinding Reads and writes the room→agent map.
+	 * @param TalkBridgeStatusInterface $status Reports the bridge's effective configuration.
+	 * @param TalkAgentBindingInterface $agentBinding Reads and writes the room→agent map.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly TalkBridgeStatus $status,
-		private readonly TalkAgentBinding $agentBinding,
+		private readonly TalkBridgeStatusInterface $status,
+		private readonly TalkAgentBindingInterface $agentBinding,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 
@@ -74,7 +74,7 @@ class TalkBridgeSettingsController extends Controller {
 	 *
 	 * @return JSONResponse The bridge status.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function get(): JSONResponse {
@@ -101,7 +101,7 @@ class TalkBridgeSettingsController extends Controller {
 	 *
 	 * @return JSONResponse The updated bridge status.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-the-integration-is-opt-in-on-both-sides
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-integration-is-opt-in-on-both-sides
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function bindRoom(): JSONResponse {
