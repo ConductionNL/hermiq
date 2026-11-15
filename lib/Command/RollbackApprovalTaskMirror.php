@@ -36,6 +36,8 @@ namespace OCA\Hermiq\Command;
 
 use OCA\Hermiq\Kernel\Contracts\ApprovalTaskBridgeInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Command\Command;
@@ -164,9 +166,10 @@ class RollbackApprovalTaskMirror extends Command {
 					->setSchema(self::APPROVAL_SCHEMA)
 					->saveObject(
 						object: $data,
-						register: self::REGISTER_SLUG,
-						schema: self::APPROVAL_SCHEMA,
-						uuid: $approvalUuid,
+						options: new ObjectSaveOptions(
+							target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA),
+							uuid: $approvalUuid
+						),
 						_rbac: false,
 						_multitenancy: false
 					);
