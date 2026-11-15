@@ -30,7 +30,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-chat-bridge/tasks.md#1-bot-registration-and-lifecycle
+ * @spec openspec/changes/archive/2026-07-30-talk-chat-bridge/tasks.md#1-bot-registration-and-lifecycle
  */
 
 declare(strict_types=1);
@@ -48,7 +48,7 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
+ * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
  */
 class TalkBridge {
 
@@ -134,7 +134,7 @@ class TalkBridge {
 	 *
 	 * @return bool True when spreed is present and its classes resolve.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-listener-registration-is-unconditional-and-availability-is-probed-at-invoke-time
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-listener-registration-is-unconditional-and-availability-is-probed-at-invoke-time
 	 */
 	public function isAvailable(): bool {
 		return $this->talkBroker->hasBackend() === true
@@ -154,7 +154,7 @@ class TalkBridge {
 	 *
 	 * @return string The bot actor id.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/contract.md
+	 * @spec openspec/changes/archive/2026-07-30-talk-chat-bridge/contract.md
 	 */
 	public function botActorId(?string $agentId = null): string {
 		if ($agentId === null || trim($agentId) === '') {
@@ -171,7 +171,7 @@ class TalkBridge {
 	 *
 	 * @return string The per-agent bot URL.
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
 	 */
 	public static function botUrlFor(string $agentId): string {
 		return self::BOT_URL_PREFIX . $agentId;
@@ -195,7 +195,7 @@ class TalkBridge {
 	 *
 	 * @return bool True when Hermiq owns this bot.
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
 	 */
 	public static function isHermiqBotUrl(string $url): bool {
 		return ($url === self::BOT_URL || self::agentIdFromBotUrl(url: $url) !== null);
@@ -215,7 +215,7 @@ class TalkBridge {
 	 *
 	 * @return string|null The agent uuid, or null when this is not a per-agent Hermiq bot.
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
 	 */
 	public static function agentIdFromBotUrl(string $url): ?string {
 		if (str_starts_with($url, self::BOT_URL_PREFIX) === false) {
@@ -243,7 +243,7 @@ class TalkBridge {
 	 *
 	 * @return bool True when the message was posted.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
 	 */
 	public function postToRoom(string $roomToken, string $message, ?string $agentId = null): bool {
 		return ($this->postToRoomReturningId(roomToken: $roomToken, message: $message, agentId: $agentId) !== null);
@@ -262,7 +262,7 @@ class TalkBridge {
 	 *
 	 * @return string|null The posted message's id, or null when it could not be posted.
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
 	 */
 	public function postToRoomReturningId(string $roomToken, string $message, ?string $agentId = null): ?string {
 		if ($this->isAvailable() === false || $roomToken === '' || trim($message) === '') {
@@ -284,12 +284,7 @@ class TalkBridge {
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				message: '[TalkBridge] Could not post the agent answer into the room',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'roomToken' => $roomToken,
-					'error' => $e->getMessage(),
-				]
+				context: $this->roomFailure(roomToken: $roomToken, error: $e)
 			);
 			return null;
 		}//end try
@@ -306,7 +301,7 @@ class TalkBridge {
 	 *
 	 * @return bool True when the room is one-to-one.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-group-room
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-group-room
 	 */
 	public function isOneToOne(string $roomToken): bool {
 		if ($this->isAvailable() === false || $roomToken === '') {
@@ -320,12 +315,7 @@ class TalkBridge {
 		} catch (Throwable $e) {
 			$this->logger->debug(
 				message: '[TalkBridge] Could not resolve the room type; treating it as a group room',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'roomToken' => $roomToken,
-					'error' => $e->getMessage(),
-				]
+				context: $this->roomFailure(roomToken: $roomToken, error: $e)
 			);
 			return false;
 		}//end try
@@ -343,7 +333,7 @@ class TalkBridge {
 	 *
 	 * @return string[] The participant uids, or an empty list when unresolvable.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
 	 */
 	public function roomUserIds(string $roomToken): array {
 		if ($this->isAvailable() === false || $roomToken === '') {
@@ -355,26 +345,44 @@ class TalkBridge {
 			$participants = $this->container->get('OCA\\Talk\\Service\\ParticipantService')
 				->getParticipantUserIds($room);
 
-			$uids = [];
-			foreach ($participants as $uid) {
-				if (is_string($uid) === true && $uid !== '' && in_array($uid, $uids, true) === false) {
-					$uids[] = $uid;
-				}
-			}
-
-			return $uids;
+			return $this->uniqueUserIds(participants: $participants);
 		} catch (Throwable $e) {
 			$this->logger->debug(
 				message: '[TalkBridge] Could not resolve room participants',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'roomToken' => $roomToken,
-					'error' => $e->getMessage(),
-				]
+				context: $this->roomFailure(roomToken: $roomToken, error: $e)
 			);
 			return [];
 		}//end try
 
 	}//end roomUserIds()
+
+	/**
+	 * Each non-empty string uid once, in the order spreed listed them.
+	 *
+	 * @param iterable<mixed> $participants The participant uids as spreed returned them.
+	 *
+	 * @return string[] The uids.
+	 */
+	private function uniqueUserIds(iterable $participants): array {
+		$uids = [];
+		foreach ($participants as $uid) {
+			if (is_string($uid) === true && $uid !== '' && in_array($uid, $uids, true) === false) {
+				$uids[] = $uid;
+			}
+		}
+
+		return $uids;
+	}//end uniqueUserIds()
+
+	/**
+	 * A room call's failure context: where it was logged, the room, then the error.
+	 *
+	 * @param string    $roomToken The Talk room token.
+	 * @param Throwable $error     The failure.
+	 *
+	 * @return array<string, mixed> The context.
+	 */
+	private function roomFailure(string $roomToken, Throwable $error): array {
+		return ['file' => __FILE__, 'line' => __LINE__, 'roomToken' => $roomToken, 'error' => $error->getMessage()];
+	}//end roomFailure()
 }//end class

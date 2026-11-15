@@ -3,7 +3,7 @@
 /**
  * Hermiq provides no TaskProcessing type it consumes (use-nextcloud-ai-settings).
  *
- * Reads every TaskProcessing provider Application::register() registers and checks its
+ * Reads every TaskProcessing provider the bootstrap registers (ProviderRegistrar::register()) and checks its
  * task type against the types hermiq
  * sends its own LLM work to. On the old code hermiq registered core:text2text, summary and
  * headline providers, so an admin who preferred hermiq would loop hermiq's own request.
@@ -24,8 +24,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\AppInfo;
 
-use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Llm\NextcloudTaskClient;
+use OCA\Hermiq\TaskProcessing\ProviderRegistrar;
 use OCP\TaskProcessing\TaskTypes\ContextAgentInteraction;
 use OCP\TaskProcessing\TaskTypes\TextToTextHeadline;
 use OCP\TaskProcessing\TaskTypes\TextToTextSummary;
@@ -39,17 +39,20 @@ use ReflectionClass;
  */
 class ProviderRegistrationLoopTest extends TestCase {
 	/**
-	 * The task types of every provider Application::register() registers.
+	 * The task types of every provider the bootstrap registers, through
+	 * ProviderRegistrar::register().
 	 *
 	 * Read from the source of register(), the same way VersionFloorGuardTest reads it:
 	 * running register() for real needs a booted Nextcloud (it calls \OCP\Util), which
 	 * a host PHPUnit run does not have. Each `registerTaskProcessingProvider(X::class)`
-	 * is resolved through the file's `use` statements and asked for its task type.
+	 * is resolved through the file's `use` statements (or its own namespace) and asked
+	 * for its task type.
 	 *
 	 * @return list<string>
 	 */
 	private function registeredTaskTypes(): array {
-		$source = (string)file_get_contents((new ReflectionClass(Application::class))->getFileName());
+		$registrar = new ReflectionClass(ProviderRegistrar::class);
+		$source = (string)file_get_contents($registrar->getFileName());
 
 		$imports = [];
 		preg_match_all('/^use\s+([A-Za-z0-9_\\\\]+);/m', $source, $uses);
@@ -63,9 +66,10 @@ class ProviderRegistrationLoopTest extends TestCase {
 
 		$types = [];
 		foreach ($calls[1] as $short) {
-			$this->assertArrayHasKey($short, $imports, "Provider {$short} is not imported in Application.php");
+			$fqcn = ($imports[$short] ?? $registrar->getNamespaceName() . '\\' . $short);
+			$this->assertTrue(class_exists($fqcn), "Provider {$short} does not resolve to a class");
 			// getTaskTypeId() reads a constant; no collaborator is needed to answer it.
-			$types[] = (new ReflectionClass($imports[$short]))->newInstanceWithoutConstructor()->getTaskTypeId();
+			$types[] = (new ReflectionClass($fqcn))->newInstanceWithoutConstructor()->getTaskTypeId();
 		}
 
 		return $types;

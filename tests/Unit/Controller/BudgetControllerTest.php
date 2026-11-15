@@ -7,7 +7,7 @@
  * path, 500 on service failure) and the admin/owner-gated write endpoints
  * (create/update/destroy: 401 unauthenticated, 403 for a plain user, 200 for an
  * instance admin or the organisation owner, 404 on update/destroy of a nonexistent
- * budget) — mirrors TenantControlControllerTest's authorization matrix.
+ * budget) — mirrors OrganisationControlControllerTest's authorization matrix.
  *
  * @category Test
  * @package  OCA\Hermiq\Tests\Unit\Controller
@@ -519,4 +519,34 @@ class BudgetControllerTest extends TestCase {
 		$this->assertTrue($response->getData()['deleted']);
 
 	}//end testDestroySucceedsForOrgOwner()
+
+	/**
+	 * create() refuses an empty organisation with 403 before any admin or
+	 * owner lookup, even for an instance admin; an owner lookup that throws is
+	 * a refusal too.
+	 *
+	 * @return void
+	 */
+	public function testCreateRefusesEmptyOrganisationAndFailedOwnerLookup(): void {
+		$service = $this->createMock(BudgetService::class);
+		$service->expects($this->never())->method('create');
+		$groupManager = $this->createMock(IGroupManager::class);
+		$groupManager->expects($this->never())->method('isAdmin');
+		$orgMapper = $this->createMock(OrganisationMapper::class);
+		$orgMapper->expects($this->never())->method('findByUuid');
+
+		$empty = $this->controller($service, $this->session('root'), $this->request(['organisation' => '']), $groupManager, $orgMapper)->create();
+		$this->assertSame(Http::STATUS_FORBIDDEN, $empty->getStatus());
+		$this->assertSame(['error' => 'Forbidden'], $empty->getData());
+
+		$failed = $this->controller(
+			$service,
+			$this->session('alice'),
+			$this->request(['organisation' => 'org-a']),
+			$this->groupManager(false),
+			$this->orgMapper(null)
+		)->create();
+		$this->assertSame(Http::STATUS_FORBIDDEN, $failed->getStatus());
+
+	}//end testCreateRefusesEmptyOrganisationAndFailedOwnerLookup()
 }//end class

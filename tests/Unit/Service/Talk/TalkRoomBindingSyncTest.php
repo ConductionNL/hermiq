@@ -217,4 +217,51 @@ class TalkRoomBindingSyncTest extends TestCase {
 		$this->assertSame(['rbac' => false, 'multitenancy' => true, 'filters' => ['talkRoomToken' => 'room-1']], $flags);
 
 	}//end testTheRoomLookupIsNotLimitedToTheCallersOwnSessions()
+
+	/**
+	 * The room lookup: an empty token reads nothing; the newest single match is asked
+	 * for; the first object entity is returned; a failed read is logged and finds none.
+	 *
+	 * @return void
+	 */
+	public function testTheRoomLookupReadsTheNewestBoundSession(): void {
+		$configs = [];
+		$results = [['not-an-entity', $this->session([])], [], new \RuntimeException('store down')];
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('setRegister')->willReturnSelf();
+		$objectService->method('setSchema')->willReturnSelf();
+		$objectService->method('findAll')->willReturnCallback(
+			function (array $config) use (&$configs, &$results): array {
+				$configs[] = $config;
+				$result = array_shift($results);
+				if ($result instanceof \Throwable) {
+					throw $result;
+				}
+
+				return $result;
+			}
+		);
+		$logged = [];
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->method('warning')->willReturnCallback(
+			static function (string $message, array $context) use (&$logged): void {
+				unset($context['file'], $context['line']);
+				$logged[] = [$message, $context];
+			}
+		);
+		$binding = new TalkRoomBinding($objectService, $logger);
+
+		$this->assertNull($binding->findByRoomToken(roomToken: ''));
+		$this->assertSame('conv-1', $binding->findByRoomToken(roomToken: 'room-1')?->getUuid());
+		$this->assertNull($binding->findByRoomToken(roomToken: 'room-2'));
+		$this->assertNull($binding->findByRoomToken(roomToken: 'room-3'));
+
+		$config = static fn (string $token): array => ['filters' => ['talkRoomToken' => $token], 'sort' => ['created' => 'DESC'], 'limit' => 1];
+		$this->assertSame([$config('room-1'), $config('room-2'), $config('room-3')], $configs);
+		$this->assertSame(
+			[['[TalkRoomBinding] Could not resolve the conversation bound to the room', ['roomToken' => 'room-3', 'error' => 'store down']]],
+			$logged
+		);
+
+	}//end testTheRoomLookupReadsTheNewestBoundSession()
 }//end class

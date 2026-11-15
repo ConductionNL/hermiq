@@ -197,6 +197,67 @@ class AgentCatalogTest extends TestCase {
 	}//end testOneRowByWhoAsks()
 
 	/**
+	 * Exact rows, in key order, for a user page, an admin page and single rows: a
+	 * row the reader may not use and does not administer is left out, a non-object
+	 * entry is skipped, and an admin sees the reduced fields with the reason.
+	 *
+	 * @return void
+	 */
+	public function testExactRowsByWhoAsks(): void {
+		$open = $this->agent(uuid: 'a-1', data: ['name' => 'Open', 'isPrivate' => false, 'prompt' => 'p', 'icon' => 'i'], owner: 'bob');
+		$closed = $this->agent(
+			uuid: 'a-2',
+			data: ['name' => 'Closed', 'isPrivate' => true, 'prompt' => 's', 'description' => 'd', 'active' => false, 'invitedUsers' => ['carol']],
+			owner: 'zed'
+		);
+		$openRow = [
+			'id' => 'a-1',
+			'name' => 'Open',
+			'isPrivate' => false,
+			'prompt' => 'p',
+			'icon' => 'i',
+			'uuid' => 'a-1',
+			'owner' => 'bob',
+			'ownerDisplayName' => 'Bob de Vries',
+			'organisation' => 'org-1',
+			'sharing' => 'organisation',
+			'active' => true,
+			'created' => null,
+			'updated' => null,
+		];
+		$reducedRow = [
+			'name' => 'Closed',
+			'isPrivate' => true,
+			'description' => 'd',
+			'active' => false,
+			'visibleBecause' => 'organisation admin',
+			'id' => 'a-2',
+			'uuid' => 'a-2',
+			'owner' => 'zed',
+			'ownerDisplayName' => 'zed',
+			'organisation' => 'org-1',
+			'sharing' => 'people-and-groups',
+		];
+
+		$userPage = $this->catalog(page: [$open, 'junk', $closed], total: 3)->page(uid: 'alice', limit: 5, offset: 0);
+		$adminPage = $this->catalog(page: [$open, $closed], total: 2, orgAdmin: true)->page(uid: 'alice', limit: 5, offset: 0);
+
+		$this->assertSame(expected: ['results' => [$openRow], 'total' => 3, 'limit' => 5, 'offset' => 0], actual: $userPage);
+		$this->assertSame(
+			expected: [
+				'results' => [$openRow, $reducedRow + ['created' => null, 'updated' => null]],
+				'total' => 2,
+				'limit' => 5,
+				'offset' => 0,
+			],
+			actual: $adminPage
+		);
+		$this->assertSame(expected: $openRow, actual: $this->catalog(page: [], total: 0)->row(agent: $open, uid: 'alice'));
+		$this->assertNull(actual: $this->catalog(page: [], total: 0)->row(agent: $closed, uid: 'alice'));
+
+	}//end testExactRowsByWhoAsks()
+
+	/**
 	 * The three sharing choices, read from the three stored fields.
 	 *
 	 * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-an-agent-owner-decides-who-can-use-the-agent-req-agshare-001

@@ -11,25 +11,10 @@
 
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
+import { githubSearchParams, listOrResults as toList } from './listEnvelope.js'
 
 /** Hermiq skills API base. */
 const SKILLS_BASE = '/apps/hermiq/api/skills'
-
-/**
- * Normalise the Hermiq list envelope to a plain array.
- *
- * @param {object} data The response body.
- * @return {Array<object>} The extracted list (empty array on miss).
- */
-function toList(data) {
-	if (Array.isArray(data)) {
-		return data
-	}
-	if (Array.isArray(data?.results)) {
-		return data.results
-	}
-	return []
-}
 
 /**
  * List the tenant's skills.
@@ -193,13 +178,7 @@ export async function publishSkill(id, hubId = 'default') {
  * @return {Promise<object>} `{ outcome, cards, brokerCredentialAvailable, brokerUsed, rateLimited }`.
  */
 export async function searchGithubSkills(query = '', credentialId = null) {
-	const params = {}
-	if (query) {
-		params.q = query
-	}
-	if (credentialId) {
-		params.credentialId = credentialId
-	}
+	const params = githubSearchParams(query, credentialId)
 	const response = await axios.get(generateUrl(`${SKILLS_BASE}/github/search`), {
 		params,
 	})

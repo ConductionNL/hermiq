@@ -88,6 +88,7 @@ class SeedAgentBuilderTest extends TestCase {
 				bool $failIfExists = false,
 				bool $_unowned = false,
 				bool $_dedupOverride = false,
+				?string $_owner = null,
 			): ObjectEntity {
 				$this->writes++;
 				// A real UUID: the fragments declare format uuid on installedOn and skillInstalls.

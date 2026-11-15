@@ -67,19 +67,44 @@ class TaskCalendarObject {
 	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-create-a-task-in-the-users-own-list-marked-as-agent-authored-req-nctask-002
 	 */
 	public function build(string $taskUid, array $fields, string $markValue, DateTimeImmutable $now): string {
-		$stamp = $this->utc(moment: $now);
-		$lines = [
-			'BEGIN:VCALENDAR',
-			'VERSION:2.0',
-			'PRODID:-//Conduction//Hermiq//EN',
-			'BEGIN:VTODO',
-			'UID:' . $this->escape(text: $taskUid),
-			'DTSTAMP:' . $stamp,
-			'CREATED:' . $stamp,
-			'LAST-MODIFIED:' . $stamp,
-			'SUMMARY:' . $this->escape(text: trim((string)($fields['summary'] ?? ''))),
-		];
+		$lines = array_merge(
+			['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Conduction//Hermiq//EN', 'BEGIN:VTODO'],
+			$this->identityLines(taskUid: $taskUid, now: $now),
+			['SUMMARY:' . $this->escape(text: trim((string)($fields['summary'] ?? '')))],
+			$this->optionalLines(fields: $fields),
+			// ADR-088: the mark sits inside the same object that is stored, so the task
+			// cannot exist unmarked even for a moment.
+			['STATUS:NEEDS-ACTION', AgentArtefactMarker::OBJECT_PROPERTY . ':' . $markValue, 'END:VTODO', 'END:VCALENDAR']
+		);
 
+		return implode("\r\n", array_map(fn (string $line): string => $this->fold(line: $line), $lines)) . "\r\n";
+
+	}//end build()
+
+	/**
+	 * The new task's UID and its stamp, created and last-modified times, all now.
+	 *
+	 * @param string $taskUid The task's UID.
+	 * @param DateTimeImmutable $now The creation time.
+	 *
+	 * @return array<int, string> The content lines.
+	 */
+	private function identityLines(string $taskUid, DateTimeImmutable $now): array {
+		$stamp = $this->utc(moment: $now);
+
+		return ['UID:' . $this->escape(text: $taskUid), 'DTSTAMP:' . $stamp, 'CREATED:' . $stamp, 'LAST-MODIFIED:' . $stamp];
+
+	}//end identityLines()
+
+	/**
+	 * The description, due and priority lines, each only when the field is given.
+	 *
+	 * @param array<string, mixed> $fields description, due (validated ISO-8601), priority.
+	 *
+	 * @return array<int, string> The content lines.
+	 */
+	private function optionalLines(array $fields): array {
+		$lines = [];
 		$description = trim((string)($fields['description'] ?? ''));
 		if ($description !== '') {
 			$lines[] = 'DESCRIPTION:' . $this->escape(text: $description);
@@ -95,16 +120,9 @@ class TaskCalendarObject {
 			$lines[] = 'PRIORITY:' . (int)$priority;
 		}
 
-		// ADR-088: the mark sits inside the same object that is stored, so the task
-		// cannot exist unmarked even for a moment.
-		$lines[] = 'STATUS:NEEDS-ACTION';
-		$lines[] = AgentArtefactMarker::OBJECT_PROPERTY . ':' . $markValue;
-		$lines[] = 'END:VTODO';
-		$lines[] = 'END:VCALENDAR';
+		return $lines;
 
-		return implode("\r\n", array_map(fn (string $line): string => $this->fold(line: $line), $lines)) . "\r\n";
-
-	}//end build()
+	}//end optionalLines()
 
 	/**
 	 * Complete the first top-level VTODO of an object, or null when it has none.
@@ -118,39 +136,72 @@ class TaskCalendarObject {
 	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
 	 */
 	public function complete(string $ics, string $markValue, DateTimeImmutable $now): ?string {
-		$newline = "\n";
-		if (str_contains($ics, "\r\n") === true) {
-			$newline = "\r\n";
-		}
-
 		$logical = $this->logicalLines(physical: preg_split('/\r\n|\n/', $ics));
-		$start = null;
-		foreach ($logical as $index => $group) {
-			if (strtoupper($group[0]) === 'BEGIN:VTODO') {
-				$start = $index;
-				break;
-			}
-		}
-
+		$start = $this->firstTaskStart(logical: $logical);
 		if ($start === null) {
 			return null;
 		}
 
-		$added = [
+		$rewritten = $this->rewriteTask(logical: $logical, start: $start, added: $this->completionLines(markValue: $markValue, now: $now));
+		if ($rewritten === null) {
+			return null;
+		}
+
+		return implode($this->newlineOf(ics: $ics), array_merge(...$rewritten));
+
+	}//end complete()
+
+	/**
+	 * The newline the object uses: CRLF when it has one, else LF.
+	 *
+	 * @param string $ics The stored object.
+	 *
+	 * @return string The newline.
+	 */
+	private function newlineOf(string $ics): string {
+		if (str_contains($ics, "\r\n") === true) {
+			return "\r\n";
+		}
+
+		return "\n";
+
+	}//end newlineOf()
+
+	/**
+	 * The index of the first BEGIN:VTODO logical line, or null when there is none.
+	 *
+	 * @param array<int, array<int, string>> $logical The logical lines.
+	 *
+	 * @return int|null The index.
+	 */
+	private function firstTaskStart(array $logical): ?int {
+		foreach ($logical as $index => $group) {
+			if (strtoupper($group[0]) === 'BEGIN:VTODO') {
+				return $index;
+			}
+		}
+
+		return null;
+
+	}//end firstTaskStart()
+
+	/**
+	 * The lines completing adds: completed now, at 100%, and marked.
+	 *
+	 * @param string $markValue The ADR-088 mark value.
+	 * @param DateTimeImmutable $now The completion time.
+	 *
+	 * @return array<int, string> The content lines.
+	 */
+	private function completionLines(string $markValue, DateTimeImmutable $now): array {
+		return [
 			'STATUS:COMPLETED',
 			'COMPLETED:' . $this->utc(moment: $now),
 			'PERCENT-COMPLETE:100',
 			AgentArtefactMarker::OBJECT_PROPERTY . ':' . $markValue,
 		];
 
-		$rewritten = $this->rewriteTask(logical: $logical, start: $start, added: $added);
-		if ($rewritten === null) {
-			return null;
-		}
-
-		return implode($newline, array_merge(...$rewritten));
-
-	}//end complete()
+	}//end completionLines()
 
 	/**
 	 * Group physical lines into logical content lines: a line that starts with a

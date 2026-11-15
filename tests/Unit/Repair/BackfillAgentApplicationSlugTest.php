@@ -334,4 +334,95 @@ class BackfillAgentApplicationSlugTest extends TestCase {
 		$step->run($this->createMock(IOutput::class));
 
 	}//end testRunLogsAndSurvivesWhenPatchFails()
+
+	/**
+	 * The step names what it backfills.
+	 *
+	 * @return void
+	 */
+	public function testName(): void {
+		$step = new BackfillAgentApplicationSlug(
+			container: $this->containerWith(null),
+			logger: $this->createMock(LoggerInterface::class)
+		);
+
+		$this->assertSame('Backfill applicationSlug on the hydra-console agents (hermiq-agent-application-slug)', $step->getName());
+	}//end testName()
+
+	/**
+	 * An agent without a uuid cannot be patched and is counted as skipped;
+	 * the run reports both counts.
+	 *
+	 * @return void
+	 */
+	public function testAnAgentWithoutUuidIsSkippedAndCounted(): void {
+		$agents = [
+			$this->agentMock(name: 'Hydra Triage', uuid: '  ', applicationSlug: ''),
+			$this->agentMock(name: 'Hydra Triage', uuid: 'uuid-2', applicationSlug: ''),
+		];
+		$patchCalls = [];
+		$objectService = $this->objectServiceReturning(agents: $agents, patchCalls: $patchCalls);
+		$output = $this->createMock(IOutput::class);
+		$output->expects($this->once())->method('info')->with(
+			'Agent applicationSlug backfill: 1 agent(s) backfilled, 1 already present or absent.'
+		);
+
+		(new BackfillAgentApplicationSlug(container: $this->containerWith($objectService), logger: $this->createMock(LoggerInterface::class)))
+			->run($output);
+
+		$this->assertSame([['uuid-2', ['applicationSlug' => 'hydra-console']]], $patchCalls);
+	}//end testAnAgentWithoutUuidIsSkippedAndCounted()
+
+	/**
+	 * A failing lookup for one name is logged and the other names are still
+	 * backfilled; rows that are not objects, or whose name only resembles the
+	 * one asked for, are ignored.
+	 *
+	 * @return void
+	 */
+	public function testAFailingLookupIsLoggedAndOtherNamesStillRun(): void {
+		$names = BackfillAgentApplicationSlug::AGENT_NAMES;
+		$failing = $names[0];
+		$working = $names[1];
+		$agent = $this->agentMock(name: $working, uuid: 'uuid-ok', applicationSlug: '');
+		$lookalike = $this->agentMock(name: $working . ' (copy)', uuid: 'uuid-copy', applicationSlug: '');
+
+		$patched = [];
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('runAsSystem')->willReturnCallback(
+			static fn (callable $operation) => $operation()
+		);
+		$objectService->method('setRegister')->willReturnSelf();
+		$objectService->method('setSchema')->willReturnSelf();
+		$objectService->method('findAll')->willReturnCallback(
+			static function (array $config) use ($failing, $working, $agent, $lookalike): array {
+				$name = (string)($config['filters']['name'] ?? '');
+				if ($name === $failing) {
+					throw new RuntimeException('index unavailable');
+				}
+
+				if ($name === $working) {
+					return [['name' => $working], $lookalike, $agent];
+				}
+
+				return [];
+			}
+		);
+		$objectService->method('patchObject')->willReturnCallback(
+			static function (string $objectId, array $data) use (&$patched, $agent): ObjectEntity {
+				$patched[] = $objectId;
+				return $agent;
+			}
+		);
+
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects($this->once())->method('warning')->with(
+			'[hermiq] Could not look up agent "' . $failing . '" for the applicationSlug backfill: index unavailable'
+		);
+
+		(new BackfillAgentApplicationSlug(container: $this->containerWith($objectService), logger: $logger))
+			->run($this->createMock(IOutput::class));
+
+		$this->assertSame(['uuid-ok'], $patched);
+	}//end testAFailingLookupIsLoggedAndOtherNamesStillRun()
 }//end class

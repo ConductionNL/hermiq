@@ -386,4 +386,89 @@ class SkillDraftControllerTest extends TestCase {
 		$this->assertSame('draft-1', $response->getData()['draft']['uuid']);
 
 	}//end testProposeReturnsTheOpenDraftAsAPointer()
+
+	/**
+	 * Every accept outcome past the guard that the other tests leave open.
+	 *
+	 * @return void
+	 */
+	public function testEveryOtherAcceptOutcome(): void {
+		$cases = [
+			'no approval' => [null, null, [409, ['error' => 'The draft has no pending approval']]],
+			'vanished' => [new ObjectEntity(), new \OCP\AppFramework\Db\DoesNotExistException('gone'), [404, ['error' => 'Draft approval not found']]],
+			'throws' => [new ObjectEntity(), new \RuntimeException('db'), [500, ['error' => 'Accept failed']]],
+		];
+		foreach ($cases as $name => [$approval, $throw, $expected]) {
+			$controller = $this->controller($this->session('alice'));
+			$this->consolidation->method('getDraft')->willReturn($this->draft());
+			$this->skillService->method('getSkill')->willReturn($this->skill());
+			$this->approvalService->method('loadApproval')->willReturn($approval);
+			if ($throw !== null) {
+				$this->approvalService->method('approve')->willThrowException($throw);
+			}
+
+			$response = $controller->accept('draft-1');
+			$this->assertSame($expected, [$response->getStatus(), $response->getData()], $name);
+		}
+
+		$response = $this->controller($this->session(null))->accept('draft-1');
+		$this->assertSame([401, ['error' => 'Unauthenticated']], [$response->getStatus(), $response->getData()]);
+	}//end testEveryOtherAcceptOutcome()
+
+	/**
+	 * A reject without an approval settles the draft directly; a non-array refs param
+	 * is no refs; failures map to 404 and 500.
+	 *
+	 * @return void
+	 */
+	public function testEveryOtherRejectOutcome(): void {
+		$controller = $this->controller($this->session('alice'));
+		$this->consolidation->method('getDraft')->willReturn($this->draft());
+		$this->skillService->method('getSkill')->willReturn($this->skill());
+		$this->request->method('getParam')->willReturnMap([['note', '', ' bad '], ['rejectedLearningRefs', [], 'nope']]);
+		$this->approvalService->method('loadApproval')->willReturn(null);
+		$this->consolidation->expects($this->never())->method('markRejectedLearningRefs');
+		$this->consolidation->expects($this->once())->method('rejectDraftByDecision')
+			->with('draft-1', 'alice', 'bad', []);
+
+		$response = $controller->reject('draft-1');
+		$this->assertSame(200, $response->getStatus());
+		$this->assertSame('rejected', $response->getData()['status']);
+
+		foreach ([[new \OCP\AppFramework\Db\DoesNotExistException('gone'), [404, ['error' => 'Draft approval not found']]], [new \RuntimeException('db'), [500, ['error' => 'Reject failed']]]] as [$throw, $expected]) {
+			$controller = $this->controller($this->session('alice'));
+			$this->consolidation->method('getDraft')->willReturn($this->draft());
+			$this->skillService->method('getSkill')->willReturn($this->skill());
+			$this->approvalService->method('loadApproval')->willThrowException($throw);
+			$response = $controller->reject('draft-1');
+			$this->assertSame($expected, [$response->getStatus(), $response->getData()]);
+		}
+	}//end testEveryOtherRejectOutcome()
+
+	/**
+	 * Propose: anonymous 401, a non-owner 404, a failure 500, no draft 422.
+	 *
+	 * @return void
+	 */
+	public function testEveryOtherProposeOutcome(): void {
+		$response = $this->controller($this->session(null))->propose('skill-1');
+		$this->assertSame([401, ['error' => 'Unauthenticated']], [$response->getStatus(), $response->getData()]);
+
+		$controller = $this->controller($this->session('mallory'));
+		$this->skillService->method('getSkill')->willReturn($this->skill('alice'));
+		$this->assertSame([404, ['error' => 'Skill not found']], [$controller->propose('skill-1')->getStatus(), $controller->propose('skill-1')->getData()]);
+
+		$controller = $this->controller($this->session('alice'));
+		$this->skillService->method('getSkill')->willThrowException(new \RuntimeException('hidden'));
+		$this->assertSame(404, $controller->propose('skill-1')->getStatus());
+
+		$controller = $this->controller($this->session('alice'));
+		$this->skillService->method('getSkill')->willReturn($this->skill('alice'));
+		$this->consolidation->method('proposeForSkill')->willReturnOnConsecutiveCalls(
+			$this->throwException(new \RuntimeException('llm')),
+			['status' => 'no_learnings', 'draft' => null]
+		);
+		$this->assertSame([500, ['error' => 'Propose failed']], [($r = $controller->propose('skill-1'))->getStatus(), $r->getData()]);
+		$this->assertSame([422, ['error' => 'no_learnings']], [($r = $controller->propose('skill-1'))->getStatus(), $r->getData()]);
+	}//end testEveryOtherProposeOutcome()
 }//end class

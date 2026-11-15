@@ -212,6 +212,33 @@ class TurnAttachmentResolverTest extends TestCase {
 	}//end testACompanionUploadIsFoundByItsPath()
 
 	/**
+	 * The origin is the request's own when it is a known one; otherwise a file found
+	 * by path alone is an upload and anything else comes from Files.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 */
+	public function testTheOriginOfEachAttachment(): void {
+		$byPath = $this->file(id: 501, name: 'a.jpg', mime: 'image/jpeg', size: 1);
+		$files = [7 => $this->file(id: 7, name: 'b.pdf'), 'Hermiq/a.jpg' => $byPath, 8 => $this->file(id: 8, name: 'c.pdf')];
+		$resolver = $this->resolver(filesByUser: ['anne' => $files]);
+
+		$resolved = $resolver->resolve(
+			requested: [
+				['fileId' => 7, 'origin' => 'nonsense'],
+				['path' => 'Hermiq/a.jpg', 'origin' => 'generated'],
+				['fileId' => 8, 'path' => 'Hermiq/a.jpg'],
+			],
+			speaker: 'anne'
+		);
+
+		$this->assertSame(expected: ['files', 'generated', 'files'], actual: array_column($resolved, 'origin'));
+		$this->assertSame(expected: [7, 501, 8], actual: array_column($resolved, 'fileId'));
+
+	}//end testTheOriginOfEachAttachment()
+
+	/**
 	 * No attachments resolve to none without opening anyone's Files; more than the
 	 * cap is refused before any lookup; the same file twice is kept once.
 	 *

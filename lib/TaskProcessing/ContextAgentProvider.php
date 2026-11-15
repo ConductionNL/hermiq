@@ -34,7 +34,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\TaskProcessing;
 
-use OCA\Hermiq\Service\ContextAgentInteractionService;
+use OCA\Hermiq\Kernel\Contracts\ContextAgentInteractionServiceInterface;
 use OCP\IUserManager;
 use OCP\IUserSession;
 use OCP\TaskProcessing\ISynchronousProvider;
@@ -51,14 +51,14 @@ class ContextAgentProvider implements ISynchronousProvider {
 	/**
 	 * Constructor.
 	 *
-	 * @param ContextAgentInteractionService $interactionService Runs the governed turn.
+	 * @param ContextAgentInteractionServiceInterface $interactionService Runs the governed turn.
 	 * @param IUserSession|null $userSession The session the turn runs under.
 	 * @param IUserManager|null $userManager Resolves the task's user.
 	 *
 	 * @return void
 	 */
 	public function __construct(
-		private readonly ContextAgentInteractionService $interactionService,
+		private readonly ContextAgentInteractionServiceInterface $interactionService,
 		private readonly ?IUserSession $userSession = null,
 		private readonly ?IUserManager $userManager = null,
 	) {

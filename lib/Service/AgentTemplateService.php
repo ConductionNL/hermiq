@@ -24,8 +24,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-template-gallery/tasks.md#task-3-agenttemplateservice-export-import-quarantine-approve
- * @spec openspec/changes/agent-template-gallery/tasks.md#task-4-agenttemplateserviceinstantiate-model-coercion-skill-ref-resolution-schedule-hint
+ * @spec openspec/changes/archive/2026-07-13-agent-template-gallery/tasks.md#task-3-agenttemplateservice-export-import-quarantine-approve
+ * @spec openspec/changes/archive/2026-07-13-agent-template-gallery/tasks.md#task-4-agenttemplateserviceinstantiate-model-coercion-skill-ref-resolution-schedule-hint
  */
 
 declare(strict_types=1);
@@ -34,6 +34,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\AgentTemplateServiceInterface;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
@@ -44,36 +45,16 @@ use OCA\OpenRegister\Service\ObjectService;
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   The gallery lifecycle spans template CRUD,
  * package (de)serialisation, content scanning (OR ContentScanService), model-policy coercion
- * (TenantModelPolicyService), and best-effort skill-ref resolution (SkillService); each
+ * (OrganisationModelPolicyService), and best-effort skill-ref resolution (SkillService); each
  * dependency is one lifecycle stage, exactly as SkillMarketplaceService's coupling mirrors.
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Sum of many small, single-purpose CRUD/
- * export/import/quarantine/instantiate methods (mirrors ScheduleService/TenantOpsService's
+ * export/import/quarantine/instantiate methods (mirrors ScheduleService/OrganisationOpsService's
  * documented coordinator-service pattern) — no individual method is itself complex.
  *
- * @spec openspec/changes/agent-template-gallery/tasks.md#task-3-agenttemplateservice-export-import-quarantine-approve
+ * @spec openspec/changes/archive/2026-07-13-agent-template-gallery/tasks.md#task-3-agenttemplateservice-export-import-quarantine-approve
  */
-class AgentTemplateService {
+class AgentTemplateService implements AgentTemplateServiceInterface {
 	use SanitizesForSaveTrait;
-
-	/**
-	 * OpenRegister register slug that holds Hermiq objects.
-	 *
-	 * Public because `AgentTemplateController` addresses the same register when it
-	 * reads (ownership guard) and deletes through OpenRegister directly (ADR-022: no
-	 * app-local CRUD wrapper) — the slug is declared once, here.
-	 *
-	 * @var string
-	 */
-	public const REGISTER_SLUG = 'hermiq';
-
-	/**
-	 * Schema slug for AgentTemplate objects.
-	 *
-	 * Public for the same reason as REGISTER_SLUG above.
-	 *
-	 * @var string
-	 */
-	public const TEMPLATE_SCHEMA = 'agenttemplate';
 
 	/**
 	 * Schema slug for Agent objects (instantiate's write target).
@@ -112,7 +93,7 @@ class AgentTemplateService {
 	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
 	 * @param AgentTemplateSerializer $serializer The JSON package (de)serialiser.
 	 * @param ContentScanService $contentScanService OpenRegister heuristic content scanner.
-	 * @param TenantModelPolicyService $modelPolicyService Per-org provider/model allowlist.
+	 * @param EffectiveModelPolicy $modelPolicyService Per-org provider/model allowlist.
 	 * @param SkillService $skillService Best-effort skill-ref resolution.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Distinct collaborators (mirrors
@@ -122,7 +103,7 @@ class AgentTemplateService {
 		private readonly ObjectService $objectService,
 		private readonly AgentTemplateSerializer $serializer,
 		private readonly ContentScanService $contentScanService,
-		private readonly TenantModelPolicyService $modelPolicyService,
+		private readonly EffectiveModelPolicy $modelPolicyService,
 		private readonly SkillService $skillService,
 	) {
 	}//end __construct()
@@ -132,7 +113,7 @@ class AgentTemplateService {
 	 *
 	 * @return array<int, ObjectEntity> The AgentTemplate objects.
 	 *
-	 * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#non-functional-requirements
+	 * @spec openspec/specs/agent-template-gallery/spec.md#non-functional-requirements
 	 */
 	public function list(): array {
 		$objects = $this->objectService
@@ -163,7 +144,7 @@ class AgentTemplateService {
 	 *
 	 * @return ObjectEntity|null The template, or null when not found/not visible.
 	 *
-	 * @spec openspec/changes/agent-template-gallery/tasks.md#task-5-agenttemplatecontroller-routes-adr-023-action-seed
+	 * @spec openspec/changes/archive/2026-07-13-agent-template-gallery/tasks.md#task-5-agenttemplatecontroller-routes-adr-023-action-seed
 	 */
 	private function get(string $templateId): ?ObjectEntity {
 		return $this->objectService->find(
@@ -182,7 +163,7 @@ class AgentTemplateService {
 	 *
 	 * @return ObjectEntity The persisted template.
 	 *
-	 * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#requirement-importing-a-template-from-an-external-source-lands-quarantined-and-content-scanned
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-importing-a-template-from-an-external-source-lands-quarantined-and-content-scanned
 	 */
 	public function create(array $payload, string $createdBy): ObjectEntity {
 		$data = $this->stripProtectedKeys(data: $payload);
@@ -208,7 +189,7 @@ class AgentTemplateService {
 	 *
 	 * @return ObjectEntity|null The updated template, or null when not found.
 	 *
-	 * @spec openspec/changes/agent-template-gallery/tasks.md#task-5-agenttemplatecontroller-routes-adr-023-action-seed
+	 * @spec openspec/changes/archive/2026-07-13-agent-template-gallery/tasks.md#task-5-agenttemplatecontroller-routes-adr-023-action-seed
 	 */
 	public function update(string $templateId, array $payload): ?ObjectEntity {
 		$template = $this->get(templateId: $templateId);
@@ -236,7 +217,7 @@ class AgentTemplateService {
 	 *
 	 * @return string|null The JSON package string, or null when the agent is not found.
 	 *
-	 * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
 	 */
 	public function exportFromAgent(string $agentId): ?string {
 		$agent = $this->objectService->find(
@@ -298,7 +279,7 @@ class AgentTemplateService {
 	 *
 	 * @return string|null The JSON package string, or null when the template is not found.
 	 *
-	 * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
 	 */
 	public function exportTemplate(string $templateId): ?string {
 		$template = $this->get(templateId: $templateId);
@@ -322,7 +303,7 @@ class AgentTemplateService {
 	 *
 	 * @return ObjectEntity The persisted template.
 	 *
-	 * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#requirement-importing-a-template-from-an-external-source-lands-quarantined-and-content-scanned
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-importing-a-template-from-an-external-source-lands-quarantined-and-content-scanned
 	 */
 	public function importPackage(string $package, string $source, string $createdBy, ?string $derivedFrom = null): ObjectEntity {
 		$parsed = $this->serializer->fromPackage(package: $package);
@@ -394,8 +375,8 @@ class AgentTemplateService {
 	 * decision (explicit dangerous-verdict override), part of the public seam the controller
 	 * exposes — not an SRP smell (mirrors SkillMarketplaceService::approveQuarantined()).
 	 *
-	 * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#requirement-approving-a-quarantined-template-requires-action-authorization
-	 * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#requirement-overriding-a-dangerous-scan-verdict-requires-a-stricter-action
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-approving-a-quarantined-template-requires-action-authorization
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-overriding-a-dangerous-scan-verdict-requires-a-stricter-action
 	 */
 	public function approveQuarantined(string $templateId, bool $force = false): ?ObjectEntity {
 		$template = $this->get(templateId: $templateId);
@@ -437,7 +418,7 @@ class AgentTemplateService {
 	/**
 	 * "Use this template": instantiate a template into a real Agent in the caller's
 	 * organisation. The suggested provider/model is always resolved against
-	 * `TenantModelPolicyService::effectivePolicyFor()` — an out-of-policy suggestion is
+	 * `OrganisationModelPolicyService::effectivePolicyFor()` — an out-of-policy suggestion is
 	 * replaced by the policy's default (or first allowed provider) and the substitution is
 	 * reported, never silently applied and never silently dropped. Skill refs are resolved
 	 * best-effort (a miss never fails the call); the suggested schedule is returned verbatim
@@ -452,9 +433,9 @@ class AgentTemplateService {
 	 *                                   resolvedModel, unresolvedSkillRefs, suggestedSchedule },
 	 *                                   or null when the template is not found.
 	 *
-	 * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#requirement-instantiating-a-template-never-silently-violates-the-callers-model-policy
-	 * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#requirement-instantiating-a-template-resolves-skill-references-best-effort
-	 * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#requirement-instantiating-a-template-never-auto-creates-a-live-schedule
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-instantiating-a-template-never-silently-violates-the-callers-model-policy
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-instantiating-a-template-resolves-skill-references-best-effort
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-instantiating-a-template-never-auto-creates-a-live-schedule
 	 */
 	public function instantiate(string $templateId, string $organisation, array $overrides = []): ?array {
 		$template = $this->get(templateId: $templateId);

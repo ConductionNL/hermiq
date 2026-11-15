@@ -42,7 +42,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-agent-application-slug/specs/hermiq-agent-application-slug/spec.md#requirement-the-four-hydra-console-agents-are-backfilled-with-their-application-slug
+ * @spec openspec/specs/hermiq-agent-application-slug/spec.md#requirement-the-four-hydra-console-agents-are-backfilled-with-their-application-slug
  */
 
 declare(strict_types=1);
@@ -61,7 +61,7 @@ use Throwable;
  * Backfill `applicationSlug` on the four known hydra-console Agent objects
  * (idempotent, by name; never overwrites a non-empty value).
  *
- * @spec openspec/changes/hermiq-agent-application-slug/specs/hermiq-agent-application-slug/spec.md#requirement-the-four-hydra-console-agents-are-backfilled-with-their-application-slug
+ * @spec openspec/specs/hermiq-agent-application-slug/spec.md#requirement-the-four-hydra-console-agents-are-backfilled-with-their-application-slug
  */
 class BackfillAgentApplicationSlug implements IRepairStep {
 	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
@@ -122,7 +122,7 @@ class BackfillAgentApplicationSlug implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/hermiq-agent-application-slug/specs/hermiq-agent-application-slug/spec.md#requirement-the-four-hydra-console-agents-are-backfilled-with-their-application-slug
+	 * @spec openspec/specs/hermiq-agent-application-slug/spec.md#requirement-the-four-hydra-console-agents-are-backfilled-with-their-application-slug
 	 */
 	public function getName(): string {
 		return 'Backfill applicationSlug on the hydra-console agents (hermiq-agent-application-slug)';
@@ -138,7 +138,7 @@ class BackfillAgentApplicationSlug implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-agent-application-slug/specs/hermiq-agent-application-slug/spec.md#scenario-backfilling-twice-writes-once
+	 * @spec openspec/specs/hermiq-agent-application-slug/spec.md#scenario-backfilling-twice-writes-once
 	 */
 	public function run(IOutput $output): void {
 		try {
@@ -201,8 +201,8 @@ class BackfillAgentApplicationSlug implements IRepairStep {
 	 *
 	 * @return bool True when a write was issued.
 	 *
-	 * @spec openspec/changes/hermiq-agent-application-slug/specs/hermiq-agent-application-slug/spec.md#requirement-the-four-hydra-console-agents-are-backfilled-with-their-application-slug
-	 * @spec openspec/changes/hermiq-agent-application-slug/specs/hermiq-agent-application-slug/spec.md#requirement-a-previously-set-application-slug-is-never-overwritten
+	 * @spec openspec/specs/hermiq-agent-application-slug/spec.md#requirement-the-four-hydra-console-agents-are-backfilled-with-their-application-slug
+	 * @spec openspec/specs/hermiq-agent-application-slug/spec.md#requirement-a-previously-set-application-slug-is-never-overwritten
 	 */
 	private function backfillOne(ObjectService $objectService, ObjectEntity $agent): bool {
 		$data = $agent->getObject();

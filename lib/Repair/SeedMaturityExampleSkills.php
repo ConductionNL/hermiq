@@ -47,7 +47,9 @@ namespace OCA\Hermiq\Repair;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\Service\SeedFreshnessService;
+use OCA\Hermiq\Kernel\Contracts\SeedFreshnessServiceInterface;
+use OCA\Hermiq\Repair\Seed\LearningsSeedTarget;
+use OCA\Hermiq\Service\NamedObjectRows;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
@@ -86,17 +88,33 @@ class SeedMaturityExampleSkills implements IRepairStep {
 	private const SEED_ATTESTED_AT = '2026-01-15T09:00:00+00:00';
 
 	/**
+	 * The state every seeded example skill starts in: active, local (never
+	 * imported), unscanned, not quarantined, created by nobody and installed on
+	 * no agent. Spread into each seed row between its `files` and its levels.
+	 *
+	 * @var array<string, mixed>
+	 */
+	private const LOCAL_SEED_STATE = [
+		'state' => 'active',
+		'source' => 'local',
+		'quarantineReason' => null,
+		'scanReport' => null,
+		'createdBy' => '',
+		'installedOn' => [],
+	];
+
+	/**
 	 * Constructor.
 	 *
 	 * @param ContainerInterface $container Server container for lazy ObjectService resolution
 	 *                                      (OpenRegister may not be installed yet).
 	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param SeedFreshnessService $freshness Seed lifecycle freshness rules.
+	 * @param SeedFreshnessServiceInterface $freshness Seed lifecycle freshness rules.
 	 */
 	public function __construct(
 		private readonly ContainerInterface $container,
 		private readonly LoggerInterface $logger,
-		private readonly SeedFreshnessService $freshness,
+		private readonly SeedFreshnessServiceInterface $freshness,
 	) {
 	}//end __construct()
 
@@ -174,9 +192,11 @@ class SeedMaturityExampleSkills implements IRepairStep {
 						// any real l6 activity are never overwritten).
 						$this->ensureLearningsSeed(
 							objectService: $objectService,
-							skill: $existing,
-							output: $output,
-							refreshed: $refreshed
+							target: new LearningsSeedTarget(
+								skill: $existing,
+								output: $output,
+								refreshed: $refreshed
+							)
 						);
 						continue;
 					}
@@ -264,12 +284,7 @@ class SeedMaturityExampleSkills implements IRepairStep {
 			'frontmatter' => $frontmatter,
 			'body' => $body,
 			'files' => [],
-			'state' => 'active',
-			'source' => 'local',
-			'quarantineReason' => null,
-			'scanReport' => null,
-			'createdBy' => '',
-			'installedOn' => [],
+			...self::LOCAL_SEED_STATE,
 			'maturityLevel' => 1,
 			'targetLevel' => 2,
 		];
@@ -351,12 +366,7 @@ class SeedMaturityExampleSkills implements IRepairStep {
 			'frontmatter' => $frontmatter,
 			'body' => $body,
 			'files' => [],
-			'state' => 'active',
-			'source' => 'local',
-			'quarantineReason' => null,
-			'scanReport' => null,
-			'createdBy' => '',
-			'installedOn' => [],
+			...self::LOCAL_SEED_STATE,
 			'maturityLevel' => 2,
 			'targetLevel' => 3,
 		];
@@ -466,12 +476,7 @@ class SeedMaturityExampleSkills implements IRepairStep {
 					'content' => self::seedCandidatesContent(),
 				],
 			],
-			'state' => 'active',
-			'source' => 'local',
-			'quarantineReason' => null,
-			'scanReport' => null,
-			'createdBy' => '',
-			'installedOn' => [],
+			...self::LOCAL_SEED_STATE,
 			'maturityLevel' => 4,
 			'targetLevel' => 5,
 			'levelEvidence' => [
@@ -580,59 +585,26 @@ class SeedMaturityExampleSkills implements IRepairStep {
 	 * folded into the same single write; when both are no-ops, a re-run changes nothing.
 	 *
 	 * @param ObjectService $objectService The OpenRegister object service.
-	 * @param ObjectEntity $skill The existing tender-summary Skill.
-	 * @param IOutput $output Repair output channel.
-	 * @param array<string, mixed>|null $refreshed Freshness-refreshed payload, or null when untouchable.
+	 * @param LearningsSeedTarget $target The skill a learnings seed is ensured for.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
-	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Each only-when-absent idempotency
-	 *   guard (two files, l6 evidence, no-op detection, refresh fold-in) adds a branch
-	 *   on one linear upgrade path.
-	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning: independent
-	 *   presence guards multiply paths without nested logic.
 	 */
-	private function ensureLearningsSeed(
-		ObjectService $objectService,
-		ObjectEntity $skill,
-		IOutput $output,
-		?array $refreshed = null,
-	): void {
+	private function ensureLearningsSeed(ObjectService $objectService, LearningsSeedTarget $target): void {
+		$skill = $target->skill;
+		$output = $target->output;
+		$refreshed = $target->refreshed;
 		$data = ($refreshed ?? $skill->getObject());
 		$files = ($data['files'] ?? []);
 		if (is_array($files) === false) {
 			$files = [];
 		}
 
-		$filesAdded = false;
-
-		if ($this->hasFile(files: $files, name: 'learnings.md') === false) {
-			$files[] = [
-				'name' => 'learnings.md',
-				'content' => self::seedLearningsContent(),
-			];
-			$filesAdded = true;
-		}
-
-		if ($this->hasFile(files: $files, name: 'learning-candidates.md') === false) {
-			$files[] = [
-				'name' => 'learning-candidates.md',
-				'content' => self::seedCandidatesContent(),
-			];
-			$filesAdded = true;
-		}
-
-		$evidence = ($data['levelEvidence'] ?? []);
-		if (is_array($evidence) === false) {
-			$evidence = [];
-		}
-
-		$l6Evidence = ($evidence['l6'] ?? []);
-		if ($filesAdded === true && (is_array($l6Evidence) === false || $l6Evidence === [])) {
-			$evidence['l6'] = self::seedL6Evidence();
-			$data['levelEvidence'] = $evidence;
+		$seeded = $this->withSeedFiles(files: $files);
+		$filesAdded = (count($seeded) !== count($files));
+		if ($filesAdded === true) {
+			$data = $this->withSeedEvidence(data: $data);
 		}
 
 		if ($filesAdded === false && $refreshed === null) {
@@ -640,7 +612,7 @@ class SeedMaturityExampleSkills implements IRepairStep {
 			return;
 		}
 
-		$data['files'] = array_values($files);
+		$data['files'] = array_values($seeded);
 
 		$objectService->saveObject(
 			object: $data,
@@ -659,6 +631,59 @@ class SeedMaturityExampleSkills implements IRepairStep {
 		$output->info('tender-summary seed already present — freshness refreshed.');
 
 	}//end ensureLearningsSeed()
+
+	/**
+	 * The skill's files with each demo learnings file appended when it is absent.
+	 *
+	 * @param array<int|string, mixed> $files The skill's `files` array.
+	 *
+	 * @return array<int|string, mixed> The files, with the missing demo files added.
+	 *
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
+	 */
+	private function withSeedFiles(array $files): array {
+		if ($this->hasFile(files: $files, name: 'learnings.md') === false) {
+			$files[] = [
+				'name' => 'learnings.md',
+				'content' => self::seedLearningsContent(),
+			];
+		}
+
+		if ($this->hasFile(files: $files, name: 'learning-candidates.md') === false) {
+			$files[] = [
+				'name' => 'learning-candidates.md',
+				'content' => self::seedCandidatesContent(),
+			];
+		}
+
+		return $files;
+
+	}//end withSeedFiles()
+
+	/**
+	 * The payload with the demo l6 activity stamped, unless l6 evidence already exists.
+	 *
+	 * @param array<string, mixed> $data The skill payload.
+	 *
+	 * @return array<string, mixed> The payload, with `levelEvidence.l6` set when it was empty.
+	 *
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
+	 */
+	private function withSeedEvidence(array $data): array {
+		$evidence = ($data['levelEvidence'] ?? []);
+		if (is_array($evidence) === false) {
+			$evidence = [];
+		}
+
+		$l6Evidence = ($evidence['l6'] ?? []);
+		if (is_array($l6Evidence) === false || $l6Evidence === []) {
+			$evidence['l6'] = self::seedL6Evidence();
+			$data['levelEvidence'] = $evidence;
+		}
+
+		return $data;
+
+	}//end withSeedEvidence()
 
 	/**
 	 * Whether the `files` array already carries an entry with the given name.
@@ -700,16 +725,6 @@ class SeedMaturityExampleSkills implements IRepairStep {
 				_multitenancy: false
 			);
 
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ((string)($object->getObject()['name'] ?? '') === $name) {
-				return $object;
-			}
-		}
-
-		return null;
+		return (new NamedObjectRows(objects: $objects))->first(name: $name);
 	}//end findByName()
 }//end class

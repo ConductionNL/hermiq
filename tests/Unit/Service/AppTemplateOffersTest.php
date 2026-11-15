@@ -35,7 +35,7 @@ use OCA\Hermiq\Service\AgentTemplateSerializer;
 use OCA\Hermiq\Service\AgentTemplateService;
 use OCA\Hermiq\Service\AppTemplateOffers;
 use OCA\Hermiq\Service\SkillService;
-use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
@@ -290,7 +290,7 @@ final class AppTemplateOffersTest extends TestCase {
 		$scanner->method('scan')->willReturn(
 			['safe' => true, 'severity' => ContentScanService::SEVERITY_CLEAN, 'findings' => [], 'scannedBytes' => 10, 'truncated' => false]
 		);
-		$policy = $this->createMock(TenantModelPolicyService::class);
+		$policy = $this->createMock(EffectiveModelPolicy::class);
 		$policy->method('effectivePolicyFor')->willReturn(['source' => 'none', 'allowed' => [], 'defaultModel' => null]);
 		$policy->method('isAllowed')->willReturn(true);
 
@@ -435,6 +435,7 @@ final class AppTemplateOffersTest extends TestCase {
 				bool $failIfExists = false,
 				bool $_unowned = false,
 				bool $_dedupOverride = false,
+				?string $_owner = null,
 			): ObjectEntity {
 				$payload = is_array($object) ? $object : $object->getObject();
 				$uuid = ($uuid ?? ('uuid-' . (count($this->store) + 1)));

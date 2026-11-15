@@ -28,7 +28,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service\Assistant;
 
 use Exception;
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\AppAssistantResolver;
 use OCA\Hermiq\Service\Assistant\AssistantPromptLibrary;
 use OCA\Hermiq\Service\Assistant\RecordSummaryService;
@@ -162,7 +162,7 @@ final class RecordSummaryServiceTest extends TestCase {
 			}
 		);
 
-		$features = $this->createMock(AiFeatureService::class);
+		$features = $this->createMock(AiFeatureLookup::class);
 		$feature = null;
 		if ($lifecycle !== null) {
 			$feature = new ObjectEntity();

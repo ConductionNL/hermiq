@@ -103,6 +103,22 @@ function loadAjv() {
  * @return {string[]} Array of error messages (empty = pass)
  */
 function structuralLintV2(manifest) {
+	const errors = lintTopLevelV2(manifest)
+	for (let i = 0; i < (manifest.pages || []).length; i++) {
+		const page = manifest.pages[i]
+		if (!page || typeof page !== 'object') continue
+		errors.push(...lintPageV2(page, i))
+	}
+	return errors
+}
+
+/**
+ * Top-level rules: the v2 $schema URL, and version, menu and pages present.
+ *
+ * @param {object} manifest The parsed manifest.
+ * @return {string[]} The violations.
+ */
+function lintTopLevelV2(manifest) {
 	const errors = []
 
 	// 1. $schema must point to the v2 URL
@@ -123,77 +139,92 @@ function structuralLintV2(manifest) {
 	if (!Array.isArray(manifest.pages))
 		errors.push('top-level: pages (array) is required')
 
-	for (let i = 0; i < (manifest.pages || []).length; i++) {
-		const page = manifest.pages[i]
-		if (!page || typeof page !== 'object') continue
+	return errors
+}
 
-		// 3. No top-level layout[] (v1 remnant)
-		if (Object.hasOwn(page, 'layout')) {
-			errors.push(
-				`pages[${i}] (id="${page.id}"): top-level layout[] is not allowed in v2 — use widgets[] with gridX/gridY`,
-			)
-		}
+/**
+ * Page rules: no v1 remnants, a _note on custom pages, and valid widgets.
+ *
+ * @param {object} page The page.
+ * @param {number} i The page's index in pages[].
+ * @return {string[]} The violations.
+ */
+function lintPageV2(page, i) {
+	const errors = []
 
-		// 4. No config.sidebarTabs (v1 remnant)
-		if (page.config && page.config.sidebarTabs) {
-			errors.push(
-				`pages[${i}] (id="${page.id}"): config.sidebarTabs is not allowed in v2 — lift to top-level widgets[] with slot: "sidebar"`,
-			)
-		}
+	// 3. No top-level layout[] (v1 remnant)
+	if (Object.hasOwn(page, 'layout')) {
+		errors.push(
+			`pages[${i}] (id="${page.id}"): top-level layout[] is not allowed in v2 — use widgets[] with gridX/gridY`,
+		)
+	}
 
-		// 5. type: "custom" requires _note
-		if (
-			page.type === 'custom'
-			&& (!page._note || typeof page._note !== 'string')
-		) {
-			errors.push(
-				`pages[${i}] (id="${page.id}"): type: "custom" requires a non-empty _note field (ADR-036)`,
-			)
-		}
+	// 4. No config.sidebarTabs (v1 remnant)
+	if (page.config && page.config.sidebarTabs) {
+		errors.push(
+			`pages[${i}] (id="${page.id}"): config.sidebarTabs is not allowed in v2 — lift to top-level widgets[] with slot: "sidebar"`,
+		)
+	}
 
-		// 6. widgets[] entries (when present) must have required fields
-		if (Array.isArray(page.widgets)) {
-			for (let w = 0; w < page.widgets.length; w++) {
-				const widget = page.widgets[w]
-				if (!widget || typeof widget !== 'object') {
-					errors.push(`pages[${i}].widgets[${w}]: must be an object`)
-					continue
-				}
-				for (const field of [
-					'widgetKey',
-					'slot',
-					'gridX',
-					'gridY',
-					'gridWidth',
-					'gridHeight',
-				]) {
-					if (widget[field] === undefined) {
-						errors.push(
-							`pages[${i}].widgets[${w}]: missing required field "${field}"`,
-						)
-					}
-				}
-				// sidebar slot: gridWidth must be 1
-				if (widget.slot === 'sidebar' && widget.gridWidth !== 1) {
-					errors.push(
-						`pages[${i}].widgets[${w}] (slot=sidebar): gridWidth must be exactly 1, got ${widget.gridWidth}`,
-					)
-				}
-				// gridX + gridWidth <= 12 (for non-sidebar slots)
-				if (widget.slot !== 'sidebar') {
-					const gx = typeof widget.gridX === 'number' ? widget.gridX : NaN
-					const gw =
-						typeof widget.gridWidth === 'number' ? widget.gridWidth : NaN
-					if (!isNaN(gx) && !isNaN(gw) && gx + gw > 12) {
-						errors.push(
-							`pages[${i}].widgets[${w}]: gridX (${gx}) + gridWidth (${gw}) exceeds 12`,
-						)
-					}
-				}
-			}
+	// 5. type: "custom" requires _note
+	if (
+		page.type === 'custom'
+		&& (!page._note || typeof page._note !== 'string')
+	) {
+		errors.push(
+			`pages[${i}] (id="${page.id}"): type: "custom" requires a non-empty _note field (ADR-036)`,
+		)
+	}
+
+	// 6. widgets[] entries (when present) must have required fields
+	if (Array.isArray(page.widgets)) {
+		for (let w = 0; w < page.widgets.length; w++) {
+			errors.push(...lintWidgetV2(page.widgets[w], `pages[${i}].widgets[${w}]`))
 		}
 	}
 
+	return errors
+}
+
+/**
+ * Widget rules: an object with every grid field, sidebar widgets one column
+ * wide, and other widgets inside the 12-column grid.
+ *
+ * @param {object} widget The widget.
+ * @param {string} at Where the widget sits, for messages.
+ * @return {string[]} The violations.
+ */
+function lintWidgetV2(widget, at) {
+	if (!widget || typeof widget !== 'object') {
+		return [`${at}: must be an object`]
+	}
+	const errors = []
+	for (const field of [
+		'widgetKey',
+		'slot',
+		'gridX',
+		'gridY',
+		'gridWidth',
+		'gridHeight',
+	]) {
+		if (widget[field] === undefined) {
+			errors.push(`${at}: missing required field "${field}"`)
+		}
+	}
+	// sidebar slot: gridWidth must be 1
+	if (widget.slot === 'sidebar' && widget.gridWidth !== 1) {
+		errors.push(
+			`${at} (slot=sidebar): gridWidth must be exactly 1, got ${widget.gridWidth}`,
+		)
+	}
+	// gridX + gridWidth <= 12 (for non-sidebar slots)
+	if (widget.slot !== 'sidebar') {
+		const gx = typeof widget.gridX === 'number' ? widget.gridX : NaN
+		const gw = typeof widget.gridWidth === 'number' ? widget.gridWidth : NaN
+		if (!isNaN(gx) && !isNaN(gw) && gx + gw > 12) {
+			errors.push(`${at}: gridX (${gx}) + gridWidth (${gw}) exceeds 12`)
+		}
+	}
 	return errors
 }
 

@@ -1,0 +1,618 @@
+[
+    {
+        "case": "metadata null",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "metadata \"not an array\"",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "metadata []",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "null tokens, last summary null",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "null tokens, last summary 0",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "null tokens, last summary 30",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "null tokens, last summary 90",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "null tokens, last summary 600",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "null tokens, last summary \"not a time\"",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "null tokens, last summary \"\"",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "0 tokens, last summary null",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "0 tokens, last summary 0",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "0 tokens, last summary 30",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "0 tokens, last summary 90",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "0 tokens, last summary 600",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "0 tokens, last summary \"not a time\"",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "0 tokens, last summary \"\"",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "3999 tokens, last summary null",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "3999 tokens, last summary 0",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "3999 tokens, last summary 30",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "3999 tokens, last summary 90",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "3999 tokens, last summary 600",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "3999 tokens, last summary \"not a time\"",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "3999 tokens, last summary \"\"",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "4000 tokens, last summary null",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": 4000
+                }
+            }
+        ]
+    },
+    {
+        "case": "4000 tokens, last summary 0",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "4000 tokens, last summary 30",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "4000 tokens, last summary 90",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": 4000
+                }
+            }
+        ]
+    },
+    {
+        "case": "4000 tokens, last summary 600",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": 4000
+                }
+            }
+        ]
+    },
+    {
+        "case": "4000 tokens, last summary \"not a time\"",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": 4000
+                }
+            }
+        ]
+    },
+    {
+        "case": "4000 tokens, last summary \"\"",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "4001 tokens, last summary null",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": 4001
+                }
+            }
+        ]
+    },
+    {
+        "case": "4001 tokens, last summary 0",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "4001 tokens, last summary 30",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "4001 tokens, last summary 90",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": 4001
+                }
+            }
+        ]
+    },
+    {
+        "case": "4001 tokens, last summary 600",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": 4001
+                }
+            }
+        ]
+    },
+    {
+        "case": "4001 tokens, last summary \"not a time\"",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": 4001
+                }
+            }
+        ]
+    },
+    {
+        "case": "4001 tokens, last summary \"\"",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "12000 tokens, last summary null",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": 12000
+                }
+            }
+        ]
+    },
+    {
+        "case": "12000 tokens, last summary 0",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "12000 tokens, last summary 30",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "12000 tokens, last summary 90",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": 12000
+                }
+            }
+        ]
+    },
+    {
+        "case": "12000 tokens, last summary 600",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": 12000
+                }
+            }
+        ]
+    },
+    {
+        "case": "12000 tokens, last summary \"not a time\"",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": 12000
+                }
+            }
+        ]
+    },
+    {
+        "case": "12000 tokens, last summary \"\"",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "\"3999\" tokens, last summary null",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "\"3999\" tokens, last summary 0",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "\"3999\" tokens, last summary 30",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "\"3999\" tokens, last summary 90",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "\"3999\" tokens, last summary 600",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "\"3999\" tokens, last summary \"not a time\"",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "\"3999\" tokens, last summary \"\"",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "\"5000\" tokens, last summary null",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": "5000"
+                }
+            }
+        ]
+    },
+    {
+        "case": "\"5000\" tokens, last summary 0",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "\"5000\" tokens, last summary 30",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "\"5000\" tokens, last summary 90",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": "5000"
+                }
+            }
+        ]
+    },
+    {
+        "case": "\"5000\" tokens, last summary 600",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": "5000"
+                }
+            }
+        ]
+    },
+    {
+        "case": "\"5000\" tokens, last summary \"not a time\"",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": "5000"
+                }
+            }
+        ]
+    },
+    {
+        "case": "\"5000\" tokens, last summary \"\"",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "3999.5 tokens, last summary null",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "3999.5 tokens, last summary 0",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "3999.5 tokens, last summary 30",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "3999.5 tokens, last summary 90",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "3999.5 tokens, last summary 600",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "3999.5 tokens, last summary \"not a time\"",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "3999.5 tokens, last summary \"\"",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "\"many\" tokens, last summary null",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": "many"
+                }
+            }
+        ]
+    },
+    {
+        "case": "\"many\" tokens, last summary 0",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "\"many\" tokens, last summary 30",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "\"many\" tokens, last summary 90",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": "many"
+                }
+            }
+        ]
+    },
+    {
+        "case": "\"many\" tokens, last summary 600",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": "many"
+                }
+            }
+        ]
+    },
+    {
+        "case": "\"many\" tokens, last summary \"not a time\"",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": "many"
+                }
+            }
+        ]
+    },
+    {
+        "case": "\"many\" tokens, last summary \"\"",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "true tokens, last summary null",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": true
+                }
+            }
+        ]
+    },
+    {
+        "case": "true tokens, last summary 0",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "true tokens, last summary 30",
+        "messageReads": 0,
+        "log": []
+    },
+    {
+        "case": "true tokens, last summary 90",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": true
+                }
+            }
+        ]
+    },
+    {
+        "case": "true tokens, last summary 600",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": true
+                }
+            }
+        ]
+    },
+    {
+        "case": "true tokens, last summary \"not a time\"",
+        "messageReads": 1,
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Triggering conversation summarisation",
+                "context": {
+                    "conversationId": "conv-1",
+                    "tokenCount": true
+                }
+            }
+        ]
+    },
+    {
+        "case": "true tokens, last summary \"\"",
+        "messageReads": 0,
+        "log": []
+    }
+]

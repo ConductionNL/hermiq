@@ -27,7 +27,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Mcp;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 
 /**
@@ -51,7 +51,7 @@ final class NcNativeWriteToolDescriptors {
 	 */
 	public const ALL = [
 			[
-				'id' => Application::APP_ID . '.createCalendarEvent',
+				'id' => AppIdentity::APP_ID . '.createCalendarEvent',
 				'subject' => 'calendarEvent',
 				'action' => 'create',
 				// 🔴 `external`, NOT `user`, and this is the whole point of the
@@ -96,7 +96,7 @@ final class NcNativeWriteToolDescriptors {
 				'scope' => 'create',
 			],
 			[
-				'id' => Application::APP_ID . '.upsertContact',
+				'id' => AppIdentity::APP_ID . '.upsertContact',
 				// `upsert`, not `create` or `update`. It may do EITHER, so
 				// declaring one of them would let a grant that reads as
 				// "may update existing contacts" also create new ones.
@@ -130,7 +130,7 @@ final class NcNativeWriteToolDescriptors {
 				'scope' => 'create',
 			],
 			[
-				'id' => Application::APP_ID . '.listNotes',
+				'id' => AppIdentity::APP_ID . '.listNotes',
 				'subject' => 'note',
 				'action' => 'list',
 				'reach' => ToolReachResolver::REACH_USER,
@@ -148,7 +148,7 @@ final class NcNativeWriteToolDescriptors {
 				'scope' => 'read',
 			],
 			[
-				'id' => Application::APP_ID . '.createNote',
+				'id' => AppIdentity::APP_ID . '.createNote',
 				'subject' => 'note',
 				'action' => 'create',
 				'reach' => ToolReachResolver::REACH_USER,
@@ -169,7 +169,7 @@ final class NcNativeWriteToolDescriptors {
 				'scope' => 'create',
 			],
 			[
-				'id' => Application::APP_ID . '.updateNote',
+				'id' => AppIdentity::APP_ID . '.updateNote',
 				'subject' => 'note',
 				'action' => 'update',
 				'reach' => ToolReachResolver::REACH_USER,

@@ -54,6 +54,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Repair;
 
 use OCP\DB\Exception;
+use OCP\DB\IPreparedStatement;
 use OCP\IDBConnection;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -136,54 +137,108 @@ class RenameDutchColumns implements IRepairStep {
 			return;
 		}
 
-		$renamed = 0;
-		$copied = 0;
-		$refused = 0;
-
+		$run = new ColumnMigrationRun();
 		foreach ($tables as $table) {
-			$columns = $this->columnsOf(table: $table);
-			$qTable = $this->quote(identifier: $table);
-
-			foreach (self::COLUMN_MAP as $old => $new) {
-				if (in_array($old, $columns, true) === false) {
-					continue;
-				}
-
-				if ($this->hasCollision(columns: $columns, target: $new) === true) {
-					$this->logger->warning(
-						'RenameDutchColumns: two sources target one destination; migrating neither.',
-						['table' => $table, 'source' => $old, 'destination' => $new]
-					);
-					$refused++;
-					continue;
-				}
-
-				if (in_array($new, $columns, true) === false) {
-					$sql = 'ALTER TABLE ' . $qTable . ' RENAME COLUMN '
-						. $this->quote(identifier: $old) . ' TO ' . $this->quote(identifier: $new);
-					if ($this->exec(sql: $sql) === true) {
-						$renamed++;
-					}
-
-					continue;
-				}
-
-				$qNew = $this->quote(identifier: $new);
-				$qOld = $this->quote(identifier: $old);
-				$sql = 'UPDATE ' . $qTable . ' SET ' . $qNew . ' = ' . $qOld
-					. ' WHERE ' . $qNew . ' IS NULL AND ' . $qOld . ' IS NOT NULL';
-				if ($this->exec(sql: $sql) === true) {
-					$copied++;
-				}
-			}//end foreach
-		}//end foreach
+			$this->migrateTable(run: $run, table: $table);
+		}
 
 		$output->info(
-			'RenameDutchColumns: ' . $renamed . ' renamed, ' . $copied . ' back-filled, '
-			. $refused . ' refused, across ' . count($tables) . ' shard table(s).'
+			'RenameDutchColumns: ' . $run->renamed . ' renamed, ' . $run->copied . ' back-filled, '
+			. $run->refused . ' refused, across ' . count($tables) . ' shard table(s).'
 		);
 
 	}//end run()
+
+	/**
+	 * Migrate every mapped column of one shard table.
+	 *
+	 * @param ColumnMigrationRun $run The run.
+	 * @param string $table The shard table.
+	 *
+	 * @return void
+	 */
+	private function migrateTable(ColumnMigrationRun $run, string $table): void {
+		$run->table = $table;
+		$run->columns = $this->columnsOf(table: $table);
+
+		foreach (array_keys(self::COLUMN_MAP) as $old) {
+			$this->migrateColumn(run: $run, old: $old);
+		}
+	}//end migrateTable()
+
+	/**
+	 * Migrate one Dutch column of the run's table: refuse a collision, rename when the
+	 * English column is absent, back-fill it when both exist.
+	 *
+	 * @param ColumnMigrationRun $run The run, on its current table.
+	 * @param string $old The Dutch column name.
+	 *
+	 * @return void
+	 */
+	private function migrateColumn(ColumnMigrationRun $run, string $old): void {
+		$new = self::COLUMN_MAP[$old];
+		if ($run->has(column: $old) === false) {
+			return;
+		}
+
+		if ($this->hasCollision(columns: $run->columns, target: $new) === true) {
+			$this->refuseCollision(run: $run, old: $old);
+			return;
+		}
+
+		if ($run->has(column: $new) === false) {
+			$run->renamed += (int)$this->renameColumn(run: $run, old: $old);
+			return;
+		}
+
+		$run->copied += (int)$this->backfillColumn(run: $run, old: $old);
+	}//end migrateColumn()
+
+	/**
+	 * Log and count a Dutch column whose English destination another source also targets.
+	 *
+	 * @param ColumnMigrationRun $run The run, on its current table.
+	 * @param string $old The Dutch column name.
+	 *
+	 * @return void
+	 */
+	private function refuseCollision(ColumnMigrationRun $run, string $old): void {
+		$this->logger->warning(
+			'RenameDutchColumns: two sources target one destination; migrating neither.',
+			['table' => $run->table, 'source' => $old, 'destination' => self::COLUMN_MAP[$old]]
+		);
+		$run->refused++;
+	}//end refuseCollision()
+
+	/**
+	 * Rename the Dutch column of the run's table to its English name.
+	 *
+	 * @param ColumnMigrationRun $run The run, on its current table.
+	 * @param string $old The Dutch column name.
+	 *
+	 * @return bool Whether the statement succeeded.
+	 */
+	private function renameColumn(ColumnMigrationRun $run, string $old): bool {
+		$sql = 'ALTER TABLE ' . $this->quote(identifier: $run->table) . ' RENAME COLUMN '
+			. $this->quote(identifier: $old) . ' TO ' . $this->quote(identifier: self::COLUMN_MAP[$old]);
+		return $this->exec(sql: $sql);
+	}//end renameColumn()
+
+	/**
+	 * Copy the Dutch column into the English one where the English one is still empty.
+	 *
+	 * @param ColumnMigrationRun $run The run, on its current table.
+	 * @param string $old The Dutch column name.
+	 *
+	 * @return bool Whether the statement succeeded.
+	 */
+	private function backfillColumn(ColumnMigrationRun $run, string $old): bool {
+		$qNew = $this->quote(identifier: self::COLUMN_MAP[$old]);
+		$qOld = $this->quote(identifier: $old);
+		$sql = 'UPDATE ' . $this->quote(identifier: $run->table) . ' SET ' . $qNew . ' = ' . $qOld
+			. ' WHERE ' . $qNew . ' IS NULL AND ' . $qOld . ' IS NOT NULL';
+		return $this->exec(sql: $sql);
+	}//end backfillColumn()
 
 	/**
 	 * Whether another mapped source already targets the same destination here.
@@ -227,23 +282,47 @@ class RenameDutchColumns implements IRepairStep {
 			return [];
 		}
 
-		$markers = [];
-		foreach ($ids as $id) {
-			$markers[] = 'openregister_table_' . ((int)$id) . '_';
-		}
+		$markers = array_map(
+			static fn ($id): string => 'openregister_table_' . ((int)$id) . '_',
+			$ids
+		);
 
+		return $this->shardsAmong(names: $names, markers: $markers);
+	}//end shardTables()
+
+	/**
+	 * The table names that are a shard behind any of the markers, each once.
+	 *
+	 * @param array<int, string> $names Table names containing the shard marker.
+	 * @param array<int, string> $markers The `openregister_table_<id>_` markers.
+	 *
+	 * @return array<int, string>
+	 */
+	private function shardsAmong(array $names, array $markers): array {
 		$tables = [];
 		foreach ($names as $name) {
 			foreach ($markers as $marker) {
-				$offset = strpos($name, $marker);
-				if ($offset !== false && ctype_digit(substr($name, ($offset + strlen($marker)))) === true) {
+				if ($this->isShardOf(name: $name, marker: $marker) === true) {
 					$tables[] = $name;
 				}
 			}
 		}
 
 		return array_values(array_unique($tables));
-	}
+	}//end shardsAmong()
+
+	/**
+	 * Whether a table name is a shard behind the marker: the marker followed by digits only.
+	 *
+	 * @param string $name The table name.
+	 * @param string $marker The `openregister_table_<id>_` marker.
+	 *
+	 * @return bool
+	 */
+	private function isShardOf(string $name, string $marker): bool {
+		$offset = strpos($name, $marker);
+		return $offset !== false && ctype_digit(substr($name, ($offset + strlen($marker)))) === true;
+	}//end isShardOf()
 
 	/**
 	 * Ids of every register whose slug starts with the prefix.
@@ -288,16 +367,8 @@ class RenameDutchColumns implements IRepairStep {
 			return [];
 		}
 
-		$names = [];
-		while (($row = $stmt->fetch(\PDO::FETCH_ASSOC)) !== false) {
-			$name = (string)($row['table_name'] ?? '');
-			if ($name !== '') {
-				$names[] = $name;
-			}
-		}
-
-		return $names;
-	}//end shardTables()
+		return $this->namesIn(stmt: $stmt, field: 'table_name');
+	}//end openRegisterTableNames()
 
 	/**
 	 * List the column names of a table.
@@ -321,16 +392,28 @@ class RenameDutchColumns implements IRepairStep {
 			return [];
 		}
 
-		$columns = [];
+		return $this->namesIn(stmt: $stmt, field: 'column_name');
+	}//end columnsOf()
+
+	/**
+	 * The non-empty values of one field across every row an executed statement returns.
+	 *
+	 * @param IPreparedStatement $stmt The executed statement.
+	 * @param string $field The field to read.
+	 *
+	 * @return array<int, string>
+	 */
+	private function namesIn(IPreparedStatement $stmt, string $field): array {
+		$names = [];
 		while (($row = $stmt->fetch(\PDO::FETCH_ASSOC)) !== false) {
-			$name = (string)($row['column_name'] ?? '');
+			$name = (string)($row[$field] ?? '');
 			if ($name !== '') {
-				$columns[] = $name;
+				$names[] = $name;
 			}
 		}
 
-		return $columns;
-	}//end columnsOf()
+		return $names;
+	}//end namesIn()
 
 	/**
 	 * Execute one statement, logging and swallowing failure.
