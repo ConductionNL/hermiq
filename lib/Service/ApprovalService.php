@@ -95,6 +95,9 @@ use OCA\Hermiq\Service\Approval\ApprovalTaskBridge;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IGroupManager;
 use OCP\IUserManager;
@@ -1392,8 +1395,7 @@ class ApprovalService implements ApprovalServiceInterface {
 
 		$agent = $this->objectService->find(
 			id: $agentId,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1510,8 +1512,7 @@ class ApprovalService implements ApprovalServiceInterface {
 
 		$approval = $this->objectService->find(
 			id: $uuid,
-			register: self::REGISTER_SLUG,
-			schema: self::APPROVAL_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1864,8 +1865,7 @@ class ApprovalService implements ApprovalServiceInterface {
 
 		$schedule = $this->objectService->find(
 			id: $scheduleId,
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEDULE_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEDULE_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1978,9 +1978,10 @@ class ApprovalService implements ApprovalServiceInterface {
 		try {
 			$saved = $this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::APPROVAL_SCHEMA,
-				uuid: $uuid,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA),
+					uuid: $uuid
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -2031,9 +2032,10 @@ class ApprovalService implements ApprovalServiceInterface {
 
 			return $this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::APPROVAL_SCHEMA,
-				uuid: (string)$approval->getUuid(),
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA),
+					uuid: (string)$approval->getUuid()
+				),
 				_rbac: false,
 				_multitenancy: false
 			);

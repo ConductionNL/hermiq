@@ -36,6 +36,8 @@ use OCP\Notification\IManager as INotificationManager;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Behaviour of discovery-past-the-grant and the request that can widen it.
@@ -98,6 +100,7 @@ class ToolAccessRequestServiceTest extends TestCase {
 			 * @return array<string, mixed>|null
 			 */
 			public function find(...$args): ?array {
+				$args = LegacyObjectArgs::flatten(args: $args);
 				return ($this->agent === [] ? null : $this->agent);
 			}
 
@@ -119,7 +122,10 @@ class ToolAccessRequestServiceTest extends TestCase {
 			 *
 			 * @return array<string, mixed>
 			 */
-			public function saveObject(array $object, mixed $register = null, mixed $schema = null, bool $_rbac = true, bool $_unowned = false): array {
+			public function saveObject(array $object, ObjectSaveOptions $options = new ObjectSaveOptions(), bool $_rbac = true, bool $_multitenancy = true): array {
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$_unowned = $options->actor->unowned ?? false;
 				$this->writes[] = [(string)$schema, $object, $_rbac, $_unowned];
 
 				return ($object + ['id' => 'req-new']);

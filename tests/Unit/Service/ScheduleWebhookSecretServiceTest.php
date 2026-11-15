@@ -42,6 +42,7 @@ use OCP\Security\ICredentialsManager;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for the delivery-channels ScheduleWebhookSecretService.
@@ -132,7 +133,10 @@ class ScheduleWebhookSecretServiceTest extends TestCase {
 		$this->saved = [];
 		$this->objectService = $this->createMock(ObjectService::class);
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (array $object, mixed $register = null, mixed $schema = null, ?string $uuid = null) {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()) {
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$this->saved[] = $object;
 				$entity = new ObjectEntity();
 				$entity->setUuid($uuid ?? 'sched-1');
