@@ -43,6 +43,8 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * ReportSimilarityService edge-case unit tests.
@@ -136,7 +138,11 @@ class ReportSimilarityServiceEdgesTest extends TestCase {
 	 */
 	private function echoSaves(array &$saved): void {
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (array|ObjectEntity $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$saved): ObjectEntity {
+			function (array|ObjectEntity $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$saved): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$saved[] = ['object' => (array)$object, 'register' => $register, 'schema' => $schema, 'uuid' => $uuid];
 
 				return $this->entity(($uuid ?? 'new-group'), (array)$object);
@@ -163,7 +169,13 @@ class ReportSimilarityServiceEdgesTest extends TestCase {
 	public function testAGroupThatCannotBeReadIsNoGroup(): void {
 		$this->objectService->expects($this->once())
 			->method('find')
-			->with('missing-uuid', [], false, 'hermiq', 'agentreportgroup')
+			->with(...LegacyObjectArgs::with(method: 'find', expected: [
+					'id' => 'missing-uuid',
+					'_extend' => [],
+					'files' => false,
+					'register' => 'hermiq',
+					'schema' => 'agentreportgroup',
+				]))
 			->willThrowException(new RuntimeException('not found'));
 
 		$this->assertNull($this->service()->group(groupId: 'missing-uuid'));

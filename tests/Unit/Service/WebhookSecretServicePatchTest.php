@@ -38,6 +38,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for WebhookSecretService write helpers.
@@ -127,7 +128,11 @@ class WebhookSecretServicePatchTest extends TestCase {
 	private function captureSave(?array &$saved): ObjectEntity {
 		$result = new ObjectEntity();
 		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
-			static function (array $object, ?array $extend, string $register, string $schema, ?string $uuid, bool $rbac, bool $multi) use (&$saved, $result): ObjectEntity {
+			static function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions(), bool $rbac = true, bool $multi = true) use (&$saved, $result): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$saved = ['object' => $object, 'register' => $register, 'schema' => $schema, 'uuid' => $uuid, 'rbac' => $rbac, 'multi' => $multi];
 				return $result;
 			}

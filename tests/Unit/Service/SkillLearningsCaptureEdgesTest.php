@@ -44,6 +44,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Tests for the SkillLearningsCaptureService degraded paths.
@@ -265,7 +266,13 @@ class SkillLearningsCaptureEdgesTest extends TestCase {
 	public function testUnknownAndMalformedSkillIdsAreSkipped(): void {
 		$this->auditTrailMapper->method('findAll')->willReturn([$this->traceEntry(self::RUN_ID)]);
 		$this->objectService->expects($this->once())->method('find')
-			->with('missing', $this->anything(), $this->anything(), 'hermiq', 'agentskill')
+			->with(...LegacyObjectArgs::with(method: 'find', expected: [
+				'id' => 'missing',
+				'_extend' => $this->anything(),
+				'files' => $this->anything(),
+				'register' => 'hermiq',
+				'schema' => 'agentskill',
+			]))
 			->willReturn(null);
 		$this->providerFactory->expects($this->never())->method('generateText');
 		$this->auditTrailMapper->expects($this->never())->method('recordObjectEvent');

@@ -34,6 +34,8 @@ namespace OCA\Hermiq\Repair;
 
 use OCA\Hermiq\Repair\Support\AiFeatureRows;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -170,8 +172,7 @@ class SeedMessageTranslationFeature implements IRepairStep {
 					'outputsLabelled' => true,
 					'outputLabelling' => self::OUTPUT_LABELLING,
 				],
-				register: self::REGISTER_SLUG,
-				schema: self::AIFEATURE_SCHEMA,
+				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA)),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -212,9 +213,10 @@ class SeedMessageTranslationFeature implements IRepairStep {
 
 		$objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::AIFEATURE_SCHEMA,
-			uuid: (string)$existing->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA),
+				uuid: (string)$existing->getUuid()
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

@@ -33,6 +33,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Repair;
 
 use OCA\Hermiq\Repair\Support\AiFeatureRows;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -138,8 +140,7 @@ class SeedFormFillFeature implements IRepairStep {
 
 			$objectService->saveObject(
 				object: $this->featurePayload(),
-				register: self::REGISTER_SLUG,
-				schema: self::AIFEATURE_SCHEMA,
+				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA)),
 				_rbac: false,
 				_multitenancy: false
 			);

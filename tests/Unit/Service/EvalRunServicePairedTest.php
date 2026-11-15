@@ -51,6 +51,8 @@ use OCP\IAppConfig;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Recording ObjectService stub: find() serves seeded objects by uuid, findAll()
@@ -136,15 +138,16 @@ class RecordingObjectService extends ObjectService {
 	 */
 	public function find(
 		int|string $id,
-		?array $_extend = [],
-		bool $files = false,
-		mixed $register = null,
-		mixed $schema = null,
+		?ObjectFindOptions $options = null,
 		bool $_rbac = true,
-		bool $_multitenancy = true,
-		bool $_render = true,
-		bool $_audit = true,
+		bool $_multitenancy = true
 	): ?ObjectEntity {
+		$_extend = $options?->extend ?? [];
+		$files = $options?->files ?? false;
+		$register = $options?->register;
+		$schema = $options?->schema;
+		$_render = $options?->render ?? true;
+		$_audit = $options?->audit ?? true;
 		return ($this->objects[(string)$id] ?? null);
 	}//end find()
 
@@ -163,40 +166,22 @@ class RecordingObjectService extends ObjectService {
 	 */
 	public function saveObject(
 		array|ObjectEntity $object,
-		?array $extend = [],
-		mixed $register = null,
-		mixed $schema = null,
-		?string $uuid = null,
+		ObjectSaveOptions $options = new ObjectSaveOptions(),
 		bool $_rbac = true,
-		bool $_multitenancy = true,
-		bool $silent = false,
-		// Added by openregister@8729969f7 (decline schema re-validation on save),
-		// 2026-08-13 00:07Z, INSERTED MID-SIGNATURE — appending it would not have
-		// matched. Second such break in 70 minutes; see #2211's note above.
-		bool $_validation = true,
-		?array $uploadedFiles = null,
-		?\OCP\IUser $currentUser = null,
-		// Added by openregister#2211 (insert-only saves). A double that does not
-		// track the real signature is a FATAL, not a failed assertion: PHP
-		// refuses to declare the class, so every test in the suite dies before
-		// it runs — which is what took all six PHPUnit matrix jobs down.
-		bool $failIfExists = false,
-		// Added by openregister (stamp the SYSTEM identity as owner even when a
-		// user session exists). Appended, so unlike $_validation above it needed
-		// no re-ordering — but it is the third such break, and it only surfaces
-		// where the REAL ObjectService is loaded: CI runs this suite against the
-		// OCP stubs, so the fatal appears locally (inside a booted Nextcloud)
-		// while CI stays green.
-		bool $_unowned = false,
-		// Added by openregister (duplicate detection), seen 2026-09-16. Appended,
-		// so no re-ordering was needed. Note which way round this one broke: the
-		// LOCAL suite stayed green, because tests/bootstrap.php resolves
-		// ObjectService from hermiq's own stub, while CI installs the real
-		// openregister and PHP refused to declare this class, killing all six
-		// cells with a fatal before a single test ran.
-		bool $_dedupOverride = false,
-		?string $_owner = null,
+		bool $_multitenancy = true
 	): ObjectEntity {
+		$extend = $options->extend ?? [];
+		$register = $options->target->register;
+		$schema = $options->target->schema;
+		$uuid = $options->uuid;
+		$silent = $options->policy->silent ?? false;
+		$_validation = $options->policy->validation ?? true;
+		$uploadedFiles = $options->uploadedFiles;
+		$currentUser = $options->actor->currentUser;
+		$failIfExists = $options->policy->failIfExists ?? false;
+		$_unowned = $options->actor->unowned ?? false;
+		$_dedupOverride = $options->policy->dedupOverride ?? false;
+		$_owner = $options->actor->owner;
 		$payload = (is_array($object) === true) ? $object : $object->getObject();
 		if ($this->onSave !== null) {
 			($this->onSave)((is_string($schema) === true) ? $schema : null);
