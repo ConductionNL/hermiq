@@ -40,6 +40,9 @@ use OCA\Hermiq\Kernel\Contracts\SessionParticipantServiceInterface;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserManager;
 use OCP\Notification\IManager as INotificationManager;
@@ -187,7 +190,7 @@ class SessionParticipantService implements SessionParticipantServiceInterface {
 	 * @throws SessionParticipantException 404.
 	 */
 	private function ownedSession(string $uuid, string $callerUid): ObjectEntity {
-		$session = $this->objectService->find(id: $uuid, register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA);
+		$session = $this->objectService->find(id: $uuid, options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA));
 		if ($session === null || $callerUid === '' || ($session->getObject()['userId'] ?? null) !== $callerUid) {
 			throw new SessionParticipantException('Session not found.', 404);
 		}
@@ -228,9 +231,10 @@ class SessionParticipantService implements SessionParticipantServiceInterface {
 		$payload['participants'] = array_values($roster);
 		$this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $payload),
-			register: self::REGISTER_SLUG,
-			schema: self::SESSION_SCHEMA,
-			uuid: $uuid
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA),
+				uuid: $uuid
+			)
 		);
 	}//end saveRoster()
 

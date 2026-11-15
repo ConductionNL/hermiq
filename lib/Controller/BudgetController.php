@@ -34,6 +34,8 @@ use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\BudgetServiceInterface;
 use OCA\OpenRegister\Db\OrganisationMapper;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -288,9 +290,13 @@ class BudgetController extends Controller {
 			// to run this line is the `mayAdminister()` gate four lines up; without
 			// that gate this call would be an IDOR.
 			$this->objectService->deleteObject(
-				uuid: $budgetId,
-				register: BudgetServiceInterface::REGISTER_SLUG,
-				schema: BudgetServiceInterface::BUDGET_SCHEMA,
+				new ObjectDeletion(
+					uuid: $budgetId,
+					target: new ObjectFindTarget(
+							register: BudgetServiceInterface::REGISTER_SLUG,
+							schema: BudgetServiceInterface::BUDGET_SCHEMA
+						)
+				),
 				_rbac: false,
 				_multitenancy: false
 			);

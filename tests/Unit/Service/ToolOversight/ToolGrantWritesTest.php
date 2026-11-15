@@ -28,6 +28,7 @@ use OCA\OpenRegister\Service\ObjectService;
 use OCP\IGroupManager;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * The writes and the lookup behind the tool-oversight endpoints.
@@ -70,7 +71,11 @@ class ToolGrantWritesTest extends TestCase {
 	private function objects(?ObjectEntity $saved = null): ObjectService {
 		$objects = $this->createMock(ObjectService::class);
 		$objects->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null, bool $_rbac = true) use ($saved): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions(), bool $_rbac = true) use ($saved): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$this->saves[] = ['object' => $object, 'schema' => $schema, 'uuid' => $uuid, 'rbac' => $_rbac];
 				return ($saved ?? new ObjectEntity());
 			}

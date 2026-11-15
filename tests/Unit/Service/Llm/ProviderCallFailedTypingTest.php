@@ -34,6 +34,7 @@ use RuntimeException;
 /**
  * @covers \OCA\Hermiq\Service\Llm\ProviderCallFailedException
  * @covers \OCA\Hermiq\Service\Llm\ProviderFactory
+ * @uses   \OCA\Hermiq\Service\Llm\AnthropicCacheBreakpoints
  * @uses   \OCA\Hermiq\Service\Llm\AnthropicChatRun
  * @uses   \OCA\Hermiq\Service\Llm\AnthropicMessageFormat
  * @uses   \OCA\Hermiq\Service\Llm\AnthropicToolLoop
