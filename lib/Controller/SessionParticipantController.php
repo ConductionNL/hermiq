@@ -25,9 +25,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\SessionParticipantServiceInterface;
 use OCA\Hermiq\Service\SessionParticipantException;
-use OCA\Hermiq\Service\SessionParticipantService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\JSONResponse;
@@ -44,17 +44,17 @@ class SessionParticipantController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request.
-	 * @param SessionParticipantService $participants The roster service (owner check inside).
+	 * @param SessionParticipantServiceInterface $participants The roster service (owner check inside).
 	 * @param IUserSession $userSession Resolves the caller.
 	 *
 	 * @spec openspec/specs/session-participants/spec.md#requirement-the-owner-invites-colleagues-into-a-session-req-spart-001
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly SessionParticipantService $participants,
+		private readonly SessionParticipantServiceInterface $participants,
 		private readonly IUserSession $userSession,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**

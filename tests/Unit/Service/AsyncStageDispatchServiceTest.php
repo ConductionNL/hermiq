@@ -105,7 +105,10 @@ class ExposedAsyncStageDispatchService extends AsyncStageDispatchService {
  * test.
  *
  * @uses \OCA\Hermiq\Service\Llm\RunTokenService
+ * @uses \OCA\Hermiq\Service\StageOptions
+ * @uses \OCA\Hermiq\Service\StageRequest
  * @uses \OCA\Hermiq\Service\StageDispatchService
+ * @uses \OCA\Hermiq\Service\Llm\RunTokenRequest
  */
 final class AsyncStageDispatchServiceTest extends TestCase {
 

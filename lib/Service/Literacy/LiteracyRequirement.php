@@ -27,8 +27,11 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Literacy;
 
+use OCA\Hermiq\Kernel\Contracts\LiteracyRequirementInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IGroupManager;
 use OCP\IUser;
@@ -40,7 +43,7 @@ use Throwable;
  *
  * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
  */
-class LiteracyRequirement {
+class LiteracyRequirement implements LiteracyRequirementInterface {
 
 	private const CONTROL_SCHEMA = 'tenantcontrol';
 
@@ -152,9 +155,10 @@ class LiteracyRequirement {
 		$data['@self'] = ['organisation' => $organisation];
 		$this->objects->saveObject(
 			object: $data,
-			register: LiteracyCourse::REGISTER_SLUG,
-			schema: self::CONTROL_SCHEMA,
-			uuid: $uuid,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: LiteracyCourse::REGISTER_SLUG, schema: self::CONTROL_SCHEMA),
+				uuid: $uuid
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

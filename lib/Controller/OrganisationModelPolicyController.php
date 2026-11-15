@@ -31,7 +31,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
+ * @spec openspec/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
  */
 
 declare(strict_types=1);
@@ -39,10 +39,11 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\AiFeature\ProviderDataUseRegistry;
-use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
-use OCA\Hermiq\Service\OrganisationModelPolicyService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\EffectiveModelPolicyInterface;
+use OCA\Hermiq\Kernel\Contracts\LlmSettingsHandlerInterface;
+use OCA\Hermiq\Kernel\Contracts\OrganisationModelPolicyServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\ProviderDataUseRegistryInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\AppFramework\Controller;
@@ -50,7 +51,6 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IGroupManager;
 use OCP\IRequest;
-use OCP\IUser;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -65,33 +65,35 @@ use Throwable;
  *   (model-policy service, user session, group manager, org mapper, logger) plus the
  *   HTTP response/exception types every endpoint returns.
  *
- * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
+ * @spec openspec/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
  */
 class OrganisationModelPolicyController extends Controller {
 	/**
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param OrganisationModelPolicyService $modelPolicyService The model-policy read/write path.
+	 * @param OrganisationModelPolicyServiceInterface $modelPolicyService The model-policy read/write path.
+	 * @param EffectiveModelPolicyInterface $effectivePolicy The policy that governs an organisation.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IGroupManager $groupManager Instance-admin check.
 	 * @param OrganisationMapper $organisationMapper OpenRegister organisation lookup
 	 *                                               (owner check + effective-read
 	 *                                               org resolution).
 	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param ProviderDataUseRegistry|null $dataUse Each provider's data-use label, for the
+	 * @param ProviderDataUseRegistryInterface|null $dataUse Each provider's data-use label, for the
 	 *                                              no-training switch in the editor.
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly OrganisationModelPolicyService $modelPolicyService,
+		private readonly OrganisationModelPolicyServiceInterface $modelPolicyService,
+		private readonly EffectiveModelPolicyInterface $effectivePolicy,
 		private readonly IUserSession $userSession,
 		private readonly IGroupManager $groupManager,
 		private readonly OrganisationMapper $organisationMapper,
 		private readonly LoggerInterface $logger,
-		private readonly ?ProviderDataUseRegistry $dataUse = null,
+		private readonly ?ProviderDataUseRegistryInterface $dataUse = null,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -105,7 +107,7 @@ class OrganisationModelPolicyController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
 	 */
 	public function effective(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -114,8 +116,8 @@ class OrganisationModelPolicyController extends Controller {
 		}
 
 		try {
-			$organisation = $this->resolveActiveOrganisation(uid: $user->getUID());
-			return new JSONResponse($this->modelPolicyService->effectivePolicyFor(organisation: $organisation));
+			$organisation = $this->policyGate()->activeOrganisation(uid: $user->getUID(), logger: $this->logger);
+			return new JSONResponse($this->effectivePolicy->effectivePolicyFor(organisation: $organisation));
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq model-policy effective read failed: ' . $e->getMessage(), ['exception' => $e]);
 			return new JSONResponse(['error' => 'Could not load the effective model policy'], Http::STATUS_INTERNAL_SERVER_ERROR);
@@ -133,7 +135,7 @@ class OrganisationModelPolicyController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
 	 */
 	public function index(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -142,15 +144,7 @@ class OrganisationModelPolicyController extends Controller {
 		}
 
 		try {
-			$isAdmin = $this->groupManager->isAdmin($user->getUID());
-
-			$visible = [];
-			foreach ($this->modelPolicyService->listAll() as $policy) {
-				$organisation = (string)($policy->getOrganisation() ?? '');
-				if ($isAdmin === true || $this->ownsOrganisation(organisation: $organisation, uid: $user->getUID()) === true) {
-					$visible[] = $policy;
-				}
-			}
+			$visible = $this->policyGate()->visiblePolicies(user: $user, listAll: fn (): array => $this->modelPolicyService->listAll());
 
 			$shaped = array_map(
 				function (ObjectEntity $policy) {
@@ -160,7 +154,7 @@ class OrganisationModelPolicyController extends Controller {
 						$source = 'instance';
 					}
 
-					return $this->modelPolicyService->effectivePolicyFor(organisation: $organisation) + [
+					return $this->effectivePolicy->effectivePolicyFor(organisation: $organisation) + [
 						'id' => (string)($policy->getUuid() ?? ''),
 						'organisation' => $organisation,
 						'source' => $source,
@@ -173,8 +167,8 @@ class OrganisationModelPolicyController extends Controller {
 			// training, so the policy editor can name the providers the switch would
 			// refuse before anyone saves. Labels only, never the terms or who declared.
 			$dataUse = [];
-			foreach (LlmSettingsHandler::ALLOWED_CHAT_PROVIDERS as $provider) {
-				$dataUse[$provider] = ($this->dataUse?->forProvider(provider: $provider)['dataUse'] ?? ProviderDataUseRegistry::UNDECLARED);
+			foreach (LlmSettingsHandlerInterface::ALLOWED_CHAT_PROVIDERS as $provider) {
+				$dataUse[$provider] = ($this->dataUse?->forProvider(provider: $provider)['dataUse'] ?? ProviderDataUseRegistryInterface::UNDECLARED);
 			}
 
 			return new JSONResponse(['policies' => $shaped, 'dataUse' => $dataUse]);
@@ -195,7 +189,7 @@ class OrganisationModelPolicyController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-per-organisation-model-policy-object
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-per-organisation-model-policy-object
 	 */
 	public function create(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -204,7 +198,7 @@ class OrganisationModelPolicyController extends Controller {
 		}
 
 		$organisation = (string)$this->request->getParam('organisation', '');
-		if ($this->mayAdminister(organisation: $organisation, user: $user) === false) {
+		if ($this->policyGate()->mayAdminister(organisation: $organisation, user: $user) === false) {
 			return new JSONResponse(['error' => 'Forbidden'], Http::STATUS_FORBIDDEN);
 		}
 
@@ -233,7 +227,7 @@ class OrganisationModelPolicyController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
 	 */
 	public function update(string $policyId): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -247,7 +241,7 @@ class OrganisationModelPolicyController extends Controller {
 		}
 
 		$organisation = (string)($existing->getOrganisation() ?? '');
-		if ($this->mayAdminister(organisation: $organisation, user: $user) === false) {
+		if ($this->policyGate()->mayAdminister(organisation: $organisation, user: $user) === false) {
 			return new JSONResponse(['error' => 'Forbidden'], Http::STATUS_FORBIDDEN);
 		}
 
@@ -266,79 +260,11 @@ class OrganisationModelPolicyController extends Controller {
 	}//end update()
 
 	/**
-	 * Whether the user may administer the ModelPolicy for the given organisation
-	 * scope. An empty `$organisation` (the instance-wide default) is admitted
-	 * ONLY for an instance admin — there is no "owner" of no organisation. A
-	 * non-empty organisation is admitted for an instance admin OR the owner of
-	 * that OpenRegister organisation, mirroring
-	 * `OrganisationControlController::mayAdminister()`.
+	 * Who may read and administer this controller's policies.
 	 *
-	 * @param string $organisation The organisation identifier, or '' for the instance default.
-	 * @param IUser $user The requesting user.
-	 *
-	 * @return bool
-	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
+	 * @return OrganisationPolicyGate The gate over this controller's group manager and organisation mapper.
 	 */
-	private function mayAdminister(string $organisation, IUser $user): bool {
-		$isAdmin = $this->groupManager->isAdmin($user->getUID());
-
-		if ($organisation === '') {
-			return $isAdmin;
-		}
-
-		if ($isAdmin === true) {
-			return true;
-		}
-
-		return $this->ownsOrganisation(organisation: $organisation, uid: $user->getUID());
-	}//end mayAdminister()
-
-	/**
-	 * Whether the given user owns the given OpenRegister organisation.
-	 *
-	 * @param string $organisation The organisation identifier.
-	 * @param string $uid The user id.
-	 *
-	 * @return bool
-	 */
-	private function ownsOrganisation(string $organisation, string $uid): bool {
-		if ($organisation === '') {
-			return false;
-		}
-
-		try {
-			$org = $this->organisationMapper->findByUuid($organisation);
-		} catch (Throwable $e) {
-			return false;
-		}
-
-		return (string)($org->getOwner() ?? '') === $uid;
-	}//end ownsOrganisation()
-
-	/**
-	 * Resolve the calling user's active organisation for the `effective()` read
-	 * (identity from session — no request parameter). Falls back to '' (the
-	 * instance-wide default scope) when the user has no active/default
-	 * organisation, so the read never errors for a user outside any organisation.
-	 *
-	 * @param string $uid The requesting user's id.
-	 *
-	 * @return string The organisation identifier, or '' when none resolves.
-	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
-	 */
-	private function resolveActiveOrganisation(string $uid): string {
-		try {
-			// OpenRegister's OrganisationMapper declares
-			// getActiveOrganisationWithFallback() on both `main` and
-			// `development`, so the method_exists() probe this replaces could
-			// never be false.
-			return (string)($this->organisationMapper->getActiveOrganisationWithFallback($uid) ?? '');
-		} catch (Throwable $e) {
-			$this->logger->warning('Hermiq could not resolve active organisation: ' . $e->getMessage(), ['exception' => $e]);
-		}
-
-		return '';
-	}//end resolveActiveOrganisation()
+	private function policyGate(): OrganisationPolicyGate {
+		return new OrganisationPolicyGate(groupManager: $this->groupManager, organisationMapper: $this->organisationMapper);
+	}//end policyGate()
 }//end class

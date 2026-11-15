@@ -30,11 +30,14 @@ namespace OCA\Hermiq\Tests\Unit\Service\Assistant;
 use OCA\Hermiq\Service\Assistant\AssistantPromptLibrary;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use ReflectionClass;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * AssistantPromptLibrary unit tests.
@@ -85,6 +88,7 @@ class AssistantPromptLibraryTest extends TestCase {
 		);
 		$service->method('find')->willReturnCallback(
 			function (mixed $id, mixed ...$rest): ?ObjectEntity {
+				$rest = array_slice(LegacyObjectArgs::positional(method: 'find', args: [$id, ...$rest]), 1);
 				if (isset($this->stored[(string)$id]) === false) {
 					return null;
 				}
@@ -96,7 +100,11 @@ class AssistantPromptLibraryTest extends TestCase {
 			}
 		);
 		$service->method('saveObject')->willReturnCallback(
-			function (array|ObjectEntity $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null): ObjectEntity {
+			function (array|ObjectEntity $object, ObjectSaveOptions $options = new ObjectSaveOptions()): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$key = ($uuid ?? ('prompt-' . (count($this->stored) + 1)));
 				$this->stored[$key] = (array)$object;
 
@@ -119,13 +127,13 @@ class AssistantPromptLibraryTest extends TestCase {
 		$this->audits = [];
 
 		$mapper = $this->createMock(AuditTrailMapper::class);
-		$mapper->method('createAuditTrailEntry')->willReturnCallback(
-			function (ObjectEntity $object, string $action, array $context = []): AuditTrail {
-				$this->audits[] = ['action' => $action, 'context' => $context];
+		$mapper->method('recordObjectEvent')->willReturnCallback(
+			function (ObjectAuditEvent $event): AuditTrail {
+				$this->audits[] = ['action' => $event->action, 'context' => $event->context];
 
 				$entry = new AuditTrail();
-				$entry->setAction($action);
-				$entry->setChanged($context);
+				$entry->setAction($event->action);
+				$entry->setChanged($event->context);
 				return $entry;
 			}
 		);

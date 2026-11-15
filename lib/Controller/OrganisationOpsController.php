@@ -26,9 +26,9 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/multi-tenant-ops/tasks.md#2-controller-routes
- * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-5-tenantopscontroller-access-review-reassign-endpoints
- * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-7-tenantopscontroller-incidents-retention-endpoints
+ * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#2-controller-routes
+ * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-5-tenantopscontroller-access-review-reassign-endpoints
+ * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-7-tenantopscontroller-incidents-retention-endpoints
  */
 
 declare(strict_types=1);
@@ -36,13 +36,12 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\ActionAuthService;
-use OCA\Hermiq\Service\OrganisationOpsService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\OrganisationOpsServiceInterface;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\AppFramework\OCS\OCSForbiddenException;
 use OCP\IRequest;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
@@ -52,31 +51,31 @@ use Throwable;
 /**
  * Tenant-scoped quota + AI Act audit-export + agent-lifecycle-governance endpoints.
  *
- * @spec openspec/changes/multi-tenant-ops/tasks.md#2-controller-routes
+ * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#2-controller-routes
  */
 class OrganisationOpsController extends Controller {
 	/**
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param OrganisationOpsService $tenantOpsService The tenant-ops read/write service.
+	 * @param OrganisationOpsServiceInterface $tenantOpsService The tenant-ops read/write service.
 	 * @param IUserSession $userSession Resolves the requesting user.
-	 * @param ActionAuthService $actionAuth ADR-023 action-authorization gate for the
+	 * @param ActionAuthServiceInterface $actionAuth ADR-023 action-authorization gate for the
 	 *                                      four mutating endpoints (agent-lifecycle-governance).
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: distinct collaborators.
 	 *
-	 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-2-1
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly OrganisationOpsService $tenantOpsService,
+		private readonly OrganisationOpsServiceInterface $tenantOpsService,
 		private readonly IUserSession $userSession,
-		private readonly ActionAuthService $actionAuth,
+		private readonly ActionAuthServiceInterface $actionAuth,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -87,7 +86,7 @@ class OrganisationOpsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-2-1
 	 */
 	public function quota(): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -111,7 +110,7 @@ class OrganisationOpsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-2-1
 	 */
 	public function auditExport(): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -138,7 +137,7 @@ class OrganisationOpsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-5-tenantopscontroller-access-review-reassign-endpoints
+	 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-5-tenantopscontroller-access-review-reassign-endpoints
 	 */
 	public function reviewList(): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -164,22 +163,16 @@ class OrganisationOpsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-5-tenantopscontroller-access-review-reassign-endpoints
+	 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-5-tenantopscontroller-access-review-reassign-endpoints
 	 */
 	public function attestReview(string $uuid): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		$uid = $this->authorise(action: 'tenantops.attest-review');
+		if ($uid instanceof JSONResponse) {
+			return $uid;
 		}
 
 		try {
-			$this->actionAuth->requireAction(user: $user, action: 'tenantops.attest-review');
-		} catch (OCSForbiddenException $e) {
-			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
-		}
-
-		try {
-			return new JSONResponse($this->tenantOpsService->attestAgentReviewed(uuid: $uuid, reviewerUid: $user->getUID()));
+			return new JSONResponse($this->tenantOpsService->attestAgentReviewed(uuid: $uuid, reviewerUid: $uid));
 		} catch (RuntimeException $e) {
 			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_NOT_FOUND);
 		} catch (Throwable $e) {
@@ -199,18 +192,12 @@ class OrganisationOpsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-5-tenantopscontroller-access-review-reassign-endpoints
+	 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-5-tenantopscontroller-access-review-reassign-endpoints
 	 */
 	public function reassignAgent(string $uuid): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		try {
-			$this->actionAuth->requireAction(user: $user, action: 'tenantops.reassign-agent');
-		} catch (OCSForbiddenException $e) {
-			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+		$uid = $this->authorise(action: 'tenantops.reassign-agent');
+		if ($uid instanceof JSONResponse) {
+			return $uid;
 		}
 
 		$actingUser = (string)$this->request->getParam('actingUser', '');
@@ -239,7 +226,7 @@ class OrganisationOpsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-7-tenantopscontroller-incidents-retention-endpoints
+	 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-7-tenantopscontroller-incidents-retention-endpoints
 	 */
 	public function incidents(): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -263,18 +250,12 @@ class OrganisationOpsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-7-tenantopscontroller-incidents-retention-endpoints
+	 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-7-tenantopscontroller-incidents-retention-endpoints
 	 */
 	public function createIncident(): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		try {
-			$this->actionAuth->requireAction(user: $user, action: 'tenantops.create-incident');
-		} catch (OCSForbiddenException $e) {
-			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+		$uid = $this->authorise(action: 'tenantops.create-incident');
+		if ($uid instanceof JSONResponse) {
+			return $uid;
 		}
 
 		$description = (string)$this->request->getParam('description', '');
@@ -287,24 +268,14 @@ class OrganisationOpsController extends Controller {
 			);
 		}
 
-		$linkedAgentId = $this->request->getParam('linkedAgentId');
-		if ($linkedAgentId !== null) {
-			$linkedAgentId = (string)$linkedAgentId;
-		}
-
-		$linkedRunIds = $this->request->getParam('linkedRunIds', []);
-		if (is_array($linkedRunIds) === false) {
-			$linkedRunIds = [];
-		}
-
 		try {
 			$incident = $this->tenantOpsService->createIncident(
 				description: $description,
 				impact: $impact,
 				actionsTaken: $actionsTaken,
-				linkedAgentId: $linkedAgentId,
-				linkedRunIds: $linkedRunIds,
-				createdBy: $user->getUID()
+				linkedAgentId: $this->linkedAgentIdParam(),
+				linkedRunIds: $this->linkedRunIdsParam(),
+				createdBy: $uid
 			);
 			return new JSONResponse($incident, Http::STATUS_CREATED);
 		} catch (Throwable $e) {
@@ -315,6 +286,51 @@ class OrganisationOpsController extends Controller {
 	}//end createIncident()
 
 	/**
+	 * The `linkedAgentId` param as a string, or null when absent.
+	 *
+	 * @return string|null
+	 */
+	private function linkedAgentIdParam(): ?string {
+		$linkedAgentId = $this->request->getParam('linkedAgentId');
+		if ($linkedAgentId === null) {
+			return null;
+		}
+
+		return (string)$linkedAgentId;
+	}//end linkedAgentIdParam()
+
+	/**
+	 * The `linkedRunIds` param, or [] when it is not a list.
+	 *
+	 * @return array
+	 */
+	private function linkedRunIdsParam(): array {
+		$linkedRunIds = $this->request->getParam('linkedRunIds', []);
+		if (is_array($linkedRunIds) === false) {
+			return [];
+		}
+
+		return $linkedRunIds;
+	}//end linkedRunIdsParam()
+
+	/**
+	 * The signed-in user's uid when they may perform the action, otherwise the
+	 * 401/403 refusal (see ActionGate).
+	 *
+	 * @param string $action The ADR-023 action name to require.
+	 *
+	 * @return string|JSONResponse
+	 */
+	private function authorise(string $action): string|JSONResponse {
+		$user = (new ActionGate(userSession: $this->userSession, actionAuth: $this->actionAuth))->authorise(action: $action);
+		if ($user instanceof JSONResponse) {
+			return $user;
+		}
+
+		return $user->getUID();
+	}//end authorise()
+
+	/**
 	 * Report the caller's organisation's currently configured retention period.
 	 *
 	 * @return JSONResponse The retention payload, or an error status.
@@ -322,7 +338,7 @@ class OrganisationOpsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-7-tenantopscontroller-incidents-retention-endpoints
+	 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-7-tenantopscontroller-incidents-retention-endpoints
 	 */
 	public function retention(): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -347,18 +363,12 @@ class OrganisationOpsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-7-tenantopscontroller-incidents-retention-endpoints
+	 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-7-tenantopscontroller-incidents-retention-endpoints
 	 */
 	public function updateRetention(): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		try {
-			$this->actionAuth->requireAction(user: $user, action: 'tenantops.update-retention');
-		} catch (OCSForbiddenException $e) {
-			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+		$uid = $this->authorise(action: 'tenantops.update-retention');
+		if ($uid instanceof JSONResponse) {
+			return $uid;
 		}
 
 		$months = (int)$this->request->getParam('retentionMonths', 0);

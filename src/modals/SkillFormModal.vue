@@ -226,6 +226,11 @@ import {
 	NcTextField,
 } from '@nextcloud/vue'
 import { importSkill, installFromSource, updateSkill } from '../api/skills.js'
+import { busyAction, BusyFields, SAVING_FIELDS } from '../utils/busyAction.js'
+import { formDialogSlot } from './formDialogSlot.js'
+import { resetOnOpen } from './resetOnOpen.js'
+
+const PASTE_FIELDS = new BusyFields('pasteBusy', 'pasteError')
 
 export default {
 	name: 'SkillFormModal',
@@ -240,46 +245,9 @@ export default {
 		NcTextField,
 	},
 
+	mixins: [formDialogSlot, resetOnOpen],
+
 	props: {
-		/** Whether the modal is visible. */
-		show: {
-			type: Boolean,
-			default: false,
-		},
-
-		/**
-		 * The item being edited, or null in create mode (agent-form-slot
-		 * parity): supplied by CnIndexPage's `#form-dialog` scoped slot
-		 * (`{ show, item, schema, close }`) when this modal is wired via
-		 * SkillsCatalog's `slots.form-dialog`.
-		 */
-		item: {
-			type: Object,
-			default: null,
-		},
-
-		/**
-		 * Closes the host dialog (agent-form-slot parity): the `close`
-		 * binding from CnIndexPage's `#form-dialog` scoped slot. Called in
-		 * ADDITION to `$emit('close')` on cancel/close/save.
-		 */
-		close: {
-			type: Function,
-			default: null,
-		},
-
-		/**
-		 * The effective JSON schema driving the form (agent-form-slot
-		 * parity): the `schema` binding from CnIndexPage's `#form-dialog`
-		 * scoped slot. Not consumed — this form's fields are hand-authored —
-		 * but accepted so the slot binding lands without a Vue "extraneous
-		 * non-prop attribute" warning.
-		 */
-		schema: {
-			type: Object,
-			default: null,
-		},
-
 		/**
 		 * hermiq-skill-conversational-authoring: pre-fill `body` when opened
 		 * fresh (no `item`) — used by the chat "Save as skill" seam to seed
@@ -362,17 +330,6 @@ export default {
 		 */
 		showPastePackage() {
 			return !this.effectiveSkill
-		},
-	},
-
-	watch: {
-		/**
-		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
-		 */
-		show(open) {
-			if (open) {
-				this.resetForm()
-			}
 		},
 	},
 
@@ -484,19 +441,6 @@ export default {
 		},
 
 		/**
-		 * Close the modal (agent-form-slot parity). Always emits `close`,
-		 * and ADDITIONALLY invokes the `close` prop when supplied (CnIndexPage's
-		 * `#form-dialog` scoped slot).
-		 *
-		 * @return {void}
-		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
-		 */
-		handleClose() {
-			this.$emit('close')
-			this.close?.()
-		},
-
-		/**
 		 * Compose the frontmatter block sent to the server, injecting `name`/
 		 * `description` from the required form fields when the raw
 		 * frontmatter text does not already declare them (so the required
@@ -595,32 +539,73 @@ export default {
 				return
 			}
 
-			this.pasteBusy = true
-			this.pasteError = ''
-			try {
-				const result = await importSkill(text)
-				this.importedSkill = result
-				this.form = {
-					name: result.name || '',
-					description: result.description || '',
-					frontmatter: result.frontmatter || '',
-					body: result.body || '',
-				}
-				this.files = Array.isArray(result.files)
-					? result.files.map((file) => ({
-							name: file.name || '',
-							content: file.content || '',
-						}))
-					: []
+			await busyAction(this, PASTE_FIELDS)(async () => {
+				this.applyImportedSkill(await importSkill(text))
 				this.pasteText = ''
-			} catch (e) {
-				this.pasteError =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Could not import the pasted package.')
-			} finally {
-				this.pasteBusy = false
+			}, () => this.t('hermiq', 'Could not import the pasted package.'))
+		},
+
+		/**
+		 * Put an imported package's skill into the form, for review before Save.
+		 *
+		 * @param {object} result The created skill.
+		 * @return {void}
+		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
+		 */
+		applyImportedSkill(result) {
+			this.importedSkill = result
+			this.form = {
+				name: result.name || '',
+				description: result.description || '',
+				frontmatter: result.frontmatter || '',
+				body: result.body || '',
 			}
+			this.files = Array.isArray(result.files)
+				? result.files.map((file) => ({
+						name: file.name || '',
+						content: file.content || '',
+					}))
+				: []
+		},
+
+		/**
+		 * skill-maturity: EDIT goes through the guarded hermiq merge path (PUT
+		 * /api/skills/{id}) so the server silently preserves the computed maturity
+		 * fields; targetLevel stays freely editable.
+		 *
+		 * @return {Promise<object|null>} The saved skill, or null when the server refused it.
+		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
+		 */
+		saveEdit() {
+			return updateSkill(this.effectiveSkill.id, this.buildEditPayload())
+		},
+
+		/**
+		 * CREATE through `importSkill()` or, for quarantine, `installFromSource()`,
+		 * then land any authored files.
+		 *
+		 * @return {Promise<object>} The created skill, with its files when written.
+		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
+		 */
+		async saveNew() {
+			const pkg = this.buildPackage()
+			const saved = this.saveTarget === 'quarantine'
+				? await installFromSource(pkg, 'local')
+				: await importSkill(pkg)
+			if (this.files.length === 0) {
+				return saved
+			}
+
+			// skill-maturity: the follow-up files write uses the same guarded merge
+			// path as an edit save.
+			const withFiles = await updateSkill(saved.uuid || saved.id, {
+				...saved,
+				files: this.files.map((file) => ({
+					name: file.name,
+					content: file.content,
+				})),
+			})
+			return withFiles || saved
 		},
 
 		/**
@@ -638,56 +623,21 @@ export default {
 				return
 			}
 
-			this.saving = true
-			this.error = ''
-			try {
+			await busyAction(this, SAVING_FIELDS)(async () => {
 				let saved
-
 				if (this.effectiveSkill && this.effectiveSkill.id) {
-					// skill-maturity: EDIT goes through the guarded hermiq merge path
-					// (PUT /api/skills/{id}) so the server silently preserves the
-					// computed maturity fields; targetLevel stays freely editable.
-					saved = await updateSkill(
-						this.effectiveSkill.id,
-						this.buildEditPayload(),
-					)
+					saved = await this.saveEdit()
 					if (saved === null) {
 						this.error = this.t('hermiq', 'Could not save skill')
 						return
 					}
 				} else {
-					const pkg = this.buildPackage()
-					saved =
-						this.saveTarget === 'quarantine'
-							? await installFromSource(pkg, 'local')
-							: await importSkill(pkg)
-
-					if (this.files.length > 0) {
-						// skill-maturity: the follow-up files write uses the same
-						// guarded merge path as an edit save.
-						const withFiles = await updateSkill(saved.uuid || saved.id, {
-							...saved,
-							files: this.files.map((file) => ({
-								name: file.name,
-								content: file.content,
-							})),
-						})
-						if (withFiles) {
-							saved = withFiles
-						}
-					}
+					saved = await this.saveNew()
 				}
 
 				this.$emit('saved', saved)
 				this.handleClose()
-			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
-			} finally {
-				this.saving = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 	},
 }

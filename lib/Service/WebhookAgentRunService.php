@@ -55,10 +55,15 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\OpenRegister\Db\Agent;
-use OCA\OpenRegister\Db\AgentMapper;
+use OCA\Hermiq\Kernel\Contracts\WebhookAgentRunServiceInterface;
+use OCA\Hermiq\Service\AgentRun\WebhookRunOutcome;
+use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Mcp\Db\Agent;
+use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -70,7 +75,7 @@ use Throwable;
  *
  * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
  */
-class WebhookAgentRunService {
+class WebhookAgentRunService implements WebhookAgentRunServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -109,6 +114,7 @@ class WebhookAgentRunService {
 	 * @param SkillVersionService $skillVersionService Resolves the exposed skills' version identifiers,
 	 *                                                 pinned onto the run-audit context
 	 *                                                 (skill-self-improvement) — never fatal to the run.
+	 * @param TraceExportQueue|null $traceExportQueue Hands the finished run to trace export (observability-export-traces).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
 	 *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -124,6 +130,7 @@ class WebhookAgentRunService {
 		private readonly BudgetService $budgetService,
 		private readonly AgentVersionService $agentVersionService,
 		private readonly SkillVersionService $skillVersionService,
+		private readonly ?TraceExportQueue $traceExportQueue = null,
 	) {
 	}//end __construct()
 
@@ -189,7 +196,14 @@ class WebhookAgentRunService {
 
 		// GATE 1 — KILL-SWITCH (same TenantControl data source ScheduleService reads).
 		if ($organisation !== '' && $this->scheduleService->isOrganisationEngaged(organisation: $organisation) === true) {
-			$this->writeRunAudit(agentObject: $agentObject, status: 'skipped_killswitch', summary: '', context: $context);
+			$this->writeRunAudit(
+				agentObject: $agentObject,
+				outcome: new WebhookRunOutcome(
+					status: 'skipped_killswitch',
+					summary: '',
+					context: $context
+				)
+			);
 			return false;
 		}
 
@@ -197,7 +211,14 @@ class WebhookAgentRunService {
 		// identical gate: the soft-threshold check is unconditional (never fatal), and the
 		// hard-cap block applies even to an authorised approval-bypass occurrence.
 		if ($this->isBudgetBlocked(organisation: $organisation, agentId: $agentId) === true) {
-			$this->writeRunAudit(agentObject: $agentObject, status: 'skipped_budget', summary: '', context: $context);
+			$this->writeRunAudit(
+				agentObject: $agentObject,
+				outcome: new WebhookRunOutcome(
+					status: 'skipped_budget',
+					summary: '',
+					context: $context
+				)
+			);
 			return false;
 		}
 
@@ -267,7 +288,15 @@ class WebhookAgentRunService {
 			);
 		}//end try
 
-		$this->writeRunAudit(agentObject: $agentObject, status: $status, summary: $summary, context: $context, startedAt: $startedAt);
+		$this->writeRunAudit(
+			agentObject: $agentObject,
+			outcome: new WebhookRunOutcome(
+				status: $status,
+				summary: $summary,
+				context: $context,
+				startedAt: $startedAt
+			)
+		);
 
 		return $status === 'ok';
 	}//end runAgentAndAudit()
@@ -375,8 +404,7 @@ class WebhookAgentRunService {
 
 		$agentObject = $this->objectService->find(
 			id: $agentId,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -455,7 +483,14 @@ class WebhookAgentRunService {
 			);
 		}
 
-		$this->writeRunAudit(agentObject: $agentObject, status: 'awaiting_approval', summary: '', context: $context);
+		$this->writeRunAudit(
+			agentObject: $agentObject,
+			outcome: new WebhookRunOutcome(
+				status: 'awaiting_approval',
+				summary: '',
+				context: $context
+			)
+		);
 		return true;
 	}//end applyApprovalGate()
 
@@ -487,24 +522,17 @@ class WebhookAgentRunService {
 	 * redaction-before-persist contract. Non-fatal by design.
 	 *
 	 * @param ObjectEntity $agentObject The Agent's ObjectEntity (audit target).
-	 * @param string $status The run outcome (ok|error|skipped_killswitch|
-	 *                       skipped_budget|awaiting_approval).
-	 * @param string $summary The raw run output/error (redacted here).
-	 * @param array<string,mixed> $context The webhook trigger context (for agentId/
-	 *                                     correlationId diagnostics + the redacted payload).
-	 * @param DateTimeImmutable|null $startedAt When the agent turn began, if it ran (UTC).
+	 * @param WebhookRunOutcome $outcome How one webhook-started agent run ended, as its audit entry records it.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-the-webhook-payload-becomes-run-input-redacted-before-persistence
 	 */
-	private function writeRunAudit(
-		ObjectEntity $agentObject,
-		string $status,
-		string $summary,
-		array $context,
-		?DateTimeImmutable $startedAt = null,
-	): void {
+	private function writeRunAudit(ObjectEntity $agentObject, WebhookRunOutcome $outcome): void {
+		$status = $outcome->status;
+		$summary = $outcome->summary;
+		$context = $outcome->context;
+		$startedAt = $outcome->startedAt;
 		try {
 			$endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 			$started = ($startedAt ?? $endedAt);
@@ -528,11 +556,14 @@ class WebhookAgentRunService {
 				'skillVersions' => $this->skillVersionService->pinsFor(skillUuids: $this->scheduleService->getLastRunSkillsUsed()),
 			];
 
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $agentObject,
-				action: 'agent-run',
-				context: $auditContext
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $agentObject,
+					action: 'agent-run',
+					context: $auditContext
+				)
 			);
+			$this->traceExportQueue?->enqueueRun(context: $auditContext, trigger: 'webhook');
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				sprintf(

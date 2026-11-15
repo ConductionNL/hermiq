@@ -47,12 +47,13 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\AsyncStageDispatchServiceInterface;
 use RuntimeException;
 
 /**
  * The async half of the stage transport.
  */
-class AsyncStageDispatchService extends StageDispatchService {
+class AsyncStageDispatchService extends StageDispatchService implements AsyncStageDispatchServiceInterface {
 
 	/**
 	 * Start a stage and return a handle to collect it with.
@@ -98,43 +99,58 @@ class AsyncStageDispatchService extends StageDispatchService {
 		string $jobKey = '',
 		array $collect = [],
 	): array {
-		$ceiling = self::DEFAULT_STAGE_TIMEOUT_MS;
-		if ($timeoutMs > 0) {
-			$ceiling = $timeoutMs;
-		}
-
-		$params = $this->buildParams(
-			repo: $repo,
-			ref: $ref,
-			command: $command,
-			uid: $uid,
-			credentialId: $credentialId,
-			ceiling: $ceiling,
-			toolRepo: $toolRepo,
-			toolRef: $toolRef,
-			push: $push,
-			pushCredentialId: $pushCredentialId,
-			llmCredentialId: $llmCredentialId,
-			collect: $collect
+		return $this->dispatchStageAsync(
+			request: new StageRequest(
+				repo: $repo,
+				ref: $ref,
+				command: $command,
+				uid: $uid,
+				options: new StageOptions(
+					credentialId: $credentialId,
+					timeoutMs: $timeoutMs,
+					toolRepo: $toolRepo,
+					toolRef: $toolRef,
+					push: $push,
+					pushCredentialId: $pushCredentialId,
+					llmCredentialId: $llmCredentialId,
+					collect: $collect,
+					jobKey: $jobKey,
+				)
+			)
 		);
+	}//end dispatchAsync()
+
+	/**
+	 * Start one stage, as `dispatchAsync()` describes, from one request.
+	 *
+	 * @param StageRequest $request The stage, with its job key when the caller has one.
+	 *
+	 * @return array{job: array{id: string, status: string}} The handle.
+	 *
+	 * @throws RuntimeException When the stage could not be started.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
+	 */
+	public function dispatchStageAsync(StageRequest $request): array {
+		$params = $this->buildParams(request: $request);
 
 		// The one field that differs from a synchronous dispatch. Added HERE
 		// rather than inside `buildParams()` so the shared builder keeps one
 		// behaviour and cannot be made to produce two payload shapes.
 		$params['async'] = true;
 
-		$params = $this->withJobKey(params: $params, jobKey: $jobKey);
+		$params = $this->withJobKey(params: $params, jobKey: $request->options->jobKey);
 
 		// Seconds, not minutes: this call returns as soon as the stage is
 		// ACCEPTED. Waiting the stage's own ceiling here would reintroduce
 		// exactly the blocking this class exists to remove.
-		$result = $this->callRunner(route: self::RUNNER_ROUTE, method: 'POST', params: $params, uid: $uid);
+		$result = $this->callRunner(route: self::RUNNER_ROUTE, method: 'POST', params: $params, uid: $request->uid);
 
 		$this->assertReachable(result: $result);
 		$this->assertAccepted(result: $result, what: 'start the stage');
 
 		return $this->mapAccepted(body: (string)$result->getBody());
-	}//end dispatchAsync()
+	}//end dispatchStageAsync()
 
 	/**
 	 * Collect a started stage by its handle.

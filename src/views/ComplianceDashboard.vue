@@ -9,15 +9,15 @@
   computed live from Hermiq's own existing governance data — never a hand-ticked
   status. An auditor's-pack export button reuses TenantOps.vue's exact
   /**
-   * @spec openspec/changes/compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
+   * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
    */
   downloadJson()/Blob-download pattern. Gated server-side by
   `compliance.view-dashboard`/`compliance.export-pack` (ActionAuthService, ADR-023);
   the frontend detects a 403 from the dashboard read itself (no separate capability
   flag) and shows an "Organisation admins only" empty state, mirroring TenantOps.vue.
 
-  @spec openspec/changes/compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
-  @spec openspec/changes/compliance-control-packs/specs/compliance-control-packs/spec.md#requirement-a-compliance-dashboard-shows-per-framework-coverage-and-the-gap-list
+  @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
+  @spec openspec/specs/compliance-control-packs/spec.md#requirement-a-compliance-dashboard-shows-per-framework-coverage-and-the-gap-list
 -->
 <template>
 	<div class="compliance-dashboard" data-testid="compliance-dashboard">
@@ -168,6 +168,8 @@ import { CnDataTable } from '@conduction/nextcloud-vue'
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
 import { getComplianceDashboard, getComplianceExport } from '../api/compliance.js'
+import { downloadJson } from '../utils/downloadJson.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'ComplianceDashboard',
@@ -197,7 +199,7 @@ export default {
 		 * Column definitions for each framework's control CnDataTable.
 		 *
 		 * @return {Array<object>} CnDataTable column descriptors.
-		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
+		 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
 		 */
 		controlColumns() {
 			return [
@@ -220,7 +222,7 @@ export default {
 		 * state rather than a raw error (the real gate is server-side).
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
+		 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
 		 */
 		async load() {
 			this.loading = true
@@ -251,7 +253,7 @@ export default {
 		 * Blob-download pattern as TenantOps.vue's exportAudit()).
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
+		 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
 		 */
 		async exportPack() {
 			this.exporting = true
@@ -260,43 +262,20 @@ export default {
 				const data = await getComplianceExport()
 				this.downloadJson(data, 'hermiq-compliance-auditor-pack.json')
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.exporting = false
 			}
 		},
 
-		/**
-		 * Trigger a client-side download of a JSON object (mirrors TenantOps.vue).
-		 *
-		 * @param {object} data The payload to download.
-		 * @param {string} filename The download filename.
-		 * @return {void}
-		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
-		 */
-		downloadJson(data, filename) {
-			const blob = new Blob([JSON.stringify(data, null, 2)], {
-				type: 'application/json',
-			})
-			const url = URL.createObjectURL(blob)
-			const a = document.createElement('a')
-			a.href = url
-			a.download = filename
-			document.body.appendChild(a)
-			a.click()
-			document.body.removeChild(a)
-			URL.revokeObjectURL(url)
-		},
+		downloadJson,
 
 		/**
 		 * Human label for a computed control status.
 		 *
 		 * @param {string} status One of satisfied/partial/unevidenced.
 		 * @return {string} The label.
-		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
+		 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
 		 */
 		statusLabel(status) {
 			const labels = {

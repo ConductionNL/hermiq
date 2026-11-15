@@ -4,7 +4,7 @@
  * Test stub for OpenRegister AuditTrailMapper.
  *
  * Stands in for OCA\OpenRegister\Db\AuditTrailMapper when OpenRegister is not
- * installed (standalone CI). Exposes only createAuditTrailEntry, the public
+ * installed (standalone CI). Exposes recordObjectEvent, the public
  * app-writable audit seam Hermiq's ScheduleService calls to record an explicit
  * per-run entry. The real mapper ships with OpenRegister and chains the entry
  * into the hash-verified trail.
@@ -23,6 +23,7 @@ declare(strict_types=1);
 
 namespace OCA\OpenRegister\Db;
 
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCP\AppFramework\Db\Entity;
 
 /**
@@ -31,25 +32,19 @@ use OCP\AppFramework\Db\Entity;
 class AuditTrailMapper {
 
 	/**
-	 * Create an explicit audit trail entry for an object.
+	 * Record a non-CRUD action on one object.
 	 *
-	 * @param ObjectEntity $object The object the entry is about.
-	 * @param string $action The audit action (e.g. 'run').
-	 * @param array<string,mixed> $context The changed/context payload.
+	 * @param ObjectAuditEvent $event The object, action and context.
 	 *
 	 * @return AuditTrail
 	 */
-	public function createAuditTrailEntry(
-		ObjectEntity $object,
-		string $action,
-		array $context = [],
-	): AuditTrail {
+	public function recordObjectEvent(ObjectAuditEvent $event): AuditTrail {
 		$entry = new AuditTrail();
 		$entry->setUuid('00000000-0000-0000-0000-000000000000');
-		$entry->setAction($action);
-		$entry->setChanged($context);
+		$entry->setAction($event->action);
+		$entry->setChanged($event->context);
 		return $entry;
-	}//end createAuditTrailEntry()
+	}//end recordObjectEvent()
 
 	/**
 	 * Persist a changed audit entry.

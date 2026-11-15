@@ -28,6 +28,9 @@ namespace OCA\Hermiq\Service\ToolOversight;
 
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\Capability\ToolGrantSet;
 use OCA\OpenRegister\Service\ObjectService;
 use Throwable;
@@ -84,9 +87,10 @@ class ToolGrantWrites {
 	public function saveAgent(array $payload, string $agentId): array {
 		$updated = $this->objectService->saveObject(
 			object: $payload,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
-			uuid: $agentId
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+				uuid: $agentId
+			)
 		);
 
 		return ($updated->getObject()['tools'] ?? $payload['tools']);
@@ -102,16 +106,17 @@ class ToolGrantWrites {
 	 *
 	 * @throws Throwable When the decision cannot be stored.
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
 	 */
 	public function saveDecision(array $data, string $requestId): void {
 		// System path: the schema admits only the request's owner, and the
 		// caller checked that the acting user owns the agent the request is for.
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: 'toolAccessRequest',
-			uuid: $requestId,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: 'toolAccessRequest'),
+				uuid: $requestId
+			),
 			_rbac: false
 		);
 
@@ -133,14 +138,13 @@ class ToolGrantWrites {
 	 *
 	 * @return array<string, mixed>|null The request data, or null when it is not this agent's.
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
 	 */
 	public function findAccessRequest(string $requestId, string $agentId): ?array {
 		try {
 			$requestObject = $this->objectService->find(
 				id: $requestId,
-				register: self::REGISTER_SLUG,
-				schema: 'toolAccessRequest'
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: 'toolAccessRequest')
 			);
 		} catch (Throwable $e) {
 			return null;
@@ -173,7 +177,7 @@ class ToolGrantWrites {
 	 *                   success. The single caller
 	 *                   (`resolveToolAccessRequest()`) turns it into a 500.
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
 	 */
 	public function grantRequestedTool(ObjectEntity $agent, array $data): void {
 		if (($data['status'] ?? '') !== 'granted') {

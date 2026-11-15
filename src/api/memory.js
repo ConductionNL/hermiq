@@ -17,25 +17,10 @@
 
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
+import { listOrResults as toList } from './listEnvelope.js'
 
 /** Hermiq agents API base (memory endpoints hang off an agent). */
 const AGENTS_BASE = '/apps/hermiq/api/agents'
-
-/**
- * Normalise the Hermiq list envelope to a plain array.
- *
- * @param {object} data The response body.
- * @return {Array<object>} The extracted list (empty array on miss).
- */
-function toList(data) {
-	if (Array.isArray(data)) {
-		return data
-	}
-	if (Array.isArray(data?.results)) {
-		return data.results
-	}
-	return []
-}
 
 /**
  * Get an agent's Memory object (tenant-scoped; created empty if none exists).
