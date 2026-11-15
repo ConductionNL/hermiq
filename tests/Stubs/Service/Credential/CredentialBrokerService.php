@@ -86,6 +86,7 @@ class CredentialBrokerService {
 	 * @param string $credentialId The credential UUID.
 	 * @param string $appId The calling app.
 	 * @param string|null $actingUserId The credential owner.
+	 * @param string|null $actingOrganisationId The acting organisation.
 	 *
 	 * @return string|null The secret, or null when the credential is not inject-only.
 	 */
@@ -93,6 +94,7 @@ class CredentialBrokerService {
 		string $credentialId,
 		string $appId,
 		?string $actingUserId = null,
+		?string $actingOrganisationId = null,
 	): ?string {
 		return null;
 	}//end resolveInjectable()

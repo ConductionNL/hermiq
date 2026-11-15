@@ -23,11 +23,12 @@ use OCP\IGroupManager;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Covers who may read the advisory Approvals about a subject.
  *
- * @spec openspec/changes/ai-oversight-subject-access/specs/ai-oversight/spec.md
+ * @spec openspec/specs/ai-oversight/spec.md
  */
 class AiOversightAccessTest extends TestCase {
 
@@ -78,7 +79,15 @@ class AiOversightAccessTest extends TestCase {
         $this->groupManager->method('isInGroup')->willReturn(false);
         $this->objectService->expects($this->once())
             ->method('find')
-            ->with(self::SUBJECT, $this->anything(), $this->anything(), $this->anything(), $this->anything(), true, true)
+            ->with(...LegacyObjectArgs::with(method: 'find', expected: [
+            		'id' => self::SUBJECT,
+            		'_extend' => $this->anything(),
+            		'files' => $this->anything(),
+            		'register' => $this->anything(),
+            		'schema' => $this->anything(),
+            		'_rbac' => true,
+            		'_multitenancy' => true,
+            	]))
             ->willReturn($this->createMock(ObjectEntity::class));
 
         $this->assertTrue($this->access->maySeeSubject(userId: 'alice', subjectId: self::SUBJECT));

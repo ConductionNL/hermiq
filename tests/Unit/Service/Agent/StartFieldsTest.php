@@ -64,6 +64,40 @@ class StartFieldsTest extends TestCase {
 	}//end testOnlyWellFormedFieldsCount()
 
 	/**
+	 * Each declared field normalises exactly: default type, trimmed options without
+	 * blanks or non-scalars, label falling back to the key, only a literal true is
+	 * required, and the default as bounded text.
+	 *
+	 * @return void
+	 */
+	public function testEachFieldNormalisesExactly(): void {
+		$fields = (new StartFields())->fieldsOf(
+			agentData: [
+				'startFields' => [
+					'not an entry',
+					['key' => 'plain'],
+					['key' => 'pick', 'label' => '  ', 'type' => 'select', 'options' => [' A ', '', '  ', ['x'], 3, true, null], 'required' => 'yes'],
+					['key' => 'when', 'label' => ' When ', 'type' => 'date', 'options' => 'single', 'required' => true, 'default' => 2026],
+					['key' => 'flag', 'type' => 'text', 'default' => false],
+					['key' => 'list', 'type' => 'text', 'default' => ['x']],
+				],
+			]
+		);
+
+		$this->assertSame(
+			expected: [
+				['key' => 'plain', 'label' => 'plain', 'type' => 'text', 'options' => [], 'required' => false, 'default' => ''],
+				['key' => 'pick', 'label' => 'pick', 'type' => 'select', 'options' => ['A', '3', '1'], 'required' => false, 'default' => ''],
+				['key' => 'when', 'label' => 'When', 'type' => 'date', 'options' => ['single'], 'required' => true, 'default' => '2026'],
+				['key' => 'flag', 'label' => 'flag', 'type' => 'text', 'options' => [], 'required' => false, 'default' => ''],
+				['key' => 'list', 'label' => 'list', 'type' => 'text', 'options' => [], 'required' => false, 'default' => ''],
+			],
+			actual: $fields
+		);
+
+	}//end testEachFieldNormalisesExactly()
+
+	/**
 	 * No more than ten fields are used.
 	 *
 	 * @return void
@@ -99,6 +133,29 @@ class StartFieldsTest extends TestCase {
 		);
 
 	}//end testProblemsAreNamedPerField()
+
+	/**
+	 * A date answer must be written YYYY-MM-DD: other spellings of a real day are refused.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+	 */
+	public function testADateInAnotherNotationIsRefused(): void {
+		$fields = (new StartFields())->fieldsOf(agentData: $this->agent());
+		$base = ['department' => 'Permits'];
+
+		foreach (['02-10-2026', '2026/10/02', '2026-10-2', '20261002', 'next Friday'] as $answer) {
+			$this->assertSame(
+				['deadline' => 'not a date (YYYY-MM-DD)'],
+				(new StartFields())->problems(fields: $fields, values: $base + ['deadline' => $answer]),
+				$answer
+			);
+		}
+
+		$this->assertSame([], (new StartFields())->problems(fields: $fields, values: $base + ['deadline' => '2028-02-29']));
+
+	}//end testADateInAnotherNotationIsRefused()
 
 	/**
 	 * Only declared answers are kept, trimmed; empty ones are dropped.

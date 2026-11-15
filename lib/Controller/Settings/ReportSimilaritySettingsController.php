@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
+ * @spec openspec/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
  */
 
 declare(strict_types=1);
@@ -29,8 +29,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller\Settings;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\ReportSimilarity\ReportSimilaritySettings;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ReportSimilaritySettingsInterface;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -43,7 +43,7 @@ use Throwable;
 /**
  * Read and set the grouping thresholds and windows.
  *
- * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#requirement-the-comparison-window-must-be-bounded-and-administered
+ * @spec openspec/specs/report-similarity/spec.md#requirement-the-comparison-window-must-be-bounded-and-administered
  */
 class ReportSimilaritySettingsController extends Controller {
 
@@ -51,17 +51,17 @@ class ReportSimilaritySettingsController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request.
-	 * @param ReportSimilaritySettings $settings The thresholds and windows.
+	 * @param ReportSimilaritySettingsInterface $settings The thresholds and windows.
 	 * @param LoggerInterface $logger Logger.
 	 *
 	 * @return void
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly ReportSimilaritySettings $settings,
+		private readonly ReportSimilaritySettingsInterface $settings,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 
@@ -70,7 +70,7 @@ class ReportSimilaritySettingsController extends Controller {
 	 *
 	 * @return JSONResponse The settings.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function get(): JSONResponse {
@@ -91,34 +91,15 @@ class ReportSimilaritySettingsController extends Controller {
 	 *
 	 * @return JSONResponse The stored settings, or 422 naming what was wrong.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function update(): JSONResponse {
-		$upper = $this->request->getParam('upper');
-		$lower = $this->request->getParam('lower');
-		$windows = $this->request->getParam('windows');
-
-		$upperValue = null;
-		if (is_numeric($upper) === true) {
-			$upperValue = (float)$upper;
-		}
-
-		$lowerValue = null;
-		if (is_numeric($lower) === true) {
-			$lowerValue = (float)$lower;
-		}
-
-		$windowsValue = null;
-		if (is_array($windows) === true) {
-			$windowsValue = $windows;
-		}
-
 		try {
 			$stored = $this->settings->store(
-				upper: $upperValue,
-				lower: $lowerValue,
-				windows: $windowsValue
+				upper: $this->numberParam(name: 'upper'),
+				lower: $this->numberParam(name: 'lower'),
+				windows: $this->windowsParam()
 			);
 		} catch (InvalidArgumentException $e) {
 			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_UNPROCESSABLE_ENTITY);
@@ -132,4 +113,34 @@ class ReportSimilaritySettingsController extends Controller {
 
 		return new JSONResponse($stored);
 	}//end update()
+
+	/**
+	 * A numeric request param as a float, or null when it is absent or not a number.
+	 *
+	 * @param string $name The param name.
+	 *
+	 * @return float|null
+	 */
+	private function numberParam(string $name): ?float {
+		$value = $this->request->getParam($name);
+		if (is_numeric($value) === false) {
+			return null;
+		}
+
+		return (float)$value;
+	}//end numberParam()
+
+	/**
+	 * The `windows` request param, or null when it is not a list.
+	 *
+	 * @return array|null
+	 */
+	private function windowsParam(): ?array {
+		$windows = $this->request->getParam('windows');
+		if (is_array($windows) === false) {
+			return null;
+		}
+
+		return $windows;
+	}//end windowsParam()
 }//end class

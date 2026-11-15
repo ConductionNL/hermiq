@@ -6,8 +6,8 @@
 // EU AI Act art.12/14 tool-invocation oversight read. axios from @nextcloud/axios adds the
 // CSRF requesttoken. Mirrors src/api/analytics.js / src/api/tenantOps.js.
 //
-// @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-6
-// @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+// @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-6
+// @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
@@ -67,4 +67,24 @@ export async function getToolInvocations(agentId, params = {}) {
  */
 export function toolInvocationsExportUrl(agentId, format) {
 	return generateUrl(`${AGENTS_BASE}/${agentId}/tool-invocations?format=${format}`)
+}
+
+/**
+ * Mark one recorded tool call as misuse, with the operator's reason (owner-only).
+ *
+ * The server refuses a mark without a reason and records the mark, with the
+ * operator and the time, on the agent, so the agent's audit trail holds it.
+ *
+ * @param {string} agentId The agent UUID.
+ * @param {string} callId The tool call's audit entry uuid (the row's callId).
+ * @param {string} reason Why the call is misuse.
+ * @return {Promise<object>} The mark: { callId, label, reason, markedBy, markedAt }.
+ * @spec openspec/changes/verify-row-scenarios/tasks.md
+ */
+export async function markToolCall(agentId, callId, reason) {
+	const response = await axios.post(
+		generateUrl(`${AGENTS_BASE}/${agentId}/tool-invocations/${callId}/mark`),
+		{ reason },
+	)
+	return response.data
 }

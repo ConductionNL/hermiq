@@ -43,6 +43,10 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
 
+use OCA\Hermiq\Kernel\Contracts\ConversationTitleWriterInterface;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -54,7 +58,7 @@ use Throwable;
  *
  * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
  */
-class ConversationTitleWriter {
+class ConversationTitleWriter implements ConversationTitleWriterInterface {
 	use SanitizesForSaveTrait;
 
 	/**
@@ -154,7 +158,7 @@ class ConversationTitleWriter {
 		$this->userSession->setUser($user);
 
 		try {
-			$this->writeAsOwner(conversationId: $conversationId, userMessage: $userMessage, userId: $userId);
+			$this->writeAsOwner(conversationId: $conversationId, request: new TitleRequest(userMessage: $userMessage, userId: $userId));
 		} finally {
 			// Restored unconditionally: this job runs in a shared worker process, so a
 			// leaked session would hand the NEXT job this user's identity.
@@ -167,19 +171,19 @@ class ConversationTitleWriter {
 	 * Generate and persist the title, with the owner already impersonated.
 	 *
 	 * @param string $conversationId The conversation UUID.
-	 * @param string $userMessage The first user message to name it from.
-	 * @param string $userId The impersonated owner's UID.
+	 * @param TitleRequest $request The turn a conversation title is written from.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
 	 */
-	private function writeAsOwner(string $conversationId, string $userMessage, string $userId): void {
+	private function writeAsOwner(string $conversationId, TitleRequest $request): void {
+		$userMessage = $request->userMessage;
+		$userId = $request->userId;
 		try {
 			$conversation = $this->objectService->find(
 				id: $conversationId,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 		} catch (Throwable $e) {
 			$this->logger->info(
@@ -262,9 +266,10 @@ class ConversationTitleWriter {
 
 		$this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $conversationData),
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
-			uuid: $conversationId
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+				uuid: $conversationId
+			)
 		);
 
 	}//end writeAsOwner()

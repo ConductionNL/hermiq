@@ -23,15 +23,15 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\LlmSettingsHandlerInterface;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\AnonRateLimit;
 use OCP\AppFramework\Http\JSONResponse;
@@ -49,24 +49,24 @@ use Throwable;
  * {status:"config_error"} when the config read itself fails, which IS the app
  * being broken.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
  */
 class ChatHealthController extends Controller {
 	/**
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param LlmSettingsHandler $llmSettings Reads the `hermiq.llm` provider configuration.
+	 * @param LlmSettingsHandlerInterface $llmSettings Reads the `hermiq.llm` provider configuration.
 	 * @param LoggerInterface $logger PSR-3 logger for surfacing config errors.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly LlmSettingsHandler $llmSettings,
+		private readonly LlmSettingsHandlerInterface $llmSettings,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -94,7 +94,7 @@ class ChatHealthController extends Controller {
 	 * short interval, and a ceiling that trips on a normal probe cadence turns
 	 * the health check into the outage it was meant to detect.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	#[AnonRateLimit(limit: 240, period: 60)]
 	public function health(): JSONResponse {

@@ -181,6 +181,51 @@ class LlmSettingsControllerTest extends TestCase {
 	}//end testUpdateAcceptsNextcloudProvider()
 
 	/**
+	 * update() takes the whole request as the patch when no `llm` key is sent,
+	 * without the route name.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-1-3
+	 */
+	public function testUpdateAcceptsAFlatBodyWithoutTheRoute(): void {
+		$request = $this->createMock(IRequest::class);
+		$request->method('getParam')->with('llm')->willReturn(null);
+		$request->method('getParams')->willReturn(['_route' => 'hermiq.llm.update', 'chatProvider' => 'nextcloud', 'enabled' => true]);
+
+		$handler = $this->createMock(LlmSettingsHandler::class);
+		$handler->expects($this->once())
+			->method('updateLLMSettingsOnly')
+			->with(['chatProvider' => 'nextcloud', 'enabled' => true])
+			->willReturn($this->storedConfig());
+
+		$response = $this->controller($request, $handler)->update();
+
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame(['success', 'config', 'modelCapabilities'], array_keys($response->getData()));
+	}//end testUpdateAcceptsAFlatBodyWithoutTheRoute()
+
+	/**
+	 * A failed save answers 500 with the fixed error body.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-1-3
+	 */
+	public function testUpdateAnswersAFailedSaveWithTheFixedError(): void {
+		$request = $this->createMock(IRequest::class);
+		$request->method('getParam')->with('llm')->willReturn(['chatProvider' => 'openai']);
+
+		$handler = $this->createMock(LlmSettingsHandler::class);
+		$handler->method('updateLLMSettingsOnly')->willThrowException(new \RuntimeException('db down'));
+
+		$response = $this->controller($request, $handler)->update();
+
+		$this->assertSame(Http::STATUS_INTERNAL_SERVER_ERROR, $response->getStatus());
+		$this->assertSame(['error' => 'Failed to save LLM configuration'], $response->getData());
+	}//end testUpdateAnswersAFailedSaveWithTheFixedError()
+
+	/**
 	 * update() drops a blank credential so it never overwrites a stored key.
 	 *
 	 * @return void

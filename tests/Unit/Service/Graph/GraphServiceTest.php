@@ -112,6 +112,36 @@ class GraphServiceTest extends TestCase {
 	}//end testUpsertsAreIdempotent()
 
 	/**
+	 * A relation is stored as from, predicate, to and its custom flag, then its
+	 * source when it has a usable one, then confidence and extractor.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
+	 */
+	public function testARelationIsStoredInItsFieldOrder(): void {
+		$graph = $this->graph();
+		$from = $this->node($graph, 'Jan Jansen', 'c-1');
+		$to = $this->node($graph, 'Acme', 'c-2');
+
+		$plain = $graph->upsertRelation(['fromEntity' => $from, 'predicate' => ' worksFor ', 'toEntity' => $to, 'sourceType' => 'object', 'sourceRef' => []]);
+		$this->assertSame(
+			['fromEntity', 'predicate', 'toEntity', 'custom', 'confidence', 'extractedBy'],
+			array_keys($this->store[GraphService::RELATION_SCHEMA][$plain])
+		);
+		$this->assertSame('worksFor', $this->store[GraphService::RELATION_SCHEMA][$plain]['predicate']);
+
+		$sourced = $graph->upsertRelation(
+			['fromEntity' => $to, 'predicate' => 'worksFor', 'toEntity' => $from, 'sourceType' => 'object', 'sourceRef' => ['register' => 'crm', 'schema' => 'contact', 'uuid' => 'c-9']]
+		);
+		$this->assertSame(
+			['fromEntity', 'predicate', 'toEntity', 'custom', 'sourceType', 'sourceRef', 'confidence', 'extractedBy'],
+			array_keys($this->store[GraphService::RELATION_SCHEMA][$sourced])
+		);
+
+	}//end testARelationIsStoredInItsFieldOrder()
+
+	/**
 	 * An incomplete proposal is refused before anything is written.
 	 *
 	 * @return void
