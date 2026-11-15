@@ -37,8 +37,9 @@ namespace OCA\Hermiq\Flow;
 use OCA\Hermiq\Kernel\Contracts\ScheduleServiceInterface;
 use OCA\OpenRegister\Db\FlowMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\Flow\FlowNodeCall;
-use OCA\OpenRegister\Service\Flow\IFlowNode;
+use OCA\OpenRegister\Service\Flow\ICallFlowNode;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IL10N;
 use OCP\IURLGenerator;
@@ -60,7 +61,7 @@ use UnexpectedValueException;
  *
  * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-a-mirrored-run-declares-and-re-enters-its-governed-identity
  */
-class HermiqScheduleDispatchNode implements IFlowNode {
+class HermiqScheduleDispatchNode implements ICallFlowNode {
 
 	/**
 	 * OpenRegister register slug that holds hermiq schedule objects.
@@ -277,8 +278,7 @@ class HermiqScheduleDispatchNode implements IFlowNode {
 		try {
 			$object = $this->objectService->find(
 				id: $scheduleId,
-				register: self::REGISTER_SLUG,
-				schema: self::SCHEMA_SLUG,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
 				_rbac: false,
 				_multitenancy: false
 			);

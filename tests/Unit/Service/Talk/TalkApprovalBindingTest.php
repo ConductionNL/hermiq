@@ -27,6 +27,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Binding an approval to the Talk message that carries it.
@@ -88,6 +89,7 @@ final class TalkApprovalBindingTest extends TestCase {
 			->method('saveObject')
 			->willReturnCallback(
 				static function (...$args) use (&$captured) {
+					$args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
 					$captured = $args;
 					return new ObjectEntity();
 				}
@@ -185,6 +187,7 @@ final class TalkApprovalBindingTest extends TestCase {
 			->method('find')
 			->willReturnCallback(
 				function (...$args) {
+					$args = LegacyObjectArgs::positional(method: 'find', args: $args);
 					self::assertSame('a-3', $args[0]);
 					self::assertSame('hermiq', $args[3]);
 					self::assertSame('approval', $args[4]);
@@ -195,6 +198,7 @@ final class TalkApprovalBindingTest extends TestCase {
 			->method('saveObject')
 			->willReturnCallback(
 				static function (...$args) {
+					$args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
 					self::assertSame(['id' => 'a-3', 'status' => 'approved', 'decidedVia' => 'talk-reaction'], $args[0]);
 					self::assertSame('a-3', $args[4]);
 					return new ObjectEntity();

@@ -55,6 +55,9 @@ use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -368,8 +371,7 @@ class SkillLearningsCaptureService implements SkillLearningsCaptureServiceInterf
 	private function loadForCapture(string $skillId, string $runId, string $agentId, string $organisation): ?array {
 		$skill = $this->objectService->find(
 			id: $skillId,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -529,9 +531,10 @@ class SkillLearningsCaptureService implements SkillLearningsCaptureServiceInterf
 
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: (string)$skill->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: (string)$skill->getUuid()
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -962,8 +965,7 @@ class SkillLearningsCaptureService implements SkillLearningsCaptureServiceInterf
 
 			$schedule = $this->objectService->find(
 				id: $scheduleUuid,
-				register: self::REGISTER_SLUG,
-				schema: self::SCHEDULE_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEDULE_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);

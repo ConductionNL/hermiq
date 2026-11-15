@@ -31,6 +31,9 @@ use DateTimeInterface;
 use OCA\Hermiq\Kernel\Contracts\TalkSessionRoomInterface;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 
 /**
@@ -124,8 +127,7 @@ class SessionForkService {
 					],
 				]
 			),
-			register: self::REGISTER_SLUG,
-			schema: self::SESSION_SCHEMA,
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA)),
 			_rbac: false
 		);
 
@@ -149,7 +151,7 @@ class SessionForkService {
 	 * @throws SessionForkException 404.
 	 */
 	private function ownedSession(string $uuid, string $callerUid): ObjectEntity {
-		$session = $this->objectService->find(id: $uuid, register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA);
+		$session = $this->objectService->find(id: $uuid, options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA));
 		if ($session === null || $callerUid === '' || ($session->getObject()['userId'] ?? null) !== $callerUid) {
 			throw new SessionForkException('Session not found.', 404);
 		}
@@ -228,8 +230,7 @@ class SessionForkService {
 		// owner check above is the guard, as for every stored turn.
 		$this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $copy),
-			register: self::REGISTER_SLUG,
-			schema: self::TURN_SCHEMA,
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::TURN_SCHEMA)),
 			_rbac: false
 		);
 	}//end copyTurn()

@@ -34,6 +34,8 @@ use OCA\Hermiq\Kernel\Contracts\AiFeatureBindingServiceInterface;
 use OCA\Hermiq\Service\AiFeatureService;
 use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 
 /**
@@ -132,9 +134,10 @@ class AiFeatureBindingService implements AiFeatureBindingServiceInterface {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::AIFEATURE_SCHEMA,
-			uuid: (string)$feature->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA),
+				uuid: (string)$feature->getUuid()
+			)
 		);
 
 	}//end bind()
