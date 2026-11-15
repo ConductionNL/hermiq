@@ -7,13 +7,15 @@
     "npm": "^11.0.0"
   },
   "scripts": {
-    "build": "node scripts/build-companion-css.js && NODE_ENV=production webpack --config webpack.config.js --progress",
+    "build": "NODE_ENV=production webpack --config webpack.config.js --progress && node scripts/build-companion-css.js",
     "postbuild": "node scripts/check-single-dexie.js",
     "dev": "NODE_ENV=development webpack --config webpack.config.js --progress",
     "watch": "NODE_ENV=development webpack --config webpack.config.js --progress --watch",
     "lint": "eslint src tests scripts",
     "lint-fix": "npm run lint -- --fix",
     "test:l10n": "node tests/l10n/check-l10n.js",
+    "test:unit": "vitest run",
+    "test:coverage": "vitest run --coverage --coverage.provider=v8 --coverage.reporter=json-summary --coverage.reporter=text-summary --coverage.include=src/** --coverage.reportsDirectory=coverage-vitest",
     "stylelint": "stylelint \"src/**/*.{vue,scss,css}\"",
     "format": "prettier --check \"**/*.{js,ts,vue,css,scss}\"",
     "format:fix": "prettier --write \"**/*.{js,ts,vue,css,scss}\"",
@@ -28,13 +30,15 @@
     "check:agent-context": "node tests/agent-context.spec.js",
     "check:tool-taxonomy": "node tests/tool-taxonomy.spec.js",
     "check:grant-flatten": "node tests/grant-flatten.spec.js",
+    "check:grant-reading-golden": "node tests/grant-reading-golden.spec.js",
+    "check:pinned-test-packages": "node tests/pinned-test-packages.spec.js",
     "check:json-strict": "node tests/validate-json-strict.js",
     "check:connections-page": "node tests/connections-page.spec.js",
     "check:run-compare": "node tests/run-compare.spec.js",
     "check:record-chat-prompts": "node tests/record-chat-prompts.spec.js",
     "check:chat-speech": "node tests/chat-speech.spec.js",
     "check:agent-credentials": "node tests/agent-credentials.spec.js",
-    "check:specs": "npm run check:json-strict && npm run check:manifest-v2 && npm run check:register && npm run check:registry && npm run check:agent-context && npm run check:tool-taxonomy && npm run check:grant-flatten && npm run check:connections-page && npm run check:chat-speech && npm run check:record-chat-prompts && npm run check:run-compare && npm run check:agent-credentials && npm run check:agent-sharing && npm run check:agent-app && npm run check:agent-export && npm run check:agent-git && npm run check:record-summary && npm run check:chat-session-start && npm run check:companion-css",
+    "check:specs": "npm run check:json-strict && npm run check:manifest-v2 && npm run check:register && npm run check:registry && npm run check:agent-context && npm run check:tool-taxonomy && npm run check:grant-flatten && npm run check:grant-reading-golden && npm run check:pinned-test-packages && npm run check:connections-page && npm run check:chat-speech && npm run check:record-chat-prompts && npm run check:run-compare && npm run check:agent-credentials && npm run check:agent-sharing && npm run check:agent-app && npm run check:agent-export && npm run check:agent-git && npm run check:record-summary && npm run check:chat-session-start && npm run check:companion-css",
     "check:agent-sharing": "node tests/agent-sharing.spec.js",
     "check:agent-app": "node tests/agent-app.spec.js",
     "check:agent-export": "node tests/agent-export.spec.js",
@@ -55,7 +59,7 @@
   "dependencies": {
     "@babel/core": "^7.22.9",
     "@babel/preset-env": "^7.29.7",
-    "@conduction/nextcloud-vue": "^2.65.0",
+    "@conduction/nextcloud-vue": "^2.180.0",
     "@nextcloud/auth": "^2.5.0",
     "@nextcloud/axios": "~2.6.0",
     "@nextcloud/dialogs": "^7.5.0",
@@ -67,12 +71,12 @@
     "@opengemeenten/iconset-web-component": "^2.0.0",
     "babel-loader": "^10.1.1",
     "dexie": "^4.4.6",
-    "dompurify": "^3.4.16",
+    "dompurify": "^3.4.17",
     "gridstack": "^14.0.0",
-    "marked": "^18.0.14",
+    "marked": "^18.1.2",
     "node-polyfill-webpack-plugin": "4.0.0",
     "pinia": "^2.1.7",
-    "vue": "^3.5.43",
+    "vue": "^3.5.44",
     "vue-material-design-icons": "^5.3.0",
     "vue-router": "^4.6.4"
   },
@@ -85,7 +89,10 @@
       "@vueuse/core": "11.3.0"
     },
     "@toast-ui/editor": {
-      "dompurify": "^3.4.13"
+      "dompurify": "$dompurify"
+    },
+    "webdav": {
+      "minimatch": "^11.0.1"
     }
   },
   "devDependencies": {
@@ -96,7 +103,9 @@
     "@nextcloud/stylelint-config": "^3.2.2",
     "@nextcloud/webpack-vue-config": "^7.0.4",
     "@playwright/test": "^1.63.0",
-    "@typescript-eslint/parser": "^8.71.0",
+    "@typescript-eslint/parser": "^8.72.1",
+    "@vitejs/plugin-vue": "6.0.10",
+    "@vitest/coverage-v8": "^5.0.5",
     "@vue/compiler-sfc": "^3.5.43",
     "@vue/test-utils": "^2.5.1",
     "ajv": "^8.17.1",
@@ -104,6 +113,7 @@
     "css-loader": "~7.1.5",
     "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",
+    "jsdom": "30.1.2",
     "postcss-html": "^2.0.0",
     "prettier": "^3.9.9",
     "sass": "^1.104.1",
@@ -115,6 +125,8 @@
     "stylelint-config-recommended-vue": "^1.6.1",
     "terser-webpack-plugin": "^5.6.1",
     "typescript": "^5.9.3",
+    "vite": "8.3.4",
+    "vitest": "5.0.5",
     "vue-eslint-parser": "^10.3.0",
     "vue-loader": "^17.4.2",
     "webpack": "^5.111.1",

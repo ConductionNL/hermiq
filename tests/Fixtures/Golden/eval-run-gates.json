@@ -1,0 +1,2170 @@
+{
+    "{\"organisation\":\"org-a\",\"engaged\":false,\"softThrows\":false,\"blocked\":false,\"baseline\":false}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "completed",
+            "passRate": 1.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "isOrganisationEngaged": "org-a"
+            },
+            {
+                "checkAndDeliverWarnings": [
+                    "org-a",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "org-a",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "runAgentAsOwner": "a"
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "completed",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [
+                        {
+                            "caseIndex": 0,
+                            "prompt": "a",
+                            "expectationType": "contains",
+                            "actualOutput": "output MARKER",
+                            "passed": true,
+                            "errorMessage": null,
+                            "score": null,
+                            "judgeRationale": null
+                        }
+                    ],
+                    "passRate": 1.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 5,
+                    "@self": {
+                        "organisation": "org-a"
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "completed",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": {
+                    "promptTokens": 1,
+                    "completionTokens": 1
+                },
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run completed \u2014 pass rate 1.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"org-a\",\"engaged\":false,\"softThrows\":false,\"blocked\":false,\"baseline\":true}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "completed",
+            "passRate": 1.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "isOrganisationEngaged": "org-a"
+            },
+            {
+                "checkAndDeliverWarnings": [
+                    "org-a",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "org-a",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "runAgentAsOwner": "a"
+            },
+            {
+                "runAgentAsOwner": "a"
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "completed",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [
+                        {
+                            "caseIndex": 0,
+                            "prompt": "a",
+                            "expectationType": "contains",
+                            "actualOutput": "output MARKER",
+                            "passed": true,
+                            "errorMessage": null,
+                            "score": null,
+                            "judgeRationale": null
+                        }
+                    ],
+                    "passRate": 1.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 5,
+                    "@self": {
+                        "organisation": "org-a"
+                    },
+                    "baselineMode": true,
+                    "attributionMode": "joint",
+                    "skillResults": [
+                        {
+                            "skillId": "skill-a",
+                            "passRateWith": 1.0,
+                            "passRateWithout": 1.0,
+                            "baselineDelta": 0.0
+                        }
+                    ],
+                    "baselineResults": [
+                        {
+                            "caseIndex": 0,
+                            "prompt": "a",
+                            "expectationType": "contains",
+                            "actualOutput": "output MARKER",
+                            "passed": true,
+                            "errorMessage": null,
+                            "score": null,
+                            "judgeRationale": null
+                        }
+                    ],
+                    "baselinePassRate": 1.0
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "completed",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": {
+                    "promptTokens": 2,
+                    "completionTokens": 2
+                },
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run completed \u2014 pass rate 1.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"org-a\",\"engaged\":false,\"softThrows\":false,\"blocked\":true,\"baseline\":false}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "blocked_budget",
+            "passRate": 0.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "isOrganisationEngaged": "org-a"
+            },
+            {
+                "checkAndDeliverWarnings": [
+                    "org-a",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "org-a",
+                    "agent-uuid"
+                ]
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "blocked_budget",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [],
+                    "passRate": 0.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 0,
+                    "@self": {
+                        "organisation": "org-a"
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "blocked_budget",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": [],
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run blocked_budget \u2014 pass rate 0.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"org-a\",\"engaged\":false,\"softThrows\":false,\"blocked\":true,\"baseline\":true}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "blocked_budget",
+            "passRate": 0.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "isOrganisationEngaged": "org-a"
+            },
+            {
+                "checkAndDeliverWarnings": [
+                    "org-a",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "org-a",
+                    "agent-uuid"
+                ]
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "blocked_budget",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [],
+                    "passRate": 0.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 0,
+                    "@self": {
+                        "organisation": "org-a"
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "blocked_budget",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": [],
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run blocked_budget \u2014 pass rate 0.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"org-a\",\"engaged\":false,\"softThrows\":true,\"blocked\":false,\"baseline\":false}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "completed",
+            "passRate": 1.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "isOrganisationEngaged": "org-a"
+            },
+            {
+                "checkAndDeliverWarnings": [
+                    "org-a",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "org-a",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "runAgentAsOwner": "a"
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "completed",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [
+                        {
+                            "caseIndex": 0,
+                            "prompt": "a",
+                            "expectationType": "contains",
+                            "actualOutput": "output MARKER",
+                            "passed": true,
+                            "errorMessage": null,
+                            "score": null,
+                            "judgeRationale": null
+                        }
+                    ],
+                    "passRate": 1.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 5,
+                    "@self": {
+                        "organisation": "org-a"
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "completed",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": {
+                    "promptTokens": 1,
+                    "completionTokens": 1
+                },
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run completed \u2014 pass rate 1.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"org-a\",\"engaged\":false,\"softThrows\":true,\"blocked\":false,\"baseline\":true}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "completed",
+            "passRate": 1.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "isOrganisationEngaged": "org-a"
+            },
+            {
+                "checkAndDeliverWarnings": [
+                    "org-a",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "org-a",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "runAgentAsOwner": "a"
+            },
+            {
+                "runAgentAsOwner": "a"
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "completed",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [
+                        {
+                            "caseIndex": 0,
+                            "prompt": "a",
+                            "expectationType": "contains",
+                            "actualOutput": "output MARKER",
+                            "passed": true,
+                            "errorMessage": null,
+                            "score": null,
+                            "judgeRationale": null
+                        }
+                    ],
+                    "passRate": 1.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 5,
+                    "@self": {
+                        "organisation": "org-a"
+                    },
+                    "baselineMode": true,
+                    "attributionMode": "joint",
+                    "skillResults": [
+                        {
+                            "skillId": "skill-a",
+                            "passRateWith": 1.0,
+                            "passRateWithout": 1.0,
+                            "baselineDelta": 0.0
+                        }
+                    ],
+                    "baselineResults": [
+                        {
+                            "caseIndex": 0,
+                            "prompt": "a",
+                            "expectationType": "contains",
+                            "actualOutput": "output MARKER",
+                            "passed": true,
+                            "errorMessage": null,
+                            "score": null,
+                            "judgeRationale": null
+                        }
+                    ],
+                    "baselinePassRate": 1.0
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "completed",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": {
+                    "promptTokens": 2,
+                    "completionTokens": 2
+                },
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run completed \u2014 pass rate 1.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"org-a\",\"engaged\":false,\"softThrows\":true,\"blocked\":true,\"baseline\":false}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "blocked_budget",
+            "passRate": 0.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "isOrganisationEngaged": "org-a"
+            },
+            {
+                "checkAndDeliverWarnings": [
+                    "org-a",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "org-a",
+                    "agent-uuid"
+                ]
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "blocked_budget",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [],
+                    "passRate": 0.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 0,
+                    "@self": {
+                        "organisation": "org-a"
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "blocked_budget",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": [],
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run blocked_budget \u2014 pass rate 0.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"org-a\",\"engaged\":false,\"softThrows\":true,\"blocked\":true,\"baseline\":true}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "blocked_budget",
+            "passRate": 0.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "isOrganisationEngaged": "org-a"
+            },
+            {
+                "checkAndDeliverWarnings": [
+                    "org-a",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "org-a",
+                    "agent-uuid"
+                ]
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "blocked_budget",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [],
+                    "passRate": 0.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 0,
+                    "@self": {
+                        "organisation": "org-a"
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "blocked_budget",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": [],
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run blocked_budget \u2014 pass rate 0.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"org-a\",\"engaged\":true,\"softThrows\":false,\"blocked\":false,\"baseline\":false}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "blocked_killswitch",
+            "passRate": 0.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "isOrganisationEngaged": "org-a"
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "blocked_killswitch",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [],
+                    "passRate": 0.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 0,
+                    "@self": {
+                        "organisation": "org-a"
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "blocked_killswitch",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": [],
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run blocked_killswitch \u2014 pass rate 0.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"org-a\",\"engaged\":true,\"softThrows\":false,\"blocked\":false,\"baseline\":true}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "blocked_killswitch",
+            "passRate": 0.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "isOrganisationEngaged": "org-a"
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "blocked_killswitch",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [],
+                    "passRate": 0.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 0,
+                    "@self": {
+                        "organisation": "org-a"
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "blocked_killswitch",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": [],
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run blocked_killswitch \u2014 pass rate 0.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"org-a\",\"engaged\":true,\"softThrows\":false,\"blocked\":true,\"baseline\":false}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "blocked_killswitch",
+            "passRate": 0.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "isOrganisationEngaged": "org-a"
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "blocked_killswitch",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [],
+                    "passRate": 0.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 0,
+                    "@self": {
+                        "organisation": "org-a"
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "blocked_killswitch",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": [],
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run blocked_killswitch \u2014 pass rate 0.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"org-a\",\"engaged\":true,\"softThrows\":false,\"blocked\":true,\"baseline\":true}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "blocked_killswitch",
+            "passRate": 0.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "isOrganisationEngaged": "org-a"
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "blocked_killswitch",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [],
+                    "passRate": 0.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 0,
+                    "@self": {
+                        "organisation": "org-a"
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "blocked_killswitch",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": [],
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run blocked_killswitch \u2014 pass rate 0.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"org-a\",\"engaged\":true,\"softThrows\":true,\"blocked\":false,\"baseline\":false}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "blocked_killswitch",
+            "passRate": 0.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "isOrganisationEngaged": "org-a"
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "blocked_killswitch",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [],
+                    "passRate": 0.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 0,
+                    "@self": {
+                        "organisation": "org-a"
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "blocked_killswitch",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": [],
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run blocked_killswitch \u2014 pass rate 0.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"org-a\",\"engaged\":true,\"softThrows\":true,\"blocked\":false,\"baseline\":true}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "blocked_killswitch",
+            "passRate": 0.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "isOrganisationEngaged": "org-a"
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "blocked_killswitch",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [],
+                    "passRate": 0.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 0,
+                    "@self": {
+                        "organisation": "org-a"
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "blocked_killswitch",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": [],
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run blocked_killswitch \u2014 pass rate 0.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"org-a\",\"engaged\":true,\"softThrows\":true,\"blocked\":true,\"baseline\":false}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "blocked_killswitch",
+            "passRate": 0.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "isOrganisationEngaged": "org-a"
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "blocked_killswitch",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [],
+                    "passRate": 0.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 0,
+                    "@self": {
+                        "organisation": "org-a"
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "blocked_killswitch",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": [],
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run blocked_killswitch \u2014 pass rate 0.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"org-a\",\"engaged\":true,\"softThrows\":true,\"blocked\":true,\"baseline\":true}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "blocked_killswitch",
+            "passRate": 0.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "isOrganisationEngaged": "org-a"
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "blocked_killswitch",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [],
+                    "passRate": 0.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 0,
+                    "@self": {
+                        "organisation": "org-a"
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "blocked_killswitch",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": [],
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run blocked_killswitch \u2014 pass rate 0.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"\",\"engaged\":false,\"softThrows\":false,\"blocked\":false,\"baseline\":false}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "completed",
+            "passRate": 1.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "checkAndDeliverWarnings": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "runAgentAsOwner": "a"
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "completed",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [
+                        {
+                            "caseIndex": 0,
+                            "prompt": "a",
+                            "expectationType": "contains",
+                            "actualOutput": "output MARKER",
+                            "passed": true,
+                            "errorMessage": null,
+                            "score": null,
+                            "judgeRationale": null
+                        }
+                    ],
+                    "passRate": 1.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 5,
+                    "@self": {
+                        "organisation": ""
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "completed",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": {
+                    "promptTokens": 1,
+                    "completionTokens": 1
+                },
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run completed \u2014 pass rate 1.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"\",\"engaged\":false,\"softThrows\":false,\"blocked\":false,\"baseline\":true}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "completed",
+            "passRate": 1.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "checkAndDeliverWarnings": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "runAgentAsOwner": "a"
+            },
+            {
+                "runAgentAsOwner": "a"
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "completed",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [
+                        {
+                            "caseIndex": 0,
+                            "prompt": "a",
+                            "expectationType": "contains",
+                            "actualOutput": "output MARKER",
+                            "passed": true,
+                            "errorMessage": null,
+                            "score": null,
+                            "judgeRationale": null
+                        }
+                    ],
+                    "passRate": 1.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 5,
+                    "@self": {
+                        "organisation": ""
+                    },
+                    "baselineMode": true,
+                    "attributionMode": "joint",
+                    "skillResults": [
+                        {
+                            "skillId": "skill-a",
+                            "passRateWith": 1.0,
+                            "passRateWithout": 1.0,
+                            "baselineDelta": 0.0
+                        }
+                    ],
+                    "baselineResults": [
+                        {
+                            "caseIndex": 0,
+                            "prompt": "a",
+                            "expectationType": "contains",
+                            "actualOutput": "output MARKER",
+                            "passed": true,
+                            "errorMessage": null,
+                            "score": null,
+                            "judgeRationale": null
+                        }
+                    ],
+                    "baselinePassRate": 1.0
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "completed",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": {
+                    "promptTokens": 2,
+                    "completionTokens": 2
+                },
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run completed \u2014 pass rate 1.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"\",\"engaged\":false,\"softThrows\":false,\"blocked\":true,\"baseline\":false}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "blocked_budget",
+            "passRate": 0.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "checkAndDeliverWarnings": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "",
+                    "agent-uuid"
+                ]
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "blocked_budget",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [],
+                    "passRate": 0.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 0,
+                    "@self": {
+                        "organisation": ""
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "blocked_budget",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": [],
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run blocked_budget \u2014 pass rate 0.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"\",\"engaged\":false,\"softThrows\":false,\"blocked\":true,\"baseline\":true}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "blocked_budget",
+            "passRate": 0.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "checkAndDeliverWarnings": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "",
+                    "agent-uuid"
+                ]
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "blocked_budget",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [],
+                    "passRate": 0.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 0,
+                    "@self": {
+                        "organisation": ""
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "blocked_budget",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": [],
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run blocked_budget \u2014 pass rate 0.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"\",\"engaged\":false,\"softThrows\":true,\"blocked\":false,\"baseline\":false}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "completed",
+            "passRate": 1.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "checkAndDeliverWarnings": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "runAgentAsOwner": "a"
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "completed",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [
+                        {
+                            "caseIndex": 0,
+                            "prompt": "a",
+                            "expectationType": "contains",
+                            "actualOutput": "output MARKER",
+                            "passed": true,
+                            "errorMessage": null,
+                            "score": null,
+                            "judgeRationale": null
+                        }
+                    ],
+                    "passRate": 1.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 5,
+                    "@self": {
+                        "organisation": ""
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "completed",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": {
+                    "promptTokens": 1,
+                    "completionTokens": 1
+                },
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run completed \u2014 pass rate 1.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"\",\"engaged\":false,\"softThrows\":true,\"blocked\":false,\"baseline\":true}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "completed",
+            "passRate": 1.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "checkAndDeliverWarnings": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "runAgentAsOwner": "a"
+            },
+            {
+                "runAgentAsOwner": "a"
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "completed",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [
+                        {
+                            "caseIndex": 0,
+                            "prompt": "a",
+                            "expectationType": "contains",
+                            "actualOutput": "output MARKER",
+                            "passed": true,
+                            "errorMessage": null,
+                            "score": null,
+                            "judgeRationale": null
+                        }
+                    ],
+                    "passRate": 1.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 5,
+                    "@self": {
+                        "organisation": ""
+                    },
+                    "baselineMode": true,
+                    "attributionMode": "joint",
+                    "skillResults": [
+                        {
+                            "skillId": "skill-a",
+                            "passRateWith": 1.0,
+                            "passRateWithout": 1.0,
+                            "baselineDelta": 0.0
+                        }
+                    ],
+                    "baselineResults": [
+                        {
+                            "caseIndex": 0,
+                            "prompt": "a",
+                            "expectationType": "contains",
+                            "actualOutput": "output MARKER",
+                            "passed": true,
+                            "errorMessage": null,
+                            "score": null,
+                            "judgeRationale": null
+                        }
+                    ],
+                    "baselinePassRate": 1.0
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "completed",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": {
+                    "promptTokens": 2,
+                    "completionTokens": 2
+                },
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run completed \u2014 pass rate 1.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"\",\"engaged\":false,\"softThrows\":true,\"blocked\":true,\"baseline\":false}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "blocked_budget",
+            "passRate": 0.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "checkAndDeliverWarnings": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "",
+                    "agent-uuid"
+                ]
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "blocked_budget",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [],
+                    "passRate": 0.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 0,
+                    "@self": {
+                        "organisation": ""
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "blocked_budget",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": [],
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run blocked_budget \u2014 pass rate 0.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"\",\"engaged\":false,\"softThrows\":true,\"blocked\":true,\"baseline\":true}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "blocked_budget",
+            "passRate": 0.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "checkAndDeliverWarnings": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "",
+                    "agent-uuid"
+                ]
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "blocked_budget",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [],
+                    "passRate": 0.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 0,
+                    "@self": {
+                        "organisation": ""
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "blocked_budget",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": [],
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run blocked_budget \u2014 pass rate 0.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"\",\"engaged\":true,\"softThrows\":false,\"blocked\":false,\"baseline\":false}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "completed",
+            "passRate": 1.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "checkAndDeliverWarnings": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "runAgentAsOwner": "a"
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "completed",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [
+                        {
+                            "caseIndex": 0,
+                            "prompt": "a",
+                            "expectationType": "contains",
+                            "actualOutput": "output MARKER",
+                            "passed": true,
+                            "errorMessage": null,
+                            "score": null,
+                            "judgeRationale": null
+                        }
+                    ],
+                    "passRate": 1.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 5,
+                    "@self": {
+                        "organisation": ""
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "completed",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": {
+                    "promptTokens": 1,
+                    "completionTokens": 1
+                },
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run completed \u2014 pass rate 1.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"\",\"engaged\":true,\"softThrows\":false,\"blocked\":false,\"baseline\":true}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "completed",
+            "passRate": 1.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "checkAndDeliverWarnings": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "runAgentAsOwner": "a"
+            },
+            {
+                "runAgentAsOwner": "a"
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "completed",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [
+                        {
+                            "caseIndex": 0,
+                            "prompt": "a",
+                            "expectationType": "contains",
+                            "actualOutput": "output MARKER",
+                            "passed": true,
+                            "errorMessage": null,
+                            "score": null,
+                            "judgeRationale": null
+                        }
+                    ],
+                    "passRate": 1.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 5,
+                    "@self": {
+                        "organisation": ""
+                    },
+                    "baselineMode": true,
+                    "attributionMode": "joint",
+                    "skillResults": [
+                        {
+                            "skillId": "skill-a",
+                            "passRateWith": 1.0,
+                            "passRateWithout": 1.0,
+                            "baselineDelta": 0.0
+                        }
+                    ],
+                    "baselineResults": [
+                        {
+                            "caseIndex": 0,
+                            "prompt": "a",
+                            "expectationType": "contains",
+                            "actualOutput": "output MARKER",
+                            "passed": true,
+                            "errorMessage": null,
+                            "score": null,
+                            "judgeRationale": null
+                        }
+                    ],
+                    "baselinePassRate": 1.0
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "completed",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": {
+                    "promptTokens": 2,
+                    "completionTokens": 2
+                },
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run completed \u2014 pass rate 1.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"\",\"engaged\":true,\"softThrows\":false,\"blocked\":true,\"baseline\":false}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "blocked_budget",
+            "passRate": 0.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "checkAndDeliverWarnings": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "",
+                    "agent-uuid"
+                ]
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "blocked_budget",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [],
+                    "passRate": 0.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 0,
+                    "@self": {
+                        "organisation": ""
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "blocked_budget",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": [],
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run blocked_budget \u2014 pass rate 0.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"\",\"engaged\":true,\"softThrows\":false,\"blocked\":true,\"baseline\":true}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "blocked_budget",
+            "passRate": 0.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "checkAndDeliverWarnings": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "",
+                    "agent-uuid"
+                ]
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "blocked_budget",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [],
+                    "passRate": 0.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 0,
+                    "@self": {
+                        "organisation": ""
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "blocked_budget",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": [],
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run blocked_budget \u2014 pass rate 0.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"\",\"engaged\":true,\"softThrows\":true,\"blocked\":false,\"baseline\":false}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "completed",
+            "passRate": 1.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "checkAndDeliverWarnings": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "runAgentAsOwner": "a"
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "completed",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [
+                        {
+                            "caseIndex": 0,
+                            "prompt": "a",
+                            "expectationType": "contains",
+                            "actualOutput": "output MARKER",
+                            "passed": true,
+                            "errorMessage": null,
+                            "score": null,
+                            "judgeRationale": null
+                        }
+                    ],
+                    "passRate": 1.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 5,
+                    "@self": {
+                        "organisation": ""
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "completed",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": {
+                    "promptTokens": 1,
+                    "completionTokens": 1
+                },
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run completed \u2014 pass rate 1.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"\",\"engaged\":true,\"softThrows\":true,\"blocked\":false,\"baseline\":true}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "completed",
+            "passRate": 1.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "checkAndDeliverWarnings": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "runAgentAsOwner": "a"
+            },
+            {
+                "runAgentAsOwner": "a"
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "completed",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [
+                        {
+                            "caseIndex": 0,
+                            "prompt": "a",
+                            "expectationType": "contains",
+                            "actualOutput": "output MARKER",
+                            "passed": true,
+                            "errorMessage": null,
+                            "score": null,
+                            "judgeRationale": null
+                        }
+                    ],
+                    "passRate": 1.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 5,
+                    "@self": {
+                        "organisation": ""
+                    },
+                    "baselineMode": true,
+                    "attributionMode": "joint",
+                    "skillResults": [
+                        {
+                            "skillId": "skill-a",
+                            "passRateWith": 1.0,
+                            "passRateWithout": 1.0,
+                            "baselineDelta": 0.0
+                        }
+                    ],
+                    "baselineResults": [
+                        {
+                            "caseIndex": 0,
+                            "prompt": "a",
+                            "expectationType": "contains",
+                            "actualOutput": "output MARKER",
+                            "passed": true,
+                            "errorMessage": null,
+                            "score": null,
+                            "judgeRationale": null
+                        }
+                    ],
+                    "baselinePassRate": 1.0
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "completed",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": {
+                    "promptTokens": 2,
+                    "completionTokens": 2
+                },
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run completed \u2014 pass rate 1.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"\",\"engaged\":true,\"softThrows\":true,\"blocked\":true,\"baseline\":false}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "blocked_budget",
+            "passRate": 0.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "checkAndDeliverWarnings": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "",
+                    "agent-uuid"
+                ]
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "blocked_budget",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [],
+                    "passRate": 0.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 0,
+                    "@self": {
+                        "organisation": ""
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "blocked_budget",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": [],
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run blocked_budget \u2014 pass rate 0.00"
+            }
+        ]
+    },
+    "{\"organisation\":\"\",\"engaged\":true,\"softThrows\":true,\"blocked\":true,\"baseline\":true}": {
+        "result": {
+            "evalRunId": "eval-run-uuid",
+            "status": "blocked_budget",
+            "passRate": 0.0,
+            "regressionGateResult": "not_applicable",
+            "previousPassRate": null
+        },
+        "calls": [
+            {
+                "checkAndDeliverWarnings": [
+                    "",
+                    "agent-uuid"
+                ]
+            },
+            {
+                "isBlocked": [
+                    "",
+                    "agent-uuid"
+                ]
+            }
+        ],
+        "saves": [
+            {
+                "schema": "evalrun",
+                "uuid": null,
+                "object": {
+                    "datasetId": "dataset-uuid",
+                    "agentId": "agent-uuid",
+                    "agentVersionId": "version-1",
+                    "status": "blocked_budget",
+                    "startedAt": "<time>",
+                    "endedAt": "<time>",
+                    "results": [],
+                    "passRate": 0.0,
+                    "regressionGateResult": "not_applicable",
+                    "previousPassRate": null,
+                    "regressionThresholdPercent": 0,
+                    "@self": {
+                        "organisation": ""
+                    }
+                }
+            }
+        ],
+        "audit": [
+            {
+                "status": "blocked_budget",
+                "runId": "eval-run-uuid",
+                "startedAt": "<time>",
+                "endedAt": "<time>",
+                "durationMs": "<duration>",
+                "usage": [],
+                "skillsUsed": [],
+                "skillVersions": [],
+                "summary": "Eval run blocked_budget \u2014 pass rate 0.00"
+            }
+        ]
+    }
+}

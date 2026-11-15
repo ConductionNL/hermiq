@@ -31,6 +31,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\WebResearch;
 
 use Exception;
+use OCA\Hermiq\Kernel\Contracts\WebResearchSettingsHandlerInterface;
 use OCP\IAppConfig;
 use RuntimeException;
 
@@ -39,15 +40,7 @@ use RuntimeException;
  *
  * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
  */
-class WebResearchSettingsHandler {
-
-	/**
-	 * The allowed `searchProvider` values. An empty string is the valid, default
-	 * "unconfigured" state (`web.search` then self-reports `search_unavailable`).
-	 *
-	 * @var string[]
-	 */
-	public const ALLOWED_SEARCH_PROVIDERS = ['', 'searxng', 'generic-json'];
+class WebResearchSettingsHandler implements WebResearchSettingsHandlerInterface {
 
 	/**
 	 * Constructor.

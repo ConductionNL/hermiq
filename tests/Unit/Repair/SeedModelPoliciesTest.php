@@ -6,7 +6,7 @@
  * Pins the seed payload shapes: the instance default is seeded with a null
  * defaultModel, and the sample organisation policy's defaultModel is a
  * {provider, model} OBJECT (a bare model string used to be passed here, which
- * TenantModelPolicyService rejects on every boot with "defaultModel must be an
+ * OrganisationModelPolicyService rejects on every boot with "defaultModel must be an
  * object with provider/model"). Also covers the graceful-degradation contract:
  * the sample org policy is deferred when no OpenRegister organisation exists,
  * and an existing policy is never overwritten.
@@ -27,8 +27,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Repair;
 
+use OCA\Hermiq\Kernel\Contracts\OrganisationModelPolicyServiceInterface;
 use OCA\Hermiq\Repair\SeedModelPolicies;
-use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\Organisation;
 use OCA\OpenRegister\Db\OrganisationMapper;
@@ -44,15 +45,15 @@ use Psr\Log\LoggerInterface;
  */
 class SeedModelPoliciesTest extends TestCase {
 	/**
-	 * A container resolving TenantModelPolicyService/OrganisationMapper to the
+	 * A container resolving OrganisationModelPolicyService/OrganisationMapper to the
 	 * given fixtures.
 	 *
-	 * @param TenantModelPolicyService $policyService The policy service double.
+	 * @param OrganisationModelPolicyService $policyService The policy service double.
 	 * @param array<int, string> $orgUuids Organisation UUIDs findAll() returns.
 	 *
 	 * @return ContainerInterface
 	 */
-	private function container(TenantModelPolicyService $policyService, array $orgUuids): ContainerInterface {
+	private function container(OrganisationModelPolicyService $policyService, array $orgUuids): ContainerInterface {
 		$orgMapper = $this->createMock(originalClassName: OrganisationMapper::class);
 		$orgs = array_map(
 			callback: function (string $uuid) {
@@ -70,7 +71,7 @@ class SeedModelPoliciesTest extends TestCase {
 		$container->method('get')->willReturnCallback(
 			callback: function (string $class) use ($policyService, $orgMapper) {
 				return match ($class) {
-					TenantModelPolicyService::class => $policyService,
+					OrganisationModelPolicyServiceInterface::class => $policyService,
 					OrganisationMapper::class => $orgMapper,
 					default => throw new \RuntimeException("Unexpected service: {$class}"),
 				};
@@ -90,7 +91,7 @@ class SeedModelPoliciesTest extends TestCase {
 	 * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
 	 */
 	public function testSeedsBothPoliciesWithObjectShapedDefaultModel(): void {
-		$policyService = $this->createMock(originalClassName: TenantModelPolicyService::class);
+		$policyService = $this->createMock(originalClassName: OrganisationModelPolicyService::class);
 		$policyService->method('getForOrganisation')->willReturn(null);
 
 		$upserted = [];
@@ -131,7 +132,7 @@ class SeedModelPoliciesTest extends TestCase {
 	 * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
 	 */
 	public function testDefersSampleOrgPolicyWhenNoOrganisationExists(): void {
-		$policyService = $this->createMock(originalClassName: TenantModelPolicyService::class);
+		$policyService = $this->createMock(originalClassName: OrganisationModelPolicyService::class);
 		$policyService->method('getForOrganisation')->willReturn(null);
 
 		$organisations = [];
@@ -161,7 +162,7 @@ class SeedModelPoliciesTest extends TestCase {
 	 * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
 	 */
 	public function testNeverOverwritesAnExistingPolicy(): void {
-		$policyService = $this->createMock(originalClassName: TenantModelPolicyService::class);
+		$policyService = $this->createMock(originalClassName: OrganisationModelPolicyService::class);
 		$policyService->method('getForOrganisation')->willReturn(new ObjectEntity());
 		$policyService->expects($this->never())->method('upsertForOrganisation');
 

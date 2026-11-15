@@ -125,4 +125,77 @@ class StreamYieldChannelTest extends TestCase {
 		);
 
 	}//end testRegistrationOrderAndNoReplay()
+
+	/**
+	 * While holding, no delta is forwarded; a release of the unchanged text
+	 * forwards the held deltas as they arrived, and later deltas pass live.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	public function testHeldTokensAreReleasedAsTheyArrivedWhenUnchanged(): void {
+		$channel = new StreamYieldChannel();
+		$tokens = [];
+		$channel->onToken(function (string $delta) use (&$tokens): void {
+			$tokens[] = $delta;
+		});
+
+		$channel->holdTokens();
+		$channel->emitToken(delta: 'Hel');
+		$channel->emitToken(delta: 'lo');
+		$this->assertSame([], $tokens);
+
+		$channel->releaseTokens(reviewed: 'Hello');
+		$this->assertSame(['Hel', 'lo'], $tokens);
+
+		$channel->emitToken(delta: '!');
+		$channel->releaseTokens(reviewed: 'ignored');
+		$this->assertSame(['Hel', 'lo', '!'], $tokens);
+
+	}//end testHeldTokensAreReleasedAsTheyArrivedWhenUnchanged()
+
+	/**
+	 * A release of changed text forwards only that text, once.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	public function testHeldTokensAreReplacedByTheReviewedText(): void {
+		$channel = new StreamYieldChannel();
+		$tokens = [];
+		$channel->onToken(function (string $delta) use (&$tokens): void {
+			$tokens[] = $delta;
+		});
+
+		$channel->holdTokens();
+		$channel->emitToken(delta: 'key: SEC');
+		$channel->emitToken(delta: 'RET');
+		$channel->releaseTokens(reviewed: 'key: [REDACTED]');
+
+		$this->assertSame(['key: [REDACTED]'], $tokens);
+
+	}//end testHeldTokensAreReplacedByTheReviewedText()
+
+	/**
+	 * A release with nothing held forwards nothing.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	public function testReleaseWithNothingHeldForwardsNothing(): void {
+		$channel = new StreamYieldChannel();
+		$tokens = [];
+		$channel->onToken(function (string $delta) use (&$tokens): void {
+			$tokens[] = $delta;
+		});
+
+		$channel->holdTokens();
+		$channel->releaseTokens(reviewed: 'Answer');
+
+		$this->assertSame([], $tokens);
+
+	}//end testReleaseWithNothingHeldForwardsNothing()
 }//end class

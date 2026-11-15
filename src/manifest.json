@@ -180,6 +180,14 @@
 			"_note": "Custom page: a streaming chat thread is genuinely custom — SSE token/tool-call consumption with a live assistant bubble, a session archive lifecycle driven by Hermiq's payload-marker soft delete, per-message feedback, and an agent-selector empty state are not expressible via the built-in index/detail/dashboard page types (agent-engine-port). Standard nav page — not a dashboard."
 		},
 		{
+			"id": "SharedSession",
+			"route": "/chat/shared/:id",
+			"type": "custom",
+			"component": "SharedSession",
+			"title": "Shared session",
+			"_note": "chat-fork-and-share-link: the read-only page of a session shared with the reader. Custom because it reads through the session routes, which decide per request whether a share admits the reader; there is no message box and no action on it."
+		},
+		{
 			"id": "AgentCatalog",
 			"route": "/agents",
 			"type": "index",
@@ -1047,7 +1055,7 @@
 						"type": "stat",
 						"title": "Schedules quota",
 						"content": {
-							"_note": "dashboard-org-widgets (2026-08-13): was a type:custom QuotaStatWidget.vue, which drew a bare value + label and so did not read as a KPI beside the four stat tiles above it — different component, different visual language. CnStatWidget gained `limitField` (nc-vue 2.2.0-vue3.18) precisely so a quota can be expressed as a capacity pair declaratively, and the custom widget was deleted. `limitField` rather than a hardcoded 100: the ceiling is an appConfig value (TenantOpsService::quotaStatus reads `scheduleQuota`), so duplicating it in the manifest would silently drift the moment an admin changed it. The at-limit warning tint is now CnStatWidget's, derived from value >= limit, replacing the widget's own `atLimit` styling.",
+							"_note": "dashboard-org-widgets (2026-08-13): was a type:custom QuotaStatWidget.vue, which drew a bare value + label and so did not read as a KPI beside the four stat tiles above it — different component, different visual language. CnStatWidget gained `limitField` (nc-vue 2.2.0-vue3.18) precisely so a quota can be expressed as a capacity pair declaratively, and the custom widget was deleted. `limitField` rather than a hardcoded 100: the ceiling is an appConfig value (OrganisationOpsService::quotaStatus reads `scheduleQuota`), so duplicating it in the manifest would silently drift the moment an admin changed it. The at-limit warning tint is now CnStatWidget's, derived from value >= limit, replacing the widget's own `atLimit` styling.",
 							"label": "Schedules",
 							"icon": "Calendar",
 							"format": {
@@ -1066,7 +1074,7 @@
 						"type": "stat",
 						"title": "Agents quota",
 						"content": {
-							"_note": "Sibling of quota-schedules — see its note. `agents.count` is agents in use ACROSS THE ORG'S SCHEDULES (TenantOpsService counts distinct agentIds on live schedules), not the agent inventory, which is why it can read 0 while agents exist.",
+							"_note": "Sibling of quota-schedules — see its note. `agents.count` is agents in use ACROSS THE ORG'S SCHEDULES (OrganisationOpsService counts distinct agentIds on live schedules), not the agent inventory, which is why it can read 0 while agents exist.",
 							"label": "Agents in use",
 							"icon": "AccountGroup",
 							"format": {
@@ -1425,10 +1433,11 @@
 			"route": "/flows",
 			"type": "index",
 			"title": "Flows",
-			"_note": "An ordinary index over the named `flows` source. A flow lives in OpenRegister's native flow table rather than a register/schema pair, so an object-backed index had nothing to bind to and this was a custom page over FlowIndex.vue; `config.entitySource` closes that. The list reads the one native store the engine runs, so what an author sees and what executes cannot drift.",
+			"_note": "An ordinary index over the named `flows` source. A flow lives in OpenRegister's native flow table rather than a register/schema pair, so an object-backed index had nothing to bind to and this was a custom page over FlowIndex.vue; `config.entitySource` closes that. The list reads the one native store the engine runs, so what an author sees and what executes cannot drift. rowRoute names the FlowDetail page (a route name, not a path): a named-source page has no register and schema, so without it a row click opens nothing and Edit falls back to the source's own /flows path.",
 			"config": {
 				"entitySource": "flows",
-				"app": "hermiq"
+				"app": "hermiq",
+				"rowRoute": "FlowDetail"
 			}
 		},
 		{
@@ -1504,7 +1513,8 @@
 			"_note": "Legacy path. Hermiq called flows 'graphs' until hermiq-flow-rename, and those URLs are pasted into Hydra issues, run logs and PR bodies. The manifest has no redirect field, so the old path is declared as a second page onto the same page type rather than left to 404. Remove once the old links have aged out.",
 			"config": {
 				"entitySource": "flows",
-				"app": "hermiq"
+				"app": "hermiq",
+				"rowRoute": "FlowDetail"
 			}
 		},
 		{
@@ -1515,6 +1525,8 @@
 			"_note": "The shared `flow` page type: CnFlowEditorPage over CnFlowDetail, the same canvas every other app uses. This was a custom page over FlowBuilder.vue, a parallel editor with its own store and API client - which flow-storage/spec.md forbids outright (\"No other app SHALL own a flow store, a flow controller, or a flow execution service\"). Controls are the shared CnFlowSidebar so the canvas keeps full width.",
 			"sidebarComponent": "CnFlowSidebar",
 			"config": {
+				"listMode": true,
+				"testPayload": true,
 				"app": "hermiq"
 			}
 		},
@@ -1526,6 +1538,8 @@
 			"_note": "Legacy path - see FlowIndexLegacyRedirect. Carries the same sidebarComponent as FlowDetail: without it an old link would open the canvas with no controls, which is worse than a 404 because it looks like the editor is broken rather than like the URL is old.",
 			"sidebarComponent": "CnFlowSidebar",
 			"config": {
+				"listMode": true,
+				"testPayload": true,
 				"app": "hermiq"
 			}
 		},
@@ -1654,6 +1668,11 @@
 							"rowRoute": "AiOversightDetail",
 							"emptyText": "No AI oversight decisions recorded yet"
 						}
+					},
+					{
+						"id": "aio-ai-label",
+						"type": "custom",
+						"title": "Made with AI"
 					}
 				],
 				"layout": [
@@ -1688,8 +1707,19 @@
 						"gridY": 3,
 						"gridWidth": 12,
 						"gridHeight": 9
+					},
+					{
+						"id": 5,
+						"widgetId": "aio-ai-label",
+						"gridX": 0,
+						"gridY": 12,
+						"gridWidth": 12,
+						"gridHeight": 4
 					}
 				]
+			},
+			"slots": {
+				"widget-aio-ai-label": "ai-label-section"
 			}
 		},
 		{
