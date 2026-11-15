@@ -66,6 +66,8 @@ use OCP\IUserSession;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for the agent-schedule-dispatcher ScheduleService.
@@ -581,7 +583,11 @@ class ScheduleServiceTest extends TestCase {
 		$errorStatuses = [];
 		$okStatuses = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], $register = null, $schema = null, ?string $uuid = null) use (&$errorStatuses, &$okStatuses): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$errorStatuses, &$okStatuses): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				if (($object['lastStatus'] ?? '') === 'error') {
 					$errorStatuses[] = $uuid;
 				}
@@ -707,7 +713,8 @@ class ScheduleServiceTest extends TestCase {
 
 		$deleted = [];
 		$this->objectService->method('deleteObject')->willReturnCallback(
-			function (string $uuid) use (&$deleted): bool {
+			function (ObjectDeletion $deletion) use (&$deleted): bool {
+				$uuid = $deletion->uuid;
 				$deleted[] = $uuid;
 				return true;
 			}
@@ -832,7 +839,8 @@ class ScheduleServiceTest extends TestCase {
 			}
 		);
 		$this->objectService->method('deleteObject')->willReturnCallback(
-			function (string $uuid) use (&$deleted): bool {
+			function (ObjectDeletion $deletion) use (&$deleted): bool {
+				$uuid = $deletion->uuid;
 				$deleted[] = $uuid;
 				return true;
 			}
@@ -1879,7 +1887,10 @@ class ScheduleServiceTest extends TestCase {
 		// Capture the conversation write; run-state persists share the same mock.
 		$savedConversations = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null) use (&$savedConversations): ObjectEntity {
+			function (mixed $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$savedConversations): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
 				$entity = new ObjectEntity();
 				$entity->setUuid('saved-' . count($savedConversations));
 				if ($schema === 'agentsession') {
@@ -1965,7 +1976,10 @@ class ScheduleServiceTest extends TestCase {
 
 		$savedSessions = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null) use (&$savedSessions): ObjectEntity {
+			function (mixed $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$savedSessions): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
 				$entity = new ObjectEntity();
 				$entity->setUuid('saved-' . count($savedSessions));
 				if ($schema === 'agentsession') {
@@ -2041,7 +2055,10 @@ class ScheduleServiceTest extends TestCase {
 
 		$created = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null) use (&$created): ObjectEntity {
+			function (mixed $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$created): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
 				$entity = new ObjectEntity();
 				$entity->setUuid('saved-' . count($created));
 				if ($schema === 'agentsession') {
@@ -2109,7 +2126,10 @@ class ScheduleServiceTest extends TestCase {
 		$this->objectService->method('find')->willReturn($agentObject);
 		$this->objectService->method('findAll')->willReturn([]);
 		$this->objectService->method('saveObject')->willReturnCallback(
-			static function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null): ObjectEntity {
+			static function (mixed $object, ObjectSaveOptions $options = new ObjectSaveOptions()): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
 				$entity = new ObjectEntity();
 				$entity->setUuid('conv-uuid-1');
 				return $entity;
@@ -2194,7 +2214,10 @@ class ScheduleServiceTest extends TestCase {
 		$this->objectService->method('find')->willReturn($agentObject);
 		$this->objectService->method('findAll')->willReturn([]);
 		$this->objectService->method('saveObject')->willReturnCallback(
-			static function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null): ObjectEntity {
+			static function (mixed $object, ObjectSaveOptions $options = new ObjectSaveOptions()): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
 				$entity = new ObjectEntity();
 				$entity->setUuid('conv-uuid-1');
 				return $entity;
@@ -2475,7 +2498,10 @@ class ScheduleServiceTest extends TestCase {
 
 		$savedConversations = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null) use (&$savedConversations): ObjectEntity {
+			function (mixed $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$savedConversations): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
 				$entity = new ObjectEntity();
 				$entity->setUuid('saved-' . count($savedConversations));
 				if ($schema === 'agentsession') {
@@ -3246,7 +3272,11 @@ class ScheduleServiceTest extends TestCase {
 
 		$saved = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$saved): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$saved): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$saved[] = ['object' => $object, 'schema' => (string)$schema];
 				$entity = new ObjectEntity();
 				$entity->setUuid($uuid ?? 'x');
@@ -3305,7 +3335,11 @@ class ScheduleServiceTest extends TestCase {
 
 		$saved = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$saved): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$saved): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$saved[] = ['object' => $object, 'schema' => (string)$schema];
 				$entity = new ObjectEntity();
 				$entity->setUuid($uuid ?? 'x');
@@ -3370,7 +3404,11 @@ class ScheduleServiceTest extends TestCase {
 
 		$saved = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$saved): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$saved): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$saved[] = ['object' => $object, 'schema' => (string)$schema];
 				$entity = new ObjectEntity();
 				$entity->setUuid($uuid ?? 'x');
@@ -3418,7 +3456,11 @@ class ScheduleServiceTest extends TestCase {
 
 		$saved = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$saved): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$saved): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$saved[] = ['object' => $object, 'schema' => (string)$schema];
 				$entity = new ObjectEntity();
 				$entity->setUuid($uuid ?? 'x');
@@ -3502,7 +3544,10 @@ class ScheduleServiceTest extends TestCase {
 
 		$saved = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null) use (&$saved): ObjectEntity {
+			function (mixed $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$saved): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
 				$saved[] = ['object' => $object, 'schema' => (string)$schema];
 				$entity = new ObjectEntity();
 				$entity->setUuid('conv-uuid-1');
@@ -3641,7 +3686,10 @@ class ScheduleServiceTest extends TestCase {
 
 		$deleted = [];
 		$this->objectService->method('deleteObject')->willReturnCallback(
-			function (string $uuid, mixed $register = null, mixed $schema = null) use (&$deleted): bool {
+			function (ObjectDeletion $deletion) use (&$deleted): bool {
+				$uuid = $deletion->uuid;
+				$register = $deletion->target->register;
+				$schema = $deletion->target->schema;
 				$deleted[] = ['uuid' => $uuid, 'schema' => (string)$schema];
 				return true;
 			}
@@ -3789,7 +3837,11 @@ class ScheduleServiceTest extends TestCase {
 		];
 		$this->objectService->method('findAll')->willReturn($due);
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$entity = new ObjectEntity();
 				$entity->setUuid($uuid ?? 'x');
 				$entity->setObject($object);

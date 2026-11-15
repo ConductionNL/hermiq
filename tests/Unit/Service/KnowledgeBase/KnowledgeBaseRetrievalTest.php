@@ -32,6 +32,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 
 /**
  * The retrieval over a mocked object store, scope and probe.
@@ -91,7 +92,11 @@ class KnowledgeBaseRetrievalTest extends TestCase {
 		$this->probe->method('canSearchFiles')->willReturn(true);
 		$this->objects->expects($this->exactly(2))->method('find')
 			->willReturnCallback(
-				static function (string|int $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schema = null, bool $_rbac = true, bool $_multitenancy = true) use ($knowledgeBase): ObjectEntity {
+				static function (string|int $id, ?ObjectFindOptions $options = null, bool $_rbac = true, bool $_multitenancy = true) use ($knowledgeBase): ObjectEntity {
+					$_extend = $options?->extend ?? [];
+					$files = $options?->files ?? false;
+					$register = $options?->register;
+					$schema = $options?->schema;
 					if ($id === 'kb-gone') {
 						throw new RuntimeException('not found');
 					}

@@ -35,6 +35,7 @@ use OCA\Hermiq\Kernel\Contracts\AgentVersionServiceInterface;
 use OCA\Hermiq\Service\AgentBuildService;
 use OCA\Hermiq\Service\Workspace\WorkspaceException;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -187,8 +188,7 @@ class AgentVersionController extends Controller {
 
 		$agent = $this->objectService->find(
 			id: $id,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 		);
 		if (($agent instanceof ObjectEntity) === false) {
 			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
@@ -359,8 +359,7 @@ class AgentVersionController extends Controller {
 		try {
 			$agent = $this->objectService->find(
 				id: $id,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 			);
 		} catch (Throwable $e) {
 			// `ObjectService::find()` documents `@throws Exception If the object
