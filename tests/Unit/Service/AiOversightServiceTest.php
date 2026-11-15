@@ -22,6 +22,7 @@ use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Covers the advisory oversight record: what it writes, and what it refuses.
@@ -105,6 +106,7 @@ class AiOversightServiceTest extends TestCase {
             ->method('saveObject')
             ->willReturnCallback(
                 function (...$args) use (&$captured, $entity) {
+                    $args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
                     $captured = $args[0];
                     return $entity;
                 }

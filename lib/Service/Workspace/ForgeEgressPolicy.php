@@ -33,6 +33,7 @@ use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\ForgeEgressPolicyInterface;
 use OCA\Hermiq\Mcp\WorkspaceToolDescriptors;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\ObjectService;
@@ -101,7 +102,12 @@ class ForgeEgressPolicy implements ForgeEgressPolicyInterface {
 		}
 
 		try {
-			$agent = $this->objects->find(id: $agentId, register: 'hermiq', schema: 'agent', _rbac: false, _multitenancy: false);
+			$agent = $this->objects->find(
+				id: $agentId,
+				options: new ObjectFindOptions(register: 'hermiq', schema: 'agent'),
+				_rbac: false,
+				_multitenancy: false
+			);
 		} catch (Throwable) {
 			return false;
 		}

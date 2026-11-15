@@ -45,6 +45,7 @@ use OCP\IUser;
 use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 
 /**
  * Recipient reads, stranger 404s and the "Shared with you" listing.
@@ -95,7 +96,11 @@ class SessionControllerShareTest extends TestCase {
 		$objectService->method('setRegister')->willReturnSelf();
 		$objectService->method('setSchema')->willReturnSelf();
 		$objectService->method('find')->willReturnCallback(
-			static function (int|string $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schema = null, bool $_rbac = true) use ($session, $uid): ?ObjectEntity {
+			static function (int|string $id, ?ObjectFindOptions $options = null, bool $_rbac = true) use ($session, $uid): ?ObjectEntity {
+				$_extend = $options?->extend ?? [];
+				$files = $options?->files ?? false;
+				$register = $options?->register;
+				$schema = $options?->schema;
 				if ($id !== 'sess-1') {
 					return null;
 				}

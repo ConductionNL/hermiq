@@ -37,6 +37,8 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for the deferred conversation-title writer.
@@ -322,7 +324,11 @@ class ConversationTitleWriterTest extends TestCase {
 		$objectService->expects($this->once())
 			->method('saveObject')
 			->willReturnCallback(
-				function (array $object, mixed $extend = null, mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$saved): ObjectEntity {
+				function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$saved): ObjectEntity {
+					$extend = $options->extend;
+					$register = $options->target->register;
+					$schema = $options->target->schema;
+					$uuid = $options->uuid;
 					$saved = $object;
 					return new ObjectEntity();
 				}
@@ -584,6 +590,7 @@ class ConversationTitleWriterTest extends TestCase {
 		$saved = [];
 		$objectService->method('saveObject')->willReturnCallback(
 			function (...$args) use (&$saved): ObjectEntity {
+				$args = LegacyObjectArgs::flatten(args: $args);
 				$saved[] = ($args['object'] ?? $args[0]);
 				return new ObjectEntity();
 			}
@@ -615,7 +622,13 @@ class ConversationTitleWriterTest extends TestCase {
 	public function testAConversationThatCannotBeReadIsANoOp(): void {
 		$objectService = $this->createMock(ObjectService::class);
 		$objectService->expects($this->once())->method('find')
-			->with('gone', [], false, 'hermiq', 'agentsession')
+			->with(...LegacyObjectArgs::with(method: 'find', expected: [
+				'id' => 'gone',
+				'_extend' => [],
+				'files' => false,
+				'register' => 'hermiq',
+				'schema' => 'agentsession',
+			]))
 			->willThrowException(new \RuntimeException('Object not found'));
 		$objectService->expects($this->never())->method('saveObject');
 
