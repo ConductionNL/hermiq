@@ -31,7 +31,7 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 use OCA\Hermiq\Service\AgentTemplateSerializer;
 use OCA\Hermiq\Service\AgentTemplateService;
 use OCA\Hermiq\Service\SkillService;
-use OCA\Hermiq\Service\OrganisationModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
@@ -176,22 +176,22 @@ class AgentTemplateServiceTest extends TestCase {
 	}//end scanner()
 
 	/**
-	 * A OrganisationModelPolicyService mock allowing only the given provider (empty models = any
+	 * A EffectiveModelPolicy mock allowing only the given provider (empty models = any
 	 * model for that provider), with the given default.
 	 *
 	 * @param string $allowedProvider The single allowed provider.
 	 * @param string|null $defaultModel The policy's default model id (or null).
 	 *
-	 * @return OrganisationModelPolicyService
+	 * @return EffectiveModelPolicy
 	 */
-	private function modelPolicy(string $allowedProvider, ?string $defaultModel = null): OrganisationModelPolicyService {
+	private function modelPolicy(string $allowedProvider, ?string $defaultModel = null): EffectiveModelPolicy {
 		$policy = [
 			'source' => 'organisation',
 			'allowed' => [['provider' => $allowedProvider, 'models' => []]],
 			'defaultModel' => ($defaultModel !== null) ? ['provider' => $allowedProvider, 'model' => $defaultModel] : null,
 		];
 
-		$service = $this->createMock(OrganisationModelPolicyService::class);
+		$service = $this->createMock(EffectiveModelPolicy::class);
 		$service->method('effectivePolicyFor')->willReturn($policy);
 		$service->method('isAllowed')->willReturnCallback(
 			static fn (string $organisation, string $provider, string $model): bool => ($provider === $allowedProvider)
@@ -207,7 +207,7 @@ class AgentTemplateServiceTest extends TestCase {
 	 * @param ObjectService $objectService OpenRegister object read/write double.
 	 * @param AgentTemplateSerializer|null $serializer The serializer (real instance by default).
 	 * @param ContentScanService|null $scanner The content scanner (clean by default).
-	 * @param OrganisationModelPolicyService|null $modelPolicy The model policy (permissive by default).
+	 * @param EffectiveModelPolicy|null $modelPolicy The model policy (permissive by default).
 	 * @param SkillService|null $skillService The skill service (no skills by default).
 	 *
 	 * @return AgentTemplateService
@@ -216,7 +216,7 @@ class AgentTemplateServiceTest extends TestCase {
 		ObjectService $objectService,
 		?AgentTemplateSerializer $serializer = null,
 		?ContentScanService $scanner = null,
-		?OrganisationModelPolicyService $modelPolicy = null,
+		?EffectiveModelPolicy $modelPolicy = null,
 		?SkillService $skillService = null,
 	): AgentTemplateService {
 		return new AgentTemplateService(

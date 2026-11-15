@@ -9,7 +9,7 @@
   logic lives in src/utils/speech.js (createSpeaker), tested in
   tests/chat-speech.spec.js.
 
-  @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-reads-answers-aloud-req-chvoice-002
+  @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-reads-answers-aloud-req-chvoice-002
 -->
 <template>
 	<NcButton variant="tertiary" :aria-label="label" :title="label" @click="toggle">
@@ -111,7 +111,7 @@ export default {
 		 * Speak the answer, or stop it when it is the one playing.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-reads-answers-aloud-req-chvoice-002
+		 * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-reads-answers-aloud-req-chvoice-002
 		 */
 		async toggle() {
 			try {

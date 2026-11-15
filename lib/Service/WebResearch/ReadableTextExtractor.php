@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-webfetch-extracts-readable-text-with-a-content-type-gate
+ * @spec openspec/specs/web-research-tool/spec.md#requirement-webfetch-extracts-readable-text-with-a-content-type-gate
  */
 
 declare(strict_types=1);
@@ -33,7 +33,7 @@ use DOMXPath;
 /**
  * HTML → readable-text extraction.
  *
- * @spec openspec/changes/web-research-tool/tasks.md#task-5-webfetchservice--readabletextextractor
+ * @spec openspec/changes/archive/2026-07-14-web-research-tool/tasks.md#task-5-webfetchservice--readabletextextractor
  */
 class ReadableTextExtractor {
 
@@ -56,7 +56,7 @@ class ReadableTextExtractor {
 	 *
 	 * @return string The extracted, whitespace-collapsed readable text.
 	 *
-	 * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#scenario-an-agent-fetches-an-html-page
+	 * @spec openspec/specs/web-research-tool/spec.md#scenario-an-agent-fetches-an-html-page
 	 */
 	public function extract(string $html): string {
 		if (trim($html) === '') {

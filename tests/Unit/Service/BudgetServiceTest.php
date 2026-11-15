@@ -231,6 +231,7 @@ class BudgetServiceTest extends TestCase {
 	 * @param OrganisationMapper|null $orgMapper Optional custom org mapper.
 	 * @param AnalyticsService|null $analyticsService Optional custom AnalyticsService.
 	 * @param DeliveryService|null $deliveryService Optional custom DeliveryService mock.
+	 * @param LoggerInterface|null $logger Optional logger mock.
 	 *
 	 * @return BudgetService
 	 */
@@ -241,6 +242,7 @@ class BudgetServiceTest extends TestCase {
 		?OrganisationMapper $orgMapper = null,
 		?AnalyticsService $analyticsService = null,
 		?DeliveryService $deliveryService = null,
+		?LoggerInterface $logger = null,
 	): BudgetService {
 		$appConfig = $this->createMock(IAppConfig::class);
 		$appConfig->method('getValueString')->willReturn($eurRate);
@@ -255,7 +257,7 @@ class BudgetServiceTest extends TestCase {
 			organisationMapper: $orgMapper ?? $this->orgMapper('org-owner'),
 			deliveryService: $deliveryService ?? $this->createMock(DeliveryService::class),
 			analyticsService: $analyticsService ?? $this->createMock(AnalyticsService::class),
-			logger: $this->createMock(LoggerInterface::class),
+			logger: $logger ?? $this->createMock(LoggerInterface::class),
 		);
 
 	}//end service()
@@ -761,4 +763,150 @@ class BudgetServiceTest extends TestCase {
 	// home: BudgetController::destroy() deletes through OpenRegister directly,
 	// after findById() and the mayAdminister() check, and that path is covered
 	// by the controller's own tests.
+
+	/**
+	 * checkAndDeliverWarnings() logs and stops when the budgets cannot be read,
+	 * delivering nothing.
+	 *
+	 * @return void
+	 */
+	public function testCheckAndDeliverWarningsLogsWhenBudgetsCannotLoad(): void {
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('setRegister')->willReturnSelf();
+		$objectService->method('setSchema')->willReturnSelf();
+		$objectService->method('findAll')->willThrowException(new RuntimeException('register down'));
+		$delivery = $this->createMock(DeliveryService::class);
+		$delivery->expects($this->never())->method('deliverBudgetWarning');
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects($this->once())
+			->method('warning')
+			->with('Hermiq could not load budgets for the soft-threshold check: register down', $this->arrayHasKey('exception'));
+
+		$service = new BudgetService(
+			objectService: $objectService,
+			auditTrailMapper: $this->createMock(AuditTrailMapper::class),
+			appConfig: $this->createMock(IAppConfig::class),
+			organisationMapper: $this->orgMapper('alice'),
+			deliveryService: $delivery,
+			analyticsService: $this->createMock(AnalyticsService::class),
+			logger: $logger,
+		);
+		$service->checkAndDeliverWarnings(organisation: 'org-a', agentId: null);
+
+	}//end testCheckAndDeliverWarningsLogsWhenBudgetsCannotLoad()
+
+	/**
+	 * checkAndDeliverWarnings() logs a failed delivery and still delivers the next
+	 * due budget's warning.
+	 *
+	 * @return void
+	 */
+	public function testCheckAndDeliverWarningsContinuesAfterAFailedDelivery(): void {
+		$bySchema = [
+			'agentbudget' => [
+				$this->budget('b1', 'org-a', ['scope' => 'organisation', 'tokenLimit' => 100000, 'softThresholdPercent' => 80]),
+				$this->budget('b2', 'org-a', ['scope' => 'organisation', 'tokenLimit' => 90000, 'softThresholdPercent' => 80]),
+			],
+			'schedule' => [$this->schedule('s1', 'org-a', 'agent-1')],
+			'__runs__' => [$this->runEntry('s1', 50000, 35000)],
+		];
+
+		$delivered = [];
+		$delivery = $this->createMock(DeliveryService::class);
+		$delivery->method('deliverBudgetWarning')->willReturnCallback(
+			static function (ObjectEntity $budget, array $recipientUids) use (&$delivered): DeliveryResult {
+				$delivered[] = [$budget->getUuid(), $recipientUids];
+				if ($budget->getUuid() === 'b1') {
+					throw new RuntimeException('notification backend down');
+				}
+
+				return new DeliveryResult(delivered: true, channel: 'notification', fellBack: false, warning: null);
+			}
+		);
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects($this->once())
+			->method('warning')
+			->with('Hermiq could not deliver a budget soft-threshold warning: notification backend down', $this->arrayHasKey('exception'));
+
+		$service = $this->service(bySchema: $bySchema, orgMapper: $this->orgMapper('alice'), deliveryService: $delivery, logger: $logger);
+		$service->checkAndDeliverWarnings(organisation: 'org-a', agentId: null);
+
+		$this->assertSame([['b1', ['alice']], ['b2', ['alice']]], $delivered);
+
+	}//end testCheckAndDeliverWarningsContinuesAfterAFailedDelivery()
+
+	/**
+	 * The dispatch-path budget read is system-wide (RBAC and multitenancy off), asks
+	 * for enabled budgets only, re-checks enabled, and keeps the budgets whose scope
+	 * matches the organisation or the agent, in read order.
+	 *
+	 * @return void
+	 */
+	public function testTheSystemWideBudgetReadKeepsEnabledMatchingBudgets(): void {
+		$matchOrg = $this->budget('org', 'org-a', ['scope' => 'organisation']);
+		$matchAgent = $this->budget('agent', 'org-z', ['scope' => 'agent', 'agentId' => 'agent-1']);
+		$objects = [
+			'not-an-entity',
+			$this->budget('off', 'org-a', ['scope' => 'organisation', 'enabled' => false]),
+			$this->budget('foreign', 'org-b', ['scope' => 'organisation']),
+			$matchOrg,
+			$this->budget('other-agent', 'org-a', ['scope' => 'agent', 'agentId' => 'agent-2']),
+			$this->budget('unset', 'org-a', ['scope' => 'organisation', 'enabled' => null]),
+			$matchAgent,
+		];
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('setRegister')->willReturnSelf();
+		$objectService->method('setSchema')->willReturnSelf();
+		$objectService->expects($this->once())
+			->method('findAll')
+			->with(['filters' => ['enabled' => true]], false, false)
+			->willReturn($objects);
+
+		$service = new BudgetService(
+			objectService: $objectService,
+			auditTrailMapper: $this->createMock(AuditTrailMapper::class),
+			appConfig: $this->createMock(IAppConfig::class),
+			organisationMapper: $this->orgMapper('alice'),
+			deliveryService: $this->createMock(DeliveryService::class),
+			analyticsService: $this->createMock(AnalyticsService::class),
+			logger: $this->createMock(LoggerInterface::class),
+		);
+		$read = new \ReflectionMethod(BudgetService::class, 'matchingBudgetsSystemWide');
+
+		$matches = $read->invoke($service, 'org-a', 'agent-1');
+
+		$this->assertSame(['org', 'unset', 'agent'], array_map(static fn (ObjectEntity $budget): string => (string)$budget->getUuid(), $matches));
+
+	}//end testTheSystemWideBudgetReadKeepsEnabledMatchingBudgets()
+
+	/**
+	 * create() refuses each invalid payload with its own message, in the order scope,
+	 * agent, period, limits; a zero limit counts as set.
+	 *
+	 * @return void
+	 */
+	public function testCreateRefusesEachInvalidPayloadWithItsMessage(): void {
+		$service = $this->service(bySchema: []);
+		$cases = [
+			[['scope' => 'team', 'period' => 'yearly'], 'scope must be "organisation" or "agent"'],
+			[['scope' => 'agent', 'agentId' => '  ', 'period' => 'yearly'], 'agentId is required when scope=agent'],
+			[['scope' => 'agent', 'agentId' => 'a-1', 'period' => 'yearly'], 'period must be "daily", "weekly" or "monthly"'],
+			[['scope' => 'organisation', 'period' => 'daily', 'tokenLimit' => '', 'eurLimit' => null], 'At least one of tokenLimit or eurLimit is required'],
+		];
+		foreach ($cases as [$payload, $message]) {
+			try {
+				$service->create(payload: $payload, organisation: 'org-a');
+				$this->fail('Expected a refusal for ' . json_encode($payload));
+			} catch (InvalidArgumentException $e) {
+				$this->assertSame($message, $e->getMessage());
+			}
+		}
+
+		$saved = [];
+		$valid = $this->service(bySchema: [], saved: $saved);
+		$valid->create(payload: ['scope' => 'organisation', 'period' => 'weekly', 'eurLimit' => 0], organisation: 'org-a');
+		$valid->create(payload: ['scope' => 'agent', 'agentId' => 'a-1', 'period' => 'monthly', 'tokenLimit' => '5'], organisation: 'org-a');
+		$this->assertCount(2, $saved);
+
+	}//end testCreateRefusesEachInvalidPayloadWithItsMessage()
 }//end class

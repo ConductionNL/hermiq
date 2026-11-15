@@ -1,0 +1,767 @@
+{
+    "answers": {
+        "r-1": {
+            "groupId": "group-4",
+            "reportType": "melding",
+            "deterministicKey": "",
+            "windowMinutes": 60,
+            "terms": [
+                "stroomstoring",
+                "kerkstraat",
+                "sinds",
+                "vanochtend"
+            ],
+            "members": [
+                {
+                    "reportId": "r-1",
+                    "score": 1.0,
+                    "decidedBy": "model",
+                    "scorer": "term-overlap",
+                    "uncertain": false,
+                    "joinedAt": "2026-03-01T10:00:00+00:00"
+                }
+            ],
+            "count": 1,
+            "nearDuplicates": [],
+            "newGroup": true,
+            "score": 1.0,
+            "uncertain": false
+        },
+        "r-2": {
+            "groupId": "group-5",
+            "reportType": "melding",
+            "deterministicKey": "",
+            "windowMinutes": 60,
+            "terms": [
+                "stroomstoring",
+                "kerkstraat",
+                "nog",
+                "steeds"
+            ],
+            "members": [
+                {
+                    "reportId": "r-2",
+                    "score": 1.0,
+                    "decidedBy": "model",
+                    "scorer": "term-overlap",
+                    "uncertain": false,
+                    "joinedAt": "2026-03-01T10:05:00+00:00"
+                }
+            ],
+            "count": 1,
+            "nearDuplicates": [],
+            "newGroup": true,
+            "score": 1.0,
+            "uncertain": false
+        },
+        "r-3": {
+            "groupId": "group-6",
+            "reportType": "melding",
+            "deterministicKey": "",
+            "windowMinutes": 60,
+            "terms": [
+                "kerkstraat",
+                "stroom",
+                "weg",
+                "lantaarnpaal",
+                "kapot"
+            ],
+            "members": [
+                {
+                    "reportId": "r-3",
+                    "score": 1.0,
+                    "decidedBy": "model",
+                    "scorer": "term-overlap",
+                    "uncertain": false,
+                    "joinedAt": "2026-03-01T10:10:00+00:00"
+                }
+            ],
+            "count": 1,
+            "nearDuplicates": [],
+            "newGroup": true,
+            "score": 1.0,
+            "uncertain": false
+        },
+        "r-4": {
+            "groupId": "group-7",
+            "reportType": "melding",
+            "deterministicKey": "k-2",
+            "windowMinutes": 60,
+            "terms": [
+                "iets",
+                "heel",
+                "anders",
+                "over",
+                "afval"
+            ],
+            "members": [
+                {
+                    "reportId": "r-4",
+                    "score": 1.0,
+                    "decidedBy": "key",
+                    "scorer": "term-overlap",
+                    "uncertain": false,
+                    "joinedAt": "2026-03-01T10:15:00+00:00"
+                }
+            ],
+            "count": 1,
+            "nearDuplicates": [],
+            "newGroup": true,
+            "score": 1.0,
+            "uncertain": false
+        },
+        "r-5": {
+            "groupId": "group-7",
+            "reportType": "melding",
+            "deterministicKey": "k-2",
+            "windowMinutes": 60,
+            "terms": [
+                "iets",
+                "heel",
+                "anders",
+                "over",
+                "afval"
+            ],
+            "members": [
+                {
+                    "reportId": "r-4",
+                    "score": 1.0,
+                    "decidedBy": "key",
+                    "scorer": "term-overlap",
+                    "uncertain": false,
+                    "joinedAt": "2026-03-01T10:15:00+00:00"
+                },
+                {
+                    "reportId": "r-5",
+                    "score": 1.0,
+                    "decidedBy": "key",
+                    "scorer": "key",
+                    "uncertain": false,
+                    "joinedAt": "2026-03-01T10:20:00+00:00"
+                }
+            ],
+            "count": 2,
+            "nearDuplicates": [],
+            "newGroup": false,
+            "score": 1.0,
+            "uncertain": false
+        },
+        "r-6": {
+            "groupId": "group-8",
+            "reportType": "melding",
+            "deterministicKey": "k-1",
+            "windowMinutes": 60,
+            "terms": [
+                "stroomstoring",
+                "kerkstraat"
+            ],
+            "members": [
+                {
+                    "reportId": "r-6",
+                    "score": 1.0,
+                    "decidedBy": "key",
+                    "scorer": "term-overlap",
+                    "uncertain": false,
+                    "joinedAt": "2026-03-01T10:25:00+00:00"
+                }
+            ],
+            "count": 1,
+            "nearDuplicates": [],
+            "newGroup": true,
+            "score": 1.0,
+            "uncertain": false
+        },
+        "r-7": {
+            "groupId": "other-type",
+            "reportType": "klacht",
+            "deterministicKey": "",
+            "windowMinutes": 0,
+            "terms": [
+                "stroomstoring",
+                "kerkstraat"
+            ],
+            "members": [
+                {
+                    "reportId": "w",
+                    "joinedAt": "2026-03-01T09:59:00+00:00"
+                },
+                {
+                    "reportId": "r-7",
+                    "score": 1.0,
+                    "decidedBy": "model",
+                    "scorer": "term-overlap",
+                    "uncertain": false,
+                    "joinedAt": "2026-03-01T10:30:00+00:00"
+                }
+            ],
+            "count": 2,
+            "nearDuplicates": [],
+            "newGroup": false,
+            "score": 1.0,
+            "uncertain": false
+        },
+        "r-8": {
+            "groupId": "group-9",
+            "reportType": "melding",
+            "deterministicKey": "",
+            "windowMinutes": 60,
+            "terms": [
+                "stroomstoring",
+                "kerkstraat"
+            ],
+            "members": [
+                {
+                    "reportId": "r-8",
+                    "score": 1.0,
+                    "decidedBy": "model",
+                    "scorer": "term-overlap",
+                    "uncertain": false,
+                    "joinedAt": "2026-03-01T13:00:00+00:00"
+                }
+            ],
+            "count": 1,
+            "nearDuplicates": [],
+            "newGroup": true,
+            "score": 1.0,
+            "uncertain": false
+        },
+        "r-9": {
+            "groupId": "group-10",
+            "reportType": "klacht",
+            "deterministicKey": "",
+            "windowMinutes": 1440,
+            "terms": [
+                "stroomstoring",
+                "kerkstraat",
+                "dorpsplein",
+                "donker"
+            ],
+            "members": [
+                {
+                    "reportId": "r-9",
+                    "score": 1.0,
+                    "decidedBy": "model",
+                    "scorer": "term-overlap",
+                    "uncertain": false,
+                    "joinedAt": "2026-03-01T13:05:00+00:00"
+                }
+            ],
+            "count": 1,
+            "nearDuplicates": [],
+            "newGroup": true,
+            "score": 1.0,
+            "uncertain": false
+        },
+        "r-10": {
+            "groupId": "group-10",
+            "reportType": "klacht",
+            "deterministicKey": "",
+            "windowMinutes": 1440,
+            "terms": [
+                "stroomstoring",
+                "kerkstraat",
+                "dorpsplein"
+            ],
+            "members": [
+                {
+                    "reportId": "r-9",
+                    "score": 1.0,
+                    "decidedBy": "model",
+                    "scorer": "term-overlap",
+                    "uncertain": false,
+                    "joinedAt": "2026-03-01T13:05:00+00:00"
+                },
+                {
+                    "reportId": "r-10",
+                    "score": 0.75,
+                    "decidedBy": "model",
+                    "scorer": "term-overlap",
+                    "uncertain": true,
+                    "joinedAt": "2026-03-01T13:10:00+00:00"
+                }
+            ],
+            "count": 2,
+            "nearDuplicates": [
+                {
+                    "reportId": "r-10",
+                    "score": 0.75,
+                    "decidedBy": "model",
+                    "scorer": "term-overlap",
+                    "uncertain": true,
+                    "joinedAt": "2026-03-01T13:10:00+00:00"
+                }
+            ],
+            "newGroup": false,
+            "score": 0.75,
+            "uncertain": true
+        },
+        "r-11": {
+            "groupId": "other-type",
+            "reportType": "klacht",
+            "deterministicKey": "",
+            "windowMinutes": 0,
+            "terms": [
+                "stroomstoring",
+                "kerkstraat"
+            ],
+            "members": [
+                {
+                    "reportId": "w",
+                    "joinedAt": "2026-03-01T09:59:00+00:00"
+                },
+                {
+                    "reportId": "r-7",
+                    "score": 1.0,
+                    "decidedBy": "model",
+                    "scorer": "term-overlap",
+                    "uncertain": false,
+                    "joinedAt": "2026-03-01T10:30:00+00:00"
+                },
+                {
+                    "reportId": "r-11",
+                    "score": 0.6667,
+                    "decidedBy": "model",
+                    "scorer": "term-overlap",
+                    "uncertain": true,
+                    "joinedAt": "2026-03-01T13:15:00+00:00"
+                }
+            ],
+            "count": 3,
+            "nearDuplicates": [
+                {
+                    "reportId": "r-11",
+                    "score": 0.6667,
+                    "decidedBy": "model",
+                    "scorer": "term-overlap",
+                    "uncertain": true,
+                    "joinedAt": "2026-03-01T13:15:00+00:00"
+                }
+            ],
+            "newGroup": false,
+            "score": 0.6667,
+            "uncertain": true
+        }
+    },
+    "groups": {
+        "stale": {
+            "reportType": "melding",
+            "deterministicKey": "k-1",
+            "terms": [
+                "stroomstoring",
+                "kerkstraat"
+            ],
+            "members": [
+                {
+                    "reportId": "x",
+                    "joinedAt": "not a time"
+                },
+                {
+                    "reportId": "y",
+                    "joinedAt": ""
+                },
+                "junk",
+                {
+                    "reportId": "z"
+                }
+            ]
+        },
+        "other-type": {
+            "id": "other-type",
+            "reportType": "klacht",
+            "terms": [
+                "stroomstoring",
+                "kerkstraat"
+            ],
+            "members": [
+                {
+                    "reportId": "w",
+                    "joinedAt": "2026-03-01T09:59:00+00:00"
+                },
+                {
+                    "reportId": "r-7",
+                    "score": 1.0,
+                    "decidedBy": "model",
+                    "scorer": "term-overlap",
+                    "uncertain": false,
+                    "joinedAt": "2026-03-01T10:30:00+00:00"
+                },
+                {
+                    "reportId": "r-11",
+                    "score": 0.6667,
+                    "decidedBy": "model",
+                    "scorer": "term-overlap",
+                    "uncertain": true,
+                    "joinedAt": "2026-03-01T13:15:00+00:00"
+                }
+            ]
+        },
+        "not-a-melding": {
+            "reportType": "bezwaar",
+            "terms": [
+                "lantaarnpaal"
+            ],
+            "members": [
+                {
+                    "reportId": "v",
+                    "joinedAt": "2026-03-01T09:59:00+00:00"
+                }
+            ]
+        },
+        "group-4": {
+            "reportType": "melding",
+            "deterministicKey": "",
+            "windowMinutes": 60,
+            "terms": [
+                "stroomstoring",
+                "kerkstraat",
+                "sinds",
+                "vanochtend"
+            ],
+            "members": [
+                {
+                    "reportId": "r-1",
+                    "score": 1.0,
+                    "decidedBy": "model",
+                    "scorer": "term-overlap",
+                    "uncertain": false,
+                    "joinedAt": "2026-03-01T10:00:00+00:00"
+                }
+            ]
+        },
+        "group-5": {
+            "reportType": "melding",
+            "deterministicKey": "",
+            "windowMinutes": 60,
+            "terms": [
+                "stroomstoring",
+                "kerkstraat",
+                "nog",
+                "steeds"
+            ],
+            "members": [
+                {
+                    "reportId": "r-2",
+                    "score": 1.0,
+                    "decidedBy": "model",
+                    "scorer": "term-overlap",
+                    "uncertain": false,
+                    "joinedAt": "2026-03-01T10:05:00+00:00"
+                }
+            ]
+        },
+        "group-6": {
+            "reportType": "melding",
+            "deterministicKey": "",
+            "windowMinutes": 60,
+            "terms": [
+                "kerkstraat",
+                "stroom",
+                "weg",
+                "lantaarnpaal",
+                "kapot"
+            ],
+            "members": [
+                {
+                    "reportId": "r-3",
+                    "score": 1.0,
+                    "decidedBy": "model",
+                    "scorer": "term-overlap",
+                    "uncertain": false,
+                    "joinedAt": "2026-03-01T10:10:00+00:00"
+                }
+            ]
+        },
+        "group-7": {
+            "id": "group-7",
+            "reportType": "melding",
+            "deterministicKey": "k-2",
+            "windowMinutes": 60,
+            "terms": [
+                "iets",
+                "heel",
+                "anders",
+                "over",
+                "afval"
+            ],
+            "members": [
+                {
+                    "reportId": "r-4",
+                    "score": 1.0,
+                    "decidedBy": "key",
+                    "scorer": "term-overlap",
+                    "uncertain": false,
+                    "joinedAt": "2026-03-01T10:15:00+00:00"
+                },
+                {
+                    "reportId": "r-5",
+                    "score": 1.0,
+                    "decidedBy": "key",
+                    "scorer": "key",
+                    "uncertain": false,
+                    "joinedAt": "2026-03-01T10:20:00+00:00"
+                }
+            ]
+        },
+        "group-8": {
+            "reportType": "melding",
+            "deterministicKey": "k-1",
+            "windowMinutes": 60,
+            "terms": [
+                "stroomstoring",
+                "kerkstraat"
+            ],
+            "members": [
+                {
+                    "reportId": "r-6",
+                    "score": 1.0,
+                    "decidedBy": "key",
+                    "scorer": "term-overlap",
+                    "uncertain": false,
+                    "joinedAt": "2026-03-01T10:25:00+00:00"
+                }
+            ]
+        },
+        "group-9": {
+            "reportType": "melding",
+            "deterministicKey": "",
+            "windowMinutes": 60,
+            "terms": [
+                "stroomstoring",
+                "kerkstraat"
+            ],
+            "members": [
+                {
+                    "reportId": "r-8",
+                    "score": 1.0,
+                    "decidedBy": "model",
+                    "scorer": "term-overlap",
+                    "uncertain": false,
+                    "joinedAt": "2026-03-01T13:00:00+00:00"
+                }
+            ]
+        },
+        "group-10": {
+            "id": "group-10",
+            "reportType": "klacht",
+            "deterministicKey": "",
+            "windowMinutes": 1440,
+            "terms": [
+                "stroomstoring",
+                "kerkstraat",
+                "dorpsplein"
+            ],
+            "members": [
+                {
+                    "reportId": "r-9",
+                    "score": 1.0,
+                    "decidedBy": "model",
+                    "scorer": "term-overlap",
+                    "uncertain": false,
+                    "joinedAt": "2026-03-01T13:05:00+00:00"
+                },
+                {
+                    "reportId": "r-10",
+                    "score": 0.75,
+                    "decidedBy": "model",
+                    "scorer": "term-overlap",
+                    "uncertain": true,
+                    "joinedAt": "2026-03-01T13:10:00+00:00"
+                }
+            ]
+        }
+    },
+    "audits": [
+        {
+            "action": "report-similarity",
+            "context": {
+                "reportId": "r-1",
+                "reportType": "melding",
+                "groupId": "group-4",
+                "score": 1.0,
+                "uncertain": false,
+                "newGroup": true,
+                "windowMinutes": 60,
+                "terms": [
+                    "stroomstoring",
+                    "kerkstraat",
+                    "sinds",
+                    "vanochtend"
+                ]
+            }
+        },
+        {
+            "action": "report-similarity",
+            "context": {
+                "reportId": "r-2",
+                "reportType": "melding",
+                "groupId": "group-5",
+                "score": 1.0,
+                "uncertain": false,
+                "newGroup": true,
+                "windowMinutes": 60,
+                "terms": [
+                    "stroomstoring",
+                    "kerkstraat",
+                    "nog",
+                    "steeds"
+                ]
+            }
+        },
+        {
+            "action": "report-similarity",
+            "context": {
+                "reportId": "r-3",
+                "reportType": "melding",
+                "groupId": "group-6",
+                "score": 1.0,
+                "uncertain": false,
+                "newGroup": true,
+                "windowMinutes": 60,
+                "terms": [
+                    "kerkstraat",
+                    "stroom",
+                    "weg",
+                    "lantaarnpaal",
+                    "kapot"
+                ]
+            }
+        },
+        {
+            "action": "report-similarity",
+            "context": {
+                "reportId": "r-4",
+                "reportType": "melding",
+                "groupId": "group-7",
+                "score": 1.0,
+                "uncertain": false,
+                "newGroup": true,
+                "windowMinutes": 60,
+                "terms": [
+                    "iets",
+                    "heel",
+                    "anders",
+                    "over",
+                    "afval"
+                ]
+            }
+        },
+        {
+            "action": "report-similarity",
+            "context": {
+                "reportId": "r-5",
+                "reportType": "melding",
+                "groupId": "group-7",
+                "score": 1.0,
+                "uncertain": false,
+                "newGroup": false,
+                "windowMinutes": 60,
+                "terms": [
+                    "iets",
+                    "heel",
+                    "anders",
+                    "over",
+                    "afval"
+                ]
+            }
+        },
+        {
+            "action": "report-similarity",
+            "context": {
+                "reportId": "r-6",
+                "reportType": "melding",
+                "groupId": "group-8",
+                "score": 1.0,
+                "uncertain": false,
+                "newGroup": true,
+                "windowMinutes": 60,
+                "terms": [
+                    "stroomstoring",
+                    "kerkstraat"
+                ]
+            }
+        },
+        {
+            "action": "report-similarity",
+            "context": {
+                "reportId": "r-7",
+                "reportType": "klacht",
+                "groupId": "other-type",
+                "score": 1.0,
+                "uncertain": false,
+                "newGroup": false,
+                "windowMinutes": 1440,
+                "terms": [
+                    "stroomstoring",
+                    "kerkstraat"
+                ]
+            }
+        },
+        {
+            "action": "report-similarity",
+            "context": {
+                "reportId": "r-8",
+                "reportType": "melding",
+                "groupId": "group-9",
+                "score": 1.0,
+                "uncertain": false,
+                "newGroup": true,
+                "windowMinutes": 60,
+                "terms": [
+                    "stroomstoring",
+                    "kerkstraat"
+                ]
+            }
+        },
+        {
+            "action": "report-similarity",
+            "context": {
+                "reportId": "r-9",
+                "reportType": "klacht",
+                "groupId": "group-10",
+                "score": 1.0,
+                "uncertain": false,
+                "newGroup": true,
+                "windowMinutes": 1440,
+                "terms": [
+                    "stroomstoring",
+                    "kerkstraat",
+                    "dorpsplein",
+                    "donker"
+                ]
+            }
+        },
+        {
+            "action": "report-similarity",
+            "context": {
+                "reportId": "r-10",
+                "reportType": "klacht",
+                "groupId": "group-10",
+                "score": 0.75,
+                "uncertain": true,
+                "newGroup": false,
+                "windowMinutes": 1440,
+                "terms": [
+                    "stroomstoring",
+                    "kerkstraat",
+                    "dorpsplein"
+                ]
+            }
+        },
+        {
+            "action": "report-similarity",
+            "context": {
+                "reportId": "r-11",
+                "reportType": "klacht",
+                "groupId": "other-type",
+                "score": 0.6667,
+                "uncertain": true,
+                "newGroup": false,
+                "windowMinutes": 1440,
+                "terms": [
+                    "stroomstoring",
+                    "kerkstraat"
+                ]
+            }
+        }
+    ]
+}

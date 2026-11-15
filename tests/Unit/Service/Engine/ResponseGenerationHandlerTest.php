@@ -362,6 +362,176 @@ class ResponseGenerationHandlerTest extends TestCase {
 	}//end testTheTurnsAttachmentsReachTheFactory()
 
 	/**
+	 * Characterisation of the driver inputs: the agent's model, temperature,
+	 * positive output ceiling, organisation and AI feature, and the first
+	 * non-empty document reference of the context snapshot, in that order.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 */
+	public function testTheAgentsSettingsAndTheDocumentReachTheFactory(): void {
+		$seen = null;
+		$factory = $this->createMock(ProviderFactory::class);
+		$factory->method('getLlmConfig')->willReturn(['chatProvider' => 'fireworks']);
+		$factory->method('createChatDriver')->willReturnCallback(
+			function (...$args) use (&$seen): ChatDriver {
+				$seen = $args;
+				throw new \RuntimeException('stop before the model');
+			}
+		);
+
+		$handler = new ResponseGenerationHandler($factory, $this->toollessLoop(), new NullLogger());
+		$agent = $this->agent(['model' => 'm-1', 'temperature' => '0.5', 'maxTokens' => '900', 'aiFeature' => 'summarise']);
+		$agent->setOrganisation('org-7');
+
+		try {
+			$handler->generateResponse(
+				userMessage: 'Hi',
+				context: ['text' => '', 'sources' => []],
+				messageHistory: [],
+				agent: $agent,
+				cnAiContext: ['fileId' => '  ', 'documentId' => ' doc-9 ', 'objectId' => 'obj-1']
+			);
+			$this->fail('The sentinel did not stop the turn.');
+		} catch (Exception $e) {
+			$this->assertSame('Failed to generate response: stop before the model', $e->getMessage());
+		}
+
+		$this->assertSame(['chatProvider' => 'fireworks'], $seen[0]);
+		$this->assertSame('m-1', $seen[1]);
+		$this->assertSame(0.5, $seen[2]);
+		$this->assertSame('org-7', $seen[3]);
+		$this->assertSame(900, $seen[4]);
+		$this->assertSame('summarise', $seen[5]);
+		$this->assertSame('doc-9', $seen[6]);
+		$this->assertSame([], $seen[7]);
+		$this->assertSame([], $seen[8]);
+
+	}//end testTheAgentsSettingsAndTheDocumentReachTheFactory()
+
+	/**
+	 * Characterisation of the unset driver inputs: a non-string model, a
+	 * non-numeric temperature, a non-positive ceiling and a blank AI feature are
+	 * all null, and an agent-less turn has no organisation.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 */
+	public function testUnsetAgentSettingsReachTheFactoryAsNull(): void {
+		$seen = [];
+		$factory = $this->createMock(ProviderFactory::class);
+		$factory->method('getLlmConfig')->willReturn([]);
+		$factory->method('createChatDriver')->willReturnCallback(
+			function (...$args) use (&$seen): ChatDriver {
+				$seen[] = $args;
+				throw new \RuntimeException('stop before the model');
+			}
+		);
+
+		$handler = new ResponseGenerationHandler($factory, $this->toollessLoop(), new NullLogger());
+		$agents = [
+			$this->agent(['model' => 7, 'temperature' => 'warm', 'maxTokens' => 0, 'aiFeature' => '  ']),
+			null,
+		];
+		foreach ($agents as $agent) {
+			try {
+				$handler->generateResponse(
+					userMessage: 'Hi',
+					context: ['text' => '', 'sources' => []],
+					messageHistory: [],
+					agent: $agent,
+					cnAiContext: ['objectId' => ['not' => 'scalar']]
+				);
+			} catch (Exception) {
+				// Expected: the factory double stops the turn.
+			}
+		}
+
+		$this->assertSame([[], null, null, '', null, null, null, [], []], $seen[0]);
+		$this->assertSame([[], null, null, null, null, null, null, [], []], $seen[1]);
+
+	}//end testUnsetAgentSettingsReachTheFactoryAsNull()
+
+	/**
+	 * Characterisation of the stopped turn: a TurnStoppedException raised during
+	 * the model call ends the turn with its message and a full stop, unwrapped.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-run-in-progress-stops-when-its-agent-is-switched-off-req-agoff-003
+	 */
+	public function testAStoppedTurnEndsWithItsMessage(): void {
+		$factory = $this->createMock(ProviderFactory::class);
+		$factory->method('getLlmConfig')->willReturn([]);
+		$factory->method('createChatDriver')->willReturn(
+			new ChatDriver(provider: 'fireworks', chat: null, model: 'llama', credentialId: 'c', baseUrl: 'https://x')
+		);
+		$factory->method('callFireworksChat')->willThrowException(
+			new \OCA\Hermiq\Service\Engine\TurnStoppedException('The agent was switched off')
+		);
+
+		$handler = new ResponseGenerationHandler($factory, $this->toollessLoop(), new NullLogger());
+
+		$this->assertSame(
+			'The agent was switched off.',
+			$handler->generateResponse(
+				userMessage: 'Hi',
+				context: ['text' => '', 'sources' => []],
+				messageHistory: [],
+				agent: null
+			)
+		);
+
+	}//end testAStoppedTurnEndsWithItsMessage()
+
+	/**
+	 * Characterisation of the system prompt blocks: the context preamble follows
+	 * the agent prompt, scalar snapshot fields render as text and others as JSON,
+	 * and the earlier turns sit between the system prompt and the user turn.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 */
+	public function testThePreambleAndSnapshotFieldsJoinTheSystemPrompt(): void {
+		$captured = null;
+		$factory = $this->createMock(ProviderFactory::class);
+		$factory->method('getLlmConfig')->willReturn([]);
+		$factory->method('createChatDriver')->willReturn(
+			new ChatDriver(provider: 'fireworks', chat: null, model: 'llama', credentialId: 'c', baseUrl: 'https://x')
+		);
+		$factory->method('callFireworksChat')->willReturnCallback(
+			function (string $credentialId, string $model, string $baseUrl, array $messageHistory) use (&$captured): string {
+				$captured = $messageHistory;
+				return 'ok';
+			}
+		);
+
+		$handler = new ResponseGenerationHandler($factory, $this->toollessLoop(), new NullLogger());
+		$handler->generateResponse(
+			userMessage: 'Now?',
+			context: ['text' => '', 'sources' => []],
+			messageHistory: [\LLPhant\Chat\Message::user('Before'), \LLPhant\Chat\Message::assistant('Reply')],
+			agent: $this->agent(['prompt' => 'Base.']),
+			cnAiContext: ['app' => 'decidesk', 'filters' => ['a' => '/b']],
+			contextPreamble: 'PREAMBLE'
+		);
+
+		$this->assertCount(4, $captured);
+		$this->assertSame(
+			"Base.\n\nPREAMBLE\n\nCURRENT APP CONTEXT (this is where the user is RIGHT NOW — prefer tools that match this app):\n"
+			. "- app: decidesk\n- filters: {\"a\":\"/b\"}\n",
+			$captured[0]->content
+		);
+		$this->assertSame('Before', $captured[1]->content);
+		$this->assertSame('Reply', $captured[2]->content);
+		$this->assertSame('Now?', $captured[3]->content);
+
+	}//end testThePreambleAndSnapshotFieldsJoinTheSystemPrompt()
+
+	/**
 	 * When the agent defines no prompt, the default system prompt is used and
 	 * no APP CONTEXT block appears without a CnAiContext snapshot.
 	 *

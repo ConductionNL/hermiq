@@ -352,4 +352,54 @@ class ObjectEntity {
 	public function setVersion(?string $version): void {
 		$this->version = $version;
 	}//end setVersion()
+
+	/**
+	 * Lifecycle status: saved, but not yet submitted.
+	 *
+	 * @var string
+	 */
+	public const STATUS_DRAFT = 'draft';
+
+	/**
+	 * Lifecycle status: left draft through a submit, received.
+	 *
+	 * @var string
+	 */
+	public const STATUS_ACTIVE = 'active';
+
+	/**
+	 * The object's lifecycle status.
+	 *
+	 * @var string|null
+	 */
+	private ?string $status = null;
+
+	/**
+	 * Get the lifecycle status.
+	 *
+	 * @return string|null
+	 */
+	public function getStatus(): ?string {
+		return $this->status;
+	}//end getStatus()
+
+	/**
+	 * Set the lifecycle status.
+	 *
+	 * @param string|null $status The status.
+	 *
+	 * @return void
+	 */
+	public function setStatus(?string $status): void {
+		$this->status = $status;
+	}//end setStatus()
+
+	/**
+	 * Whether the object is a draft.
+	 *
+	 * @return bool
+	 */
+	public function isDraft(): bool {
+		return $this->status === self::STATUS_DRAFT;
+	}//end isDraft()
 }//end class

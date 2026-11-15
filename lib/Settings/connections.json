@@ -46,6 +46,14 @@
             "order": 60,
             "settingsUrl": "/settings/admin/hermiq#section-organisation-credentials",
             "unconfiguredMessage": "Not checked yet. The row shows what GitHub answered on the last store search."
+        },
+        {
+            "key": "trace-export",
+            "title": "Trace export",
+            "description": "Sends run and chat traces over OpenTelemetry (OTLP) to a tool such as Langfuse.",
+            "order": 70,
+            "settingsUrl": "/settings/admin/hermiq#section-trace-export",
+            "unconfiguredMessage": "Trace export is off. Switch it on in the trace export section and choose a credential."
         }
     ]
 }

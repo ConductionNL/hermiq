@@ -71,8 +71,9 @@ class RunCompareService
      */
     public function compare(string $leftId, string $rightId, array $visibleAgents, Closure $toRunRow): array
     {
-        $left  = $this->loadRun(runId: $leftId, visibleAgents: $visibleAgents, toRunRow: $toRunRow);
-        $right = $this->loadRun(runId: $rightId, visibleAgents: $visibleAgents, toRunRow: $toRunRow);
+        $lookup = new RunLookup(visibleAgents: $visibleAgents, toRunRow: $toRunRow);
+        $left   = $this->loadRun(runId: $leftId, lookup: $lookup);
+        $right  = $this->loadRun(runId: $rightId, lookup: $lookup);
 
         $result = ['left' => $left, 'right' => $right, 'sameAgent' => false, 'comparison' => null];
         if ($left === null || $right === null) {
@@ -80,11 +81,9 @@ class RunCompareService
         }
 
         $result['sameAgent']  = ($left['agentId'] === $right['agentId']);
-        $result['comparison'] = $this->runComparator->compare(
-            leftSteps: $left['steps'],
-            rightSteps: $right['steps'],
-            leftSummary: (string) ($left['summary'] ?? ''),
-            rightSummary: (string) ($right['summary'] ?? '')
+        $result['comparison'] = $this->runComparator->compareRuns(
+            left: new ComparedRun(steps: $left['steps'], summary: (string) ($left['summary'] ?? '')),
+            right: new ComparedRun(steps: $right['steps'], summary: (string) ($right['summary'] ?? ''))
         );
 
         return $result;
@@ -94,46 +93,78 @@ class RunCompareService
     /**
      * One run for the comparison, or null when the caller may not see it.
      *
-     * @param string                $runId         The run's audit entry uuid.
-     * @param array<string, string> $visibleAgents The caller's visible agents (uuid => name).
-     * @param Closure               $toRunRow      Shapes an entry as the run list does.
+     * @param string    $runId  The run's audit entry uuid.
+     * @param RunLookup $lookup The caller's visible agents and the run list's row shaper.
      *
      * @return array<string, mixed>|null The run row with its steps and run-time facts.
      */
-    private function loadRun(string $runId, array $visibleAgents, Closure $toRunRow): ?array
+    private function loadRun(string $runId, RunLookup $lookup): ?array
     {
         $runId = trim($runId);
-        if ($runId === '' || $visibleAgents === []) {
+        if ($runId === '' || $lookup->visibleAgents === []) {
             return null;
         }
 
-        $logs = $this->auditTrailMapper->findAll(filters: ['uuid' => $runId, 'action' => self::RUN_ACTIONS]);
-        foreach ($logs as $log) {
+        $log = $this->runEntry(runId: $runId);
+        if ($log === null) {
+            return null;
+        }
+
+        return $this->visibleRun(log: $log, lookup: $lookup);
+
+    }//end loadRun()
+
+    /**
+     * The first run entry whose uuid is exactly the run id, or null.
+     *
+     * @param string $runId The trimmed run id.
+     *
+     * @return mixed The audit entry, or null.
+     *
+     * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+     */
+    private function runEntry(string $runId): mixed
+    {
+        foreach ($this->auditTrailMapper->findAll(filters: ['uuid' => $runId, 'action' => self::RUN_ACTIONS]) as $log) {
             // Matched here as well: the filter narrows the read, this decides the answer.
-            if ($log->getUuid() !== $runId) {
-                continue;
+            if ($log->getUuid() === $runId) {
+                return $log;
             }
-
-            $context  = ($log->getChanged() ?? []);
-            $runAgent = trim((string) ($context['agentId'] ?? ''));
-            if ($runAgent === '' || isset($visibleAgents[$runAgent]) === false || ($context['dryRun'] ?? false) === true) {
-                return null;
-            }
-
-            // Positional: a Closure has no declared parameter names to bind to.
-            $row = $toRunRow(['log' => $log, 'context' => $context, 'agentId' => $runAgent], $visibleAgents[$runAgent]);
-            unset($row['createdSort']);
-
-            // Null means "not recorded for this run", which the view says in words.
-            $row['steps']        = array_values((array) ($context['steps'] ?? []));
-            $row['agentVersion'] = ($context['agentVersion'] ?? null);
-            $row['provider']     = ($context['provider'] ?? null);
-            $row['model']        = ($context['model'] ?? null);
-
-            return $row;
-        }//end foreach
+        }
 
         return null;
 
-    }//end loadRun()
+    }//end runEntry()
+
+    /**
+     * The matched run entry as a compared row, or null when its agent is not visible or it was a dry run.
+     *
+     * @param mixed     $log    The matched audit entry.
+     * @param RunLookup $lookup The caller's visible agents and the run list's row shaper.
+     *
+     * @return array<string, mixed>|null
+     *
+     * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+     */
+    private function visibleRun(mixed $log, RunLookup $lookup): ?array
+    {
+        $context  = ($log->getChanged() ?? []);
+        $runAgent = trim((string) ($context['agentId'] ?? ''));
+        if ($runAgent === '' || isset($lookup->visibleAgents[$runAgent]) === false || ($context['dryRun'] ?? false) === true) {
+            return null;
+        }
+
+        // Positional: a Closure has no declared parameter names to bind to.
+        $row = ($lookup->toRunRow)(['log' => $log, 'context' => $context, 'agentId' => $runAgent], $lookup->visibleAgents[$runAgent]);
+        unset($row['createdSort']);
+
+        // Null means "not recorded for this run", which the view says in words.
+        $row['steps']        = array_values((array) ($context['steps'] ?? []));
+        $row['agentVersion'] = ($context['agentVersion'] ?? null);
+        $row['provider']     = ($context['provider'] ?? null);
+        $row['model']        = ($context['model'] ?? null);
+
+        return $row;
+
+    }//end visibleRun()
 }//end class

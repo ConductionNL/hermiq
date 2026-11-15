@@ -265,4 +265,56 @@ final class RunTokenServiceTest extends TestCase {
 		$this->assertCount(2, $store->rows);
 
 	}//end testRecordsAreSweptAfterTheRecognitionWindow()
+
+	/**
+	 * The stored record binds run, agent, user and conversation to the token's
+	 * digest; the TTL is the turn default unless a positive override is given,
+	 * and the record is kept for the recognition hour after that.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
+	 */
+	public function testTheStoredRecordAndItsLifetime(): void {
+		$store = new InMemoryRunTokenStore();
+		$service = $this->service($store);
+
+		$token = $service->mint(runId: 'run-1', agentId: 'agent-1', userId: 'alice', conversationId: 'conv/ü');
+		$row = $store->rows[hash('sha256', $token)];
+		$this->assertSame(
+			['runId' => 'run-1', 'agentId' => 'agent-1', 'userId' => 'alice', 'conversationId' => 'conv/ü', 'hash' => hash('sha256', $token)],
+			json_decode($row['record'], true)
+		);
+		$this->assertStringContainsString('conv/ü', $row['record'], 'Slashes and unicode are stored unescaped.');
+		$default = ($row['expiresAt'] - $this->now);
+		$this->assertGreaterThan(0, $default);
+		$this->assertSame($row['expiresAt'] + 3600, $row['retainUntil']);
+
+		foreach ([0 => $default, -5 => $default, 1800 => 1800] as $override => $ttl) {
+			$minted = $service->mint(runId: 'run-2', agentId: 'agent-1', userId: 'alice', ttlSeconds: $override);
+			$this->assertSame($this->now + $ttl, $store->rows[hash('sha256', $minted)]['expiresAt']);
+		}
+
+	}//end testTheStoredRecordAndItsLifetime()
+
+	/**
+	 * A record that does not decode, or carries no digest, or another digest, verifies to nothing.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 */
+	public function testAMalformedRecordVerifiesToNothing(): void {
+		$store = new InMemoryRunTokenStore();
+		$service = $this->service($store);
+
+		foreach (['not json', '{"runId":"r"}', '{"hash":5}', '{"hash":"other","runId":"r"}'] as $record) {
+			$store->put(digest: hash('sha256', 'presented'), record: $record, expiresAt: $this->now + 60, retainUntil: $this->now + 3660);
+			$this->assertNull($service->verify(token: 'presented'), $record);
+		}
+
+		$store->put(digest: hash('sha256', 'presented'), record: '{"hash":"' . hash('sha256', 'presented') . '"}', expiresAt: $this->now + 60, retainUntil: $this->now + 3660);
+		$this->assertSame(['runId' => '', 'agentId' => '', 'userId' => '', 'conversationId' => ''], $service->verify(token: 'presented'));
+
+	}//end testAMalformedRecordVerifiesToNothing()
 }//end class

@@ -239,4 +239,29 @@ class PreferencesControllerTest extends TestCase {
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
 
 	}//end testSetPreferenceRejectsInvalidKey()
+
+	/**
+	 * Both routes refuse with the exact bodies, and the sign-in check comes before
+	 * the key check, so an anonymous caller with a bad key is told to sign in.
+	 *
+	 * @return void
+	 */
+	public function testBothRoutesRefuseWithTheExactBodies(): void {
+		$this->config->expects($this->never())->method('getUserValue');
+		$this->config->expects($this->never())->method('setUserValue');
+		$this->config->expects($this->never())->method('deleteUserValue');
+
+		$answers = [];
+		foreach ([[null, 'delivertarget'], [null, '!!!'], ['bob', '!!!']] as [$uid, $key]) {
+			$controller = $this->controller(uid: $uid);
+			foreach ([$controller->getPreference(key: $key), $controller->setPreference(key: $key, value: 'v')] as $response) {
+				$answers[] = [$response->getStatus(), $response->getData()];
+			}
+		}
+
+		$anonymous = [Http::STATUS_UNAUTHORIZED, ['message' => 'Not logged in']];
+		$invalid = [Http::STATUS_BAD_REQUEST, ['message' => 'Invalid key']];
+		$this->assertSame(expected: [$anonymous, $anonymous, $anonymous, $anonymous, $invalid, $invalid], actual: $answers);
+
+	}//end testBothRoutesRefuseWithTheExactBodies()
 }//end class

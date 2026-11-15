@@ -31,7 +31,7 @@
  * widget reads OR's audit trail and POSTs the single governed run-on-object
  * command. No agent logic lives here.
  *
- * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-agent-integration-leaf-registration
+ * @spec openspec/specs/agent-object-leaf/spec.md#requirement-agent-integration-leaf-registration
  * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-agent-integration-leaf-registration
  */
 

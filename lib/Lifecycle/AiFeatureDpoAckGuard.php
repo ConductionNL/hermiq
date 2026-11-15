@@ -34,14 +34,14 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/ai-feature-governance-register/tasks.md#2-dpo-ack-lifecycle-guard-imperative-business-rule-seam-adr-031
+ * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#2-dpo-ack-lifecycle-guard-imperative-business-rule-seam-adr-031
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Lifecycle;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\OpenRegister\Lifecycle\GuardResult;
 use OCA\OpenRegister\Lifecycle\LifecycleGuardInterface;
 use OCP\IAppConfig;
@@ -49,7 +49,7 @@ use OCP\IAppConfig;
 /**
  * Blocks an AiFeature `enable` transition until the DPO acknowledgement is recorded.
  *
- * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-2-1
  */
 class AiFeatureDpoAckGuard implements LifecycleGuardInterface {
 
@@ -65,7 +65,7 @@ class AiFeatureDpoAckGuard implements LifecycleGuardInterface {
 	 *
 	 * @param IAppConfig $appConfig App config holding the authoritative DPO acknowledgement.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-2-1
 	 */
 	public function __construct(
 		private readonly IAppConfig $appConfig,
@@ -92,7 +92,7 @@ class AiFeatureDpoAckGuard implements LifecycleGuardInterface {
 	 * @SuppressWarnings(PHPMD.StaticAccess)          GuardResult::allow()/deny() is OpenRegister's mandated
 	 *   verdict factory (LifecycleGuardInterface contract); there is no instance alternative.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-2-1
 	 */
 	public function check(array $object, string $action, string $userId): GuardResult {
 		if (($object['riskCategory'] ?? null) === 'unacceptable') {
@@ -114,7 +114,7 @@ class AiFeatureDpoAckGuard implements LifecycleGuardInterface {
 		}
 
 		$key = $this->ackKey(slug: $slug, tenantId: $this->resolveTenant(object: $object));
-		$ack = $this->appConfig->getValueString(Application::APP_ID, $key, '');
+		$ack = $this->appConfig->getValueString(AppIdentity::APP_ID, $key, '');
 		if ($ack === '') {
 			return GuardResult::deny(
 				message: 'This AI feature has not been acknowledged by the Data Protection Officer and cannot be enabled.'
@@ -134,7 +134,7 @@ class AiFeatureDpoAckGuard implements LifecycleGuardInterface {
 	 *
 	 * @return string The tenant identifier, or an empty string when untenanted.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-2-1
 	 */
 	private function resolveTenant(array $object): string {
 		return trim((string)($object['tenantId'] ?? ($object['tenant_id'] ?? '')));
@@ -151,7 +151,7 @@ class AiFeatureDpoAckGuard implements LifecycleGuardInterface {
 	 *
 	 * @return string The IAppConfig key.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-2-1
 	 */
 	private function ackKey(string $slug, string $tenantId): string {
 		if ($tenantId !== '') {

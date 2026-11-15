@@ -51,7 +51,7 @@
 
 ## Phase 3: retire the local clock (staged)
 
-- [ ] 3.1 Sweep orphaned mirror flows from the flow side (schedule deleted in
+- [x] 3.1 Sweep orphaned mirror flows from the flow side (schedule deleted in
       the UI) instead of waiting for the node's loud refusal.
 - [ ] 3.2 When every shape has an engine home, drop `nextRun` due-selection
       from `findDueSchedules()` and shrink `ScheduleTask` to the sync pass.

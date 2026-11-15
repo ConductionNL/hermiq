@@ -101,4 +101,16 @@ class CheckOpenRegisterCompatibilityTest extends TestCase {
 		$this->assertSame($capturedWarning, $capturedError, 'The console warning and the logged error must carry the same actionable message.');
 
 	}//end testMissingClassLogsActionableWarningAndError()
+
+	/**
+	 * An OpenRegister that ignores `fireEventsOnBulkWrites` is named at upgrade time.
+	 *
+	 * @return void
+	 */
+	public function testAnOpenRegisterWithoutBulkWriteEventsIsReported(): void {
+		$required = (new \ReflectionClass(CheckOpenRegisterCompatibility::class))->getConstant('REQUIRED_CLASSES');
+
+		$this->assertArrayHasKey('OCA\\OpenRegister\\Service\\Object\\BulkWriteEvents', $required);
+		$this->assertTrue(version_compare(CheckOpenRegisterCompatibility::MIN_OPENREGISTER_VERSION, '2.1.43-unstable.20261102171844', '>='));
+	}//end testAnOpenRegisterWithoutBulkWriteEventsIsReported()
 }//end class

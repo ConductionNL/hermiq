@@ -30,9 +30,10 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Service\Talk\TalkSafeText;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -132,14 +133,34 @@ class ApprovalPreviewBuilder {
 	 */
 	public function toolLine(string $toolId): string {
 		$tool = $this->describeTool(id: $toolId, arguments: null);
+		$reach = (self::REACH_TEXT[$tool['reach']] ?? 'an unknown reach');
+		$label = $this->talkLabel(tool: $tool);
+		if ($label === null) {
+			return sprintf('A tool %s, and reaches %s.', $tool['effect'], $reach);
+		}
 
-		return sprintf(
-			'The tool %s %s, and reaches %s.',
-			($tool['title'] ?? $tool['name']),
-			$tool['effect'],
-			(self::REACH_TEXT[$tool['reach']] ?? 'an unknown reach')
-		);
+		return sprintf('The tool %s %s, and reaches %s.', $label, $tool['effect'], $reach);
 	}//end toolLine()
+
+	/**
+	 * The tool's name as it may appear in a Talk message.
+	 *
+	 * Talk reads mentions, links and markdown in message text, and a tool's title
+	 * and name are free text from whoever registered the tool. A label is used only
+	 * when it holds letters, digits, spaces and plain punctuation; otherwise the
+	 * message names the tool by its id, when that is plain too.
+	 *
+	 * @param array{id: string, name: string, title?: string} $tool The described tool.
+	 *
+	 * @return string|null The title, the name or the id; null when none is plain.
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
+	 */
+	private function talkLabel(array $tool): ?string {
+		$safe = new TalkSafeText();
+
+		return ($safe->label(text: (string)($tool['title'] ?? '')) ?? $safe->label(text: $tool['name']) ?? $safe->identifier(identifier: $tool['id']));
+	}//end talkLabel()
 
 	/**
 	 * Describe one tool from its catalog descriptor.

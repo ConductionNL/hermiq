@@ -237,6 +237,69 @@ class LessonAuthoringControllerTest extends TestCase {
 	}//end badRequests()
 
 	/**
+	 * The goal-title and question-count refusals carry their own message.
+	 *
+	 * @param string $endpoint The controller method.
+	 * @param array<string, mixed> $params The request params.
+	 * @param string $message The refusal message.
+	 *
+	 * @return void
+	 */
+	#[DataProvider('refusalMessages')]
+	public function testARefusalNamesWhatIsWrong(string $endpoint, array $params, string $message): void {
+		$response = $this->controller(params: $params, engine: $this->untouchedEngine())->$endpoint();
+
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
+		$this->assertSame($message, $response->getData()['error']);
+
+	}//end testARefusalNamesWhatIsWrong()
+
+	/**
+	 * Goal-title and question-count requests with the message each is refused with.
+	 *
+	 * @return array<string, array{0: string, 1: array<string, mixed>, 2: string}>
+	 */
+	public static function refusalMessages(): array {
+		$lesson = 'Breuken vergelijken.';
+		$count = 'questionCount must be a whole number from ' . LessonAuthoringEngine::MIN_QUESTIONS
+			. ' to ' . LessonAuthoringEngine::MAX_QUESTIONS;
+		return [
+			'goals as a string' => ['goalSuggestions', ['lessonText' => $lesson, 'goalTitles' => 'Doel'], 'goalTitles must be a list of strings'],
+			'goals as a map' => ['goalSuggestions', ['lessonText' => $lesson, 'goalTitles' => ['a' => 'Doel']], 'goalTitles must be a list of strings'],
+			'goals with too many titles' => ['goalSuggestions', ['lessonText' => $lesson, 'goalTitles' => array_fill(0, 101, 'Doel')], 'goalTitles must hold at most 100 items'],
+			'goals with a number in it' => ['goalSuggestions', ['lessonText' => $lesson, 'goalTitles' => ['Doel', 7]], 'goalTitles must hold non-empty strings only'],
+			'goals with a blank title' => ['goalSuggestions', ['lessonText' => $lesson, 'goalTitles' => ['Doel', '  ']], 'goalTitles must hold non-empty strings only'],
+			'goals with a title too long' => ['goalSuggestions', ['lessonText' => $lesson, 'goalTitles' => [str_repeat('d', 301)]], 'each goal title must be at most 300 characters'],
+			'questions with too many' => ['questions', ['lessonText' => $lesson, 'questionCount' => 50], $count],
+			'questions with zero' => ['questions', ['lessonText' => $lesson, 'questionCount' => 0], $count],
+			'questions with a fraction' => ['questions', ['lessonText' => $lesson, 'questionCount' => 2.5], $count],
+			'questions with a signed string' => ['questions', ['lessonText' => $lesson, 'questionCount' => '-3'], $count],
+		];
+	}//end refusalMessages()
+
+	/**
+	 * A null goal list and a null or empty question count fall back to their defaults.
+	 *
+	 * @return void
+	 */
+	public function testNullGoalsAndCountFallBackToDefaults(): void {
+		foreach ([null, ''] as $count) {
+			$engine = $this->createMock(LessonAuthoringEngine::class);
+			$engine->expects($this->once())->method('suggestQuestions')
+				->with('Les', [], 5, 'nl', 'teacher1')
+				->willReturn(['available' => true]);
+
+			$response = $this->controller(
+				params: ['lessonText' => 'Les', 'goalTitles' => null, 'questionCount' => $count],
+				engine: $engine
+			)->questions();
+
+			$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		}
+
+	}//end testNullGoalsAndCountFallBackToDefaults()
+
+	/**
 	 * A parameter outside the contract never reaches the engine, and defaults are applied.
 	 *
 	 * @return void

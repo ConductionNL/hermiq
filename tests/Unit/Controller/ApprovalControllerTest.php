@@ -26,12 +26,14 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\ApprovalController;
+use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Http;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
@@ -43,6 +45,23 @@ use ReflectionMethod;
  * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
  */
 class ApprovalControllerTest extends TestCase {
+
+	/**
+	 * The reviewer inbox + reviewer guard the controller consults.
+	 *
+	 * @var ApprovalInbox&MockObject
+	 */
+	private ApprovalInbox&MockObject $inbox;
+
+	/**
+	 * Fresh inbox mock per test.
+	 *
+	 * @return void
+	 */
+	protected function setUp(): void {
+		parent::setUp();
+		$this->inbox = $this->createMock(ApprovalInbox::class);
+	}//end setUp()
 
 	/**
 	 * Build an approval ObjectEntity with the given status.
@@ -91,7 +110,8 @@ class ApprovalControllerTest extends TestCase {
 			$this->createMock(IRequest::class),
 			$approvalService,
 			$session,
-			$this->createMock(LoggerInterface::class)
+			$this->createMock(LoggerInterface::class),
+			$this->inbox
 		);
 
 	}//end controller()
@@ -105,7 +125,7 @@ class ApprovalControllerTest extends TestCase {
 	 */
 	public function testIndexReturnsReviewerPending(): void {
 		$service = $this->createMock(ApprovalService::class);
-		$service->method('listPendingForReviewer')->willReturn([['id' => 'appr-1']]);
+		$this->inbox->method('listPendingForReviewer')->willReturn([['id' => 'appr-1']]);
 
 		$response = $this->controller($service, $this->session('bob'))->index();
 
@@ -138,7 +158,7 @@ class ApprovalControllerTest extends TestCase {
 	public function testReviewerApproves(): void {
 		$service = $this->createMock(ApprovalService::class);
 		$service->method('loadApproval')->willReturn($this->approval('pending'));
-		$service->method('isReviewer')->willReturn(true);
+		$this->inbox->method('isReviewer')->willReturn(true);
 		$service->expects($this->once())->method('approve')->willReturn(['status' => 'approved', 'ran' => true]);
 
 		$response = $this->controller($service, $this->session('bob'))->approve('appr-1');
@@ -159,7 +179,7 @@ class ApprovalControllerTest extends TestCase {
 	public function testNonReviewerRefused(): void {
 		$service = $this->createMock(ApprovalService::class);
 		$service->method('loadApproval')->willReturn($this->approval('pending'));
-		$service->method('isReviewer')->willReturn(false);
+		$this->inbox->method('isReviewer')->willReturn(false);
 		$service->expects($this->never())->method('approve');
 
 		$response = $this->controller($service, $this->session('mallory'))->approve('appr-1');
@@ -196,7 +216,7 @@ class ApprovalControllerTest extends TestCase {
 	public function testAlreadyDecidedIsConflict(): void {
 		$service = $this->createMock(ApprovalService::class);
 		$service->method('loadApproval')->willReturn($this->approval('approved'));
-		$service->method('isReviewer')->willReturn(true);
+		$this->inbox->method('isReviewer')->willReturn(true);
 		$service->expects($this->never())->method('approve');
 
 		$response = $this->controller($service, $this->session('bob'))->approve('appr-1');
@@ -215,7 +235,7 @@ class ApprovalControllerTest extends TestCase {
 	public function testReviewerDenies(): void {
 		$service = $this->createMock(ApprovalService::class);
 		$service->method('loadApproval')->willReturn($this->approval('pending'));
-		$service->method('isReviewer')->willReturn(true);
+		$this->inbox->method('isReviewer')->willReturn(true);
 		$service->expects($this->once())->method('deny');
 
 		$response = $this->controller($service, $this->session('bob'))->deny('appr-1');
@@ -235,7 +255,7 @@ class ApprovalControllerTest extends TestCase {
 	public function testNonReviewerCannotDeny(): void {
 		$service = $this->createMock(ApprovalService::class);
 		$service->method('loadApproval')->willReturn($this->approval('pending'));
-		$service->method('isReviewer')->willReturn(false);
+		$this->inbox->method('isReviewer')->willReturn(false);
 		$service->expects($this->never())->method('deny');
 
 		$response = $this->controller($service, $this->session('mallory'))->deny('appr-1');
@@ -259,7 +279,7 @@ class ApprovalControllerTest extends TestCase {
 			static fn (string $key, mixed $default = null): mixed => ($params[$key] ?? $default)
 		);
 
-		return new ApprovalController($request, $approvalService, $session, $this->createMock(LoggerInterface::class));
+		return new ApprovalController($request, $approvalService, $session, $this->createMock(LoggerInterface::class), $this->inbox);
 
 	}//end resolvingController()
 
@@ -271,7 +291,7 @@ class ApprovalControllerTest extends TestCase {
 	private function bobReviews(): ApprovalService {
 		$service = $this->createMock(ApprovalService::class);
 		$service->method('loadApproval')->willReturn($this->approval('pending'));
-		$service->method('isReviewer')->willReturnCallback(
+		$this->inbox->method('isReviewer')->willReturnCallback(
 			static fn (ObjectEntity $approval, string $uid): bool => $uid === 'bob'
 		);
 		return $service;
@@ -349,7 +369,7 @@ class ApprovalControllerTest extends TestCase {
 	public function testResolveKeepsTheApprovalGuard(): void {
 		$service = $this->createMock(ApprovalService::class);
 		$service->method('loadApproval')->willReturn($this->approval('approved'));
-		$service->method('isReviewer')->willReturn(true);
+		$this->inbox->method('isReviewer')->willReturn(true);
 		$service->expects($this->never())->method('approve');
 
 		$this->assertSame(
@@ -400,7 +420,7 @@ class ApprovalControllerTest extends TestCase {
 		foreach ($routes as $route => [$decides, $extra]) {
 			$service = $this->createMock(ApprovalService::class);
 			$service->method('loadApproval')->willReturn($this->approval('pending'));
-			$service->method('isReviewer')->willReturn(true);
+			$this->inbox->method('isReviewer')->willReturn(true);
 			$deciders = [];
 			$service->method('approve')->willReturnCallback(
 				function (ObjectEntity $approval, string $deciderUid) use (&$deciders): array {

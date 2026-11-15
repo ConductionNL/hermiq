@@ -62,6 +62,13 @@ class SeedSkillCreatorTest extends TestCase {
 			public array $saved = [];
 
 			/**
+			 * The error saveObject() throws, if any.
+			 *
+			 * @var \Throwable|null
+			 */
+			public ?\Throwable $saveError = null;
+
+			/**
 			 * @param array<string, array<int, ObjectEntity>> $bySchema Schema slug → objects.
 			 */
 			public function __construct(
@@ -104,6 +111,10 @@ class SeedSkillCreatorTest extends TestCase {
 				bool $_dedupOverride = false,
 				?string $_owner = null,
 			): ObjectEntity {
+				if ($this->saveError !== null) {
+					throw $this->saveError;
+				}
+
 				$payload = is_array($object) ? $object : $object->getObject();
 				$this->saved[] = ['schema' => (string)$schema, 'object' => $payload];
 
@@ -314,4 +325,45 @@ class SeedSkillCreatorTest extends TestCase {
 		$this->addToAssertionCount(1);
 
 	}//end testNoopsWhenOpenRegisterUnavailable()
+
+	/**
+	 * The step names what it seeds.
+	 *
+	 * @return void
+	 */
+	public function testName(): void {
+		$step = new SeedSkillCreator(
+			container: $this->container(objectService: $this->objectService([])),
+			logger: $this->createMock(LoggerInterface::class),
+			freshness: new SeedFreshnessService(),
+		);
+
+		$this->assertSame('Seed skill-creator skill (hermiq-skill-conversational-authoring)', $step->getName());
+	}//end testName()
+
+	/**
+	 * A failed write is reported and logged, never thrown; rows that are not
+	 * objects are not mistaken for the existing skill.
+	 *
+	 * @return void
+	 */
+	public function testAFailedWriteIsReportedNotThrown(): void {
+		$objectService = $this->objectService(['agentskill' => [['name' => 'skill-creator']]]);
+		$objectService->saveError = new RuntimeException('register locked');
+
+		$output = $this->createMock(IOutput::class);
+		$output->expects($this->once())->method('warning')->with('Could not seed skill-creator skill: register locked');
+		$output->expects($this->never())->method('info');
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects($this->once())->method('error')->with('[hermiq] skill-creator seed failed: register locked');
+
+		$step = new SeedSkillCreator(
+			container: $this->container(objectService: $objectService),
+			logger: $logger,
+			freshness: new SeedFreshnessService(),
+		);
+		$step->run(output: $output);
+
+		$this->assertSame([], $objectService->saved);
+	}//end testAFailedWriteIsReportedNotThrown()
 }//end class

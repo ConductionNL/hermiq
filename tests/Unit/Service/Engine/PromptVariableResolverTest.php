@@ -157,6 +157,27 @@ class PromptVariableResolverTest extends TestCase {
 	}//end testEachPlaceholderFillsIn()
 
 	/**
+	 * The values come in a fixed order: the person, the organisation, the dates,
+	 * the agent and the app, then one per start field.
+	 *
+	 * @return void
+	 */
+	public function testTheValuesComeInTheirFixedOrder(): void {
+		$variables = $this->resolver()->variablesFor(
+			userId: 'fatima',
+			agentData: ['name' => ' Helper ', 'startFields' => [['key' => 'channel', 'label' => 'Channel', 'type' => 'text', 'default' => 'counter']]],
+			appContext: ['appId' => 'dossiq']
+		);
+
+		$this->assertSame(
+			['user.displayName', 'user.id', 'user.language', 'organisation.name', 'today', 'now', 'agent.name', 'app.id', 'field.channel'],
+			array_keys($variables)
+		);
+		$this->assertSame(['fatima', 'Helper', 'counter'], [$variables['user.id'], $variables['agent.name'], $variables['field.channel']]);
+
+	}//end testTheValuesComeInTheirFixedOrder()
+
+	/**
 	 * The spec's scenario sentence, end to end.
 	 *
 	 * @return void

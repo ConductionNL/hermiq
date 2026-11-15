@@ -31,6 +31,7 @@ namespace OCA\Hermiq\Service;
 use DateTime;
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\GoalServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserManager;
@@ -48,12 +49,19 @@ use Throwable;
  *
  * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
  */
-class GoalService {
+class GoalService implements GoalServiceInterface {
 
 	private const REGISTER = 'hermiq';
 	private const GOAL_SCHEMA = 'agentgoal';
 	private const SESSION_SCHEMA = 'agentsession';
 	private const AGENT_SCHEMA = 'agent';
+
+	/**
+	 * The notification subject for each way a turn can end a goal.
+	 *
+	 * @var array<string, string>
+	 */
+	private const TURN_OUTCOME_SUBJECTS = ['reached' => 'goal_reached', 'exhausted' => 'goal_exhausted'];
 
 	/**
 	 * Constructor.
@@ -231,55 +239,148 @@ class GoalService {
 	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
 	 */
 	public function turn(ObjectEntity $goal, DateTimeImmutable $now): void {
-		$data         = $goal->getObject();
-		$agentId      = (string)($data['agentId'] ?? '');
-		$owner        = (string)($data['setBy'] ?? '');
-		$organisation = (string)($goal->getOrganisation() ?? '');
+		$data = $goal->getObject();
 		$data['nextTurnAt'] = $now->modify('+' . (int)($data['intervalMinutes'] ?? 60) . ' minutes')->format(DATE_ATOM);
 
-		$gate = $this->schedules->gateFor(organisation: $organisation, agentId: $agentId);
+		$gate = $this->turnGate(goal: $goal);
 		if ($gate !== null) {
 			$data['blocked'] = $gate;
 			$this->persist(goal: $goal, data: $data);
 			return;
 		}
 
+		$answer = $this->runTurnAgent(goal: $goal);
+
+		$data['blocked']   = '';
+		$data['turnsUsed'] = (int)($data['turnsUsed'] ?? 0) + 1;
+		$data['lastCheckResult'] = $this->checkTurnAnswer(goal: $goal, answer: $answer) + ['checkedAt' => $now->format(DATE_ATOM)];
+
+		$this->persist(goal: $goal, data: $this->withTurnOutcome(goal: $goal, data: $data));
+	}//end turn()
+
+	/**
+	 * The gate (kill switch, budget, ...) that holds the goal's agent now, if any.
+	 *
+	 * @param ObjectEntity $goal The goal.
+	 *
+	 * @return string|null The gate, or null when the turn may run.
+	 */
+	private function turnGate(ObjectEntity $goal): ?string {
+		return $this->schedules->gateFor(
+			organisation: (string)($goal->getOrganisation() ?? ''),
+			agentId: (string)($goal->getObject()['agentId'] ?? '')
+		);
+
+	}//end turnGate()
+
+	/**
+	 * Run the goal's agent as its owner in the goal's session with the continue
+	 * prompt; a failed run is logged and answers nothing.
+	 *
+	 * @param ObjectEntity $goal The goal.
+	 *
+	 * @return string The agent's answer, or `''`.
+	 */
+	private function runTurnAgent(ObjectEntity $goal): string {
+		$data = $goal->getObject();
+		try {
+			return $this->schedules->runAgentAsOwner(
+				owner: (string)($data['setBy'] ?? ''),
+				agentId: (string)($data['agentId'] ?? ''),
+				prompt: $this->turnPrompt(data: $data),
+				organisation: (string)($goal->getOrganisation() ?? ''),
+				continueSessionUuid: (string)($data['sessionId'] ?? '')
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning('[hermiq] Goal turn run failed: ' . $e->getMessage());
+			return '';
+		}
+
+	}//end runTurnAgent()
+
+	/**
+	 * The prompt a turn continues the goal with: its statement and the last check.
+	 *
+	 * @param array<string, mixed> $data The goal's fields.
+	 *
+	 * @return string The prompt.
+	 */
+	private function turnPrompt(array $data): string {
 		$last        = (array)($data['lastCheckResult'] ?? []);
 		$lastSummary = (string)($last['summary'] ?? '');
 		if ($lastSummary === '') {
 			$lastSummary = 'not run yet';
 		}
 
-		$prompt = 'Continue working on the goal: ' . (string)($data['statement'] ?? '') . '. Last check: ' . $lastSummary . '.';
+		return 'Continue working on the goal: ' . (string)($data['statement'] ?? '') . '. Last check: ' . $lastSummary . '.';
 
-		$answer = '';
-		try {
-			$answer = $this->schedules->runAgentAsOwner(
-				owner: $owner,
-				agentId: $agentId,
-				prompt: $prompt,
-				organisation: $organisation,
-				continueSessionUuid: (string)($data['sessionId'] ?? '')
-			);
-		} catch (Throwable $e) {
-			$this->logger->warning('[hermiq] Goal turn run failed: ' . $e->getMessage());
+	}//end turnPrompt()
+
+	/**
+	 * Check a turn's answer against the goal's check, as the goal's owner.
+	 *
+	 * @param ObjectEntity $goal The goal.
+	 * @param string $answer The agent's answer.
+	 *
+	 * @return array<string, mixed> The check result.
+	 */
+	private function checkTurnAnswer(ObjectEntity $goal, string $answer): array {
+		$data = $goal->getObject();
+		return $this->checkAs(
+			owner: (string)($data['setBy'] ?? ''),
+			check: (array)($data['check'] ?? []),
+			answer: $answer,
+			organisation: (string)($goal->getOrganisation() ?? '')
+		);
+
+	}//end checkTurnAnswer()
+
+	/**
+	 * End the goal when the turn reached it or used its last turn, notifying the owner.
+	 *
+	 * @param ObjectEntity $goal The goal.
+	 * @param array<string, mixed> $data The goal's fields after the turn.
+	 *
+	 * @return array<string, mixed> The goal's fields, with the status when it ended.
+	 */
+	private function withTurnOutcome(ObjectEntity $goal, array $data): array {
+		$status = $this->turnOutcome(data: $data);
+		if ($status === null) {
+			return $data;
 		}
 
-		$data['blocked']   = '';
-		$data['turnsUsed'] = (int)($data['turnsUsed'] ?? 0) + 1;
-		$result = $this->checkAs(owner: $owner, check: (array)($data['check'] ?? []), answer: $answer, organisation: $organisation);
-		$data['lastCheckResult'] = $result + ['checkedAt' => $now->format(DATE_ATOM)];
+		$data['status'] = $status;
+		$this->notify(
+			owner: (string)($data['setBy'] ?? ''),
+			goal: $goal,
+			subject: self::TURN_OUTCOME_SUBJECTS[$status],
+			statement: (string)($data['statement'] ?? '')
+		);
 
-		if ($result['reached'] === true) {
-			$data['status'] = 'reached';
-			$this->notify(owner: $owner, goal: $goal, subject: 'goal_reached', statement: (string)($data['statement'] ?? ''));
-		} else if ($data['turnsUsed'] >= (int)($data['maxTurns'] ?? 10)) {
-			$data['status'] = 'exhausted';
-			$this->notify(owner: $owner, goal: $goal, subject: 'goal_exhausted', statement: (string)($data['statement'] ?? ''));
+		return $data;
+
+	}//end withTurnOutcome()
+
+	/**
+	 * How a turn ends the goal: `reached` when the check passed, else `exhausted` at
+	 * the turn limit, else not at all.
+	 *
+	 * @param array<string, mixed> $data The goal's fields after the turn.
+	 *
+	 * @return string|null The outcome, or null when the goal stays active.
+	 */
+	private function turnOutcome(array $data): ?string {
+		if ($data['lastCheckResult']['reached'] === true) {
+			return 'reached';
 		}
 
-		$this->persist(goal: $goal, data: $data);
-	}//end turn()
+		if ($data['turnsUsed'] >= (int)($data['maxTurns'] ?? 10)) {
+			return 'exhausted';
+		}
+
+		return null;
+
+	}//end turnOutcome()
 
 	/**
 	 * Run the check under the goal owner's identity, then restore the session.
@@ -363,22 +464,54 @@ class GoalService {
 	 */
 	private function cleanCheck(array $check): ?array {
 		$kind = (string)($check['kind'] ?? '');
-		if ($kind === 'objectCount' && (string)($check['register'] ?? '') !== '' && (string)($check['schema'] ?? '') !== '') {
-			return [
-				'kind' => 'objectCount',
-				'register' => (string)$check['register'],
-				'schema' => (string)$check['schema'],
-				'filters' => (array)($check['filters'] ?? []),
-				'target' => max(0, (int)($check['target'] ?? 0)),
-			];
+		if ($kind === 'objectCount') {
+			return $this->cleanObjectCountCheck(check: $check);
 		}
 
-		if ($kind === 'judge' && trim((string)($check['question'] ?? '')) !== '') {
-			return ['kind' => 'judge', 'question' => trim((string)$check['question'])];
+		if ($kind === 'judge') {
+			return $this->cleanJudgeCheck(check: $check);
 		}
 
 		return null;
 	}//end cleanCheck()
+
+	/**
+	 * An objectCount check with its register and schema, normalised; null without them.
+	 *
+	 * @param array<string, mixed> $check The requested check.
+	 *
+	 * @return array<string, mixed>|null The clean check, or null.
+	 */
+	private function cleanObjectCountCheck(array $check): ?array {
+		if ((string)($check['register'] ?? '') === '' || (string)($check['schema'] ?? '') === '') {
+			return null;
+		}
+
+		return [
+			'kind' => 'objectCount',
+			'register' => (string)$check['register'],
+			'schema' => (string)$check['schema'],
+			'filters' => (array)($check['filters'] ?? []),
+			'target' => max(0, (int)($check['target'] ?? 0)),
+		];
+
+	}//end cleanObjectCountCheck()
+
+	/**
+	 * A judge check with its trimmed question; null for a blank question.
+	 *
+	 * @param array<string, mixed> $check The requested check.
+	 *
+	 * @return array<string, string>|null The clean check, or null.
+	 */
+	private function cleanJudgeCheck(array $check): ?array {
+		if (trim((string)($check['question'] ?? '')) === '') {
+			return null;
+		}
+
+		return ['kind' => 'judge', 'question' => trim((string)$check['question'])];
+
+	}//end cleanJudgeCheck()
 
 	/**
 	 * The session's active goal, or null.
@@ -409,25 +542,31 @@ class GoalService {
 			_multitenancy: false
 		);
 
-		$goals = [];
-		foreach ($found as $goal) {
-			if ($goal instanceof ObjectEntity === false) {
-				continue;
-			}
+		return array_values(
+			array_filter(
+				$found,
+				fn (mixed $goal): bool => $goal instanceof ObjectEntity && $this->matchesFilters(data: $goal->getObject(), filters: $filters)
+			)
+		);
+	}//end goals()
 
-			$data = $goal->getObject();
-			$keep = true;
-			foreach ($filters as $key => $value) {
-				$keep = $keep && (string)($data[$key] ?? '') === $value;
-			}
-
-			if ($keep === true) {
-				$goals[] = $goal;
-			}
+	/**
+	 * Whether a goal's fields equal every filter value, compared as strings.
+	 *
+	 * @param array<string, mixed> $data The goal's fields.
+	 * @param array<string, mixed> $filters The filters.
+	 *
+	 * @return bool True when every filter matches.
+	 */
+	private function matchesFilters(array $data, array $filters): bool {
+		$keep = true;
+		foreach ($filters as $key => $value) {
+			$keep = $keep && (string)($data[$key] ?? '') === $value;
 		}
 
-		return $goals;
-	}//end goals()
+		return $keep;
+
+	}//end matchesFilters()
 
 	/**
 	 * Save a goal's data back as the system.

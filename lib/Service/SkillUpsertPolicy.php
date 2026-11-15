@@ -113,44 +113,19 @@ class SkillUpsertPolicy {
 	 * @spec openspec/changes/skill-install-idempotency/specs/skills-marketplace/spec.md#requirement-curated-state-survives-an-update
 	 */
 	public function merge(array $existing, array $incoming, string $sourceUrl, string $now): array {
-		$payload = $existing;
-		$learningsKept = false;
-
 		$incomingFiles = (array)($incoming['files'] ?? []);
-		$existingFiles = (array)($existing['files'] ?? []);
-
-		if ($this->wouldLoseLearnings(existing: $existing, incomingFiles: $incomingFiles) === true) {
+		$learningsKept = $this->wouldLoseLearnings(existing: $existing, incomingFiles: $incomingFiles);
+		if ($learningsKept === true) {
 			// Keep the local learnings file, take everything else. The update still
 			// lands, so preserving learnings never blocks a fix to the skill body.
 			$incoming['files'] = $this->withLocalLearnings(
 				incomingFiles: $incomingFiles,
-				existingFiles: $existingFiles
+				existingFiles: (array)($existing['files'] ?? [])
 			);
-			$learningsKept = true;
 		}
 
-		$changed = false;
-		foreach (self::CONTENT_KEYS as $key) {
-			if (array_key_exists($key, $incoming) === false) {
-				continue;
-			}
-
-			if (($existing[$key] ?? null) !== $incoming[$key]) {
-				$changed = true;
-			}
-
-			$payload[$key] = $incoming[$key];
-		}
-
-		// Curated keys are carried forward verbatim. Explicit rather than implicit:
-		// OpenRegister saveObject is PUT-semantic, so a key merely omitted here would
-		// be nulled on write.
-		foreach (self::CURATED_KEYS as $key) {
-			if (array_key_exists($key, $existing) === true) {
-				$payload[$key] = $existing[$key];
-			}
-		}
-
+		$changed = $this->contentChanged(existing: $existing, incoming: $incoming);
+		$payload = $this->withCuratedKeys(payload: $this->withIncomingContent(existing: $existing, incoming: $incoming), existing: $existing);
 		if ($changed === true) {
 			$payload['state'] = 'quarantined';
 			$payload['quarantineReason'] = self::REASON_CONTENT_CHANGED;
@@ -167,6 +142,65 @@ class SkillUpsertPolicy {
 		];
 
 	}//end merge()
+
+	/**
+	 * Whether any content key the incoming skill carries differs from the existing one.
+	 *
+	 * @param array<string, mixed> $existing The stored skill payload.
+	 * @param array<string, mixed> $incoming The incoming skill payload.
+	 *
+	 * @return bool
+	 */
+	private function contentChanged(array $existing, array $incoming): bool {
+		foreach (self::CONTENT_KEYS as $key) {
+			if (array_key_exists($key, $incoming) === true && ($existing[$key] ?? null) !== $incoming[$key]) {
+				return true;
+			}
+		}
+
+		return false;
+	}//end contentChanged()
+
+	/**
+	 * The existing payload with every content key the incoming skill carries taken
+	 * from it.
+	 *
+	 * @param array<string, mixed> $existing The stored skill payload.
+	 * @param array<string, mixed> $incoming The incoming skill payload.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function withIncomingContent(array $existing, array $incoming): array {
+		$payload = $existing;
+		foreach (self::CONTENT_KEYS as $key) {
+			if (array_key_exists($key, $incoming) === true) {
+				$payload[$key] = $incoming[$key];
+			}
+		}
+
+		return $payload;
+	}//end withIncomingContent()
+
+	/**
+	 * The payload with the curated keys carried forward verbatim.
+	 *
+	 * Explicit rather than implicit: OpenRegister saveObject is PUT-semantic, so a key
+	 * merely omitted here would be nulled on write.
+	 *
+	 * @param array<string, mixed> $payload The merged payload so far.
+	 * @param array<string, mixed> $existing The stored skill payload.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function withCuratedKeys(array $payload, array $existing): array {
+		foreach (self::CURATED_KEYS as $key) {
+			if (array_key_exists($key, $existing) === true) {
+				$payload[$key] = $existing[$key];
+			}
+		}
+
+		return $payload;
+	}//end withCuratedKeys()
 
 	/**
 	 * Whether applying the incoming files would discard local learnings.
