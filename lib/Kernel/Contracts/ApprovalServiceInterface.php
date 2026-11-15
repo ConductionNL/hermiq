@@ -92,4 +92,18 @@ interface ApprovalServiceInterface {
 	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
 	 */
 	public function loadApproval(string $uuid): ?ObjectEntity;
+
+	/**
+	 * Widen an approved computer action to the actions on its machine for its
+	 * run, for fifteen minutes from now; null when the approval cannot carry that.
+	 *
+	 * @param ObjectEntity       $approval   The approved computer-action approval.
+	 * @param string             $deciderUid The reviewer.
+	 * @param \DateTimeImmutable $now        The moment of the decision.
+	 *
+	 * @return array{uuid: string, expiresAt: string}|null
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	public function preauthoriseComputerRun(ObjectEntity $approval, string $deciderUid, \DateTimeImmutable $now): ?array;
 }//end interface

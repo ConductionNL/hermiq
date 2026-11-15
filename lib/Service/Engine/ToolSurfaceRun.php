@@ -76,4 +76,11 @@ final class ToolSurfaceRun {
 	 * @var bool
 	 */
 	public bool $dryRun = false;
+
+	/**
+	 * The run a computer action's approval is scoped to; '' when there is none.
+	 *
+	 * @var string
+	 */
+	public string $runId = '';
 }//end class

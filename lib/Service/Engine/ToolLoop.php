@@ -502,6 +502,8 @@ class ToolLoop implements ToolLoopInterface {
 	 *                     set, informs the side-effect classification).
 	 *                     False (every pre-existing caller) is
 	 *                     byte-for-byte unchanged behavior.
+	 * @param string $runId The run a computer action's approval is scoped to; '' offers no
+	 *                      run-scoped pre-authorisation (tools-browser-and-computer-use).
 	 *
 	 * @return array<int, FunctionInfo> FunctionInfo objects ready for `setTools()`.
 	 *
@@ -522,6 +524,7 @@ class ToolLoop implements ToolLoopInterface {
 		?ObjectEntity $agent = null,
 		?string $organisation = null,
 		bool $dryRun = false,
+		string $runId = '',
 	): array {
 		$run = new ToolSurfaceRun();
 		$run->functions = $functions;
@@ -530,6 +533,7 @@ class ToolLoop implements ToolLoopInterface {
 		$run->agent = $agent;
 		$run->organisation = $organisation;
 		$run->dryRun = $dryRun;
+		$run->runId = $runId;
 
 		return (new FunctionInfoBuilder())->build(functions: $functions, invoker: $this->createInvoker(run: $run));
 	}//end buildFunctionInfos()
@@ -561,7 +565,8 @@ class ToolLoop implements ToolLoopInterface {
 			waivedConstraintSets: $this->grantResolver->waivedConstraintSets(grants: $this->agentGrants(agent: $run->agent)),
 			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent),
 			agentStillOn: $this->agentStillOn(agentId: $agentId),
-			askFirst: $this->askFirst(functions: $run->functions)
+			askFirst: $this->askFirst(functions: $run->functions),
+			runId: $run->runId
 		);
 	}//end createInvoker()
 

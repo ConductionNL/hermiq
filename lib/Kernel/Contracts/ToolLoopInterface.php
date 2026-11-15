@@ -79,6 +79,8 @@ interface ToolLoopInterface {
 	 *                     set, informs the side-effect classification).
 	 *                     False (every pre-existing caller) is
 	 *                     byte-for-byte unchanged behavior.
+	 * @param string $runId The run a computer action's approval is scoped to; '' offers no
+	 *                      run-scoped pre-authorisation (tools-browser-and-computer-use).
 	 *
 	 * @return array<int, FunctionInfo> FunctionInfo objects ready for `setTools()`.
 	 *
@@ -99,5 +101,6 @@ interface ToolLoopInterface {
 		?ObjectEntity $agent = null,
 		?string $organisation = null,
 		bool $dryRun = false,
+		string $runId = '',
 	): array;
 }//end interface

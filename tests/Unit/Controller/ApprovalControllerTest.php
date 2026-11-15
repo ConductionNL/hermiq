@@ -170,6 +170,52 @@ class ApprovalControllerTest extends TestCase {
 	}//end testReviewerApproves()
 
 	/**
+	 * REQ-COMPUTER-003: a reviewer approving a computer action with `machine-run`
+	 * also approves the actions on that machine for that run, as the reviewer.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	public function testReviewerApprovesTheMachineForTheRun(): void {
+		$service = $this->createMock(ApprovalService::class);
+		$service->method('loadApproval')->willReturn($this->approval('pending'));
+		$this->inbox->method('isReviewer')->willReturn(true);
+		$service->expects($this->once())->method('approve')->willReturn(['status' => 'approved', 'ran' => false]);
+		$service->expects($this->once())->method('preauthoriseComputerRun')
+			->with($this->isInstanceOf(ObjectEntity::class), 'bob', $this->isInstanceOf(\DateTimeImmutable::class))
+			->willReturn(['uuid' => 'pre-1', 'expiresAt' => '2026-10-20T10:15:00+00:00']);
+
+		$response = $this->controller($service, $this->session('bob'))->approve('appr-1', ApprovalController::SCOPE_MACHINE_RUN);
+
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame(['approvalId' => 'appr-1', 'status' => 'approved', 'ran' => false, 'preauthorisedUntil' => '2026-10-20T10:15:00+00:00'], $response->getData());
+
+	}//end testReviewerApprovesTheMachineForTheRun()
+
+	/**
+	 * Without the scope, or when the approval cannot carry it, only the one action is approved.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	public function testWithoutTheScopeOnlyTheOneActionIsApproved(): void {
+		$service = $this->createMock(ApprovalService::class);
+		$service->method('loadApproval')->willReturn($this->approval('pending'));
+		$this->inbox->method('isReviewer')->willReturn(true);
+		$service->method('approve')->willReturn(['status' => 'approved', 'ran' => false]);
+		$service->expects($this->once())->method('preauthoriseComputerRun')->willReturn(null);
+
+		$plain   = $this->controller($service, $this->session('bob'))->approve('appr-1');
+		$refused = $this->controller($service, $this->session('bob'))->approve('appr-1', ApprovalController::SCOPE_MACHINE_RUN);
+
+		$this->assertArrayNotHasKey('preauthorisedUntil', $plain->getData());
+		$this->assertSame('', $refused->getData()['preauthorisedUntil']);
+
+	}//end testWithoutTheScopeOnlyTheOneActionIsApproved()
+
+	/**
 	 * A non-reviewer is refused with 404 and never reaches approve().
 	 *
 	 * @return void

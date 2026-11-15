@@ -136,6 +136,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Engine;
 
 use Closure;
+use DateTimeImmutable;
 use OCA\Hermiq\Mcp\ComputerToolDescriptors;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\ComputerUse\ComputerActionRecord;
@@ -432,6 +433,8 @@ class FacadeToolInvoker {
 	 * @param array<int,string> $askFirst Registry ids the person who started the run asks to
 	 *                                    approve first (personal-preferences, ask before sending);
 	 *                                    empty, every pre-existing caller, asks nothing extra.
+	 * @param string $runId The run a computer action's approval is scoped to (tools-browser-and-computer-use);
+	 *                      empty, every pre-existing caller, offers no run-scoped pre-authorisation.
 	 *
 	 * @return void
 	 *
@@ -467,6 +470,7 @@ class FacadeToolInvoker {
 		?int $maxToolCalls = null,
 		?Closure $agentStillOn = null,
 		private readonly array $askFirst = [],
+		private readonly string $runId = '',
 	) {
 		$this->turnGuard = new TurnGuard(maxToolCalls: $maxToolCalls, agentStillOn: $agentStillOn);
 	}//end __construct()
@@ -913,6 +917,18 @@ class FacadeToolInvoker {
 
 		$correlationId = $this->toolCallCorrelationId(agentId: $this->agentId, toolId: $call->toolId, arguments: $arguments);
 
+		$preauthorised = $this->computerRunPreAuthorisation(toolId: $call->toolId, arguments: $arguments);
+		if ($preauthorised !== null) {
+			return $this->dispatchToFacade(
+				name: $name,
+				call: new FacadeCall(
+					arguments: $arguments,
+					outcomeOverride: 'invoked_under_preauthorisation',
+					approvalId: $preauthorised['uuid']
+				)
+			);
+		}
+
 		$approvedUnconsumed = $this->approvalService->findApprovedUnconsumedToolCallApproval(correlationId: $correlationId);
 		if ($approvedUnconsumed !== null) {
 			$this->approvalService->markToolCallApprovalConsumed(approval: $approvedUnconsumed);
@@ -938,7 +954,8 @@ class FacadeToolInvoker {
 			agentId: $this->agentId,
 			toolId: $call->toolId,
 			arguments: $arguments,
-			correlationId: $correlationId
+			correlationId: $correlationId,
+			runId: $this->runIdFor(toolId: $call->toolId)
 		);
 
 		return $this->refusals()->confirm(
@@ -947,6 +964,46 @@ class FacadeToolInvoker {
 		);
 
 	}//end handleConfirmClassifiedInvocation()
+
+	/**
+	 * The reviewer's pre-authorisation of the actions on this call's machine for
+	 * this run, when it is approved and has not ended; null for any other call.
+	 *
+	 * @param string               $toolId    The dotted tool id.
+	 * @param array<string, mixed> $arguments The call's arguments, naming its `target`.
+	 *
+	 * @return array{uuid: string, decidedBy: string, expiresAt: string}|null
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	private function computerRunPreAuthorisation(string $toolId, array $arguments): ?array {
+		$runId = $this->runIdFor(toolId: $toolId);
+		if ($runId === '' || $this->approvalService === null || $this->agentId === null) {
+			return null;
+		}
+
+		return $this->approvalService->computerRunPreAuthorisation(
+			agentId: $this->agentId,
+			runId: $runId,
+			target: (string)($arguments['target'] ?? ''),
+			now: new DateTimeImmutable()
+		);
+	}//end computerRunPreAuthorisation()
+
+	/**
+	 * The run a computer action's approval is scoped to; '' for every other tool.
+	 *
+	 * @param string $toolId The dotted tool id.
+	 *
+	 * @return string
+	 */
+	private function runIdFor(string $toolId): string {
+		if (in_array($toolId, ComputerToolDescriptors::ACTION_IDS, true) === false) {
+			return '';
+		}
+
+		return $this->runId;
+	}//end runIdFor()
 
 	/**
 	 * Compute the `confirm`-classified tool call's idempotency/authorization

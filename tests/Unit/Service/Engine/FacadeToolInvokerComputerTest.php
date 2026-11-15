@@ -16,6 +16,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
+use DateTimeImmutable;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\Engine\FacadeToolInvoker;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
@@ -199,5 +200,76 @@ final class FacadeToolInvokerComputerTest extends TestCase {
 		self::assertSame('invoked_after_approval', $step['outcome']);
 		self::assertSame('00000000-0000-0000-0000-0000000000bb', $step['computer']['approvalId']);
 		self::assertSame([5, 6], [$step['computer']['x'], $step['computer']['y']]);
+	}
+
+	/**
+	 * REQ-COMPUTER-003: a reviewer's pre-authorisation of this machine for this run lets the click through, named on the step.
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	public function testAPreAuthorisedMachineRunsTheClickWithoutANewApproval(): void {
+		$approvals = $this->createMock(ApprovalService::class);
+		$approvals->expects(self::once())->method('computerRunPreAuthorisation')
+			->with('agent-1', 'conversation:c-1', 'ct-1', self::isInstanceOf(DateTimeImmutable::class))
+			->willReturn(['uuid' => '00000000-0000-0000-0000-0000000000cc', 'decidedBy' => 'carol', 'expiresAt' => '2026-10-20T10:15:00+00:00']);
+		$approvals->expects(self::never())->method('ensurePendingApprovalForToolCall');
+		$approvals->expects(self::never())->method('markToolCallApprovalConsumed');
+		$trace = new RunTraceCollector();
+		$invoker = new FacadeToolInvoker(
+			facade: $this->facade(),
+			trace: $trace,
+			approvalService: $approvals,
+			agentId: 'agent-1',
+			mcpIdByName: self::IDS,
+			runId: 'conversation:c-1'
+		);
+
+		$invoker->hermiq_computerClick(target: 'ct-1', x: 5, y: 6);
+
+		self::assertTrue($this->invoked);
+		$step = $trace->toArray()[0];
+		self::assertSame('invoked_under_preauthorisation', $step['outcome']);
+		self::assertSame('00000000-0000-0000-0000-0000000000cc', $step['computer']['approvalId']);
+	}
+
+	/**
+	 * Without a pre-authorisation the click asks for approval, and the request names its run.
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	public function testWithoutAPreAuthorisationTheClickAsksWithItsRun(): void {
+		$approvals = $this->createMock(ApprovalService::class);
+		$approvals->method('computerRunPreAuthorisation')->willReturn(null);
+		$approvals->method('findApprovedUnconsumedToolCallApproval')->willReturn(null);
+		$approvals->method('findPendingApprovalForToolCall')->willReturn(null);
+		$approvals->expects(self::once())->method('ensurePendingApprovalForToolCall')
+			->with(agentId: 'agent-1', toolId: 'hermiq.computerClick', arguments: ['target' => 'ct-1', 'x' => 5, 'y' => 6], correlationId: self::anything(), runId: 'conversation:c-1')
+			->willReturn(self::approval(uuid: '00000000-0000-0000-0000-0000000000aa'));
+		$invoker = new FacadeToolInvoker(facade: $this->facade(), approvalService: $approvals, agentId: 'agent-1', mcpIdByName: self::IDS, runId: 'conversation:c-1');
+
+		$decoded = json_decode($invoker->hermiq_computerClick(target: 'ct-1', x: 5, y: 6), true);
+
+		self::assertFalse($this->invoked);
+		self::assertTrue($decoded['isError']);
+	}
+
+	/**
+	 * A screenshot never looks up a pre-authorisation, and a turn without a run offers none.
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	public function testNoRunOrAScreenshotLooksUpNoPreAuthorisation(): void {
+		$approvals = $this->pendingApprovals();
+		$approvals->expects(self::never())->method('computerRunPreAuthorisation');
+
+		(new FacadeToolInvoker(facade: $this->facade(), approvalService: $approvals, agentId: 'agent-1', mcpIdByName: self::IDS))
+			->hermiq_computerClick(target: 'ct-1', x: 5, y: 6);
+		self::assertFalse($this->invoked);
+
+		$screens = $this->createMock(ApprovalService::class);
+		$screens->expects(self::never())->method('computerRunPreAuthorisation');
+		(new FacadeToolInvoker(facade: $this->facade(), approvalService: $screens, agentId: 'agent-1', mcpIdByName: self::IDS, runId: 'conversation:c-1'))
+			->hermiq_computerScreenshot(target: 'ct-1');
+		self::assertTrue($this->invoked);
 	}
 }
