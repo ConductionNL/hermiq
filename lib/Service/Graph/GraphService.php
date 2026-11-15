@@ -127,6 +127,33 @@ class GraphService {
 	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
 	 */
 	public function upsertEntity(array $proposal): string {
+		$entity = $this->entityProposal(proposal: $proposal);
+		$existing = $this->store->first(
+			schema: self::ENTITY_SCHEMA,
+			filters: ['labelKey' => $entity['labelKey'], 'entityType' => $entity['entityType']]
+		);
+		if ($existing !== null) {
+			return $this->mergeAliases(entity: $existing, aliases: $entity['aliases']);
+		}
+
+		return $this->store->create(
+			schema: self::ENTITY_SCHEMA,
+			payload: $entity + $this->provenance(proposal: $proposal)
+		);
+
+	}//end upsertEntity()
+
+	/**
+	 * An entity proposal checked and reduced to what is stored about it: the label
+	 * and its matching key, the type, the source pointer and the aliases.
+	 *
+	 * @param array<string, mixed> $proposal The proposal.
+	 *
+	 * @return array<string, mixed> The label and its labelKey, the entityType, sourceType, sourceRef and aliases.
+	 *
+	 * @throws InvalidArgumentException When the label, the type or the source record is missing.
+	 */
+	private function entityProposal(array $proposal): array {
 		$label = trim((string)($proposal['label'] ?? ''));
 		$type = trim((string)($proposal['entityType'] ?? ''));
 		$sourceType = (string)($proposal['sourceType'] ?? '');
@@ -135,28 +162,29 @@ class GraphService {
 			throw new InvalidArgumentException('A graph entity needs a label, an entity type and a source record.');
 		}
 
-		$key = mb_strtolower($label);
-		$aliases = $this->strings(values: (array)($proposal['aliases'] ?? []));
-		$existing = $this->store->first(schema: self::ENTITY_SCHEMA, filters: ['labelKey' => $key, 'entityType' => $type]);
-		if ($existing !== null) {
-			return $this->mergeAliases(entity: $existing, aliases: $aliases);
-		}
+		return [
+			'label' => $label,
+			'labelKey' => mb_strtolower($label),
+			'entityType' => $type,
+			'sourceType' => $sourceType,
+			'sourceRef' => $sourceRef,
+			'aliases' => $this->strings(values: (array)($proposal['aliases'] ?? [])),
+		];
+	}//end entityProposal()
 
-		return $this->store->create(
-			schema: self::ENTITY_SCHEMA,
-			payload: [
-				'label' => $label,
-				'labelKey' => $key,
-				'entityType' => $type,
-				'sourceType' => $sourceType,
-				'sourceRef' => $sourceRef,
-				'aliases' => $aliases,
-				'confidence' => $this->confidence(value: ($proposal['confidence'] ?? null)),
-				'extractedBy' => $this->extractor(value: ($proposal['extractedBy'] ?? null)),
-			]
-		);
-
-	}//end upsertEntity()
+	/**
+	 * How sure the extraction was and who extracted, as stored on a node or an edge.
+	 *
+	 * @param array<string, mixed> $proposal The proposal.
+	 *
+	 * @return array{confidence: mixed, extractedBy: mixed}
+	 */
+	private function provenance(array $proposal): array {
+		return [
+			'confidence' => $this->confidence(value: ($proposal['confidence'] ?? null)),
+			'extractedBy' => $this->extractor(value: ($proposal['extractedBy'] ?? null)),
+		];
+	}//end provenance()
 
 	/**
 	 * Create a relation between two entities, or return the identical one.
@@ -170,6 +198,36 @@ class GraphService {
 	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
 	 */
 	public function upsertRelation(array $proposal): string {
+		$edge = $this->relationEdge(proposal: $proposal);
+		$existing = $this->store->first(
+			schema: self::RELATION_SCHEMA,
+			filters: [
+				'fromEntity' => $edge['fromEntity'],
+				'toEntity' => $edge['toEntity'],
+				'predicate' => $edge['predicate'],
+			]
+		);
+		if ($existing !== null) {
+			return (string)$existing->getUuid();
+		}
+
+		$payload = $edge + ['custom' => in_array($edge['predicate'], self::SEED_PREDICATES, true) === false];
+		$payload += $this->relationSource(proposal: $proposal);
+
+		return $this->store->create(schema: self::RELATION_SCHEMA, payload: $payload + $this->provenance(proposal: $proposal));
+
+	}//end upsertRelation()
+
+	/**
+	 * A relation proposal checked and reduced to its edge: from, predicate, to.
+	 *
+	 * @param array<string, mixed> $proposal The proposal.
+	 *
+	 * @return array{fromEntity: string, predicate: string, toEntity: string}
+	 *
+	 * @throws InvalidArgumentException When an entity or the predicate is missing.
+	 */
+	private function relationEdge(array $proposal): array {
 		$from = (string)($proposal['fromEntity'] ?? '');
 		$to = (string)($proposal['toEntity'] ?? '');
 		$predicate = trim((string)($proposal['predicate'] ?? ''));
@@ -177,33 +235,25 @@ class GraphService {
 			throw new InvalidArgumentException('A graph relation needs two entities and a predicate.');
 		}
 
-		$existing = $this->store->first(
-			schema: self::RELATION_SCHEMA,
-			filters: ['fromEntity' => $from, 'toEntity' => $to, 'predicate' => $predicate]
-		);
-		if ($existing !== null) {
-			return (string)$existing->getUuid();
-		}
+		return ['fromEntity' => $from, 'predicate' => $predicate, 'toEntity' => $to];
+	}//end relationEdge()
 
-		$payload = [
-			'fromEntity' => $from,
-			'predicate' => $predicate,
-			'toEntity' => $to,
-			'custom' => in_array($predicate, self::SEED_PREDICATES, true) === false,
-		];
+	/**
+	 * The relation's source type and pointer, when the proposal names a usable source record.
+	 *
+	 * @param array<string, mixed> $proposal The proposal.
+	 *
+	 * @return array<string, mixed> The source fields, or none.
+	 */
+	private function relationSource(array $proposal): array {
 		$sourceType = (string)($proposal['sourceType'] ?? '');
 		$sourceRef = $this->pointer(sourceType: $sourceType, ref: (array)($proposal['sourceRef'] ?? []));
-		if ($sourceRef !== null) {
-			$payload['sourceType'] = $sourceType;
-			$payload['sourceRef'] = $sourceRef;
+		if ($sourceRef === null) {
+			return [];
 		}
 
-		$payload['confidence'] = $this->confidence(value: ($proposal['confidence'] ?? null));
-		$payload['extractedBy'] = $this->extractor(value: ($proposal['extractedBy'] ?? null));
-
-		return $this->store->create(schema: self::RELATION_SCHEMA, payload: $payload);
-
-	}//end upsertRelation()
+		return ['sourceType' => $sourceType, 'sourceRef' => $sourceRef];
+	}//end relationSource()
 
 	/**
 	 * The visible neighbourhood of an entity, breadth first and bounded.

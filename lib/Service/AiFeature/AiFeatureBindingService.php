@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
+ * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
  */
 
 declare(strict_types=1);
@@ -30,17 +30,18 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\AiFeature;
 
 use InvalidArgumentException;
+use OCA\Hermiq\Kernel\Contracts\AiFeatureBindingServiceInterface;
 use OCA\Hermiq\Service\AiFeatureService;
-use OCA\Hermiq\Service\OrganisationModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 
 /**
  * Writes an AI feature's provider binding and required residency.
  *
- * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
+ * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
  */
-class AiFeatureBindingService {
+class AiFeatureBindingService implements AiFeatureBindingServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -60,13 +61,13 @@ class AiFeatureBindingService {
 	 * Constructor.
 	 *
 	 * @param AiFeatureService $features Reads the AiFeature register (RBAC + tenancy scoped).
-	 * @param OrganisationModelPolicyService $modelPolicy The ceiling a binding must stay within.
+	 * @param EffectiveModelPolicy $modelPolicy The ceiling a binding must stay within.
 	 * @param ProviderResidencyRegistry $residency Validates the residency vocabulary.
 	 * @param ObjectService $objectService OpenRegister single write-path.
 	 */
 	public function __construct(
 		private readonly AiFeatureService $features,
-		private readonly OrganisationModelPolicyService $modelPolicy,
+		private readonly EffectiveModelPolicy $modelPolicy,
 		private readonly ProviderResidencyRegistry $residency,
 		private readonly ObjectService $objectService,
 	) {
@@ -90,7 +91,7 @@ class AiFeatureBindingService {
 	 *                                  one half of the pair is given, or when the residency is
 	 *                                  not one an administrator may state.
 	 *
-	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
 	 */
 	public function bind(string $id, ?string $provider, ?string $model, ?string $requiredResidency = null): ?ObjectEntity {
 		$feature = $this->features->getFeature(id: $id);
@@ -147,7 +148,7 @@ class AiFeatureBindingService {
 	 *
 	 * @return array<int, array<string, mixed>> One row per feature.
 	 *
-	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-split-deployment-must-be-expressible-as-configuration
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-split-deployment-must-be-expressible-as-configuration
 	 */
 	public function overview(FeatureProviderResolver $resolver): array {
 		$rows = [];

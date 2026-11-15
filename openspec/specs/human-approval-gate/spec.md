@@ -5,9 +5,9 @@
 **Feature tier**: V1
 
 **OpenSpec changes:**
-- `openspec/changes/human-approval-gate-schema/` — Approval + TenantControl schemas + Schedule.requiresApproval/reviewer/reviewerType (kind: config) — **done**
-- `openspec/changes/human-approval-gate-enforcement/` — dispatcher gate + kill-switch + approve/deny/kill-switch endpoints (kind: code) — **done, live-verified**
-- `openspec/changes/human-approval-gate-ui/` — approval inbox + kill-switch toggle + reviewer picker (kind: code) — **done, Playwright-verified** (kill-switch keys on the OpenRegister organisation UUID, not an NC group)
+- `openspec/changes/archive/2026-09-06-human-approval-gate-schema/` — Approval + TenantControl schemas + Schedule.requiresApproval/reviewer/reviewerType (kind: config) — **done**
+- `openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/` — dispatcher gate + kill-switch + approve/deny/kill-switch endpoints (kind: code) — **done, live-verified**
+- `openspec/changes/archive/2026-09-06-human-approval-gate-ui/` — approval inbox + kill-switch toggle + reviewer picker (kind: code) — **done, Playwright-verified** (kill-switch keys on the OpenRegister organisation UUID, not an NC group)
 - `openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/` — routes an un-granted destructive tool invocation through the approval gate (ADR-063 consumer side; kind: code) — **DONE** (adds `sourceType: "tool"` to the Approval state machine)
 - `openspec/changes/archive/2026-10-01-approval-verification-contract/` — a signed verdict on a staged batch for another app (integriq), the batch binding stored on the approval, the acting agent passed to integriq's agent tools (hermiq#1045; kind: code) — **done**
 
@@ -224,6 +224,111 @@ The system MUST set `agentId` to the running agent's id in the arguments of the 
 - GIVEN agent "g1" calls `integriq.runSynchronization` with `agentId: "g2"`
 - WHEN Hermiq dispatches the call
 - THEN integriq receives `agentId: "g1"`
+
+### Requirement: Reviewer approval inbox lists pending approvals routed to the user
+
+The system MUST provide an "Approvals" view, reachable from the app navigation, that
+lists the pending `Approval` objects for which the current user is the resolved
+reviewer (the designated user, or a member of the reviewer group). Each row MUST show
+the schedule name, the bound agent, the prompt, and the `requestedAt`, and MUST offer
+**Approve** and **Deny** actions. An approval the current user may not decide MUST NOT
+be actionable for them.
+
+#### Scenario: A reviewer sees their pending approvals
+
+- **GIVEN** a pending `Approval` whose resolved reviewer is the current user (directly
+  or via the reviewer group)
+- **WHEN** the user opens the Approvals view
+- **THEN** the view MUST list that pending `Approval` with the schedule name, agent,
+  prompt, and requested time, and Approve/Deny actions
+- **AND** approvals routed to a different reviewer MUST NOT appear as actionable
+
+### Requirement: Dispatcher blocks a gated run and creates a pending Approval
+
+The dispatcher MUST NOT invoke the bound agent when a due schedule (or an on-demand
+`runNow`) has `requiresApproval=true`. Instead it MUST create an `Approval`
+OpenRegister object in `status=pending` carrying the schedule's `scheduleId`,
+`agentId`, `prompt`, and `requestedAt`, inheriting the schedule's `owner` and
+`organisation` through `ObjectService`, and MUST return without running the gated
+action. The dispatcher MUST resolve the reviewer from the schedule's `reviewer` /
+`reviewerType` and copy the resolved `reviewer`/`reviewerType` onto the pending
+`Approval`; when the schedule's `reviewer` is empty the dispatcher MUST default the
+reviewer to the schedule `owner` (`reviewerType=user`), preserving backward
+compatibility. The run MUST execute only after the `Approval` reaches `approved`. The
+at-most-once run-state advance MUST still be applied so the schedule does not enqueue
+a duplicate pending `Approval` on every subsequent tick.
+
+#### Scenario: A due gated schedule creates a pending approval instead of running
+
+- **GIVEN** an enabled `Schedule` with `requiresApproval=true` whose `nextRun` is due
+- **WHEN** the dispatcher processes it during a tick
+- **THEN** the dispatcher MUST NOT call the OpenRegister agent runtime
+- **AND** a new `Approval` object in `status=pending` MUST be created via
+  `ObjectService` carrying the schedule's `scheduleId`, `agentId`, `prompt`, and a
+  `requestedAt`, with the schedule's `owner`/`organisation` inherited
+
+#### Scenario: The pending approval is routed to the schedule reviewer
+
+- **GIVEN** a due gated `Schedule` whose `reviewer` is a group id and
+  `reviewerType=group`
+- **WHEN** the dispatcher creates the pending `Approval`
+- **THEN** the `Approval` MUST carry that `reviewer`/`reviewerType` so the decision is
+  routed to the group (not the owner)
+- **AND** when the schedule's `reviewer` is empty, the `Approval` MUST default
+  `reviewer` to the schedule owner with `reviewerType=user`
+
+#### Scenario: Run-now on a gated schedule also gates
+
+- **GIVEN** a `Schedule` with `requiresApproval=true`
+- **WHEN** the owner presses "Run now"
+- **THEN** the agent MUST NOT run immediately
+- **AND** a pending `Approval` MUST be created exactly as for a scheduled tick
+
+### Requirement: Approving an approval executes the gated run
+
+The system MUST allow only the designated **reviewer** (the `Approval.reviewer` user,
+or any member of the `Approval.reviewer` group when `reviewerType=group`) or an
+instance admin to approve a pending `Approval`; the schedule owner MUST NOT be able to
+approve unless they are themselves the reviewer (separation of duties, Art. 14). On approval the
+system MUST set the `Approval` to `status=approved` with `decidedAt` and `decidedBy`,
+record the decision in the hash-chained `AuditTrail` (after redaction), and then
+execute the gated run by reusing the existing `runNow` dispatch path for the bound
+schedule. The approve endpoint MUST be IDOR-guarded: it loads the `Approval` with RBAC
+and refuses with 404 unless the caller is the resolved reviewer (or reviewer-group
+member) or an instance admin.
+
+#### Scenario: The reviewer approves a pending approval
+
+- **GIVEN** a pending `Approval` for schedule S whose reviewer is user R (or group G)
+- **WHEN** R (or a member of group G) calls the approve endpoint for that `Approval`
+- **THEN** the `Approval` MUST become `status=approved` with `decidedAt`/`decidedBy`
+  set and an `AuditTrail` entry recorded
+- **AND** schedule S's bound agent MUST then run via the shared `runNow` path
+
+#### Scenario: A non-reviewer cannot approve
+
+- **GIVEN** a pending `Approval` whose reviewer is user R
+- **WHEN** a different user who is neither R, a member of the reviewer group, nor an
+  instance admin (including the schedule owner when owner ≠ reviewer) calls the approve
+  endpoint
+- **THEN** the system MUST refuse with 404 and MUST NOT run the gated action
+
+### Requirement: Denying an approval prevents the gated run
+
+The designated reviewer (or reviewer-group member) or an instance admin MUST be able
+to deny a pending `Approval`, under the same separation-of-duties guard as approve. On
+denial the system MUST set the `Approval` to `status=denied` with `decidedAt`,
+`decidedBy`, and an optional `reason`, record the decision in the `AuditTrail`, and
+MUST NOT execute the gated run now or later. The deny endpoint MUST be IDOR-guarded
+identically to approve.
+
+#### Scenario: The reviewer denies a pending approval
+
+- **GIVEN** a pending `Approval` for schedule S whose reviewer is user R
+- **WHEN** R calls the deny endpoint with a reason
+- **THEN** the `Approval` MUST become `status=denied` with `decidedAt`/`decidedBy`/
+  `reason` set and an `AuditTrail` entry recorded
+- **AND** schedule S's gated agent MUST NOT run as a result of this approval
 
 ## User Stories
 

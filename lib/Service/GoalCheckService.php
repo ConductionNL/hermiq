@@ -95,19 +95,10 @@ class GoalCheckService {
 			return ['reached' => false, 'value' => null, 'summary' => 'The check names no register or schema.'];
 		}
 
-		$config = ['limit' => self::COUNT_CAP];
-		$filters = ($check['filters'] ?? []);
-		if (is_array($filters) === true && $filters !== []) {
-			$config['filters'] = $filters;
+		$count = $this->objectCount(check: $check);
+		if (is_string($count) === true) {
+			return ['reached' => false, 'value' => null, 'summary' => $count];
 		}
-
-		try {
-			$objects = $this->objectService->setRegister($register)->setSchema($schema)->findAll(config: $config);
-		} catch (Throwable $e) {
-			return ['reached' => false, 'value' => null, 'summary' => 'The count could not be read: ' . $e->getMessage()];
-		}
-
-		$count = count($objects);
 
 		return [
 			'reached' => $count === $target,
@@ -115,6 +106,29 @@ class GoalCheckService {
 			'summary' => sprintf('%d left, target %d', $count, $target),
 		];
 	}//end countCheck()
+
+	/**
+	 * How many objects the check counts (up to the cap, read as the current user), or why it could not be read.
+	 *
+	 * @param array<string, mixed> $check The check (its register, schema and optional filters).
+	 *
+	 * @return int|string The count, or the summary of a failed read.
+	 */
+	private function objectCount(array $check): int|string {
+		$config = ['limit' => self::COUNT_CAP];
+		$filters = ($check['filters'] ?? []);
+		if (is_array($filters) === true && $filters !== []) {
+			$config['filters'] = $filters;
+		}
+
+		try {
+			$objects = $this->objectService->setRegister((string)$check['register'])->setSchema((string)$check['schema'])->findAll(config: $config);
+		} catch (Throwable $e) {
+			return 'The count could not be read: ' . $e->getMessage();
+		}
+
+		return count($objects);
+	}//end objectCount()
 
 	/**
 	 * Ask the judge whether the last answer reaches the goal.

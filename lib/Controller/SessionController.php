@@ -32,7 +32,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
  */
 
 declare(strict_types=1);
@@ -40,15 +40,18 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use Exception;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\AgentAccessService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\EngineInterface;
+use OCA\Hermiq\Kernel\Contracts\SessionPendingApprovalsInterface;
+use OCA\Hermiq\Kernel\Contracts\SessionShareServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkSessionRoomInterface;
 use OCA\Hermiq\Service\Chat\SessionCollaborators;
-use OCA\Hermiq\Service\Chat\SessionPendingApprovals;
 use OCA\Hermiq\Service\Chat\SessionSubject;
-use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\Engine\AnswerProvenanceWriter;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
+use OCA\Hermiq\Service\SessionShareService;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
-use OCA\Hermiq\Service\Talk\TalkSessionRoom;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
@@ -65,7 +68,7 @@ use Psr\Log\LoggerInterface;
  * organisation isolation is applied by ObjectService multitenancy on the read
  * itself.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   Ported conversation surface
  * composes the engine facade (title generation), the OR object read/write path,
@@ -123,16 +126,16 @@ class SessionController extends Controller {
 	/**
 	 * Creates and renames the Talk room a session owns.
 	 *
-	 * @var TalkSessionRoom
+	 * @var TalkSessionRoomInterface
 	 */
-	private readonly TalkSessionRoom $sessionRoom;
+	private readonly TalkSessionRoomInterface $sessionRoom;
 
 	/**
 	 * Decides whether the caller may use an agent.
 	 *
-	 * @var AgentAccessService
+	 * @var AgentAccessServiceInterface
 	 */
-	private readonly AgentAccessService $agentAccess;
+	private readonly AgentAccessServiceInterface $agentAccess;
 
 	/**
 	 * Reads and filters on the record a session is about.
@@ -144,34 +147,38 @@ class SessionController extends Controller {
 	/**
 	 * The approvals a session's agent waits on.
 	 *
-	 * @var SessionPendingApprovals
+	 * @var SessionPendingApprovalsInterface
 	 */
-	private readonly SessionPendingApprovals $pendingApprovals;
+	private readonly SessionPendingApprovalsInterface $pendingApprovals;
 
 	/**
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param Engine $engine In-app agent engine facade (unique-title generation).
+	 * @param EngineInterface $engine In-app agent engine facade (unique-title generation).
 	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param SessionCollaborators $collaborators The Talk room, agent access, subject and pending approvals.
 	 * @param ConversationParticipation $participation Owner-or-listed-participant read check.
+	 * @param AnswerProvenanceWriter|null $provenanceWriter How an answer came about, in the reader's language.
+	 * @param SessionShareServiceInterface|null $shares Who a session is shared with, read-only (chat-fork-and-share-link).
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 * @spec openspec/specs/session-participants/spec.md#requirement-an-invited-colleague-reads-and-takes-turns-req-spart-002
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly Engine $engine,
+		private readonly EngineInterface $engine,
 		private readonly ObjectService $objectService,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 		SessionCollaborators $collaborators,
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
+		private readonly ?AnswerProvenanceWriter $provenanceWriter = null,
+		private readonly ?SessionShareServiceInterface $shares = null,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 		$this->sessionRoom = $collaborators->sessionRoom;
 		$this->agentAccess = $collaborators->agentAccess;
 		$this->subject = $collaborators->subject;
@@ -192,8 +199,8 @@ class SessionController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
-	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-the-session-list-can-be-narrowed-to-one-record
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/specs/session-surface/spec.md#requirement-the-session-list-can-be-narrowed-to-one-record
 	 */
 	public function index(): JSONResponse {
 		try {
@@ -204,6 +211,9 @@ class SessionController extends Controller {
 			$limit = (int)($params['limit'] ?? $params['_limit'] ?? 50);
 			$offset = (int)($params['offset'] ?? $params['_offset'] ?? 0);
 			$showDeleted = filter_var(($params['_deleted'] ?? false), FILTER_VALIDATE_BOOLEAN);
+			if (filter_var(($params['shared'] ?? false), FILTER_VALIDATE_BOOLEAN) === true) {
+				return $this->sharedIndex(userId: $userId, limit: $limit, offset: $offset);
+			}
 
 			// Fetch the caller's conversations (org-scoped by ObjectService
 			// multitenancy, user-scoped by the payload filter) and partition
@@ -267,11 +277,16 @@ class SessionController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	public function show(string $uuid): JSONResponse {
 		try {
 			$userId = $this->requireUserId();
+			$sharedResponse = $this->sharedShow(uuid: $uuid, userId: $userId);
+			if ($sharedResponse !== null) {
+				return $sharedResponse;
+			}
+
 			$conversation = $this->objectService->find(
 				id: $uuid,
 				register: self::REGISTER_SLUG,
@@ -324,12 +339,17 @@ class SessionController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
-	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-sessions-messages-come-with-the-approvals-waiting-on-its-owner
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/specs/session-surface/spec.md#requirement-a-sessions-messages-come-with-the-approvals-waiting-on-its-owner
 	 */
 	public function messages(string $uuid): JSONResponse {
 		try {
 			$userId = $this->requireUserId();
+			$sharedResponse = $this->sharedMessages(uuid: $uuid, userId: $userId);
+			if ($sharedResponse !== null) {
+				return $sharedResponse;
+			}
+
 			$conversation = $this->objectService->find(
 				id: $uuid,
 				register: self::REGISTER_SLUG,
@@ -383,8 +403,8 @@ class SessionController extends Controller {
 	 *
 	 * @throws Exception If the turn read fails; messages() turns it into its error envelope.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
-	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-sessions-messages-come-with-the-approvals-waiting-on-its-owner
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/specs/session-surface/spec.md#requirement-a-sessions-messages-come-with-the-approvals-waiting-on-its-owner
 	 */
 	private function messagePage(string $uuid, array $pendingApprovals): JSONResponse {
 		// Get query parameters for pagination.
@@ -448,7 +468,7 @@ class SessionController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	public function create(): JSONResponse {
 		try {
@@ -526,7 +546,7 @@ class SessionController extends Controller {
 	 *
 	 * @throws Exception If the save fails; create() turns it into its error envelope.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function startSession(string $userId, array $start): ObjectEntity {
 		$agentId = $start['agentId'];
@@ -571,7 +591,7 @@ class SessionController extends Controller {
 	 *
 	 * @return JSONResponse The created session.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function createdResponse(ObjectEntity $conversation, string $userId): JSONResponse {
 		$this->logger->info(
@@ -599,7 +619,7 @@ class SessionController extends Controller {
 	 *
 	 * @return int The status code.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function failureStatus(Exception $error): int {
 		$code = (int)$error->getCode();
@@ -623,7 +643,7 @@ class SessionController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	public function update(string $uuid): JSONResponse {
 		try {
@@ -701,7 +721,7 @@ class SessionController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	public function destroy(string $uuid): JSONResponse {
 		try {
@@ -771,7 +791,7 @@ class SessionController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	public function restore(string $uuid): JSONResponse {
 		try {
@@ -854,7 +874,7 @@ class SessionController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	public function destroyPermanent(string $uuid): JSONResponse {
 		try {
@@ -908,7 +928,7 @@ class SessionController extends Controller {
 	 * @throws Exception If a message or the conversation could not be deleted; the
 	 *                   callers translate it into their error envelope.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function purgeConversation(string $uuid): JSONResponse {
 		$this->deleteRelatedObjects(schema: self::MESSAGE_SCHEMA, conversationId: $uuid);
@@ -943,7 +963,7 @@ class SessionController extends Controller {
 	 *
 	 * @return JSONResponse JSON response confirming the archive.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function archivedResponse(string $uuid): JSONResponse {
 		$this->logger->info(
@@ -972,7 +992,7 @@ class SessionController extends Controller {
 	 *
 	 * @return bool True when archived.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function isArchived(ObjectEntity $conversation): bool {
 		$metadata = ($conversation->getObject()['metadata'] ?? null);
@@ -1004,7 +1024,7 @@ class SessionController extends Controller {
 	 *                   the next call, a silently-missing marker also means the
 	 *                   second delete never escalates.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function setArchiveMarker(ObjectEntity $conversation, string $deletedBy): void {
 		$data = $conversation->getObject();
@@ -1046,7 +1066,7 @@ class SessionController extends Controller {
 	 *                   is deleted on the very next line, so those rows would be
 	 *                   orphaned with no remaining handle to reach them.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function deleteRelatedObjects(string $schema, string $conversationId): void {
 		// 🔴 THE TWO SCHEMAS NAME THE PARENT DIFFERENTLY, and this method serves both.
@@ -1090,7 +1110,7 @@ class SessionController extends Controller {
 	 *
 	 * @return int Message count.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function countMessages(string $conversationId): int {
 		$paginated = $this->objectService
@@ -1115,11 +1135,16 @@ class SessionController extends Controller {
 	 *
 	 * @return array<string, mixed> Serialized conversation.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
-	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
 	 */
 	private function serializeConversation(ObjectEntity $conversation, string $userId = ''): array {
 		$data = $conversation->getObject();
+		$shareCount = 0;
+		if ($this->roleOf(data: $data, userId: $userId) === 'owner') {
+			$shareCount = count(SessionShareService::shares(sessionData: $data));
+		}
+
 		$deletedAt = null;
 		$metadata = ($data['metadata'] ?? null);
 		if (is_array($metadata) === true) {
@@ -1150,6 +1175,10 @@ class SessionController extends Controller {
 			// shown in the session header.
 			'startValues' => (array)($data['startValues'] ?? []),
 			'deletedAt' => $deletedAt,
+			// Chat-fork-and-share-link: the session and answer a fork was made from.
+			'forkedFrom' => ($data['forkedFrom'] ?? null),
+			// Chat-fork-and-share-link: how many read-only shares the owner made; others see 0.
+			'shareCount' => $shareCount,
 			'created' => $conversation->getCreated()?->format('c'),
 			'updated' => $conversation->getUpdated()?->format('c'),
 		];
@@ -1199,6 +1228,166 @@ class SessionController extends Controller {
 	}//end listReadableSessions()
 
 	/**
+	 * How the caller reads the session through a share. `owner` covers the
+	 * owner and a participant, who read through the normal path below;
+	 * `recipient` is a user the session is shared with, directly or through a
+	 * group, who reads and does nothing else; `refused` is anyone else, who
+	 * gets the same 404 as a session that does not exist. A session that
+	 * cannot be read at all is left to the normal path too.
+	 *
+	 * @param string $uuid   The session uuid.
+	 * @param string $userId The caller.
+	 *
+	 * @return array{0: string, 1: ObjectEntity|null} The way in and, for a recipient, the session.
+	 *
+	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+	 */
+	private function readThroughShare(string $uuid, string $userId): array {
+		if ($this->shares === null) {
+			return ['owner', null];
+		}
+
+		// An unreadable session is left to the owner path, which answers it as before.
+		$session = $this->findUnchecked(uuid: $uuid);
+		if ($session === null || $this->participation->mayTakeTurn(conversationData: $session->getObject(), userId: $userId) === true) {
+			return ['owner', null];
+		}
+
+		if ($this->shares->shareFor(sessionData: $session->getObject(), uid: $userId) !== null) {
+			return ['recipient', $session];
+		}
+
+		return ['refused', null];
+	}//end readThroughShare()
+
+	/**
+	 * The session read past the caller's rights; null when absent or the read fails.
+	 *
+	 * @param string $uuid The session uuid.
+	 *
+	 * @return ObjectEntity|null
+	 */
+	private function findUnchecked(string $uuid): ?ObjectEntity {
+		try {
+			return $this->objectService->find(
+				id: $uuid,
+				register: self::REGISTER_SLUG,
+				schema: self::CONVERSATION_SCHEMA,
+				_rbac: false
+			);
+		} catch (Exception) {
+			return null;
+		}
+	}//end findUnchecked()
+
+	/**
+	 * The answer of `show` for a caller who is not the owner: not found when
+	 * refused, the shared read-only view for a share recipient, else null so
+	 * the owner path runs.
+	 *
+	 * @param string $uuid   The session uuid.
+	 * @param string $userId The caller.
+	 *
+	 * @return JSONResponse|null
+	 */
+	private function sharedShow(string $uuid, string $userId): ?JSONResponse {
+		[$readAs, $shared] = $this->readThroughShare(uuid: $uuid, userId: $userId);
+		if ($readAs === 'refused') {
+			return $this->notFoundResponse();
+		}
+
+		if ($readAs !== 'recipient' || $shared === null) {
+			return null;
+		}
+
+		$response = $this->serializeSharedConversation(conversation: $shared, userId: $userId);
+		$response['messageCount'] = $this->countMessages(conversationId: $uuid);
+
+		return new JSONResponse(data: $response, statusCode: 200);
+	}//end sharedShow()
+
+	/**
+	 * The answer of `messages` for a caller who is not the owner: not found
+	 * when refused, the turns without pending approvals for a share
+	 * recipient, else null so the owner path runs.
+	 *
+	 * @param string $uuid   The session uuid.
+	 * @param string $userId The caller.
+	 *
+	 * @return JSONResponse|null
+	 */
+	private function sharedMessages(string $uuid, string $userId): ?JSONResponse {
+		[$readAs] = $this->readThroughShare(uuid: $uuid, userId: $userId);
+		if ($readAs === 'refused') {
+			return $this->notFoundResponse();
+		}
+
+		if ($readAs === 'recipient') {
+			// A recipient reads the turns and acts on nothing: no pending approvals.
+			return $this->messagePage(uuid: $uuid, pendingApprovals: []);
+		}
+
+		return null;
+	}//end sharedMessages()
+
+	/**
+	 * The sessions shared with the caller, for the "Shared with you" group on /chat.
+	 *
+	 * @param string $userId The caller.
+	 * @param int    $limit  The page size.
+	 * @param int    $offset The page start.
+	 *
+	 * @return JSONResponse
+	 *
+	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+	 */
+	private function sharedIndex(string $userId, int $limit, int $offset): JSONResponse {
+		$shared = [];
+		foreach (($this->shares?->sharedWith(uid: $userId) ?? []) as $session) {
+			if ($this->isArchived(conversation: $session) === false
+				&& $this->participation->mayTakeTurn(conversationData: $session->getObject(), userId: $userId) === false
+			) {
+				$shared[] = $session;
+			}
+		}
+
+		return new JSONResponse(
+			data: [
+				'results' => array_map(
+					fn (ObjectEntity $conv): array => $this->serializeSharedConversation(conversation: $conv, userId: $userId),
+					array_slice($shared, $offset, $limit)
+				),
+				'total' => count($shared),
+				'limit' => $limit,
+				'offset' => $offset,
+			],
+			statusCode: 200
+		);
+	}//end sharedIndex()
+
+	/**
+	 * A session as its share recipient sees it: the thread's header with the
+	 * share that admits them, and nothing about who else it is shared with
+	 * or who takes part.
+	 *
+	 * @param ObjectEntity $conversation The session.
+	 * @param string       $userId       The recipient.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+	 */
+	private function serializeSharedConversation(ObjectEntity $conversation, string $userId): array {
+		$response = $this->serializeConversation(conversation: $conversation, userId: $userId);
+		$response['role'] = 'recipient';
+		$response['participants'] = [];
+		$response['shareCount'] = 0;
+		$response['share'] = $this->shares?->shareFor(sessionData: $conversation->getObject(), uid: $userId);
+
+		return $response;
+	}//end serializeSharedConversation()
+
+	/**
 	 * Whether the caller owns a session or was invited into it.
 	 *
 	 * @param array<string, mixed> $data The session payload.
@@ -1223,8 +1412,9 @@ class SessionController extends Controller {
 	 *
 	 * @return array<string, mixed> Serialized message.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
 	 */
 	private function serializeMessage(ObjectEntity $message): array {
 		$data = $message->getObject();
@@ -1250,16 +1440,37 @@ class SessionController extends Controller {
 			'authorDisplayName' => ($data['authorDisplayName'] ?? null),
 			// The files attached to this turn, as references (chat-attachments-and-images).
 			'attachments' => ($data['attachments'] ?? []),
+			// How the answer came about (chat-how-an-answer-came-about): the stored record
+			// and its sentences in the reader's language; null on a turn without one.
+			'provenance' => ($data['provenance'] ?? null),
+			'provenanceAccount' => $this->provenanceAccount(record: ($data['provenance'] ?? null)),
 			'created' => $message->getCreated()?->format('c'),
 		];
 	}//end serializeMessage()
+
+	/**
+	 * The sentences saying how an answer came about, or none without a record.
+	 *
+	 * @param mixed $record The turn's stored provenance record.
+	 *
+	 * @return list<string> The sentences.
+	 *
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-can-read-how-an-answer-came-about-in-plain-language-req-atrn-002
+	 */
+	private function provenanceAccount(mixed $record): array {
+		if ($this->provenanceWriter === null) {
+			return [];
+		}
+
+		return $this->provenanceWriter->sentences(record: $record);
+	}//end provenanceAccount()
 
 	/**
 	 * The 404 "conversation not found" response.
 	 *
 	 * @return JSONResponse 404 response.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function notFoundResponse(): JSONResponse {
 		return new JSONResponse(
@@ -1278,7 +1489,7 @@ class SessionController extends Controller {
 	 *
 	 * @return JSONResponse 403 response.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function accessDeniedResponse(string $action): JSONResponse {
 		$message = 'You do not have access to this conversation';
@@ -1302,7 +1513,7 @@ class SessionController extends Controller {
 	 *
 	 * @throws Exception If no user is authenticated (code 401).
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function requireUserId(): string {
 		$this->noteDeprecatedAlias();
@@ -1329,7 +1540,7 @@ class SessionController extends Controller {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-api-rename/tasks.md#3-add-the-new-routes-and-keep-the-old-ones-as-aliases
+	 * @spec openspec/changes/archive/2026-10-07-session-api-rename/tasks.md#3-add-the-new-routes-and-keep-the-old-ones-as-aliases
 	 */
 	private function noteDeprecatedAlias(): void {
 		$path = (string) $this->request->getPathInfo();

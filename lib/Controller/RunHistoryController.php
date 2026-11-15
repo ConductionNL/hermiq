@@ -25,17 +25,17 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/run-audit-log/tasks.md#3-run-history-read-surface
+ * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#3-run-history-read-surface
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\RunHistoryServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\ScheduleServiceInterface;
 use OCA\Hermiq\Service\EngineRequiredException;
-use OCA\Hermiq\Service\RunHistoryService;
-use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
@@ -49,8 +49,8 @@ use Throwable;
 /**
  * Owner-scoped run-history read endpoint over OpenRegister's AuditTrail.
  *
- * @spec openspec/changes/run-audit-log/tasks.md#3-run-history-read-surface
- * @spec openspec/changes/run-trace-observability/tasks.md#task-5-runhistorycontrollertrace-route
+ * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#3-run-history-read-surface
+ * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-5-runhistorycontrollertrace-route
  */
 class RunHistoryController extends Controller {
 
@@ -74,22 +74,22 @@ class RunHistoryController extends Controller {
 	 * @param IRequest $request The request object.
 	 * @param ObjectService $objectService OpenRegister object read (ownership check).
 	 * @param IUserSession $userSession Resolves the requesting user for the owner guard.
-	 * @param RunHistoryService $runHistoryService Reads and shapes the schedule's run records.
-	 * @param ScheduleService $scheduleService Executes the replay run + gate checks
+	 * @param RunHistoryServiceInterface $runHistoryService Reads and shapes the schedule's run records.
+	 * @param ScheduleServiceInterface $scheduleService Executes the replay run + gate checks
 	 *                                         (run-replay-and-dry-run).
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-3-2
 	 */
 	public function __construct(
 		IRequest $request,
 		private readonly ObjectService $objectService,
 		private readonly IUserSession $userSession,
-		private readonly RunHistoryService $runHistoryService,
-		private readonly ScheduleService $scheduleService,
+		private readonly RunHistoryServiceInterface $runHistoryService,
+		private readonly ScheduleServiceInterface $scheduleService,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -102,7 +102,7 @@ class RunHistoryController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-3-2
 	 */
 	public function index(string $scheduleId): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -153,7 +153,7 @@ class RunHistoryController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/run-trace-observability/tasks.md#task-5-runhistorycontrollertrace-route
+	 * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-5-runhistorycontrollertrace-route
 	 */
 	public function trace(string $scheduleId, string $runId): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -201,7 +201,7 @@ class RunHistoryController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-runs-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
+	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-runs-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
 	 */
 	public function replay(string $scheduleId, string $runId): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -258,7 +258,7 @@ class RunHistoryController extends Controller {
 	 *
 	 * @return ObjectEntity|null The owned schedule, or null when absent/not owned.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-3-2
 	 */
 	private function loadOwnedSchedule(string $scheduleId, string $uid): ?ObjectEntity {
 		try {

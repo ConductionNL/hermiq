@@ -354,6 +354,29 @@ class OutsideAgentGatewayTest extends TestCase {
 	}//end testAListResponseIsNarrowedRowByRow()
 
 	/**
+	 * A row of a list response that is not an array passes as it is, while the
+	 * array rows beside it are still narrowed and an allowlisted field a row lacks
+	 * is left out rather than invented.
+	 *
+	 * @return void
+	 */
+	public function testAScalarRowInAListPassesAsItIs(): void {
+		$gateway = $this->gateway(registration: ['principal' => 'agent-user', 'tools' => [], 'enabled' => true]);
+
+		$narrowed = $gateway->narrow(
+			registration: ['fieldAllowlist' => ['identificatie', 7]],
+			result: [
+				'ZAAK-0',
+				['identificatie' => 'ZAAK-1', 'initiatorBsn' => '123456789'],
+				null,
+				['initiatorBsn' => '987654321', '7' => 'seven'],
+			]
+		);
+
+		$this->assertSame(expected: ['ZAAK-0', ['identificatie' => 'ZAAK-1'], null, ['7' => 'seven']], actual: $narrowed);
+	}//end testAScalarRowInAListPassesAsItIs()
+
+	/**
 	 * A switched-off registration calls nothing, including the reads it was granted.
 	 *
 	 * @return void

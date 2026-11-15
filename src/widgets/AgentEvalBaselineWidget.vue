@@ -82,6 +82,7 @@ import {
 } from '@nextcloud/vue'
 import InformationOutline from 'vue-material-design-icons/InformationOutline.vue'
 import { useAgentStore } from '../store/store.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'AgentEvalBaselineWidget',
@@ -228,10 +229,7 @@ export default {
 						(option) => option.value === this.storedMode,
 					) || this.modeOptions[0]
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Could not load the agent.')
+				this.error = errorMessage(e, this.t('hermiq', 'Could not load the agent.'))
 			} finally {
 				this.loading = false
 			}

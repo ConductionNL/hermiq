@@ -44,6 +44,8 @@ use Random\Randomizer;
  * @uses   \OCA\Hermiq\Service\AgentFeedbackStats
  * @uses   \OCA\Hermiq\Service\RunCompareService
  * @uses   \OCA\Hermiq\Service\RunComparator
+ * @uses \OCA\Hermiq\Service\ComparedRun
+ * @uses \OCA\Hermiq\Service\RunLookup
  *
  * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
  */

@@ -27,7 +27,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\Hermiq\Service\AppTemplateOffers;
+use OCA\Hermiq\Kernel\Contracts\AppTemplateOffersInterface;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -78,7 +78,7 @@ class CollectAppAgentTemplates implements IRepairStep {
 	public function run(IOutput $output): void {
 		try {
 			$objectService = $this->container->get(ObjectService::class);
-			$offers = $this->container->get(AppTemplateOffers::class);
+			$offers = $this->container->get(AppTemplateOffersInterface::class);
 		} catch (Throwable $e) {
 			$output->warning('OpenRegister not available, skipping the app agent-template collect.');
 			$this->logger->warning('[hermiq] App agent-template collect skipped: ' . $e->getMessage());

@@ -64,6 +64,40 @@ class StartFieldsTest extends TestCase {
 	}//end testOnlyWellFormedFieldsCount()
 
 	/**
+	 * Each declared field normalises exactly: default type, trimmed options without
+	 * blanks or non-scalars, label falling back to the key, only a literal true is
+	 * required, and the default as bounded text.
+	 *
+	 * @return void
+	 */
+	public function testEachFieldNormalisesExactly(): void {
+		$fields = (new StartFields())->fieldsOf(
+			agentData: [
+				'startFields' => [
+					'not an entry',
+					['key' => 'plain'],
+					['key' => 'pick', 'label' => '  ', 'type' => 'select', 'options' => [' A ', '', '  ', ['x'], 3, true, null], 'required' => 'yes'],
+					['key' => 'when', 'label' => ' When ', 'type' => 'date', 'options' => 'single', 'required' => true, 'default' => 2026],
+					['key' => 'flag', 'type' => 'text', 'default' => false],
+					['key' => 'list', 'type' => 'text', 'default' => ['x']],
+				],
+			]
+		);
+
+		$this->assertSame(
+			expected: [
+				['key' => 'plain', 'label' => 'plain', 'type' => 'text', 'options' => [], 'required' => false, 'default' => ''],
+				['key' => 'pick', 'label' => 'pick', 'type' => 'select', 'options' => ['A', '3', '1'], 'required' => false, 'default' => ''],
+				['key' => 'when', 'label' => 'When', 'type' => 'date', 'options' => ['single'], 'required' => true, 'default' => '2026'],
+				['key' => 'flag', 'label' => 'flag', 'type' => 'text', 'options' => [], 'required' => false, 'default' => ''],
+				['key' => 'list', 'label' => 'list', 'type' => 'text', 'options' => [], 'required' => false, 'default' => ''],
+			],
+			actual: $fields
+		);
+
+	}//end testEachFieldNormalisesExactly()
+
+	/**
 	 * No more than ten fields are used.
 	 *
 	 * @return void

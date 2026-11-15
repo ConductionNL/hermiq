@@ -107,26 +107,66 @@ class PromptVariableResolver {
 		array $appContext = [],
 		array $startValues = [],
 	): array {
+		$request = new PlaceholderRequest(userId: $userId, agentData: $agentData);
+		$request->organisation = $organisation;
+		$request->appContext = $appContext;
+		$request->startValues = $startValues;
+		return $this->valuesFor(request: $request);
+	}//end variablesFor()
+
+	/**
+	 * The values for one turn, keyed by placeholder name: the person, the
+	 * organisation, the dates, the agent and the app, then one per start field.
+	 *
+	 * @param PlaceholderRequest $request What the values are worked out from.
+	 *
+	 * @return array<string, string>
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
+	 */
+	public function valuesFor(PlaceholderRequest $request): array {
+		return array_merge($this->baseValues(request: $request), $this->fieldValues(request: $request));
+	}//end valuesFor()
+
+	/**
+	 * The values every turn has: the person, the organisation, today and now in the person's zone, the agent and the app.
+	 *
+	 * @param PlaceholderRequest $request What the values are worked out from.
+	 *
+	 * @return array<string, string>
+	 */
+	private function baseValues(PlaceholderRequest $request): array {
+		$userId = $request->userId;
 		$now = $this->time->getDateTime('now', $this->zoneOf(userId: $userId));
 
-		$variables = [
+		return [
 			'user.displayName' => $this->displayName(userId: $userId),
 			'user.id' => $userId,
 			'user.language' => $this->languageOf(userId: $userId),
-			'organisation.name' => $this->organisationName(uuid: $organisation),
+			'organisation.name' => $this->organisationName(uuid: $request->organisation),
 			'today' => $now->format('Y-m-d'),
 			'now' => $now->format('Y-m-d H:i'),
-			'agent.name' => trim((string)($agentData['name'] ?? '')),
-			'app.id' => $this->appId(appContext: $appContext),
+			'agent.name' => trim((string)($request->agentData['name'] ?? '')),
+			'app.id' => $this->appId(appContext: $request->appContext),
 		];
+	}//end baseValues()
 
-		$fields = $this->startFields->fieldsOf(agentData: $agentData);
-		foreach ($this->startFields->answersFor(fields: $fields, values: $startValues) as $key => $answer) {
-			$variables['field.' . $key] = $answer;
+	/**
+	 * One `field.<key>` value per start field, from the session's answers or the field's default.
+	 *
+	 * @param PlaceholderRequest $request What the values are worked out from.
+	 *
+	 * @return array<string, string>
+	 */
+	private function fieldValues(PlaceholderRequest $request): array {
+		$values = [];
+		$fields = $this->startFields->fieldsOf(agentData: $request->agentData);
+		foreach ($this->startFields->answersFor(fields: $fields, values: $request->startValues) as $key => $answer) {
+			$values['field.' . $key] = $answer;
 		}
 
-		return $variables;
-	}//end variablesFor()
+		return $values;
+	}//end fieldValues()
 
 	/**
 	 * Replace every known placeholder in one pass; leave the rest as written.

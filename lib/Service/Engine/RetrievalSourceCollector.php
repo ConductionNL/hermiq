@@ -18,7 +18,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
  */
 
 declare(strict_types=1);
@@ -33,7 +33,7 @@ namespace OCA\Hermiq\Service\Engine;
  *
  * @psalm-type SourceSettings = array{include: array{file: mixed, object: mixed}, limit: array{file: mixed, object: mixed}}
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
  */
 class RetrievalSourceCollector {
 
@@ -67,7 +67,7 @@ class RetrievalSourceCollector {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
 	 */
 	public function __construct(
 		private readonly array $settings,
@@ -83,7 +83,7 @@ class RetrievalSourceCollector {
 	 *
 	 * @psalm-return array{text: mixed, sources: list<array<string, mixed>>, fileSources: int, objectSources: int}
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
 	 */
 	public function collect(array $found): array {
 		$text = $found['text'];
@@ -96,12 +96,8 @@ class RetrievalSourceCollector {
 
 			$source = $this->source(result: $result);
 			$sources[] = $source;
-			if ($type !== null) {
-				$this->count[$type]++;
-			}
-
-			$text .= $this->sourceLine(name: $source['name'], registerName: ($result['register_name'] ?? null));
-			$text .= "{$source['text']}\n\n";
+			$this->countSource(type: $type);
+			$text .= $this->sourceText(source: $source, registerName: ($result['register_name'] ?? null));
 
 			if ($this->isClosed(type: 'file') === true && $this->isClosed(type: 'object') === true) {
 				break;
@@ -117,6 +113,31 @@ class RetrievalSourceCollector {
 	}//end collect()
 
 	/**
+	 * Count a kept source against its type's limit, when its type has one.
+	 *
+	 * @param string|null $type `file`, `object`, or null for an unlimited type.
+	 *
+	 * @return void
+	 */
+	private function countSource(?string $type): void {
+		if ($type !== null) {
+			$this->count[$type]++;
+		}
+	}//end countSource()
+
+	/**
+	 * A kept source's block in the context text: its source line, then its text.
+	 *
+	 * @param array<string, mixed> $source       The source.
+	 * @param string|null          $registerName The register it came from, if any.
+	 *
+	 * @return string The block.
+	 */
+	private function sourceText(array $source, ?string $registerName): string {
+		return $this->sourceLine(name: $source['name'], registerName: $registerName) . "{$source['text']}\n\n";
+	}//end sourceText()
+
+	/**
 	 * The row's type when it is one with a limit (`file` or `object`), else null.
 	 *
 	 * @param mixed $type The row's entity type.
@@ -125,7 +146,7 @@ class RetrievalSourceCollector {
 	 *
 	 * @psalm-return 'file'|'object'|null
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
 	 */
 	private function limitedType(mixed $type): ?string {
 		if ($type === 'file' || $type === 'object') {
@@ -142,7 +163,7 @@ class RetrievalSourceCollector {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
 	 */
 	private function isClosed(string $type): bool {
 		return $this->settings['include'][$type] === false || $this->count[$type] >= $this->settings['limit'][$type];
@@ -155,7 +176,7 @@ class RetrievalSourceCollector {
 	 *
 	 * @return array<string, mixed>
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
 	 */
 	private function source(array $result): array {
 		$source = [
@@ -172,20 +193,48 @@ class RetrievalSourceCollector {
 		}
 
 		if ($source['type'] === 'object') {
-			$source['uuid'] = $metadata['uuid'] ?? null;
-			$source['register'] = $result['register_name'] ?? $metadata['register_id'] ?? $metadata['register'] ?? null;
-			$source['schema'] = $metadata['schema_id'] ?? $metadata['schema'] ?? null;
-			$source['uri'] = $metadata['uri'] ?? null;
+			$source += $this->objectPointer(metadata: $metadata, registerName: ($result['register_name'] ?? null));
 		}
 
 		if ($source['type'] === 'file') {
-			$source['file_id'] = $metadata['file_id'] ?? $source['id'];
-			$source['file_path'] = $metadata['file_path'] ?? null;
-			$source['mime_type'] = $metadata['mime_type'] ?? null;
+			$source += $this->filePointer(metadata: $metadata, id: $source['id']);
 		}
 
 		return $source;
 	}//end source()
+
+	/**
+	 * Where an object source lives: its uuid, register, schema and uri.
+	 *
+	 * @param mixed $metadata     The result's metadata (an array, or whatever it decoded to).
+	 * @param mixed $registerName The result's register name, if any.
+	 *
+	 * @return array<string, mixed> The pointer fields.
+	 */
+	private function objectPointer(mixed $metadata, mixed $registerName): array {
+		return [
+			'uuid' => $metadata['uuid'] ?? null,
+			'register' => $registerName ?? $metadata['register_id'] ?? $metadata['register'] ?? null,
+			'schema' => $metadata['schema_id'] ?? $metadata['schema'] ?? null,
+			'uri' => $metadata['uri'] ?? null,
+		];
+	}//end objectPointer()
+
+	/**
+	 * Where a file source lives: its file id (else the result's id), path and mime type.
+	 *
+	 * @param mixed $metadata The result's metadata (an array, or whatever it decoded to).
+	 * @param mixed $id       The result's entity id.
+	 *
+	 * @return array<string, mixed> The pointer fields.
+	 */
+	private function filePointer(mixed $metadata, mixed $id): array {
+		return [
+			'file_id' => $metadata['file_id'] ?? $id,
+			'file_path' => $metadata['file_path'] ?? null,
+			'mime_type' => $metadata['mime_type'] ?? null,
+		];
+	}//end filePointer()
 
 	/**
 	 * One source line of the context text, naming the register when known.
@@ -213,7 +262,7 @@ class RetrievalSourceCollector {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
 	 */
 	private function extractSourceName(array $result): string {
 		$name = $this->firstFilled(values: $result, fields: self::NAME_FIELDS);
@@ -221,18 +270,9 @@ class RetrievalSourceCollector {
 			return $name;
 		}
 
-		if (empty($result['metadata']) === false) {
-			$metadata = $result['metadata'];
-			if (is_string($metadata) === true) {
-				$metadata = json_decode($metadata, true);
-			}
-
-			if (is_array($metadata) === true) {
-				$name = $this->firstFilled(values: $metadata, fields: self::METADATA_NAME_FIELDS);
-				if ($name !== null) {
-					return $name;
-				}
-			}
+		$name = $this->metadataName(metadata: ($result['metadata'] ?? null));
+		if ($name !== null) {
+			return $name;
 		}
 
 		if (empty($result['entity_id']) === false) {
@@ -244,6 +284,29 @@ class RetrievalSourceCollector {
 	}//end extractSourceName()
 
 	/**
+	 * The first filled name field of a result's metadata (an array or its JSON), or null.
+	 *
+	 * @param mixed $metadata The result's metadata.
+	 *
+	 * @return string|null The name, or null.
+	 */
+	private function metadataName(mixed $metadata): ?string {
+		if (empty($metadata) === true) {
+			return null;
+		}
+
+		if (is_string($metadata) === true) {
+			$metadata = json_decode($metadata, true);
+		}
+
+		if (is_array($metadata) === false) {
+			return null;
+		}
+
+		return $this->firstFilled(values: $metadata, fields: self::METADATA_NAME_FIELDS);
+	}//end metadataName()
+
+	/**
 	 * The first non-empty value among the fields, or null.
 	 *
 	 * @param array              $values The values.
@@ -251,7 +314,7 @@ class RetrievalSourceCollector {
 	 *
 	 * @return mixed
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
 	 */
 	private function firstFilled(array $values, array $fields): mixed {
 		foreach ($fields as $field) {

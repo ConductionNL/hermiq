@@ -50,6 +50,9 @@ use Stringable;
  * @covers \OCA\Hermiq\Service\GitHubTemplateCatalogService
  * @uses   \OCA\Hermiq\Service\GitHubCatalogPayload
  * @uses   \OCA\Hermiq\Service\SkillSerializer
+ * @uses \OCA\Hermiq\Service\CatalogFetch
+ * @uses   \OCA\Hermiq\Service\CatalogCaller
+ * @uses   \OCA\Hermiq\Service\CatalogSearch
  *
  * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
  */

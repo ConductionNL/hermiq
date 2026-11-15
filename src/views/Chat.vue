@@ -36,7 +36,7 @@
 		<!-- Session list column -->
 		<aside class="chat-page__list">
 			<div class="chat-page__list-head">
-				<NcButton variant="primary" wide @click="newSession">
+				<NcButton variant="primary" wide @click="onNewSessionClick">
 					<template #icon>
 						<Plus :size="20" />
 					</template>
@@ -141,6 +141,15 @@
 								{{ t('hermiq', 'Invite colleagues') }}
 							</NcActionButton>
 							<NcActionButton
+								v-if="!showArchive && canShare(session)"
+								data-testid="chat-session-share"
+								@click="openShare(session)">
+								<template #icon>
+									<ShareVariant :size="20" />
+								</template>
+								{{ t('hermiq', 'Share') }}
+							</NcActionButton>
+							<NcActionButton
 								v-if="!showArchive && session.role !== 'participant'"
 								@click="archive(session)">
 								<template #icon>
@@ -165,6 +174,39 @@
 								{{ t('hermiq', 'Delete session') }}
 							</NcActionButton>
 						</NcActions>
+					</div>
+				</template>
+				<!--
+					Chat-fork-and-share-link: sessions shared with the reader,
+					read-only. Each opens its own read-only page.
+				-->
+				<template v-if="!showArchive && sharedSessions.length > 0">
+					<h3 class="chat-page__group" data-testid="chat-session-group-shared-with-you">
+						{{ t('hermiq', 'Shared with you') }}
+					</h3>
+					<div
+						v-for="session in sharedSessions"
+						:key="`shared-${session.uuid}`"
+						class="chat-page__row"
+						data-testid="chat-session-row-shared-with-you">
+						<div
+							class="chat-page__row-main"
+							role="button"
+							tabindex="0"
+							@click="openShared(session)"
+							@keydown.enter="openShared(session)">
+							<span class="chat-page__row-icon">
+								<ShareVariant :size="20" />
+							</span>
+							<span class="chat-page__row-text">
+								<strong>{{ session.title || t('hermiq', 'New session') }}</strong>
+								<span class="chat-page__row-meta">{{
+									session.share && session.share.sharedByDisplayName
+										? t('hermiq', 'Shared by {name}', { name: session.share.sharedByDisplayName })
+										: ''
+								}}</span>
+							</span>
+						</div>
 					</div>
 				</template>
 			</div>
@@ -380,6 +422,29 @@
 								</li>
 							</ul>
 
+							<!-- How this answer came about (chat-how-an-answer-came-about D5):
+							     sentences the server built from the stored record. A native
+							     details element is keyboard operable and announces its state. -->
+							<details
+								v-if="
+									message.role === 'assistant'
+									&& message.provenanceAccount
+									&& message.provenanceAccount.length > 0
+								"
+								class="chat-page__provenance"
+								data-testid="chat-message-provenance">
+								<summary class="chat-page__provenance-summary">
+									{{ t('hermiq', 'How this answer came about') }}
+								</summary>
+								<ul class="chat-page__provenance-list">
+									<li
+										v-for="(sentence, sentenceIndex) in message.provenanceAccount"
+										:key="sentenceIndex">
+										{{ sentence }}
+									</li>
+								</ul>
+							</details>
+
 							<!-- RAG sources -->
 							<div
 								v-if="message.sources && message.sources.length > 0"
@@ -396,9 +461,23 @@
 										v-if="source.type === 'file'"
 										:size="16" />
 									<CubeOutline v-else :size="16" />
-									<span class="chat-page__source-name">{{
-										source.name || source.id
+									<span
+										v-if="message.sources.length > 1 || source.passage"
+										class="chat-page__source-number">[{{ sourceIndex + 1 }}]</span>
+									<a
+										v-if="sourceFileId(source)"
+										class="chat-page__source-name"
+										:href="fileLink({ fileId: sourceFileId(source) })"
+										target="_blank"
+										rel="noopener noreferrer">{{ sourceName(source) }}</a>
+									<span v-else class="chat-page__source-name">{{
+										sourceName(source)
 									}}</span>
+									<span
+										v-if="sourcePage(source)"
+										class="chat-page__source-page">
+										{{ t('hermiq', 'page {page}', { page: sourcePage(source) }) }}
+									</span>
 									<span
 										v-if="source.similarity"
 										class="chat-page__source-match">
@@ -464,6 +543,19 @@
 									@click="openSaveAsSkill(message)">
 									<template #icon>
 										<PuzzlePlusOutline :size="16" />
+									</template>
+								</NcButton>
+								<!-- chat-fork-and-share-link: the owner continues from this answer in a new session. -->
+								<NcButton
+									v-if="canFork"
+									variant="tertiary"
+									data-testid="chat-fork-from-here"
+									:aria-label="t('hermiq', 'Fork from here')"
+									:title="t('hermiq', 'Fork from here')"
+									:disabled="forking"
+									@click="forkFrom(message)">
+									<template #icon>
+										<SourceBranch :size="16" />
 									</template>
 								</NcButton>
 								<!-- agents-plain-language-builder: a message with an agent draft opens it in the agent form. -->
@@ -689,6 +781,11 @@
 		</section>
 
 		<!-- Isolated modals (ADR-004) -->
+		<SessionShareModal
+			:show="shareTarget !== null"
+			:session="shareTarget"
+			@close="shareTarget = null"
+			@changed="onSharesChanged" />
 		<SessionParticipantsModal
 			:show="participantsTarget !== null"
 			:session="participantsTarget"
@@ -795,7 +892,9 @@ import PuzzlePlusOutline from 'vue-material-design-icons/PuzzlePlusOutline.vue'
 import Restore from 'vue-material-design-icons/Restore.vue'
 import RobotOutline from 'vue-material-design-icons/RobotOutline.vue'
 import Send from 'vue-material-design-icons/Send.vue'
+import ShareVariant from 'vue-material-design-icons/ShareVariant.vue'
 import SitemapOutline from 'vue-material-design-icons/SitemapOutline.vue'
+import SourceBranch from 'vue-material-design-icons/SourceBranch.vue'
 import StopCircleOutline from 'vue-material-design-icons/StopCircleOutline.vue'
 import ThumbDown from 'vue-material-design-icons/ThumbDown.vue'
 import ThumbUp from 'vue-material-design-icons/ThumbUp.vue'
@@ -812,6 +911,7 @@ import ScheduleFormModal from '../modals/ScheduleFormModal.vue'
 import SessionDeleteModal from '../modals/SessionDeleteModal.vue'
 import SessionParticipantsModal from '../modals/SessionParticipantsModal.vue'
 import SessionRenameModal from '../modals/SessionRenameModal.vue'
+import SessionShareModal from '../modals/SessionShareModal.vue'
 import SkillFormModal from '../modals/SkillFormModal.vue'
 import { checkAgentDraft } from '../api/agents.js'
 import {
@@ -819,18 +919,22 @@ import {
 	archiveSession,
 	ChatStreamError,
 	createSession,
+	forkSession,
 	getImageAvailability,
 	getSession,
 	getSessionGoal,
 	listMessages,
 	listSessions,
+	listSharedSessions,
 	restoreSession,
 	sendChatMessage,
 	sendMessageFeedback,
 	stopGoal,
 	streamChatMessage,
 	uploadChatAttachment,
+	warmChat,
 } from '../api/chat.js'
+import { getPreference, PREFERENCE_KEYS } from '../api/preferences.js'
 import { speechCapabilities } from '../api/speech.js'
 import { useAgentStore } from '../store/store.js'
 import {
@@ -839,6 +943,7 @@ import {
 	findingsByField,
 	scheduleFromDraft,
 } from '../utils/agentDraft.js'
+import { sourceFileId, sourceName, sourcePage } from '../utils/chatSources.js'
 import {
 	initialAnswers,
 	missingRequired,
@@ -846,8 +951,13 @@ import {
 	startFieldsOf,
 	startValueSummary,
 } from '../utils/instructionVariables.js'
+import { defaultAgentOf } from '../utils/personalPreferences.js'
+import { canForkSession, forkedSessionToOpen } from '../utils/sessionFork.js'
+import { canShareSession } from '../utils/sessionShare.js'
 import { sessionStartErrorMessage } from '../utils/sessionStartError.js'
 import { appendTranscript, speechControls } from '../utils/speech.js'
+import { goalLine as describeGoal } from './chatGoalLine.js'
+import { headedSessionGroups, partitionSessions } from './chatSessionGroups.js'
 
 /**
  * The trigger origins that mean "no person started this".
@@ -881,6 +991,8 @@ export default {
 		SessionDeleteModal,
 		SessionParticipantsModal,
 		SessionRenameModal,
+		SessionShareModal,
+		ShareVariant,
 		GenerateImageModal,
 		GoalFormModal,
 		ImageOutline,
@@ -910,6 +1022,7 @@ export default {
 		Creation,
 		Send,
 		SitemapOutline,
+		SourceBranch,
 		SkillFormModal,
 		ScheduleFormModal,
 		AgentFormModal,
@@ -947,6 +1060,9 @@ export default {
 
 			// The session whose participants dialog is open (chat-work-together-in-one-session).
 			participantsTarget: null,
+			// Chat-fork-and-share-link: the session whose share dialog is open, and the sessions shared with the reader.
+			shareTarget: null,
+			sharedSessions: [],
 
 			// Active thread
 			activeSession: null,
@@ -956,6 +1072,8 @@ export default {
 
 			// Agent selector
 			agents: [],
+			// personal-preferences: the agent a new session starts with, or ''.
+			defaultAgentId: '',
 			agentsLoading: true,
 			agentsError: '',
 			startingId: '',
@@ -1002,6 +1120,8 @@ export default {
 			// hermiq-skill-conversational-authoring: "Save as skill" seam state.
 			showSaveAsSkill: false,
 			saveAsSkillBody: '',
+			// chat-fork-and-share-link: a fork is being made.
+			forking: false,
 
 			// agents-plain-language-builder: the checked draft the agent form opens
 			// with, its findings, and the schedule offered after the save.
@@ -1017,6 +1137,16 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * Whether "Fork from here" is offered: the owner of an open, unarchived session.
+		 *
+		 * @return {boolean}
+		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
+		 */
+		canFork() {
+			return canForkSession(this.activeSession)
+		},
+
 		/**
 		 * Whether this person can set a goal here: their own session without an active goal.
 		 *
@@ -1038,45 +1168,14 @@ export default {
 		 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-a-person-can-give-an-agent-a-standing-goal-with-a-check-req-aggoal-001
 		 */
 		goalLine() {
-			const goal = this.sessionGoal
-			if (!goal) {
-				return ''
-			}
-			const statement = goal.statement || ''
-			if (goal.status === 'stopped') {
-				return this.t('hermiq', 'Goal stopped: {statement}', { statement })
-			}
-			if (goal.status === 'reached') {
-				return this.t('hermiq', 'Goal reached: {statement}', { statement })
-			}
-			if (goal.status === 'exhausted') {
-				return this.t('hermiq', 'Turn limit used: {statement}', {
-					statement,
-				})
-			}
-			const turns = this.t('hermiq', 'turn {used} of {max}', {
-				used: goal.turnsUsed ?? 0,
-				max: goal.maxTurns ?? 10,
-			})
-			const summary = goal.lastCheckResult?.summary
-			const blocked = goal.blocked ? this.t('hermiq', 'blocked') : ''
-			return [
-				this.t('hermiq', 'Goal: {statement}', { statement }),
-				turns,
-				blocked,
-				summary
-					? this.t('hermiq', 'last check: {summary}', { summary })
-					: '',
-			]
-				.filter(Boolean)
-				.join(', ')
+			return describeGoal(this.sessionGoal)
 		},
 
 		/**
 		 * The speech controls the chat's agent allows (dictation, read aloud).
 		 *
 		 * @return {{dictate: boolean, readAloud: boolean}} The controls to show.
-		 * @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-follows-the-agents-speech-policy-req-chvoice-003
+		 * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-follows-the-agents-speech-policy-req-chvoice-003
 		 */
 		speechControls() {
 			return speechControls(
@@ -1118,45 +1217,9 @@ export default {
 					{ key: 'archive', heading: '', sessions: this.visibleSessions },
 				]
 			}
-
-			const human = []
-			const shared = []
-			const automated = []
-			for (const session of this.visibleSessions) {
-				if (session.role === 'participant') {
-					shared.push(session)
-					continue
-				}
-				;(this.isAutomated(session) ? automated : human).push(session)
-			}
-
-			const groups = []
-			if (human.length > 0) {
-				groups.push({
-					key: 'human',
-					heading: this.t('hermiq', 'Started by you'),
-					sessions: human,
-				})
-			}
-			if (shared.length > 0) {
-				groups.push({
-					key: 'shared',
-					heading: this.t('hermiq', 'Shared with me'),
-					sessions: shared,
-				})
-			}
-			if (automated.length > 0) {
-				groups.push({
-					key: 'automated',
-					heading: this.t('hermiq', 'Started automatically'),
-					sessions: automated,
-				})
-			}
-			// One group needs no heading: the tab label already says what it is.
-			if (groups.length === 1) {
-				groups[0].heading = ''
-			}
-			return groups
+			return headedSessionGroups(
+				partitionSessions(this.visibleSessions, (session) => this.isAutomated(session)),
+			)
 		},
 
 		/**
@@ -1313,6 +1376,7 @@ export default {
 		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
 		this.loadSessions()
 		this.loadAgents()
+		this.loadDefaultAgent()
 		this.loadSpeechService()
 		this.loadImageAvailability()
 	},
@@ -1326,6 +1390,10 @@ export default {
 	},
 
 	methods: {
+		sourceFileId,
+		sourceName,
+		sourcePage,
+
 		/**
 		 * The name shown on a person's turn: "You" for the caller, the author's name
 		 * captured at send time for a colleague in a shared session.
@@ -1367,6 +1435,63 @@ export default {
 		},
 
 		/**
+		 * Whether the share dialog is offered for a session: to its owner.
+		 *
+		 * @param {object} session The session row.
+		 * @return {boolean}
+		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+		 */
+		canShare(session) {
+			return canShareSession(session)
+		},
+
+		/**
+		 * Open the share dialog for a session.
+		 *
+		 * @param {object} session The session row.
+		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+		 */
+		openShare(session) {
+			this.shareTarget = session
+		},
+
+		/**
+		 * Keep the row's share count in step after a share or a removal.
+		 *
+		 * @param {Array<object>} shares The shares now.
+		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+		 */
+		onSharesChanged(shares) {
+			if (this.shareTarget) {
+				this.shareTarget.shareCount = shares.length
+			}
+		},
+
+		/**
+		 * Open a session shared with the reader on its read-only page.
+		 *
+		 * @param {object} session The shared session row.
+		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+		 */
+		openShared(session) {
+			this.$router.push(`/chat/shared/${encodeURIComponent(session.uuid)}`)
+		},
+
+		/**
+		 * Load the sessions shared with the reader; a failure leaves the group out.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+		 */
+		async loadSharedSessions() {
+			try {
+				this.sharedSessions = await listSharedSessions()
+			} catch {
+				this.sharedSessions = []
+			}
+		},
+
+		/**
 		 * Keep the row's roster in step after an invite or removal.
 		 *
 		 * @param {Array<{uid: string}>} participants The participants now.
@@ -1382,7 +1507,7 @@ export default {
 		 * Ask once whether the on-instance speech service answers.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-follows-the-agents-speech-policy-req-chvoice-003
+		 * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-follows-the-agents-speech-policy-req-chvoice-003
 		 */
 		async loadSpeechService() {
 			this.speechService = await speechCapabilities()
@@ -1459,7 +1584,7 @@ export default {
 		 * Put dictated words after what is in the message box, without sending.
 		 *
 		 * @param {string} words The transcript.
-		 * @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-offers-dictation-req-chvoice-001
+		 * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-offers-dictation-req-chvoice-001
 		 */
 		insertTranscript(words) {
 			this.sendError = ''
@@ -1527,6 +1652,7 @@ export default {
 			try {
 				const { results } = await listSessions({ archived: false })
 				this.sessions = results
+				this.loadSharedSessions()
 				if (this.showArchive) {
 					const archived = await listSessions({ archived: true })
 					this.archivedSessions = archived.results
@@ -1651,6 +1777,37 @@ export default {
 				return time
 			}
 			return `${agent} · ${time}`
+		},
+
+		/**
+		 * The "New session" button: with a default agent the person can still
+		 * pick (personal-preferences), start a session with it at once; else
+		 * clear the thread and show the agent picker.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+		 */
+		onNewSessionClick() {
+			const agent = defaultAgentOf(this.agents, this.defaultAgentId)
+			if (agent && !this.startingId) {
+				this.startWithAgent(agent)
+				return
+			}
+			this.newSession()
+		},
+
+		/**
+		 * Read the person's default agent for new sessions; none on failure.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+		 */
+		async loadDefaultAgent() {
+			try {
+				this.defaultAgentId = await getPreference(PREFERENCE_KEYS.defaultAgent)
+			} catch {
+				this.defaultAgentId = ''
+			}
 		},
 
 		/**
@@ -1785,6 +1942,9 @@ export default {
 			if (!session.agentId) {
 				return
 			}
+			// Start the agent's CLI process while the person reads and types, not
+			// inside their first question. Fire and forget: it never throws.
+			warmChat(session.agentId, session.uuid)
 			const agent = await this.agentStore.fetchObject('agent', session.agentId)
 			this.currentAgent = agent || null
 		},
@@ -1802,6 +1962,7 @@ export default {
 			this.startError = ''
 			try {
 				const session = await createSession(agentUuid)
+				warmChat(agentUuid, session?.uuid)
 				this.currentAgent = agent
 				this.activeSession = session
 				this.messages = []
@@ -1864,29 +2025,11 @@ export default {
 		 */
 		async handleSend() {
 			const text = this.currentMessage.trim()
-			if (!text || this.sending || !this.activeSession) {
+			if (!this.mayStartTurn(text) || !(await this.startAnswersSaved())) {
 				return
 			}
-			if (this.startFields.length > 0 && !(await this.saveStartAnswers())) {
-				return
-			}
-			const attached = this.pendingAttachments
-			this.currentMessage = ''
-			this.pendingAttachments = []
-			this.sendError = ''
-			this.attachmentNotices = []
-			this.attachmentNoticesFor = ''
-			this.sending = true
-
-			// Optimistic user bubble (replaced by server truth after the turn).
-			this.messages.push({
-				id: `optimistic-${Date.now()}`,
-				role: 'user',
-				content: text,
-				attachments: attached,
-				created: new Date().toISOString(),
-			})
-			this.scrollToBottom()
+			const attached = this.takeComposerAttachments()
+			this.showOptimisticTurn(text, attached)
 
 			// Only the id and where it came from go out: the server reads the file
 			// itself, as the person sending, and takes its name and type from Files.
@@ -1902,23 +2045,106 @@ export default {
 					await this.sendViaStream(text, uuid, attachments)
 				}
 			} catch (e) {
-				this.sendError =
-					e?.response?.data?.message
-					|| e?.message
-					|| this.t('hermiq', 'Failed to get a response.')
-				this.sendNeedsCourse =
-					(e?.code || e?.response?.data?.errorCode)
-					=== 'ai_literacy_required'
+				this.showSendFailure(e)
 			} finally {
-				this.isStreaming = false
-				this.streamingText = ''
-				this.streamingTools = []
-				this.sending = false
-				// Server truth: persisted ids (feedback), sources, generated title.
-				await this.refreshThread(uuid)
-				this.scrollToBottom()
-				this.focusComposer()
+				await this.finishTurn(uuid)
 			}
+		},
+
+		/**
+		 * Whether a turn can start: there is text, no turn in flight, and a session.
+		 *
+		 * @param {string} text The trimmed message.
+		 * @return {boolean} True when it can.
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 */
+		mayStartTurn(text) {
+			return Boolean(text) && !this.sending && Boolean(this.activeSession)
+		},
+
+		/**
+		 * Save the session's start answers first, when the agent asks for any.
+		 *
+		 * @return {Promise<boolean>} True when the turn may go on.
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 */
+		async startAnswersSaved() {
+			if (this.startFields.length === 0) {
+				return true
+			}
+			return Boolean(await this.saveStartAnswers())
+		},
+
+		/**
+		 * Empty the composer and the turn's notices, mark the turn in flight, and
+		 * hand back the attachments it carries.
+		 *
+		 * @return {Array<object>} The pending attachments.
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 */
+		takeComposerAttachments() {
+			const attached = this.pendingAttachments
+			this.currentMessage = ''
+			this.pendingAttachments = []
+			this.sendError = ''
+			this.attachmentNotices = []
+			this.attachmentNoticesFor = ''
+			this.sending = true
+			return attached
+		},
+
+		/**
+		 * The optimistic user bubble (replaced by server truth after the turn).
+		 *
+		 * @param {string} text The message.
+		 * @param {Array<object>} attached Its attachments.
+		 * @return {void}
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 */
+		showOptimisticTurn(text, attached) {
+			this.messages.push({
+				id: `optimistic-${Date.now()}`,
+				role: 'user',
+				content: text,
+				attachments: attached,
+				created: new Date().toISOString(),
+			})
+			this.scrollToBottom()
+		},
+
+		/**
+		 * Show why the turn failed, and whether the AI-literacy course is the way on.
+		 *
+		 * @param {object} e What was thrown.
+		 * @return {void}
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 */
+		showSendFailure(e) {
+			this.sendError =
+				e?.response?.data?.message
+				|| e?.message
+				|| this.t('hermiq', 'Failed to get a response.')
+			this.sendNeedsCourse =
+				(e?.code || e?.response?.data?.errorCode)
+				=== 'ai_literacy_required'
+		},
+
+		/**
+		 * End the turn: stop streaming, then load the server truth (persisted ids
+		 * for feedback, sources, generated title) and return to the composer.
+		 *
+		 * @param {string} uuid The session.
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 */
+		async finishTurn(uuid) {
+			this.isStreaming = false
+			this.streamingText = ''
+			this.streamingTools = []
+			this.sending = false
+			await this.refreshThread(uuid)
+			this.scrollToBottom()
+			this.focusComposer()
 		},
 
 		/**
@@ -1932,6 +2158,7 @@ export default {
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 * @spec openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port/spec.md#requirement-the-chat-page-streams-the-answer-as-the-agent-writes-it-req-chstrm-001
 		 */
 		async sendViaStream(text, uuid, attachments = []) {
 			this.isStreaming = true
@@ -2145,6 +2372,7 @@ export default {
 		 * @param {string} type 'positive' or 'negative'.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 * @spec openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port/spec.md#requirement-a-person-rates-an-answer-up-or-down-with-an-optional-comment-req-chfb-001
 		 */
 		async sendFeedback(message, type) {
 			const cleared = message.feedback === type
@@ -2173,6 +2401,7 @@ export default {
 		 * @param {object} message The assistant message.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 * @spec openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port/spec.md#requirement-a-person-rates-an-answer-up-or-down-with-an-optional-comment-req-chfb-001
 		 */
 		async saveFeedbackComment(message) {
 			if (!message.feedbackComment || !message.feedbackComment.trim()) {
@@ -2255,6 +2484,30 @@ export default {
 			this.loadAgents()
 			if (this.draftSchedule && agentId) {
 				this.draftScheduleAgentId = agentId
+			}
+		},
+
+		/**
+		 * Start a new session from this answer, with every turn up to it, and open it.
+		 * The open session stays as it was.
+		 *
+		 * @param {object} message The assistant message to fork at.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
+		 */
+		async forkFrom(message) {
+			if (!this.canFork || this.forking) {
+				return
+			}
+			this.forking = true
+			try {
+				const fork = await forkSession(this.activeSession.uuid, message.uuid || message.id)
+				await this.loadSessions(true)
+				await this.selectSession(forkedSessionToOpen(this.sessions, fork))
+			} catch {
+				showError(this.t('hermiq', 'Could not fork the session.'))
+			} finally {
+				this.forking = false
 			}
 		},
 
@@ -2768,6 +3021,28 @@ export default {
 
 /* ── Sources ──────────────────────────────────────────────────────── */
 
+.chat-page__provenance {
+	margin-top: 8px;
+	font-size: 0.9em;
+}
+
+.chat-page__provenance-summary {
+	cursor: pointer;
+	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__provenance-summary:focus-visible {
+	outline: 2px solid var(--color-primary-element);
+	outline-offset: 2px;
+}
+
+.chat-page__provenance-list {
+	margin: 4px 0 0;
+	padding-left: 20px;
+	list-style: disc;
+	color: var(--color-main-text);
+}
+
 .chat-page__sources {
 	margin-top: 10px;
 	padding-top: 10px;
@@ -2805,6 +3080,17 @@ export default {
 }
 
 .chat-page__source-match {
+	font-size: 11px;
+	color: var(--color-text-maxcontrast);
+}
+
+a.chat-page__source-name {
+	color: var(--color-main-text);
+	text-decoration: underline;
+}
+
+.chat-page__source-number,
+.chat-page__source-page {
 	font-size: 11px;
 	color: var(--color-text-maxcontrast);
 }

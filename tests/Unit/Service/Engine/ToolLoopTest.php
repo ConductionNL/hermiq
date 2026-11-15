@@ -485,6 +485,45 @@ class ToolLoopTest extends TestCase {
 	}//end testBuildFunctionInfosConvertsDescriptors()
 
 	/**
+	 * Characterisation of the descriptor conversion edges: entries that are not
+	 * an array or carry no `name` are skipped, a descriptor without parameters
+	 * yields no parameters, a non-array property definition still becomes a
+	 * parameter, and a missing description defaults to an empty string.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+	 */
+	public function testBuildFunctionInfosSkipsUnnamedEntriesAndDefaultsMissingParts(): void {
+		$functions = [
+			'not-an-array',
+			['description' => 'No name'],
+			['name' => 'demo_bare'],
+			[
+				'name' => 'demo_loose',
+				'parameters' => [
+					'properties' => ['flag' => 'boolean', 'title' => ['type' => 'string']],
+					'required' => ['flag', 'absent'],
+				],
+			],
+		];
+
+		$loop = $this->loop(facade: $this->createMock(ToolRegistryFacade::class));
+		$infos = $loop->buildFunctionInfos(functions: $functions);
+
+		$this->assertCount(2, $infos);
+		$this->assertSame('demo_bare', $infos[0]->name);
+		$this->assertSame('', $infos[0]->description);
+		$this->assertSame([], $infos[0]->parameters);
+		$this->assertSame([], $infos[0]->requiredParameters);
+		$this->assertSame('demo_loose', $infos[1]->name);
+		$this->assertSame(['flag', 'title'], array_map(static fn ($p) => $p->name, $infos[1]->parameters));
+		$this->assertSame(['flag'], array_map(static fn ($p) => $p->name, $infos[1]->requiredParameters));
+		$this->assertSame($infos[0]->instance, $infos[1]->instance);
+
+	}//end testBuildFunctionInfosSkipsUnnamedEntriesAndDefaultsMissingParts()
+
+	/**
 	 * The invoker routes LLPhant's magic dispatch onto invokeTool() and fans
 	 * tool_call/tool_result frames out to the channel.
 	 *

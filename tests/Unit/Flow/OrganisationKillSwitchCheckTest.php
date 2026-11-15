@@ -22,6 +22,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Flow;
 
+use OCA\Hermiq\Flow\OrganisationBudgetCheck;
 use OCA\Hermiq\Flow\OrganisationKillSwitchCheck;
 use OCA\Hermiq\Listener\FlowOversightRegistrationListener;
 use OCA\OpenRegister\Db\FlowRun;
@@ -252,10 +253,32 @@ class OrganisationKillSwitchCheckTest extends TestCase {
 		$registry = new FlowOversightRegistry($this->createMock(LoggerInterface::class));
 		$event = new RegisterFlowOversightEvent(registry: $registry);
 
-		$listener = new FlowOversightRegistrationListener(killSwitchCheck: $this->check());
+		$listener = new FlowOversightRegistrationListener(
+			killSwitchCheck: $this->check(),
+			budgetCheck: $this->createMock(OrganisationBudgetCheck::class),
+		);
 		$listener->handle(event: $event);
 
 		$this->assertArrayHasKey('hermiq.tenant-killswitch', $registry->all());
 
 	}//end testListenerRegistersTheCheck()
+
+	/**
+	 * Only entities that really are engaged and carry an organisation count; a control
+	 * the filter let through but which reads as disengaged, or one without an
+	 * organisation, never vetoes.
+	 *
+	 * @return void
+	 */
+	public function testOnlyGenuinelyEngagedControlsWithAnOrganisationCount(): void {
+		$disengaged = new ObjectEntity();
+		$disengaged->setOrganisation('org-1');
+		$disengaged->setObject(['engaged' => 'true']);
+		$orgless = new ObjectEntity();
+		$orgless->setObject(['engaged' => true]);
+		$this->objectService->method('findAll')->willReturn(['junk', $disengaged, $orgless]);
+		$this->runBelongsTo('org-1');
+
+		$this->assertNull($this->check()->veto(context: ['nodeType' => 'hermiq.agent-step', 'runUuid' => 'run-1']));
+	}//end testOnlyGenuinelyEngagedControlsWithAnOrganisationCount()
 }//end class

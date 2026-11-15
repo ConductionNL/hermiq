@@ -583,6 +583,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -739,7 +750,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -1552,6 +1574,17 @@
                 }
             ],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -1653,7 +1686,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -1812,6 +1856,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -1952,7 +2007,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -2275,6 +2341,17 @@
             ],
             "attachments": [],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -2385,7 +2462,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -2525,6 +2613,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -2663,7 +2762,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -3325,6 +3435,17 @@
                 }
             ],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -3482,7 +3603,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -3995,6 +4127,17 @@
                 }
             ],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -4163,7 +4306,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -4500,6 +4654,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -4661,7 +4826,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -4881,6 +5057,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -5033,7 +5220,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -5457,6 +5655,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -5607,7 +5816,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -6112,6 +6332,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -6291,7 +6522,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -6507,6 +6749,17 @@
             ],
             "attachments": [],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -6624,7 +6877,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -6931,6 +7195,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -7090,7 +7365,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -8140,6 +8426,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -8267,7 +8564,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -10462,6 +10770,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -10613,7 +10932,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -11681,6 +12011,17 @@
                 }
             ],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -11838,7 +12179,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -12582,6 +12934,17 @@
             ],
             "attachments": [],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -12734,7 +13097,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -12800,6 +13174,17 @@
                 }
             ],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -12920,7 +13305,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -13908,6 +14304,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -14018,7 +14425,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -14235,6 +14653,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -14390,7 +14819,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -14994,6 +15434,17 @@
             ],
             "attachments": [],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -15124,7 +15575,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -15969,6 +16431,17 @@
                     "Output filter"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -16133,7 +16606,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -16500,6 +16984,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -16662,7 +17157,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -17061,6 +17567,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -17216,7 +17733,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -17737,6 +18265,17 @@
             ],
             "attachments": [],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -17885,7 +18424,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -18254,6 +18804,17 @@
                     "Output filter"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -18383,7 +18944,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -19128,6 +19700,17 @@
                 }
             ],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -19236,7 +19819,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -19442,6 +20036,17 @@
                 }
             ],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -19560,7 +20165,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -20289,6 +20905,17 @@
             ],
             "attachments": [],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -20382,7 +21009,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -20607,6 +21245,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -20763,7 +21412,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -21301,6 +21961,17 @@
             ],
             "attachments": [],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -21402,7 +22073,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -22036,6 +22718,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -22161,7 +22854,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -23502,6 +24206,17 @@
             ],
             "attachments": [],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -23651,7 +24366,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -23744,6 +24470,17 @@
                     "Output filter"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -23897,7 +24634,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -25296,6 +26044,17 @@
                 }
             ],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -25455,7 +26214,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -25863,6 +26633,17 @@
             ],
             "attachments": [],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -26001,7 +26782,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -26275,6 +27067,17 @@
                     "Output filter"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -26411,7 +27214,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -26786,6 +27600,17 @@
                     "Output filter"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -26935,7 +27760,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -27789,6 +28625,17 @@
                     "Output filter"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -27936,7 +28783,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -28524,6 +29382,17 @@
             ],
             "attachments": [],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -28626,7 +29495,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -28781,6 +29661,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -28966,7 +29857,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -29109,6 +30011,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -29221,7 +30134,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -29972,6 +30896,17 @@
                 }
             ],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -30108,7 +31043,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -31401,6 +32347,17 @@
                 }
             ],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -31562,7 +32519,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -31930,6 +32898,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -32030,7 +33009,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -33436,6 +34426,17 @@
                     "Output filter"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -33584,7 +34585,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -34136,6 +35148,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -34259,7 +35282,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -34862,6 +35896,17 @@
                     "Output filter"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -35004,7 +36049,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -35747,6 +36803,17 @@
                 }
             ],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -35865,7 +36932,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -36001,6 +37079,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -36135,7 +37224,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -36821,6 +37921,17 @@
                     "Output filter"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -36945,7 +38056,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -37010,6 +38132,17 @@
             ],
             "attachments": [],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -37138,7 +38271,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -37615,6 +38759,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -37755,7 +38910,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -38334,6 +39500,17 @@
             ],
             "attachments": [],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -38476,7 +39653,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -38610,6 +39798,17 @@
                 }
             ],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -38738,7 +39937,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -39233,6 +40443,17 @@
             ],
             "attachments": [],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -39371,7 +40592,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -39867,6 +41099,17 @@
             ],
             "attachments": [],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -39985,7 +41228,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -41221,6 +42475,17 @@
                     "Output filter"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -41368,7 +42633,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -41889,6 +43165,17 @@
                 }
             ],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -42044,7 +43331,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -45012,6 +46310,17 @@
             ],
             "attachments": [],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -45186,7 +46495,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -45278,6 +46598,17 @@
                     "Output filter"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -45439,7 +46770,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -45806,6 +47148,17 @@
                     "Output filter"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -45970,7 +47323,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -47070,6 +48434,17 @@
             ],
             "attachments": [],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -47240,7 +48615,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -47394,6 +48780,17 @@
                 }
             ],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -47554,7 +48951,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -48198,6 +49606,17 @@
                     "Output filter"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -48322,7 +49741,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -48405,6 +49835,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -48544,7 +49985,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -48777,6 +50229,17 @@
                     "Output filter"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -48949,7 +50412,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             }
         ]
@@ -49634,6 +51108,17 @@
             ],
             "attachments": [],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -49777,7 +51262,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -49927,6 +51423,17 @@
                 }
             ],
             "steps": [],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -50064,7 +51571,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -50550,6 +52068,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -50688,7 +52217,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -51042,6 +52582,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": [
                 "s1"
             ]
@@ -51171,7 +52722,18 @@
                         {
                             "id": "src-1"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {
@@ -51321,6 +52883,17 @@
                     "LLM generation"
                 ]
             ],
+            "provenance": {
+                "model": null,
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "type": "",
+                        "name": ""
+                    }
+                ],
+                "steps": []
+            },
             "skillsUsed": []
         },
         "error": null,
@@ -51474,7 +53047,18 @@
                             "fileId": 50,
                             "name": "image.png"
                         }
-                    ]
+                    ],
+                    "provenance": {
+                        "model": null,
+                        "sources": [
+                            {
+                                "id": "src-1",
+                                "type": "",
+                                "name": ""
+                            }
+                        ],
+                        "steps": []
+                    }
                 }
             },
             {

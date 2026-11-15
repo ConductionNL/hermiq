@@ -251,4 +251,262 @@ class RedactionServiceTest extends TestCase {
 		$this->assertStringNotContainsString($secret, $svc->redact('token ' . $secret));
 
 	}//end testFrozenToggleOffStillForcesForAudit()
+
+	/**
+	 * Every pattern family, mode and toggle branch, pinned to the exact output
+	 * the pipeline produced before its pattern families moved into their own
+	 * classes.
+	 *
+	 * @return array<string, array{0: string, 1: int, 2: string, 3: string}>
+	 */
+	public static function goldenCases(): array {
+		return [
+			'vendor prefix' => [
+				'key sk-abcdefghijklmnop123 end',
+				0,
+				'yes',
+				'key sk-abc...p123 end',
+			],
+			'vendor prefix in file read' => [
+				'key ghp_abcdefghijklmnop123 end',
+				RedactionService::MODE_FILE_READ,
+				'yes',
+				'key «redacted:ghp_…» end',
+			],
+			'vendor prefix unknown label in file read' => [
+				'AKIAABCDEFGHIJKLMNOP',
+				RedactionService::MODE_FILE_READ,
+				'yes',
+				'«redacted:AKIA…»',
+			],
+			'short vendor key' => [
+				'sk-abcdefghij',
+				0,
+				'yes',
+				'***',
+			],
+			'no known prefix' => [
+				'plain words only',
+				0,
+				'yes',
+				'plain words only',
+			],
+			'env assignment' => [
+				'OPENAI_API_KEY=supersecretvalue123456',
+				0,
+				'yes',
+				'OPENAI_API_KEY=***',
+			],
+			'quoted env assignment' => [
+				'DB_PASSWORD=\'supersecretvalue123456\'',
+				0,
+				'yes',
+				'DB_PASSWORD=\'***\'',
+			],
+			'env assignment in code file' => [
+				'OPENAI_API_KEY=supersecretvalue123456',
+				RedactionService::MODE_CODE_FILE,
+				'yes',
+				'OPENAI_API_KEY=supersecretvalue123456',
+			],
+			'dotted config key' => [
+				'spring.datasource.password=hunter2hunter2hunter',
+				0,
+				'yes',
+				'spring.datasource.password=hunter...nter',
+			],
+			'anchored config key' => [
+				"export my_token=abcdefghijklmnopqrstu\nnext",
+				0,
+				'yes',
+				"export my_token=abcdef...rstu\nnext",
+			],
+			'config key beside a url' => [
+				'see https://x.io/a my_token=abcdefghijklmnopqrstu',
+				0,
+				'yes',
+				'see https://x.io/a my_token=abcdefghijklmnopqrstu',
+			],
+			'json field' => [
+				'{"api_key": "abcdefghijklmnopqrstuvwxyz"}',
+				0,
+				'yes',
+				'{"api_key": "abcdef...wxyz"}',
+			],
+			'json field in code file' => [
+				'{"api_key": "abcdefghijklmnopqrstuvwxyz"}',
+				RedactionService::MODE_CODE_FILE,
+				'yes',
+				'{"api_key": "abcdefghijklmnopqrstuvwxyz"}',
+			],
+			'json field in file read' => [
+				'{"refresh_token": "abcdefghijklmnopqrstuvwxyz"}',
+				RedactionService::MODE_FILE_READ,
+				'yes',
+				'{"refresh_token": "abcdefghijklmnopqrstuvwxyz"}',
+			],
+			'yaml key' => [
+				"db:\n  password: supersecretpassword123",
+				0,
+				'yes',
+				"db:\n  password: supers...d123",
+			],
+			'yaml quoted value' => [
+				'password: \'supersecretpassword123\'',
+				0,
+				'yes',
+				'password: \'supersecretpassword123\'',
+			],
+			'yaml beside a url' => [
+				"url: https://x.io\npassword: supersecretpassword123",
+				0,
+				'yes',
+				"url: https://x.io\npassword: supersecretpassword123",
+			],
+			'bearer header' => [
+				'Authorization: Bearer abcdefghijklmnopqrstuvwxyz',
+				0,
+				'yes',
+				'Authorization: Bearer abcdef...wxyz',
+			],
+			'proxy header without scheme' => [
+				'Proxy-Authorization: abcdefghijklmnopqrstuvwxyz1',
+				0,
+				'yes',
+				'Proxy-Authorization: abcdef...xyz1',
+			],
+			'api key header' => [
+				'X-Api-Key: abcdefghijklmnopqrstuvwxyz',
+				0,
+				'yes',
+				'X-Api-Key: ***',
+			],
+			'telegram token' => [
+				'bot123456789:ABCdefGHIjklMNOpqrSTUvwxYZ0123456789ab',
+				0,
+				'yes',
+				'bot123456789:***',
+			],
+			'private key block' => [
+				"a\n-----BEGIN RSA PRIVATE KEY-----\nMIIabc\n-----END RSA PRIVATE KEY-----\nb",
+				0,
+				'yes',
+				"a\n[REDACTED PRIVATE KEY]\nb",
+			],
+			'db connection string' => [
+				'postgres://user:s3cretpass@db.host/app',
+				0,
+				'yes',
+				'postgres://user:***@db.host/app',
+			],
+			'db placeholder in code file' => [
+				'mysql://user:{DB_PASS}@db.host/app',
+				RedactionService::MODE_CODE_FILE,
+				'yes',
+				'mysql://user:{DB_PASS}@db.host/app',
+			],
+			'db placeholder outside code file' => [
+				'mysql://user:{DB_PASS}@db.host/app',
+				0,
+				'yes',
+				'mysql://user:***@db.host/app',
+			],
+			'url bare token' => [
+				'https://abcdefghijklmnopqrstuv@github.com/x.git',
+				0,
+				'yes',
+				'https://abcdef...stuv@github.com/x.git',
+			],
+			'jwt' => [
+				'token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.abcdEFGH',
+				0,
+				'yes',
+				'token eyJhbG...EFGH',
+			],
+			'long phone' => [
+				'call +31612345678 now',
+				0,
+				'yes',
+				'call +316****5678 now',
+			],
+			'short phone' => [
+				'call +1234567 now',
+				0,
+				'yes',
+				'call +1****67 now',
+			],
+			'form body' => [
+				'access_token=abc&user=bob&Secret=x',
+				0,
+				'yes',
+				'access_token=***&user=bob&Secret=***',
+			],
+			'padded form body' => [
+				'  user=bob&code=123  ',
+				0,
+				'yes',
+				'user=bob&code=***',
+			],
+			'multi-line form' => [
+				"user=bob&token=1\nnext=2",
+				0,
+				'yes',
+				"user=bob&token=1\nnext=2",
+			],
+			'not a form' => [
+				'a & b = c',
+				0,
+				'yes',
+				'a & b = c',
+			],
+			'empty' => [
+				'',
+				RedactionService::MODE_FORCE,
+				'yes',
+				'',
+			],
+			'toggle off, not forced' => [
+				'key sk-abcdefghijklmnop123 end',
+				0,
+				'no',
+				'key sk-abcdefghijklmnop123 end',
+			],
+			'toggle off, forced' => [
+				'key sk-abcdefghijklmnop123 end',
+				RedactionService::MODE_FORCE,
+				'no',
+				'key sk-abc...p123 end',
+			],
+			'toggle on spelled true' => [
+				'key sk-abcdefghijklmnop123 end',
+				0,
+				'TRUE',
+				'key sk-abc...p123 end',
+			],
+			'everything at once' => [
+				"Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.abcdEFGH\nOPENAI_API_KEY=sk-abcdefghijklmnop123 call +31612345678",
+				0,
+				'yes',
+				"Authorization: Bearer eyJhbG...EFGH\nOPENAI_API_KEY=*** call +316****5678",
+			],
+		];
+	}//end goldenCases()
+
+	/**
+	 * Golden: the full pipeline output for each branch stays byte-identical.
+	 *
+	 * @param string $text The text to redact.
+	 * @param int $mode The mode bitmask.
+	 * @param string $setting The frozen toggle's app-config value.
+	 * @param string $expected The pinned output.
+	 *
+	 * @return void
+	 *
+	 * @dataProvider goldenCases
+	 *
+	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 */
+	public function testPipelineOutputIsPinned(string $text, int $mode, string $setting, string $expected): void {
+		$this->assertSame($expected, $this->service($setting)->redactSensitiveText($text, $mode));
+	}//end testPipelineOutputIsPinned()
 }//end class

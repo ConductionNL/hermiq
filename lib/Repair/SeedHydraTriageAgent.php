@@ -65,7 +65,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\SchemaMapper;
@@ -364,7 +364,7 @@ class SeedHydraTriageAgent implements IRepairStep {
 	 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#scenario-the-agent-may-run-exactly-one-flow
 	 */
 	public function commandGrant(): ?string {
-		$flowId = trim($this->appConfig->getValueString(Application::APP_ID, self::COMMAND_FLOW_CONFIG_KEY, ''));
+		$flowId = trim($this->appConfig->getValueString(AppIdentity::APP_ID, self::COMMAND_FLOW_CONFIG_KEY, ''));
 		if ($flowId === '') {
 			return null;
 		}
