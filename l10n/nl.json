@@ -2894,7 +2894,14 @@
         "could not be reached": "niet bereikbaar",
         "cooling down, skipped": "koelt af, overgeslagen",
         "skipped: {step}": "overgeslagen: {step}",
-        "Received the prompt: {providers}": "Kreeg de prompt: {providers}"
+        "Received the prompt: {providers}": "Kreeg de prompt: {providers}",
+        "Fallback models": "Terugvalmodellen",
+        "Tried in this order when the provider is temporarily unavailable. Each fallback must be allowed by this policy.": "Worden in deze volgorde geprobeerd als de aanbieder tijdelijk niet beschikbaar is. Elk terugvalmodel moet door dit beleid zijn toegestaan.",
+        "Move fallback up": "Terugvalmodel omhoog",
+        "Move fallback down": "Terugvalmodel omlaag",
+        "Remove fallback": "Terugvalmodel verwijderen",
+        "Add fallback": "Terugvalmodel toevoegen",
+        "fallbacks": "terugvalmodellen"
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

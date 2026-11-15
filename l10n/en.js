@@ -2859,7 +2859,14 @@ OC.L10N.register(
         "could not be reached": "could not be reached",
         "cooling down, skipped": "cooling down, skipped",
         "skipped: {step}": "skipped: {step}",
-        "Received the prompt: {providers}": "Received the prompt: {providers}"
+        "Received the prompt: {providers}": "Received the prompt: {providers}",
+        "Fallback models": "Fallback models",
+        "Tried in this order when the provider is temporarily unavailable. Each fallback must be allowed by this policy.": "Tried in this order when the provider is temporarily unavailable. Each fallback must be allowed by this policy.",
+        "Move fallback up": "Move fallback up",
+        "Move fallback down": "Move fallback down",
+        "Remove fallback": "Remove fallback",
+        "Add fallback": "Add fallback",
+        "fallbacks": "fallbacks"
     },
     "nplurals=2; plural=(n != 1);"
 )
