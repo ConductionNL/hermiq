@@ -35,9 +35,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\ActionAuthService;
-use OCA\Hermiq\Service\ComplianceService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\ComplianceServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\AppFramework\Controller;
@@ -67,22 +67,22 @@ class ComplianceController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param ComplianceService $complianceService Computed dashboard/export/factsheet reads.
+	 * @param ComplianceServiceInterface $complianceService Computed dashboard/export/factsheet reads.
 	 * @param IUserSession $userSession Resolves the requesting user.
-	 * @param ActionAuthService $actionAuth ADR-023 action-authorization gate.
+	 * @param ActionAuthServiceInterface $actionAuth ADR-023 action-authorization gate.
 	 * @param OrganisationMapper $organisationMapper Resolves the caller's active organisation
 	 *                                               (mirrors OrganisationModelPolicyController).
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly ComplianceService $complianceService,
+		private readonly ComplianceServiceInterface $complianceService,
 		private readonly IUserSession $userSession,
-		private readonly ActionAuthService $actionAuth,
+		private readonly ActionAuthServiceInterface $actionAuth,
 		private readonly OrganisationMapper $organisationMapper,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**

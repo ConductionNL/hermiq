@@ -21,6 +21,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use InvalidArgumentException;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -28,11 +29,14 @@ use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for upsert, update, lookup and the allow-list validation.
  *
  * @covers \OCA\Hermiq\Service\OrganisationModelPolicyService
+ * @uses   \OCA\Hermiq\Service\EffectiveModelPolicy
  */
 class OrganisationModelPolicyWriteTest extends TestCase {
 
@@ -51,6 +55,13 @@ class OrganisationModelPolicyWriteTest extends TestCase {
 	private array $saved = [];
 
 	/**
+	 * The effective policy the service reads through, over the same object service.
+	 *
+	 * @var EffectiveModelPolicy
+	 */
+	private EffectiveModelPolicy $effective;
+
+	/**
 	 * Wire the object service over a set of stored policies.
 	 *
 	 * @param list<mixed> $stored The stored policies.
@@ -64,16 +75,25 @@ class OrganisationModelPolicyWriteTest extends TestCase {
 		$this->objects->method('setSchema')->willReturnSelf();
 		$this->objects->method('findAll')->willReturn($stored);
 		$this->objects->method('saveObject')->willReturnCallback(
-			function (array|ObjectEntity $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null, bool $rbac = true, bool $multi = true): ObjectEntity {
+			function (array|ObjectEntity $object, ObjectSaveOptions $options = new ObjectSaveOptions(), bool $rbac = true, bool $multi = true): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$this->saved[] = [(array)$object, $uuid, $rbac, $multi];
 				$self = (array)($object['@self'] ?? []);
 				return $this->policy((string)($self['organisation'] ?? ''), (string)($uuid ?? 'new-uuid'), (array)$object);
 			}
 		);
 
-		return new OrganisationModelPolicyService(
+		$this->effective = new EffectiveModelPolicy(
 			objectService: $this->objects,
 			settingsHandler: $this->createMock(LlmSettingsHandler::class)
+		);
+
+		return new OrganisationModelPolicyService(
+			objectService: $this->objects,
+			effectivePolicy: $this->effective
 		);
 	}//end service()
 
@@ -104,7 +124,15 @@ class OrganisationModelPolicyWriteTest extends TestCase {
 		$service = $this->service([$entity, 'junk', $this->policy('', 'p-0')]);
 		$this->objects->expects($this->once())
 			->method('find')
-			->with('p-1', [], false, 'hermiq', 'modelpolicy', false, false)
+			->with(...LegacyObjectArgs::with(method: 'find', expected: [
+					'id' => 'p-1',
+					'_extend' => [],
+					'files' => false,
+					'register' => 'hermiq',
+					'schema' => 'modelpolicy',
+					'_rbac' => false,
+					'_multitenancy' => false,
+				]))
 			->willReturn($entity);
 
 		$this->assertNull($service->findById(''));
@@ -262,14 +290,14 @@ class OrganisationModelPolicyWriteTest extends TestCase {
 	}//end testAnEmptyModelListAdmitsAnyDefaultOfThatProvider()
 
 	/**
-	 * requiresNoTraining() reads the effective policy's flag.
+	 * requiresNoTraining() reads the effective policy's flag (EffectiveModelPolicy owns it).
 	 *
 	 * @return void
 	 */
 	public function testRequiresNoTrainingReadsTheEffectivePolicy(): void {
-		$service = $this->service([$this->policy('org-a', 'p-1', ['requireNoTraining' => true]), $this->policy('', 'p-0', ['requireNoTraining' => 1])]);
+		$this->service([$this->policy('org-a', 'p-1', ['requireNoTraining' => true]), $this->policy('', 'p-0', ['requireNoTraining' => 1])]);
 
-		$this->assertTrue($service->requiresNoTraining('org-a'));
-		$this->assertFalse($service->requiresNoTraining('org-b'));
+		$this->assertTrue($this->effective->requiresNoTraining('org-a'));
+		$this->assertFalse($this->effective->requiresNoTraining('org-b'));
 	}//end testRequiresNoTrainingReadsTheEffectivePolicy()
 }//end class

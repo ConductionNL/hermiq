@@ -117,6 +117,7 @@ import {
 } from '@nextcloud/vue'
 import { createBudget, updateBudget } from '../api/budgets.js'
 import { errorMessage } from '../utils/errorMessage.js'
+import { resetOnOpen } from './resetOnOpen.js'
 
 export default {
 	name: 'BudgetFormModal',
@@ -131,13 +132,9 @@ export default {
 		NcTextField,
 	},
 
-	props: {
-		/** Whether the modal is visible. */
-		show: {
-			type: Boolean,
-			default: false,
-		},
+	mixins: [resetOnOpen],
 
+	props: {
 		/** The organisation this budget belongs to (required to create). */
 		organisation: {
 			type: String,
@@ -247,17 +244,6 @@ export default {
 			set(option) {
 				this.form.period = option ? option.value : 'monthly'
 			},
-		},
-	},
-
-	watch: {
-		/**
-		 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
-		 */
-		show(open) {
-			if (open) {
-				this.resetForm()
-			}
 		},
 	},
 

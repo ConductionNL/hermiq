@@ -49,6 +49,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\GitHubTemplateCatalogServiceInterface;
 use OCA\Hermiq\Service\Connection\ConnectionReporter;
 use OCP\Http\Client\IClientService;
 use OCP\ICache;
@@ -71,27 +72,13 @@ use Throwable;
  *
  * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
  */
-class GitHubTemplateCatalogService {
+class GitHubTemplateCatalogService implements GitHubTemplateCatalogServiceInterface {
 	/**
 	 * The fixed GitHub API host — compile-time constant, no SSRF surface.
 	 *
 	 * @var string
 	 */
 	private const API_BASE = 'https://api.github.com';
-
-	/**
-	 * The `AgentTemplate` kind — the original (and default) discovery kind.
-	 *
-	 * @var string
-	 */
-	public const KIND_AGENT_TEMPLATE = 'agent-template';
-
-	/**
-	 * The `Skill` kind (hermiq-github-store) — agentskills.io packages.
-	 *
-	 * @var string
-	 */
-	public const KIND_SKILL = 'skill';
 
 	/**
 	 * Per-kind discovery topic (hermiq-github-store: generalised from the single
@@ -249,13 +236,6 @@ class GitHubTemplateCatalogService {
 	 * @var string
 	 */
 	public const OUTCOME_RATE_LIMITED = 'github_rate_limited';
-
-	/**
-	 * Outcome: transport failure / non-2xx that is not a rate limit.
-	 *
-	 * @var string
-	 */
-	public const OUTCOME_UNREACHABLE = 'github_unreachable';
 
 	/**
 	 * The distributed cache, or null when no cache backend is available.

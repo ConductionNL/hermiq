@@ -140,9 +140,7 @@
 </template>
 
 <script>
-import axios from '@nextcloud/axios'
 import { emit } from '@nextcloud/event-bus'
-import { generateUrl } from '@nextcloud/router'
 import {
 	NcButton,
 	NcEmptyContent,
@@ -156,6 +154,7 @@ import {
 	searchGithubTemplates,
 } from '../api/agentTemplates.js'
 import { installGithubSkill, searchGithubSkills } from '../api/skills.js'
+import { brokerCredentials, githubCredentialChoices } from '../modals/settingsModalMixins.js'
 import { errorMessage } from '../utils/errorMessage.js'
 
 /** Debounce delay (ms) before a typed search term triggers a request. */
@@ -211,6 +210,8 @@ export default {
 		NcTextField,
 	},
 
+	mixins: [brokerCredentials, githubCredentialChoices],
+
 	data() {
 		return {
 			query: '',
@@ -255,18 +256,6 @@ export default {
 			]
 		},
 
-		/**
-		 * The caller's broker credentials scoped to the `github` provider, shaped
-		 * for NcSelect (mirrors LlmProviderModal.vue's `credentialsFor()`).
-		 *
-		 * @return {Array<object>} NcSelect options.
-		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
-		 */
-		githubCredentials() {
-			return this.credentials
-				.filter((c) => c.provider === 'github')
-				.map((c) => ({ label: c.name || c.id, value: c.id }))
-		},
 
 		/**
 		 * Whether to show the "add a credential to raise limits" hint.
@@ -302,25 +291,6 @@ export default {
 	},
 
 	methods: {
-		/**
-		 * Load the caller's broker credentials (for the optional GitHub picker).
-		 *
-		 * @return {Promise<void>}
-		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
-		 */
-		async fetchCredentials() {
-			this.loadingCredentials = true
-			try {
-				const { data } = await axios.get(
-					generateUrl('/apps/openregister/api/credentials'),
-				)
-				this.credentials = data.results || []
-			} catch (e) {
-				this.credentials = []
-			} finally {
-				this.loadingCredentials = false
-			}
-		},
 
 		/**
 		 * Debounce a typed search term before re-searching.

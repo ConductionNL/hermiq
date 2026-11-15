@@ -29,7 +29,10 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Engine;
 
 use LLPhant\Chat\Message as LLPhantMessage;
+use OCA\Hermiq\Kernel\Contracts\MessageHistoryHandlerInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 
@@ -39,7 +42,7 @@ use Psr\Log\LoggerInterface;
  *
  * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
  */
-class MessageHistoryHandler {
+class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	use SanitizesForSaveTrait;
 
 	/**
@@ -520,6 +523,8 @@ class MessageHistoryHandler {
 	 * @param string|null $authorDisplayName That human's display name AT SEND TIME (talk-shared-sessions).
 	 * @param array $attachments The turn's attachments as references (fileId, name, mimeType,
 	 *                           size, origin), resolved as the speaker; never bytes or text.
+	 * @param array|null $provenance How an assistant answer came about: model, sources and step
+	 *                               outcomes, never content (chat-how-an-answer-came-about).
 	 *
 	 * @return ObjectEntity The persisted Message object.
 	 *
@@ -527,6 +532,7 @@ class MessageHistoryHandler {
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-2
 	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
 	 */
 	public function storeMessage(
 		string $conversationId,
@@ -537,6 +543,7 @@ class MessageHistoryHandler {
 		?string $authorId = null,
 		?string $authorDisplayName = null,
 		array $attachments = [],
+		?array $provenance = null,
 	): ObjectEntity {
 		$payload = [
 			'sessionId' => $conversationId,
@@ -556,6 +563,10 @@ class MessageHistoryHandler {
 			$payload['attachments'] = array_values($attachments);
 		}
 
+		if ($provenance !== null) {
+			$payload['provenance'] = $provenance;
+		}
+
 		$payload = $this->withAuthorship(
 			payload: $payload,
 			role: $role,
@@ -572,8 +583,7 @@ class MessageHistoryHandler {
 		// checks). OpenRegister still stamps `_owner` from the user session.
 		$stored = $this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $payload),
-			register: self::REGISTER_SLUG,
-			schema: self::MESSAGE_SCHEMA,
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MESSAGE_SCHEMA)),
 			_rbac: false
 		);
 

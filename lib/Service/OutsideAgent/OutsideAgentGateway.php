@@ -38,6 +38,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\OutsideAgent;
 
+use OCA\Hermiq\Kernel\Contracts\OutsideAgentGatewayInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
@@ -49,7 +50,7 @@ use Throwable;
  *
  * @spec openspec/specs/agent-tool-governance/spec.md#requirement-every-outside-call-must-be-authorised-as-the-calling-principal
  */
-class OutsideAgentGateway {
+class OutsideAgentGateway implements OutsideAgentGatewayInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.

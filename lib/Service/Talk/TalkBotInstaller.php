@@ -37,6 +37,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Talk;
 
 use Closure;
+use OCA\Hermiq\Kernel\Contracts\TalkBotInstallerInterface;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IAppConfig;
 use OCP\Security\ISecureRandom;
@@ -51,7 +52,7 @@ use Throwable;
  *
  * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
  */
-class TalkBotInstaller {
+class TalkBotInstaller implements TalkBotInstallerInterface {
 
 	/**
 	 * IAppConfig key holding the generated bot secret.

@@ -34,6 +34,8 @@ use OCA\Hermiq\Service\RedactionService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * GuardrailPolicyService unit tests (agent-guardrails).
@@ -109,15 +111,16 @@ class GuardrailPolicyServiceTest extends TestCase {
 
 			public function find(
 				int|string $id,
-				?array $_extend = [],
-				bool $files = false,
-				mixed $register = null,
-				mixed $schema = null,
+				?ObjectFindOptions $options = null,
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $_render = true,
-				bool $_audit = true,
+				bool $_multitenancy = true
 			): ?ObjectEntity {
+				$_extend = $options?->extend ?? [];
+				$files = $options?->files ?? false;
+				$register = $options?->register;
+				$schema = $options?->schema;
+				$_render = $options?->render ?? true;
+				$_audit = $options?->audit ?? true;
 				foreach ($this->policies as $policy) {
 					if ((string)$policy->getUuid() === (string)$id) {
 						return $policy;
@@ -129,26 +132,22 @@ class GuardrailPolicyServiceTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				// openregister#2211 (insert-only saves) added this. A double that
-				// drifts from the real signature is a FATAL, not a failed
-				// assertion: PHP refuses to declare the class and the whole
-				// suite dies before it runs.
-				bool $failIfExists = false,
-				bool $_unowned = false,
-				// Added by openregister (duplicate detection), seen 2026-09-16.
-				bool $_dedupOverride = false,
-				?string $_owner = null,
+				bool $_multitenancy = true
 			): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
+				$silent = $options->policy->silent ?? false;
+				$_validation = $options->policy->validation ?? true;
+				$uploadedFiles = $options->uploadedFiles;
+				$currentUser = $options->actor->currentUser;
+				$failIfExists = $options->policy->failIfExists ?? false;
+				$_unowned = $options->actor->unowned ?? false;
+				$_dedupOverride = $options->policy->dedupOverride ?? false;
+				$_owner = $options->actor->owner;
 				$data = is_array($object) ? $object : $object->getObject();
 				$self = (array)($data['@self'] ?? []);
 				$organisation = (string)($self['organisation'] ?? '');
@@ -574,4 +573,124 @@ class GuardrailPolicyServiceTest extends TestCase {
 		$this->assertSame([], $this->service([$junk])->effectivePolicyFor(organisation: 'org-a')['toolPolicy']);
 
 	}//end testStoredToolPolicyIsReadLeniently()
+	/**
+	 * Lookups: a blank uuid finds nothing, a known one its policy, and the
+	 * listing and organisation lookup skip anything that is not an object.
+	 *
+	 * @return void
+	 */
+	public function testLookupsSkipWhatIsNotAPolicy(): void {
+		$own = $this->policy('p-1', 'org-a');
+		$service = new GuardrailPolicyService(
+			objectService: $this->objectService([new \stdClass(), $own]),
+			redactionService: $this->redactionService(),
+		);
+
+		$this->assertSame([$own], $service->listAll());
+		$this->assertSame($own, $service->getForOrganisation('org-a'));
+		$this->assertNull($service->getForOrganisation('org-b'));
+
+		// A stored row without a uuid must still not answer a blank id.
+		$byId = $this->service([$this->policy('', 'org-c'), $own]);
+		$this->assertNull($byId->findById(''));
+		$this->assertSame($own, $byId->findById('p-1'));
+		$this->assertNull($byId->findById('p-2'));
+	}//end testLookupsSkipWhatIsNotAPolicy()
+
+	/**
+	 * Updating a policy that does not exist is refused; an existing one is
+	 * updated in place, keeping its uuid and its organisation.
+	 *
+	 * @return void
+	 */
+	public function testUpdateFindsThePolicyOrRefuses(): void {
+		$service = $this->service([$this->policy('p-1', 'org-a')]);
+
+		$updated = $service->update('p-1', ['inputFilters' => ['piiAction' => 'redact'], 'enabled' => false]);
+		$this->assertSame('p-1', $updated['id']);
+		$this->assertSame('org-a', $updated['organisation']);
+		$this->assertSame('organisation', $updated['source']);
+		$this->assertSame(['piiAction' => 'redact', 'promptInjectionAction' => 'off'], $updated['inputFilters']);
+		$this->assertFalse($updated['enabled']);
+
+		$this->expectException(\RuntimeException::class);
+		$this->expectExceptionMessage("GuardrailPolicy 'p-9' does not exist");
+		$service->update('p-9', []);
+	}//end testUpdateFindsThePolicyOrRefuses()
+
+	/**
+	 * The instance default (organisation '') is shaped with source `instance`.
+	 *
+	 * @return void
+	 */
+	public function testTheInstanceDefaultIsShapedAsInstance(): void {
+		$this->assertSame('instance', $this->service()->upsertForOrganisation('', [])['source']);
+	}//end testTheInstanceDefaultIsShapedAsInstance()
+
+	/**
+	 * Every malformed filter payload is refused with its own message.
+	 *
+	 * @return void
+	 */
+	public function testMalformedFiltersAreRefused(): void {
+		$cases = [
+			'inputFilters must be an object' => ['inputFilters' => 'redact'],
+			"Unsupported inputFilters.promptInjectionAction 'warn'" => ['inputFilters' => ['promptInjectionAction' => 'warn']],
+			'outputFilters must be an object' => ['outputFilters' => 'block'],
+			"Unsupported outputFilters.piiAction 'mask'" => ['outputFilters' => ['piiAction' => 'mask']],
+		];
+		foreach ($cases as $message => $payload) {
+			try {
+				$this->service()->upsertForOrganisation('org-a', $payload);
+				$this->fail('Accepted: ' . $message);
+			} catch (\InvalidArgumentException $e) {
+				$this->assertStringStartsWith($message, $e->getMessage());
+			}
+		}
+	}//end testMalformedFiltersAreRefused()
+
+	/**
+	 * A stored policy with unreadable filters is read as off, never as a failure.
+	 *
+	 * @return void
+	 */
+	public function testUnreadableStoredFiltersReadAsOff(): void {
+		$garbled = $this->policy('p-1', 'org-a');
+		$garbled->setObject(['inputFilters' => 'x', 'outputFilters' => ['piiAction' => 'mask'], 'enabled' => true]);
+		$odd = $this->policy('p-2', 'org-b', inputFilters: ['piiAction' => 'shout', 'promptInjectionAction' => 'warn']);
+
+		$service = $this->service([$garbled, $odd]);
+
+		$this->assertSame(['piiAction' => 'off', 'promptInjectionAction' => 'off'], $service->effectivePolicyFor('org-a')['inputFilters']);
+		$this->assertSame(['piiAction' => 'off'], $service->effectivePolicyFor('org-a')['outputFilters']);
+		$this->assertSame(['piiAction' => 'off', 'promptInjectionAction' => 'off'], $service->effectivePolicyFor('org-b')['inputFilters']);
+
+		$garbled->setObject(['outputFilters' => 'x']);
+		$this->assertSame(['piiAction' => 'off'], $service->effectivePolicyFor('org-a')['outputFilters']);
+	}//end testUnreadableStoredFiltersReadAsOff()
+
+	/**
+	 * Tool classification skips entries that are not objects and reads an
+	 * unknown classification as auto.
+	 *
+	 * @return void
+	 */
+	public function testClassifyToolSkipsMalformedEntries(): void {
+		$policy = ['toolPolicy' => ['hermiq.sendMail', ['toolId' => 'hermiq.sendMail', 'classification' => 'maybe'], ['toolId' => 'other', 'classification' => 'deny']]];
+
+		$this->assertSame('auto', $this->service()->classifyTool($policy, 'hermiq.sendMail'));
+		$this->assertSame('deny', $this->service()->classifyTool($policy, 'other'));
+	}//end testClassifyToolSkipsMalformedEntries()
+
+	/**
+	 * With injection blocking on, empty or harmless text passes.
+	 *
+	 * @return void
+	 */
+	public function testInjectionBlockingPassesHarmlessText(): void {
+		$policy = ['inputFilters' => ['promptInjectionAction' => 'block', 'piiAction' => 'off']];
+
+		$this->assertSame(['text' => '', 'blocked' => false, 'reason' => null], $this->service()->filterInput($policy, ''));
+		$this->assertFalse($this->service()->filterInput($policy, 'Wat is de status van mijn aanvraag?')['blocked']);
+	}//end testInjectionBlockingPassesHarmlessText()
 }//end class

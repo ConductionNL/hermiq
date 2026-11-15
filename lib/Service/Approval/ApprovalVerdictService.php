@@ -30,8 +30,10 @@ namespace OCA\Hermiq\Service\Approval;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
+use OCA\Hermiq\Kernel\Contracts\ApprovalVerdictServiceInterface;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use Throwable;
@@ -41,15 +43,8 @@ use Throwable;
  *
  * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
  */
-class ApprovalVerdictService
+class ApprovalVerdictService implements ApprovalVerdictServiceInterface
 {
-
-    /**
-     * The request fields, every one a non-empty string, echoed in the verdict.
-     *
-     * @var array<int, string>
-     */
-    public const REQUEST_FIELDS = ['approvalId', 'toolId', 'binding', 'actingAgent', 'nonce'];
 
     /**
      * Constructor.
@@ -311,8 +306,10 @@ class ApprovalVerdictService
         try {
             $agent = $this->objectService->find(
                 id: $agentId,
-                register: 'hermiq',
-                schema: 'agent',
+                options: new ObjectFindOptions(
+                	register: 'hermiq',
+                	schema: 'agent'
+                ),
                 _rbac: false,
                 _multitenancy: false
             );

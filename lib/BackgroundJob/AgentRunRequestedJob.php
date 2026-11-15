@@ -29,7 +29,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\BackgroundJob;
 
-use OCA\Hermiq\Service\FlowAgentRunService;
+use OCA\Hermiq\Kernel\Contracts\FlowAgentRunServiceInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\QueuedJob;
 
@@ -45,11 +45,11 @@ class AgentRunRequestedJob extends QueuedJob {
 	 * Constructor.
 	 *
 	 * @param ITimeFactory $time Time factory for the base job.
-	 * @param FlowAgentRunService $flowAgentRunService Runs the governed dispatch.
+	 * @param FlowAgentRunServiceInterface $flowAgentRunService Runs the governed dispatch.
 	 */
 	public function __construct(
 		ITimeFactory $time,
-		private readonly FlowAgentRunService $flowAgentRunService,
+		private readonly FlowAgentRunServiceInterface $flowAgentRunService,
 	) {
 		parent::__construct(time: $time);
 	}//end __construct()

@@ -35,7 +35,8 @@ namespace OCA\Hermiq\Service\AiFeature;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\RunRetentionPolicyInterface;
 use OCP\IAppConfig;
 use Throwable;
 
@@ -44,7 +45,7 @@ use Throwable;
  *
  * @spec openspec/specs/run-audit-log/spec.md#requirement-every-ai-run-must-carry-the-retention-that-applied-when-it-was-written
  */
-class RunRetentionPolicy {
+class RunRetentionPolicy implements RunRetentionPolicyInterface {
 
 	/**
 	 * The retention this instance keeps until an administrator says otherwise.
@@ -54,23 +55,6 @@ class RunRetentionPolicy {
 	 * @var int
 	 */
 	public const DEFAULT_DAYS = 90;
-
-	/**
-	 * The shortest retention an administrator may set. A retention of zero would
-	 * delete a run before anybody could read it, which is not storage limitation
-	 * but an absent audit trail.
-	 *
-	 * @var int
-	 */
-	public const MINIMUM_DAYS = 1;
-
-	/**
-	 * The longest retention an administrator may set, ten years, matching the
-	 * ceiling the audit trail itself supports.
-	 *
-	 * @var int
-	 */
-	public const MAXIMUM_DAYS = 3650;
 
 	/**
 	 * IAppConfig key holding the instance default, in days.
@@ -107,7 +91,7 @@ class RunRetentionPolicy {
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-ai-run-must-carry-the-retention-that-applied-when-it-was-written
 	 */
 	public function defaultDays(): int {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, self::CONFIG_DEFAULT, '');
+		$raw = $this->appConfig->getValueString(AppIdentity::APP_ID, self::CONFIG_DEFAULT, '');
 		if ($raw === '' || is_numeric($raw) === false) {
 			return self::DEFAULT_DAYS;
 		}
@@ -143,7 +127,7 @@ class RunRetentionPolicy {
 			);
 		}
 
-		$this->appConfig->setValueString(Application::APP_ID, self::CONFIG_DEFAULT, (string)$days);
+		$this->appConfig->setValueString(AppIdentity::APP_ID, self::CONFIG_DEFAULT, (string)$days);
 
 		return $days;
 	}//end setDefaultDays()
@@ -248,7 +232,7 @@ class RunRetentionPolicy {
 		];
 
 		$this->appConfig->setValueString(
-			Application::APP_ID,
+			AppIdentity::APP_ID,
 			self::CONFIG_LAST_CLEANUP,
 			(string)json_encode($report)
 		);
@@ -266,7 +250,7 @@ class RunRetentionPolicy {
 	 * @spec openspec/specs/run-audit-log/spec.md#scenario-a-job-that-has-never-run-is-visible-as-such
 	 */
 	public function lastCleanup(): array {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, self::CONFIG_LAST_CLEANUP, '');
+		$raw = $this->appConfig->getValueString(AppIdentity::APP_ID, self::CONFIG_LAST_CLEANUP, '');
 		$decoded = null;
 		if ($raw !== '') {
 			$decoded = json_decode($raw, true);

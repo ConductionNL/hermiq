@@ -42,6 +42,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Talk;
 
+use OCA\Hermiq\Kernel\Contracts\TalkRoomGroupingInterface;
 use OCP\IConfig;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -54,7 +55,7 @@ use Throwable;
  *
  * @spec openspec/specs/talk-room-grouping/spec.md#requirement-a-bound-agent-room-is-filed-under-each-participants-hermiq-tag
  */
-class TalkRoomGrouping {
+class TalkRoomGrouping implements TalkRoomGroupingInterface {
 
 	/**
 	 * The tag name shown in the user's conversation list.

@@ -210,6 +210,14 @@ class FacadeToolInvoker {
 	private const DELEGATE_AGENT_TOOL_ID = 'hermiq.delegateAgent';
 
 	/**
+	 * `hermiq.delegateAgents` (delegation-runs-in-parallel): the same trusted
+	 * calling-agent identity as `DELEGATE_AGENT_TOOL_ID`.
+	 *
+	 * @var string
+	 */
+	private const DELEGATE_AGENTS_TOOL_ID = 'hermiq.delegateAgents';
+
+	/**
 	 * The six integriq agent tools (approval-verification-contract, hermiq#1045)
 	 * that get the running agent's id as `agentId`, overwriting whatever the model
 	 * sent: integriq records it on a staged batch and names it as `actingAgent`
@@ -419,6 +427,9 @@ class FacadeToolInvoker {
 	 *                                   null, every pre-existing caller, is no cap.
 	 * @param Closure|null $agentStillOn Fresh read of the agent's switch before each call;
 	 *                                   null is always on.
+	 * @param array<int,string> $askFirst Registry ids the person who started the run asks to
+	 *                                    approve first (personal-preferences, ask before sending);
+	 *                                    empty, every pre-existing caller, asks nothing extra.
 	 *
 	 * @return void
 	 *
@@ -453,6 +464,7 @@ class FacadeToolInvoker {
 		private readonly array $waivedConstraintSets = [],
 		?int $maxToolCalls = null,
 		?Closure $agentStillOn = null,
+		private readonly array $askFirst = [],
 	) {
 		$this->turnGuard = new TurnGuard(maxToolCalls: $maxToolCalls, agentStillOn: $agentStillOn);
 	}//end __construct()
@@ -586,7 +598,7 @@ class FacadeToolInvoker {
 
 	/**
 	 * Route a granted call through the human gates — `confirm` unless waived, then the
-	 * approval gate — to the facade.
+	 * approval gate, then the person's own ask-before-sending — to the facade.
 	 *
 	 * Agent-capability-reach: an owner may waive the human confirmation for
 	 * ONE grant entry with a `#noapproval` fragment. It is consulted HERE
@@ -610,7 +622,14 @@ class FacadeToolInvoker {
 			return $this->handleGatedInvocation(name: $name, arguments: $arguments);
 		}
 
-		return $this->dispatchToFacade(name: $name, arguments: $arguments);
+		// The person who started the run asked to approve anything sent on their
+		// behalf. Read after every other gate: it only adds a question, and an
+		// owner's waiver never answers it for them (personal-preferences).
+		if (in_array($this->resolveToolId(name: $name), $this->askFirst, true) === true) {
+			return $this->handleConfirmClassifiedInvocation(name: $name, arguments: $arguments);
+		}
+
+		return $this->dispatchToFacade(name: $name, call: new FacadeCall(arguments: $arguments));
 
 	}//end routeGranted()
 
@@ -872,7 +891,13 @@ class FacadeToolInvoker {
 		$approvedUnconsumed = $this->approvalService->findApprovedUnconsumedToolCallApproval(correlationId: $correlationId);
 		if ($approvedUnconsumed !== null) {
 			$this->approvalService->markToolCallApprovalConsumed(approval: $approvedUnconsumed);
-			return $this->dispatchToFacade(name: $name, arguments: $arguments, outcomeOverride: 'invoked_after_approval');
+			return $this->dispatchToFacade(
+				name: $name,
+				call: new FacadeCall(
+					arguments: $arguments,
+					outcomeOverride: 'invoked_after_approval'
+				)
+			);
 		}
 
 		$pending = $this->approvalService->findPendingApprovalForToolCall(correlationId: $correlationId);
@@ -1100,7 +1125,7 @@ class FacadeToolInvoker {
 		);
 
 		if ($decided !== null && (string)($decided->getObject()['status'] ?? '') === 'approved') {
-			return $this->dispatchToFacade(name: $name, arguments: $arguments);
+			return $this->dispatchToFacade(name: $name, call: new FacadeCall(arguments: $arguments));
 		}
 
 		$pending = null;
@@ -1196,7 +1221,8 @@ class FacadeToolInvoker {
 		return in_array($toolId, self::MEMORY_TOOL_IDS, true) === true
 			|| in_array($toolId, self::ARTEFACT_WRITE_TOOL_IDS, true) === true
 			|| in_array($toolId, self::INTEGRIQ_AGENT_TOOL_IDS, true) === true
-			|| $toolId === self::DELEGATE_AGENT_TOOL_ID;
+			|| $toolId === self::DELEGATE_AGENT_TOOL_ID
+			|| $toolId === self::DELEGATE_AGENTS_TOOL_ID;
 
 	}//end needsAgentId()
 
@@ -1205,15 +1231,7 @@ class FacadeToolInvoker {
 	 * `ToolRegistryFacade::invokeTool()`, emitting channel frames / trace step.
 	 *
 	 * @param string $name The tool function name the LLM called.
-	 * @param array<string, mixed> $arguments Decoded arguments object.
-	 * @param string|null $outcomeOverride A fixed trace-step outcome to record
-	 *                                     instead of the facade's own ok/error
-	 *                                     (agent-guardrails): `invoked_after_approval`
-	 *                                     for a `confirm`-classified tool's authorised
-	 *                                     retry, so the run history distinguishes it
-	 *                                     from an ordinary `auto` invocation. Null
-	 *                                     (every pre-existing caller) keeps the
-	 *                                     original ok/error derivation unchanged.
+	 * @param FacadeCall $call The arguments a facade tool is called with, and any outcome that overrides it.
 	 *
 	 * @return string JSON-encoded tool result for the follow-up LLM turn.
 	 *
@@ -1221,7 +1239,9 @@ class FacadeToolInvoker {
 	 * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps
 	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
 	 */
-	private function dispatchToFacade(string $name, array $arguments, ?string $outcomeOverride = null): string {
+	private function dispatchToFacade(string $name, FacadeCall $call): string {
+		$arguments = $call->arguments;
+		$outcomeOverride = $call->outcomeOverride;
 		$dispatch = new ToolDispatch(name: $name, arguments: $arguments);
 		$dispatch->outcomeOverride = $outcomeOverride;
 		$reporter = new ToolCallReporter(channel: $this->channel, trace: $this->trace);
@@ -1234,7 +1254,13 @@ class FacadeToolInvoker {
 		// retry, or an already-approved gated invocation) — a single chokepoint,
 		// never duplicated per branch.
 		if ($this->dryRun === true && $this->isSideEffecting(name: $name) === true) {
-			return $this->recordWouldHaveCalled(name: $name, arguments: $arguments, traceToken: $dispatch->traceToken);
+			return $this->recordWouldHaveCalled(
+				name: $name,
+				call: new WouldHaveCalled(
+					arguments: $arguments,
+					traceToken: $dispatch->traceToken
+				)
+			);
 		}
 
 		// The facade's return shape is a documented contract:
@@ -1466,17 +1492,16 @@ class FacadeToolInvoker {
 	 * result so the LLM's multi-step plan can keep reasoning realistically.
 	 *
 	 * @param string $name The LLPhant-side function name.
-	 * @param array<string, mixed> $arguments Decoded arguments object.
-	 * @param int|null $traceToken The trace step token already started
-	 *                             by `dispatchToFacade()`, or null when
-	 *                             no collector is attached.
+	 * @param WouldHaveCalled $call The arguments a dry run would have called a tool with.
 	 *
 	 * @return string JSON-encoded preview envelope for the follow-up LLM turn.
 	 *
 	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
 	 */
-	private function recordWouldHaveCalled(string $name, array $arguments, ?int $traceToken): string {
+	private function recordWouldHaveCalled(string $name, WouldHaveCalled $call): string {
+		$arguments = $call->arguments;
+		$traceToken = $call->traceToken;
 		$toolId = $this->resolveToolId(name: $name);
 		$redactedArguments = $this->redactArguments(arguments: $arguments);
 

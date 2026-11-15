@@ -30,8 +30,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\CourseRecommendationEngine;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\CourseRecommendationEngineInterface;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -51,16 +51,16 @@ class CourseRecommendationController extends Controller {
 	 *
 	 * @param IRequest $request The request object.
 	 * @param IUserSession $userSession Resolves the requesting user (self-scope).
-	 * @param CourseRecommendationEngine $engine The gated ranking/explanation pipeline.
+	 * @param CourseRecommendationEngineInterface $engine The gated ranking/explanation pipeline.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
 		IRequest $request,
 		private readonly IUserSession $userSession,
-		private readonly CourseRecommendationEngine $engine,
+		private readonly CourseRecommendationEngineInterface $engine,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**

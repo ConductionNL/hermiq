@@ -29,8 +29,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\SettingsService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\SettingsServiceInterface;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\AnonRateLimit;
@@ -52,7 +52,7 @@ class HealthController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object
-	 * @param SettingsService $settingsService For OpenRegister availability check
+	 * @param SettingsServiceInterface $settingsService For OpenRegister availability check
 	 * @param LoggerInterface $logger The logger
 	 *
 	 * @return void
@@ -61,10 +61,10 @@ class HealthController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private SettingsService $settingsService,
+		private SettingsServiceInterface $settingsService,
 		private LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -118,7 +118,7 @@ class HealthController extends Controller {
 		return new JSONResponse(
 			[
 				'status' => $status,
-				'app' => Application::APP_ID,
+				'app' => AppIdentity::APP_ID,
 				'version' => '0.1.0',
 				'dependencies' => [
 					'openregister' => $openRegister,

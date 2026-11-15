@@ -53,11 +53,11 @@ namespace OCA\Hermiq\Controller;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\ActionAuthService;
-use OCA\Hermiq\Service\GitHubTemplatePushService;
-use OCA\Hermiq\Service\SkillMarketplaceService;
-use OCA\Hermiq\Service\SkillService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\GitHubTemplatePushServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillMarketplaceServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -93,12 +93,12 @@ class SkillMarketplaceController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param SkillMarketplaceService $marketplaceService The marketplace service.
-	 * @param ActionAuthService $actionAuth The ADR-023 action-authorization service.
+	 * @param SkillMarketplaceServiceInterface $marketplaceService The marketplace service.
+	 * @param ActionAuthServiceInterface $actionAuth The ADR-023 action-authorization service.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param SkillService $skillService Export + provenance stamp (hermiq-github-store).
-	 * @param GitHubTemplatePushService $pushService GitHub publish (hermiq-github-store).
+	 * @param SkillServiceInterface $skillService Export + provenance stamp (hermiq-github-store).
+	 * @param GitHubTemplatePushServiceInterface $pushService GitHub publish (hermiq-github-store).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
@@ -107,14 +107,14 @@ class SkillMarketplaceController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly SkillMarketplaceService $marketplaceService,
-		private readonly ActionAuthService $actionAuth,
+		private readonly SkillMarketplaceServiceInterface $marketplaceService,
+		private readonly ActionAuthServiceInterface $actionAuth,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
-		private readonly SkillService $skillService,
-		private readonly GitHubTemplatePushService $pushService,
+		private readonly SkillServiceInterface $skillService,
+		private readonly GitHubTemplatePushServiceInterface $pushService,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -520,7 +520,7 @@ class SkillMarketplaceController extends Controller {
 			visibility: $run->repositoryVisibility(),
 			credentialId: $run->credentialId,
 			actingUserId: $run->user->getUID(),
-			kind: GitHubTemplatePushService::KIND_SKILL,
+			kind: GitHubTemplatePushServiceInterface::KIND_SKILL,
 			// Publish-time file SELECTION (skills-marketplace delta): learnings.md
 			// ships, learning-candidates.md is stripped — same selection as republish.
 			auxFiles: ($this->skillService->publishFileSelection(skillId: $run->skillId) ?? [])

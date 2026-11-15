@@ -41,9 +41,13 @@ namespace OCA\Hermiq\Service\Assistant;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\Hermiq\Kernel\Contracts\AssistantPromptLibraryInterface;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
+use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -53,7 +57,7 @@ use Throwable;
  *
  * @spec openspec/specs/ai-feature-admin-surface/spec.md#requirement-the-prompts-the-assistant-offers-must-be-administered-objects
  */
-class AssistantPromptLibrary {
+class AssistantPromptLibrary implements AssistantPromptLibraryInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -262,9 +266,10 @@ class AssistantPromptLibrary {
 
 		$stored = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG,
-			uuid: $uuid
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
+				uuid: $uuid
+			)
 		);
 
 		$result = $stored->getObject();
@@ -305,9 +310,10 @@ class AssistantPromptLibrary {
 			try {
 				$this->objectService->saveObject(
 					object: $data,
-					register: self::REGISTER_SLUG,
-					schema: self::SCHEMA_SLUG,
-					uuid: (string)$object->getUuid()
+					options: new ObjectSaveOptions(
+						target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
+						uuid: (string)$object->getUuid()
+					)
 				);
 				$disabled++;
 			} catch (Throwable $e) {
@@ -399,8 +405,7 @@ class AssistantPromptLibrary {
 		try {
 			return $this->objectService->find(
 				id: $id,
-				register: self::REGISTER_SLUG,
-				schema: self::SCHEMA_SLUG
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG)
 			);
 		} catch (Throwable $e) {
 			return null;

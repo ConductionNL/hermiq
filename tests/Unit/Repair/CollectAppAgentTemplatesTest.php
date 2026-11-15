@@ -22,6 +22,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Repair;
 
+use OCA\Hermiq\Kernel\Contracts\AppTemplateOffersInterface;
 use OCA\Hermiq\Repair\CollectAppAgentTemplates;
 use OCA\Hermiq\Service\AppTemplateOffers;
 use OCA\OpenRegister\Service\ObjectService;
@@ -68,7 +69,7 @@ final class CollectAppAgentTemplatesTest extends TestCase {
 		$container->method('get')->willReturnCallback(
 			static fn (string $id): object => match ($id) {
 				ObjectService::class => $objectService,
-				AppTemplateOffers::class => $offers,
+				AppTemplateOffersInterface::class => $offers,
 			}
 		);
 

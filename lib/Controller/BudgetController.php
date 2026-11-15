@@ -31,9 +31,11 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\BudgetService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\BudgetServiceInterface;
 use OCA\OpenRegister\Db\OrganisationMapper;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -62,7 +64,7 @@ class BudgetController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param BudgetService $budgetService The budget read/write service.
+	 * @param BudgetServiceInterface $budgetService The budget read/write service.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IGroupManager $groupManager Instance-admin check.
 	 * @param OrganisationMapper $organisationMapper OpenRegister organisation lookup (owner check).
@@ -72,14 +74,14 @@ class BudgetController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly BudgetService $budgetService,
+		private readonly BudgetServiceInterface $budgetService,
 		private readonly IUserSession $userSession,
 		private readonly IGroupManager $groupManager,
 		private readonly OrganisationMapper $organisationMapper,
 		private readonly ObjectService $objectService,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -288,9 +290,13 @@ class BudgetController extends Controller {
 			// to run this line is the `mayAdminister()` gate four lines up; without
 			// that gate this call would be an IDOR.
 			$this->objectService->deleteObject(
-				uuid: $budgetId,
-				register: BudgetService::REGISTER_SLUG,
-				schema: BudgetService::BUDGET_SCHEMA,
+				new ObjectDeletion(
+					uuid: $budgetId,
+					target: new ObjectFindTarget(
+							register: BudgetServiceInterface::REGISTER_SLUG,
+							schema: BudgetServiceInterface::BUDGET_SCHEMA
+						)
+				),
 				_rbac: false,
 				_multitenancy: false
 			);

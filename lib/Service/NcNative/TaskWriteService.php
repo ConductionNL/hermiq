@@ -28,6 +28,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\NcNative;
 
 use DateTimeImmutable;
+use OCA\Hermiq\Kernel\Contracts\TaskWriteServiceInterface;
 use OCA\Hermiq\Mcp\NcTaskToolDescriptors;
 use OCP\Calendar\ICalendar;
 use OCP\Calendar\ICreateFromString;
@@ -42,7 +43,7 @@ use Throwable;
  *
  * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-create-a-task-in-the-users-own-list-marked-as-agent-authored-req-nctask-002
  */
-class TaskWriteService {
+class TaskWriteService implements TaskWriteServiceInterface {
 
 	use ErrorEnvelopeTrait;
 
@@ -199,6 +200,7 @@ class TaskWriteService {
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
 	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-create-a-task-in-the-users-own-list-marked-as-agent-authored-req-nctask-002
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored-req-ailbl-001
 	 */
 	public function createTask(string $uid, array $arguments): array {
 		$invalid = $this->validate(arguments: $arguments);

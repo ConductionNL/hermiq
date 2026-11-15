@@ -32,11 +32,12 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\RunHistoryServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\ScheduleServiceInterface;
 use OCA\Hermiq\Service\EngineRequiredException;
-use OCA\Hermiq\Service\RunHistoryService;
-use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -74,8 +75,8 @@ class RunHistoryController extends Controller {
 	 * @param IRequest $request The request object.
 	 * @param ObjectService $objectService OpenRegister object read (ownership check).
 	 * @param IUserSession $userSession Resolves the requesting user for the owner guard.
-	 * @param RunHistoryService $runHistoryService Reads and shapes the schedule's run records.
-	 * @param ScheduleService $scheduleService Executes the replay run + gate checks
+	 * @param RunHistoryServiceInterface $runHistoryService Reads and shapes the schedule's run records.
+	 * @param ScheduleServiceInterface $scheduleService Executes the replay run + gate checks
 	 *                                         (run-replay-and-dry-run).
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 *
@@ -85,11 +86,11 @@ class RunHistoryController extends Controller {
 		IRequest $request,
 		private readonly ObjectService $objectService,
 		private readonly IUserSession $userSession,
-		private readonly RunHistoryService $runHistoryService,
-		private readonly ScheduleService $scheduleService,
+		private readonly RunHistoryServiceInterface $runHistoryService,
+		private readonly ScheduleServiceInterface $scheduleService,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -264,8 +265,7 @@ class RunHistoryController extends Controller {
 		try {
 			$schedule = $this->objectService->find(
 				id: $scheduleId,
-				register: self::REGISTER_SLUG,
-				schema: self::SCHEMA_SLUG
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG)
 			);
 		} catch (Throwable $e) {
 			// `ObjectService::find()` throws when the object is absent, and

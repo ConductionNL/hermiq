@@ -146,6 +146,26 @@ class ActionAuthServiceTest extends TestCase {
 	}//end testNonAdminDeniedByDefaultWhenActionMissing()
 
 	/**
+	 * Naming an agent's acting user is admin-only: seeded so, and so by
+	 * default when the stored matrix lacks it (agent-acting-identity-picker 1.1).
+	 *
+	 * @return void
+	 */
+	public function testNamingAnActingUserIsAdminOnly(): void {
+		$seed = json_decode((string)file_get_contents(__DIR__ . '/../../../lib/actions.seed.json'), true);
+		$this->assertSame(['admin'], $seed['actions']['agent.set-acting-user']);
+
+		$user = $this->mockUser('pieter');
+		$this->groupManager->method('isAdmin')->willReturn(false);
+		$this->groupManager->method('getUserGroupIds')->willReturn(['users', 'owners']);
+		$this->setMatrix([]);
+
+		$this->assertSame(['admin'], $this->matrix->getAllowedGroups('agent.set-acting-user'));
+		$this->assertFalse($this->service->can($user, 'agent.set-acting-user'));
+
+	}//end testNamingAnActingUserIsAdminOnly()
+
+	/**
 	 * Non-admin is denied when the matrix entry is ["admin"] only.
 	 *
 	 * @return void

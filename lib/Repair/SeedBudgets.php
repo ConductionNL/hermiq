@@ -40,9 +40,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
+use OCA\Hermiq\Kernel\Contracts\BudgetServiceInterface;
 use OCA\Hermiq\Repair\Support\FirstOrganisation;
 use OCA\Hermiq\Repair\Support\OrganisationSeed;
-use OCA\Hermiq\Service\BudgetService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCA\OpenRegister\Service\ObjectService;
@@ -159,7 +159,7 @@ class SeedBudgets implements IRepairStep {
 		try {
 			$run->objectService = $this->container->get(ObjectService::class);
 			$run->organisationMapper = $this->container->get(OrganisationMapper::class);
-			$run->budgetService = $this->container->get(BudgetService::class);
+			$run->budgetService = $this->container->get(BudgetServiceInterface::class);
 		} catch (Throwable $e) {
 			$output->warning('OpenRegister not available — skipping budget seed.');
 			$this->logger->warning('[hermiq] Budget seed skipped: ' . $e->getMessage());

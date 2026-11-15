@@ -36,7 +36,11 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\MemoryServiceInterface;
+use OCA\Hermiq\Service\Memory\MemoryEntryRef;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserSession;
 
@@ -57,7 +61,7 @@ use OCP\IUserSession;
  * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-3
  * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-4
  */
-class MemoryService {
+class MemoryService implements MemoryServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -155,8 +159,7 @@ class MemoryService {
 				'charBudget' => self::DEFAULT_MEMORY_BUDGET,
 				'needsConsolidation' => false,
 			],
-			register: self::REGISTER_SLUG,
-			schema: self::MEMORY_SCHEMA
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MEMORY_SCHEMA))
 		);
 
 	}//end getMemory()
@@ -191,8 +194,7 @@ class MemoryService {
 				'charBudget' => self::DEFAULT_PROFILE_BUDGET,
 				'needsConsolidation' => false,
 			],
-			register: self::REGISTER_SLUG,
-			schema: self::USER_PROFILE_SCHEMA
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::USER_PROFILE_SCHEMA))
 		);
 
 	}//end getUserProfile()
@@ -259,9 +261,10 @@ class MemoryService {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::MEMORY_SCHEMA,
-			uuid: (string)$memory->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MEMORY_SCHEMA),
+				uuid: (string)$memory->getUuid()
+			)
 		);
 
 	}//end consolidateMemory()
@@ -500,9 +503,11 @@ class MemoryService {
 		$memory = $this->getMemory(agentId: $agentId);
 		$memoryFound = $this->softDeleteEntry(
 			object: $memory,
-			schema: self::MEMORY_SCHEMA,
-			entryId: $entryId,
-			defaultBudget: self::DEFAULT_MEMORY_BUDGET
+			entryRef: new MemoryEntryRef(
+				schema: self::MEMORY_SCHEMA,
+				entryId: $entryId,
+				defaultBudget: self::DEFAULT_MEMORY_BUDGET
+			)
 		);
 		if ($memoryFound === true) {
 			return ['found' => true, 'scope' => 'memory'];
@@ -512,9 +517,11 @@ class MemoryService {
 			$profile = $this->getUserProfile(agentId: $agentId, subjectUid: $subjectUid);
 			$profileFound = $this->softDeleteEntry(
 				object: $profile,
-				schema: self::USER_PROFILE_SCHEMA,
-				entryId: $entryId,
-				defaultBudget: self::DEFAULT_PROFILE_BUDGET
+				entryRef: new MemoryEntryRef(
+					schema: self::USER_PROFILE_SCHEMA,
+					entryId: $entryId,
+					defaultBudget: self::DEFAULT_PROFILE_BUDGET
+				)
 			);
 			if ($profileFound === true) {
 				return ['found' => true, 'scope' => 'userProfile'];
@@ -575,9 +582,10 @@ class MemoryService {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::MEMORY_SCHEMA,
-			uuid: (string)$memory->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MEMORY_SCHEMA),
+				uuid: (string)$memory->getUuid()
+			)
 		);
 
 	}//end correctMemoryEntry()
@@ -641,9 +649,10 @@ class MemoryService {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: $schema,
-			uuid: (string)$object->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: $schema),
+				uuid: (string)$object->getUuid()
+			)
 		);
 
 	}//end appendEntry()
@@ -652,15 +661,16 @@ class MemoryService {
 	 * Soft-delete the entry matching `$entryId` inside one Memory/UserProfile object.
 	 *
 	 * @param ObjectEntity $object The Memory/UserProfile object to search.
-	 * @param string $schema The schema slug to save under.
-	 * @param string $entryId The entry id to soft-delete.
-	 * @param int $defaultBudget The budget to assume when the object stores none.
+	 * @param MemoryEntryRef $entryRef Which memory entry is removed, and the budget it is counted against.
 	 *
 	 * @return bool True when a matching entry was found (and soft-deleted, or was
 	 *              already soft-deleted — idempotent); false when no entry in this
 	 *              object carries `$entryId`.
 	 */
-	private function softDeleteEntry(ObjectEntity $object, string $schema, string $entryId, int $defaultBudget): bool {
+	private function softDeleteEntry(ObjectEntity $object, MemoryEntryRef $entryRef): bool {
+		$schema = $entryRef->schema;
+		$entryId = $entryRef->entryId;
+		$defaultBudget = $entryRef->defaultBudget;
 		$data = $object->getObject();
 		$entries = $this->normaliseEntries(entries: ($data['entries'] ?? []));
 
@@ -690,9 +700,10 @@ class MemoryService {
 
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: $schema,
-			uuid: (string)$object->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: $schema),
+				uuid: (string)$object->getUuid()
+			)
 		);
 
 		return true;

@@ -40,6 +40,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\WebResearch;
 
+use OCA\Hermiq\Kernel\Contracts\WebSearchClientInterface;
 use OCP\Http\Client\IClientService;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -52,7 +53,7 @@ use Throwable;
  *
  * @spec openspec/changes/archive/2026-07-14-web-research-tool/tasks.md#task-4-websearchclient-searxng--generic-json
  */
-class WebSearchClient {
+class WebSearchClient implements WebSearchClientInterface {
 
 	/**
 	 * OpenRegister's credential broker. Resolved lazily so Hermiq still boots without

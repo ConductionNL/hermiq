@@ -33,8 +33,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Command;
 
-use OCA\Hermiq\Service\Schedule\ScheduleFlowBridge;
-use OCA\Hermiq\Service\ScheduleService;
+use OCA\Hermiq\Kernel\Contracts\ScheduleFlowBridgeInterface;
+use OCA\Hermiq\Kernel\Contracts\ScheduleServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -69,14 +69,14 @@ class RollbackScheduleFlowMirror extends Command {
 	 * Constructor.
 	 *
 	 * @param ObjectService $objectService Reads delegated schedules.
-	 * @param ScheduleService $scheduleService Clears the markers through the sanitised persist.
-	 * @param ScheduleFlowBridge $flowBridge Deletes the mirror flows.
+	 * @param ScheduleServiceInterface $scheduleService Clears the markers through the sanitised persist.
+	 * @param ScheduleFlowBridgeInterface $flowBridge Deletes the mirror flows.
 	 * @param LoggerInterface $logger Diagnostics.
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
-		private readonly ScheduleService $scheduleService,
-		private readonly ScheduleFlowBridge $flowBridge,
+		private readonly ScheduleServiceInterface $scheduleService,
+		private readonly ScheduleFlowBridgeInterface $flowBridge,
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct();

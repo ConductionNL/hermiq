@@ -29,7 +29,11 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -39,7 +43,7 @@ use Throwable;
  *
  * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#3-skillservice
  */
-class SkillService {
+class SkillService implements SkillServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -114,8 +118,7 @@ class SkillService {
 				'createdBy' => $createdBy,
 				'installedOn' => [],
 			],
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA))
 		);
 
 	}//end importSkill()
@@ -250,9 +253,10 @@ class SkillService {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: (string)$skill->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: (string)$skill->getUuid()
+			)
 		);
 
 	}//end stampGithubPublish()
@@ -290,9 +294,10 @@ class SkillService {
 
 		return $this->objectService->saveObject(
 			object: $guarded,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: (string)$skill->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: (string)$skill->getUuid()
+			)
 		);
 
 	}//end updateSkill()
@@ -333,8 +338,7 @@ class SkillService {
 		// Fetch by UUID via find() (a uuid is metadata, not an object-property filter).
 		return $this->objectService->find(
 			id: $skillId,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA)
 		);
 
 	}//end getSkill()
@@ -373,9 +377,10 @@ class SkillService {
 
 		$updated = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: (string)$skill->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: (string)$skill->getUuid()
+			)
 		);
 
 		$this->syncAgentSkillInstalls(agentId: $agentId, skillId: $skillId);
@@ -400,8 +405,7 @@ class SkillService {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 			);
 			if ($agent === null) {
 				return;
@@ -423,9 +427,10 @@ class SkillService {
 
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
-				uuid: (string)$agent->getUuid()
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+					uuid: (string)$agent->getUuid()
+				)
 			);
 		} catch (Throwable $e) {
 			// Best-effort: Skill.installedOn (already saved above) remains the
@@ -474,9 +479,10 @@ class SkillService {
 
 		$updated = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: (string)$skill->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: (string)$skill->getUuid()
+			)
 		);
 
 		$this->desyncAgentSkillInstalls(agentId: $agentId, skillId: $skillId);
@@ -501,8 +507,7 @@ class SkillService {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 			);
 			if ($agent === null) {
 				return;
@@ -525,9 +530,10 @@ class SkillService {
 
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
-				uuid: (string)$agent->getUuid()
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+					uuid: (string)$agent->getUuid()
+				)
 			);
 		} catch (Throwable $e) {
 			// Best-effort: Skill.installedOn (already saved above) remains the

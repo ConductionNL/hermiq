@@ -58,10 +58,14 @@ Rows: `dm-ai-label`. Board: `hermiq/HmToezicht`.
 - **WHEN** the viewer opens the AI oversight page
 - **THEN** the label section shows 4 files and a reviewed share of 25%
 
+@e2e exclude needs agent-authored files tagged through an agent write and a review mark set up in advance; covered by AiLabelStatsServiceTest and the AiLabelSection Vitest test.
+
 #### Scenario: Marking a file someone cannot read is refused
 - **GIVEN** an agent-authored file the caller cannot read
 - **WHEN** they ask to mark it as reviewed
 - **THEN** the request is refused with 404 and the file's tags are unchanged
+
+@e2e exclude needs a second Nextcloud user who cannot read the file; covered by AiLabelControllerTest.
 
 ### Requirement: hermiq shows the AI label as "Gemaakt met AI" (REQ-AILBL-004)
 

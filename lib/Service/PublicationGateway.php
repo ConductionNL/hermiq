@@ -40,7 +40,11 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\PublicationGatewayInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\App\IAppManager;
 
@@ -49,7 +53,7 @@ use OCP\App\IAppManager;
  *
  * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
  */
-class PublicationGateway {
+class PublicationGateway implements PublicationGatewayInterface {
 
 	/**
 	 * The fleet publication leaf whose presence makes the publish action available.
@@ -121,8 +125,7 @@ class PublicationGateway {
 
 		$saved = $this->objectService->saveObject(
 			object: $publication,
-			register: self::PUBLICATION_REGISTER,
-			schema: self::PUBLICATION_SCHEMA
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::PUBLICATION_REGISTER, schema: self::PUBLICATION_SCHEMA))
 		);
 
 		return (string)$saved->getUuid();
@@ -148,8 +151,7 @@ class PublicationGateway {
 
 		$existing = $this->objectService->find(
 			id: $reference,
-			register: self::PUBLICATION_REGISTER,
-			schema: self::PUBLICATION_SCHEMA
+			options: new ObjectFindOptions(register: self::PUBLICATION_REGISTER, schema: self::PUBLICATION_SCHEMA)
 		);
 
 		$data = [];
@@ -162,9 +164,10 @@ class PublicationGateway {
 
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::PUBLICATION_REGISTER,
-			schema: self::PUBLICATION_SCHEMA,
-			uuid: $reference
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::PUBLICATION_REGISTER, schema: self::PUBLICATION_SCHEMA),
+				uuid: $reference
+			)
 		);
 
 		return true;

@@ -34,9 +34,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
+use OCA\Hermiq\Kernel\Contracts\OrganisationModelPolicyServiceInterface;
 use OCA\Hermiq\Repair\Support\FirstOrganisation;
 use OCA\Hermiq\Repair\Support\OrganisationSeed;
-use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -142,7 +142,7 @@ class SeedModelPolicies implements IRepairStep {
 	private function startRun(IOutput $output): ?ModelPolicySeedRun {
 		$run = new ModelPolicySeedRun(output: $output);
 		try {
-			$run->policyService = $this->container->get(OrganisationModelPolicyService::class);
+			$run->policyService = $this->container->get(OrganisationModelPolicyServiceInterface::class);
 			$run->organisationMapper = $this->container->get(OrganisationMapper::class);
 		} catch (Throwable $e) {
 			$output->warning('OpenRegister not available — skipping model-policy seed.');

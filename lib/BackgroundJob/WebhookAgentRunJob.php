@@ -30,7 +30,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\BackgroundJob;
 
-use OCA\Hermiq\Service\WebhookAgentRunService;
+use OCA\Hermiq\Kernel\Contracts\WebhookAgentRunServiceInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\QueuedJob;
 
@@ -46,11 +46,11 @@ class WebhookAgentRunJob extends QueuedJob {
 	 * Constructor.
 	 *
 	 * @param ITimeFactory $time Time factory for the base job.
-	 * @param WebhookAgentRunService $webhookAgentRun Runs the governed dispatch.
+	 * @param WebhookAgentRunServiceInterface $webhookAgentRun Runs the governed dispatch.
 	 */
 	public function __construct(
 		ITimeFactory $time,
-		private readonly WebhookAgentRunService $webhookAgentRun,
+		private readonly WebhookAgentRunServiceInterface $webhookAgentRun,
 	) {
 		parent::__construct(time: $time);
 	}//end __construct()

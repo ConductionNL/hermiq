@@ -72,9 +72,11 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Repair;
 
 use DateTime;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\OpenRegister\Db\Flow;
+use OCA\OpenRegister\Db\Flow\FlowSelection;
 use OCA\OpenRegister\Db\FlowMapper;
+use OCA\OpenRegister\Kernel\Contracts\ListQuery;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCA\OpenRegister\Service\OrganisationService;
@@ -304,9 +306,9 @@ class SeedHydraTriageFlow implements IRepairStep {
 		}
 
 		try {
-			$this->appConfig->setValueString(Application::APP_ID, self::OUTCOME_KEY, $outcome);
+			$this->appConfig->setValueString(AppIdentity::APP_ID, self::OUTCOME_KEY, $outcome);
 			$this->appConfig->setValueString(
-				Application::APP_ID,
+				AppIdentity::APP_ID,
 				self::OUTCOME_DETAIL_KEY,
 				mb_substr($detail, 0, 500)
 			);
@@ -455,7 +457,7 @@ class SeedHydraTriageFlow implements IRepairStep {
 	private function flowFrom(array $data): Flow {
 		$flow = new Flow();
 		$flow->setUuid($this->newUuid());
-		$flow->setApp(Application::APP_ID);
+		$flow->setApp(AppIdentity::APP_ID);
 		$flow->setName(self::FLOW_NAME);
 		$flow->setDescription((string)($data['description'] ?? ''));
 		$flow->setTrigger((string)($data['trigger'] ?? ''));
@@ -820,7 +822,7 @@ class SeedHydraTriageFlow implements IRepairStep {
 	 * @return Flow|null The matching flow, or null.
 	 */
 	private function findExisting(FlowMapper $mapper): ?Flow {
-		foreach ($mapper->findAllFlows(app: Application::APP_ID, limit: 500) as $flow) {
+		foreach ($mapper->findAllFlows(selection: new FlowSelection(app: AppIdentity::APP_ID), query: new ListQuery(limit: 500, offset: 0)) as $flow) {
 			if ($flow->getName() === self::FLOW_NAME) {
 				return $flow;
 			}

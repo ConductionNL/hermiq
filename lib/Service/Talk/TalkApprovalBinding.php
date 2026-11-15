@@ -32,7 +32,11 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Talk;
 
+use OCA\Hermiq\Kernel\Contracts\TalkApprovalBindingInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -44,7 +48,7 @@ use Throwable;
  *
  * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
  */
-class TalkApprovalBinding {
+class TalkApprovalBinding implements TalkApprovalBindingInterface {
 
 	/**
 	 * OpenRegister register slug.
@@ -120,9 +124,10 @@ class TalkApprovalBinding {
 
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::APPROVAL_SCHEMA,
-				uuid: $approvalUuid
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA),
+					uuid: $approvalUuid
+				)
 			);
 
 			return true;
@@ -207,8 +212,7 @@ class TalkApprovalBinding {
 		try {
 			$approval = $this->objectService->find(
 				id: $approvalUuid,
-				register: self::REGISTER_SLUG,
-				schema: self::APPROVAL_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA)
 			);
 
 			if (($approval instanceof ObjectEntity) === false) {
@@ -220,9 +224,10 @@ class TalkApprovalBinding {
 
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::APPROVAL_SCHEMA,
-				uuid: $approvalUuid
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA),
+					uuid: $approvalUuid
+				)
 			);
 		} catch (Throwable $e) {
 			// Provenance is an audit nicety; never fail a decision over it.

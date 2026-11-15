@@ -42,6 +42,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\GitHubTemplatePushServiceInterface;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -59,20 +60,7 @@ use RuntimeException;
  *
  * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
  */
-class GitHubTemplatePushService {
-	/**
-	 * The `AgentTemplate` kind — the original (and default) publish kind.
-	 *
-	 * @var string
-	 */
-	public const KIND_AGENT_TEMPLATE = 'agent-template';
-
-	/**
-	 * The `Skill` kind (hermiq-github-store) — agentskills.io packages.
-	 *
-	 * @var string
-	 */
-	public const KIND_SKILL = 'skill';
+class GitHubTemplatePushService implements GitHubTemplatePushServiceInterface {
 
 	/**
 	 * Per-kind discovery topic (hermiq-github-store: generalised from the single

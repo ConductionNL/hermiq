@@ -33,7 +33,11 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Talk;
 
+use OCA\Hermiq\Kernel\Contracts\TalkRoomBindingInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -45,7 +49,7 @@ use Throwable;
  *
  * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
  */
-class TalkRoomBinding {
+class TalkRoomBinding implements TalkRoomBindingInterface {
 
 	/**
 	 * OpenRegister register slug.
@@ -245,9 +249,10 @@ class TalkRoomBinding {
 
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
-				uuid: (string)$conversation->getUuid()
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+					uuid: (string)$conversation->getUuid()
+				)
 			);
 
 			return true;
@@ -289,8 +294,7 @@ class TalkRoomBinding {
 		try {
 			$conversation = $this->objectService->find(
 				id: $conversationUuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 
 			if (($conversation instanceof ObjectEntity) === false) {
@@ -377,9 +381,10 @@ class TalkRoomBinding {
 
 			return $this->objectService->saveObject(
 				object: $payload,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
-				uuid: (string)$conversation->getUuid()
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+					uuid: (string)$conversation->getUuid()
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(
@@ -434,8 +439,7 @@ class TalkRoomBinding {
 					'talkRoomToken' => $roomToken,
 					'participants' => $roster,
 				],
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA))
 			);
 
 			$this->logger->info(

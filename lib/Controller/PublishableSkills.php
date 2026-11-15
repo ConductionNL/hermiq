@@ -28,7 +28,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\Service\SkillService;
+use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Db\DoesNotExistException;
 use Psr\Log\LoggerInterface;
@@ -44,13 +44,13 @@ final class PublishableSkills {
 	/**
 	 * Build the step.
 	 *
-	 * @param SkillService    $skillService Reads skills and their publish-time file selection.
+	 * @param SkillServiceInterface    $skillService Reads skills and their publish-time file selection.
 	 * @param LoggerInterface $logger       Logs a skill that could not be resolved.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	public function __construct(
-		private readonly SkillService $skillService,
+		private readonly SkillServiceInterface $skillService,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()

@@ -43,12 +43,14 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Agent;
 
+use OCA\Hermiq\Kernel\Contracts\AgentContextBuilderInterface;
+
 /**
  * Builds a bounded, fail-closed agent context from a schema allowlist.
  *
  * @spec openspec/changes/archive/2026-09-06-hermiq-agent-leaf/tasks.md#3-declarative-context-allowlist
  */
-class AgentContextBuilder {
+class AgentContextBuilder implements AgentContextBuilderInterface {
 
 	/**
 	 * The schema keyword naming the agent-context allowlist.

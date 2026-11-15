@@ -39,6 +39,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\AiFeature;
 
+use OCA\Hermiq\Kernel\Contracts\DocumentFeatureRunInterface;
 use OCA\Hermiq\Service\AiFeatureService;
 use OCA\Hermiq\Service\Chat\AttachmentTextReader;
 use OCA\Hermiq\Service\GuardrailBlockedException;
@@ -55,7 +56,7 @@ use Throwable;
  *
  * @spec openspec/changes/ai-feature-run-on-a-document/specs/ai-feature-governance/spec.md#requirement-an-app-can-run-an-ai-feature-on-a-document-it-names-and-the-gates-apply-to-that-document
  */
-class DocumentFeatureRun {
+class DocumentFeatureRun implements DocumentFeatureRunInterface {
 
 	/**
 	 * The longest instruction an app may send with a run.

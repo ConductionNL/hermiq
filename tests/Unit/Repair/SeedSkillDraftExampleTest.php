@@ -21,6 +21,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Repair;
 
+use OCA\Hermiq\Kernel\Contracts\SkillConsolidationServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillVersionServiceInterface;
 use OCA\Hermiq\Repair\SeedSkillDraftExample;
 use OCA\Hermiq\Service\SkillConsolidationService;
 use OCA\Hermiq\Service\SkillVersionService;
@@ -32,6 +34,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for SeedSkillDraftExample.
@@ -91,21 +94,22 @@ class SeedSkillDraftExampleTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				bool $failIfExists = false,
-				bool $_unowned = false,
-				bool $_dedupOverride = false,
-				?string $_owner = null,
+				bool $_multitenancy = true
 			): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
+				$silent = $options->policy->silent ?? false;
+				$_validation = $options->policy->validation ?? true;
+				$uploadedFiles = $options->uploadedFiles;
+				$currentUser = $options->actor->currentUser;
+				$failIfExists = $options->policy->failIfExists ?? false;
+				$_unowned = $options->actor->unowned ?? false;
+				$_dedupOverride = $options->policy->dedupOverride ?? false;
+				$_owner = $options->actor->owner;
 				if ($schema === $this->failOn) {
 					throw new RuntimeException('register is read-only');
 				}
@@ -217,8 +221,8 @@ class SeedSkillDraftExampleTest extends TestCase {
 		$step = new SeedSkillDraftExample(
 			$this->container([
 				ObjectService::class => $objects,
-				SkillConsolidationService::class => $consolidation,
-				SkillVersionService::class => $versions,
+				SkillConsolidationServiceInterface::class => $consolidation,
+				SkillVersionServiceInterface::class => $versions,
 			]),
 			$this->urls(),
 			$this->createMock(LoggerInterface::class)
@@ -287,7 +291,7 @@ class SeedSkillDraftExampleTest extends TestCase {
 		$consolidation = $this->createMock(SkillConsolidationService::class);
 		$consolidation->method('drivingEntries')->willReturn([]);
 		$step = new SeedSkillDraftExample(
-			$this->container([ObjectService::class => $objects, SkillConsolidationService::class => $consolidation]),
+			$this->container([ObjectService::class => $objects, SkillConsolidationServiceInterface::class => $consolidation]),
 			$this->urls(),
 			$this->createMock(LoggerInterface::class)
 		);

@@ -53,6 +53,7 @@ use OCP\IUserSession;
 use OCP\Security\Bruteforce\IThrottler;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 
 /**
  * The stream frames, the recorded cli steps and their replay under an output policy.
@@ -71,6 +72,12 @@ use Psr\Log\NullLogger;
  * @uses   \OCA\Hermiq\Service\Agent\AgentAvailability
  * @uses   \OCA\Hermiq\Service\RedactionService
  * @uses   \OCA\Hermiq\Service\Workspace\RepoEffectingGrants
+ * @uses   \OCA\Hermiq\Service\Redaction\AssignmentRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\CredentialRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\FormBodyRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\PhoneRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\TokenMasker
+ * @uses   \OCA\Hermiq\Service\Redaction\VendorKeyRedactor
  */
 final class ToolDetailOutputFilterTest extends TestCase {
 
@@ -437,7 +444,11 @@ final class ToolDetailOutputFilterTest extends TestCase {
 
 		$objects = $this->createMock(ObjectService::class);
 		$objects->method('find')->willReturnCallback(
-			function (string $id, ?array $extend = [], bool $files = false, mixed $register = null, mixed $schema = null) use ($agent, $conversation, $conversationOrg): ?ObjectEntity {
+			function (string $id, ?ObjectFindOptions $options = null) use ($agent, $conversation, $conversationOrg): ?ObjectEntity {
+				$extend = $options?->extend ?? [];
+				$files = $options?->files ?? false;
+				$register = $options?->register;
+				$schema = $options?->schema;
 				if ($schema !== 'agentsession') {
 					return $agent;
 				}

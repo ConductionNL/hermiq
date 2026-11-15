@@ -71,6 +71,7 @@ vi.mock('../../src/api/chat.js', async (orig) => {
 		stopGoal: vi.fn(),
 		streamChatMessage: vi.fn(),
 		uploadChatAttachment: vi.fn(),
+		warmChat: vi.fn(async () => false),
 	}
 })
 
@@ -207,6 +208,8 @@ describe('starting and selecting', () => {
 		const w = await mountChat()
 		await w.vm.startWithAgent({ id: 'a2', name: '', views: [{ uuid: 'v' }], tools: ['x.t'], searchFiles: false, ragNumSources: 2 })
 		expect(api.createSession).toHaveBeenCalledWith('a2')
+		// The new session's CLI process starts before its first question.
+		expect(api.warmChat).toHaveBeenCalledWith('a2', 'new')
 		expect(w.vm.activeSession).toEqual({ uuid: 'new' })
 		expect(w.vm.settings).toEqual({ views: ['v'], tools: ['x.t'], includeObjects: true, includeFiles: false, numSourcesObjects: 2, numSourcesFiles: 2 })
 		expect(w.vm.startingId).toBe('')
@@ -228,6 +231,7 @@ describe('starting and selecting', () => {
 		w.vm.pendingAttachments = [{ fileId: 1 }]
 		await w.vm.selectSession({ uuid: 's1', agentId: 'a1' })
 		await flushPromises()
+		expect(api.warmChat).toHaveBeenCalledWith('a1', 's1')
 		expect(w.vm.messages).toEqual([{ id: 1 }])
 		expect(w.vm.pendingAttachments).toEqual([])
 		expect(w.vm.currentAgent.name).toBe('Helper')

@@ -34,9 +34,13 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\SkillVersionServiceInterface;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use RuntimeException;
 use Throwable;
@@ -49,7 +53,7 @@ use Throwable;
  *
  * @spec openspec/specs/skill-self-improvement/spec.md#requirement-skills-have-version-history-diff-and-rollback-mirroring-agent-versioning
  */
-class SkillVersionService {
+class SkillVersionService implements SkillVersionServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -187,8 +191,7 @@ class SkillVersionService {
 
 		$skill = $this->objectService->find(
 			id: $skillUuid,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA)
 		);
 		if (($skill instanceof ObjectEntity) === false) {
 			throw new RuntimeException('Skill not found.');
@@ -204,9 +207,10 @@ class SkillVersionService {
 
 		return $this->objectService->saveObject(
 			object: $payload,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: $skillUuid
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: $skillUuid
+			)
 		);
 
 	}//end rollback()
@@ -348,8 +352,7 @@ class SkillVersionService {
 	private function liveSkillData(string $skillUuid): array {
 		$skill = $this->objectService->find(
 			id: $skillUuid,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA)
 		);
 		if (($skill instanceof ObjectEntity) === false) {
 			throw new RuntimeException('Skill not found.');

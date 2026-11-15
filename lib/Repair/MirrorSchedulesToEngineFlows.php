@@ -35,7 +35,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\Hermiq\Service\Schedule\ScheduleFlowBridge;
+use OCA\Hermiq\Kernel\Contracts\ScheduleFlowBridgeInterface;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
 use Psr\Log\LoggerInterface;
@@ -51,11 +51,11 @@ class MirrorSchedulesToEngineFlows implements IRepairStep {
 	/**
 	 * Constructor.
 	 *
-	 * @param ScheduleFlowBridge $flowBridge The sync pass (mirror/refresh/retire).
+	 * @param ScheduleFlowBridgeInterface $flowBridge The sync pass (mirror/refresh/retire).
 	 * @param LoggerInterface $logger Diagnostics.
 	 */
 	public function __construct(
-		private readonly ScheduleFlowBridge $flowBridge,
+		private readonly ScheduleFlowBridgeInterface $flowBridge,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()

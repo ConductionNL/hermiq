@@ -28,8 +28,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\MessageTranslationEngine;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\MessageTranslationEngineInterface;
 use OCA\Hermiq\Service\Translation\TranslationDisclosure;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -66,7 +66,7 @@ class MessageTranslationController extends Controller {
 	 *
 	 * @param IRequest $request The request object.
 	 * @param IUserSession $userSession Resolves the requesting user (401 if absent).
-	 * @param MessageTranslationEngine $engine The gated translation pipeline.
+	 * @param MessageTranslationEngineInterface $engine The gated translation pipeline.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param TranslationDisclosure|null $disclosure The language-tag check. Nullable and
 	 *                                               trailing so a controller built by
@@ -75,11 +75,11 @@ class MessageTranslationController extends Controller {
 	public function __construct(
 		IRequest $request,
 		private readonly IUserSession $userSession,
-		private readonly MessageTranslationEngine $engine,
+		private readonly MessageTranslationEngineInterface $engine,
 		private readonly LoggerInterface $logger,
 		?TranslationDisclosure $disclosure=null,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 		$this->disclosure = $disclosure ?? new TranslationDisclosure();
 	}//end __construct()
 

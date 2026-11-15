@@ -25,6 +25,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
+use OCA\Hermiq\Service\Engine\FacadeCall;
 use OCA\Hermiq\Service\Engine\FacadeToolInvoker;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
@@ -67,7 +68,7 @@ class FacadeToolInvokerDispatchTest extends TestCase {
 		$method = new ReflectionMethod($invoker, 'dispatchToFacade');
 		$method->setAccessible(true);
 
-		return $method->invoke($invoker, 'demo_list', ['limit' => 2], $outcomeOverride);
+		return $method->invoke($invoker, 'demo_list', new FacadeCall(arguments: ['limit' => 2], outcomeOverride: $outcomeOverride));
 	}//end dispatch()
 
 	/**

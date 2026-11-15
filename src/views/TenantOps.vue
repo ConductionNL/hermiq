@@ -55,7 +55,7 @@
 					<h3 class="tenant-ops__subhead">
 						{{ t('hermiq', 'Cost guardrails') }}
 					</h3>
-					<NcButton type="secondary" @click="openCreateBudget">
+					<NcButton variant="secondary" @click="openCreateBudget">
 						{{ t('hermiq', 'Add budget') }}
 					</NcButton>
 				</div>
@@ -134,10 +134,10 @@
 							{{ t('hermiq', 'Soft threshold crossed') }}
 						</span>
 						<div class="tenant-ops__card-actions">
-							<NcButton type="tertiary" @click="openEditBudget(entry)">
+							<NcButton variant="tertiary" @click="openEditBudget(entry)">
 								{{ t('hermiq', 'Edit') }}
 							</NcButton>
-							<NcButton type="tertiary" @click="removeBudget(entry)">
+							<NcButton variant="tertiary" @click="removeBudget(entry)">
 								{{ t('hermiq', 'Delete') }}
 							</NcButton>
 						</div>
@@ -186,7 +186,7 @@
 									)
 								: t('hermiq', 'Instance default')
 						}}</strong>
-						<NcButton type="tertiary" @click="togglePolicyEdit(policy)">
+						<NcButton variant="tertiary" @click="togglePolicyEdit(policy)">
 							{{
 								editingPolicyId === policy.id
 									? t('hermiq', 'Cancel')
@@ -246,7 +246,7 @@
 						</NcNoteCard>
 						<div class="tenant-ops__card-actions">
 							<NcButton
-								type="primary"
+								variant="primary"
 								:disabled="policySaving"
 								@click="savePolicy(policy)">
 								{{ t('hermiq', 'Save policy') }}
@@ -296,7 +296,7 @@
 					<template #row-actions="{ row }">
 						<div class="tenant-ops__review-actions">
 							<NcButton
-								type="tertiary"
+								variant="tertiary"
 								:disabled="reviewBusyUuid === row.uuid"
 								@click="markReviewed(row)">
 								{{ t('hermiq', 'Mark reviewed') }}
@@ -310,7 +310,7 @@
 										t('hermiq', 'New acting user id')
 									" />
 								<NcButton
-									type="secondary"
+									variant="secondary"
 									:disabled="
 										!reassignDrafts[row.uuid]
 										|| reviewBusyUuid === row.uuid
@@ -358,6 +358,7 @@ import {
 import { attestReviewed, getAccessReview, reassignAgent } from '../api/tenantOps.js'
 import { dateOrDash } from '../utils/displayDate.js'
 import { organisationLabel } from '../utils/organisationLabel.js'
+import { organisationPicker } from '../utils/organisationPicker.js'
 
 export default {
 	name: 'TenantOps',
@@ -375,6 +376,8 @@ export default {
 		NcTextField,
 		ShieldIcon,
 	},
+
+	mixins: [organisationPicker('loadBudgets')],
 
 	data() {
 		// Capability + manageable organisations come from the backend via
@@ -433,43 +436,6 @@ export default {
 						this.providerDataUse[provider],
 					),
 			)
-		},
-
-		/**
-		 * The manageable organisations as NcSelect options.
-		 *
-		 * @return {Array<object>} The { label, value } options.
-		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
-		 */
-		orgOptions() {
-			return this.organisations.map((org) => ({
-				label: org.label || org.id,
-				value: org.id,
-			}))
-		},
-
-		/**
-		 * Two-way bridge between the selected org id and the NcSelect option object.
-		 */
-		orgOption: {
-			/**
-			 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
-			 */
-			get() {
-				return (
-					this.orgOptions.find(
-						(option) => option.value === this.selectedOrg,
-					) || this.orgOptions[0]
-				)
-			},
-
-			/**
-			 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
-			 */
-			set(option) {
-				this.selectedOrg = option ? option.value : ''
-				this.loadBudgets()
-			},
 		},
 
 		/**

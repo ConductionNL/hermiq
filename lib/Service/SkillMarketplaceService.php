@@ -39,9 +39,12 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\SkillMarketplaceServiceInterface;
 use OCA\Hermiq\Support\FleetAppId;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
@@ -58,7 +61,7 @@ use Throwable;
  *
  * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#2-skillmarketplaceservice
  */
-class SkillMarketplaceService {
+class SkillMarketplaceService implements SkillMarketplaceServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -216,8 +219,7 @@ class SkillMarketplaceService {
 
 		return $this->objectService->saveObject(
 			object: $object,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA))
 		);
 
 	}//end installFromSource()
@@ -329,9 +331,10 @@ class SkillMarketplaceService {
 
 		return $this->objectService->saveObject(
 			object: $payload,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: $existing->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: $existing->getUuid()
+			)
 		);
 
 	}//end updateExisting()
@@ -394,8 +397,8 @@ class SkillMarketplaceService {
 	 * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#2-skillmarketplaceservice
 	 */
 	public function curate(): array {
-		$staleDays = $this->appConfig->getValueInt(Application::APP_ID, 'skillStaleDays', self::DEFAULT_STALE_DAYS);
-		$archiveDays = $this->appConfig->getValueInt(Application::APP_ID, 'skillArchiveDays', self::DEFAULT_ARCHIVE_DAYS);
+		$staleDays = $this->appConfig->getValueInt(AppIdentity::APP_ID, 'skillStaleDays', self::DEFAULT_STALE_DAYS);
+		$archiveDays = $this->appConfig->getValueInt(AppIdentity::APP_ID, 'skillArchiveDays', self::DEFAULT_ARCHIVE_DAYS);
 
 		$nowTs = time();
 		$scanned = 0;
@@ -518,11 +521,12 @@ class SkillMarketplaceService {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: $uuid,
-			_rbac: ($systemWide === false),
-			_multitenancy: ($systemWide === false)
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: $uuid
+			),
+			_rbac: $systemWide === false,
+			_multitenancy: $systemWide === false
 		);
 
 	}//end save()

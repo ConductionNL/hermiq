@@ -33,12 +33,14 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\AlgoritmekaderMapperInterface;
+
 /**
  * Publish-readiness gate + Algoritmekader mapping for AiFeature records.
  *
  * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
  */
-class AlgoritmekaderMapper {
+class AlgoritmekaderMapper implements AlgoritmekaderMapperInterface {
 
 	/**
 	 * The only risk category in scope for the national Algoritmeregister (impactful).

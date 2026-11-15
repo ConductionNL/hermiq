@@ -33,9 +33,10 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\ScheduleWebhookSecretService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ScheduleWebhookSecretServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -77,17 +78,17 @@ class ScheduleWebhookSecretController extends Controller {
 	 * @param IRequest $request The request object.
 	 * @param ObjectService $objectService OpenRegister object read (schedule ownership check).
 	 * @param IUserSession $userSession Resolves the requesting user for the owner guard.
-	 * @param ScheduleWebhookSecretService $scheduleWebhookSecretService The webhook secret lifecycle service.
+	 * @param ScheduleWebhookSecretServiceInterface $scheduleWebhookSecretService The webhook secret lifecycle service.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
 		IRequest $request,
 		private readonly ObjectService $objectService,
 		private readonly IUserSession $userSession,
-		private readonly ScheduleWebhookSecretService $scheduleWebhookSecretService,
+		private readonly ScheduleWebhookSecretServiceInterface $scheduleWebhookSecretService,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -266,8 +267,7 @@ class ScheduleWebhookSecretController extends Controller {
 		try {
 			$schedule = $this->objectService->find(
 				id: $scheduleId,
-				register: self::REGISTER_SLUG,
-				schema: self::SCHEMA_SLUG
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG)
 			);
 		} catch (Throwable $e) {
 			// `ObjectService::find()` throws when the object is absent, and every

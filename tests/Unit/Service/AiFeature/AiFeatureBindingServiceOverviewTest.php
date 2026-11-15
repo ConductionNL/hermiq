@@ -24,7 +24,7 @@ use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\AiFeature\ProviderDeclarationStore;
 use OCA\Hermiq\Service\AiFeature\ProviderResidencyRegistry;
 use OCA\Hermiq\Service\AiFeatureService;
-use OCA\Hermiq\Service\OrganisationModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
@@ -32,6 +32,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * The AI-feature overview shows each feature's resolved binding and where its provider runs.
@@ -42,13 +43,13 @@ use PHPUnit\Framework\TestCase;
 final class AiFeatureBindingServiceOverviewTest extends TestCase {
 
 	private AiFeatureService&MockObject $features;
-	private OrganisationModelPolicyService&MockObject $policy;
+	private EffectiveModelPolicy&MockObject $policy;
 	private ObjectService&MockObject $objects;
 	private IAppConfig&MockObject $config;
 
 	protected function setUp(): void {
 		$this->features = $this->createMock(AiFeatureService::class);
-		$this->policy   = $this->createMock(OrganisationModelPolicyService::class);
+		$this->policy   = $this->createMock(EffectiveModelPolicy::class);
 		$this->objects  = $this->createMock(ObjectService::class);
 		$this->config   = $this->createMock(IAppConfig::class);
 		$this->config->method('getValueString')->willReturn(
@@ -191,13 +192,13 @@ final class AiFeatureBindingServiceOverviewTest extends TestCase {
 		$saved = new ObjectEntity();
 		$this->objects->expects($this->once())
 			->method('saveObject')
-			->with(
-				['slug' => 'samenvatten', 'id' => 'f-1', 'provider' => 'ollama', 'model' => 'llama3', 'requiredResidency' => 'eu'],
-				[],
-				'hermiq',
-				'agentaifeature',
-				'f-1'
-			)
+			->with(...LegacyObjectArgs::with(method: 'saveObject', expected: [
+					'object' => ['slug' => 'samenvatten', 'id' => 'f-1', 'provider' => 'ollama', 'model' => 'llama3', 'requiredResidency' => 'eu'],
+					'extend' => [],
+					'register' => 'hermiq',
+					'schema' => 'agentaifeature',
+					'uuid' => 'f-1',
+				]))
 			->willReturn($saved);
 
 		$this->assertSame($saved, $this->service()->bind(id: 'f-1', provider: 'ollama ', model: ' llama3', requiredResidency: 'eu'));

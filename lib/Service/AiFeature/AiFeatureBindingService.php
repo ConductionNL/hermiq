@@ -30,9 +30,12 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\AiFeature;
 
 use InvalidArgumentException;
+use OCA\Hermiq\Kernel\Contracts\AiFeatureBindingServiceInterface;
 use OCA\Hermiq\Service\AiFeatureService;
-use OCA\Hermiq\Service\OrganisationModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 
 /**
@@ -40,7 +43,7 @@ use OCA\OpenRegister\Service\ObjectService;
  *
  * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
  */
-class AiFeatureBindingService {
+class AiFeatureBindingService implements AiFeatureBindingServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -60,13 +63,13 @@ class AiFeatureBindingService {
 	 * Constructor.
 	 *
 	 * @param AiFeatureService $features Reads the AiFeature register (RBAC + tenancy scoped).
-	 * @param OrganisationModelPolicyService $modelPolicy The ceiling a binding must stay within.
+	 * @param EffectiveModelPolicy $modelPolicy The ceiling a binding must stay within.
 	 * @param ProviderResidencyRegistry $residency Validates the residency vocabulary.
 	 * @param ObjectService $objectService OpenRegister single write-path.
 	 */
 	public function __construct(
 		private readonly AiFeatureService $features,
-		private readonly OrganisationModelPolicyService $modelPolicy,
+		private readonly EffectiveModelPolicy $modelPolicy,
 		private readonly ProviderResidencyRegistry $residency,
 		private readonly ObjectService $objectService,
 	) {
@@ -131,9 +134,10 @@ class AiFeatureBindingService {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::AIFEATURE_SCHEMA,
-			uuid: (string)$feature->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA),
+				uuid: (string)$feature->getUuid()
+			)
 		);
 
 	}//end bind()

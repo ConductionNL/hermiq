@@ -38,11 +38,17 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
-use OCP\Notification\IManager as INotificationManager;
 use DateTime;
 use DateTimeImmutable;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
+use OCA\Hermiq\Service\ToolAccess\AccessMatchQuery;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\SaveActor;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
+use OCP\Notification\IManager as INotificationManager;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -59,7 +65,7 @@ use Throwable;
  *   right move — do it when that provider's constructor is next opened, not by
  *   raising this number again.
  */
-class ToolAccessRequestService {
+class ToolAccessRequestService implements ToolAccessRequestServiceInterface {
 
 	/**
 	 * Matches returned by a single discovery call.
@@ -140,9 +146,11 @@ class ToolAccessRequestService {
 
 		$found = $this->collectMatches(
 			catalog: $catalog,
-			uid: $uid,
-			held: $held,
-			tokens: $this->tokenise(query: $query)
+			query: new AccessMatchQuery(
+				uid: $uid,
+				held: $held,
+				tokens: $this->tokenise(query: $query)
+			)
 		);
 
 		$shown = count($found['tools']);
@@ -211,13 +219,14 @@ class ToolAccessRequestService {
 	 * descriptor for an id wins; they are copies of one another.
 	 *
 	 * @param array<int, array<string, mixed>> $catalog The tool catalogue.
-	 * @param string $uid The acting user.
-	 * @param array<string, mixed> $held The ids the agent already holds.
-	 * @param array<int, string> $tokens The query tokens; [] matches everything.
+	 * @param AccessMatchQuery $query Who asks for tool access, what they hold, and the search terms.
 	 *
 	 * @return array{tools: array<int, array<string, mixed>>, matched: int, distinct: int}
 	 */
-	private function collectMatches(array $catalog, string $uid, array $held, array $tokens): array {
+	private function collectMatches(array $catalog, AccessMatchQuery $query): array {
+		$uid = $query->uid;
+		$held = $query->held;
+		$tokens = $query->tokens;
 		$out = [];
 		$matched = 0;
 		$seen = [];
@@ -447,7 +456,7 @@ class ToolAccessRequestService {
 	 */
 	private function userMaySee(string $uid, string $toolId): bool {
 		$app = $this->appOf(toolId: $toolId);
-		if ($app === '' || $app === Application::APP_ID) {
+		if ($app === '' || $app === AppIdentity::APP_ID) {
 			return true;
 		}
 
@@ -554,7 +563,7 @@ class ToolAccessRequestService {
 
 		try {
 			$objectService = $this->container->get('OCA\OpenRegister\Service\ObjectService');
-			$object = $objectService->find(id: $agentId, register: self::REGISTER_SLUG, schema: 'Agent');
+			$object = $objectService->find(id: $agentId, options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: 'Agent'));
 			if ($object === null) {
 				return [];
 			}
@@ -816,10 +825,11 @@ class ToolAccessRequestService {
 			// before every rule, so the requester must not own the request.
 			$saved = $objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::REQUEST_SCHEMA,
-				_rbac: false,
-				_unowned: true
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::REQUEST_SCHEMA),
+					actor: new SaveActor(unowned: true)
+				),
+				_rbac: false
 			);
 
 			return $this->asRecord(value: $saved);
@@ -862,7 +872,7 @@ class ToolAccessRequestService {
 
 		try {
 			$notification = $this->notifications->createNotification();
-			$notification->setApp(Application::APP_ID)
+			$notification->setApp(AppIdentity::APP_ID)
 				->setUser($owner)
 				->setDateTime(new DateTime())
 				->setObject('toolaccess', $agentId . ':' . $toolId)

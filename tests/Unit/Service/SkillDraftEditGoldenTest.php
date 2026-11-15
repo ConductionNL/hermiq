@@ -35,7 +35,6 @@ use OCA\Hermiq\Service\BudgetService;
 use OCA\Hermiq\Service\DeliveryService;
 use OCA\Hermiq\Service\EvalRunService;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
-use OCA\Hermiq\Service\ScheduleService;
 use OCA\Hermiq\Service\SeedCustodyService;
 use OCA\Hermiq\Service\SkillConsolidationService;
 use OCA\Hermiq\Service\SkillLearningsCaptureService;
@@ -43,6 +42,7 @@ use OCA\Hermiq\Service\SkillLearningsPromotionService;
 use OCA\Hermiq\Service\SkillMaturityService;
 use OCA\Hermiq\Service\SkillService;
 use OCA\Hermiq\Service\SkillVersionService;
+use OCA\Hermiq\Service\TenantKillSwitch;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrail;
@@ -59,11 +59,13 @@ use OCP\IUserManager;
 use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
+use Psr\Log\NullLogger;
 use Random\Engine\Mt19937;
 use Random\Randomizer;
 use ReflectionMethod;
 use RuntimeException;
 use Stringable;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Golden comparison of the edit-before-accept path.
@@ -72,6 +74,7 @@ use Stringable;
  * @covers \OCA\Hermiq\Service\SkillConsolidationService
  * @uses   \OCA\Hermiq\Service\SkillMaturityService
  * @uses \OCA\Hermiq\Controller\SkillOwnership
+ * @uses   \OCA\Hermiq\Service\TenantKillSwitch
  *
  * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
  */
@@ -263,6 +266,7 @@ class SkillDraftEditGoldenTest extends TestCase {
 		);
 		$objectService->method('find')->willReturnCallback(
 			function (mixed ...$args) use (&$calls, $objects): mixed {
+				$args = LegacyObjectArgs::positional(method: 'find', args: $args);
 				$passed = $this->passed(class: ObjectService::class, method: 'find', args: $args);
 				$calls[] = ['find', $passed];
 				return ($objects[(string)($passed['schema'] ?? '')] ?? null);
@@ -270,6 +274,7 @@ class SkillDraftEditGoldenTest extends TestCase {
 		);
 		$objectService->method('saveObject')->willReturnCallback(
 			function (mixed ...$args) use (&$calls, $failSave): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
 				$passed = $this->passed(class: ObjectService::class, method: 'saveObject', args: $args);
 				$calls[] = ['saveObject', $passed];
 				if ($failSave === true) {
@@ -328,7 +333,10 @@ class SkillDraftEditGoldenTest extends TestCase {
 			promotionService: $this->createMock(originalClassName: SkillLearningsPromotionService::class),
 			captureService: $this->createMock(originalClassName: SkillLearningsCaptureService::class),
 			providerFactory: $this->createMock(originalClassName: ProviderFactory::class),
-			scheduleService: $this->createMock(originalClassName: ScheduleService::class),
+			tenantKillSwitch: new TenantKillSwitch(
+				objectService: $this->createMock(originalClassName: ObjectService::class),
+				logger: new NullLogger()
+			),
 			budgetService: $this->createMock(originalClassName: BudgetService::class),
 			contentScanService: $scanner,
 			evalRunService: $this->createMock(originalClassName: EvalRunService::class),
@@ -517,7 +525,7 @@ class SkillDraftEditGoldenTest extends TestCase {
 	 */
 	private function passed(string $class, string $method, array $args): array {
 		$out = [];
-		foreach ((new ReflectionMethod($class, $method))->getParameters() as $index => $param) {
+		foreach (LegacyObjectArgs::parameters($class, $method) as $index => $param) {
 			if (array_key_exists($index, $args) === false) {
 				continue;
 			}
