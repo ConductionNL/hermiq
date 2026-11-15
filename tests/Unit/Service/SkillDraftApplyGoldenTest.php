@@ -59,6 +59,7 @@ use Random\Randomizer;
 use ReflectionMethod;
 use RuntimeException;
 use Stringable;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Golden comparison of the draft apply step.
@@ -184,6 +185,7 @@ class SkillDraftApplyGoldenTest extends TestCase {
 		$objectService = $this->createMock(originalClassName: ObjectService::class);
 		$objectService->method('find')->willReturnCallback(
 			function (mixed ...$args) use (&$calls, $objects): mixed {
+				$args = LegacyObjectArgs::positional(method: 'find', args: $args);
 				$passed = $this->passed(class: ObjectService::class, method: 'find', args: $args);
 				$calls[] = ['find', $passed];
 				return ($objects[(string)($passed['schema'] ?? '')] ?? null);
@@ -191,6 +193,7 @@ class SkillDraftApplyGoldenTest extends TestCase {
 		);
 		$objectService->method('saveObject')->willReturnCallback(
 			function (mixed ...$args) use (&$calls, $failSave): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
 				$passed = $this->passed(class: ObjectService::class, method: 'saveObject', args: $args);
 				$calls[] = ['saveObject', $passed];
 				if ($failSave === true && ($passed['schema'] ?? '') === 'agentskill') {
@@ -462,7 +465,7 @@ class SkillDraftApplyGoldenTest extends TestCase {
 	 */
 	private function passed(string $class, string $method, array $args): array {
 		$out = [];
-		foreach ((new ReflectionMethod($class, $method))->getParameters() as $index => $param) {
+		foreach (LegacyObjectArgs::parameters($class, $method) as $index => $param) {
 			if (array_key_exists($index, $args) === false) {
 				continue;
 			}

@@ -45,6 +45,9 @@ use OCA\Hermiq\Kernel\Contracts\AssistantPromptLibraryInterface;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -263,9 +266,10 @@ class AssistantPromptLibrary implements AssistantPromptLibraryInterface {
 
 		$stored = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG,
-			uuid: $uuid
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
+				uuid: $uuid
+			)
 		);
 
 		$result = $stored->getObject();
@@ -306,9 +310,10 @@ class AssistantPromptLibrary implements AssistantPromptLibraryInterface {
 			try {
 				$this->objectService->saveObject(
 					object: $data,
-					register: self::REGISTER_SLUG,
-					schema: self::SCHEMA_SLUG,
-					uuid: (string)$object->getUuid()
+					options: new ObjectSaveOptions(
+						target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
+						uuid: (string)$object->getUuid()
+					)
 				);
 				$disabled++;
 			} catch (Throwable $e) {
@@ -400,8 +405,7 @@ class AssistantPromptLibrary implements AssistantPromptLibraryInterface {
 		try {
 			return $this->objectService->find(
 				id: $id,
-				register: self::REGISTER_SLUG,
-				schema: self::SCHEMA_SLUG
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG)
 			);
 		} catch (Throwable $e) {
 			return null;

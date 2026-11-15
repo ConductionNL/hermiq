@@ -40,6 +40,8 @@ use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * ReportSimilarityService unit tests.
@@ -86,6 +88,7 @@ class ReportSimilarityServiceTest extends TestCase {
 		);
 		$service->method('find')->willReturnCallback(
 			function (mixed $id, mixed ...$rest): ?ObjectEntity {
+				$rest = array_slice(LegacyObjectArgs::positional(method: 'find', args: [$id, ...$rest]), 1);
 				if (isset($this->groups[(string)$id]) === false) {
 					return null;
 				}
@@ -97,7 +100,11 @@ class ReportSimilarityServiceTest extends TestCase {
 			}
 		);
 		$service->method('saveObject')->willReturnCallback(
-			function (array|ObjectEntity $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null): ObjectEntity {
+			function (array|ObjectEntity $object, ObjectSaveOptions $options = new ObjectSaveOptions()): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$key = ($uuid ?? ('group-' . (count($this->groups) + 1)));
 				$this->groups[$key] = (array)$object;
 

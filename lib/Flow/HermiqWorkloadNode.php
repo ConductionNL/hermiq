@@ -69,7 +69,7 @@ use OCA\Hermiq\Kernel\Contracts\AsyncStageDispatchServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\StageDispatchServiceInterface;
 use OCA\Hermiq\Service\StageRequest;
 use OCA\OpenRegister\Service\Flow\FlowNodeCall;
-use OCA\OpenRegister\Service\Flow\IFlowNode;
+use OCA\OpenRegister\Service\Flow\ICallFlowNode;
 use OCP\IL10N;
 use OCP\IURLGenerator;
 use OCP\WorkflowEngine\IManager;
@@ -81,7 +81,7 @@ use UnexpectedValueException;
  *
  * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
  */
-class HermiqWorkloadNode implements IFlowNode {
+class HermiqWorkloadNode implements ICallFlowNode {
 	/**
 	 * Constructor.
 	 *

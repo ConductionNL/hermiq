@@ -47,6 +47,7 @@ use Random\Randomizer;
 use ReflectionMethod;
 use RuntimeException;
 use Stringable;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Golden comparison of the turn list.
@@ -173,6 +174,7 @@ class SessionMessagesGoldenTest extends TestCase {
 		$objectService = $this->createMock(originalClassName: ObjectService::class);
 		$objectService->method('find')->willReturnCallback(
 			function (mixed ...$args) use (&$calls, $conversation): mixed {
+				$args = LegacyObjectArgs::positional(method: 'find', args: $args);
 				$calls[] = ['find', $this->passed(method: 'find', args: $args)];
 				if ($conversation === 'throws') {
 					throw new DoesNotExistException('no such object');
@@ -343,7 +345,7 @@ class SessionMessagesGoldenTest extends TestCase {
 	 */
 	private function passed(string $method, array $args): array {
 		$out = [];
-		foreach ((new ReflectionMethod(ObjectService::class, $method))->getParameters() as $index => $param) {
+		foreach (LegacyObjectArgs::parameters(ObjectService::class, $method) as $index => $param) {
 			if (array_key_exists($index, $args) === false) {
 				continue;
 			}

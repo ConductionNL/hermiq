@@ -61,6 +61,9 @@ use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Service\ObjectService;
@@ -228,8 +231,7 @@ class FlowAgentRunService implements FlowAgentRunServiceInterface {
 
 		$object = $this->objectService->find(
 			id: $subjectUuid,
-			register: $subjectRegister,
-			schema: $subjectSchema,
+			options: new ObjectFindOptions(register: $subjectRegister, schema: $subjectSchema),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -437,8 +439,7 @@ class FlowAgentRunService implements FlowAgentRunServiceInterface {
 		$subjectSchema = $write->subjectSchema;
 		$fresh = $this->objectService->find(
 			id: $subjectUuid,
-			register: $subjectRegister,
-			schema: $subjectSchema,
+			options: new ObjectFindOptions(register: $subjectRegister, schema: $subjectSchema),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -455,9 +456,10 @@ class FlowAgentRunService implements FlowAgentRunServiceInterface {
 
 		$this->objectService->saveObject(
 			object: $data,
-			register: $subjectRegister,
-			schema: $subjectSchema,
-			uuid: $subjectUuid,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: $subjectRegister, schema: $subjectSchema),
+				uuid: $subjectUuid
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

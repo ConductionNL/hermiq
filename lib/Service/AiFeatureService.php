@@ -38,6 +38,9 @@ use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\AiFeature\FeatureTransition;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Exception\HookStoppedException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 
@@ -131,8 +134,7 @@ class AiFeatureService implements AiFeatureServiceInterface {
 
 		return $this->objectService->find(
 			id: $id,
-			register: self::REGISTER_SLUG,
-			schema: self::AIFEATURE_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA)
 		);
 
 	}//end getFeature()
@@ -209,9 +211,10 @@ class AiFeatureService implements AiFeatureServiceInterface {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::AIFEATURE_SCHEMA,
-			uuid: (string)$feature->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA),
+				uuid: (string)$feature->getUuid()
+			)
 		);
 
 	}//end acknowledge()
@@ -242,9 +245,10 @@ class AiFeatureService implements AiFeatureServiceInterface {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::AIFEATURE_SCHEMA,
-			uuid: (string)$feature->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA),
+				uuid: (string)$feature->getUuid()
+			)
 		);
 
 	}//end recordPublication()
@@ -272,9 +276,10 @@ class AiFeatureService implements AiFeatureServiceInterface {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::AIFEATURE_SCHEMA,
-			uuid: (string)$feature->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA),
+				uuid: (string)$feature->getUuid()
+			)
 		);
 
 	}//end recordWithdrawal()
@@ -346,9 +351,10 @@ class AiFeatureService implements AiFeatureServiceInterface {
 		try {
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::AIFEATURE_SCHEMA,
-				uuid: (string)$feature->getUuid()
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA),
+					uuid: (string)$feature->getUuid()
+				)
 			);
 		} catch (HookStoppedException $e) {
 			// The lifecycle guard denied the transition (e.g. no DPO acknowledgement),
