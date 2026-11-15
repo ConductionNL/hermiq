@@ -73,6 +73,7 @@ Kind: code. Size M. Rows `hermiq:dm-prompt-cache`, `integriq:gw-ai-cache`.
 - [ ] Implement
   > 2026-11-14: the daily `AnswerCachePurgeJob` removes expired entries (`AnswerCacheService::purgeExpired()`, `AnswerCachePurgeJobTest`). Left: the thumbs-down hook in `ChatController` and the note with "Ask the model again" in `Chat.vue` (the turn already honours `ResponseTurnRun::$answerCacheBypass`).
   > 2026-11-14: "Clear cached answers" is `DELETE /api/agents/{id}/answer-cache` (`AgentAnswerCacheController`, owner-only like deleting the agent; `AnswerCacheService::clearForAgent()`), documented in `openapi.json` and pinned in `AgentAnswerCacheControllerTest` and `AnswerCacheServiceTest`. The button on the agent page and the thumbs-down hook (a message does not yet record which entry answered it) are left.
+  > 2026-11-15: the thumbs-down hook: an answer served from the cache is stored with `answerCache: {layer, entryId}` (`SessionTurn` schema 0.6.0, `MessageHistoryHandler::storeMessage(answerCache:)`, passed by `Engine::storeAnswer()`), and `ChatController::sendFeedback()` deletes that entry on a `negative` rating (`ChatFeedbackAnswerCacheTest`, `MessageAnswerCacheRecordTest`, `EngineTest::testACachedAnswerIsStoredWithItsServingEntry`). Left: the note with "Ask the model again" in `Chat.vue` and the Clear button on the agent page.
 - [ ] Test (PHPUnit on the job and the feedback hook; Playwright under tests/e2e/spec-coverage/ for the note and the button)
 
 ## Verification

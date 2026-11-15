@@ -764,4 +764,52 @@ class EngineTest extends TestCase {
 		$this->assertTrue($receivedDryRun);
 
 	}//end testProcessMessageThreadsDryRunToResponseHandler()
+	/**
+	 * An answer served from the answer cache is stored with the entry that served
+	 * it, so a thumbs down can remove that entry; a model answer is stored without.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+	 */
+	public function testACachedAnswerIsStoredWithItsServingEntry(): void {
+		foreach ([[['layer' => 'exact', 'entryId' => 'entry-7'], ['layer' => 'exact', 'entryId' => 'entry-7']], [[], null]] as [$lastCache, $expected]) {
+			$conversation = $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1', 'title' => 'Existing title']);
+			$agent = $this->entity('agent-1', ['name' => 'Helper', 'tools' => []]);
+
+			$objectService = $this->createMock(ObjectService::class);
+			$objectService->method('setRegister')->willReturnSelf();
+			$objectService->method('setSchema')->willReturnSelf();
+			$objectService->method('find')->willReturnCallback(
+				static fn (int|string $id): ?ObjectEntity => ['conv-1' => $conversation, 'agent-1' => $agent][$id] ?? null
+			);
+			$objectService->method('findAll')->willReturn([1, 2, 3]);
+
+			$contextHandler = $this->createMock(ContextRetrievalHandler::class);
+			$contextHandler->method('retrieveContext')->willReturn(['text' => '', 'sources' => []]);
+
+			$responseHandler = $this->createMock(ResponseGenerationHandler::class);
+			$responseHandler->method('generateResponse')->willReturn('Op maandag.');
+			$responseHandler->lastCache = $lastCache;
+
+			$historyHandler = $this->createMock(MessageHistoryHandler::class);
+			$recorded = [];
+			$historyHandler->method('storeMessage')->willReturnCallback(
+				function (string $conversationId, string $role, string $content, ?array $sources = null, ?array $context = null, ?string $authorId = null, ?string $authorDisplayName = null, array $attachments = [], ?array $provenance = null, ?array $answerCache = null) use (&$recorded): ObjectEntity {
+					$recorded[$role] = $answerCache;
+					return $this->entity('msg-' . $role, ['role' => $role, 'content' => $content]);
+				}
+			);
+			$historyHandler->method('buildTurnHistory')->willReturnCallback(
+				static fn (string $conversationId, ObjectEntity $turn, string $text): array => ['history' => [], 'turnText' => $text]
+			);
+
+			$engine = $this->engine($objectService, $contextHandler, $responseHandler, $this->createMock(ConversationManagementHandler::class), $historyHandler);
+			$engine->processMessage(conversationId: 'conv-1', userId: 'alice', userMessage: 'Wanneer?');
+
+			$this->assertSame($expected, $recorded['assistant']);
+			$this->assertNull($recorded['user']);
+		}
+
+	}//end testACachedAnswerIsStoredWithItsServingEntry()
 }//end class

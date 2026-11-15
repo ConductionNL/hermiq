@@ -47,6 +47,7 @@ use OCA\Hermiq\Kernel\Contracts\RunStepBusInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
 use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
+use OCA\Hermiq\Service\AnswerCache\AnswerCacheService;
 use OCA\Hermiq\Service\AppAssistantResolver;
 use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
 use OCA\Hermiq\Service\Chat\SessionSubject;
@@ -150,6 +151,7 @@ class ChatController extends Controller {
 	 *                                                 existing caller constructs unchanged.
 	 * @param LiteracyRequirementInterface|null $literacy The course requirement (compliance-ai-literacy).
 	 * @param AppAssistantResolver|null $assistants The agent for an app when a chat names none (agents-bound-to-their-app).
+	 * @param AnswerCacheService|null   $answerCache The answer cache, so a thumbs down removes the entry that served a reply.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
@@ -166,6 +168,7 @@ class ChatController extends Controller {
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
 		private readonly ?LiteracyRequirementInterface $literacy = null,
 		private readonly ?AppAssistantResolver $assistants = null,
+		private readonly ?AnswerCacheService $answerCache = null,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
@@ -867,6 +870,8 @@ class ChatController extends Controller {
 				_rbac: false
 			);
 
+			$this->forgetCachedAnswer(type: $type, message: $message);
+
 			$this->logger->info(
 				message: '[ChatController] Message feedback saved',
 				context: [
@@ -1339,6 +1344,35 @@ class ChatController extends Controller {
 
 		return (int)($paginated['total'] ?? 0);
 	}//end countObjects()
+
+	/**
+	 * Delete the answer-cache entry that served a message given a thumbs down.
+	 *
+	 * Anyone who may rate the turn may remove the entry, so a wrong cached
+	 * answer is not served again. A message the model answered carries no entry.
+	 *
+	 * @param string       $type    The feedback type, `positive` or `negative`.
+	 * @param ObjectEntity $message The rated message.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+	 */
+	private function forgetCachedAnswer(string $type, ObjectEntity $message): void {
+		if ($type !== 'negative' || $this->answerCache === null) {
+			return;
+		}
+
+		$served = ($message->getObject()['answerCache'] ?? null);
+		if (is_array($served) === false) {
+			return;
+		}
+
+		$entryId = (string)($served['entryId'] ?? '');
+		if ($entryId !== '') {
+			$this->answerCache->remove(entryId: $entryId);
+		}
+	}//end forgetCachedAnswer()
 
 	/**
 	 * Find the caller's existing feedback object for a message, if any.

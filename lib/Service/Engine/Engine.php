@@ -740,15 +740,22 @@ class Engine implements EngineInterface {
 	 *
 	 * @spec openspec/specs/agent-engine-port/spec.md
 	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
 	 */
 	private function storeAnswer(array $turn): ObjectEntity {
+		$answerCache = null;
+		if ($this->responseHandler->lastCache !== []) {
+			$answerCache = $this->responseHandler->lastCache;
+		}
+
 		$assistantStored = $this->historyHandler->storeMessage(
 			conversationId: $turn['conversationId'],
 			role: 'assistant',
 			content: $turn['aiResponse'],
 			sources: $turn['sources'],
 			attachments: $turn['answerAttachments'],
-			provenance: $turn['provenance']
+			provenance: $turn['provenance'],
+			answerCache: $answerCache
 		);
 
 		$this->queueTitleGeneration(
