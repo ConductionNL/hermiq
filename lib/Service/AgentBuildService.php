@@ -39,6 +39,9 @@ use OCA\Hermiq\Service\Workspace\ServerSideWorkspaceProvider;
 use OCA\Hermiq\Service\Workspace\WorkspaceException;
 use OCA\Hermiq\Service\Workspace\WorkspaceSnapshot;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use Psr\Log\LoggerInterface;
@@ -156,8 +159,7 @@ class AgentBuildService {
 
 		$build = $this->objectService->saveObject(
 			object: $payload,
-			register: self::REGISTER_SLUG,
-			schema: self::BUILD_SCHEMA,
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::BUILD_SCHEMA)),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -287,7 +289,12 @@ class AgentBuildService {
 		}
 
 		try {
-			$agent = $this->objectService->find(id: $agentUuid, register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA, _rbac: false, _multitenancy: false);
+			$agent = $this->objectService->find(
+				id: $agentUuid,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+				_rbac: false,
+				_multitenancy: false
+			);
 		} catch (Throwable $e) {
 			return null;
 		}
@@ -343,9 +350,10 @@ class AgentBuildService {
 		$data['pinnedBuildId'] = $buildId;
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
-			uuid: (string)$agent->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+				uuid: (string)$agent->getUuid()
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -401,7 +409,12 @@ class AgentBuildService {
 	 * @return ObjectEntity|null
 	 */
 	private function findBuild(string $buildId): ?ObjectEntity {
-		return $this->objectService->find(id: $buildId, register: self::REGISTER_SLUG, schema: self::BUILD_SCHEMA, _rbac: false, _multitenancy: false);
+		return $this->objectService->find(
+			id: $buildId,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::BUILD_SCHEMA),
+			_rbac: false,
+			_multitenancy: false
+		);
 	}//end findBuild()
 
 	/**

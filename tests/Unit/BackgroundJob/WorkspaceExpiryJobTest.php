@@ -25,6 +25,7 @@ namespace OCA\Hermiq\Tests\Unit\BackgroundJob;
 use OCA\Hermiq\BackgroundJob\WorkspaceExpiryJob;
 use OCA\Hermiq\Kernel\Contracts\ServerSideWorkspaceProviderInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -67,10 +68,9 @@ final class WorkspaceExpiryJobTest extends TestCase {
 		$objects = $this->createMock(ObjectService::class);
 		$objects->expects(self::once())->method('find')->with(
 			'conv-1',
-			self::anything(),
-			self::anything(),
-			'hermiq',
-			'agentsession',
+			self::callback(
+				static fn (ObjectFindOptions $options): bool => $options->register === 'hermiq' && $options->schema === 'agentsession'
+			),
 			false,
 			false
 		)->willReturn(new ObjectEntity());

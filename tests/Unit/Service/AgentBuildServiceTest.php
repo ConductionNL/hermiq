@@ -28,6 +28,7 @@ use OCA\Hermiq\Service\Workspace\ServerSideWorkspaceProvider;
 use OCA\Hermiq\Service\Workspace\WorkspaceException;
 use OCA\Hermiq\Service\Workspace\WorkspaceSnapshot;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -76,8 +77,9 @@ final class AgentBuildServiceTest extends TestCase {
 		$this->objects->method('setSchema')->willReturnSelf();
 		$this->objects->method('findAll')->willReturnCallback(fn (): array => $this->builds);
 		$this->objects->method('saveObject')->willReturnCallback(
-			function (array|ObjectEntity $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null, bool $_rbac = true): ObjectEntity {
-				$this->saved[] = [(string)$schema, (array)$object, $uuid, $_rbac];
+			function (array|ObjectEntity $object, ObjectSaveOptions $options, bool $_rbac = true): ObjectEntity {
+				$uuid = $options->uuid;
+				$this->saved[] = [(string)$options->target->schema, (array)$object, $uuid, $_rbac];
 				return self::entity(uuid: $uuid ?? 'build-new', data: (array)$object);
 			}
 		);

@@ -26,6 +26,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\BackgroundJob;
 
 use OCA\Hermiq\Kernel\Contracts\ServerSideWorkspaceProviderInterface;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -115,8 +116,7 @@ class WorkspaceExpiryJob extends TimedJob {
 			// question, so access rules and tenancy do not apply to it.
 			$conversation = $this->objectService->find(
 				id: $conversationId,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);

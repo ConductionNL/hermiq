@@ -36,6 +36,7 @@ use OCA\Hermiq\Service\Workspace\SessionWorkspaceKey;
 use OCA\Hermiq\Service\Workspace\WorkspaceException;
 use OCA\Hermiq\Service\Workspace\WorkspaceFiles;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -217,7 +218,10 @@ class WorkspaceFilesController extends Controller {
 	 */
 	private function findSession(string $sessionId): ?ObjectEntity {
 		try {
-			$session = $this->objectService->find(id: $sessionId, register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA);
+			$session = $this->objectService->find(
+				id: $sessionId,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA)
+			);
 		} catch (Throwable $e) {
 			$this->logger->warning('Hermiq workspace files: session lookup failed for ' . $sessionId . ': ' . $e->getMessage());
 			return null;
