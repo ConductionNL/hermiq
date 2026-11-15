@@ -197,6 +197,8 @@ class ResponseGenerationHandler {
 	 *                                                      (TurnAttachmentResolver).
 	 * @param string $speaker The uid the attachments were resolved for; their bytes are
 	 *                        read as this person when the model reads them natively.
+	 * @param bool   $answerCacheBypass True when the person asked the model again: the
+	 *                                  answer cache is neither read nor written.
 	 *
 	 * @return string Generated response text.
 	 *
@@ -220,6 +222,7 @@ class ResponseGenerationHandler {
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
 	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
 	 */
 	public function generateResponse(
 		string $userMessage,
@@ -236,6 +239,7 @@ class ResponseGenerationHandler {
 		array $promptVariables = [],
 		array $attachments = [],
 		string $speaker = '',
+		bool $answerCacheBypass = false,
 	): string {
 		// Chat-about-a-document: a scoped turn with nothing in scope is answered
 		// with that fact, and the model is never asked to answer from general knowledge.
@@ -258,6 +262,7 @@ class ResponseGenerationHandler {
 		$run->promptVariables = $promptVariables;
 		$run->attachments = $attachments;
 		$run->speaker = $speaker;
+		$run->answerCacheBypass = $answerCacheBypass;
 
 		return $this->runTurn(run: $run);
 	}//end generateResponse()

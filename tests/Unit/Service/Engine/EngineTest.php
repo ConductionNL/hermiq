@@ -812,4 +812,48 @@ class EngineTest extends TestCase {
 		}
 
 	}//end testACachedAnswerIsStoredWithItsServingEntry()
+
+	/**
+	 * "Ask the model again": `processMessage(..., answerCacheBypass: true)` reaches
+	 * `generateResponse()` as the bypass; every other caller sends false.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+	 */
+	public function testProcessMessageThreadsTheAnswerCacheBypass(): void {
+		$conversation = $this->entity('conv-1', ['userId' => 'alice']);
+
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('setRegister')->willReturnSelf();
+		$objectService->method('setSchema')->willReturnSelf();
+		$objectService->method('find')->willReturn($conversation);
+		$objectService->method('findAll')->willReturn([1, 2, 3]);
+
+		$contextHandler = $this->createMock(ContextRetrievalHandler::class);
+		$contextHandler->method('retrieveContext')->willReturn(['text' => '', 'sources' => []]);
+
+		$received = [];
+		$responseHandler = $this->createMock(ResponseGenerationHandler::class);
+		$responseHandler->method('generateResponse')->willReturnCallback(
+			static function (...$arguments) use (&$received): string {
+				$received[] = ($arguments['answerCacheBypass'] ?? $arguments[14] ?? null);
+				return 'Hi there!';
+			}
+		);
+		$responseHandler->lastUsage = [];
+
+		$historyHandler = $this->createMock(MessageHistoryHandler::class);
+		$historyHandler->method('storeMessage')->willReturn($this->entity('msg-1', []));
+		$historyHandler->method('buildTurnHistory')->willReturnCallback(
+			static fn (string $conversationId, ObjectEntity $turn, string $text): array => ['history' => [], 'turnText' => $text]
+		);
+
+		$engine = $this->engine($objectService, $contextHandler, $responseHandler, $this->createMock(ConversationManagementHandler::class), $historyHandler);
+		$engine->processMessage(conversationId: 'conv-1', userId: 'alice', userMessage: 'Hi', answerCacheBypass: true);
+		$engine->processMessage(conversationId: 'conv-1', userId: 'alice', userMessage: 'Hi');
+
+		$this->assertSame([true, false], $received);
+
+	}//end testProcessMessageThreadsTheAnswerCacheBypass()
 }//end class

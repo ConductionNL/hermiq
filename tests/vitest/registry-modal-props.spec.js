@@ -47,6 +47,7 @@ describe('registry modal props', () => {
 			'agent-form': SHOW_ONLY,
 			'agent-version-history': SHOW_ONLY,
 			'agent-availability': SHOW_ONLY,
+			'agent-answer-cache-clear': SHOW_ONLY,
 			'agent-factsheet': SHOW_ONLY,
 			'template-import': { type: 'object', properties: { mode: { type: 'string' } } },
 			'agent-git': SHOW_ONLY,

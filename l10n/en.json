@@ -2922,7 +2922,17 @@
         "counterfactualPair: the first of the two requests. When absent the case's prompt is used.": "counterfactualPair: the first of the two requests. When absent the case's prompt is used.",
         "counterfactualPair: the one attribute in which the two requests differ.": "counterfactualPair: the one attribute in which the two requests differ.",
         "counterfactualPair: the second request, identical to request A except for the attribute.": "counterfactualPair: the second request, identical to request A except for the attribute.",
-        "counterfactualPair: the second request, snapshotted at run time.": "counterfactualPair: the second request, snapshotted at run time."
+        "counterfactualPair: the second request, snapshotted at run time.": "counterfactualPair: the second request, snapshotted at run time.",
+        "Answered from cache": "Answered from cache",
+        "Ask the model again": "Ask the model again",
+        "Clear cached answers": "Clear cached answers",
+        "%n cached answer removed.": [
+            "%n cached answer removed.",
+            "%n cached answers removed."
+        ],
+        "The next questions to this agent go to the model again. Answers it gives are cached anew while the cache is on.": "The next questions to this agent go to the model again. Answers it gives are cached anew while the cache is on.",
+        "The cached answers could not be cleared.": "The cached answers could not be cleared.",
+        "%n cached answers removed.": "%n cached answers removed."
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

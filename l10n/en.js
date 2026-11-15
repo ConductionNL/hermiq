@@ -1317,7 +1317,6 @@ OC.L10N.register(
         "app-availability.description": "This application requires OpenRegister to be installed and enabled.",
         "app-availability.title": "Required application unavailable",
         "body is 500 lines or more": "body is 500 lines or more",
-        "body is empty": "body is empty",
         "On whose behalf the agent works": "On whose behalf the agent works",
         "On behalf of the person who uses it": "On behalf of the person who uses it",
         "Sees only what that person may see.": "Sees only what that person may see.",
@@ -1326,6 +1325,7 @@ OC.L10N.register(
         "An administrator sets the account an agent works with.": "An administrator sets the account an agent works with.",
         "Service account": "Service account",
         "The account {user} no longer exists or is disabled. Runs are refused until you choose another account or let the agent work on behalf of the person who uses it.": "The account {user} no longer exists or is disabled. Runs are refused until you choose another account or let the agent work on behalf of the person who uses it.",
+        "body is empty": "body is empty",
         "characters": "characters",
         "current": "current",
         "default": "default",
@@ -2902,7 +2902,14 @@ OC.L10N.register(
         "counterfactualPair: the first of the two requests. When absent the case's prompt is used.": "counterfactualPair: the first of the two requests. When absent the case's prompt is used.",
         "counterfactualPair: the one attribute in which the two requests differ.": "counterfactualPair: the one attribute in which the two requests differ.",
         "counterfactualPair: the second request, identical to request A except for the attribute.": "counterfactualPair: the second request, identical to request A except for the attribute.",
-        "counterfactualPair: the second request, snapshotted at run time.": "counterfactualPair: the second request, snapshotted at run time."
+        "counterfactualPair: the second request, snapshotted at run time.": "counterfactualPair: the second request, snapshotted at run time.",
+        "Answered from cache": "Answered from cache",
+        "Ask the model again": "Ask the model again",
+        "Clear cached answers": "Clear cached answers",
+        "%n cached answer removed.": ["%n cached answer removed.","%n cached answers removed."],
+        "The next questions to this agent go to the model again. Answers it gives are cached anew while the cache is on.": "The next questions to this agent go to the model again. Answers it gives are cached anew while the cache is on.",
+        "The cached answers could not be cleared.": "The cached answers could not be cleared.",
+        "%n cached answers removed.": "%n cached answers removed."
     },
     "nplurals=2; plural=(n != 1);"
 )

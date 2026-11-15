@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { answerCacheFields, answerCachePayload, organisationScopeAllowed } from '../../src/utils/answerCache.js'
+import { answerCacheFields, answerCachePayload, organisationScopeAllowed, questionBefore } from '../../src/utils/answerCache.js'
 
 describe('answer cache form fields', () => {
 	it('reads a stored setting, with the lifetime in days', () => {
@@ -46,5 +46,25 @@ describe('answer cache payload', () => {
 	it('stores a switched-off cache as off', () => {
 		expect(answerCachePayload({ answerCacheEnabled: false, answerCacheDays: 3, answerCacheSimilarity: 'bogus' }))
 			.toEqual({ enabled: false, ttlMinutes: 4320, similarity: 'off' })
+	})
+})
+
+describe('the question a cached answer replied to', () => {
+	const question = { role: 'user', content: '  Wanneer wordt het oud papier opgehaald? ' }
+	const answer = { role: 'assistant', content: 'Op maandag.', fromCache: true }
+	const later = { role: 'user', content: 'En glas?' }
+
+	it('is the nearest user turn before the answer, trimmed', () => {
+		expect(questionBefore([{ role: 'user', content: 'Hallo' }, { role: 'assistant', content: 'Hoi' }, question, answer, later], answer))
+			.toBe('Wanneer wordt het oud papier opgehaald?')
+	})
+
+	it('is empty without a user turn before it or without a thread', () => {
+		expect(questionBefore([answer, later], answer)).toBe('')
+		expect(questionBefore(null, answer)).toBe('')
+	})
+
+	it('falls back to the last user turn when the answer is not in the thread', () => {
+		expect(questionBefore([question, later], answer)).toBe('En glas?')
 	})
 })

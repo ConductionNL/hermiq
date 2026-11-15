@@ -109,4 +109,23 @@ class ResponseAnswerCacheTest extends TestCase {
 		$this->assertSame(1, $calls);
 		$this->assertSame([], $handler->lastCache);
 	}
+
+	public function testAskingTheModelAgainReachesTheRunAsABypass(): void {
+		$calls = 0;
+		$seen  = [];
+		$cache = $this->createMock(AnswerCacheService::class);
+		$cache->method('lookup')->willReturnCallback(
+			static function (ResponseTurnRun $run) use (&$seen): ?array {
+				$seen[] = $run->answerCacheBypass;
+				return null;
+			}
+		);
+		$handler = new ResponseGenerationHandler($this->factory($calls), $this->loop(), new NullLogger(), null, null, $cache);
+
+		$handler->generateResponse(userMessage: 'Q', context: ['text' => '', 'sources' => []], messageHistory: [], agent: $this->agent(), answerCacheBypass: true);
+		$handler->generateResponse(userMessage: 'Q', context: ['text' => '', 'sources' => []], messageHistory: [], agent: $this->agent());
+
+		$this->assertSame([true, false], $seen);
+		$this->assertSame(2, $calls);
+	}
 }

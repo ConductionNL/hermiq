@@ -344,7 +344,8 @@ class ChatController extends Controller {
 				ragSettings: $params['ragSettings'],
 				context: $params['context'],
 				trace: $trace,
-				attachments: $params['attachments']
+				attachments: $params['attachments'],
+				answerCacheBypass: $params['answerCacheBypass']
 			);
 
 			// Add conversation UUID to result for frontend.
@@ -974,9 +975,11 @@ class ChatController extends Controller {
 	 * @psalm-return array{conversationUuid: string, agentUuid: string,
 	 *     message: string, attachments: list<mixed>, selectedViews: array, selectedTools: array,
 	 *     ragSettings: array{includeObjects: bool|mixed, includeFiles: bool|mixed,
-	 *     numSourcesFiles: int|mixed, numSourcesObjects: int|mixed}, context: array}
+	 *     numSourcesFiles: int|mixed, numSourcesObjects: int|mixed}, context: array,
+	 *     answerCacheBypass: bool}
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
 	 */
 	private function extractMessageRequestParams(): array {
 		return [
@@ -992,6 +995,9 @@ class ChatController extends Controller {
 			// Optional CnAiContext snapshot; anything that is not an array is
 			// silently dropped (missing context is fine).
 			'context' => $this->arrayParam(key: 'context'),
+			// Models-prompt-and-answer-cache: "Ask the model again" resends the
+			// question with the answer cache bypassed. Only a real true counts.
+			'answerCacheBypass' => in_array($this->request->getParam('answerCacheBypass'), [true, 'true', '1', 1], true),
 		];
 	}//end extractMessageRequestParams()
 

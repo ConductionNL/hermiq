@@ -76,3 +76,25 @@ export function answerCachePayload(form) {
 export function organisationScopeAllowed(form) {
 	return form.enableRag !== true
 }
+
+/**
+ * The question a cached answer replied to: the nearest user turn before it.
+ *
+ * "Ask the model again" resends exactly that question with the cache bypassed.
+ *
+ * @param {Array<object>} messages The thread, oldest first.
+ * @param {object} answer The assistant message the cache served.
+ * @return {string} The question, or '' when the thread holds none before the answer.
+ *
+ * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+ */
+export function questionBefore(messages, answer) {
+	const list = Array.isArray(messages) ? messages : []
+	const at = list.indexOf(answer)
+	for (let i = (at === -1 ? list.length : at) - 1; i >= 0; i--) {
+		if (list[i]?.role === 'user') {
+			return String(list[i].content || '').trim()
+		}
+	}
+	return ''
+}

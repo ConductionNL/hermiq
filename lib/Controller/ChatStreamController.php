@@ -244,7 +244,8 @@ class ChatStreamController extends Controller {
 				// Chat-how-an-answer-came-about D1: a trace on this path too, so a
 				// streamed answer gets the same provenance record as a sent one.
 				trace: new RunTraceCollector(),
-				attachments: $turn['attachments']
+				attachments: $turn['attachments'],
+				answerCacheBypass: $turn['answerCacheBypass']
 			);
 
 			$this->replayRunSteps(conversationId: $turn['conversationId']);
@@ -276,9 +277,10 @@ class ChatStreamController extends Controller {
 	 * @param string $userId The session user.
 	 *
 	 * @return array{userId: string, message: string, agentUuid: string, conversationUuid: string, context: mixed,
-	 *     contextArr: array, attachments: array, ragSettings: array<string, mixed>}
+	 *     contextArr: array, attachments: array, answerCacheBypass: bool, ragSettings: array<string, mixed>}
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
 	 */
 	private function readTurn(string $userId): array {
 		$rawBody = $this->readRequestBody();
@@ -304,6 +306,8 @@ class ChatStreamController extends Controller {
 			'context' => ($body['context'] ?? null),
 			'contextArr' => [],
 			'attachments' => [],
+			// Models-prompt-and-answer-cache: "Ask the model again" bypasses the cache.
+			'answerCacheBypass' => (($body['answerCacheBypass'] ?? false) === true),
 		];
 		if (is_array($turn['context']) === true) {
 			$turn['contextArr'] = $turn['context'];

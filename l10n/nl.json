@@ -2937,7 +2937,17 @@
         "counterfactualPair: the first of the two requests. When absent the case's prompt is used.": "counterfactualPair: het eerste van de twee verzoeken. Als dit ontbreekt, wordt de prompt van de case gebruikt.",
         "counterfactualPair: the one attribute in which the two requests differ.": "counterfactualPair: het ene kenmerk waarin de twee verzoeken verschillen.",
         "counterfactualPair: the second request, identical to request A except for the attribute.": "counterfactualPair: het tweede verzoek, gelijk aan verzoek A op het kenmerk na.",
-        "counterfactualPair: the second request, snapshotted at run time.": "counterfactualPair: het tweede verzoek, vastgelegd op het moment van uitvoeren."
+        "counterfactualPair: the second request, snapshotted at run time.": "counterfactualPair: het tweede verzoek, vastgelegd op het moment van uitvoeren.",
+        "Answered from cache": "Beantwoord uit de cache",
+        "Ask the model again": "Vraag het model opnieuw",
+        "Clear cached answers": "Opgeslagen antwoorden wissen",
+        "%n cached answer removed.": [
+            "%n opgeslagen antwoord verwijderd.",
+            "%n opgeslagen antwoorden verwijderd."
+        ],
+        "The next questions to this agent go to the model again. Answers it gives are cached anew while the cache is on.": "De volgende vragen aan deze agent gaan weer naar het model. Zolang de cache aan staat, worden de antwoorden opnieuw opgeslagen.",
+        "The cached answers could not be cleared.": "De opgeslagen antwoorden konden niet worden gewist.",
+        "%n cached answers removed.": "%n opgeslagen antwoorden verwijderd."
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

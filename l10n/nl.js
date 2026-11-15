@@ -1317,7 +1317,6 @@ OC.L10N.register(
         "Triggering": "Triggering",
         "Type": "Soort",
         "URL field": "URL-veld",
-        "Unacceptable": "Onaanvaardbaar",
         "On whose behalf the agent works": "Namens wie werkt de agent",
         "On behalf of the person who uses it": "Namens de persoon die hem gebruikt",
         "Sees only what that person may see.": "Ziet alleen wat die persoon mag zien.",
@@ -1326,6 +1325,7 @@ OC.L10N.register(
         "An administrator sets the account an agent works with.": "Een beheerder stelt het account in waarmee een agent werkt.",
         "Service account": "Serviceaccount",
         "The account {user} no longer exists or is disabled. Runs are refused until you choose another account or let the agent work on behalf of the person who uses it.": "Het account {user} bestaat niet meer of is uitgeschakeld. Runs worden geweigerd tot je een ander account kiest of de agent laat werken namens de persoon die hem gebruikt.",
+        "Unacceptable": "Onaanvaardbaar",
         "Unassigned: branch “{branch}” no longer exists": "Niet toegewezen: vertakking “{branch}” bestaat niet meer",
         "Unbind": "Ontkoppelen",
         "Unevidenced": "Niet onderbouwd",
@@ -2902,7 +2902,14 @@ OC.L10N.register(
         "counterfactualPair: the first of the two requests. When absent the case's prompt is used.": "counterfactualPair: het eerste van de twee verzoeken. Als dit ontbreekt, wordt de prompt van de case gebruikt.",
         "counterfactualPair: the one attribute in which the two requests differ.": "counterfactualPair: het ene kenmerk waarin de twee verzoeken verschillen.",
         "counterfactualPair: the second request, identical to request A except for the attribute.": "counterfactualPair: het tweede verzoek, gelijk aan verzoek A op het kenmerk na.",
-        "counterfactualPair: the second request, snapshotted at run time.": "counterfactualPair: het tweede verzoek, vastgelegd op het moment van uitvoeren."
+        "counterfactualPair: the second request, snapshotted at run time.": "counterfactualPair: het tweede verzoek, vastgelegd op het moment van uitvoeren.",
+        "Answered from cache": "Beantwoord uit de cache",
+        "Ask the model again": "Vraag het model opnieuw",
+        "Clear cached answers": "Opgeslagen antwoorden wissen",
+        "%n cached answer removed.": ["%n opgeslagen antwoord verwijderd.","%n opgeslagen antwoorden verwijderd."],
+        "The next questions to this agent go to the model again. Answers it gives are cached anew while the cache is on.": "De volgende vragen aan deze agent gaan weer naar het model. Zolang de cache aan staat, worden de antwoorden opnieuw opgeslagen.",
+        "The cached answers could not be cleared.": "De opgeslagen antwoorden konden niet worden gewist.",
+        "%n cached answers removed.": "%n opgeslagen antwoorden verwijderd."
     },
     "nplurals=2; plural=(n != 1);"
 )
