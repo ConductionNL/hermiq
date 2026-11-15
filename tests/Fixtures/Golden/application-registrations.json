@@ -280,6 +280,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\TraceExportDeliveryInterface",
+            "OCA\\Hermiq\\Service\\TraceExport\\TraceExportDelivery"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\CourseRecommendationEngineInterface",
             "OCA\\Hermiq\\Service\\CourseRecommendationEngine"
         ],
