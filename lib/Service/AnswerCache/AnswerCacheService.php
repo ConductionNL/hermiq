@@ -34,6 +34,9 @@ use OCA\Hermiq\Service\AgentVersionService;
 use OCA\Hermiq\Service\Engine\ResponseTurnRun;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IUserSession;
@@ -215,8 +218,7 @@ class AnswerCacheService {
 					'expiresAt' => $now->modify('+' . $minutes . ' minutes')->format(DateTimeInterface::ATOM),
 					'hitCount' => 0,
 				],
-				register: self::REGISTER,
-				schema: self::SCHEMA,
+				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER, schema: self::SCHEMA)),
 				_rbac: false
 			);
 		} catch (Throwable $error) {
@@ -239,7 +241,7 @@ class AnswerCacheService {
 		}
 
 		try {
-			return $this->objects->deleteObject(uuid: $entryId, register: self::REGISTER, schema: self::SCHEMA, _rbac: false);
+			return $this->objects->deleteObject(deletion: $this->deletion(entryId: $entryId), _rbac: false);
 		} catch (Throwable $error) {
 			$this->logger->warning('[AnswerCache] could not delete entry ' . $entryId, ['exception' => $error->getMessage()]);
 			return false;
@@ -277,7 +279,7 @@ class AnswerCacheService {
 
 		$removed = 0;
 		foreach ($expired as $entryId) {
-			if ($this->objects->deleteObject(uuid: $entryId, register: self::REGISTER, schema: self::SCHEMA, _rbac: false, _multitenancy: false) === true) {
+			if ($this->objects->deleteObject(deletion: $this->deletion(entryId: $entryId), _rbac: false, _multitenancy: false) === true) {
 				$removed++;
 			}
 		}
@@ -322,13 +324,26 @@ class AnswerCacheService {
 
 		$removed = 0;
 		foreach ($entryIds as $entryId) {
-			if ($this->objects->deleteObject(uuid: $entryId, register: self::REGISTER, schema: self::SCHEMA, _rbac: false, _multitenancy: false) === true) {
+			if ($this->objects->deleteObject(deletion: $this->deletion(entryId: $entryId), _rbac: false, _multitenancy: false) === true) {
 				$removed++;
 			}
 		}
 
 		return $removed;
 	}//end clearForAgent()
+
+	/**
+	 * The deletion of one cache entry.
+	 *
+	 * @param string $entryId The entry uuid.
+	 *
+	 * @return ObjectDeletion
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+	 */
+	private function deletion(string $entryId): ObjectDeletion {
+		return new ObjectDeletion(uuid: $entryId, target: new ObjectFindTarget(register: self::REGISTER, schema: self::SCHEMA));
+	}//end deletion()
 
 	/**
 	 * The live entry for this key in this organisation and agent version, or null.
@@ -398,7 +413,14 @@ class AnswerCacheService {
 		$data['hitCount']  = ((int)($data['hitCount'] ?? 0) + 1);
 		$data['lastHitAt'] = $this->now()->format(DateTimeInterface::ATOM);
 		try {
-			$this->objects->saveObject(object: $data, register: self::REGISTER, schema: self::SCHEMA, uuid: (string)$entry->getUuid(), _rbac: false);
+			$this->objects->saveObject(
+				object: $data,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER, schema: self::SCHEMA),
+					uuid: (string)$entry->getUuid()
+				),
+				_rbac: false
+			);
 		} catch (Throwable $error) {
 			$this->logger->info('[AnswerCache] hit not counted', ['exception' => $error->getMessage()]);
 		}

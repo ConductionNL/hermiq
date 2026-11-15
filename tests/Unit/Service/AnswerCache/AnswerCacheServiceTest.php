@@ -30,6 +30,8 @@ use OCA\Hermiq\Service\Engine\ResponseTurnRun;
 use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IUser;
@@ -170,10 +172,8 @@ class AnswerCacheServiceTest extends TestCase {
 			->willReturn([$this->entry($run)]);
 		$this->objects->expects($this->once())->method('saveObject')->with(
 			$this->callback(static fn (array $data): bool => $data['hitCount'] === 3 && $data['lastHitAt'] === '2026-11-14T12:00:00+00:00'),
-			$this->anything(),
-			'hermiq',
-			'agentanswercache',
-			'entry-1',
+			$this->callback(static fn (ObjectSaveOptions $options): bool => $options->target->register === 'hermiq'
+				&& $options->target->schema === 'agentanswercache' && $options->uuid === 'entry-1'),
 			false
 		);
 
@@ -209,7 +209,11 @@ class AnswerCacheServiceTest extends TestCase {
 		$service = new AnswerCacheService($this->objects, $versions, $policy, $this->createMock(IUserSession::class), $time, new NullLogger());
 		$run = $this->turn();
 		$this->objects->method('findAll')->willReturn([$this->entry($run)]);
-		$this->objects->expects($this->once())->method('deleteObject')->with('entry-1', 'hermiq', 'agentanswercache', false)->willReturn(true);
+		$this->objects->expects($this->once())->method('deleteObject')->with(
+			$this->callback(static fn (ObjectDeletion $deletion): bool => $deletion->uuid === 'entry-1'
+				&& $deletion->target->register === 'hermiq' && $deletion->target->schema === 'agentanswercache'),
+			false
+		)->willReturn(true);
 
 		$this->assertNull($service->lookup($run));
 	}
@@ -240,10 +244,8 @@ class AnswerCacheServiceTest extends TestCase {
 				'expiresAt' => '2026-11-21T12:00:00+00:00',
 				'hitCount' => 0,
 			],
-			$this->anything(),
-			'hermiq',
-			'agentanswercache',
-			null,
+			$this->callback(static fn (ObjectSaveOptions $options): bool => $options->target->register === 'hermiq'
+				&& $options->target->schema === 'agentanswercache' && $options->uuid === null),
 			false
 		);
 
@@ -279,7 +281,8 @@ class AnswerCacheServiceTest extends TestCase {
 		);
 		$deleted = [];
 		$this->objects->method('deleteObject')->willReturnCallback(
-			static function (string $uuid) use (&$deleted): bool {
+			static function (ObjectDeletion $deletion) use (&$deleted): bool {
+				$uuid      = $deletion->uuid;
 				$deleted[] = $uuid;
 				return $uuid !== 'old-2';
 			}
@@ -319,7 +322,8 @@ class AnswerCacheServiceTest extends TestCase {
 		);
 		$deleted = [];
 		$this->objects->method('deleteObject')->willReturnCallback(
-			static function (string $uuid) use (&$deleted): bool {
+			static function (ObjectDeletion $deletion) use (&$deleted): bool {
+				$uuid      = $deletion->uuid;
 				$deleted[] = $uuid;
 				return true;
 			}

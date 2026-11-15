@@ -28,6 +28,7 @@ namespace OCA\Hermiq\Controller;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
 use OCA\Hermiq\Service\AnswerCache\AnswerCacheService;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -89,7 +90,7 @@ class AgentAnswerCacheController extends Controller {
 		}
 
 		try {
-			$agent = $this->objects->find(id: $id, register: AnswerCacheService::REGISTER, schema: 'agent');
+			$agent = $this->objects->find(id: $id, options: new ObjectFindOptions(register: AnswerCacheService::REGISTER, schema: 'agent'));
 		} catch (Throwable $error) {
 			$agent = null;
 		}

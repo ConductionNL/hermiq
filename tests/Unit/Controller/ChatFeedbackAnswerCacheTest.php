@@ -29,6 +29,7 @@ use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IL10N;
 use OCP\IRequest;
@@ -182,9 +183,9 @@ final class ChatFeedbackAnswerCacheTest extends TestCase {
 			}
 		);
 		$this->objects->method('find')->willReturnCallback(
-			static function (int|string $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schema = null) use ($message, $sessionId): ObjectEntity {
+			static function (int|string $id, ?ObjectFindOptions $options = null) use ($message, $sessionId): ObjectEntity {
 				$entity = new ObjectEntity();
-				if ($schema === 'agentsession') {
+				if ($options?->schema === 'agentsession') {
 					$entity->setUuid('conv-1');
 					$entity->setObject(['userId' => 'alice', 'agentId' => 'agent-1']);
 					return $entity;
