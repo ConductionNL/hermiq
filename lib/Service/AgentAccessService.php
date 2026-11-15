@@ -53,6 +53,7 @@ namespace OCA\Hermiq\Service;
 
 use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IGroupManager;
 use Psr\Log\LoggerInterface;
@@ -254,8 +255,7 @@ class AgentAccessService implements AgentAccessServiceInterface {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(

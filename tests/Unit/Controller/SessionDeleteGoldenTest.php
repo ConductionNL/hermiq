@@ -48,6 +48,7 @@ use Random\Randomizer;
 use ReflectionMethod;
 use RuntimeException;
 use Stringable;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Golden comparison of the two session deletes.
@@ -159,6 +160,7 @@ class SessionDeleteGoldenTest extends TestCase {
 		$objectService = $this->createMock(originalClassName: ObjectService::class);
 		$objectService->method('find')->willReturnCallback(
 			function (mixed ...$args) use (&$calls, $conversation): mixed {
+				$args = LegacyObjectArgs::positional(method: 'find', args: $args);
 				$calls[] = ['find', $this->passed(method: 'find', args: $args)];
 				if ($conversation === 'throws') {
 					throw new DoesNotExistException('no such object');
@@ -188,6 +190,7 @@ class SessionDeleteGoldenTest extends TestCase {
 		);
 		$objectService->method('deleteObject')->willReturnCallback(
 			function (mixed ...$args) use (&$calls, $failDelete): bool {
+				$args = LegacyObjectArgs::positional(method: 'deleteObject', args: $args);
 				$passed = $this->passed(method: 'deleteObject', args: $args);
 				$calls[] = ['deleteObject', $passed];
 				$target = (string)($passed['uuid'] ?? '');
@@ -200,6 +203,7 @@ class SessionDeleteGoldenTest extends TestCase {
 		);
 		$objectService->method('saveObject')->willReturnCallback(
 			function (mixed ...$args) use (&$calls, $failSave): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
 				$passed = $this->passed(method: 'saveObject', args: $args);
 				$calls[] = ['saveObject', $this->withoutNow(passed: $passed)];
 				if ($failSave === true) {
@@ -351,7 +355,7 @@ class SessionDeleteGoldenTest extends TestCase {
 	 */
 	private function passed(string $method, array $args): array {
 		$out = [];
-		foreach ((new ReflectionMethod(ObjectService::class, $method))->getParameters() as $index => $param) {
+		foreach (LegacyObjectArgs::parameters(ObjectService::class, $method) as $index => $param) {
 			if (array_key_exists($index, $args) === false) {
 				continue;
 			}

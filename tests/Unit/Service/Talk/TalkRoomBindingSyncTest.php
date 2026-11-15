@@ -32,6 +32,7 @@ use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * @covers \OCA\Hermiq\Service\Talk\TalkRoomBinding
@@ -62,6 +63,7 @@ class TalkRoomBindingSyncTest extends TestCase {
 		// assertions below pass for the wrong reason.
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (mixed ...$args): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
 				$this->saved = $args[0];
 				$entity = new ObjectEntity();
 				$entity->setUuid('conv-1');

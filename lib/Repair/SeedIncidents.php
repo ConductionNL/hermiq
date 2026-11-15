@@ -35,6 +35,8 @@ namespace OCA\Hermiq\Repair;
 
 use OCA\Hermiq\Repair\Seed\IncidentSeed;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -198,8 +200,7 @@ class SeedIncidents implements IRepairStep {
 					'createdAt' => gmdate('c'),
 					'createdBy' => $row['createdBy'],
 				],
-				register: self::REGISTER_SLUG,
-				schema: self::INCIDENT_SCHEMA,
+				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::INCIDENT_SCHEMA)),
 				_rbac: false,
 				_multitenancy: false
 			);

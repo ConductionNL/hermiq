@@ -47,6 +47,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for ApprovalService's best-effort side effects.
@@ -139,7 +140,11 @@ class ApprovalServiceNotifyFailureTest extends TestCase {
 	 */
 	private function service(?int $throwOnSave = null): ApprovalService {
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (array|ObjectEntity $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null) use ($throwOnSave): ObjectEntity {
+			function (array|ObjectEntity $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use ($throwOnSave): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$this->saved[] = [$object, $uuid];
 				if ($throwOnSave === count($this->saved)) {
 					throw new RuntimeException('write refused');

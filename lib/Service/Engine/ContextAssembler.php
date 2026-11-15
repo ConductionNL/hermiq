@@ -47,6 +47,9 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Engine;
 
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Files\File;
 use OCP\Files\Folder;
@@ -346,8 +349,7 @@ class ContextAssembler {
 		try {
 			$skill = $this->objectService->find(
 				id: $skillId,
-				register: self::REGISTER_SLUG,
-				schema: self::SKILL_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -427,8 +429,7 @@ class ContextAssembler {
 	public function assemble(string $contextId, string $actingUserId): array {
 		$context = $this->objectService->find(
 			id: $contextId,
-			register: self::REGISTER_SLUG,
-			schema: self::CONTEXT_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONTEXT_SCHEMA)
 		);
 		if ($context === null) {
 			return ['text' => '', 'needsConsolidation' => false];
@@ -896,9 +897,10 @@ class ContextAssembler {
 		try {
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::CONTEXT_SCHEMA,
-				uuid: (string)$context->getUuid()
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONTEXT_SCHEMA),
+					uuid: (string)$context->getUuid()
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(
