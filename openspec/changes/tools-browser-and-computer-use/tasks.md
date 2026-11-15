@@ -70,9 +70,9 @@ Kind: code. Size L. Rows `hermiq:dm-browser-use`, `hermiq:dm-computer-use`.
 - **files**: `lib/Service/Engine/FacadeToolInvoker.php` (trace extra), `src/views/Runs.vue`
 - **acceptance_criteria**:
   - GIVEN a computer action WHEN it is traced THEN machine, action, coordinates, redacted text and approval id are kept and a screenshot is a hash and size
-- [ ] Implement
+- [x] Implement
   - Done: `ComputerActionRecord` builds the trace extra (`computer`: target, action, x/y, redacted text, keys, approvalId, screenshot sha256 and bytes), added by `FacadeToolInvoker::traceExtraFor()` with the approval id threaded through `FacadeCall`; the streamed tool result carries the hash instead of the image (`ToolCallReporter`).
-  - Open: showing these steps in `src/views/Runs.vue`, which lists runs without their steps today.
+  - Done: the run list row carries `computerActions` (machine, action, point, redacted text or keys, approval id, screenshot hash and size; nothing else of the step, and only on a run that used a computer) read from the run's recorded steps (`AnalyticsService`), and `src/views/Runs.vue` lists them under the run's summary: "Clicked at 412, 230 on Werkplek 03", its approval, and "Screen <hash>, <bytes> bytes, not kept". Covered by `AnalyticsServiceTest::testARunRowListsItsComputerActions` and Vitest `runs-table-rows.spec.js`.
 - [x] Test (PHPUnit on the trace extra)
   - `ComputerActionRecordTest`, `FacadeToolInvokerComputerTest` (approval id and coordinates on the step, no image in the trace or the stream).
 
