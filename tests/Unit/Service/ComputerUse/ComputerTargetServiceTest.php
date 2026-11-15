@@ -16,6 +16,9 @@ namespace OCA\Hermiq\Tests\Unit\Service\ComputerUse;
 use OCA\Hermiq\Service\ComputerUse\ComputerTargetRefusal;
 use OCA\Hermiq\Service\ComputerUse\ComputerTargetService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
@@ -90,8 +93,10 @@ final class ComputerTargetServiceTest extends TestCase {
 	private function service(): ComputerTargetService {
 		$objects = $this->createMock(ObjectService::class);
 		$objects->method('find')->willReturnCallback(
-			function (int|string $id, ?array $_extend=[], bool $files=false, mixed $register=null, mixed $schema=null): ?ObjectEntity {
-				$stored = ($this->objects[(string)$id] ?? null);
+			function (int|string $id, ?ObjectFindOptions $options=null): ?ObjectEntity {
+				$register = $options?->register;
+				$schema   = $options?->schema;
+				$stored   = ($this->objects[(string)$id] ?? null);
 				if ($stored === null || $stored[0] !== $register || $stored[1] !== $schema) {
 					return null;
 				}
@@ -105,15 +110,15 @@ final class ComputerTargetServiceTest extends TestCase {
 			fn (): array => array_map(fn (string $uuid): ObjectEntity => $this->entity(uuid: $uuid), array_keys(array_filter($this->objects, static fn (array $o): bool => $o[1] === 'computertarget')))
 		);
 		$objects->method('saveObject')->willReturnCallback(
-			function (array|ObjectEntity $object, ?array $extend=[], mixed $register=null, mixed $schema=null, ?string $uuid=null): ObjectEntity {
-				$uuid = ($uuid ?? 'ct-new');
-				$this->objects[$uuid] = [(string)$register, (string)$schema, (array)$object];
+			function (array $object, ObjectSaveOptions $options): ObjectEntity {
+				$uuid = ($options->uuid ?? 'ct-new');
+				$this->objects[$uuid] = [(string)$options->target->register, (string)$options->target->schema, $object];
 				return $this->entity(uuid: $uuid);
 			}
 		);
 		$objects->method('deleteObject')->willReturnCallback(
-			function (string $uuid): bool {
-				unset($this->objects[$uuid]);
+			function (ObjectDeletion $deletion): bool {
+				unset($this->objects[$deletion->uuid]);
 				return true;
 			}
 		);

@@ -24,6 +24,10 @@ namespace OCA\Hermiq\Service\ComputerUse;
 
 use OCA\Hermiq\Support\FleetAppId;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Container\ContainerInterface;
 use Throwable;
@@ -97,7 +101,12 @@ class ComputerTargetService {
 		$row = null;
 		if ($id !== '') {
 			try {
-				$row = $this->objectService->find(id: $id, register: self::REGISTER, schema: self::SCHEMA, _rbac: false, _multitenancy: false);
+				$row = $this->objectService->find(
+					id: $id,
+					options: new ObjectFindOptions(register: self::REGISTER, schema: self::SCHEMA),
+					_rbac: false,
+					_multitenancy: false
+				);
 			} catch (Throwable) {
 				$row = null;
 			}
@@ -142,9 +151,10 @@ class ComputerTargetService {
 
 		$saved = $this->objectService->saveObject(
 			object: $target,
-			register: self::REGISTER,
-			schema: self::SCHEMA,
-			uuid: $id,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER, schema: self::SCHEMA),
+				uuid: $id
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -165,7 +175,14 @@ class ComputerTargetService {
 	 */
 	public function delete(string $id): void {
 		$this->get(id: $id);
-		$this->objectService->deleteObject(uuid: $id, register: self::REGISTER, schema: self::SCHEMA, _rbac: false, _multitenancy: false);
+		$this->objectService->deleteObject(
+			deletion: new ObjectDeletion(
+				uuid: $id,
+				target: new ObjectFindTarget(register: self::REGISTER, schema: self::SCHEMA)
+			),
+			_rbac: false,
+			_multitenancy: false
+		);
 	}//end delete()
 
 	/**
@@ -263,7 +280,12 @@ class ComputerTargetService {
 		}
 
 		try {
-			$source = $this->objectService->find(id: $id, register: 'integriq', schema: 'source', _rbac: false, _multitenancy: false);
+			$source = $this->objectService->find(
+				id: $id,
+				options: new ObjectFindOptions(register: 'integriq', schema: 'source'),
+				_rbac: false,
+				_multitenancy: false
+			);
 		} catch (Throwable) {
 			return null;
 		}
