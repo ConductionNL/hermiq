@@ -30,7 +30,7 @@ join key.
 
 ## Requirements
 
-### REQ-UI-001: Register the admin section (IIconSection)
+### Requirement: Register the admin section (IIconSection) (REQ-UI-001)
 
 The system MUST register a section in Nextcloud's admin settings panel so
 that the app has a dedicated place to render its configuration form.
@@ -44,7 +44,7 @@ that the app has a dedicated place to render its configuration form.
 - AND `SettingsSection::getPriority()` MUST return an integer controlling ordering (template uses `75`)
 - AND `SettingsSection::getIcon()` MUST return an image path produced by `IURLGenerator::imagePath()` (template uses `app-template/app-dark.svg`)
 
-### REQ-UI-002: Render the admin settings form (ISettings)
+### Requirement: Render the admin settings form (ISettings) (REQ-UI-002)
 
 The system MUST render the admin form template when Nextcloud opens the app's
 admin section, and it MUST pass the running app version into the template so

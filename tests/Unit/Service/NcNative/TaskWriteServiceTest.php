@@ -522,6 +522,61 @@ final class TaskWriteServiceTest extends TestCase {
 	}//end testWithoutTheDavBackendCompleteIsNotOffered()
 
 	/**
+	 * Completing needs a uid; a found task whose object is gone is not found; an
+	 * object without a task to complete is not marked and so not changed.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
+	 */
+	public function testCompleteRefusesAMissingUidAGoneObjectAndAnObjectWithoutATask(): void {
+		$own = [$this->row(uid: 'gone', summary: 'Gone'), $this->row(uid: 'plain', summary: 'Plain')];
+		$backend = $this->backend(
+			$this->standardComponents(),
+			['id-werkvoorraad-burgerzaken/plain.ics' => "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n"]
+		);
+		$service = $this->service($this->standardCalendars($own), $backend);
+
+		$missing = $service->invoke(uid: 'alice', toolId: 'hermiq.completeTask', arguments: ['uid' => '  ']);
+		$this->assertSame('invalid_argument', $missing['error']['code'] ?? null);
+		$this->assertSame('The task uid is required; take it from listTasks.', $missing['error']['message'] ?? null);
+
+		$gone = $service->invoke(uid: 'alice', toolId: 'hermiq.completeTask', arguments: ['uid' => 'gone']);
+		$this->assertSame('task_not_found', $gone['error']['code'] ?? null);
+
+		$plain = $service->invoke(uid: 'alice', toolId: 'hermiq.completeTask', arguments: ['uid' => 'plain']);
+		$this->assertSame('artefact_not_marked', $plain['error']['code'] ?? null, json_encode($plain));
+		$this->assertSame('The task could not be marked, so it was not changed.', $plain['error']['message'] ?? null);
+		$this->assertSame([], $backend->updates);
+
+	}//end testCompleteRefusesAMissingUidAGoneObjectAndAnObjectWithoutATask()
+
+	/**
+	 * A created task reports its uid, trimmed summary, list and artefact, and the
+	 * stored object carries that uid.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-create-a-task-in-the-users-own-list-marked-as-agent-authored-req-nctask-002
+	 */
+	public function testCreateReportsTheStoredTask(): void {
+		$service = $this->service($this->standardCalendars(), $this->backend($this->standardComponents()));
+
+		$result = $service->invoke(uid: 'alice', toolId: 'hermiq.createTask', arguments: ['summary' => '  Bel terug  ', 'agentId' => 'agent-7']);
+
+		$this->assertSame(['created', 'uid', 'summary', 'list', 'listName', 'artefact'], array_keys($result), json_encode($result));
+		$this->assertTrue($result['created']);
+		$this->assertMatchesRegularExpression('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/', $result['uid']);
+		$this->assertSame('Bel terug', $result['summary']);
+		$this->assertSame('werkvoorraad-burgerzaken', $result['list']);
+		$this->assertSame(['type' => 'task', 'id' => 'werkvoorraad-burgerzaken/' . $result['uid']], $result['artefact']);
+		[$name, $ics] = $this->stored['werkvoorraad-burgerzaken'][0];
+		$this->assertStringContainsString("\r\nUID:" . $result['uid'] . "\r\n", $ics);
+		$this->assertMatchesRegularExpression('/^hermiq-[0-9a-f]{16}\.ics$/', $name);
+
+	}//end testCreateReportsTheStoredTask()
+
+	/**
 	 * A failing calendar never throws across the tool boundary.
 	 *
 	 * @return void
@@ -545,5 +600,110 @@ final class TaskWriteServiceTest extends TestCase {
 		$this->assertSame('unknown_tool', $service->invoke(uid: 'alice', toolId: 'hermiq.deleteTask', arguments: [])['error']['code'] ?? null);
 
 	}//end testAFailingCalendarNeverThrows()
+
+	/**
+	 * An unknown status or an unparseable dueBefore is refused before any list is read.
+	 *
+	 * @return void
+	 */
+	public function testInvalidListArgumentsAreRefused(): void {
+		$service = $this->service($this->standardCalendars(), $this->backend($this->standardComponents()));
+
+		foreach ([['status' => 'done'], ['dueBefore' => 'tomorrow-ish']] as $arguments) {
+			$result = $service->invoke(uid: 'alice', toolId: 'hermiq.listTasks', arguments: $arguments);
+			$this->assertSame('invalid_argument', $result['error']['code'] ?? null, json_encode($arguments));
+			$this->assertSame('status is open, completed or all; dueBefore is an ISO-8601 date.', $result['error']['message']);
+		}
+
+		$this->assertSame([], $this->searched);
+
+	}//end testInvalidListArgumentsAreRefused()
+
+	/**
+	 * A backend that throws while the lists are gathered becomes a structured error.
+	 *
+	 * @return void
+	 */
+	public function testABackendThatThrowsIsReportedAsUnreachable(): void {
+		$backend = new class {
+			/**
+			 * @return array<int, array<string, mixed>>
+			 */
+			public function getCalendarsForUser($principalUri) {
+				throw new RuntimeException('dav down');
+			}
+		};
+		$service = $this->service($this->standardCalendars(), $backend);
+
+		$result = $service->invoke(uid: 'alice', toolId: 'hermiq.listTasks', arguments: []);
+
+		$this->assertSame('tasks_failed', $result['error']['code'] ?? null);
+		$this->assertSame('The task lists could not be reached.', $result['error']['message']);
+
+	}//end testABackendThatThrowsIsReportedAsUnreachable()
+
+	/**
+	 * A completion the backend refuses to store is reported, not thrown.
+	 *
+	 * @return void
+	 */
+	public function testAFailedCompletionWriteIsReported(): void {
+		$uid = '7c1e2a4b-5d6f-4a8b-9c0d-1e2f3a4b5c6d';
+		$own = [$this->row(uid: $uid, summary: 'Terugbellen')];
+		$inner = $this->backend(
+			$this->standardComponents(),
+			['id-werkvoorraad-burgerzaken/' . $uid . '.ics' => TaskCalendarObjectTest::TASKS_APP_FIXTURE]
+		);
+		$backend = new class($inner) {
+			/**
+			 * @param object $inner The working backend double.
+			 */
+			public function __construct(private object $inner) {
+			}
+
+			/**
+			 * @return array<int, array<string, mixed>>
+			 */
+			public function getCalendarsForUser($principalUri) {
+				return $this->inner->getCalendarsForUser($principalUri);
+			}
+
+			/**
+			 * @return array<string, mixed>|null
+			 */
+			public function getCalendarObject($calendarId, $objectUri, int $calendarType = 0) {
+				return $this->inner->getCalendarObject($calendarId, $objectUri);
+			}
+
+			/**
+			 * @return string
+			 */
+			public function updateCalendarObject($calendarId, $objectUri, $calendarData, $calendarType = 0) {
+				throw new RuntimeException('412 precondition failed');
+			}
+		};
+		$service = $this->service($this->standardCalendars($own), $backend);
+
+		$result = $service->invoke(uid: 'alice', toolId: 'hermiq.completeTask', arguments: ['uid' => $uid]);
+
+		$this->assertSame('task_write_failed', $result['error']['code'] ?? null, json_encode($result));
+		$this->assertSame('The task could not be completed.', $result['error']['message']);
+
+	}//end testAFailedCompletionWriteIsReported()
+
+	/**
+	 * A priority inside 1..9 is accepted and the task is created.
+	 *
+	 * @return void
+	 */
+	public function testAPriorityInRangeIsAccepted(): void {
+		$service = $this->service($this->standardCalendars(), $this->backend($this->standardComponents()));
+
+		$result = $service->invoke(uid: 'alice', toolId: 'hermiq.createTask', arguments: ['summary' => 'x', 'priority' => '3']);
+
+		$this->assertTrue($result['created'] ?? false, json_encode($result));
+		$this->assertCount(1, $this->stored['werkvoorraad-burgerzaken']);
+
+	}//end testAPriorityInRangeIsAccepted()
 
 }//end class

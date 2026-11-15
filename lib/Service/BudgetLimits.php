@@ -122,18 +122,12 @@ class BudgetLimits
      */
     public function eurUsage(int $tokensUsed, ?float $rate): array
     {
-        $eurUsed    = null;
-        $eurPercent = null;
-        $hard       = false;
-        $soft       = false;
+        $eurUsed = null;
         if ($rate !== null) {
             $eurUsed = round((($tokensUsed * $rate) / 1000), 4);
-            if ($this->eurLimit !== null && $this->eurLimit > 0) {
-                $eurPercent = round((($eurUsed / $this->eurLimit) * 100), 1);
-                $hard       = ($eurUsed >= $this->eurLimit);
-                $soft       = ($eurPercent >= $this->softPercent);
-            }
         }
+
+        $eurPercent = $this->eurPercentOf(eurUsed: $eurUsed);
 
         return [
             'usage' => [
@@ -142,9 +136,39 @@ class BudgetLimits
                 'limit'     => $this->eurLimit,
                 'percent'   => $eurPercent,
             ],
-            'hard'  => $hard,
-            'soft'  => $soft,
+            'hard'  => ($eurPercent !== null && $eurUsed >= $this->eurLimit),
+            'soft'  => ($eurPercent !== null && $eurPercent >= $this->softPercent),
         ];
 
     }//end eurUsage()
+
+    /**
+     * The euro spend as a percentage of the euro limit, or null without a spend or a positive limit.
+     *
+     * @param float|null $eurUsed The euro spend, or null when no rate is known.
+     *
+     * @return float|null
+     */
+    private function eurPercentOf(?float $eurUsed): ?float
+    {
+        if ($eurUsed === null || $this->hasEurLimit() === false) {
+            return null;
+        }
+
+        return round((($eurUsed / $this->eurLimit) * 100), 1);
+
+    }//end eurPercentOf()
+
+    /**
+     * Whether a positive euro limit is set.
+     *
+     * @return bool
+     *
+     * @psalm-assert-if-true float $this->eurLimit
+     */
+    private function hasEurLimit(): bool
+    {
+        return ($this->eurLimit !== null && $this->eurLimit > 0);
+
+    }//end hasEurLimit()
 }//end class

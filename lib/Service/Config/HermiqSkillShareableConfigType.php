@@ -184,32 +184,57 @@ class HermiqSkillShareableConfigType implements IShareableConfigType {
 	 */
 	public function deserialise(array $bundle): array {
 		$marketplace = $this->container->get(SkillMarketplaceService::class);
-
-		$uid = '';
-		try {
-			$user = $this->container->get(IUserSession::class)->getUser();
-			if ($user !== null) {
-				$uid = (string)$user->getUID();
-			}
-		} catch (Throwable $e) {
-			$uid = '';
-		}
+		$uid = $this->importerUid();
 
 		$installed = [];
-		foreach ((array)($bundle['skills'] ?? []) as $skill) {
-			if (is_array($skill) === false) {
-				continue;
-			}
-
-			$package = (string)($skill['package'] ?? '');
-			if ($package === '') {
-				continue;
-			}
-
+		foreach ($this->packagesOf(bundle: $bundle) as $package) {
 			$saved = $marketplace->installFromSource(package: $package, source: 'hub', createdBy: $uid);
 			$installed[] = (string)$saved->getUuid();
 		}
 
 		return ['installed' => $installed];
 	}//end deserialise()
+
+	/**
+	 * The importing user's id, or empty when no user can be read.
+	 *
+	 * @return string
+	 *
+	 * @spec exclude Implements OpenRegister's IShareableConfigType; the canonical
+	 * spec has its single home in openregister (federated-config-sharing).
+	 */
+	private function importerUid(): string {
+		try {
+			$user = $this->container->get(IUserSession::class)->getUser();
+		} catch (Throwable $e) {
+			return '';
+		}
+
+		if ($user === null) {
+			return '';
+		}
+
+		return (string)$user->getUID();
+	}//end importerUid()
+
+	/**
+	 * The non-empty packages of a bundle's skill entries, in order.
+	 *
+	 * @param array<string, mixed> $bundle The bundle.
+	 *
+	 * @return list<string>
+	 *
+	 * @spec exclude Implements OpenRegister's IShareableConfigType; the canonical
+	 * spec has its single home in openregister (federated-config-sharing).
+	 */
+	private function packagesOf(array $bundle): array {
+		$packages = [];
+		foreach ((array)($bundle['skills'] ?? []) as $skill) {
+			if (is_array($skill) === true && (string)($skill['package'] ?? '') !== '') {
+				$packages[] = (string)$skill['package'];
+			}
+		}
+
+		return $packages;
+	}//end packagesOf()
 }//end class

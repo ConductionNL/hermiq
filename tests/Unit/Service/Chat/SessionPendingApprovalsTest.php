@@ -21,7 +21,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\Chat;
 
-use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\Chat\SessionPendingApprovals;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use PHPUnit\Framework\TestCase;
@@ -36,7 +36,7 @@ use PHPUnit\Framework\TestCase;
 class SessionPendingApprovalsTest extends TestCase {
 
 	/**
-	 * A pending tool-call approval as ApprovalService::listPendingForReviewer() lists it.
+	 * A pending tool-call approval as ApprovalInbox::listPendingForReviewer() lists it.
 	 *
 	 * @param string $id       The approval id.
 	 * @param string $agentId  The agent.
@@ -68,7 +68,7 @@ class SessionPendingApprovalsTest extends TestCase {
 		$requests->method('pendingApprovals')->willReturnCallback(
 			static fn (?string $agentId): array => ($agentId === 'agent-1' ? $accessRequests : [])
 		);
-		$approvals = $this->createMock(ApprovalService::class);
+		$approvals = $this->createMock(ApprovalInbox::class);
 		$approvals->method('listPendingForReviewer')->willReturnCallback(
 			static fn (string $uid): array => ($uid === 'bob' ? $bobsInbox : [])
 		);
@@ -180,7 +180,7 @@ class SessionPendingApprovalsTest extends TestCase {
 	public function testASessionWithoutAnAgentHasNone(): void {
 		$requests = $this->createMock(ToolAccessRequestService::class);
 		$requests->expects($this->never())->method('pendingApprovals');
-		$approvals = $this->createMock(ApprovalService::class);
+		$approvals = $this->createMock(ApprovalInbox::class);
 		$approvals->expects($this->never())->method('listPendingForReviewer');
 		$service = new SessionPendingApprovals(accessRequests: $requests, approvals: $approvals);
 

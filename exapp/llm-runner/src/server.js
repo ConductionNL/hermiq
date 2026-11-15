@@ -120,51 +120,105 @@ async function handleRun(req, res, rawBody) {
 	}
 
 	// 2. Parse the assembled turn.
-	let payload
+	const turn = readTurn(res, rawBody)
+	if (turn === null) {
+		return
+	}
+
+	await runTurn(res, turn)
+}
+
+/**
+ * Parse a request body as JSON; an empty body is `{}`.
+ *
+ * @param {http.ServerResponse} res The response, answered 400 when the body is not JSON.
+ * @param {Buffer} rawBody The raw request body.
+ * @returns {*} The parsed body, or `undefined` once a 400 has been sent.
+ */
+function parseJsonBody(res, rawBody) {
 	try {
-		payload = JSON.parse(rawBody.toString('utf8') || '{}')
+		return JSON.parse(rawBody.toString('utf8') || '{}')
 	} catch (e) {
 		sendJson(res, 400, { error: 'invalid JSON body' })
-		return
+		return undefined
+	}
+}
+
+// The fields a /run body hands to the CLI turn besides the provider.
+const RUN_FIELDS = ['model', 'messages', 'credentialEnv', 'mcpConfig', 'runToken']
+
+/**
+ * Read the assembled turn from a `/run` body, answering 400 for one that
+ * cannot be run.
+ *
+ * @param {http.ServerResponse} res The response, answered 400 for a bad turn.
+ * @param {Buffer} rawBody The raw request body.
+ * @returns {{providerId: *, args: object}|null} The turn, or null once a 400 has been sent.
+ */
+function readTurn(res, rawBody) {
+	const payload = parseJsonBody(res, rawBody)
+	if (payload === undefined) {
+		return null
 	}
 
-	const {
-		provider: providerId,
-		model,
-		messages,
-		credentialEnv,
-		mcpConfig,
-		runToken,
-	} = payload
-	const provider = getProvider(providerId)
-	if (!provider) {
-		sendJson(res, 400, { error: `unknown provider '${providerId}'` })
-		return
+	const { provider: providerId } = payload
+	const fields = Object.fromEntries(RUN_FIELDS.map((field) => [field, payload[field]]))
+	const turn = { providerId, args: { provider: getProvider(providerId), ...fields } }
+	const problem = turnProblem(turn)
+	if (problem !== null) {
+		sendJson(res, 400, { error: problem })
+		return null
 	}
+
+	return turn
+}
+
+/**
+ * Why a turn cannot be run, if it cannot.
+ *
+ * @param {{providerId: *, args: object}} turn The turn.
+ * @returns {string|null} The 400 message, or null for a runnable turn.
+ */
+function turnProblem(turn) {
+	if (!turn.args.provider) {
+		return `unknown provider '${turn.providerId}'`
+	}
+	const { messages } = turn.args
 	if (!Array.isArray(messages) || messages.length === 0) {
-		sendJson(res, 400, { error: 'messages must be a non-empty array' })
-		return
+		return 'messages must be a non-empty array'
 	}
+	return null
+}
 
-	// 3. Run exactly one turn. Custom tools reach the CLI ONLY via governed MCP
-	//    (cli-runner-governed-mcp-and-egress): a tool-requiring turn carries `mcpConfig`
-	//    — the {mcpServers:{hermiq:{type:"http",...}}} block Hermiq assembled, whose
-	//    headers carry the per-run bearer token. run() writes it to a 0600 scratch file
-	//    and locks the CLI down with `--tools "" --strict-mcp-config --mcp-config <path>`.
-	//    A text-only turn omits `mcpConfig` and is served exactly as link 2 built it.
-	log(
-		'info',
-		`/run provider=${providerId} model=${model || '(default)'} messages=${messages.length} governed=${mcpConfig ? 'yes' : 'no'}`,
-	)
+/**
+ * The log line that records which turn is about to run.
+ *
+ * @param {{providerId: *, args: object}} turn The turn.
+ * @returns {string} The log line.
+ */
+function runLogLine(turn) {
+	const { model, messages, mcpConfig } = turn.args
+	return `/run provider=${turn.providerId} model=${model || '(default)'} messages=${messages.length} governed=${mcpConfig ? 'yes' : 'no'}`
+}
+
+/**
+ * Run exactly one turn and answer with its result, or 502 when it fails.
+ *
+ * Custom tools reach the CLI ONLY via governed MCP
+ * (cli-runner-governed-mcp-and-egress): a tool-requiring turn carries `mcpConfig`
+ * — the {mcpServers:{hermiq:{type:"http",...}}} block Hermiq assembled, whose
+ * headers carry the per-run bearer token. run() writes it to a 0600 scratch file
+ * and locks the CLI down with `--tools "" --strict-mcp-config --mcp-config <path>`.
+ * A text-only turn omits `mcpConfig` and is served exactly as link 2 built it.
+ *
+ * @param {http.ServerResponse} res The response.
+ * @param {{providerId: *, args: object}} turn The turn.
+ * @returns {Promise<void>}
+ */
+async function runTurn(res, turn) {
+	log('info', runLogLine(turn))
 	try {
-		const result = await run({
-			provider,
-			model,
-			messages,
-			credentialEnv,
-			mcpConfig,
-			runToken,
-		})
+		const result = await run(turn.args)
 		sendJson(res, 200, {
 			text: result.text,
 			toolCalls: result.toolCalls,
@@ -204,16 +258,25 @@ async function handleStage(req, res, rawBody) {
 		return
 	}
 
-	let payload
-	try {
-		payload = JSON.parse(rawBody.toString('utf8') || '{}')
-	} catch (e) {
-		sendJson(res, 400, { error: 'invalid JSON body' })
+	const payload = parseJsonBody(res, rawBody)
+	if (payload === undefined) {
 		return
 	}
 
+	await dispatchStage(res, payload)
+}
+
+/**
+ * Hand a parsed `/stage` body to the workload, synchronously or as an async job.
+ *
+ * @param {http.ServerResponse} res The response.
+ * @param {object} payload The parsed request body.
+ * @returns {Promise<void>}
+ */
+async function dispatchStage(res, payload) {
 	const args = stageArgs(payload)
-	const { async: wantsAsync, jobKey } = payload
+	const wantsAsync = payload.async
+	const jobKey = payload.jobKey
 	log('info', stageLogLine(args))
 
 	// ASYNC: hand back a handle and let the caller go.
@@ -442,106 +505,179 @@ function handleEnabled(req, res, rawBody) {
 	sendJson(res, 200, {})
 }
 
+/**
+ * Handle `GET /heartbeat`, the AppAPI health probe — no auth, invokes no CLI.
+ *
+ * Job counts ride along: "is anything in flight" is the first question asked
+ * of a runner whose flows look stalled, and it is otherwise invisible from
+ * outside the process.
+ *
+ * @param {http.IncomingMessage} _req The request (unused).
+ * @param {http.ServerResponse} res The response.
+ * @returns {void}
+ */
+function handleHeartbeat(_req, res) {
+	sendJson(res, 200, { status: 'ok', jobs: jobs.stats() })
+}
+
+/**
+ * Log the collection of a job in a terminal state, and forget it once its
+ * result has been handed over. A running job is neither logged nor forgotten.
+ *
+ * ⚠️ `unknown` IS TERMINAL and must be handled as such by the caller. The
+ * registry is in this process's memory, so a runner restart loses every job.
+ * Reporting that as `running` would hang a flow forever waiting for a result
+ * that no longer exists.
+ *
+ * @type {Object<string, function(string, object): void>}
+ */
+const POLL_OUTCOMES = {
+	[jobs.DONE]: (jobId, state) => {
+		log(
+			'info',
+			`/stage collected job=${jobId} exit=${state.result?.exitCode}`,
+		)
+		jobs.forget(jobId)
+	},
+	[jobs.FAILED]: (jobId, state) => {
+		log(
+			'warn',
+			`/stage collected job=${jobId} FAILED${state.code ? ` (${state.code})` : ''}: ${state.error}`,
+		)
+		jobs.forget(jobId)
+	},
+	[jobs.UNKNOWN]: (jobId) => {
+		log(
+			'warn',
+			`/stage poll for unknown job=${jobId} — restarted runner, or a result that aged out`,
+		)
+	},
+}
+
+/**
+ * Handle `GET /stage`: collect an async stage.
+ *
+ * GET, because asking is not doing — a poller that could accidentally
+ * re-dispatch by retrying is a poller that duplicates pushes.
+ *
+ * 200 for every ANSWERABLE state, including `failed` and `unknown`. The HTTP
+ * status says whether the question was answered; the body says what happened
+ * to the stage. Conflating the two is how a poller ends up treating a
+ * transport hiccup as a verdict.
+ *
+ * @param {http.IncomingMessage} req The request.
+ * @param {http.ServerResponse} res The response.
+ * @returns {void}
+ */
+function handleStagePoll(req, res) {
+	const verdict = auth.verify(lowerHeaders(req.headers), Buffer.alloc(0))
+	if (!verdict.ok) {
+		log('warn', `/stage poll rejected: ${verdict.reason}`)
+		sendJson(res, verdict.status, { error: 'unauthorised' })
+		return
+	}
+
+	const jobId =
+		new URL(req.url, 'http://localhost').searchParams.get('jobId') || ''
+	if (jobId === '') {
+		sendJson(res, 400, { error: 'jobId is required' })
+		return
+	}
+
+	answerPoll(res, jobId)
+}
+
+/**
+ * Answer a poll for one job with its state, logging and forgetting it when terminal.
+ *
+ * @param {http.ServerResponse} res The response.
+ * @param {string} jobId The job id.
+ * @returns {void}
+ */
+function answerPoll(res, jobId) {
+	const state = jobs.get(jobId)
+	const outcome = POLL_OUTCOMES[state.status]
+	if (outcome !== undefined) {
+		outcome(jobId, state)
+	}
+
+	sendJson(res, 200, state)
+}
+
+/**
+ * Wrap a body-reading handler: read the body up to `limit`, then hand it on;
+ * a body that cannot be read is answered 413 unless a response already went out.
+ *
+ * @param {function(http.IncomingMessage, http.ServerResponse, Buffer): *} handler The handler.
+ * @param {number} [limit] Byte cap; the default body cap when omitted.
+ * @returns {function(http.IncomingMessage, http.ServerResponse): void} The route handler.
+ */
+function withBody(handler, limit) {
+	return (req, res) => {
+		readBody(req, limit)
+			.then((rawBody) => handler(req, res, rawBody))
+			.catch((err) => {
+				log('warn', `request error: ${err.message}`)
+				if (!res.headersSent) {
+					sendJson(res, 413, { error: err.message })
+				}
+			})
+	}
+}
+
+/**
+ * A path matcher for the whole request URL, query string included.
+ *
+ * @param {string} path The path.
+ * @returns {function(string): boolean} The matcher.
+ */
+function exactUrl(path) {
+	return (url) => url === path
+}
+
+/**
+ * A path matcher that ignores the query string.
+ *
+ * @param {string} path The path.
+ * @returns {function(string): boolean} The matcher.
+ */
+function pathOnly(path) {
+	return (url) => url.split('?')[0] === path
+}
+
+/**
+ * The routes, in the order they are tried.
+ *
+ * - `GET /heartbeat`: AppAPI health probe.
+ * - `PUT /enabled`: AppAPI enable/disable lifecycle call.
+ * - `POST /stage`: run a stage (body may carry a tool tree, so its own cap).
+ * - `GET /stage`: collect an async stage.
+ * - `POST /run`: one CLI turn.
+ *
+ * @type {Array<{method: string, matches: function(string): boolean, handle: function(http.IncomingMessage, http.ServerResponse): void}>}
+ */
+const ROUTES = [
+	{ method: 'GET', matches: exactUrl('/heartbeat'), handle: handleHeartbeat },
+	{ method: 'PUT', matches: pathOnly('/enabled'), handle: withBody(handleEnabled) },
+	{
+		method: 'POST',
+		matches: exactUrl('/stage'),
+		handle: withBody(handleStage, MAX_STAGE_BODY_BYTES),
+	},
+	{ method: 'GET', matches: pathOnly('/stage'), handle: handleStagePoll },
+	{ method: 'POST', matches: exactUrl('/run'), handle: withBody(handleRun) },
+]
+
 const server = http.createServer((req, res) => {
-	// AppAPI health probe — no auth, invokes no CLI.
-	if (req.method === 'GET' && req.url === '/heartbeat') {
-		// Job counts ride along: "is anything in flight" is the first question
-		// asked of a runner whose flows look stalled, and it is otherwise
-		// invisible from outside the process.
-		sendJson(res, 200, { status: 'ok', jobs: jobs.stats() })
+	const route = ROUTES.find(
+		(candidate) => candidate.method === req.method && candidate.matches(req.url),
+	)
+	if (route === undefined) {
+		sendJson(res, 404, { error: 'not found' })
 		return
 	}
 
-	// AppAPI enable/disable lifecycle call.
-	if (req.method === 'PUT' && req.url.split('?')[0] === '/enabled') {
-		readBody(req)
-			.then((rawBody) => handleEnabled(req, res, rawBody))
-			.catch((err) => {
-				log('warn', `request error: ${err.message}`)
-				if (!res.headersSent) {
-					sendJson(res, 413, { error: err.message })
-				}
-			})
-		return
-	}
-
-	if (req.method === 'POST' && req.url === '/stage') {
-		readBody(req, MAX_STAGE_BODY_BYTES)
-			.then((rawBody) => handleStage(req, res, rawBody))
-			.catch((err) => {
-				log('warn', `request error: ${err.message}`)
-				if (!res.headersSent) {
-					sendJson(res, 413, { error: err.message })
-				}
-			})
-		return
-	}
-
-	// Collect an async stage. GET, because asking is not doing — a poller that
-	// could accidentally re-dispatch by retrying is a poller that duplicates
-	// pushes.
-	if (req.method === 'GET' && req.url.split('?')[0] === '/stage') {
-		const verdict = auth.verify(lowerHeaders(req.headers), Buffer.alloc(0))
-		if (!verdict.ok) {
-			log('warn', `/stage poll rejected: ${verdict.reason}`)
-			sendJson(res, verdict.status, { error: 'unauthorised' })
-			return
-		}
-
-		const jobId =
-			new URL(req.url, 'http://localhost').searchParams.get('jobId') || ''
-		if (jobId === '') {
-			sendJson(res, 400, { error: 'jobId is required' })
-			return
-		}
-
-		const state = jobs.get(jobId)
-
-		// 200 for every ANSWERABLE state, including `failed` and `unknown`.
-		// The HTTP status says whether the question was answered; the body says
-		// what happened to the stage. Conflating the two is how a poller ends
-		// up treating a transport hiccup as a verdict.
-		//
-		// ⚠️ `unknown` IS TERMINAL and must be handled as such by the caller.
-		// The registry is in this process's memory, so a runner restart loses
-		// every job. Reporting that as `running` would hang a flow forever
-		// waiting for a result that no longer exists.
-		if (state.status === jobs.DONE) {
-			log(
-				'info',
-				`/stage collected job=${jobId} exit=${state.result?.exitCode}`,
-			)
-			jobs.forget(jobId)
-		} else if (state.status === jobs.FAILED) {
-			log(
-				'warn',
-				`/stage collected job=${jobId} FAILED${state.code ? ` (${state.code})` : ''}: ${state.error}`,
-			)
-			jobs.forget(jobId)
-		} else if (state.status === jobs.UNKNOWN) {
-			log(
-				'warn',
-				`/stage poll for unknown job=${jobId} — restarted runner, or a result that aged out`,
-			)
-		}
-
-		sendJson(res, 200, state)
-		return
-	}
-
-	if (req.method === 'POST' && req.url === '/run') {
-		readBody(req)
-			.then((rawBody) => handleRun(req, res, rawBody))
-			.catch((err) => {
-				log('warn', `request error: ${err.message}`)
-				if (!res.headersSent) {
-					sendJson(res, 413, { error: err.message })
-				}
-			})
-		return
-	}
-
-	sendJson(res, 404, { error: 'not found' })
+	route.handle(req, res)
 })
 
 if (require.main === module) {

@@ -24,6 +24,7 @@ use OCA\Hermiq\Service\Agent\AgentObjectMatcher;
 use OCA\Hermiq\Service\Agent\GrantWaiverAudit;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Event\DraftCreatedEvent;
 use OCA\OpenRegister\Event\DraftUpdatedEvent;
@@ -72,13 +73,13 @@ class AgentWaiverChangeListenerTest extends TestCase {
 		parent::setUp();
 
 		$mapper = $this->createMock(AuditTrailMapper::class);
-		$mapper->method('createAuditTrailEntry')->willReturnCallback(
-			function (ObjectEntity $object, string $action, array $context): AuditTrail {
+		$mapper->method('recordObjectEvent')->willReturnCallback(
+			function (ObjectAuditEvent $event): AuditTrail {
 				if ($this->auditFails === true) {
 					throw new RuntimeException('audit down');
 				}
 
-				$this->entries[] = ['uuid' => $object->getUuid(), 'action' => $action, 'context' => $context];
+				$this->entries[] = ['uuid' => $event->object->getUuid(), 'action' => $event->action, 'context' => $event->context];
 				return new AuditTrail();
 			}
 		);

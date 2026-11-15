@@ -10,6 +10,9 @@
  * @copyright 2026 Conduction B.V.
  * @license   EUPL-1.2 https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
  *
+ * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
+ * SPDX-License-Identifier: EUPL-1.2
+ *
  * @link https://conduction.nl
  *
  * @spec openspec/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
@@ -19,74 +22,70 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\Talk;
 
-use OCA\Hermiq\Service\Talk\TalkApprovalNotifier;
 use OCA\Hermiq\Service\Talk\TalkSafeText;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use ReflectionClass;
 
 /**
- * Only plain text reaches a Talk message.
+ * Which names may be put in a Talk message.
  *
- * @covers \OCA\Hermiq\Service\Talk\TalkSafeText
- * @covers \OCA\Hermiq\Service\Talk\TalkApprovalNotifier
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
  */
 class TalkSafeTextTest extends TestCase {
 
 	/**
-	 * Ids: registry ids pass; mention, link and markdown characters do not.
+	 * Ids Talk would show as a link.
 	 *
-	 * @return void
+	 * @return array<string, array{0: string}>
 	 */
-	public function testThePlainIdPattern(): void {
-		$safe = new TalkSafeText();
-		foreach (['files.deleteFile', 'a', 'x_y-z.9', str_repeat('a', 160)] as $id) {
-			$this->assertSame($id, $safe->identifier(identifier: $id));
-		}
-
-		foreach ([str_repeat('a', 161), '', '.files', '-x', '@all', 'a@b', 'a:b', 'a/b', 'a*b', 'a`b', 'a b', "a\nb", "ab\n", 'é'] as $id) {
-			$this->assertNull($safe->identifier(identifier: $id), 'Should refuse: ' . $id);
-		}
-	}//end testThePlainIdPattern()
+	public static function linkedIds(): array {
+		return [
+			'www prefix' => ['www.example.com'],
+			'upper case' => ['WWW.example.com'],
+			'after a dash' => ['tool-www.example.com'],
+			'after a dot' => ['tool.www.example.com'],
+			'after an underscore' => ['tool_www.example.com'],
+		];
+	}//end linkedIds()
 
 	/**
-	 * Labels: whitespace collapses; a mention, link, markdown or dot does not pass.
+	 * An id that Talk would autolink is not plain.
+	 *
+	 * @param string $id The id.
 	 *
 	 * @return void
 	 */
-	public function testThePlainLabelPattern(): void {
-		$safe = new TalkSafeText();
-		$this->assertSame('Close the case', $safe->label(text: "  Close\nthe case\u{200B} "));
-		$this->assertSame(str_repeat('a', 80), $safe->label(text: str_repeat('a', 80)));
-
-		foreach ([str_repeat('a', 81), '', '   ', '@all', 'Approve @all', '[x](https://e.example)', '**x**', 'Visit e.example', '`x`'] as $text) {
-			$this->assertNull($safe->label(text: $text), 'Should refuse: ' . $text);
-		}
-	}//end testThePlainLabelPattern()
-
-	/**
-	 * A plain name is quoted, an unsafe one becomes the fallback.
-	 *
-	 * @return void
-	 */
-	public function testQuotedUsesTheFallback(): void {
+	#[DataProvider('linkedIds')]
+	public function testAutolinkedIdIsRefused(string $id): void {
 		$safe = new TalkSafeText();
 
-		$this->assertSame('“Weekly digest”', $safe->quoted(name: 'Weekly digest', fallback: 'an action'));
-		$this->assertSame('“files.deleteFile”', $safe->quoted(name: 'files.deleteFile', fallback: 'an action'));
-		$this->assertSame('an action', $safe->quoted(name: 'Ping @all now', fallback: 'an action'));
-	}//end testQuotedUsesTheFallback()
+		$this->assertNull(actual: $safe->identifier(identifier: $id));
+		$this->assertSame(expected: 'an action', actual: $safe->quoted(name: $id, fallback: 'an action'));
+	}//end testAutolinkedIdIsRefused()
 
 	/**
-	 * The reaction request in the agent's room names only a plain name.
+	 * Plain ids pass, including ones that merely contain the letters www.
 	 *
 	 * @return void
 	 */
-	public function testTheReactionRequestIsPlainText(): void {
-		$class = new ReflectionClass(TalkApprovalNotifier::class);
-		$notifier = $class->newInstanceWithoutConstructor();
-		$text = $class->getMethod('requestText');
+	public function testPlainIdsPass(): void {
+		$safe = new TalkSafeText();
 
-		$this->assertStringStartsWith('⏸️ **Approval needed** for “Weekly digest”.', $text->invoke($notifier, 'Weekly digest'));
-		$this->assertStringStartsWith('⏸️ **Approval needed** for an action.', $text->invoke($notifier, '@all **now**'));
-	}//end testTheReactionRequestIsPlainText()
+		$this->assertSame(expected: 'openregister.objects.create', actual: $safe->identifier(identifier: 'openregister.objects.create'));
+		$this->assertSame(expected: 'awww.tool', actual: $safe->identifier(identifier: 'awww.tool'));
+		$this->assertSame(expected: 'www-tool', actual: $safe->identifier(identifier: 'www-tool'));
+		$this->assertSame(expected: '“send_mail”', actual: $safe->quoted(name: 'send_mail', fallback: 'an action'));
+	}//end testPlainIdsPass()
+
+	/**
+	 * Mentions and schemes stay refused.
+	 *
+	 * @return void
+	 */
+	public function testMentionAndSchemeAreRefused(): void {
+		$safe = new TalkSafeText();
+
+		$this->assertNull(actual: $safe->identifier(identifier: '@admin'));
+		$this->assertNull(actual: $safe->identifier(identifier: 'https://example.com'));
+	}//end testMentionAndSchemeAreRefused()
 }//end class

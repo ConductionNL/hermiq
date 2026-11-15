@@ -22,14 +22,13 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+ * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCA\OpenRegister\Service\OrganisationService;
 use OCP\Migration\IOutput;
@@ -46,7 +45,7 @@ use Throwable;
  * MigrateConversationsToSessions already reads through it. Idempotent: a
  * request the system already owns is not written.
  *
- * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+ * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
  */
 class AssignToolAccessRequestsToSystem implements IRepairStep {
 
@@ -73,7 +72,7 @@ class AssignToolAccessRequestsToSystem implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
 	 */
 	public function getName(): string {
 		return 'Give every tool-access request the system owner';
@@ -86,9 +85,27 @@ class AssignToolAccessRequestsToSystem implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
 	 */
 	public function run(IOutput $output): void {
+		$run = $this->prepare(output: $output);
+		if ($run === null) {
+			return;
+		}
+
+		$output->info(sprintf('%d tool-access request(s) given the system owner.', $run->handOverAll()));
+	}//end run()
+
+	/**
+	 * Read every tool-access request with the system owner and the mapper, or warn and answer null.
+	 *
+	 * @param IOutput $output The repair output.
+	 *
+	 * @return RequestOwnerRun|null
+	 *
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	private function prepare(IOutput $output): ?RequestOwnerRun {
 		try {
 			$objects = $this->container->get(ObjectService::class);
 			$system = $this->container->get(OrganisationService::class)->getSystemUserId();
@@ -99,24 +116,9 @@ class AssignToolAccessRequestsToSystem implements IRepairStep {
 		} catch (Throwable $e) {
 			$output->warning('Tool-access requests could not be read, their owners were not checked.');
 			$this->logger->warning('[hermiq] tool-access request owner repair skipped: ' . $e->getMessage());
-			return;
+			return null;
 		}
 
-		$moved = 0;
-		foreach ($requests as $request) {
-			if (($request instanceof ObjectEntity) === false || $request->getOwner() === $system) {
-				continue;
-			}
-
-			try {
-				$request->setOwner($system);
-				$mapper->update($request);
-				$moved++;
-			} catch (Throwable $e) {
-				$output->warning('Could not hand tool-access request ' . $request->getUuid() . ' to the system: ' . $e->getMessage());
-			}
-		}
-
-		$output->info(sprintf('%d tool-access request(s) given the system owner.', $moved));
-	}//end run()
+		return new RequestOwnerRun(requests: $requests, system: $system, mapper: $mapper, output: $output);
+	}//end prepare()
 }//end class

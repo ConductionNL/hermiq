@@ -116,6 +116,8 @@ import {
 	NcTextField,
 } from '@nextcloud/vue'
 import { createBudget, updateBudget } from '../api/budgets.js'
+import { errorMessage } from '../utils/errorMessage.js'
+import { resetOnOpen } from './resetOnOpen.js'
 
 export default {
 	name: 'BudgetFormModal',
@@ -130,13 +132,9 @@ export default {
 		NcTextField,
 	},
 
-	props: {
-		/** Whether the modal is visible. */
-		show: {
-			type: Boolean,
-			default: false,
-		},
+	mixins: [resetOnOpen],
 
+	props: {
 		/** The organisation this budget belongs to (required to create). */
 		organisation: {
 			type: String,
@@ -249,17 +247,6 @@ export default {
 		},
 	},
 
-	watch: {
-		/**
-		 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
-		 */
-		show(open) {
-			if (open) {
-				this.resetForm()
-			}
-		},
-	},
-
 	methods: {
 		/**
 		 * An empty budget form.
@@ -348,10 +335,7 @@ export default {
 				this.$emit('saved', saved)
 				this.$emit('close')
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.saving = false
 			}

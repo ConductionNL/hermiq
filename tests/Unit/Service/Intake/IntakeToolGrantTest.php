@@ -28,7 +28,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Intake;
 
 use OCA\Hermiq\Service\Intake\IntakeRefusedException;
 use OCA\Hermiq\Service\Intake\IntakeToolGrant;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use RuntimeException;

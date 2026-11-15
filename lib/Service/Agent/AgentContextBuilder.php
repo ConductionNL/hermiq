@@ -36,19 +36,21 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-declarative-bounded-agent-context-allowlist
+ * @spec openspec/specs/agent-object-leaf/spec.md#requirement-declarative-bounded-agent-context-allowlist
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Agent;
 
+use OCA\Hermiq\Kernel\Contracts\AgentContextBuilderInterface;
+
 /**
  * Builds a bounded, fail-closed agent context from a schema allowlist.
  *
- * @spec openspec/changes/hermiq-agent-leaf/tasks.md#3-declarative-context-allowlist
+ * @spec openspec/changes/archive/2026-09-06-hermiq-agent-leaf/tasks.md#3-declarative-context-allowlist
  */
-class AgentContextBuilder {
+class AgentContextBuilder implements AgentContextBuilderInterface {
 
 	/**
 	 * The schema keyword naming the agent-context allowlist.
@@ -71,7 +73,7 @@ class AgentContextBuilder {
 	 *                             instance, capped where declared. Empty when the allowlist is
 	 *                             absent or empty (fail-closed).
 	 *
-	 * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-hermiq-agent-leaf/tasks.md#task-3-1
 	 */
 	public function build(array $objectData, array $schemaConfiguration): array {
 		$allowlist = $this->normaliseAllowlist(spec: ($schemaConfiguration[self::KEYWORD] ?? null));
@@ -82,21 +84,34 @@ class AgentContextBuilder {
 
 		$context = [];
 		foreach ($allowlist as $property => $caps) {
-			if (array_key_exists($property, $objectData) === false) {
-				// A listed property absent on the instance is omitted, not an error.
-				continue;
+			if ($this->hasValue(objectData: $objectData, property: $property) === true) {
+				$context[$property] = $this->applyCaps(value: $objectData[$property], caps: $caps);
 			}
-
-			$value = $objectData[$property];
-			if ($value === null || $value === '') {
-				continue;
-			}
-
-			$context[$property] = $this->applyCaps(value: $value, caps: $caps);
 		}
 
 		return $context;
 	}//end build()
+
+	/**
+	 * Whether the instance carries a non-empty value for a listed property.
+	 *
+	 * A listed property absent on the instance is omitted, not an error; a null or
+	 * empty-string value is omitted too.
+	 *
+	 * @param array<string, mixed> $objectData The object's data.
+	 * @param int|string           $property   The listed property.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/archive/2026-09-06-hermiq-agent-leaf/tasks.md#task-3-1
+	 */
+	private function hasValue(array $objectData, int|string $property): bool {
+		if (array_key_exists($property, $objectData) === false) {
+			return false;
+		}
+
+		return ($objectData[$property] !== null && $objectData[$property] !== '');
+	}//end hasValue()
 
 	/**
 	 * Normalise the raw allowlist spec into a `property => caps[]` map.
@@ -109,7 +124,7 @@ class AgentContextBuilder {
 	 *
 	 * @return array<string,array<string,mixed>> Property name => caps map.
 	 *
-	 * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-09-06-hermiq-agent-leaf/tasks.md#task-3-2
 	 */
 	private function normaliseAllowlist(mixed $spec): array {
 		if (is_array($spec) === false || $spec === []) {
@@ -138,7 +153,7 @@ class AgentContextBuilder {
 	 *
 	 * @return array{0:string,1:array<string,mixed>} The `[name, caps]` pair.
 	 *
-	 * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-09-06-hermiq-agent-leaf/tasks.md#task-3-2
 	 */
 	private function normaliseEntry(int|string $key, mixed $entry): array {
 		// Associative name => caps map: the key is the property name.
@@ -175,7 +190,7 @@ class AgentContextBuilder {
 	 *
 	 * @return mixed The capped value.
 	 *
-	 * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-09-06-hermiq-agent-leaf/tasks.md#task-3-2
 	 */
 	private function applyCaps(mixed $value, array $caps): mixed {
 		$maxLength = $caps['maxLength'] ?? null;

@@ -93,7 +93,7 @@ import { SAFE_MARKDOWN_DOMPURIFY_CONFIG } from '@conduction/nextcloud-vue'
 import { NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
-import { useSkillStore } from '../store/store.js'
+import { routeSkill } from './routeSkill.js'
 
 export default {
 	name: 'SkillLearnings',
@@ -103,25 +103,9 @@ export default {
 		NcNoteCard,
 	},
 
-	data() {
-		return {
-			skill: null,
-			loading: true,
-			error: '',
-		}
-	},
+	mixins: [routeSkill],
 
 	computed: {
-		/**
-		 * This skill's uuid from the route param.
-		 *
-		 * @spec exclude trivial route-param accessor (framework plumbing), no domain behaviour
-		 * @return {string} The skill uuid.
-		 */
-		skillId() {
-			return this.$route.params.id
-		},
-
 		/**
 		 * The stored l6 activity map ({} when absent).
 		 *
@@ -174,46 +158,7 @@ export default {
 		},
 	},
 
-	/**
-	 * Wire the skill store (agentskill object type) and self-fetch the skill
-	 * so the read-only Learnings card can render.
-	 *
-	 * @spec openspec/specs/skill-learnings/spec.md#requirement-skilldetail-shows-a-read-only-learnings-surface
-	 * @return {void}
-	 */
-	created() {
-		this.skillStore = useSkillStore()
-		this.skillStore.registerObjectType('agentskill', 'agentskill', 'hermiq')
-		this.load()
-	},
-
 	methods: {
-		/**
-		 * Load the skill (files + l6 activity). A missing skill is an error state;
-		 * a skill without learnings files is the empty state, never an error.
-		 *
-		 * @spec openspec/specs/skill-learnings/spec.md#requirement-skilldetail-shows-a-read-only-learnings-surface
-		 * @return {Promise<void>}
-		 */
-		async load() {
-			this.loading = true
-			this.error = ''
-			try {
-				const skill = await this.skillStore.fetchObject(
-					'agentskill',
-					this.skillId,
-				)
-				this.skill = skill || null
-			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Could not load the skill.')
-			} finally {
-				this.loading = false
-			}
-		},
-
 		/**
 		 * Render the learnings markdown safely (marked + DOMPurify with the
 		 * shared safe config — the Chat.vue pattern).
