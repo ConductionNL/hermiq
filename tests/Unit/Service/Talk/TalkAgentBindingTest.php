@@ -28,6 +28,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Which agent answers in which Talk room.
@@ -201,6 +202,7 @@ final class TalkAgentBindingTest extends TestCase {
 			->method('find')
 			->willReturnCallback(
 				function (...$args) {
+					$args = LegacyObjectArgs::positional(method: 'find', args: $args);
 					self::assertSame('agent-1', $args[0]);
 					self::assertSame('hermiq', $args[3]);
 					self::assertSame('agent', $args[4]);

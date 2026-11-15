@@ -42,6 +42,9 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Kernel\Contracts\PublicationGatewayInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\App\IAppManager;
 
@@ -122,8 +125,7 @@ class PublicationGateway implements PublicationGatewayInterface {
 
 		$saved = $this->objectService->saveObject(
 			object: $publication,
-			register: self::PUBLICATION_REGISTER,
-			schema: self::PUBLICATION_SCHEMA
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::PUBLICATION_REGISTER, schema: self::PUBLICATION_SCHEMA))
 		);
 
 		return (string)$saved->getUuid();
@@ -149,8 +151,7 @@ class PublicationGateway implements PublicationGatewayInterface {
 
 		$existing = $this->objectService->find(
 			id: $reference,
-			register: self::PUBLICATION_REGISTER,
-			schema: self::PUBLICATION_SCHEMA
+			options: new ObjectFindOptions(register: self::PUBLICATION_REGISTER, schema: self::PUBLICATION_SCHEMA)
 		);
 
 		$data = [];
@@ -163,9 +164,10 @@ class PublicationGateway implements PublicationGatewayInterface {
 
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::PUBLICATION_REGISTER,
-			schema: self::PUBLICATION_SCHEMA,
-			uuid: $reference
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::PUBLICATION_REGISTER, schema: self::PUBLICATION_SCHEMA),
+				uuid: $reference
+			)
 		);
 
 		return true;

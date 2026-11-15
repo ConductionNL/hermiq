@@ -27,6 +27,8 @@ use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use Psr\Log\LoggerInterface;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * In-memory graph fixture for TestCase subclasses.
@@ -120,7 +122,11 @@ trait InMemoryGraph {
 			}
 		);
 		$objects->method('find')->willReturnCallback(
-			function (int|string $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schemaArg = null, bool $_rbac = true): ?ObjectEntity {
+			function (int|string $id, ?ObjectFindOptions $options = null, bool $_rbac = true): ?ObjectEntity {
+				$_extend = $options?->extend ?? [];
+				$files = $options?->files ?? false;
+				$register = $options?->register;
+				$schemaArg = $options?->schema;
 				$this->readRbac[] = $_rbac;
 				$data = ($this->store[(string)$schemaArg][(string)$id] ?? null);
 				$owner = ($this->ownerOf[(string)$id] ?? null);
@@ -132,7 +138,11 @@ trait InMemoryGraph {
 			}
 		);
 		$objects->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schemaArg = null, ?string $uuid = null): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schemaArg = $options->target->schema;
+				$uuid = $options->uuid;
 				$uuid = ($uuid ?? sprintf('00000000-0000-4000-8000-%012d', count($this->writes) + 1));
 				$this->writes[] = ['schema' => $schemaArg, 'uuid' => $uuid, 'object' => $object];
 				$this->store[(string)$schemaArg][$uuid] = $object;

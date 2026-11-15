@@ -58,6 +58,7 @@ use ReflectionMethod;
 use RuntimeException;
 use Stringable;
 use Throwable;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Raised instead of exit; so the golden can read what the stream wrote.
@@ -476,6 +477,7 @@ class ChatStreamGoldenTest extends TestCase {
 		$service = $this->createMock(ObjectService::class);
 		$service->method('find')->willReturnCallback(
 			function (...$args) use ($objects): ?ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'find', args: $args);
 				$named = $this->named(method: 'find', args: $args);
 				$this->events[] = ['find' => $named];
 				$id = (string)($named['id'] ?? '');
@@ -491,6 +493,7 @@ class ChatStreamGoldenTest extends TestCase {
 		);
 		$service->method('saveObject')->willReturnCallback(
 			function (...$args): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
 				$named = $this->named(method: 'saveObject', args: $args);
 				$this->events[] = ['saveObject' => $named];
 				$entity = new ObjectEntity();
@@ -513,7 +516,7 @@ class ChatStreamGoldenTest extends TestCase {
 	 */
 	private function named(string $method, array $args): array {
 		$named = [];
-		$params = (new ReflectionMethod(ObjectService::class, $method))->getParameters();
+		$params = LegacyObjectArgs::parameters(ObjectService::class, $method);
 		foreach ($params as $index => $param) {
 			if (array_key_exists($index, $args) === false) {
 				continue;
@@ -673,7 +676,7 @@ class ChatStreamGoldenTest extends TestCase {
 		$engine->method('processMessage')->willReturnCallback(
 			function (...$args) use ($outcome, $streams): array {
 				$named = [];
-				foreach ((new ReflectionMethod(Engine::class, 'processMessage'))->getParameters() as $index => $param) {
+				foreach (LegacyObjectArgs::parameters(Engine::class, 'processMessage') as $index => $param) {
 					if (array_key_exists($index, $args) === false) {
 						continue;
 					}
