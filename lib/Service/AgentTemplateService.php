@@ -37,6 +37,9 @@ use DateTimeZone;
 use OCA\Hermiq\Kernel\Contracts\AgentTemplateServiceInterface;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
 
@@ -149,8 +152,7 @@ class AgentTemplateService implements AgentTemplateServiceInterface {
 	private function get(string $templateId): ?ObjectEntity {
 		return $this->objectService->find(
 			id: $templateId,
-			register: self::REGISTER_SLUG,
-			schema: self::TEMPLATE_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::TEMPLATE_SCHEMA)
 		);
 
 	}//end get()
@@ -173,8 +175,7 @@ class AgentTemplateService implements AgentTemplateServiceInterface {
 
 		return $this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $data),
-			register: self::REGISTER_SLUG,
-			schema: self::TEMPLATE_SCHEMA
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::TEMPLATE_SCHEMA))
 		);
 
 	}//end create()
@@ -201,9 +202,10 @@ class AgentTemplateService implements AgentTemplateServiceInterface {
 
 		return $this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $data),
-			register: self::REGISTER_SLUG,
-			schema: self::TEMPLATE_SCHEMA,
-			uuid: (string)$template->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::TEMPLATE_SCHEMA),
+				uuid: (string)$template->getUuid()
+			)
 		);
 
 	}//end update()
@@ -222,8 +224,7 @@ class AgentTemplateService implements AgentTemplateServiceInterface {
 	public function exportFromAgent(string $agentId): ?string {
 		$agent = $this->objectService->find(
 			id: $agentId,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 		);
 		if ($agent === null) {
 			return null;
@@ -341,8 +342,7 @@ class AgentTemplateService implements AgentTemplateServiceInterface {
 
 			return $this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $data),
-				register: self::REGISTER_SLUG,
-				schema: self::TEMPLATE_SCHEMA
+				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::TEMPLATE_SCHEMA))
 			);
 		}
 
@@ -353,8 +353,7 @@ class AgentTemplateService implements AgentTemplateServiceInterface {
 
 		return $this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $data),
-			register: self::REGISTER_SLUG,
-			schema: self::TEMPLATE_SCHEMA
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::TEMPLATE_SCHEMA))
 		);
 
 	}//end importPackage()
@@ -397,9 +396,10 @@ class AgentTemplateService implements AgentTemplateServiceInterface {
 			$data['quarantineReason'] = $this->quarantineReasonFor(source: (string)($data['source'] ?? 'org'), scan: $scan);
 			return $this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $data),
-				register: self::REGISTER_SLUG,
-				schema: self::TEMPLATE_SCHEMA,
-				uuid: (string)$template->getUuid()
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::TEMPLATE_SCHEMA),
+					uuid: (string)$template->getUuid()
+				)
 			);
 		}
 
@@ -408,9 +408,10 @@ class AgentTemplateService implements AgentTemplateServiceInterface {
 
 		return $this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $data),
-			register: self::REGISTER_SLUG,
-			schema: self::TEMPLATE_SCHEMA,
-			uuid: (string)$template->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::TEMPLATE_SCHEMA),
+				uuid: (string)$template->getUuid()
+			)
 		);
 
 	}//end approveQuarantined()
@@ -475,8 +476,7 @@ class AgentTemplateService implements AgentTemplateServiceInterface {
 
 		$agent = $this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $agentPayload),
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA))
 		);
 
 		$agentUuid = (string)$agent->getUuid();

@@ -53,6 +53,10 @@ use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\SessionShareService;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
@@ -289,8 +293,7 @@ class SessionController extends Controller {
 
 			$conversation = $this->objectService->find(
 				id: $uuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 			if ($conversation === null) {
 				return $this->notFoundResponse();
@@ -352,8 +355,7 @@ class SessionController extends Controller {
 
 			$conversation = $this->objectService->find(
 				id: $uuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 			if ($conversation === null) {
 				return $this->notFoundResponse();
@@ -570,8 +572,7 @@ class SessionController extends Controller {
 					'metadata' => $start['metadata'],
 				]
 			),
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)),
 			_rbac: false
 		);
 
@@ -650,8 +651,7 @@ class SessionController extends Controller {
 			$userId = $this->requireUserId();
 			$conversation = $this->objectService->find(
 				id: $uuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 			if ($conversation === null) {
 				return $this->notFoundResponse();
@@ -669,9 +669,10 @@ class SessionController extends Controller {
 
 			$updated = $this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $payload),
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
-				uuid: $uuid
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+					uuid: $uuid
+				)
 			);
 
 			if (($data['title'] ?? null) !== null) {
@@ -728,8 +729,7 @@ class SessionController extends Controller {
 			$userId = $this->requireUserId();
 			$conversation = $this->objectService->find(
 				id: $uuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 			if ($conversation === null) {
 				return $this->notFoundResponse();
@@ -798,8 +798,7 @@ class SessionController extends Controller {
 			$userId = $this->requireUserId();
 			$conversation = $this->objectService->find(
 				id: $uuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 			if ($conversation === null) {
 				return $this->notFoundResponse();
@@ -825,9 +824,10 @@ class SessionController extends Controller {
 
 			$restored = $this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $data),
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
-				uuid: $uuid
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+					uuid: $uuid
+				)
 			);
 
 			$this->logger->info(
@@ -881,8 +881,7 @@ class SessionController extends Controller {
 			$userId = $this->requireUserId();
 			$conversation = $this->objectService->find(
 				id: $uuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 			if ($conversation === null) {
 				return $this->notFoundResponse();
@@ -933,9 +932,10 @@ class SessionController extends Controller {
 	private function purgeConversation(string $uuid): JSONResponse {
 		$this->deleteRelatedObjects(schema: self::MESSAGE_SCHEMA, conversationId: $uuid);
 		$this->objectService->deleteObject(
-			uuid: $uuid,
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA
+			new ObjectDeletion(
+				uuid: $uuid,
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
+			)
 		);
 
 		$this->logger->info(
@@ -1039,9 +1039,10 @@ class SessionController extends Controller {
 
 		$this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $data),
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
-			uuid: (string)$conversation->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+				uuid: (string)$conversation->getUuid()
+			)
 		);
 	}//end setArchiveMarker()
 
@@ -1096,9 +1097,10 @@ class SessionController extends Controller {
 			}
 
 			$this->objectService->deleteObject(
-				uuid: (string)$object->getUuid(),
-				register: self::REGISTER_SLUG,
-				schema: $schema
+				new ObjectDeletion(
+					uuid: (string)$object->getUuid(),
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: $schema)
+				)
 			);
 		}
 	}//end deleteRelatedObjects()
@@ -1271,8 +1273,7 @@ class SessionController extends Controller {
 		try {
 			return $this->objectService->find(
 				id: $uuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
 				_rbac: false
 			);
 		} catch (Exception) {

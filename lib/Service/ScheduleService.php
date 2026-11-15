@@ -55,6 +55,10 @@ use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Mcp\Db\Conversation;
 use OCA\OpenRegister\Mcp\Db\ConversationMapper;
@@ -532,8 +536,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -577,8 +580,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -610,8 +612,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -647,8 +648,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -661,9 +661,10 @@ class ScheduleService implements ScheduleServiceInterface {
 
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
-				uuid: (string)$agent->getUuid(),
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+					uuid: (string)$agent->getUuid()
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -1097,8 +1098,7 @@ class ScheduleService implements ScheduleServiceInterface {
 
 		$session = $this->objectService->find(
 			id: $sessionUuid,
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -2652,8 +2652,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -2745,8 +2744,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		$continueSessionUuid = $request->continueSessionUuid;
 		$agent = $this->objectService->find(
 			id: $agentId,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 		);
 		if ($agent === null) {
 			throw new RuntimeException("Agent '{$agentId}' does not exist in the hermiq register");
@@ -2760,8 +2758,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		$conversation = $this->continuedSession(sessionUuid: (string)$continueSessionUuid, owner: $owner, dryRun: $dryRun)
 			?? $this->objectService->saveObject(
 				object: $this->runSession(title: $title, owner: $owner, agent: $agent, startValues: $startValues),
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA))
 			);
 
 		// Remember which conversation this run produced so a Talk-room delivery
@@ -2884,18 +2881,20 @@ class ScheduleService implements ScheduleServiceInterface {
 				}
 
 				$this->objectService->deleteObject(
-					uuid: (string)$message->getUuid(),
-					register: self::REGISTER_SLUG,
-					schema: self::MESSAGE_SCHEMA,
+					new ObjectDeletion(
+						uuid: (string)$message->getUuid(),
+						target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MESSAGE_SCHEMA)
+					),
 					_rbac: false,
 					_multitenancy: false
 				);
 			}
 
 			$this->objectService->deleteObject(
-				uuid: $conversationUuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
+				new ObjectDeletion(
+					uuid: $conversationUuid,
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -3119,8 +3118,7 @@ class ScheduleService implements ScheduleServiceInterface {
 			$uuid = (string)$schedule->getUuid();
 			$fresh = $this->objectService->find(
 				id: $uuid,
-				register: self::REGISTER_SLUG,
-				schema: self::SCHEMA_SLUG,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -3164,9 +3162,10 @@ class ScheduleService implements ScheduleServiceInterface {
 	private function persist(ObjectEntity $schedule, array $data): void {
 		$this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $data),
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG,
-			uuid: (string)$schedule->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
+				uuid: (string)$schedule->getUuid()
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -3236,9 +3235,10 @@ class ScheduleService implements ScheduleServiceInterface {
 	 */
 	private function deleteSchedule(ObjectEntity $schedule): void {
 		$this->objectService->deleteObject(
-			uuid: (string)$schedule->getUuid(),
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG,
+			new ObjectDeletion(
+				uuid: (string)$schedule->getUuid(),
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG)
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

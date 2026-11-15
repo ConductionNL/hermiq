@@ -35,6 +35,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Workspace;
 
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Throwable;
 
@@ -196,7 +197,12 @@ class WorkspacePusher {
 	 */
 	private function agent(string $agentId): ?ObjectEntity {
 		try {
-			$agent = $this->objects->find(id: $agentId, register: 'hermiq', schema: 'agent', _rbac: false, _multitenancy: false);
+			$agent = $this->objects->find(
+				id: $agentId,
+				options: new ObjectFindOptions(register: 'hermiq', schema: 'agent'),
+				_rbac: false,
+				_multitenancy: false
+			);
 		} catch (Throwable) {
 			return null;
 		}

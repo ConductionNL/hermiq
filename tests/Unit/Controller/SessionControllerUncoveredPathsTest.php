@@ -48,6 +48,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Failure answers and fallbacks of SessionController.
@@ -180,7 +181,9 @@ final class SessionControllerUncoveredPathsTest extends TestCase {
 	public function testShowLookupFailureIsServerError(): void {
 		$this->objectService->expects(self::once())
 			->method('find')
-			->with('s-1')
+			->with(...LegacyObjectArgs::with(method: 'find', expected: [
+					'id' => 's-1',
+				]))
 			->willThrowException(new RuntimeException('lookup broke'));
 		$this->expectErrorLogged('[SessionController] Failed to get conversation', 'lookup broke');
 
@@ -247,13 +250,13 @@ final class SessionControllerUncoveredPathsTest extends TestCase {
 		$this->objectService->method('find')->willReturn($this->session('s-1', ['userId' => 'alice', 'metadata' => 'garbage']));
 		$this->objectService->expects(self::once())
 			->method('saveObject')
-			->with(
-				self::callback(static fn (array $object): bool => array_key_exists('metadata', $object) && $object['metadata'] === null && $object['userId'] === 'alice'),
-				self::anything(),
-				'hermiq',
-				'agentsession',
-				's-1'
-			)
+			->with(...LegacyObjectArgs::with(method: 'saveObject', expected: [
+					'object' => self::callback(static fn (array $object): bool => array_key_exists('metadata', $object) && $object['metadata'] === null && $object['userId'] === 'alice'),
+					'extend' => self::anything(),
+					'register' => 'hermiq',
+					'schema' => 'agentsession',
+					'uuid' => 's-1',
+				]))
 			->willReturnCallback(fn (array $object): ObjectEntity => $this->session('s-1', $object));
 
 		$response = $this->controller()->restore('s-1');
