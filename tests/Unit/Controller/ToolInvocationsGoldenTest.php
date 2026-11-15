@@ -41,7 +41,7 @@ use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Http\DataDownloadResponse;
 use OCP\IAppConfig;
@@ -65,6 +65,7 @@ use Random\Randomizer;
  * @covers \OCA\Hermiq\Service\ToolOversight\ToolOversightServices
  * @uses   \OCA\Hermiq\Service\AgentAccessService
  * @uses   \OCA\Hermiq\Service\ToolInvocationRows
+ * @uses \OCA\Hermiq\Controller\ToolInvocationExport
  *
  * @spec openspec/specs/agent-tool-governance/spec.md#scenario-the-richer-invocation-audit-shape-is-not-yet-available
  */

@@ -44,7 +44,7 @@ use Throwable;
  * louder than the caller already does; the kill-switch endpoints re-check
  * authorization server-side regardless, so an empty answer is safe.
  *
- * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-4-1
  */
 final class OpenRegisterManageableOrganisations implements ManageableOrganisations {
 
@@ -86,48 +86,83 @@ final class OpenRegisterManageableOrganisations implements ManageableOrganisatio
 	 *
 	 * @return array<int, array{id: string, label: string}> Organisation id/label pairs.
 	 *
-	 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-4-1
 	 */
 	public function forUser(string $userId, bool $isAdmin): array {
 		if ($this->appManager->isInstalled('openregister') === false) {
 			return [];
 		}
 
+		$organisations = $this->candidates(userId: $userId, isAdmin: $isAdmin);
+		if ($isAdmin === false) {
+			$organisations = $this->ownedBy(organisations: $organisations, userId: $userId);
+		}
+
+		return $this->options(organisations: $organisations);
+	}//end forUser()
+
+	/**
+	 * The organisations to consider: every one (capped) for an admin, the user's own memberships otherwise.
+	 *
+	 * A read failure degrades to "no manageable organisation" — the toggle
+	 * endpoint remains the real authorization boundary.
+	 *
+	 * @param string $userId  The Nextcloud user id.
+	 * @param bool   $isAdmin Whether the user is an instance admin.
+	 *
+	 * @return iterable<object> The organisation rows, or none when they cannot be read.
+	 */
+	private function candidates(string $userId, bool $isAdmin): iterable {
 		try {
 			$mapper = $this->container->get(self::ORGANISATION_MAPPER);
-
-			$organisations = [];
 			if ($isAdmin === true) {
-				$organisations = $mapper->findAll(limit: self::ADMIN_LIMIT);
+				return $mapper->findAll(limit: self::ADMIN_LIMIT);
 			}
 
-			if ($isAdmin === false) {
-				$organisations = $mapper->findByUserId($userId);
-			}
+			return $mapper->findByUserId($userId);
 		} catch (Throwable) {
-			// A read failure degrades to "no manageable organisation" — the
-			// toggle endpoint remains the real authorization boundary.
 			return [];
-		}//end try
+		}
+	}//end candidates()
 
+	/**
+	 * The organisations the user owns.
+	 *
+	 * @param iterable<object> $organisations The organisation rows.
+	 * @param string           $userId        The Nextcloud user id.
+	 *
+	 * @return array<int, object> The owned rows, in order.
+	 */
+	private function ownedBy(iterable $organisations, string $userId): array {
+		$owned = [];
+		foreach ($organisations as $organisation) {
+			if ((string)($organisation->getOwner() ?? '') === $userId) {
+				$owned[] = $organisation;
+			}
+		}
+
+		return $owned;
+	}//end ownedBy()
+
+	/**
+	 * The id/label pairs: the uuid, labelled by the name or, without one, the uuid.
+	 *
+	 * @param iterable<object> $organisations The organisation rows.
+	 *
+	 * @return array<int, array{id: string, label: string}> Organisation id/label pairs.
+	 */
+	private function options(iterable $organisations): array {
 		$result = [];
 		foreach ($organisations as $organisation) {
-			if ($isAdmin === false && (string)($organisation->getOwner() ?? '') !== $userId) {
-				continue;
-			}
-
 			$uuid = (string)$organisation->getUuid();
 			$name = (string)($organisation->getName() ?? '');
 			if ($name === '') {
 				$name = $uuid;
 			}
 
-			$result[] = [
-				'id' => $uuid,
-				'label' => $name,
-			];
-		}//end foreach
+			$result[] = ['id' => $uuid, 'label' => $name];
+		}
 
 		return $result;
-	}//end forUser()
+	}//end options()
 }//end class

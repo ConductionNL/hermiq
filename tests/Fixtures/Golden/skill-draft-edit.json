@@ -215,7 +215,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -287,7 +287,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -653,7 +653,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -720,7 +720,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -983,7 +983,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -1055,7 +1055,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -1250,7 +1250,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -1322,7 +1322,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -1646,7 +1646,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -1713,7 +1713,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -2039,7 +2039,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -2106,7 +2106,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -2618,7 +2618,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -2690,7 +2690,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -2859,7 +2859,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -2926,7 +2926,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -3249,7 +3249,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -3321,7 +3321,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -3583,7 +3583,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -3655,7 +3655,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -3815,7 +3815,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -4081,7 +4081,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -4227,7 +4227,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -4286,7 +4286,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -4476,7 +4476,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -4695,7 +4695,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -4767,7 +4767,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -4938,7 +4938,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -5005,7 +5005,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -5167,7 +5167,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -5295,7 +5295,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -5794,7 +5794,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -5849,7 +5849,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -5978,7 +5978,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -6483,7 +6483,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -6662,7 +6662,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -6806,7 +6806,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -6878,7 +6878,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -7049,7 +7049,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -7104,7 +7104,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -7304,7 +7304,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -7371,7 +7371,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -7714,7 +7714,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -7781,7 +7781,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -8088,7 +8088,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -8160,7 +8160,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -8406,7 +8406,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -8461,7 +8461,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -8652,7 +8652,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -8719,7 +8719,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -9015,7 +9015,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -9532,7 +9532,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -9599,7 +9599,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -9865,7 +9865,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -10135,7 +10135,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -10207,7 +10207,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -10572,7 +10572,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -10703,7 +10703,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -10770,7 +10770,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -10957,7 +10957,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -11339,7 +11339,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -11622,7 +11622,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -11694,7 +11694,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -11856,7 +11856,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -12002,7 +12002,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -12062,7 +12062,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -12186,7 +12186,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -12253,7 +12253,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -12476,7 +12476,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -12543,7 +12543,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -13199,7 +13199,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -13254,7 +13254,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -13804,7 +13804,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -13876,7 +13876,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -14094,7 +14094,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -14161,7 +14161,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -14326,7 +14326,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -14393,7 +14393,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -14723,7 +14723,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -14790,7 +14790,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -15169,7 +15169,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -15241,7 +15241,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -15487,7 +15487,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -15554,7 +15554,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -16406,7 +16406,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -16824,7 +16824,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -17400,7 +17400,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -17472,7 +17472,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -17928,7 +17928,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -17995,7 +17995,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -18155,7 +18155,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -18278,7 +18278,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -18345,7 +18345,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -18591,7 +18591,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -18899,7 +18899,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -18966,7 +18966,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -19348,7 +19348,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -19415,7 +19415,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -19630,7 +19630,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -19696,7 +19696,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -19948,7 +19948,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -20020,7 +20020,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -20214,7 +20214,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -20286,7 +20286,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -20478,7 +20478,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -20550,7 +20550,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -20724,7 +20724,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -21604,7 +21604,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -21671,7 +21671,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -22310,7 +22310,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -22382,7 +22382,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -22556,7 +22556,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -22623,7 +22623,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -22796,7 +22796,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -22868,7 +22868,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -23201,7 +23201,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -23553,7 +23553,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -23620,7 +23620,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -23780,7 +23780,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -23907,7 +23907,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -23974,7 +23974,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -24568,7 +24568,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -24705,7 +24705,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -24839,7 +24839,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -24909,7 +24909,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -25511,7 +25511,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -25702,7 +25702,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -25769,7 +25769,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -25933,7 +25933,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -26062,7 +26062,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -26129,7 +26129,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -26373,7 +26373,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -26428,7 +26428,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -26570,7 +26570,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -26642,7 +26642,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -26854,7 +26854,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -26921,7 +26921,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -27252,7 +27252,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -27482,7 +27482,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -27554,7 +27554,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -27794,7 +27794,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -27849,7 +27849,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -28117,7 +28117,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -28189,7 +28189,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -28434,7 +28434,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -28501,7 +28501,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -28909,7 +28909,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -28964,7 +28964,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -29183,7 +29183,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -29255,7 +29255,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -29676,7 +29676,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -30217,7 +30217,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -30289,7 +30289,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -30480,7 +30480,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -30552,7 +30552,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -30726,7 +30726,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -30793,7 +30793,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -30959,7 +30959,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -31026,7 +31026,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -31726,7 +31726,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -32301,7 +32301,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -32368,7 +32368,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -32882,7 +32882,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -32954,7 +32954,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -33273,7 +33273,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -33340,7 +33340,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -33606,7 +33606,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -33678,7 +33678,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -34173,7 +34173,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -34240,7 +34240,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -34762,7 +34762,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -34829,7 +34829,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -35014,7 +35014,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -35136,7 +35136,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -35297,7 +35297,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -35369,7 +35369,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -35633,7 +35633,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {
@@ -35705,7 +35705,7 @@
                 }
             ],
             [
-                "createAuditTrailEntry",
+                "recordObjectEvent",
                 "d1",
                 "skill-draft",
                 {

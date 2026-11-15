@@ -326,6 +326,8 @@ class AttachmentTextReaderTest extends TestCase {
 	public function testATextFileThatCannotBeReadIsLeftOut(): void {
 		$unreadable = $this->createMock(File::class);
 		$unreadable->method('isReadable')->willReturn(false);
+		// Content the speaker may not read must never reach the model, even when it is there.
+		$unreadable->method('getContent')->willReturn('not for this speaker');
 		$failing = $this->createMock(File::class);
 		$failing->method('isReadable')->willReturn(true);
 		$failing->method('getContent')->willThrowException(new RuntimeException('storage gone'));

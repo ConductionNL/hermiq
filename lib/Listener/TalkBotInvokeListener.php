@@ -28,21 +28,20 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-chat-bridge/tasks.md#2-inbound-listener-cheap-work-only
+ * @spec openspec/changes/archive/2026-07-30-talk-chat-bridge/tasks.md#2-inbound-listener-cheap-work-only
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Listener;
 
+use OCA\Hermiq\Kernel\Contracts\TalkAgentBindingInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkMentionMatcherInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkRoomBindingInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkRoomGroupingInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkTurnDispatcherInterface;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
-use OCA\Hermiq\Service\Talk\TalkAgentBinding;
 use OCA\Hermiq\Service\Talk\TalkBridge;
-use OCA\Hermiq\Service\Talk\TalkMentionMatcher;
-use OCA\Hermiq\Service\Talk\TalkRoomBinding;
-use OCA\Hermiq\Service\Talk\TalkRoomGrouping;
-use OCA\Hermiq\Service\Talk\TalkTurnDispatcher;
-use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use Psr\Log\LoggerInterface;
@@ -55,7 +54,7 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-the-bot-listener-never-runs-an-agent-turn-inline
+ * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-bot-listener-never-runs-an-agent-turn-inline
  */
 class TalkBotInvokeListener implements IEventListener {
 
@@ -74,22 +73,22 @@ class TalkBotInvokeListener implements IEventListener {
 	 * Constructor.
 	 *
 	 * @param TalkBridge $bridge Talk availability, room type and room I/O.
-	 * @param TalkRoomBinding $roomBinding Resolves/creates the bound conversation.
-	 * @param TalkAgentBinding $agentBinding Resolves the room's opted-in agent.
-	 * @param TalkTurnDispatcher $dispatcher Hands the turn off out of request.
-	 * @param TalkRoomGrouping $grouping Files a newly bound room under each participant's tag.
+	 * @param TalkRoomBindingInterface $roomBinding Resolves/creates the bound conversation.
+	 * @param TalkAgentBindingInterface $agentBinding Resolves the room's opted-in agent.
+	 * @param TalkTurnDispatcherInterface $dispatcher Hands the turn off out of request.
+	 * @param TalkRoomGroupingInterface $grouping Files a newly bound room under each participant's tag.
 	 * @param ConversationParticipation $participation Owner-or-participant guard.
-	 * @param TalkMentionMatcher $mentionMatcher Decides whether a message addresses the agent by name.
+	 * @param TalkMentionMatcherInterface $mentionMatcher Decides whether a message addresses the agent by name.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
 		private readonly TalkBridge $bridge,
-		private readonly TalkRoomBinding $roomBinding,
-		private readonly TalkAgentBinding $agentBinding,
-		private readonly TalkTurnDispatcher $dispatcher,
-		private readonly TalkRoomGrouping $grouping,
+		private readonly TalkRoomBindingInterface $roomBinding,
+		private readonly TalkAgentBindingInterface $agentBinding,
+		private readonly TalkTurnDispatcherInterface $dispatcher,
+		private readonly TalkRoomGroupingInterface $grouping,
 		private readonly ConversationParticipation $participation,
-		private readonly TalkMentionMatcher $mentionMatcher,
+		private readonly TalkMentionMatcherInterface $mentionMatcher,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()
@@ -105,7 +104,7 @@ class TalkBotInvokeListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-the-bot-listener-never-runs-an-agent-turn-inline
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-bot-listener-never-runs-an-agent-turn-inline
 	 */
 	public function handle(Event $event): void {
 		try {
@@ -130,45 +129,83 @@ class TalkBotInvokeListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
 	 */
 	private function handleInvocation(Event $event): void {
+		$invocation = $this->readInvocation(event: $event);
+		if ($invocation === null) {
+			return;
+		}
+
+		if ($this->bindAgent(invocation: $invocation) === false) {
+			return;
+		}
+
+		if ($this->bindConversation(invocation: $invocation) === false) {
+			return;
+		}
+
+		if ($this->admitAndAcknowledge(invocation: $invocation) === false) {
+			return;
+		}
+
+		$this->handOff(invocation: $invocation);
+
+	}//end handleInvocation()
+
+	/**
+	 * The invocation, when this event is a readable turn of ours.
+	 *
+	 * @param Event $event The spreed BotInvokeEvent.
+	 *
+	 * @return TalkInvocation|null
+	 */
+	private function readInvocation(Event $event): ?TalkInvocation {
 		$payload = $this->readPayload(event: $event);
 		if ($payload === null) {
-			return;
+			return null;
 		}
 
 		$turn = $this->readTurn(payload: $payload);
 		if ($turn === null) {
-			return;
+			return null;
 		}
 
-		$agentId = $this->agentBinding->agentForRoom(roomToken: $turn['roomToken']);
+		return new TalkInvocation(event: $event, payload: $payload, turn: $turn);
+	}//end readInvocation()
+
+	/**
+	 * Resolve the opted-in agent bound to the room, and whether the message
+	 * addresses it.
+	 *
+	 * @param TalkInvocation $invocation The invocation.
+	 *
+	 * @return bool True when an agent is bound and addressed.
+	 */
+	private function bindAgent(TalkInvocation $invocation): bool {
+		$agentId = $this->agentBinding->agentForRoom(roomToken: $invocation->roomToken());
 		if ($agentId === null) {
 			// No opted-in agent is bound to this room — both opt-ins are
 			// required, so this is the default state and not an error.
-			return;
+			return false;
 		}
 
-		if ($this->isAddressed(payload: $payload, roomToken: $turn['roomToken'], agentId: $agentId) === false) {
-			return;
-		}
+		$invocation->agentId = $agentId;
+		return $this->isAddressed(invocation: $invocation);
+	}//end bindAgent()
 
-		$conversation = $this->resolveConversation(
-			roomToken: $turn['roomToken'],
-			agentId: $agentId,
-			speakerUid: $turn['speakerUid']
-		);
-		if ($conversation === null) {
-			return;
-		}
-
-		if ($this->admitAndAcknowledge(event: $event, conversation: $conversation, turn: $turn) === false) {
-			return;
-		}
-
+	/**
+	 * Hand the turn off to run out of request, and log the path it took.
+	 *
+	 * @param TalkInvocation $invocation The admitted invocation.
+	 *
+	 * @return void
+	 */
+	private function handOff(TalkInvocation $invocation): void {
+		$turn = $invocation->turn;
+		$conversationUuid = (string)$invocation->conversation?->getUuid();
 		$path = $this->dispatcher->dispatch(
-			conversationUuid: (string)$conversation->getUuid(),
+			conversationUuid: $conversationUuid,
 			speakerUid: $turn['speakerUid'],
 			message: $turn['content'],
 			roomToken: $turn['roomToken']
@@ -180,13 +217,12 @@ class TalkBotInvokeListener implements IEventListener {
 				'file' => __FILE__,
 				'line' => __LINE__,
 				'roomToken' => $turn['roomToken'],
-				'conversation' => (string)$conversation->getUuid(),
+				'conversation' => $conversationUuid,
 				'speaker' => $turn['speakerUid'],
 				'path' => $path,
 			]
 		);
-
-	}//end handleInvocation()
+	}//end handOff()
 
 	/**
 	 * Admit the speaker and acknowledge receipt, or refuse the turn.
@@ -195,23 +231,24 @@ class TalkBotInvokeListener implements IEventListener {
 	 * member who is not on the roster of the conversation bound to that room
 	 * does not get to take a turn on it.
 	 *
-	 * @param Event $event The spreed BotInvokeEvent.
-	 * @param ObjectEntity $conversation The bound conversation.
-	 * @param array $turn The read turn (room, speaker, content).
+	 * @param TalkInvocation $invocation The invocation, with its bound conversation.
 	 *
 	 * @return bool True when the turn may proceed.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
 	 */
-	private function admitAndAcknowledge(Event $event, ObjectEntity $conversation, array $turn): bool {
-		if ($this->participation->mayTakeTurn(conversationData: $conversation->getObject(), userId: $turn['speakerUid']) === false) {
+	private function admitAndAcknowledge(TalkInvocation $invocation): bool {
+		$conversation = $invocation->conversation;
+		$turn = $invocation->turn;
+		$event = $invocation->event;
+		if ($this->participation->mayTakeTurn(conversationData: (array)$conversation?->getObject(), userId: $turn['speakerUid']) === false) {
 			$this->logger->info(
 				message: '[TalkBotInvokeListener] Speaker is not a participant of the bound conversation — refusing the turn',
 				context: [
 					'file' => __FILE__,
 					'line' => __LINE__,
 					'roomToken' => $turn['roomToken'],
-					'conversation' => (string)$conversation->getUuid(),
+					'conversation' => (string)$conversation?->getUuid(),
 				]
 			);
 			return false;
@@ -238,7 +275,7 @@ class TalkBotInvokeListener implements IEventListener {
 	 *
 	 * @return array|null The actionable payload, or null.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-listener-registration-is-unconditional-and-availability-is-probed-at-invoke-time
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-listener-registration-is-unconditional-and-availability-is-probed-at-invoke-time
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) TalkBridge::isHermiqBotUrl() is static
 	 * DELIBERATELY: it is a pure function of the URL and it guards the approval
@@ -277,12 +314,12 @@ class TalkBotInvokeListener implements IEventListener {
 	 * @return array{roomToken: string, speakerUid: string, content: string}|null
 	 *                                                                            The turn, or null when the payload is not actionable.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
 	 */
 	private function readTurn(array $payload): ?array {
 		$roomToken = (string)($payload['target']['id'] ?? '');
 		$speakerUid = (string)($payload['actor']['id'] ?? '');
-		$content = $this->plainText(raw: (string)($payload['object']['content'] ?? ''));
+		$content = (new TalkMessageText())->plainText(raw: (string)($payload['object']['content'] ?? ''));
 
 		// Spreed prefixes user actors with `users/`.
 		if (str_starts_with($speakerUid, 'users/') === true) {
@@ -304,15 +341,15 @@ class TalkBotInvokeListener implements IEventListener {
 	/**
 	 * Resolve the conversation bound to the room, opening one on first contact.
 	 *
-	 * @param string $roomToken The Talk room token.
-	 * @param string $agentId The opted-in agent bound to the room.
-	 * @param string $speakerUid The uid opening the session, when new.
+	 * @param TalkInvocation $invocation The invocation, with its agent: the room, and the uid
+	 *                                   opening the session when it is new.
 	 *
-	 * @return ObjectEntity|null The bound conversation, or null when unavailable.
+	 * @return bool True when the room is bound to a conversation, now on the invocation.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
 	 */
-	private function resolveConversation(string $roomToken, string $agentId, string $speakerUid): ?ObjectEntity {
+	private function bindConversation(TalkInvocation $invocation): bool {
+		$roomToken = $invocation->roomToken();
 		$conversation = $this->roomBinding->findByRoomToken(roomToken: $roomToken);
 		if ($conversation !== null) {
 			// A late joiner needs their own Hermiq tag too — tags are PER USER
@@ -331,16 +368,17 @@ class TalkBotInvokeListener implements IEventListener {
 			// the roster — and their very first message would be refused. The
 			// check that runs a moment later is exactly the thing this has to
 			// beat, which is why it lives here and not beside the bind below.
-			return $this->roomBinding->syncParticipants(
+			$invocation->conversation = $this->roomBinding->syncParticipants(
 				conversation: $conversation,
 				participants: $this->bridge->roomUserIds(roomToken: $roomToken)
 			);
+			return true;
 		}//end if
 
-		$conversation = $this->roomBinding->createBound(
+		$invocation->conversation = $this->roomBinding->createBound(
 			roomToken: $roomToken,
-			agentId: $agentId,
-			ownerUid: $speakerUid,
+			agentId: $invocation->agentId,
+			ownerUid: $invocation->turn['speakerUid'],
 			participants: $this->bridge->roomUserIds(roomToken: $roomToken)
 		);
 
@@ -348,83 +386,13 @@ class TalkBotInvokeListener implements IEventListener {
 		// agent rooms stop competing with their human conversations
 		// (talk-room-grouping). Cosmetic and best-effort — it can never fail the
 		// bind or the turn.
-		if ($conversation !== null) {
-			$this->grouping->groupRoom(roomToken: $roomToken);
+		if ($invocation->conversation === null) {
+			return false;
 		}
 
-		return $conversation;
-	}//end resolveConversation()
-
-	/**
-	 * Extract the human-readable text from a bot invocation's `object.content`.
-	 *
-	 * Spreed does NOT put the message text there: `ActivityPubHelper::generateNote()`
-	 * sets `content` to `json_encode(['message' => …, 'parameters' => …])`, the
-	 * PARSED message envelope. Handing that straight to the engine would feed
-	 * the agent a JSON blob as its prompt — which is exactly what happened on
-	 * the first live round-trip.
-	 *
-	 * Rich mentions arrive as `{mention-user1}`-style placeholders in `message`
-	 * with their real values in `parameters`, so those are substituted back to
-	 * their display names to keep the prompt readable.
-	 *
-	 * Falls back to the raw string when it is not the expected envelope, so a
-	 * future spreed change degrades to "slightly odd prompt" rather than to a
-	 * dropped turn.
-	 *
-	 * @param string $raw The invocation payload's `object.content`.
-	 *
-	 * @return string The human-readable message text.
-	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
-	 */
-	private function plainText(string $raw): string {
-		if ($raw === '' || str_starts_with(trim($raw), '{') === false) {
-			return $raw;
-		}
-
-		try {
-			$decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
-		} catch (Throwable) {
-			return $raw;
-		}
-
-		if (is_array($decoded) === false || is_string($decoded['message'] ?? null) === false) {
-			return $raw;
-		}
-
-		$parameters = ($decoded['parameters'] ?? []);
-		if (is_array($parameters) === false) {
-			return (string)$decoded['message'];
-		}
-
-		return $this->substituteParameters(text: (string)$decoded['message'], parameters: $parameters);
-	}//end plainText()
-
-	/**
-	 * Replace `{mention-user1}`-style placeholders with their display names.
-	 *
-	 * @param string $text The message text carrying placeholders.
-	 * @param array $parameters The invocation payload's parameter map.
-	 *
-	 * @return string The text with placeholders substituted.
-	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
-	 */
-	private function substituteParameters(string $text, array $parameters): string {
-		foreach ($parameters as $key => $parameter) {
-			if (is_array($parameter) === false) {
-				continue;
-			}
-
-			$name = ($parameter['name'] ?? ($parameter['id'] ?? null));
-			if (is_string($name) === true && $name !== '') {
-				$text = str_replace('{' . $key . '}', $name, $text);
-			}
-		}
-
-		return $text;
-	}//end substituteParameters()
+		$this->grouping->groupRoom(roomToken: $roomToken);
+		return true;
+	}//end bindConversation()
 
 	/**
 	 * Whether the agent is being addressed by this message.
@@ -445,29 +413,40 @@ class TalkBotInvokeListener implements IEventListener {
 	 * current shape — inferring it (say, "owner plus one bot") would silently
 	 * flip this behaviour the moment somebody invites a second person.
 	 *
-	 * @param array $payload The invocation payload.
-	 * @param string $roomToken The Talk room token.
-	 * @param string $agentId The agent bound to this room, whose name is the mention target.
+	 * @param TalkInvocation $invocation The invocation, with the agent bound to its room.
 	 *
 	 * @return bool True when the agent should take the turn.
 	 *
 	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-group-room
 	 */
-	private function isAddressed(array $payload, string $roomToken, string $agentId): bool {
-		if ($this->roomBinding->isCreatedRoom(roomToken: $roomToken) === true) {
+	private function isAddressed(TalkInvocation $invocation): bool {
+		if ($this->roomBinding->isCreatedRoom(roomToken: $invocation->roomToken()) === true) {
 			return true;
 		}
 
-		if ($this->bridge->isOneToOne(roomToken: $roomToken) === true) {
+		if ($this->bridge->isOneToOne(roomToken: $invocation->roomToken()) === true) {
 			return true;
 		}
 
+		return $this->mentionsAgent(invocation: $invocation) || $this->repliesToAgent(invocation: $invocation);
+
+	}//end isAddressed()
+
+	/**
+	 * Whether the message mentions the agent by name, in its text or its mention
+	 * parameters.
+	 *
+	 * @param TalkInvocation $invocation The invocation, with its agent.
+	 *
+	 * @return bool
+	 */
+	private function mentionsAgent(TalkInvocation $invocation): bool {
 		// The mention target is the AGENT's name now, not the single word
 		// "Hermiq" — that is what a per-agent bot renders as, and what a user
 		// sees to type. Fall back to the shared bot name so a room bound before
 		// this change keeps working.
 		$targets = [TalkBridge::BOT_NAME];
-		$agentName = $this->agentBinding->agentName(agentId: $agentId);
+		$agentName = $this->agentBinding->agentName(agentId: $invocation->agentId);
 		if ($agentName !== '') {
 			array_unshift($targets, $agentName);
 		}
@@ -475,26 +454,31 @@ class TalkBotInvokeListener implements IEventListener {
 		// Match on the DECODED text, not the raw envelope: the raw JSON also
 		// contains the mention parameters, so matching it would fire on
 		// messages that merely quote the bot's name.
-		$content = $this->plainText(raw: (string)($payload['object']['content'] ?? ''));
+		$content = (new TalkMessageText())->plainText(raw: (string)($invocation->payload['object']['content'] ?? ''));
 		if ($this->mentionMatcher->matchesAny(content: $content, names: $targets) === true) {
 			return true;
 		}
 
-		$parameters = ($payload['object']['parameters'] ?? []);
-		if (is_array($parameters) === true
-			&& $this->mentionMatcher->matchesParameters(parameters: $parameters, names: $targets) === true
-		) {
-			return true;
-		}
+		$parameters = ($invocation->payload['object']['parameters'] ?? []);
+		return is_array($parameters) === true
+			&& $this->mentionMatcher->matchesParameters(parameters: $parameters, names: $targets) === true;
+	}//end mentionsAgent()
 
-		// A reply to one of the agent's own messages continues the exchange.
-		// Both actor ids are accepted so a room bound before per-agent bots,
-		// whose history is signed by the shared bot, still continues.
-		$parentActor = (string)($payload['object']['inReplyTo']['actor']['id'] ?? '');
+	/**
+	 * Whether the message replies to one of the agent's own messages.
+	 *
+	 * A reply continues the exchange. Both actor ids are accepted so a room bound
+	 * before per-agent bots, whose history is signed by the shared bot, still continues.
+	 *
+	 * @param TalkInvocation $invocation The invocation, with its agent.
+	 *
+	 * @return bool
+	 */
+	private function repliesToAgent(TalkInvocation $invocation): bool {
+		$parentActor = (string)($invocation->payload['object']['inReplyTo']['actor']['id'] ?? '');
 
 		return ($parentActor !== ''
-			&& ($parentActor === $this->bridge->botActorId(agentId: $agentId)
+			&& ($parentActor === $this->bridge->botActorId(agentId: $invocation->agentId)
 				|| $parentActor === $this->bridge->botActorId()));
-
-	}//end isAddressed()
+	}//end repliesToAgent()
 }//end class

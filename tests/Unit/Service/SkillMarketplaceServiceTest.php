@@ -521,4 +521,157 @@ class SkillMarketplaceServiceTest extends TestCase {
 		$this->assertGreaterThan(0, $result['packageBytes']);
 
 	}//end testPublishStructuredErrorWithoutConnector()
+
+	/**
+	 * A marketplace service over a real resolver/upsert policy, with the given
+	 * stored skills visible and every save captured.
+	 *
+	 * @param array<int, ObjectEntity>                                           $stored The skills findAll returns.
+	 * @param array<int, array{object: array<string, mixed>, uuid: string|null}> $saves  Captured saves (by reference).
+	 * @param string                                                             $body   The body the package parses to.
+	 *
+	 * @return SkillMarketplaceService
+	 */
+	private function upsertService(array $stored, array &$saves, string $body): SkillMarketplaceService {
+		$serializer = $this->createMock(SkillSerializer::class);
+		$serializer->method('toDirectoryMap')->willReturn([SkillSerializer::SKILL_FILE => '---']);
+		$serializer->method('fromPackageFiles')->willReturn(
+			['frontmatter' => 'name: tender', 'body' => $body, 'name' => 'tender', 'description' => 'd', 'files' => []]
+		);
+
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('setRegister')->willReturnSelf();
+		$objectService->method('setSchema')->willReturnSelf();
+		$objectService->method('findAll')->willReturn($stored);
+		$objectService->method('saveObject')->willReturnCallback(
+			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$saves): ObjectEntity {
+				unset($extend, $register, $schema);
+				$saves[] = ['object' => $object, 'uuid' => $uuid];
+				return $this->skill((string)($uuid ?? 'new-skill'), $object);
+			}
+		);
+
+		return new SkillMarketplaceService(
+			$objectService,
+			$this->createMock(SkillService::class),
+			$serializer,
+			$this->scanner(),
+			new SkillIdentityResolver(),
+			new SkillUpsertPolicy(),
+			$this->appConfig(90, 180),
+			$this->createMock(ContainerInterface::class),
+			$this->createMock(LoggerInterface::class)
+		);
+
+	}//end upsertService()
+
+	/**
+	 * A stored, approved skill installed from the given source URL.
+	 *
+	 * @param string $body The stored body.
+	 *
+	 * @return ObjectEntity
+	 */
+	private function installedSkill(string $body): ObjectEntity {
+		return $this->skill(
+			'skill-1',
+			[
+				'name' => 'tender',
+				'description' => 'd',
+				'frontmatter' => 'name: tender',
+				'body' => $body,
+				'files' => [],
+				'state' => 'approved',
+				'sourceUrl' => 'https://github.com/acme/skills/tender',
+			]
+		);
+
+	}//end installedSkill()
+
+	/**
+	 * Re-installing changed content from the same source updates the existing skill
+	 * in place and sends it back to quarantine.
+	 *
+	 * @return void
+	 */
+	public function testReinstallFromTheSameSourceUpdatesInPlace(): void {
+		$saves = [];
+		$service = $this->upsertService([$this->installedSkill('old body')], $saves, 'new body');
+
+		$outcome = null;
+		$service->installFromSource(
+			package: '---',
+			source: 'hub',
+			createdBy: 'alice',
+			sourceUrl: 'https://github.com/acme/skills/tender',
+			outcome: $outcome
+		);
+
+		$this->assertCount(1, $saves);
+		$this->assertSame('skill-1', $saves[0]['uuid']);
+		$this->assertSame('new body', $saves[0]['object']['body']);
+		$this->assertSame('quarantined', $saves[0]['object']['state']);
+		$this->assertSame('clean', $saves[0]['object']['scanReport']['severity']);
+		$this->assertSame(
+			[
+				'outcome' => 'updated',
+				'learningsKept' => false,
+				'sourceUrl' => 'https://github.com/acme/skills/tender',
+				'matchedBy' => SkillIdentityResolver::MATCH_SOURCE_URL,
+			],
+			$outcome
+		);
+
+	}//end testReinstallFromTheSameSourceUpdatesInPlace()
+
+	/**
+	 * Re-installing identical content keeps the skill's approval and reports unchanged.
+	 *
+	 * @return void
+	 */
+	public function testReinstallOfIdenticalContentIsUnchanged(): void {
+		$saves = [];
+		$service = $this->upsertService([$this->installedSkill('same body')], $saves, 'same body');
+
+		$outcome = null;
+		$service->installFromSource(
+			package: '---',
+			source: 'hub',
+			createdBy: 'alice',
+			sourceUrl: 'https://github.com/acme/skills/tender',
+			outcome: $outcome
+		);
+
+		$this->assertSame('skill-1', $saves[0]['uuid']);
+		$this->assertSame('approved', $saves[0]['object']['state']);
+		$this->assertSame('unchanged', $outcome['outcome']);
+
+	}//end testReinstallOfIdenticalContentIsUnchanged()
+
+	/**
+	 * A source URL nothing matches installs a new quarantined skill carrying the URL.
+	 *
+	 * @return void
+	 */
+	public function testInstallWithAnUnmatchedSourceCreatesANewSkill(): void {
+		$saves = [];
+		$other = $this->skill('skill-9', ['name' => 'other', 'sourceUrl' => 'https://github.com/acme/skills/other']);
+		$service = $this->upsertService([$other, 'not-an-entity'], $saves, 'body');
+
+		$outcome = null;
+		$service->installFromSource(
+			package: '---',
+			source: 'hub',
+			createdBy: 'alice',
+			sourceUrl: 'https://github.com/acme/skills/tender',
+			outcome: $outcome
+		);
+
+		$this->assertNull($saves[0]['uuid']);
+		$this->assertSame('quarantined', $saves[0]['object']['state']);
+		$this->assertSame('https://github.com/acme/skills/tender', $saves[0]['object']['sourceUrl']);
+		$this->assertSame($saves[0]['object']['lastActivityAt'], $saves[0]['object']['sourceUpdatedAt']);
+		$this->assertSame('installed', $outcome['outcome']);
+
+	}//end testInstallWithAnUnmatchedSourceCreatesANewSkill()
 }//end class

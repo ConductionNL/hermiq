@@ -33,7 +33,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\BackgroundJob;
 
-use OCA\Hermiq\Service\SkillConsolidationService;
+use OCA\Hermiq\Kernel\Contracts\SkillConsolidationServiceInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\TimedJob;
 use Psr\Container\ContainerInterface;
@@ -89,7 +89,7 @@ class SkillConsolidationTask extends TimedJob {
 	 */
 	public function run(mixed $argument): void {
 		try {
-			$service = $this->container->get(SkillConsolidationService::class);
+			$service = $this->container->get(SkillConsolidationServiceInterface::class);
 			$service->runPass();
 		} catch (Throwable $e) {
 			$this->logger->warning(

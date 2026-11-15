@@ -7,7 +7,7 @@ depends_on: [session-api-rename, session-frontend-rename]
 
 ## Summary
 
-On any answer in a session you can choose "Fork from here": hermiq starts a new session with the same agent and every turn up to that answer, and the original stays as it was. You can share a session read-only with named colleagues or groups, the way you share a file in Nextcloud, and take the share back at any time. A colleague opens the shared session from the notification or from "Shared with you" on `/chat`, reads it, and cannot add to it or change it. There is no public link.
+On any answer in a session you can choose "Fork from here": hermiq starts a new session with the same agent and every turn up to that answer, and the original stays as it was. You can share a session read-only with named colleagues or groups, the way you share a file in Nextcloud, and take the share back at any time. A colleague opens the shared session from the notification or from "Shared with you" on `/chat`, reads it, and cannot add to it or change it. The share dialog copies a link to the session, which opens it only for the people it is shared with, as the board HmChat draws ("Delen via link"). There is no public link.
 
 ## Why
 

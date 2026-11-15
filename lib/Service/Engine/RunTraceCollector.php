@@ -33,7 +33,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/run-trace-observability/tasks.md#task-1-runtracecollector-ordered-in-memory-step-recorder
+ * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-1-runtracecollector-ordered-in-memory-step-recorder
  */
 
 declare(strict_types=1);
@@ -52,7 +52,7 @@ use DateTimeZone;
  * @category Service
  * @package  OCA\Hermiq\Service\Engine
  *
- * @spec openspec/changes/run-trace-observability/tasks.md#task-1-runtracecollector-ordered-in-memory-step-recorder
+ * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-1-runtracecollector-ordered-in-memory-step-recorder
  */
 class RunTraceCollector {
 
@@ -144,7 +144,7 @@ class RunTraceCollector {
 	 * @return void
 	 *
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
-	 * @spec openspec/changes/run-replay-and-dry-run/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
+	 * @spec openspec/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
 	 */
 	public function endStep(int $token, string $outcome, array $extra = []): void {
 		if (isset($this->pending[$token]) === false) {
@@ -214,7 +214,7 @@ class RunTraceCollector {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-every-run-must-record-the-feature-the-provider-and-the-residency-in-force
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-every-run-must-record-the-feature-the-provider-and-the-residency-in-force
 	 */
 	public function recordProviderDisclosure(array $disclosure): void {
 		$this->providerDisclosure = [
@@ -236,7 +236,7 @@ class RunTraceCollector {
 	 * @return array<string, string>|null
 	 *         The disclosure, or null.
 	 *
-	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-every-run-must-record-the-feature-the-provider-and-the-residency-in-force
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-every-run-must-record-the-feature-the-provider-and-the-residency-in-force
 	 */
 	public function providerDisclosure(): ?array {
 		return $this->providerDisclosure;

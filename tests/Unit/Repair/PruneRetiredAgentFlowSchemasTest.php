@@ -43,6 +43,7 @@ use RuntimeException;
 
 /**
  * @covers \OCA\Hermiq\Repair\PruneRetiredAgentFlowSchemas
+ * @uses \OCA\Hermiq\Repair\SchemaPruneRun
  *
  * @spec openspec/specs/flow-authoring/spec.md#requirement-a-flow-is-stored-once-by-openregister-req-fa-002
  */

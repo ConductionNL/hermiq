@@ -71,11 +71,9 @@ interface IFlowNode {
 	/**
 	 * Do the work: items in, items out.
 	 *
-	 * @param array $items The input items.
-	 * @param array $config The step's authored configuration.
-	 * @param array $context Run-level metadata — NOT the data channel.
+	 * @param FlowNodeCall $call The input items, the step configuration and the run context.
 	 *
 	 * @return array The output items.
 	 */
-	public function execute(array $items, array $config, array $context): array;
+	public function execute(FlowNodeCall $call): array;
 }//end interface

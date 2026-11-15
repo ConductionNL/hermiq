@@ -30,7 +30,7 @@ use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\Hermiq\Service\Agent\AgentAvailabilityService;
 use OCA\Hermiq\Service\Agent\AgentCatalog;
 use OCA\Hermiq\Service\AgentAccessService;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Http;
 use OCP\IGroupManager;

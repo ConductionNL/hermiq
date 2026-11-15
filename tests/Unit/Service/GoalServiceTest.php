@@ -374,4 +374,162 @@ class GoalServiceTest extends TestCase {
 		$payload->status = 'blocked';
 		$this->assertFalse((new Validator())->validate($payload, $fragment)->isValid(), 'negative control: status blocked is not a status');
 	}//end testTheGoalPassesTheRealSchemaFragment()
+
+	/**
+	 * A goal entity owned by the organisation, as the turn reads it.
+	 *
+	 * @param array<string, mixed> $data The goal's fields.
+	 *
+	 * @return ObjectEntity
+	 */
+	private function goal(array $data): ObjectEntity {
+		$goal = $this->entity('goal-1', $data + ['agentId' => 'a-1', 'setBy' => 'officer', 'statement' => 'S', 'sessionId' => 's-1', 'check' => ['kind' => 'judge', 'question' => 'Q?']]);
+		$goal->setOrganisation('org-1');
+		return $goal;
+	}//end goal()
+
+	/**
+	 * One turn: it schedules the next turn from now, runs the agent as the goal's
+	 * owner in the goal's session with the continue prompt, checks the answer as the
+	 * owner and records the check; a failing run checks an empty answer.
+	 *
+	 * @return void
+	 */
+	public function testOneTurnRunsChecksAndRecords(): void {
+		$store = $this->store();
+		$runs = [];
+		$schedules = $this->createMock(ScheduleService::class);
+		$schedules->method('gateFor')->with('org-1', 'a-1')->willReturn(null);
+		$schedules->method('runAgentAsOwner')->willReturnCallback(
+			static function (...$args) use (&$runs): string {
+				$runs[] = [$args[0], $args[1], $args[2], $args[3], $args[9]];
+				if (count($runs) === 2) {
+					throw new RuntimeException('runner down');
+				}
+
+				return 'did it';
+			}
+		);
+		$checked = [];
+		$checks = $this->createMock(GoalCheckService::class);
+		$checks->method('check')->willReturnCallback(
+			static function (array $check, string $lastAnswer, string $organisation) use (&$checked): array {
+				$checked[] = [$check, $lastAnswer, $organisation];
+				return ['reached' => false, 'value' => 2, 'summary' => '2 left'];
+			}
+		);
+		$sent = [];
+		$service = $this->service($store, $schedules, $checks, $this->notifications($sent));
+		$now = new \DateTimeImmutable('2026-01-01T10:00:00+00:00');
+
+		$service->turn($this->goal(['intervalMinutes' => 30, 'turnsUsed' => 1, 'maxTurns' => 5, 'lastCheckResult' => ['summary' => '3 left']]), $now);
+		$service->turn($this->goal(['turnsUsed' => 1]), $now);
+
+		$this->assertSame(
+			[
+				['officer', 'a-1', 'Continue working on the goal: S. Last check: 3 left.', 'org-1', 's-1'],
+				['officer', 'a-1', 'Continue working on the goal: S. Last check: not run yet.', 'org-1', 's-1'],
+			],
+			$runs
+		);
+		$this->assertSame([[['kind' => 'judge', 'question' => 'Q?'], 'did it', 'org-1'], [['kind' => 'judge', 'question' => 'Q?'], '', 'org-1']], $checked);
+		$stored = $store->objects['agentgoal']['goal-1']->getObject();
+		$this->assertSame('2026-01-01T11:00:00+00:00', $stored['nextTurnAt']);
+		$this->assertSame('', $stored['blocked']);
+		$this->assertSame(2, $stored['turnsUsed']);
+		$this->assertSame(['reached' => false, 'value' => 2, 'summary' => '2 left', 'checkedAt' => '2026-01-01T10:00:00+00:00'], $stored['lastCheckResult']);
+		$this->assertArrayNotHasKey('status', $stored);
+		$this->assertSame([], $sent);
+
+	}//end testOneTurnRunsChecksAndRecords()
+
+	/**
+	 * A gated turn records only the gate and the next turn; reaching beats the turn
+	 * limit, and the turn limit exhausts a goal, each notifying the owner once.
+	 *
+	 * @return void
+	 */
+	public function testGateReachedAndExhaustedTurns(): void {
+		$store = $this->store();
+		$schedules = $this->createMock(ScheduleService::class);
+		$schedules->method('gateFor')->willReturnOnConsecutiveCalls('skipped_budget', null, null);
+		$schedules->method('runAgentAsOwner')->willReturn('');
+		$checks = $this->createMock(GoalCheckService::class);
+		$checks->method('check')->willReturnOnConsecutiveCalls(
+			['reached' => true, 'value' => 0, 'summary' => 'done'],
+			['reached' => false, 'value' => 1, 'summary' => '1 left']
+		);
+		$sent = [];
+		$service = $this->service($store, $schedules, $checks, $this->notifications($sent));
+		$now = new \DateTimeImmutable('2026-01-01T10:00:00+00:00');
+
+		$service->turn($this->goal(['turnsUsed' => 4, 'maxTurns' => 5, 'status' => 'active']), $now);
+		$gated = $store->objects['agentgoal']['goal-1']->getObject();
+		$this->assertSame(['skipped_budget', 4, 'active', '2026-01-01T11:00:00+00:00'], [$gated['blocked'], $gated['turnsUsed'], $gated['status'], $gated['nextTurnAt']]);
+		$this->assertArrayNotHasKey('lastCheckResult', $gated);
+
+		$service->turn($this->goal(['turnsUsed' => 4, 'maxTurns' => 5, 'status' => 'active']), $now);
+		$this->assertSame('reached', $store->objects['agentgoal']['goal-1']->getObject()['status']);
+
+		$service->turn($this->goal(['turnsUsed' => 4, 'maxTurns' => 5, 'status' => 'active']), $now);
+		$this->assertSame('exhausted', $store->objects['agentgoal']['goal-1']->getObject()['status']);
+		$this->assertSame(['goal_reached: S', 'goal_exhausted: S'], $sent);
+
+	}//end testGateReachedAndExhaustedTurns()
+
+	/**
+	 * A goal's check is kept only as a complete objectCount or a non-blank judge
+	 * question, normalised to exactly these fields.
+	 *
+	 * @return void
+	 */
+	public function testOnlyACompleteCheckIsAccepted(): void {
+		$cases = [
+			[['kind' => 'objectCount', 'register' => 'r', 'schema' => 's', 'filters' => 'x', 'target' => -3, 'extra' => 1], ['kind' => 'objectCount', 'register' => 'r', 'schema' => 's', 'filters' => ['x'], 'target' => 0]],
+			[['kind' => 'objectCount', 'register' => 'r', 'schema' => 's', 'target' => '4'], ['kind' => 'objectCount', 'register' => 'r', 'schema' => 's', 'filters' => [], 'target' => 4]],
+			[['kind' => 'objectCount', 'register' => 'r'], null],
+			[['kind' => 'objectCount', 'schema' => 's'], null],
+			[['kind' => 'judge', 'question' => '  Done?  ', 'register' => 'r'], ['kind' => 'judge', 'question' => 'Done?']],
+			[['kind' => 'judge', 'question' => '   '], null],
+			[['kind' => 'other', 'question' => 'Q'], null],
+			[[], null],
+		];
+		foreach ($cases as $index => [$check, $expected]) {
+			$store = $this->store();
+			$service = $this->service($store, $this->createMock(ScheduleService::class), $this->createMock(GoalCheckService::class), $this->createMock(INotificationManager::class));
+			try {
+				$goal = $service->set(sessionId: 's-1', uid: 'officer', input: ['statement' => 'S', 'check' => $check]);
+				$this->assertSame($expected, $goal['check'], 'case ' . $index);
+			} catch (RuntimeException $e) {
+				$this->assertNull($expected, 'case ' . $index);
+				$this->assertSame([422, 'A goal needs a statement and a check.'], [$e->getCode(), $e->getMessage()]);
+			}
+		}
+
+	}//end testOnlyACompleteCheckIsAccepted()
+
+	/**
+	 * The goal read keeps only goal entities whose fields equal every filter value,
+	 * compared as strings, in read order.
+	 *
+	 * @return void
+	 */
+	public function testTheGoalReadKeepsGoalsMatchingEveryFilter(): void {
+		$store = $this->store();
+		$store->objects['agentgoal'] = [
+			'a' => $this->entity('a', ['status' => 'active', 'sessionId' => 's-1']),
+			'b' => $this->entity('b', ['status' => 'reached', 'sessionId' => 's-1']),
+			'c' => $this->entity('c', ['status' => 'active', 'sessionId' => 's-2']),
+			'd' => $this->entity('d', ['status' => 'active', 'sessionId' => 's-1', 'x' => 1]),
+		];
+		$service = $this->service($store, $this->createMock(ScheduleService::class), $this->createMock(GoalCheckService::class), $this->createMock(INotificationManager::class));
+		$read = new \ReflectionMethod(GoalService::class, 'goals');
+
+		$ids = static fn (array $goals): array => array_map(static fn (ObjectEntity $goal): string => (string)$goal->getUuid(), $goals);
+		$this->assertSame(['a', 'd'], $ids($read->invoke($service, ['status' => 'active', 'sessionId' => 's-1'])));
+		$this->assertSame(['a', 'b', 'c', 'd'], $ids($read->invoke($service, [])));
+		$this->assertSame([], $ids($read->invoke($service, ['x' => 1])));
+		$this->assertSame(['d'], $ids($read->invoke($service, ['x' => '1'])));
+
+	}//end testTheGoalReadKeepsGoalsMatchingEveryFilter()
 }//end class

@@ -65,7 +65,7 @@ trait EmptyOptionalShapesTrait {
 	 *
 	 * @return array
 	 *
-	 * @psalm-return array<never, never>
+	 * @psalm-return array<string, list<\OCP\TaskProcessing\ShapeEnumValue>> As IProvider declares it, so a provider with enum slots can override it.
 	 *
 	 * @spec exclude Empty framework-shape accessor (no optional/enum slots); no behavioural spec.
 	 */
@@ -78,7 +78,7 @@ trait EmptyOptionalShapesTrait {
 	 *
 	 * @return array
 	 *
-	 * @psalm-return array<never, never>
+	 * @psalm-return array<array-key, string|numeric> As IProvider declares it, so a provider with defaults can override it.
 	 *
 	 * @spec exclude Empty framework-shape accessor (no optional/enum slots); no behavioural spec.
 	 */

@@ -23,10 +23,12 @@ class RegisterMapper {
 	 * Resolve a register by id or slug.
 	 *
 	 * @param string|int $id The register id or slug.
+	 * @param bool $_rbac Whether RBAC applies.
+	 * @param bool $_multitenancy Whether multi-tenancy applies.
 	 *
 	 * @return Register The resolved register.
 	 */
-	public function find(string|int $id): Register {
+	public function find(string|int $id, bool $_rbac = true, bool $_multitenancy = true): Register {
 		return new Register();
 	}//end find()
 
@@ -62,11 +64,11 @@ class RegisterMapper {
 	 * `QBMapper::update(Entity)`; the stub narrows to the one entity hermiq
 	 * ever passes.
 	 *
-	 * @param Register $register The register to update.
+	 * @param Register $entity The register to update.
 	 *
 	 * @return Register The updated register.
 	 */
-	public function update(Register $register): Register {
-		return $register;
+	public function update(Register $entity): Register {
+		return $entity;
 	}//end update()
 }//end class

@@ -39,7 +39,7 @@ use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ToolSearchService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IAppConfig;
@@ -71,6 +71,12 @@ use Psr\Log\NullLogger;
  * @uses   \OCA\Hermiq\Service\Agent\AgentAvailability
  * @uses   \OCA\Hermiq\Service\RedactionService
  * @uses   \OCA\Hermiq\Service\Workspace\RepoEffectingGrants
+ * @uses   \OCA\Hermiq\Service\Redaction\AssignmentRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\CredentialRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\FormBodyRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\PhoneRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\TokenMasker
+ * @uses   \OCA\Hermiq\Service\Redaction\VendorKeyRedactor
  */
 final class ToolDetailOutputFilterTest extends TestCase {
 

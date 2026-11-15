@@ -45,7 +45,7 @@ use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\ToolSearchService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use OCP\ICache;
@@ -87,6 +87,10 @@ use Psr\Log\NullLogger;
  * @uses   \OCA\Hermiq\Service\RedactionService
  * @uses   \OCA\Hermiq\Service\AgentAccessService
  * @uses   \OCA\Hermiq\Service\Workspace\RepoEffectingGrants
+ * @uses \OCA\Hermiq\Service\Engine\FunctionInfoBuilder
+ * @uses   \OCA\Hermiq\Service\Redaction\AssignmentRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\CredentialRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\VendorKeyRedactor
  */
 final class ToolDetailDriveTest extends TestCase {
 

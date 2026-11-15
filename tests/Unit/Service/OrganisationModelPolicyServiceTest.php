@@ -27,7 +27,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
-use OCA\Hermiq\Service\OrganisationModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
@@ -100,15 +100,15 @@ class OrganisationModelPolicyServiceTest extends TestCase {
 	 * @param array<int, ObjectEntity> $policies The stored policies.
 	 * @param string|null $chatProvider The instance-wide hermiq.llm chatProvider.
 	 *
-	 * @return OrganisationModelPolicyService
+	 * @return EffectiveModelPolicy
 	 */
-	private function service(array $policies, ?string $chatProvider = null): OrganisationModelPolicyService {
+	private function service(array $policies, ?string $chatProvider = null): EffectiveModelPolicy {
 		$settings = $this->createMock(LlmSettingsHandler::class);
 		$settings->method('getLLMSettingsOnly')->willReturn(
 			$chatProvider === null ? [] : ['chatProvider' => $chatProvider]
 		);
 
-		return new OrganisationModelPolicyService(
+		return new EffectiveModelPolicy(
 			objectService: $this->objectService($policies),
 			settingsHandler: $settings,
 		);

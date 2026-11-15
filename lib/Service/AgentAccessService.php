@@ -51,6 +51,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IGroupManager;
@@ -63,7 +64,7 @@ use Throwable;
  * @spec openspec/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
  * @spec openspec/specs/agent-memory/spec.md#requirement-per-tenant-memory-scoping
  */
-class AgentAccessService {
+class AgentAccessService implements AgentAccessServiceInterface {
 
 	/**
 	 * OpenRegister register slug hermiq's objects live in.
