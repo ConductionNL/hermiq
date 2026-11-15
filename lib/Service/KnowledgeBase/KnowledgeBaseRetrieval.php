@@ -29,6 +29,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\KnowledgeBase;
 
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -143,7 +144,12 @@ class KnowledgeBaseRetrieval {
 		$knowledgeBases = [];
 		foreach ($refs as $ref) {
 			try {
-				$found = $this->objects->find(id: $ref, register: 'hermiq', schema: self::SCHEMA, _rbac: false, _multitenancy: false);
+				$found = $this->objects->find(
+					id: $ref,
+					options: new ObjectFindOptions(register: 'hermiq', schema: self::SCHEMA),
+					_rbac: false,
+					_multitenancy: false
+				);
 			} catch (Throwable $e) {
 				$this->logger->info('[KnowledgeBaseRetrieval] Knowledge base '.$ref.' could not be read: '.$e->getMessage());
 				continue;

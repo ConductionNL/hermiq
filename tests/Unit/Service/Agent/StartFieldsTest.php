@@ -135,6 +135,29 @@ class StartFieldsTest extends TestCase {
 	}//end testProblemsAreNamedPerField()
 
 	/**
+	 * A date answer must be written YYYY-MM-DD: other spellings of a real day are refused.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+	 */
+	public function testADateInAnotherNotationIsRefused(): void {
+		$fields = (new StartFields())->fieldsOf(agentData: $this->agent());
+		$base = ['department' => 'Permits'];
+
+		foreach (['02-10-2026', '2026/10/02', '2026-10-2', '20261002', 'next Friday'] as $answer) {
+			$this->assertSame(
+				['deadline' => 'not a date (YYYY-MM-DD)'],
+				(new StartFields())->problems(fields: $fields, values: $base + ['deadline' => $answer]),
+				$answer
+			);
+		}
+
+		$this->assertSame([], (new StartFields())->problems(fields: $fields, values: $base + ['deadline' => '2028-02-29']));
+
+	}//end testADateInAnotherNotationIsRefused()
+
+	/**
 	 * Only declared answers are kept, trimmed; empty ones are dropped.
 	 *
 	 * @return void
