@@ -92,36 +92,13 @@ class GitHubArchiveExtractor {
 	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
 	 */
 	public function extract(string $body, callable $accept, int $maxBytes): ?array {
-		if ($body === '' || strlen($body) > $maxBytes) {
-			// An archive this large would exceed the bundle bound on extraction
-			// anyway — refuse before writing it to disk rather than after.
-			return null;
-		}
-
-		$archivePath = $this->tempManager->getTemporaryFile('.tar.gz');
-		if (is_string($archivePath) === false) {
-			return null;
-		}
-
-		// BOTH temp paths are allocated HERE, before the try, so `finally` always
-		// has the real value of each. Allocating the unpack directory inside
-		// unpack() instead meant a throw from PharData — a corrupt archive, the
-		// single likeliest failure on this path — returned before the directory
-		// was handed back, leaving the local still null and the directory on disk
-		// forever. A leak on the failure path is the one that accumulates, since
-		// the caller falls back and carries on as though nothing happened.
-		$extractDir = $this->tempManager->getTemporaryFolder();
-		if (is_string($extractDir) === false) {
-			$this->cleanup(archivePath: $archivePath, extractDir: null);
+		$workspace = $this->workspaceFor(body: $body, maxBytes: $maxBytes);
+		if ($workspace === null) {
 			return null;
 		}
 
 		try {
-			if ($this->unpack(archivePath: $archivePath, extractDir: $extractDir, body: $body) === false) {
-				return null;
-			}
-
-			$root = $this->resolveRoot(extractDir: $extractDir);
+			$root = $this->unpackedRoot(workspace: $workspace, body: $body);
 			if ($root === null) {
 				return null;
 			}
@@ -134,10 +111,81 @@ class GitHubArchiveExtractor {
 			);
 			return null;
 		} finally {
-			$this->cleanup(archivePath: $archivePath, extractDir: $extractDir);
+			$this->cleanup(archivePath: $workspace->archivePath, extractDir: $workspace->extractDir);
 		}//end try
 
 	}//end extract()
+
+	/**
+	 * Both temporary paths for an archive within the byte bound, or null.
+	 *
+	 * BOTH temp paths are allocated HERE, before extract()'s try, so its `finally`
+	 * always has the real value of each. Allocating the unpack directory inside
+	 * unpack() instead meant a throw from PharData — a corrupt archive, the single
+	 * likeliest failure on this path — returned before the directory was handed
+	 * back, leaving it on disk forever. A leak on the failure path is the one that
+	 * accumulates, since the caller falls back and carries on as though nothing
+	 * happened.
+	 *
+	 * @param string $body     The raw archive bytes.
+	 * @param int    $maxBytes The largest archive accepted.
+	 *
+	 * @return ArchiveWorkspace|null Null for an empty or oversized body, or when a temp path is unavailable.
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
+	 */
+	private function workspaceFor(string $body, int $maxBytes): ?ArchiveWorkspace {
+		if ($body === '' || strlen($body) > $maxBytes) {
+			// An archive this large would exceed the bundle bound on extraction
+			// anyway — refuse before writing it to disk rather than after.
+			return null;
+		}
+
+		return $this->temporaryPaths();
+
+	}//end workspaceFor()
+
+	/**
+	 * The staging file and the unpack directory, or null when either is unavailable.
+	 *
+	 * @return ArchiveWorkspace|null
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
+	 */
+	private function temporaryPaths(): ?ArchiveWorkspace {
+		$archivePath = $this->tempManager->getTemporaryFile('.tar.gz');
+		if (is_string($archivePath) === false) {
+			return null;
+		}
+
+		$extractDir = $this->tempManager->getTemporaryFolder();
+		if (is_string($extractDir) === false) {
+			$this->cleanup(archivePath: $archivePath, extractDir: null);
+			return null;
+		}
+
+		return new ArchiveWorkspace(archivePath: $archivePath, extractDir: $extractDir);
+
+	}//end temporaryPaths()
+
+	/**
+	 * Unpack the archive and resolve its single root, or null when either fails.
+	 *
+	 * @param ArchiveWorkspace $workspace The allocated staging path and unpack directory.
+	 * @param string           $body      The raw archive bytes.
+	 *
+	 * @return string|null The absolute root path.
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
+	 */
+	private function unpackedRoot(ArchiveWorkspace $workspace, string $body): ?string {
+		if ($this->unpack(workspace: $workspace, body: $body) === false) {
+			return null;
+		}
+
+		return $this->resolveRoot(extractDir: $workspace->extractDir);
+
+	}//end unpackedRoot()
 
 	/**
 	 * Discard everything this extraction staged on disk.
@@ -169,19 +217,18 @@ class GitHubArchiveExtractor {
 	 * that its `finally` can always discard them, including when this method
 	 * throws partway through unpacking.
 	 *
-	 * @param string $archivePath Where to stage the archive bytes.
-	 * @param string $extractDir The already-allocated directory to unpack into.
-	 * @param string $body The raw archive bytes.
+	 * @param ArchiveWorkspace $workspace The already-allocated staging path and unpack directory.
+	 * @param string           $body      The raw archive bytes.
 	 *
 	 * @return bool True when the archive was unpacked.
 	 */
-	private function unpack(string $archivePath, string $extractDir, string $body): bool {
-		if (file_put_contents($archivePath, $body) === false) {
+	private function unpack(ArchiveWorkspace $workspace, string $body): bool {
+		if (file_put_contents($workspace->archivePath, $body) === false) {
 			return false;
 		}
 
-		$phar = new PharData($archivePath);
-		$phar->extractTo($extractDir, null, true);
+		$phar = new PharData($workspace->archivePath);
+		$phar->extractTo($workspace->extractDir, null, true);
 
 		return true;
 	}//end unpack()

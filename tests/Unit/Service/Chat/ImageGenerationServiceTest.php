@@ -26,7 +26,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\Chat;
 
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\Chat\GeneratedImageFiles;
 use OCA\Hermiq\Service\Chat\ImageGenerationService;
 use OCA\Hermiq\Service\NcNative\AgentArtefactMarker;
@@ -143,7 +143,7 @@ class ImageGenerationServiceTest extends TestCase {
 
 		$feature = new ObjectEntity();
 		$feature->setObject(['slug' => 'image-generation', 'enabled' => $enabled]);
-		$features = $this->createMock(AiFeatureService::class);
+		$features = $this->createMock(AiFeatureLookup::class);
 		$features->method('findBySlugForGate')->willReturn($feature);
 
 		return new ImageGenerationService(
@@ -221,6 +221,47 @@ class ImageGenerationServiceTest extends TestCase {
 		$this->assertSame([], $this->ran);
 		$this->assertSame([], $this->written);
 	}//end testADisabledFeatureRefuses()
+
+	/**
+	 * create() answers exactly the saved file's id, name, path, type and size.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
+	 */
+	public function testCreateAnswersTheSavedFileExactly(): void {
+		$this->assertSame(
+			expected: ['fileId' => 902, 'name' => 'image-1.png', 'path' => 'Hermiq/Generated images/image-1.png', 'mimeType' => 'image/png', 'size' => 0],
+			actual: $this->service()->create(uid: 'communicatie', prompt: 'Een kaart')
+		);
+	}//end testCreateAnswersTheSavedFileExactly()
+
+	/**
+	 * Every refusal carries its exact code and message.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-an-agent-can-create-an-image-only-with-a-grant-req-cimg-003
+	 */
+	public function testEveryRefusalCarriesItsExactMessage(): void {
+		$refusals = [
+			[$this->service(), ['prompt' => '  '], 'invalid_prompt', 'Describe the image to create.'],
+			[
+				$this->service(enabled: false, provider: false),
+				['prompt' => 'x'],
+				'feature_not_enabled',
+				'Image creation must be enabled as an AI feature before an image can be created.',
+			],
+			[$this->service(provider: false), ['prompt' => 'x'], 'provider_unavailable', 'No text-to-image provider is available.'],
+			[$this->service(tagFails: true), ['prompt' => 'x'], 'marking_failed', 'The image could not be marked as agent-authored, so it was not kept.'],
+		];
+		foreach ($refusals as [$service, $arguments, $code, $message]) {
+			$this->assertSame(
+				expected: ['error' => ['code' => $code, 'message' => $message]],
+				actual: $service->invoke(uid: 'communicatie', toolId: 'hermiq.generateImage', arguments: $arguments)
+			);
+		}
+	}//end testEveryRefusalCarriesItsExactMessage()
 
 	/**
 	 * An empty description is refused.

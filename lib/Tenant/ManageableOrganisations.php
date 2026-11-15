@@ -44,7 +44,7 @@ namespace OCA\Hermiq\Tenant;
  * The endpoints remain the real authorization boundary; everything this
  * produces is UX gating only.
  *
- * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-4-1
  */
 interface ManageableOrganisations {
 
@@ -64,7 +64,7 @@ interface ManageableOrganisations {
 	 * @return array<int, array{id: string, label: string}> Organisation id/label
 	 *                                                      pairs, possibly empty.
 	 *
-	 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-4-1
 	 */
 	public function forUser(string $userId, bool $isAdmin): array;
 }//end interface

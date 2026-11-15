@@ -18,7 +18,7 @@
 
 declare(strict_types=1);
 
-return [
+$routes = [
     'routes' => [
         // Dashboard + Settings.
         ['name' => 'dashboard#page', 'url' => '/', 'verb' => 'GET'],
@@ -49,6 +49,8 @@ return [
         ['name' => 'metrics#index', 'url' => '/api/metrics', 'verb' => 'GET'],
         // Health check endpoint.
         ['name' => 'health#index', 'url' => '/api/health', 'verb' => 'GET'],
+        // The OpenAPI document, public (NL API Design Rules, /core/publish-openapi).
+        ['name' => 'openApi#show', 'url' => '/api/openapi.json', 'verb' => 'GET'],
 
         // Run history — owner-scoped audit read for a schedule (run-audit-log).
         ['name' => 'runHistory#index', 'url' => '/api/schedules/{scheduleId}/runs', 'verb' => 'GET', 'requirements' => ['scheduleId' => '[^/]+']],
@@ -169,6 +171,9 @@ return [
         // Agent's OpenRegister AuditTrail as a version timeline + diff, and owner-only
         // rollback. No new storage — reads/replays the SAME AuditTrail SaveObject
         // already writes on every Agent save.
+        // Whether an agent's declared acting user still resolves (agent-acting-identity-picker
+        // REQ-AGID-003): read-scoped, so the edit page can warn before a run is refused.
+        ['name' => 'agentActingUser#show', 'url' => '/api/agents/{id}/acting-user', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentVersion#index', 'url' => '/api/agents/{id}/versions', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentVersion#diff',  'url' => '/api/agents/{id}/versions/diff', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         [
@@ -180,6 +185,10 @@ return [
 
         // Advisory AI-oversight records about one subject, for whoever may open that subject.
         ['name' => 'aiOversight#subject', 'url' => '/api/ai-oversight/subject', 'verb' => 'GET'],
+        ['name' => 'aiOversight#subjectExport', 'url' => '/api/ai-oversight/subject/export', 'verb' => 'GET'],
+        // agent-authored-marking: mark an agent-authored file as reviewed, and the label counts.
+        ['name' => 'aiLabel#markReviewed', 'url' => '/api/ai-label/files/{fileId}/reviewed', 'verb' => 'POST', 'requirements' => ['fileId' => '\\d+']],
+        ['name' => 'aiLabel#stats', 'url' => '/api/ai-label/stats', 'verb' => 'GET'],
 
         // Human-approval gate (human-approval-gate-enforcement): reviewer inbox + decisions.
         // Approval verification contract (hermiq#1045): another app asks for a signed verdict.
@@ -187,16 +196,18 @@ return [
         ['name' => 'approval#index',   'url' => '/api/approvals', 'verb' => 'GET'],
         ['name' => 'approval#approve', 'url' => '/api/approvals/{approvalId}/approve', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
         ['name' => 'approval#deny',    'url' => '/api/approvals/{approvalId}/deny', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
+        // One route for the chat's approval card: {decision: granted|refused}.
+        ['name' => 'approval#resolve', 'url' => '/api/approvals/{approvalId}/resolve', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
 
         // Per-organisation kill-switch (human-approval-gate-enforcement): read + toggle.
         [
-            'name'         => 'tenantControl#show',
+            'name'         => 'organisationControl#show',
             'url'          => '/api/tenant-control/{organisation}',
             'verb'         => 'GET',
             'requirements' => ['organisation' => '[^/]+'],
         ],
         [
-            'name'         => 'tenantControl#toggle',
+            'name'         => 'organisationControl#toggle',
             'url'          => '/api/tenant-control/{organisation}/toggle',
             'verb'         => 'POST',
             'requirements' => ['organisation' => '[^/]+'],
@@ -259,31 +270,38 @@ return [
             'verb'         => 'GET',
             'requirements' => ['agentId' => '[^/]+'],
         ],
+        // verify-row-scenarios (row ov-tool-oversight): mark one tool call as misuse, with a reason.
+        [
+            'name'         => 'toolOversight#markToolInvocation',
+            'url'          => '/api/agents/{agentId}/tool-invocations/{callId}/mark',
+            'verb'         => 'POST',
+            'requirements' => ['agentId' => '[^/]+', 'callId' => '[^/]+'],
+        ],
 
         // Tenant ops (multi-tenant-ops): per-org quota status + EU AI Act audit export (tenant-scoped).
-        ['name' => 'tenantOps#quota',       'url' => '/api/tenant-ops/quota', 'verb' => 'GET'],
-        ['name' => 'tenantOps#auditExport', 'url' => '/api/tenant-ops/audit-export', 'verb' => 'GET'],
+        ['name' => 'organisationOps#quota',       'url' => '/api/tenant-ops/quota', 'verb' => 'GET'],
+        ['name' => 'organisationOps#auditExport', 'url' => '/api/tenant-ops/audit-export', 'verb' => 'GET'],
 
         // Agent-lifecycle-governance: periodic access review + attestation + reassignment,
         // incident records, and the retention-period setting (tenant-scoped; the four
         // mutating endpoints additionally gate through ActionAuthService).
-        ['name' => 'tenantOps#reviewList', 'url' => '/api/tenant-ops/access-review', 'verb' => 'GET'],
+        ['name' => 'organisationOps#reviewList', 'url' => '/api/tenant-ops/access-review', 'verb' => 'GET'],
         [
-            'name'         => 'tenantOps#attestReview',
+            'name'         => 'organisationOps#attestReview',
             'url'          => '/api/tenant-ops/access-review/{uuid}/attest',
             'verb'         => 'POST',
             'requirements' => ['uuid' => '[^/]+'],
         ],
         [
-            'name'         => 'tenantOps#reassignAgent',
+            'name'         => 'organisationOps#reassignAgent',
             'url'          => '/api/tenant-ops/access-review/{uuid}/reassign',
             'verb'         => 'POST',
             'requirements' => ['uuid' => '[^/]+'],
         ],
-        ['name' => 'tenantOps#incidents',       'url' => '/api/tenant-ops/incidents', 'verb' => 'GET'],
-        ['name' => 'tenantOps#createIncident',  'url' => '/api/tenant-ops/incidents', 'verb' => 'POST'],
-        ['name' => 'tenantOps#retention',       'url' => '/api/tenant-ops/retention', 'verb' => 'GET'],
-        ['name' => 'tenantOps#updateRetention', 'url' => '/api/tenant-ops/retention', 'verb' => 'PUT'],
+        ['name' => 'organisationOps#incidents',       'url' => '/api/tenant-ops/incidents', 'verb' => 'GET'],
+        ['name' => 'organisationOps#createIncident',  'url' => '/api/tenant-ops/incidents', 'verb' => 'POST'],
+        ['name' => 'organisationOps#retention',       'url' => '/api/tenant-ops/retention', 'verb' => 'GET'],
+        ['name' => 'organisationOps#updateRetention', 'url' => '/api/tenant-ops/retention', 'verb' => 'PUT'],
 
         // Budget guardrails (cost-guardrails): per-org/per-agent spend caps, status, pre-run
         // estimate. 'status' is registered before the GET list route needs no {budgetId} at
@@ -298,10 +316,10 @@ return [
         // Tenant model policy (tenant-model-policy): per-organisation provider/model
         // allowlists. 'effective' is registered before the {policyId} routes so the
         // literal path never falls into the id matcher.
-        ['name' => 'tenantModelPolicy#effective', 'url' => '/api/model-policy/effective', 'verb' => 'GET'],
-        ['name' => 'tenantModelPolicy#index',  'url' => '/api/model-policy', 'verb' => 'GET'],
-        ['name' => 'tenantModelPolicy#create', 'url' => '/api/model-policy', 'verb' => 'POST'],
-        ['name' => 'tenantModelPolicy#update', 'url' => '/api/model-policy/{policyId}', 'verb' => 'PUT', 'requirements' => ['policyId' => '[^/]+']],
+        ['name' => 'organisationModelPolicy#effective', 'url' => '/api/model-policy/effective', 'verb' => 'GET'],
+        ['name' => 'organisationModelPolicy#index',  'url' => '/api/model-policy', 'verb' => 'GET'],
+        ['name' => 'organisationModelPolicy#create', 'url' => '/api/model-policy', 'verb' => 'POST'],
+        ['name' => 'organisationModelPolicy#update', 'url' => '/api/model-policy/{policyId}', 'verb' => 'PUT', 'requirements' => ['policyId' => '[^/]+']],
 
         // Guardrail policy (agent-guardrails): per-organisation input/output content
         // filters + per-tool risk classification. 'effective' is registered before
@@ -480,6 +498,9 @@ return [
         // cleanup job last enforced it and how much it removed.
         ['name' => 'Settings\RunRetentionSettings#get', 'url' => '/api/settings/run-retention', 'verb' => 'GET'],
         ['name' => 'Settings\RunRetentionSettings#update', 'url' => '/api/settings/run-retention', 'verb' => 'PUT'],
+        // observability-export-traces: trace export settings, admin only (REQ-TREX-001).
+        ['name' => 'Settings\TraceExportSettings#get', 'url' => '/api/settings/trace-export', 'verb' => 'GET'],
+        ['name' => 'Settings\TraceExportSettings#update', 'url' => '/api/settings/trace-export', 'verb' => 'PUT'],
         // Working with AI (compliance-ai-literacy): the lessons and answer check for the
         // signed-in person, and the organisation report and requirement switch for its admin.
         ['name' => 'literacy#lessons', 'url' => '/api/literacy/lessons', 'verb' => 'GET'],
@@ -608,6 +629,10 @@ return [
         // see design.md for why it is a sibling of assistant#converse, not a
         // reuse of it as-is.
         ['name' => 'assistant#detectPii', 'url' => '/api/assistant/detect-pii', 'verb' => 'POST'],
+        // Paste to fill (forms-smart-paste-fill): proposals from pasted text, and
+        // whether the form may offer it. Gated by the `form-fill` AiFeature.
+        ['name' => 'formFill#fill', 'url' => '/api/assistant/form-fill', 'verb' => 'POST'],
+        ['name' => 'formFill#available', 'url' => '/api/assistant/form-fill/available', 'verb' => 'GET'],
 
         // Sessions: CRUD + turns + archive lifecycle (restore/permanent).
         //
@@ -646,6 +671,8 @@ return [
             'verb'         => 'DELETE',
             'requirements' => ['uuid' => '[^/]+'],
         ],
+        // chat-fork-and-share-link: the owner starts a new session from one of the session's answers.
+        ['name' => 'sessionFork#create', 'url' => '/api/sessions/{uuid}/fork', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
         // chat-work-together-in-one-session: the owner invites colleagues into a web session.
         ['name' => 'sessionParticipant#index', 'url' => '/api/sessions/{uuid}/participants', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
         ['name' => 'sessionParticipant#create', 'url' => '/api/sessions/{uuid}/participants', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
@@ -654,6 +681,15 @@ return [
             'url'          => '/api/sessions/{uuid}/participants/{uid}',
             'verb'         => 'DELETE',
             'requirements' => ['uuid' => '[^/]+', 'uid' => '[^/]+'],
+        ],
+        // chat-fork-and-share-link: the owner shares a session read-only with users and groups.
+        ['name' => 'sessionShare#index', 'url' => '/api/sessions/{uuid}/shares', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'sessionShare#create', 'url' => '/api/sessions/{uuid}/shares', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
+        [
+            'name'         => 'sessionShare#destroy',
+            'url'          => '/api/sessions/{uuid}/shares/{type}/{id}',
+            'verb'         => 'DELETE',
+            'requirements' => ['uuid' => '[^/]+', 'type' => 'user|group', 'id' => '[^/]+'],
         ],
 
         // DEPRECATED aliases. Same controller, same methods, same auth. Retire them on
@@ -794,6 +830,9 @@ return [
         // authorization (ADR-005 semantic-auth — see each controller's docblock).
         // Endpoint 1 — the governed MCP server (initialize/tools/list/tools/call).
         ['name' => 'mcpRun#handle', 'url' => '/api/mcp/run', 'verb' => 'POST'],
+        // The MCP client's GET for a server-to-client stream: none is offered, so 405
+        // (persistent-llm-process task 4). Without it the GET reached the SPA catch-all.
+        ['name' => 'mcpRunStream#refuse', 'url' => '/api/mcp/run', 'verb' => 'GET'],
         // Endpoint 2 — the governed egress Policy Decision Point (per-CONNECT allow/deny).
         ['name' => 'egressAuthorize#authorize', 'url' => '/api/egress/authorize', 'verb' => 'POST'],
 
@@ -802,3 +841,27 @@ return [
         ['name' => 'dashboard#catchAll', 'url' => '/{path}', 'verb' => 'GET', 'requirements' => ['path' => '.+'], 'defaults' => ['path' => '']],
     ],
 ];
+
+// The versioned API base (NL API Design Rules, /core/uri-version): every /api/ route
+// also answers under /api/v1/, the server URL the OpenAPI document names. The unversioned
+// route stays, so existing clients and the URLs the app generates keep working. Each
+// copy gets its own route name through 'postfix', and the copies go before the SPA
+// catch-all, which would otherwise answer /api/v1/ paths first. The deprecated
+// /api/conversations aliases of the session routes (postfix 'legacy', see
+// SessionController::noteDeprecatedAlias) get no versioned copy: new clients use
+// /api/v1/sessions.
+$versioned = [];
+foreach ($routes['routes'] as $route) {
+    if (str_starts_with($route['url'], '/api/') === false || ($route['postfix'] ?? '') === 'legacy') {
+        continue;
+    }
+
+    $route['url']     = '/api/v1/'.substr($route['url'], strlen('/api/'));
+    $route['postfix'] = ($route['postfix'] ?? '').'V1';
+    $versioned[]      = $route;
+}
+
+$catchAll = array_search('dashboard#catchAll', array_column($routes['routes'], 'name'), true);
+array_splice($routes['routes'], ($catchAll === false ? count($routes['routes']) : $catchAll), 0, $versioned);
+
+return $routes;

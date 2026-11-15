@@ -17,8 +17,8 @@
     endpoint degrades to the coarser run-audit entries and sets available/source; this view
     then shows a REDUCED-DETAIL indicator rather than implying the detail is simply absent.
 
-  @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
-  @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art1214
+  @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
+  @spec openspec/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art1214
 -->
 <template>
 	<section class="tool-oversight">
@@ -53,7 +53,7 @@
 				</p>
 				<div class="tool-oversight__exports">
 					<NcButton
-						type="tertiary"
+						variant="tertiary"
 						:disabled="!data.rows.length"
 						@click="exportAs('csv')">
 						<template #icon>
@@ -62,7 +62,7 @@
 						{{ t('hermiq', 'Export CSV') }}
 					</NcButton>
 					<NcButton
-						type="tertiary"
+						variant="tertiary"
 						:disabled="!data.rows.length"
 						@click="exportAs('json')">
 						<template #icon>
@@ -90,9 +90,8 @@
 			<!--
 				An audit trail grows without bound, so its height cannot be a
 				function of any gridHeight: a busy agent's rows pushed this widget
-				past its cell and over the widgets below it. Same treatment as the
-				grant catalogue in ToolGrantEditor — bounded scroll region, sticky
-				header, all rows still present.
+				past its cell and over the widgets below it. Bounded scroll region,
+				sticky header, all rows still present.
 			-->
 			<div v-else class="tool-oversight__table-wrap">
 				<table class="tool-oversight__table">
@@ -115,6 +114,9 @@
 							</th>
 							<th scope="col">
 								{{ t('hermiq', 'Data touched') }}
+							</th>
+							<th scope="col">
+								{{ t('hermiq', 'Oversight') }}
 							</th>
 						</tr>
 					</thead>
@@ -145,7 +147,7 @@
 							<td>
 								<span :class="resultClass(row)">{{
 									/**
-									 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+									 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 									 */
 									resultLabel(row)
 								}}</span>
@@ -157,11 +159,34 @@
 								>
 								<span v-else>—</span>
 							</td>
+							<td>
+								<template v-if="row.mark">
+									<span class="tool-oversight__badge tool-oversight__badge--misuse">{{
+										t('hermiq', 'Misuse')
+									}}</span>
+									<span class="tool-oversight__mark-by">{{ markedByLabel(row.mark) }}</span>
+								</template>
+								<NcButton
+									v-else-if="row.callId"
+									variant="tertiary"
+									class="tool-oversight__mark"
+									@click="openMark(row)">
+									{{ t('hermiq', 'Mark') }}
+								</NcButton>
+								<span v-else>—</span>
+							</td>
 						</tr>
 					</tbody>
 				</table>
 			</div>
 		</template>
+
+		<ToolCallMarkModal
+			:show="markRow !== null"
+			:agentId="agentId"
+			:row="markRow"
+			@marked="applyMark"
+			@close="markRow = null" />
 	</section>
 </template>
 
@@ -169,10 +194,29 @@
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import Download from 'vue-material-design-icons/Download.vue'
 import History from 'vue-material-design-icons/History.vue'
+import ToolCallMarkModal from '../modals/ToolCallMarkModal.vue'
 import {
 	getToolInvocations,
 	toolInvocationsExportUrl,
 } from '../api/toolOversight.js'
+
+/**
+ * The result labels in order of precedence: the first rule whose test holds names the result.
+ *
+ * @type {Array<[function(object): boolean, function(object, function(string, string, object=): string): string]>}
+ */
+const RESULT_LABELS = [
+	[(summary) => Boolean(summary.isError), (summary, t) => t('hermiq', 'Error')],
+	[(summary) => Boolean(summary.status), (summary) => String(summary.status)],
+	[
+		(summary) => typeof summary.count === 'number',
+		(summary, t) => t('hermiq', '{count} result(s)', { count: summary.count }),
+	],
+	[
+		(summary) => Boolean(summary.id),
+		(summary, t) => t('hermiq', 'Object {id}', { id: summary.id }),
+	],
+]
 
 export default {
 	name: 'ToolInvocationTable',
@@ -184,6 +228,7 @@ export default {
 		NcEmptyContent,
 		NcLoadingIcon,
 		NcNoteCard,
+		ToolCallMarkModal,
 	},
 
 	props: {
@@ -199,6 +244,8 @@ export default {
 			data: null,
 			loading: true,
 			error: '',
+			/** The row the Mark modal is open for, or null. */
+			markRow: null,
 		}
 	},
 
@@ -213,7 +260,7 @@ export default {
 		 * policy" rendered literally as "OpenRegister&#39;s AuditTrail policy".
 		 *
 		 * @return {string} The retention label.
-		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+		 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		retentionLabel() {
 			return this.t(
@@ -229,7 +276,7 @@ export default {
 	watch: {
 		agentId: {
 			/**
-			 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+			 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 			 */
 			handler() {
 				this.load()
@@ -244,7 +291,7 @@ export default {
 		 * Load this agent's oversight rows.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+		 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		async load() {
 			this.loading = true
@@ -267,7 +314,7 @@ export default {
 		 *
 		 * @param {string} format Either 'csv' or 'json'.
 		 * @return {void}
-		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+		 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		exportAs(format) {
 			window.location.href = toolInvocationsExportUrl(this.agentId, format)
@@ -278,7 +325,7 @@ export default {
 		 *
 		 * @param {string} value The ISO timestamp.
 		 * @return {string} The formatted date, or an em dash.
-		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+		 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		formatDate(value) {
 			if (!value) {
@@ -292,7 +339,7 @@ export default {
 		 *
 		 * @param {string} digest The full digest.
 		 * @return {string} The shortened digest.
-		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+		 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		shortDigest(digest) {
 			return digest.length > 12 ? `${digest.slice(0, 12)}…` : digest
@@ -303,28 +350,54 @@ export default {
 		 *
 		 * @param {object} row The oversight row.
 		 * @return {string} The result label.
-		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+		 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		resultLabel(row) {
 			const summary = row.resultSummary
 			if (!summary) {
 				return '—'
 			}
-			if (summary.isError) {
-				return this.t('hermiq', 'Error')
+			const rule = RESULT_LABELS.find(([applies]) => applies(summary))
+			return rule ? rule[1](summary, this.t) : this.t('hermiq', 'OK')
+		},
+
+		/**
+		 * Who marked a call and when, beside its "Misuse" label.
+		 *
+		 * @param {object} mark The row's mark: { markedBy, markedAt }.
+		 * @return {string} The label.
+		 * @spec openspec/changes/verify-row-scenarios/specs/agent-tool-governance/spec.md#scenario-an-operator-marks-a-tool-call-as-misuse
+		 */
+		markedByLabel(mark) {
+			return this.t('hermiq', 'by {operator} on {date}', {
+				operator: mark.markedBy || '—',
+				date: this.formatDate(mark.markedAt),
+			})
+		},
+
+		/**
+		 * Open the Mark modal for one row.
+		 *
+		 * @param {object} row The oversight row.
+		 * @return {void}
+		 * @spec openspec/changes/verify-row-scenarios/specs/agent-tool-governance/spec.md#scenario-an-operator-marks-a-tool-call-as-misuse
+		 */
+		openMark(row) {
+			this.markRow = row
+		},
+
+		/**
+		 * Show a recorded mark on its row, without reloading the activity.
+		 *
+		 * @param {object} mark The mark the server recorded: { callId, label, reason, markedBy, markedAt }.
+		 * @return {void}
+		 * @spec openspec/changes/verify-row-scenarios/specs/agent-tool-governance/spec.md#scenario-an-operator-marks-a-tool-call-as-misuse
+		 */
+		applyMark(mark) {
+			const row = this.data && this.data.rows.find((candidate) => candidate.callId === mark.callId)
+			if (row) {
+				row.mark = mark
 			}
-			if (summary.status) {
-				return String(summary.status)
-			}
-			if (typeof summary.count === 'number') {
-				return this.t('hermiq', '{count} result(s)', {
-					count: summary.count,
-				})
-			}
-			if (summary.id) {
-				return this.t('hermiq', 'Object {id}', { id: summary.id })
-			}
-			return this.t('hermiq', 'OK')
 		},
 
 		/**
@@ -332,7 +405,7 @@ export default {
 		 *
 		 * @param {object} row The oversight row.
 		 * @return {string} The class.
-		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+		 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		resultClass(row) {
 			const isError = !!(row.resultSummary && row.resultSummary.isError)
@@ -380,7 +453,6 @@ export default {
 
 /* The audit trail is unbounded — it scrolls inside the widget (ADR-062). */
 .tool-oversight__table-wrap {
-	/* Paired with ToolGrantEditor's 300px cap — see the note there. */
 	max-height: 260px;
 	overflow-y: auto;
 	border: 1px solid var(--color-border);
@@ -429,6 +501,18 @@ export default {
 .tool-oversight__badge--ok {
 	background-color: var(--color-background-dark);
 	color: var(--color-main-text);
+}
+
+.tool-oversight__badge--misuse {
+	background-color: var(--color-warning);
+	color: var(--color-warning-text, var(--color-main-text));
+}
+
+.tool-oversight__mark-by {
+	display: block;
+	margin-block-start: 4px;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.85em;
 }
 
 .tool-oversight__badge--error {

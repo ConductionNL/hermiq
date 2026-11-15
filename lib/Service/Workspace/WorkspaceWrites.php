@@ -81,9 +81,11 @@ class WorkspaceWrites {
 				);
 			}
 
-			$root = $this->provider->root(runKey: $run['runId']);
+			$write = new WorkspaceWrite(toolId: $toolId, run: $run);
+			$write->root = $this->provider->root(runKey: $run['runId']);
+			$write->arguments = $arguments;
 
-			return $this->governed(toolId: $toolId, run: $run, root: $root, arguments: $arguments);
+			return $this->governed(write: $write);
 		} catch (WorkspaceException $e) {
 			return ['error' => ['code' => $e->getErrorCode(), 'message' => $e->getMessage()]];
 		}
@@ -94,10 +96,7 @@ class WorkspaceWrites {
 	 * either way one audit record. The credential id a push used goes into the
 	 * record and never into the result.
 	 *
-	 * @param string                                               $toolId    The tool id.
-	 * @param array{runId: string, agentId: string, userId: string} $run       The verified run.
-	 * @param string                                               $root      The workspace root.
-	 * @param array<string, mixed>                                 $arguments The tool arguments.
+	 * @param WorkspaceWrite $write The write: tool, verified run, workspace root and arguments.
 	 *
 	 * @return array<string, mixed>
 	 *
@@ -105,21 +104,21 @@ class WorkspaceWrites {
 	 *
 	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-every-governed-workspace-write-is-audited-with-owner-credential-and-approval
 	 */
-	private function governed(string $toolId, array $run, string $root, array $arguments): array {
-		$approval = null;
+	private function governed(WorkspaceWrite $write): array {
 		try {
-			$approval = $this->authoriser->assertAuthorised(
-				run: $run,
-				toolId: $toolId,
-				workspace: $this->provider->describe(runKey: $run['runId'])
+			$write->approval = $this->authoriser->assertAuthorised(
+				run: $write->run,
+				toolId: $write->toolId,
+				workspace: $this->provider->describe(runKey: $write->run['runId'])
 			);
-			$result = $this->dispatch(toolId: $toolId, run: $run, root: $root, arguments: $arguments);
+			$write->result = $this->dispatch(write: $write);
 		} catch (WorkspaceException $e) {
-			$this->auditor->record(run: $run, toolId: $toolId, arguments: $arguments, approval: $approval, result: null, outcome: $e->getErrorCode());
+			$this->auditor->record(write: $write, outcome: $e->getErrorCode());
 			throw $e;
 		}
 
-		$this->auditor->record(run: $run, toolId: $toolId, arguments: $arguments, approval: $approval, result: $result, outcome: 'ok');
+		$this->auditor->record(write: $write, outcome: 'ok');
+		$result = $write->result;
 		unset($result['credentialId']);
 
 		return $result;
@@ -128,10 +127,7 @@ class WorkspaceWrites {
 	/**
 	 * Dispatch a write-shaped tool that has passed the approval gate.
 	 *
-	 * @param string                                               $toolId    The tool id.
-	 * @param array{runId: string, agentId: string, userId: string} $run       The verified run.
-	 * @param string                                               $root      The workspace root.
-	 * @param array<string, mixed>                                 $arguments The tool arguments.
+	 * @param WorkspaceWrite $write The write: tool, verified run, workspace root and arguments.
 	 *
 	 * @return array<string, mixed>
 	 *
@@ -139,21 +135,24 @@ class WorkspaceWrites {
 	 *
 	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-commits-are-authored-and-pushes-authorised-as-the-resolved-run-owner
 	 */
-	private function dispatch(string $toolId, array $run, string $root, array $arguments): array {
-		return match ($toolId) {
-			WorkspaceToolDescriptors::WRITE_FILE => $this->editor->writeFile(runKey: $run['runId'], root: $root, arguments: $arguments),
-			WorkspaceToolDescriptors::DELETE_FILE => $this->editor->deleteFile(root: $root, arguments: $arguments),
-			WorkspaceToolDescriptors::APPLY_PATCH => $this->editor->applyPatch(runKey: $run['runId'], root: $root, arguments: $arguments),
-			WorkspaceToolDescriptors::CREATE_BRANCH => $this->editor->createBranch(root: $root, branch: $this->branch(arguments: $arguments)),
-			WorkspaceToolDescriptors::CHECKOUT_BRANCH => $this->editor->checkoutBranch(root: $root, branch: $this->branch(arguments: $arguments)),
-			WorkspaceToolDescriptors::PUSH => $this->pusher->push(
-				run: $run,
-				root: $root,
-				repository: $this->provider->describe(runKey: $run['runId'])['repository'],
-				branch: $this->branch(arguments: $arguments),
-				arguments: $arguments
+	private function dispatch(WorkspaceWrite $write): array {
+		return match ($write->toolId) {
+			WorkspaceToolDescriptors::WRITE_FILE => $this->editor->writeFile(runKey: $write->run['runId'], root: $write->root, arguments: $write->arguments),
+			WorkspaceToolDescriptors::DELETE_FILE => $this->editor->deleteFile(root: $write->root, arguments: $write->arguments),
+			WorkspaceToolDescriptors::APPLY_PATCH => $this->editor->applyPatch(runKey: $write->run['runId'], root: $write->root, arguments: $write->arguments),
+			WorkspaceToolDescriptors::CREATE_BRANCH => $this->editor->createBranch(root: $write->root, branch: $this->branch(arguments: $write->arguments)),
+			WorkspaceToolDescriptors::CHECKOUT_BRANCH => $this->editor->checkoutBranch(
+				root: $write->root,
+				branch: $this->branch(arguments: $write->arguments)
 			),
-			default => $this->editor->commit(root: $root, ownerUid: $run['userId'], arguments: $arguments),
+			WorkspaceToolDescriptors::PUSH => $this->pusher->push(
+				run: $write->run,
+				root: $write->root,
+				repository: $this->provider->describe(runKey: $write->run['runId'])['repository'],
+				branch: $this->branch(arguments: $write->arguments),
+				arguments: $write->arguments
+			),
+			default => $this->editor->commit(root: $write->root, ownerUid: $write->run['userId'], arguments: $write->arguments),
 		};
 	}//end dispatch()
 

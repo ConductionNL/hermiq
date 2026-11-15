@@ -31,7 +31,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+ * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
  */
 
 declare(strict_types=1);
@@ -40,16 +40,20 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\PublicationGatewayInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\App\IAppManager;
 
 /**
  * Runtime seam that delegates Algoritmekader publication to OpenCatalogi via OpenRegister.
  *
- * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+ * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
  */
-class PublicationGateway {
+class PublicationGateway implements PublicationGatewayInterface {
 
 	/**
 	 * The fleet publication leaf whose presence makes the publish action available.
@@ -78,7 +82,7 @@ class PublicationGateway {
 	 * @param IAppManager $appManager Resolves whether the publication leaf is installed (runtime seam).
 	 * @param ObjectService $objectService OpenRegister shared write-path (published-predicate seam).
 	 *
-	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 	 */
 	public function __construct(
 		private readonly IAppManager $appManager,
@@ -91,7 +95,7 @@ class PublicationGateway {
 	 *
 	 * @return bool True when OpenCatalogi is installed; false otherwise.
 	 *
-	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 	 */
 	public function isAvailable(): bool {
 		return $this->appManager->isInstalled(self::PUBLICATION_APP);
@@ -110,7 +114,7 @@ class PublicationGateway {
 	 *
 	 * @return string|null The external register reference (UUID), or null when unavailable.
 	 *
-	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 	 */
 	public function publish(array $publication): ?string {
 		if ($this->isAvailable() === false) {
@@ -121,8 +125,7 @@ class PublicationGateway {
 
 		$saved = $this->objectService->saveObject(
 			object: $publication,
-			register: self::PUBLICATION_REGISTER,
-			schema: self::PUBLICATION_SCHEMA
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::PUBLICATION_REGISTER, schema: self::PUBLICATION_SCHEMA))
 		);
 
 		return (string)$saved->getUuid();
@@ -139,7 +142,7 @@ class PublicationGateway {
 	 *
 	 * @return bool True when the withdrawal was requested; false when unavailable.
 	 *
-	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 	 */
 	public function withdraw(string $reference): bool {
 		if ($this->isAvailable() === false || trim($reference) === '') {
@@ -148,8 +151,7 @@ class PublicationGateway {
 
 		$existing = $this->objectService->find(
 			id: $reference,
-			register: self::PUBLICATION_REGISTER,
-			schema: self::PUBLICATION_SCHEMA
+			options: new ObjectFindOptions(register: self::PUBLICATION_REGISTER, schema: self::PUBLICATION_SCHEMA)
 		);
 
 		$data = [];
@@ -162,9 +164,10 @@ class PublicationGateway {
 
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::PUBLICATION_REGISTER,
-			schema: self::PUBLICATION_SCHEMA,
-			uuid: $reference
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::PUBLICATION_REGISTER, schema: self::PUBLICATION_SCHEMA),
+				uuid: $reference
+			)
 		);
 
 		return true;
@@ -175,7 +178,7 @@ class PublicationGateway {
 	 *
 	 * @return string The ISO-8601 timestamp.
 	 *
-	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 	 */
 	private function now(): string {
 		return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');

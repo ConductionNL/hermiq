@@ -43,6 +43,10 @@ use RuntimeException;
  * Unit tests for the store search connection report.
  *
  * @covers \OCA\Hermiq\Service\GitHubTemplateCatalogService
+ * @uses   \OCA\Hermiq\Service\GitHubCatalogPayload
+ * @uses   \OCA\Hermiq\Service\SkillSerializer
+ * @uses   \OCA\Hermiq\Service\CatalogCaller
+ * @uses   \OCA\Hermiq\Service\CatalogSearch
  */
 class GitHubTemplateCatalogConnectionReportTest extends TestCase {
 

@@ -31,15 +31,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-both-gates-must-open-before-a-tool-runs
+ * @spec openspec/specs/agent-tool-governance/spec.md#requirement-both-gates-must-open-before-a-tool-runs
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\OutsideAgent;
 
+use OCA\Hermiq\Kernel\Contracts\OutsideAgentGatewayInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -47,9 +48,9 @@ use Throwable;
 /**
  * Resolves a registration, applies both gates and narrows the response.
  *
- * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-every-outside-call-must-be-authorised-as-the-calling-principal
+ * @spec openspec/specs/agent-tool-governance/spec.md#requirement-every-outside-call-must-be-authorised-as-the-calling-principal
  */
-class OutsideAgentGateway {
+class OutsideAgentGateway implements OutsideAgentGatewayInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -88,15 +89,33 @@ class OutsideAgentGateway {
 	 *
 	 * @return array<string, mixed>|null The registration data, or null.
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-an-outside-agent-must-reach-declared-tools-through-a-registration
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-outside-agent-must-reach-declared-tools-through-a-registration
 	 */
 	public function registrationFor(string $principal): ?array {
 		if (trim($principal) === '') {
 			return null;
 		}
 
+		foreach ($this->registrationObjects(principal: $principal) as $object) {
+			$data = $this->registrationData(object: $object, principal: $principal);
+			if ($data !== null) {
+				return $data;
+			}
+		}
+
+		return null;
+	}//end registrationFor()
+
+	/**
+	 * The stored registrations filtered on the principal; a failed read is logged and finds none.
+	 *
+	 * @param string $principal The principal.
+	 *
+	 * @return array<int|string, mixed>
+	 */
+	private function registrationObjects(string $principal): array {
 		try {
-			$objects = $this->objectService
+			return $this->objectService
 				->setRegister(self::REGISTER_SLUG)
 				->setSchema(self::SCHEMA_SLUG)
 				->findAll(config: ['filters' => ['principal' => $principal], 'limit' => 50], _rbac: false, _multitenancy: false);
@@ -106,25 +125,31 @@ class OutsideAgentGateway {
 				['exception' => $e]
 			);
 
+			return [];
+		}
+	}//end registrationObjects()
+
+	/**
+	 * One stored object's registration data with its id, when it is this principal's.
+	 *
+	 * @param mixed  $object    One result of the registration read.
+	 * @param string $principal The principal.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	private function registrationData(mixed $object, string $principal): ?array {
+		if (($object instanceof ObjectEntity) === false) {
 			return null;
 		}
 
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			$data = $object->getObject();
-			if ((string)($data['principal'] ?? '') !== $principal) {
-				continue;
-			}
-
-			$data['id'] = (string)($object->getUuid() ?? '');
-			return $data;
+		$data = $object->getObject();
+		if ((string)($data['principal'] ?? '') !== $principal) {
+			return null;
 		}
 
-		return null;
-	}//end registrationFor()
+		$data['id'] = (string)($object->getUuid() ?? '');
+		return $data;
+	}//end registrationData()
 
 	/**
 	 * Gate one: the registration exists, is enabled, and lists this tool.
@@ -141,65 +166,79 @@ class OutsideAgentGateway {
 	 *
 	 * @throws OutsideCallRefusedException When the gate refuses.
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#scenario-a-write-tool-is-denied-unless-granted
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-write-tool-is-denied-unless-granted
 	 */
 	public function assertGranted(?array $registration, string $toolId, string $principal): void {
-		if ($registration === null) {
-			throw new OutsideCallRefusedException(
-				gate: OutsideCallRefusedException::GATE_REGISTRATION,
-				toolId: $toolId,
-				principal: $principal,
-				reason: 'no outside-agent registration exists for this principal'
-			);
-		}
-
-		if (($registration['enabled'] ?? true) === false) {
-			throw new OutsideCallRefusedException(
-				gate: OutsideCallRefusedException::GATE_REGISTRATION,
-				toolId: $toolId,
-				principal: $principal,
-				reason: 'the registration is switched off'
-			);
-		}
-
+		$call = new OutsideCall(toolId: $toolId, principal: $principal);
+		$open = $this->openRegistration(registration: $registration, call: $call);
 		$descriptor = $this->surface->describe(toolId: $toolId);
 		if ($descriptor === null) {
-			throw new OutsideCallRefusedException(
-				gate: OutsideCallRefusedException::GATE_SURFACE,
-				toolId: $toolId,
-				principal: $principal,
-				reason: 'no app declares this tool reachable from outside the instance'
-			);
+			throw $call->refused(gate: OutsideCallRefusedException::GATE_SURFACE, reason: 'no app declares this tool reachable from outside the instance');
 		}
 
-		$granted = ($registration['tools'] ?? []);
-		if (is_array($granted) === false) {
-			$granted = [];
-		}
-
-		$granted = array_map('strval', $granted);
-
-		if (in_array($toolId, $granted, true) === true) {
+		if (in_array($toolId, $this->grantedTools(registration: $open), true) === true) {
 			return;
 		}
 
-		if ($this->surface->writes(toolId: $toolId, descriptor: $descriptor) === true) {
-			throw new OutsideCallRefusedException(
+		throw $this->ungranted(call: $call, descriptor: $descriptor);
+	}//end assertGranted()
+
+	/**
+	 * The registration, refused when there is none or it is switched off.
+	 *
+	 * @param array<string, mixed>|null $registration The principal's registration.
+	 * @param OutsideCall               $call         The call being gated.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @throws OutsideCallRefusedException At the registration gate.
+	 */
+	private function openRegistration(?array $registration, OutsideCall $call): array {
+		if ($registration === null) {
+			throw $call->refused(gate: OutsideCallRefusedException::GATE_REGISTRATION, reason: 'no outside-agent registration exists for this principal');
+		}
+
+		if (($registration['enabled'] ?? true) === false) {
+			throw $call->refused(gate: OutsideCallRefusedException::GATE_REGISTRATION, reason: 'the registration is switched off');
+		}
+
+		return $registration;
+	}//end openRegistration()
+
+	/**
+	 * The tool ids a registration names, as text; anything but a list names none.
+	 *
+	 * @param array<string, mixed> $registration The registration.
+	 *
+	 * @return array<int|string, string>
+	 */
+	private function grantedTools(array $registration): array {
+		$granted = ($registration['tools'] ?? []);
+		if (is_array($granted) === false) {
+			return [];
+		}
+
+		return array_map('strval', $granted);
+	}//end grantedTools()
+
+	/**
+	 * The grant-gate refusal for a declared tool the registration does not name.
+	 *
+	 * @param OutsideCall          $call       The call being gated.
+	 * @param array<string, mixed> $descriptor The tool's declared descriptor.
+	 *
+	 * @return OutsideCallRefusedException
+	 */
+	private function ungranted(OutsideCall $call, array $descriptor): OutsideCallRefusedException {
+		if ($this->surface->writes(toolId: $call->toolId, descriptor: $descriptor) === true) {
+			return $call->refused(
 				gate: OutsideCallRefusedException::GATE_GRANT,
-				toolId: $toolId,
-				principal: $principal,
 				reason: 'this tool writes, and a tool that writes is denied unless the registration names it'
 			);
 		}
 
-		throw new OutsideCallRefusedException(
-			gate: OutsideCallRefusedException::GATE_GRANT,
-			toolId: $toolId,
-			principal: $principal,
-			reason: 'the registration does not name this tool'
-		);
-
-	}//end assertGranted()
+		return $call->refused(gate: OutsideCallRefusedException::GATE_GRANT, reason: 'the registration does not name this tool');
+	}//end ungranted()
 
 	/**
 	 * Run one call: gate one here, gate two in the owning app.
@@ -216,38 +255,14 @@ class OutsideAgentGateway {
 	 *
 	 * @throws OutsideCallRefusedException When either gate refuses.
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-both-gates-must-open-before-a-tool-runs
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-both-gates-must-open-before-a-tool-runs
 	 */
 	public function call(string $principal, string $toolId, array $arguments): array {
 		$registration = $this->registrationFor(principal: $principal);
 
 		$this->assertGranted(registration: $registration, toolId: $toolId, principal: $principal);
 
-		try {
-			$envelope = $this->toolRegistryFacade->invokeTool(toolId: $toolId, arguments: $arguments);
-		} catch (Throwable $e) {
-			// The owning app refused, or failed. Either way nothing here can grant
-			// what it withheld, and the refusal is reported as its own gate.
-			throw new OutsideCallRefusedException(
-				gate: OutsideCallRefusedException::GATE_OWNING_APP,
-				toolId: $toolId,
-				principal: $principal,
-				reason: $e->getMessage()
-			);
-		}
-
-		// The facade reports a refusal in its envelope rather than by throwing, and
-		// an error read as a result is exactly how an unauthorised read becomes a
-		// successful-looking response. So the envelope is checked, not assumed.
-		if (($envelope['isError'] ?? false) === true) {
-			throw new OutsideCallRefusedException(
-				gate: OutsideCallRefusedException::GATE_OWNING_APP,
-				toolId: $toolId,
-				principal: $principal,
-				reason: $this->errorText(envelope: $envelope)
-			);
-		}
-
+		$envelope = $this->invokeAsCaller(call: new OutsideCall(toolId: $toolId, principal: $principal), arguments: $arguments);
 		$payload = ($envelope['result'] ?? []);
 		if (is_array($payload) === false) {
 			return ['result' => $payload, 'isError' => false];
@@ -258,6 +273,35 @@ class OutsideAgentGateway {
 			'isError' => false,
 		];
 	}//end call()
+
+	/**
+	 * Invoke the tool as the authenticated caller; a throw or an error envelope is the owning app's refusal.
+	 *
+	 * @param OutsideCall          $call      The call.
+	 * @param array<string, mixed> $arguments The call arguments, passed through untouched.
+	 *
+	 * @return array<string, mixed> The facade's envelope.
+	 *
+	 * @throws OutsideCallRefusedException At the owning-app gate.
+	 */
+	private function invokeAsCaller(OutsideCall $call, array $arguments): array {
+		try {
+			$envelope = $this->toolRegistryFacade->invokeTool(toolId: $call->toolId, arguments: $arguments);
+		} catch (Throwable $e) {
+			// The owning app refused, or failed. Either way nothing here can grant
+			// what it withheld, and the refusal is reported as its own gate.
+			throw $call->refused(gate: OutsideCallRefusedException::GATE_OWNING_APP, reason: $e->getMessage());
+		}
+
+		// The facade reports a refusal in its envelope rather than by throwing, and
+		// an error read as a result is exactly how an unauthorised read becomes a
+		// successful-looking response. So the envelope is checked, not assumed.
+		if (($envelope['isError'] ?? false) === true) {
+			throw $call->refused(gate: OutsideCallRefusedException::GATE_OWNING_APP, reason: $this->errorText(envelope: $envelope));
+		}
+
+		return $envelope;
+	}//end invokeAsCaller()
 
 	/**
 	 * The owning app's own words for why it refused, when it gave any.
@@ -295,7 +339,7 @@ class OutsideAgentGateway {
 	 *
 	 * @return array<array-key, mixed> The narrowed response.
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-a-registration-may-narrow-what-a-tool-response-carries
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-a-registration-may-narrow-what-a-tool-response-carries
 	 */
 	public function narrow(array $registration, array $result): array {
 		$allowlist = ($registration['fieldAllowlist'] ?? []);
@@ -306,20 +350,27 @@ class OutsideAgentGateway {
 		$allowlist = array_map('strval', $allowlist);
 
 		if (array_is_list($result) === true) {
-			return array_map(
-				function (mixed $row) use ($allowlist): mixed {
-					if (is_array($row) === true) {
-						return $this->keep(row: $row, allowlist: $allowlist);
-					}
-
-					return $row;
-				},
-				$result
-			);
+			return array_map(fn (mixed $row): mixed => $this->keepInRow(row: $row, allowlist: $allowlist), $result);
 		}
 
 		return $this->keep(row: $result, allowlist: $allowlist);
 	}//end narrow()
+
+	/**
+	 * Narrow one row of a list response; a row that is not an array passes as it is.
+	 *
+	 * @param mixed              $row       One row.
+	 * @param array<int, string> $allowlist The allowed keys.
+	 *
+	 * @return mixed
+	 */
+	private function keepInRow(mixed $row, array $allowlist): mixed {
+		if (is_array($row) === true) {
+			return $this->keep(row: $row, allowlist: $allowlist);
+		}
+
+		return $row;
+	}//end keepInRow()
 
 	/**
 	 * Keep the allowed keys of one row, with the owning app's own names and the

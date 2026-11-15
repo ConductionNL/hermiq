@@ -39,6 +39,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Approval;
 
+use OCA\Hermiq\Kernel\Contracts\ApprovalTaskBridgeInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Task\TaskService;
 use Psr\Container\ContainerInterface;
@@ -50,7 +51,7 @@ use Throwable;
  *
  * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-every-pending-approval-is-mirrored-as-one-openregister-task
  */
-class ApprovalTaskBridge {
+class ApprovalTaskBridge implements ApprovalTaskBridgeInterface {
 
 	/**
 	 * FQN of OpenRegister's task service, as a string on purpose: a cross-app
@@ -111,32 +112,13 @@ class ApprovalTaskBridge {
 			return $existing;
 		}
 
-		if ((string)($data['status'] ?? '') !== 'pending') {
-			return null;
-		}
-
-		$approvalUuid = (string)$approval->getUuid();
-		if ($approvalUuid === '') {
+		$approvalUuid = $this->pendingApprovalUuid(approval: $approval);
+		if ($approvalUuid === null) {
 			return null;
 		}
 
 		try {
-			$tasks = $this->taskService();
-			if ($tasks === null) {
-				return null;
-			}
-
-			$task = $tasks->import(
-				data: $this->taskData(approvalUuid: $approvalUuid, data: $data),
-				actor: self::REQUESTER
-			);
-
-			$uuid = (string)$task->getUuid();
-			if ($uuid === '') {
-				return null;
-			}
-
-			return $uuid;
+			return $this->importTask(approvalUuid: $approvalUuid, data: $data);
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				'Hermiq could not mirror approval ' . $approvalUuid
@@ -148,6 +130,54 @@ class ApprovalTaskBridge {
 		}//end try
 
 	}//end ensureTaskFor()
+
+	/**
+	 * The Approval's uuid when it is pending and has one, otherwise null.
+	 *
+	 * @param ObjectEntity $approval The Approval.
+	 *
+	 * @return string|null
+	 */
+	private function pendingApprovalUuid(ObjectEntity $approval): ?string {
+		if ((string)($approval->getObject()['status'] ?? '') !== 'pending') {
+			return null;
+		}
+
+		$approvalUuid = (string)$approval->getUuid();
+		if ($approvalUuid === '') {
+			return null;
+		}
+
+		return $approvalUuid;
+	}//end pendingApprovalUuid()
+
+	/**
+	 * Import the mirror task on the trusted path and answer its uuid, or null when
+	 * there is no task surface or the task came back without one.
+	 *
+	 * @param string $approvalUuid The Approval's uuid.
+	 * @param array<string,mixed> $data The Approval's payload.
+	 *
+	 * @return string|null
+	 */
+	private function importTask(string $approvalUuid, array $data): ?string {
+		$tasks = $this->taskService();
+		if ($tasks === null) {
+			return null;
+		}
+
+		$task = $tasks->import(
+			data: $this->taskData(approvalUuid: $approvalUuid, data: $data),
+			actor: self::REQUESTER
+		);
+
+		$uuid = (string)$task->getUuid();
+		if ($uuid === '') {
+			return null;
+		}
+
+		return $uuid;
+	}//end importTask()
 
 	/**
 	 * Release an Approval's mirror after a decision on hermiq's own surface:
@@ -208,55 +238,97 @@ class ApprovalTaskBridge {
 	 */
 	private function taskData(string $approvalUuid, array $data): array {
 		$sourceType = (string)($data['sourceType'] ?? 'schedule');
+		$routing = $this->reviewerRouting(data: $data);
+
+		return [
+			'title' => $this->taskTitle(data: $data),
+			'description' => $this->taskDescription(data: $data),
+			'state' => $routing['state'],
+			'performerType' => $routing['performerType'],
+			'priority' => 'high',
+			'assignee' => $routing['assignee'],
+			'candidateGroups' => $routing['candidateGroups'],
+			'requester' => self::REQUESTER,
+			'objectUuid' => $approvalUuid,
+			'metadata' => $this->taskMetadata(approvalUuid: $approvalUuid, sourceType: $sourceType),
+		];
+
+	}//end taskData()
+
+	/**
+	 * The mirror task's hermiq backlink.
+	 *
+	 * @param string $approvalUuid The Approval's uuid.
+	 * @param string $sourceType The gated action's source type.
+	 *
+	 * @return array{hermiq: array{approvalUuid: string, sourceType: string}}
+	 */
+	private function taskMetadata(string $approvalUuid, string $sourceType): array {
+		return [
+			'hermiq' => [
+				'approvalUuid' => $approvalUuid,
+				'sourceType' => $sourceType,
+			],
+		];
+	}//end taskMetadata()
+
+	/**
+	 * Who the mirror task goes to: an assigned user reviewer makes an `active` task
+	 * for that user, a group reviewer an `enabled` one offered to the group, and no
+	 * reviewer an `enabled` group task offered to nobody.
+	 *
+	 * @param array<string,mixed> $data The Approval's payload.
+	 *
+	 * @return array{state: string, performerType: string, assignee: string|null, candidateGroups: array<int, string>|null}
+	 */
+	private function reviewerRouting(array $data): array {
 		$reviewer = trim((string)($data['reviewer'] ?? ''));
 		$reviewerType = (string)($data['reviewerType'] ?? 'user');
 
-		$assignee = null;
-		$candidateGroups = null;
-		$state = 'enabled';
-		$performerType = 'group';
-		if ($reviewerType !== 'group' && $reviewer !== '') {
-			$assignee = $reviewer;
-			$candidateGroups = null;
-			$state = 'active';
-			$performerType = 'user';
+		if ($reviewer === '') {
+			return ['state' => 'enabled', 'performerType' => 'group', 'assignee' => null, 'candidateGroups' => null];
 		}
 
-		if ($reviewerType === 'group' && $reviewer !== '') {
-			$candidateGroups = [$reviewer];
+		if ($reviewerType === 'group') {
+			return ['state' => 'enabled', 'performerType' => 'group', 'assignee' => null, 'candidateGroups' => [$reviewer]];
 		}
 
+		return ['state' => 'active', 'performerType' => 'user', 'assignee' => $reviewer, 'candidateGroups' => null];
+	}//end reviewerRouting()
+
+	/**
+	 * The mirror task's title: the source type, and the agent when there is one.
+	 *
+	 * @param array<string,mixed> $data The Approval's payload.
+	 *
+	 * @return string
+	 */
+	private function taskTitle(array $data): string {
+		$title = 'Hermiq approval: ' . (string)($data['sourceType'] ?? 'schedule');
 		$agentId = trim((string)($data['agentId'] ?? ''));
-		$title = 'Hermiq approval: ' . $sourceType;
 		if ($agentId !== '') {
 			$title .= ' (agent ' . $agentId . ')';
 		}
 
+		return $title;
+	}//end taskTitle()
+
+	/**
+	 * The mirror task's description: the gated action, and the prompt when there is one.
+	 *
+	 * @param array<string,mixed> $data The Approval's payload.
+	 *
+	 * @return string
+	 */
+	private function taskDescription(array $data): string {
+		$description = 'A gated hermiq ' . (string)($data['sourceType'] ?? 'schedule') . ' action awaits your approval.';
 		$prompt = trim((string)($data['prompt'] ?? ''));
-		$description = 'A gated hermiq ' . $sourceType . ' action awaits your approval.';
 		if ($prompt !== '') {
 			$description .= "\n\n" . $prompt;
 		}
 
-		return [
-			'title' => $title,
-			'description' => $description,
-			'state' => $state,
-			'performerType' => $performerType,
-			'priority' => 'high',
-			'assignee' => $assignee,
-			'candidateGroups' => $candidateGroups,
-			'requester' => self::REQUESTER,
-			'objectUuid' => $approvalUuid,
-			'metadata' => [
-				'hermiq' => [
-					'approvalUuid' => $approvalUuid,
-					'sourceType' => $sourceType,
-				],
-			],
-		];
-
-	}//end taskData()
+		return $description;
+	}//end taskDescription()
 
 	/**
 	 * Resolve OpenRegister's TaskService, or null when this OpenRegister does
