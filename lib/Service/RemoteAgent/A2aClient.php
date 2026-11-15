@@ -255,6 +255,19 @@ class A2aClient {
 			$response = (array) ($log->getObject()['response'] ?? []);
 		}
 
+		return $this->decodedBody(response: $response);
+	}//end request()
+
+	/**
+	 * The decoded JSON body of a successful answer.
+	 *
+	 * @param array<string, mixed> $response The call log's response: statusCode, body and encoding.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @throws RemoteAgentUnavailableException When the answer is not a 2xx or not JSON.
+	 */
+	private function decodedBody(array $response): array {
 		$status = (int) ($response['statusCode'] ?? 0);
 		if ($status < 200 || $status >= 300) {
 			throw new RemoteAgentUnavailableException(sprintf('The remote agent answered HTTP %d.', $status));
@@ -271,7 +284,7 @@ class A2aClient {
 		}
 
 		return $decoded;
-	}//end request()
+	}//end decodedBody()
 
 	/**
 	 * The integriq source, read as the system: hermiq hands it to integriq and keeps nothing of it.
