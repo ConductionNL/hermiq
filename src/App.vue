@@ -92,6 +92,11 @@
 					</ul>
 				</NcAppSettingsSection>
 				<NcAppSettingsSection
+					id="preferences"
+					:name="t('hermiq', 'Preferences')">
+					<PersonalPreferences />
+				</NcAppSettingsSection>
+				<NcAppSettingsSection
 					id="talk-delivery"
 					:name="t('hermiq', 'Talk delivery')">
 					<TalkDeliverySettings />
@@ -150,6 +155,7 @@ import { translate as ncT } from '@nextcloud/l10n'
 import { NcAppSettingsSection, NcButton } from '@nextcloud/vue'
 import { reactive } from 'vue'
 import SubscriptionSignIn from './components/settings/SubscriptionSignIn.vue'
+import PersonalPreferences from './components/PersonalPreferences.vue'
 import TalkDeliverySettings from './components/TalkDeliverySettings.vue'
 // skill-maturity: the SkillsCatalog maturityLevel column's dots badge, resolved
 // via CnAppRoot's cellWidgets registry (manifest column `widget: "maturity-dots"`).
@@ -170,6 +176,7 @@ export default {
 		CnCredentials,
 		NcAppSettingsSection,
 		NcButton,
+		PersonalPreferences,
 		TalkDeliverySettings,
 		SubscriptionSignIn,
 	},
