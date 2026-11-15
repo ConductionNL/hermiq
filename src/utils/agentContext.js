@@ -19,7 +19,7 @@
  *   - a list of `{property, maxLength}` entries.
  *
  * @module utils/agentContext
- * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-declarative-bounded-agent-context-allowlist
+ * @spec openspec/specs/agent-object-leaf/spec.md#requirement-declarative-bounded-agent-context-allowlist
  */
 
 export const AGENT_CONTEXT_KEYWORD = 'x-openregister-agent-context'
@@ -39,16 +39,7 @@ function normaliseAllowlist(spec) {
 
 	if (Array.isArray(spec)) {
 		for (const entry of spec) {
-			if (typeof entry === 'string' && entry !== '') {
-				allowlist[entry] = {}
-			} else if (
-				entry
-				&& typeof entry === 'object'
-				&& typeof entry.property === 'string'
-				&& entry.property !== ''
-			) {
-				allowlist[entry.property] = entry
-			}
+			addListEntry(allowlist, entry)
 		}
 		return allowlist
 	}
@@ -59,6 +50,30 @@ function normaliseAllowlist(spec) {
 		}
 	}
 	return allowlist
+}
+
+/**
+ * Add one entry of a list-form allowlist: a property name, or an object naming
+ * its `property` with its caps. Anything else is left out.
+ *
+ * @param {{[key: string]: object}} allowlist The allowlist being built.
+ * @param {unknown} entry The list entry.
+ * @return {void}
+ */
+function addListEntry(allowlist, entry) {
+	if (typeof entry === 'string' && entry !== '') {
+		allowlist[entry] = {}
+		return
+	}
+
+	if (
+		entry
+		&& typeof entry === 'object'
+		&& typeof entry.property === 'string'
+		&& entry.property !== ''
+	) {
+		allowlist[entry.property] = entry
+	}
 }
 
 /**

@@ -32,8 +32,8 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 use OCA\Hermiq\Controller\EvalRunController;
 use OCA\Hermiq\Service\EvalRunService;
 use OCA\Hermiq\Service\SeedCustodyService;
-use OCA\OpenRegister\Db\Agent;
-use OCA\OpenRegister\Db\AgentMapper;
+use OCA\OpenRegister\Mcp\Db\Agent;
+use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -532,4 +532,83 @@ class EvalRunControllerTest extends TestCase {
 		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->run('ds-1')->getStatus());
 
 	}//end testAdminCannotRunAnotherHumansDataset()
+
+	/**
+	 * An owned run with the given request parameters and service behaviour.
+	 *
+	 * @param array<string, mixed> $params  Request parameters besides agentId.
+	 * @param EvalRunService       $service The eval run service.
+	 * @param LoggerInterface|null $logger  The logger.
+	 *
+	 * @return \OCP\AppFramework\Http\JSONResponse
+	 */
+	private function ownedRun(array $params, EvalRunService $service, ?LoggerInterface $logger = null): \OCP\AppFramework\Http\JSONResponse {
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('find')->willReturn($this->dataset('alice'));
+		$agent = new Agent();
+		$agent->setOwner('alice');
+		$agentMapper = $this->createMock(AgentMapper::class);
+		$agentMapper->method('findByUuid')->willReturn($agent);
+		$params['agentId'] = 'ag-1';
+		$request = $this->createMock(IRequest::class);
+		$request->method('getParam')->willReturnCallback(
+			static fn (string $key, $default = null) => (array_key_exists($key, $params) === true ? $params[$key] : $default)
+		);
+
+		$controller = new EvalRunController(
+			request: $request,
+			objectService: $objectService,
+			agentMapper: $agentMapper,
+			userSession: $this->session('alice'),
+			evalRunService: $service,
+			seedCustody: $this->custody(),
+			logger: ($logger ?? $this->createMock(LoggerInterface::class)),
+		);
+
+		return $controller->run('ds-1');
+	}//end ownedRun()
+
+	/**
+	 * The agent version id is passed as a string and a numeric regression
+	 * threshold as an integer; a non-numeric threshold is ignored.
+	 *
+	 * @return void
+	 */
+	public function testRunOptionsArePassedToTheService(): void {
+		$service = $this->createMock(EvalRunService::class);
+		$calls = [];
+		$service->method('run')->willReturnCallback(
+			static function (...$args) use (&$calls): array {
+				$calls[] = $args;
+				return ['status' => 'complete'];
+			}
+		);
+
+		$this->ownedRun(['agentVersionId' => 42, 'regressionThresholdPercent' => '15'], $service);
+		$this->ownedRun(['regressionThresholdPercent' => 'high'], $service);
+
+		$this->assertSame(['42', 15, false], [$calls[0][2], $calls[0][3], $calls[0][4]]);
+		$this->assertSame([null, null, false], [$calls[1][2], $calls[1][3], $calls[1][4]]);
+	}//end testRunOptionsArePassedToTheService()
+
+	/**
+	 * A rejected input is a 400 with its message; any other failure is logged
+	 * and a 500 naming it.
+	 *
+	 * @return void
+	 */
+	public function testServiceFailuresMapToStatusCodes(): void {
+		$rejecting = $this->createMock(EvalRunService::class);
+		$rejecting->method('run')->willThrowException(new \InvalidArgumentException('Dataset has no cases'));
+		$bad = $this->ownedRun([], $rejecting);
+
+		$failing = $this->createMock(EvalRunService::class);
+		$failing->method('run')->willThrowException(new \RuntimeException('engine down'));
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects($this->once())->method('error')->with('Hermiq eval run failed: engine down');
+		$broken = $this->ownedRun([], $failing, $logger);
+
+		$this->assertSame([Http::STATUS_BAD_REQUEST, ['error' => 'Dataset has no cases']], [$bad->getStatus(), $bad->getData()]);
+		$this->assertSame([Http::STATUS_INTERNAL_SERVER_ERROR, ['error' => 'Eval run failed', 'message' => 'engine down']], [$broken->getStatus(), $broken->getData()]);
+	}//end testServiceFailuresMapToStatusCodes()
 }//end class

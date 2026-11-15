@@ -37,17 +37,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+ * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Listener;
 
-use OCA\Hermiq\Service\Talk\TalkBotInstaller;
+use OCA\Hermiq\Kernel\Contracts\AgentObjectMatcherInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkBotInstallerInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Db\RegisterMapper;
-use OCA\OpenRegister\Db\SchemaMapper;
 use OCA\OpenRegister\Event\ObjectCreatedEvent;
 use OCA\OpenRegister\Event\ObjectDeletedEvent;
 use OCA\OpenRegister\Event\ObjectUpdatedEvent;
@@ -63,36 +62,21 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+ * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
  */
 class AgentBotLifecycleListener implements IEventListener {
 
-	/**
-	 * Schema slug for agents.
-	 *
-	 * @var string
-	 */
-	private const AGENT_SCHEMA = 'agent';
-
-	/**
-	 * Register slug that owns Hermiq's agents.
-	 *
-	 * @var string
-	 */
-	private const REGISTER_SLUG = 'hermiq';
 
 	/**
 	 * Constructor.
 	 *
-	 * @param TalkBotInstaller $installer Installs/renames/removes the per-agent bot.
-	 * @param SchemaMapper $schemaMapper Resolves the object's schema slug.
-	 * @param RegisterMapper $registerMapper Resolves the object's register slug.
+	 * @param TalkBotInstallerInterface $installer Installs/renames/removes the per-agent bot.
+	 * @param AgentObjectMatcherInterface $agents Tells a Hermiq agent from other objects.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
-		private readonly TalkBotInstaller $installer,
-		private readonly SchemaMapper $schemaMapper,
-		private readonly RegisterMapper $registerMapper,
+		private readonly TalkBotInstallerInterface $installer,
+		private readonly AgentObjectMatcherInterface $agents,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()
@@ -104,7 +88,7 @@ class AgentBotLifecycleListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
 	 */
 	public function handle(Event $event): void {
 		try {
@@ -129,41 +113,19 @@ class AgentBotLifecycleListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
 	 */
 	private function apply(Event $event): void {
 		[$object, $deleted] = $this->resolve(event: $event);
-		if (($object instanceof ObjectEntity) === false) {
+		$agentId = $this->agentIdOf(object: $object);
+		if ($agentId === null) {
 			return;
 		}
-
-		if ($this->isHermiqAgent(object: $object) === false) {
-			return;
-		}
-
-		$agentId = (string)$object->getUuid();
-		if ($agentId === '') {
-			return;
-		}
-
-		$data = $object->getObject();
-
-		// 🔴 TRASHED counts as deleted, and this is not a nicety.
-		//
-		// OpenRegister's API delete is a SOFT delete: it does not dispatch
-		// ObjectDeletedEvent (only the hard `MagicMapper::delete()` does) — the
-		// object arrives here as an UPDATE carrying a `deleted` marker, still
-		// holding `talkEnabled: true`. Without this check the listener reads
-		// that as "an ordinary update" and cheerfully RE-INSTALLS the bot of an
-		// agent the user just threw away, leaving it answering in every room it
-		// was enabled in. Verified live: the bot survived the delete until this
-		// was added.
-		$trashed = ($object->getDeleted() !== null && $object->getDeleted() !== []);
 
 		// Talk-disabled, trashed and deleted are the same instruction to spreed:
 		// this agent must stop being addressable. Disabling is not a soft state
 		// that leaves a silent bot in the room.
-		if ($deleted === true || $trashed === true || (($data['talkEnabled'] ?? false) === true) === false) {
+		if ($deleted === true || $this->mustStopAnswering(agent: $object) === true) {
 			$this->installer->uninstallForAgent(agentId: $agentId);
 			return;
 		}
@@ -173,57 +135,61 @@ class AgentBotLifecycleListener implements IEventListener {
 		// also makes this safely idempotent on every unrelated agent update.
 		$this->installer->installForAgent(
 			agentId: $agentId,
-			agentName: (string)($data['name'] ?? '')
+			agentName: (string)(($object->getObject())['name'] ?? '')
 		);
 
 	}//end apply()
 
 	/**
-	 * Whether an object is one of Hermiq's agents.
+	 * The uuid of a Hermiq agent object, or null for anything else.
 	 *
-	 * 🔴 `ObjectEntity::getSchema()` returns the schema's NUMERIC ID, not its
-	 * slug — an agent arrives as `'4365'`, never `'agent'`. Comparing it to the
-	 * slug is a check that can only ever be false, and it fails in the worst
-	 * possible way: silently, on every event, with the listener firing exactly
-	 * as designed and simply declining to act. Verified live; the id is
-	 * instance-specific, so it cannot be hard-coded either.
+	 * @param mixed $object The event's object.
 	 *
-	 * Resolved per call rather than cached: this listener is constructed per
-	 * request, schemas can be re-imported mid-life, and the mappers cache.
+	 * @return string|null
 	 *
-	 * @param ObjectEntity $object The object the event carries.
-	 *
-	 * @return bool True when this is a Hermiq agent object.
-	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
 	 */
-	private function isHermiqAgent(ObjectEntity $object): bool {
-		$schema = (string)$object->getSchema();
-		if ($schema === '') {
-			return false;
+	private function agentIdOf(mixed $object): ?string {
+		if (($object instanceof ObjectEntity) === false || $this->agents->isAgent(object: $object) === false) {
+			return null;
 		}
 
-		// Slug, when a caller hands one over instead of an id.
-		if ($schema === self::AGENT_SCHEMA) {
+		$agentId = (string)$object->getUuid();
+		if ($agentId === '') {
+			return null;
+		}
+
+		return $agentId;
+	}//end agentIdOf()
+
+	/**
+	 * Whether an agent that still exists must stop answering: it is trashed, or Talk is off for it.
+	 *
+	 * 🔴 TRASHED counts as deleted, and this is not a nicety.
+	 *
+	 * OpenRegister's API delete is a SOFT delete: it does not dispatch
+	 * ObjectDeletedEvent (only the hard `MagicMapper::delete()` does) — the
+	 * object arrives here as an UPDATE carrying a `deleted` marker, still
+	 * holding `talkEnabled: true`. Without this check the listener reads
+	 * that as "an ordinary update" and cheerfully RE-INSTALLS the bot of an
+	 * agent the user just threw away, leaving it answering in every room it
+	 * was enabled in. Verified live: the bot survived the delete until this
+	 * was added.
+	 *
+	 * @param ObjectEntity $agent The agent object.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+	 */
+	private function mustStopAnswering(ObjectEntity $agent): bool {
+		if ($agent->getDeleted() !== null && $agent->getDeleted() !== []) {
 			return true;
 		}
 
-		try {
-			if ((string)$this->schemaMapper->find((int)$schema)->getSlug() !== self::AGENT_SCHEMA) {
-				return false;
-			}
+		return ((($agent->getObject())['talkEnabled'] ?? false) === true) === false;
+	}//end mustStopAnswering()
 
-			// 🔴 The register check is NOT redundant. Schema slugs are not
-			// unique across the instance: this fleet has TWO schemas slugged
-			// `agent` (hermiq's and another app's), exactly as it has two
-			// slugged `conversation`. Matching on the slug alone would install
-			// a Hermiq Talk bot for another app's objects.
-			return ((string)$this->registerMapper->find((int)$object->getRegister())->getSlug() === self::REGISTER_SLUG);
-		} catch (Throwable $e) {
-			return false;
-		}
-
-	}//end isHermiqAgent()
 
 	/**
 	 * Unwrap the object and whether this is a deletion.
@@ -232,7 +198,7 @@ class AgentBotLifecycleListener implements IEventListener {
 	 *
 	 * @return array{0: ObjectEntity|null, 1: bool} The object and the deleted flag.
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
 	 */
 	private function resolve(Event $event): array {
 		if ($event instanceof ObjectCreatedEvent) {

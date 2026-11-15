@@ -40,8 +40,11 @@ class RegisterImportVocabularyTest extends TestCase {
 	private const REAL_PREFIXES = [
 		'OCA\\OpenRegister\\Service\\Schemas\\',
 		'OCA\\OpenRegister\\Service\\Search\\',
+		'OCA\\OpenRegister\\Search\\Service\\Search\\',
+		'OCA\\OpenRegister\\Kernel\\Contracts\\PropertySearchProfileInterface',
 		'OCA\\OpenRegister\\Service\\Vocabulary\\',
 		'OCA\\OpenRegister\\Exception\\',
+		'OCA\\OpenRegister\\Service\\Object\\ReferenceKey',
 	];
 
 	/**

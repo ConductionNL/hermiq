@@ -26,10 +26,10 @@
   matching the Agent schema's `icon` property description. Empty clears back
   to the default agent icon.
 
-  @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
-  @spec openspec/changes/agent-engine-port/tasks.md#task-5-2
-  @spec openspec/changes/agent-management-ui/specs/agent-management-ui/spec.md
-  @spec openspec/changes/sub-agent-delegation/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-delegation-allowlist-in-place-mvp
+  @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
+  @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-5-2
+  @spec openspec/changes/archive/2026-09-06-agent-management-ui/specs/agent-management-ui/spec.md
+  @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-delegation-allowlist-in-place-mvp
 -->
 <template>
 	<NcModal :show="show" size="normal" :name="heading" @close="handleClose">
@@ -146,6 +146,60 @@
 							class="agent-form__finding"
 							data-testid="agent-form-finding-groups">
 							{{ findingText(finding) }}
+						</p>
+					</template>
+				</fieldset>
+
+				<!-- Whose rights the agent works with (agent-acting-identity-picker):
+			     two choices over the one field actingUser. Naming an account needs
+			     agent.set-acting-user; the server refuses the write without it, the
+			     page only says so up front. -->
+				<fieldset class="agent-form__field" data-testid="agent-form-acting">
+					<legend>{{ t('hermiq', 'On whose behalf the agent works') }}</legend>
+					<NcCheckboxRadioSwitch
+						v-model="form.actingChoice"
+						type="radio"
+						name="agent-acting"
+						value="person">
+						{{ t('hermiq', 'On behalf of the person who uses it') }}
+					</NcCheckboxRadioSwitch>
+					<p class="agent-form__hint">
+						{{ t('hermiq', 'Sees only what that person may see.') }}
+					</p>
+					<NcCheckboxRadioSwitch
+						v-model="form.actingChoice"
+						type="radio"
+						name="agent-acting"
+						value="service-account"
+						:disabled="!canSetActingUser">
+						{{ t('hermiq', 'As its own service account') }}
+					</NcCheckboxRadioSwitch>
+					<p class="agent-form__hint">
+						{{ t('hermiq', 'For schedules with nobody behind the screen.') }}
+					</p>
+					<p
+						v-if="!canSetActingUser"
+						class="agent-form__hint"
+						data-testid="agent-form-acting-admin-only">
+						{{ t('hermiq', 'An administrator sets the account an agent works with.') }}
+					</p>
+					<template v-if="form.actingChoice === 'service-account'">
+						<NcSelect
+							v-model="form.actingUser"
+							data-testid="agent-form-acting-user"
+							:inputLabel="t('hermiq', 'Service account')"
+							:options="actingUserOptions"
+							:filterable="false"
+							:disabled="!canSetActingUser"
+							label="label"
+							trackBy="value"
+							@search="onSearchActingUsers" />
+						<p
+							v-if="actingUserUnresolved"
+							class="agent-form__finding"
+							role="alert"
+							data-testid="agent-form-acting-unresolved">
+							{{ t('hermiq', 'The account {user} no longer exists or is disabled. Runs are refused until you choose another account or let the agent work on behalf of the person who uses it.', { user: actingUserStatus.actingUser }) }}
 						</p>
 					</template>
 				</fieldset>
@@ -503,6 +557,7 @@
 <script>
 import { CnIconPicker, fromOpenGemeenten } from '@conduction/nextcloud-vue'
 import axios from '@nextcloud/axios'
+import { loadState } from '@nextcloud/initial-state'
 import { generateUrl } from '@nextcloud/router'
 import {
 	NcButton,
@@ -516,13 +571,16 @@ import {
 } from '@nextcloud/vue'
 import PromptPlaceholderTools from '../components/PromptPlaceholderTools.vue'
 import StartFieldsEditor from '../components/StartFieldsEditor.vue'
+import { getActingUserStatus } from '../api/actingUser.js'
 import { listTools, setAppAssistant } from '../api/agents.js'
 import { searchGroups, searchUsers } from '../api/chat.js'
 import { getEffectiveModelPolicy } from '../api/modelPolicy.js'
 import { updateToolGrants } from '../api/toolOversight.js'
+import { flattenGrants } from '../api/toolTaxonomy.js'
 import { OPEN_GEMEENTEN_ICONS } from '../icons/openGemeentenIcons.js'
 import { KNOWN_MODELS, knownModelsFor } from '../llm/knownModels.js'
 import { useAgentStore } from '../store/store.js'
+import { actingChoiceOf, actingUserField, actingUserOf } from '../utils/agentActingUser.js'
 import { answersInItsApp, appOptions, appSlugOf } from '../utils/agentApp.js'
 import {
 	credentialOptions,
@@ -531,6 +589,234 @@ import {
 } from '../utils/agentCredentials.js'
 import { sharingFields, sharingOf } from '../utils/agentSharing.js'
 import { insertPlaceholder, startFieldsOf } from '../utils/instructionVariables.js'
+import { formDialogSlot } from './formDialogSlot.js'
+
+/**
+ * A copy of the stored agent to spread into a save, without OpenRegister's `@self`.
+ *
+ * @param {object|null} agent The stored agent, or nothing on a create.
+ * @return {object} The copy.
+ */
+function editableCopy(agent) {
+	const base = agent ? { ...agent } : {}
+	delete base['@self']
+	return base
+}
+
+/**
+ * The payload's knowledge search and voice fields.
+ *
+ * @param {object} form The form.
+ * @return {object} The fields.
+ */
+function searchAndVoicePayload(form) {
+	return {
+		enableRag: form.enableRag,
+		searchObjects: form.searchObjects,
+		searchFiles: form.searchFiles,
+
+		// The pickers hold `{value, label}` objects; the schema holds
+		// the value. Sending the object would store `[object Object]`
+		// and the agent would read as an unrecognised engine — which
+		// normalises to `auto`, i.e. an agent pinned to the private
+		// engine would quietly become one that may use the browser's.
+		// The form now holds the value itself, and the pickers convert
+		// through `voiceInputEngineOption` / `voiceOutputEngineOption`.
+		voiceInputEngine: form.voiceInputEngine || 'auto',
+		voiceOutputEngine: form.voiceOutputEngine || 'auto',
+
+		voiceConversationEnabled: form.voiceConversationEnabled,
+	}
+}
+
+/**
+ * The values of a picker's `{label, value}` options.
+ *
+ * @param {Array<{value: string}>|null} options The options, or nothing.
+ * @return {Array<string>} The values.
+ */
+function optionValues(options) {
+	return (options || []).map((option) => option.value)
+}
+
+/**
+ * A number typed into a form field, when it is filled in and valid.
+ *
+ * @param {string|number|null} raw The field's value.
+ * @param {Function} isValid Tells a usable number from the rest.
+ * @return {number|undefined} The number, or undefined to leave the key out.
+ */
+function typedNumber(raw, isValid) {
+	const value = Number(raw)
+	return raw !== '' && isValid(value) ? value : undefined
+}
+
+/**
+ * Copy the fields that have a value onto the target.
+ *
+ * @param {object} target The object to write on.
+ * @param {object} fields The fields; an undefined one is skipped.
+ * @return {void}
+ */
+function assignDefined(target, fields) {
+	for (const [key, value] of Object.entries(fields)) {
+		if (value !== undefined) {
+			target[key] = value
+		}
+	}
+}
+
+/**
+ * The payload's voice timeout and model tuning numbers.
+ *
+ * @param {object} form The form.
+ * @return {object} The fields; a blank or invalid one is undefined.
+ */
+function tuningFields(form) {
+	return {
+		voiceSilenceTimeout: typedNumber(
+			form.voiceSilenceTimeout,
+			(value) => Number.isInteger(value) && value >= 0,
+		),
+		temperature: typedNumber(form.temperature, (value) => !Number.isNaN(value)),
+		maxTokens: typedNumber(form.maxTokens, Number.isInteger),
+	}
+}
+
+/**
+ * The payload's tool call limit, kept within 1 to 100, and its source count.
+ *
+ * @param {object} form The form.
+ * @return {object} The fields; a blank or invalid one is undefined.
+ */
+function limitFields(form) {
+	const maxToolCalls = typedNumber(form.maxToolCalls, Number.isInteger)
+	return {
+		maxToolCalls:
+			maxToolCalls === undefined
+				? undefined
+				: Math.min(100, Math.max(1, maxToolCalls)),
+		ragNumSources: typedNumber(form.ragNumSources, Number.isInteger),
+	}
+}
+
+/**
+ * The form fields that describe the agent and its model.
+ *
+ * @param {object} source The stored agent or draft.
+ * @return {object} The fields.
+ */
+function describingFields(source) {
+	return {
+		name: source.name || '',
+		description: source.description || '',
+		icon: source.icon || '',
+		provider: source.provider || '',
+		model: source.model || '',
+		prompt: source.prompt || '',
+		startFields: startFieldsOf(source),
+		temperature: source.temperature ?? '',
+		maxTokens: source.maxTokens ?? '',
+		maxToolCalls: source.maxToolCalls ?? 10,
+	}
+}
+
+/**
+ * Stored ids as picker options.
+ *
+ * @param {Array<string>|*} ids The stored list.
+ * @return {Array<{label: string, value: string}>} The options.
+ */
+function idOptions(ids) {
+	return (Array.isArray(ids) ? ids : []).map((id) => ({ label: id, value: id }))
+}
+
+/**
+ * The form fields that say which app the agent belongs to and who can use it.
+ *
+ * @param {object} source The stored agent or draft.
+ * @return {object} The fields.
+ */
+function accessFields(source) {
+	const slug = appSlugOf(source.applicationSlug)
+	return {
+		applicationSlug: slug ? { label: slug, value: slug } : null,
+		appAssistant: answersInItsApp(source),
+		sharing: sharingOf(source),
+		invitedUsers: idOptions(source.invitedUsers),
+		groups: idOptions(source.groups),
+		actingChoice: actingChoiceOf(source),
+		actingUser: idOptions(actingUserOf(source) ? [actingUserOf(source)] : [])[0] || null,
+	}
+}
+
+/**
+ * The form fields for knowledge search and voice.
+ *
+ * @param {object} source The stored agent or draft.
+ * @return {object} The fields.
+ */
+function searchAndVoiceFields(source) {
+	return {
+		enableRag: source.enableRag === true,
+		searchObjects: source.searchObjects !== false,
+		searchFiles: source.searchFiles !== false,
+		ragNumSources: source.ragNumSources ?? '',
+		voiceInputEngine: source.voiceInputEngine || 'auto',
+		voiceOutputEngine: source.voiceOutputEngine || 'auto',
+
+		// '' rather than 2500: an empty field means "unset, use the
+		// default", and pre-filling the default would silently write it
+		// onto every agent that is edited for an unrelated reason.
+		voiceSilenceTimeout: source.voiceSilenceTimeout ?? '',
+		voiceConversationEnabled: source.voiceConversationEnabled === true,
+		credentialIds: { ...(source.credentialIds || {}) },
+	}
+}
+
+/**
+ * The stored `tools` value to carry forward on an edit, as the list the schema declares.
+ *
+ * A list is kept verbatim. The grant structure an earlier build stored is carried
+ * as its grant strings, the same ones the grant matrix saves: the schema refuses
+ * an object, and an empty list would revoke every grant.
+ *
+ * @param {Array|object|null|undefined} tools The stored value: a list, the grant structure, or nothing.
+ * @return {Array} The grants to write back.
+ */
+function storedTools(tools) {
+	if (Array.isArray(tools)) {
+		return tools
+	}
+
+	return flattenGrants(tools)
+}
+
+/**
+ * Whether a stored `tools` value is one of the two shapes grants are stored in.
+ *
+ * @param {*} tools The stored value.
+ * @return {boolean} True for a list or the grant structure.
+ */
+function holdsGrantList(tools) {
+	return Array.isArray(tools) || (typeof tools === 'object' && tools !== null)
+}
+
+/**
+ * Whether two grant lists hold the same grants, in any order.
+ *
+ * @param {Array<string>} one A grant list.
+ * @param {Array<string>} other Another grant list.
+ * @return {boolean} True when both hold the same grants.
+ */
+function sameGrants(one, other) {
+	const left = [...new Set(one)].sort()
+	const right = [...new Set(other)].sort()
+	return (
+		left.length === right.length
+		&& left.every((grant, index) => grant === right[index])
+	)
+}
 
 export default {
 	name: 'AgentFormModal',
@@ -549,6 +835,8 @@ export default {
 		NcTextField,
 	},
 
+	mixins: [formDialogSlot],
+
 	props: {
 		/** Whether the modal is visible. */
 		show: {
@@ -558,41 +846,6 @@ export default {
 
 		/** The agent being edited, or null when creating. */
 		agent: {
-			type: Object,
-			default: null,
-		},
-
-		/**
-		 * The item being edited, or null in create mode (agent-form-slot):
-		 * supplied by CnIndexPage's `#form-dialog` scoped slot ({ show, item,
-		 * schema, close }) when this modal is wired via
-		 * AgentCatalog's `slots.form-dialog`. Folded into `effectiveAgent`
-		 * below `agent` but above `routeAgent`.
-		 */
-		item: {
-			type: Object,
-			default: null,
-		},
-
-		/**
-		 * Closes the host dialog (agent-form-slot): the `close` binding from
-		 * CnIndexPage's `#form-dialog` scoped slot. Called in ADDITION to
-		 * `$emit('close')` on cancel/save-success so both the slot path and
-		 * the existing registry `agent-form` open-modal path keep working.
-		 */
-		close: {
-			type: Function,
-			default: null,
-		},
-
-		/**
-		 * The effective JSON schema driving the form (agent-form-slot): the
-		 * `schema` binding from CnIndexPage's `#form-dialog` scoped slot.
-		 * Not currently consumed — this form's fields are hand-authored
-		 * rather than schema-driven — but accepted so the slot binding lands
-		 * without a Vue "extraneous non-prop attribute" warning.
-		 */
-		schema: {
 			type: Object,
 			default: null,
 		},
@@ -623,9 +876,18 @@ export default {
 			pinnableProviders: PINNABLE_PROVIDERS,
 			toolOptions: [],
 			toolsLoading: false,
+			// The grant ids the form was seeded with, to tell an edit from none.
+			readGrants: [],
 			// Agents-sharing-and-catalog-columns: search results for the pickers.
 			peopleOptions: [],
 			groupOptions: [],
+			// agent-acting-identity-picker: whether the viewer may name an
+			// account (initial state from the action matrix; the server guard
+			// decides either way), the account picker's search results, and the
+			// server's answer on whether the stored account still resolves.
+			canSetActingUser: loadState('hermiq', 'can_set_acting_user', false) === true,
+			actingUserOptions: [],
+			actingUserStatus: null,
 			saving: false,
 			error: '',
 			// Effective model policy (tenant-model-policy); null until loaded.
@@ -652,6 +914,21 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * Whether the stored service account no longer resolves, while it is
+		 * still the one chosen: the server's answer, never a guess here.
+		 *
+		 * @return {boolean} True when the warning shows.
+		 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
+		 */
+		actingUserUnresolved() {
+			const status = this.actingUserStatus
+			if (!status || status.resolves !== false || this.form.actingChoice !== 'service-account') {
+				return false
+			}
+			return actingUserField(this.form.actingChoice, this.form.actingUser).actingUser === status.actingUser
+		},
+
 		/**
 		 * The dictation-engine picker's selection, as the option object NcSelect
 		 * wants, over the plain value the form stores.
@@ -751,7 +1028,7 @@ export default {
 		 * dialog that is usually opened to type a name.
 		 *
 		 * @return {object} The catalogues, by source key.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		iconCatalogues() {
 			return { opengemeenten: fromOpenGemeenten(OPEN_GEMEENTEN_ICONS) }
@@ -766,7 +1043,7 @@ export default {
 		 * supplies no `agent`/`item` prop).
 		 *
 		 * @return {object|null} The effective agent, or null when creating.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		effectiveAgent() {
 			return this.agent || this.item || this.routeAgent
@@ -776,7 +1053,7 @@ export default {
 		 * Modal heading — differs for create vs edit.
 		 *
 		 * @return {string} The localised heading.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		heading() {
 			return this.effectiveAgent
@@ -788,7 +1065,7 @@ export default {
 		 * The effective policy's providers as NcSelect options.
 		 *
 		 * @return {Array<object>} The { label, value } options.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		providerOptions() {
 			const allowed = this.policy?.allowed || []
@@ -813,7 +1090,7 @@ export default {
 		 */
 		providerOption: {
 			/**
-			 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+			 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 			 */
 			get() {
 				return (
@@ -827,7 +1104,7 @@ export default {
 			 * @param {{value: string, label: string}|null} option The picked provider, or null when cleared.
 			 *
 			 * @return {void}
-			 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+			 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 			 */
 			set(option) {
 				this.form.provider = option ? option.value : ''
@@ -851,7 +1128,7 @@ export default {
 		 * The chosen provider's allowed models ([] means "any model" → free entry).
 		 *
 		 * @return {Array<string>} The allowed model ids.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		allowedModelsForProvider() {
 			const allowed = this.policy?.allowed || []
@@ -865,7 +1142,7 @@ export default {
 		 * The allowed models as NcSelect options.
 		 *
 		 * @return {Array<object>} The { label, value } options.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		modelOptions() {
 			return this.offeredModels.map((model) => ({
@@ -882,7 +1159,7 @@ export default {
 		 * only a starting point for an instance that has never written one.
 		 *
 		 * @return {Array<string>} The model ids.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		offeredModels() {
 			if (this.allowedModelsForProvider.length > 0) {
@@ -903,7 +1180,7 @@ export default {
 		 * the key. Saying so here is cheaper than the support question.
 		 *
 		 * @return {string} The hint.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		modelHint() {
 			const source =
@@ -950,7 +1227,7 @@ export default {
 		 * an agent may never delegate to itself).
 		 *
 		 * @return {Array<object>} The { label, value } options.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		/**
 		 * The apps the agent can serve (agents-bound-to-their-app).
@@ -991,7 +1268,7 @@ export default {
 			 * @param {boolean} open Whether the modal is now open.
 			 *
 			 * @return {Promise<void>}
-			 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+			 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 			 */
 			async handler(open) {
 				if (!open) {
@@ -1007,6 +1284,7 @@ export default {
 				} finally {
 					this.loadingAgent = false
 				}
+				this.loadActingUserStatus()
 				this.loadTools()
 				this.loadPolicy()
 				this.loadCredentials()
@@ -1016,7 +1294,7 @@ export default {
 	},
 
 	/**
-	 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 	 */
 	created() {
 		this.store = useAgentStore()
@@ -1090,23 +1368,6 @@ export default {
 		},
 
 		/**
-		 * Close the modal (agent-form-slot). Always emits `close` (the
-		 * existing registry `agent-form` open-modal path — AgentDetail's
-		 * "Edit agent" action — listens for this event), and ADDITIONALLY
-		 * invokes the `close` prop when supplied (CnIndexPage's
-		 * `#form-dialog` scoped slot passes its own `close` function to hide
-		 * the dialog). Called on Cancel, the modal's own close (X / overlay),
-		 * and after a successful save.
-		 *
-		 * @return {void}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
-		 */
-		handleClose() {
-			this.$emit('close')
-			this.close?.()
-		},
-
-		/**
 		 * When no `agent` prop is supplied (the registry `agent-form`
 		 * open-modal path), self-fetch the agent from the route's `:id` param
 		 * — present on AgentDetail's "Edit agent" action, absent on
@@ -1117,7 +1378,7 @@ export default {
 		 * to the `show` watcher's `immediate: true`.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		async loadRouteAgent() {
 			this.routeAgent = null
@@ -1139,7 +1400,7 @@ export default {
 		 * An empty agent form.
 		 *
 		 * @return {object} The blank form model.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		blankForm() {
 			return {
@@ -1158,6 +1419,8 @@ export default {
 				sharing: 'only-me',
 				invitedUsers: [],
 				groups: [],
+				actingChoice: 'person',
+				actingUser: null,
 				tools: [],
 				delegationAllowlist: [],
 				enableRag: false,
@@ -1207,6 +1470,50 @@ export default {
 		},
 
 		/**
+		 * Offer the accounts matching the typed text for the service account
+		 * (agent-acting-identity-picker). Nextcloud's user search offers
+		 * enabled accounts only.
+		 *
+		 * @param {string} search The typed text.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-agent-edit-page-sets-whose-rights-the-agent-works-with-req-agid-001
+		 */
+		async onSearchActingUsers(search) {
+			if (!search) {
+				return
+			}
+			try {
+				this.actingUserOptions = (await searchUsers(search)).map((user) => ({
+					label: user.uid,
+					value: user.uid,
+				}))
+			} catch {
+				this.actingUserOptions = []
+			}
+		},
+
+		/**
+		 * Ask the server whether the stored service account still resolves, for
+		 * an agent that names one (agent-acting-identity-picker REQ-AGID-003). An
+		 * unanswered question shows no warning: the run's own refusal stays.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
+		 */
+		async loadActingUserStatus() {
+			this.actingUserStatus = null
+			const agent = this.effectiveAgent
+			if (!agent || !agent.id || actingUserOf(agent) === '') {
+				return
+			}
+			try {
+				this.actingUserStatus = await getActingUserStatus(agent.id)
+			} catch {
+				this.actingUserStatus = null
+			}
+		},
+
+		/**
 		 * Offer the users matching the typed text (agents-sharing-and-catalog-columns).
 		 *
 		 * @param {string} search The typed text.
@@ -1252,7 +1559,7 @@ export default {
 		 * Seed the form from `effectiveAgent` (edit) or blank (create).
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		resetForm() {
 			this.error = ''
@@ -1260,58 +1567,23 @@ export default {
 			const source = this.effectiveAgent || this.draft
 			if (!source) {
 				this.form = this.blankForm()
+				this.readGrants = []
 				return
 			}
-			const tools = Array.isArray(source.tools) ? source.tools : []
+			// Both stored shapes: a list, or the app → subject → action structure.
+			const tools = flattenGrants(source.tools)
+			this.readGrants = [...tools]
 			const delegationAllowlist = Array.isArray(source.delegationAllowlist)
 				? source.delegationAllowlist
 				: []
 			this.form = {
-				name: source.name || '',
-				description: source.description || '',
-				icon: source.icon || '',
-				provider: source.provider || '',
-				model: source.model || '',
-				prompt: source.prompt || '',
-				startFields: startFieldsOf(source),
-				temperature: source.temperature ?? '',
-				maxTokens: source.maxTokens ?? '',
-				maxToolCalls: source.maxToolCalls ?? 10,
-				applicationSlug: appSlugOf(source.applicationSlug)
-					? {
-							label: appSlugOf(source.applicationSlug),
-							value: appSlugOf(source.applicationSlug),
-						}
-					: null,
-
-				appAssistant: answersInItsApp(source),
-				sharing: sharingOf(source),
-				invitedUsers: (Array.isArray(source.invitedUsers)
-					? source.invitedUsers
-					: []
-				).map((uid) => ({ label: uid, value: uid })),
-
-				groups: (Array.isArray(source.groups) ? source.groups : []).map(
-					(gid) => ({ label: gid, value: gid }),
-				),
-
+				...describingFields(source),
+				...accessFields(source),
 				tools: tools.map((tool) => ({ label: tool, value: tool })),
 				delegationAllowlist:
 					this.mapDelegationAllowlistToOptions(delegationAllowlist),
 
-				enableRag: source.enableRag === true,
-				searchObjects: source.searchObjects !== false,
-				searchFiles: source.searchFiles !== false,
-				ragNumSources: source.ragNumSources ?? '',
-				voiceInputEngine: source.voiceInputEngine || 'auto',
-				voiceOutputEngine: source.voiceOutputEngine || 'auto',
-
-				// '' rather than 2500: an empty field means "unset, use the
-				// default", and pre-filling the default would silently write it
-				// onto every agent that is edited for an unrelated reason.
-				voiceSilenceTimeout: source.voiceSilenceTimeout ?? '',
-				voiceConversationEnabled: source.voiceConversationEnabled === true,
-				credentialIds: { ...(source.credentialIds || {}) },
+				...searchAndVoiceFields(source),
 			}
 		},
 
@@ -1320,7 +1592,7 @@ export default {
 		 * facade-backed /api/agents/tools endpoint).
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		async loadTools() {
 			this.toolsLoading = true
@@ -1369,7 +1641,7 @@ export default {
 		 * free entry and the server still enforces at run time.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		async loadPolicy() {
 			this.policy = await getEffectiveModelPolicy().catch(() => null)
@@ -1384,7 +1656,7 @@ export default {
 		 * still shows human names, not bare ids.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		async loadAgentCatalog() {
 			this.agentCatalogLoading = true
@@ -1412,7 +1684,7 @@ export default {
 		 *
 		 * @param {Array<string>} ids The selected agent ids.
 		 * @return {Array<object>} The { label, value } options.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		mapDelegationAllowlistToOptions(ids) {
 			return (ids || []).map((id) => {
@@ -1428,7 +1700,7 @@ export default {
 		 * (client-side mirror of the ProviderFactory enforcement).
 		 *
 		 * @return {boolean} True when the pair is out of policy.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		violatesPolicy() {
 			const allowed = this.policy?.allowed
@@ -1519,7 +1791,7 @@ export default {
 		 * tool-grants endpoint in `save()` instead, which is what makes that
 		 * endpoint the single write path its docblock claims to be.
 		 *
-		 * The STORED list is still carried forward verbatim rather than omitted:
+		 * The STORED value is still carried forward verbatim, in either shape, rather than omitted:
 		 * `saveObject` is PUT-semantic and nulls anything absent, so dropping
 		 * the key would clear every grant the agent has for as long as it takes
 		 * the follow-up call to land — and permanently if that call failed.
@@ -1528,14 +1800,35 @@ export default {
 		 * by definition and there is no prior object to escalate against.
 		 *
 		 * @return {object} The agent payload for saveObject().
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		buildPayload() {
-			const base = this.effectiveAgent ? { ...this.effectiveAgent } : {}
-			delete base['@self']
+			const base = editableCopy(this.effectiveAgent)
 
 			const payload = {
 				...base,
+				...this.formFields(base),
+			}
+
+			this.applyOptionalFields(payload)
+
+			// Preserve the object id on edit so saveObject issues a PUT.
+			if (this.effectiveAgent && this.effectiveAgent.id) {
+				payload.id = this.effectiveAgent.id
+			}
+			return payload
+		},
+
+		/**
+		 * The fields the form owns, for the payload. On an edit the stored tools are
+		 * carried forward verbatim; on a create the selected grants ride along.
+		 *
+		 * @param {object} base The editable copy of the stored agent.
+		 * @return {object} The form's fields, in the payload's order.
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
+		 */
+		formFields(base) {
+			return {
 				name: this.form.name,
 				description: this.form.description,
 				icon: this.form.icon || '',
@@ -1545,74 +1838,37 @@ export default {
 				// Only well-formed questions are saved (the register refuses the rest).
 				startFields: startFieldsOf({ startFields: this.form.startFields }),
 				tools: this.isEdit()
-					? Array.isArray(base.tools)
-						? base.tools
-						: []
+					? storedTools(base.tools)
 					: this.selectedGrants(),
 
-				delegationAllowlist: (this.form.delegationAllowlist || []).map(
-					(option) => option.value,
-				),
+				delegationAllowlist: optionValues(this.form.delegationAllowlist),
 
 				applicationSlug: appSlugOf(this.form.applicationSlug),
 
-				enableRag: this.form.enableRag,
-				searchObjects: this.form.searchObjects,
-				searchFiles: this.form.searchFiles,
-
-				// The pickers hold `{value, label}` objects; the schema holds
-				// the value. Sending the object would store `[object Object]`
-				// and the agent would read as an unrecognised engine — which
-				// normalises to `auto`, i.e. an agent pinned to the private
-				// engine would quietly become one that may use the browser's.
-				// The form now holds the value itself, and the pickers convert
-				// through `voiceInputEngineOption` / `voiceOutputEngineOption`.
-				voiceInputEngine: this.form.voiceInputEngine || 'auto',
-				voiceOutputEngine: this.form.voiceOutputEngine || 'auto',
-
-				voiceConversationEnabled: this.form.voiceConversationEnabled,
+				...searchAndVoicePayload(this.form),
 				credentialIds: this.form.credentialIds,
 			}
+		},
 
-			const voiceSilenceTimeout = Number(this.form.voiceSilenceTimeout)
-			if (
-				this.form.voiceSilenceTimeout !== ''
-				&& Number.isInteger(voiceSilenceTimeout)
-				&& voiceSilenceTimeout >= 0
-			) {
-				payload.voiceSilenceTimeout = voiceSilenceTimeout
-			}
-
-			const temperature = Number(this.form.temperature)
-			if (this.form.temperature !== '' && !Number.isNaN(temperature)) {
-				payload.temperature = temperature
-			}
-			const maxTokens = Number(this.form.maxTokens)
-			if (this.form.maxTokens !== '' && Number.isInteger(maxTokens)) {
-				payload.maxTokens = maxTokens
-			}
+		/**
+		 * Add the tuning, sharing and limit fields the form sets, in that order.
+		 *
+		 * @param {object} payload The payload being built.
+		 * @return {void}
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
+		 */
+		applyOptionalFields(payload) {
+			assignDefined(payload, tuningFields(this.form))
 			Object.assign(
 				payload,
 				sharingFields(
 					this.form.sharing,
-					(this.form.invitedUsers || []).map((option) => option.value),
-					(this.form.groups || []).map((option) => option.value),
+					optionValues(this.form.invitedUsers),
+					optionValues(this.form.groups),
 				),
 			)
-			const maxToolCalls = Number(this.form.maxToolCalls)
-			if (this.form.maxToolCalls !== '' && Number.isInteger(maxToolCalls)) {
-				payload.maxToolCalls = Math.min(100, Math.max(1, maxToolCalls))
-			}
-			const ragNumSources = Number(this.form.ragNumSources)
-			if (this.form.ragNumSources !== '' && Number.isInteger(ragNumSources)) {
-				payload.ragNumSources = ragNumSources
-			}
-
-			// Preserve the object id on edit so saveObject issues a PUT.
-			if (this.effectiveAgent && this.effectiveAgent.id) {
-				payload.id = this.effectiveAgent.id
-			}
-			return payload
+			assignDefined(payload, limitFields(this.form))
+			Object.assign(payload, actingUserField(this.form.actingChoice, this.form.actingUser))
 		},
 
 		appSlugOf,
@@ -1630,17 +1886,74 @@ export default {
 		 * The grant list the user has selected, as plain strings.
 		 *
 		 * @return {Array<string>} The selected tool grant entries.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		selectedGrants() {
 			return (this.form.tools || []).map((tool) => tool.value)
 		},
 
 		/**
+		 * Whether the selection differs from the grants the form was seeded with.
+		 *
+		 * @return {boolean} True when a grant was added or removed.
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-an-untouched-save-loses-nothing
+		 */
+		grantsChanged() {
+			return !sameGrants(this.selectedGrants(), this.readGrants)
+		},
+
+		/**
+		 * The agent's `tools` as stored now, to write back on an edit save.
+		 *
+		 * The form opened with a copy of the grants, and the grant matrix in
+		 * another tab can change them meanwhile. Writing the copy back would
+		 * undo that change, so the stored value is read again here. When it
+		 * moved and this form changed the grants too, the save stops instead
+		 * of choosing between the two.
+		 *
+		 * @return {Promise<Array|null>} The grants to write back, or null (with `error` set) to stop the save.
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-an-untouched-save-loses-nothing
+		 */
+		async currentStoredTools() {
+			// The read that seeded a routed form, so an admin who may read the
+			// object through OpenRegister reads the same list here. Hermiq's own
+			// agent endpoint gives such an admin a row without `tools`.
+			const current = await this.store.fetchObject(
+				'agent',
+				this.effectiveAgent.id,
+			)
+			const stored = current?.tools
+			if (
+				!current
+				|| (!holdsGrantList(stored) && this.readGrants.length > 0)
+			) {
+				this.error = this.t(
+					'hermiq',
+					"Could not read the agent's current tool grants, so nothing was saved. Try again.",
+				)
+				return null
+			}
+
+			const movedElsewhere = !sameGrants(
+				flattenGrants(stored),
+				this.readGrants,
+			)
+			if (movedElsewhere && this.grantsChanged()) {
+				this.error = this.t(
+					'hermiq',
+					'The tool grants of this agent were changed elsewhere after you opened this form, so nothing was saved. Close the form and open it again to see the current grants.',
+				)
+				return null
+			}
+
+			return storedTools(stored)
+		},
+
+		/**
 		 * Persist the agent via the createObjectStore and notify the parent.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		async save() {
 			if (this.violatesPolicy()) {
@@ -1654,10 +1967,15 @@ export default {
 			this.error = ''
 			try {
 				const wasEdit = this.isEdit()
-				const saved = await this.store.saveObject(
-					'agent',
-					this.buildPayload(),
-				)
+				const payload = this.buildPayload()
+				if (wasEdit) {
+					const tools = await this.currentStoredTools()
+					if (tools === null) {
+						return
+					}
+					payload.tools = tools
+				}
+				const saved = await this.store.saveObject('agent', payload)
 				if (saved === null) {
 					this.error =
 						this.store.errors?.agent?.message
@@ -1672,7 +1990,9 @@ export default {
 					const agentId =
 						saved?.['@self']?.id || saved?.id || this.effectiveAgent?.id
 					try {
-						await updateToolGrants(agentId, this.selectedGrants())
+						if (this.grantsChanged()) {
+							await updateToolGrants(agentId, this.selectedGrants())
+						}
 					} catch (grantError) {
 						// The agent itself saved. Say so, rather than letting a
 						// refused grant write read as "nothing was saved" — the

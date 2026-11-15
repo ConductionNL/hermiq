@@ -25,7 +25,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/user-turn-sent-once/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+ * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
  */
 
 declare(strict_types=1);
@@ -66,7 +66,7 @@ use Psr\Log\NullLogger;
 /**
  * Two turns through the engine; the second request is read off the wire.
  *
- * @spec openspec/changes/user-turn-sent-once/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+ * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
  */
 class UserTurnSentOnceTest extends TestCase {
 
@@ -326,7 +326,7 @@ class UserTurnSentOnceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/user-turn-sent-once/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
 	 */
 	public function testFireworksReceivesTheLatestQuestionOnce(): void {
 		$factory = $this->providerFactory(
@@ -350,7 +350,7 @@ class UserTurnSentOnceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/user-turn-sent-once/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
 	 */
 	public function testAnthropicReceivesTheLatestQuestionOnce(): void {
 		$factory = $this->providerFactory(
@@ -379,7 +379,7 @@ class UserTurnSentOnceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/user-turn-sent-once/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
 	 */
 	public function testOllamaReceivesTheLatestQuestionOnce(): void {
 		$config = new OllamaConfig();
@@ -402,7 +402,7 @@ class UserTurnSentOnceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/user-turn-sent-once/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
 	 */
 	public function testOpenAiReceivesTheLatestQuestionOnce(): void {
 		$client = OpenAI::factory()

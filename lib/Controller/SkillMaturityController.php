@@ -39,11 +39,11 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\ActionAuthService;
-use OCA\Hermiq\Service\SeedCustodyService;
-use OCA\Hermiq\Service\SkillMaturityService;
-use OCA\Hermiq\Service\SkillService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SeedCustodyServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillMaturityServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -76,10 +76,10 @@ class SkillMaturityController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param SkillService $skillService The tenant-scoped skill read path.
-	 * @param SkillMaturityService $maturityService Computes + persists maturity.
-	 * @param ActionAuthService $actionAuth ADR-023 action authorization (attest gate).
-	 * @param SeedCustodyService $seedCustody Owner-or-seed-custodian check.
+	 * @param SkillServiceInterface $skillService The tenant-scoped skill read path.
+	 * @param SkillMaturityServiceInterface $maturityService Computes + persists maturity.
+	 * @param ActionAuthServiceInterface $actionAuth ADR-023 action authorization (attest gate).
+	 * @param SeedCustodyServiceInterface $seedCustody Owner-or-seed-custodian check.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 *
@@ -88,14 +88,14 @@ class SkillMaturityController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly SkillService $skillService,
-		private readonly SkillMaturityService $maturityService,
-		private readonly ActionAuthService $actionAuth,
-		private readonly SeedCustodyService $seedCustody,
+		private readonly SkillServiceInterface $skillService,
+		private readonly SkillMaturityServiceInterface $maturityService,
+		private readonly ActionAuthServiceInterface $actionAuth,
+		private readonly SeedCustodyServiceInterface $seedCustody,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -113,15 +113,10 @@ class SkillMaturityController extends Controller {
 	 * @spec openspec/specs/skill-maturity/spec.md#requirement-the-qualify-endpoint-is-owner-guarded-and-returns-a-scorecard
 	 */
 	public function qualify(string $id): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		$skill = $this->loadOwnedSkill(skillId: $id, uid: $user->getUID());
-		if ($skill === null) {
-			// 404 (not 403) so a non-owner cannot even confirm the skill exists.
-			return new JSONResponse(['error' => 'Skill not found'], Http::STATUS_NOT_FOUND);
+		// 404 (not 403) so a non-owner cannot even confirm the skill exists.
+		$skill = $this->skills()->ownedBy(user: $this->userSession->getUser(), skillId: $id);
+		if ($skill instanceof JSONResponse) {
+			return $skill;
 		}
 
 		try {
@@ -156,7 +151,7 @@ class SkillMaturityController extends Controller {
 
 		// Visibility first: a skill outside the caller's RBAC scope must 404 before the
 		// action check so a 403 never confirms its existence.
-		$skill = $this->loadVisibleSkill(skillId: $id);
+		$skill = $this->skills()->visible(skillId: $id);
 		if ($skill === null) {
 			return new JSONResponse(['error' => 'Skill not found'], Http::STATUS_NOT_FOUND);
 		}
@@ -168,12 +163,26 @@ class SkillMaturityController extends Controller {
 			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
 		}
 
+		return $this->attest(skill: $skill, attestedBy: $user->getUID());
+
+	}//end attestL4()
+
+	/**
+	 * Stamp the L4 attestation with the request's note and answer the refreshed
+	 * scorecard, or the 500 when it cannot be written.
+	 *
+	 * @param ObjectEntity $skill The visible skill.
+	 * @param string $attestedBy The attesting curator.
+	 *
+	 * @return JSONResponse
+	 */
+	private function attest(ObjectEntity $skill, string $attestedBy): JSONResponse {
 		$note = trim((string)$this->request->getParam('note', ''));
 
 		try {
 			$result = $this->maturityService->attestL4(
 				skill: $skill,
-				attestedBy: $user->getUID(),
+				attestedBy: $attestedBy,
 				note: $note
 			);
 			return new JSONResponse($result);
@@ -182,47 +191,14 @@ class SkillMaturityController extends Controller {
 			return new JSONResponse(['error' => 'Attest failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
 		}
 
-	}//end attestL4()
+	}//end attest()
 
 	/**
-	 * Load the skill only if the given user OWNS it (IDOR guard). Fetches WITH RBAC
-	 * enabled and additionally asserts owner identity — mirrors
-	 * `EvalRunController::loadOwnedDataset()` — with ONE widening: an instance
-	 * admin acts as custodian-owner of system-seeded skills (owner `__system__`,
-	 * which no human owns; see `SeedCustodyService`).
+	 * The visibility and ownership guard over this controller's skill reads.
 	 *
-	 * @param string $skillId The Skill UUID.
-	 * @param string $uid The requesting user's UID.
-	 *
-	 * @return ObjectEntity|null The owned skill, or null when absent/not owned.
+	 * @return SkillOwnership
 	 */
-	private function loadOwnedSkill(string $skillId, string $uid): ?ObjectEntity {
-		$skill = $this->loadVisibleSkill(skillId: $skillId);
-		if ($skill === null) {
-			return null;
-		}
-
-		if ($this->seedCustody->actsAsOwner(owner: $skill->getOwner(), uid: $uid) === false) {
-			return null;
-		}
-
-		return $skill;
-	}//end loadOwnedSkill()
-
-	/**
-	 * Load the skill within the caller's RBAC visibility (attest guard: visibility, not
-	 * ownership — attestation is a curator act gated separately by the action matrix).
-	 *
-	 * @param string $skillId The Skill UUID.
-	 *
-	 * @return ObjectEntity|null The visible skill, or null when absent/invisible.
-	 */
-	private function loadVisibleSkill(string $skillId): ?ObjectEntity {
-		try {
-			return $this->skillService->getSkill(skillId: $skillId);
-		} catch (Throwable $e) {
-			return null;
-		}
-
-	}//end loadVisibleSkill()
+	private function skills(): SkillOwnership {
+		return new SkillOwnership(skillService: $this->skillService, seedCustody: $this->seedCustody);
+	}//end skills()
 }//end class

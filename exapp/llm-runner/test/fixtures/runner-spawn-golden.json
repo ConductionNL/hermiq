@@ -1,0 +1,5593 @@
+[
+ {
+  "case": 0,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "no-disallowed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "runToken": ""
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "CLI exited with code 2: provider says no: Bearer [REDACTED] and api_key=abc\n",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 1,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "tools",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "mcpConfig": "cfg"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash",
+    "--tools",
+    "",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "LANG": "nl_NL.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_B": "b-2"
+   },
+   "stdin": "SYSTEM: Be brief.\n\nUSER: Twee",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 2,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "no-config",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   }
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "CLI exited with code 2: provider says no: Bearer [REDACTED] and api_key=abc\n",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 3,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "tools",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "mcpConfig": "cfg",
+   "runToken": ""
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "CLI exited with code 2: provider says no: Bearer [REDACTED] and api_key=abc\n",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 4,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "none",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8"
+  },
+  "result": {
+   "argv": [
+    "ok"
+   ],
+   "env": {
+    "HOME": "cwd",
+    "LANG": "nl_NL.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_A": "a-1"
+   },
+   "stdin": "USER: Hello",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 5,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "tools",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": "cfg",
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash",
+    "--tools",
+    "",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "HOME": "cwd",
+    "HTTPS_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "HTTP_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "LANG": "C.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_A": "a-1",
+    "http_proxy": "http://run:rt%201@127.0.0.1:9",
+    "https_proxy": "http://run:rt%201@127.0.0.1:9"
+   },
+   "stdin": "SYSTEM: Be brief.\n\nUSER: Twee",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 6,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "garbage",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "garbage",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "mcpConfig": {
+    "mcpServers": {}
+   }
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "failed to parse CLI output: Unexpected token 'o', \"not json\" is not valid JSON",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 7,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": {
+    "mcpServers": {}
+   }
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "CLI exited with code 2: provider says no: Bearer [REDACTED] and api_key=abc\n",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 8,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "tools",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "mcpConfig": {
+    "mcpServers": {}
+   }
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "refusing to spawn: `--tools` excludes MCP tools; use `--disallowedTools`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 9,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "exit2",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "exit2",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": "cfg",
+   "runToken": ""
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "CLI exited with code 2: ",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"exit2\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\"]",
+   "[hermiq-llm-runner] DEBUG exit=2 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 10,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "exit2",
+   "flags": "no-config",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "exit2",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "CLI exited with code 2: ",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"exit2\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\"]",
+   "[hermiq-llm-runner] DEBUG exit=2 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 11,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "garbage",
+   "flags": "no-strict",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "garbage",
+   "messages": [],
+   "mcpConfig": {
+    "mcpServers": {}
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "refusing to spawn: governed turn is missing `--strict-mcp-config`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 12,
+  "label": {
+   "bin": "/nonexistent/cli",
+   "mode": "stderr",
+   "flags": "governed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "mcpConfig": null,
+   "runToken": ""
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "CLI process error: spawn /nonexistent/cli ENOENT",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: /nonexistent/cli [\"stderr\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\"]"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 13,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "no-strict",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": null,
+   "runToken": ""
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "CLI exited with code 2: provider says no: Bearer [REDACTED] and api_key=abc\n",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 14,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "garbage",
+   "flags": "no-strict",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "garbage",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "mcpConfig": null
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "failed to parse CLI output: Unexpected token 'o', \"not json\" is not valid JSON",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 15,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "big",
+   "flags": "no-disallowed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "CLI output exceeded the maximum size",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 16,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "garbage",
+   "flags": "governed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "garbage",
+   "messages": []
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8"
+  },
+  "error": "failed to parse CLI output: unparseable",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 17,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "none",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "mcpConfig": "cfg"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "failed to parse CLI output: unparseable",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"ok\"]",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 18,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "big",
+   "flags": "governed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8"
+  },
+  "error": "CLI output exceeded the maximum size",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 19,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   }
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash,Edit",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "HOME": "cwd",
+    "LANG": "C.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_B": "b-2"
+   },
+   "stdin": "SYSTEM: Be brief.\n\nUSER: Twee",
+   "mcp": null
+  },
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"ok\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\"]",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 20,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "no-disallowed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "CLI exited with code 2: provider says no: Bearer [REDACTED] and api_key=abc\n",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 21,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "none",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": null,
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8"
+  },
+  "error": "CLI exited with code 2: provider says no: Bearer [REDACTED] and api_key=abc\n",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 22,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "garbage",
+   "flags": "tools",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "garbage",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "mcpConfig": {
+    "mcpServers": {}
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "refusing to spawn: `--tools` excludes MCP tools; use `--disallowedTools`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 23,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "none",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "result": {
+   "argv": [
+    "ok"
+   ],
+   "env": {
+    "HOME": "cwd",
+    "HTTPS_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "HTTP_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "LANG": "nl_NL.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "http_proxy": "http://run:rt%201@127.0.0.1:9",
+    "https_proxy": "http://run:rt%201@127.0.0.1:9"
+   },
+   "stdin": "SYSTEM: Be brief.\n\nUSER: Twee",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 24,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-disallowed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "HTTPS_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "HTTP_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "LANG": "C.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_A": "a-1",
+    "http_proxy": "http://run:rt%201@127.0.0.1:9",
+    "https_proxy": "http://run:rt%201@127.0.0.1:9"
+   },
+   "stdin": "SYSTEM: Be brief.\n\nUSER: Twee",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 25,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "tools",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "mcpConfig": "cfg"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash",
+    "--tools",
+    "",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "HOME": "cwd",
+    "LANG": "nl_NL.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_B": "b-2"
+   },
+   "stdin": "USER: Hello",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 26,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-config",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "mcpConfig": null,
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "failed to parse CLI output: unparseable",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 27,
+  "label": {
+   "bin": "/nonexistent/cli",
+   "mode": "ok",
+   "flags": "no-strict",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [],
+   "mcpConfig": null,
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "CLI process error: spawn /nonexistent/cli ENOENT",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 28,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "exit2",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "exit2",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": {
+    "mcpServers": {}
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "CLI exited with code 2: ",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"exit2\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\",\"--mcp-config\",\"<SCRATCH>/mcp.json\"]",
+   "[hermiq-llm-runner] DEBUG mcp.json: {\"mcpServers\":{}}",
+   "[hermiq-llm-runner] DEBUG exit=-2 stderr=(empty)",
+   "[hermiq-llm-runner] DEBUG exit=2 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 29,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "no-disallowed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   }
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "CLI exited with code 2: provider says no: Bearer [REDACTED] and api_key=abc\n",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 30,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "garbage",
+   "flags": "no-config",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "garbage",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "failed to parse CLI output: unparseable",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"garbage\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\"]",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 31,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "garbage",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "garbage",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": {
+    "mcpServers": {}
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8"
+  },
+  "error": "failed to parse CLI output: Unexpected token 'o', \"not json\" is not valid JSON",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 32,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-disallowed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "mcpConfig": null,
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "HTTPS_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "HTTP_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "LANG": "nl_NL.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_B": "b-2",
+    "http_proxy": "http://run:rt%201@127.0.0.1:9",
+    "https_proxy": "http://run:rt%201@127.0.0.1:9"
+   },
+   "stdin": "",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 33,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "big",
+   "flags": "governed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [],
+   "mcpConfig": null,
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "CLI output exceeded the maximum size",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 34,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-strict",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [],
+   "mcpConfig": {
+    "mcpServers": {}
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "refusing to spawn: governed turn is missing `--strict-mcp-config`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 35,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "garbage",
+   "flags": "no-config",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "garbage",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "failed to parse CLI output: Unexpected token 'o', \"not json\" is not valid JSON",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 36,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "mcpConfig": "cfg"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "CLI exited with code 2: provider says no: Bearer [REDACTED] and api_key=abc\n",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"stderr\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\"]",
+   "[hermiq-llm-runner] DEBUG exit=2 stderr=provider says no: Bearer [REDACTED] and api_key=abc"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 37,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "no-disallowed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [],
+   "mcpConfig": null,
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "CLI exited with code 2: provider says no: Bearer [REDACTED] and api_key=abc\n",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 38,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-strict",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [],
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   }
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "refusing to spawn: governed turn is missing `--strict-mcp-config`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 39,
+  "label": {
+   "bin": "/nonexistent/cli",
+   "mode": "ok",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "CLI process error: spawn /nonexistent/cli ENOENT",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 40,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "garbage",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "garbage",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "failed to parse CLI output: Unexpected token 'o', \"not json\" is not valid JSON",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 41,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "exit2",
+   "flags": "no-strict",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "exit2",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   }
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "CLI exited with code 2: ",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 42,
+  "label": {
+   "bin": "/nonexistent/cli",
+   "mode": "stderr",
+   "flags": "no-strict",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "mcpConfig": null
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "CLI process error: spawn /nonexistent/cli ENOENT",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 43,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "big",
+   "flags": "none",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": {
+    "mcpServers": {}
+   }
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "refusing to spawn: governed turn is missing `--disallowedTools <builtins>`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 44,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-config",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": {
+    "mcpServers": {}
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "refusing to spawn: governed turn is missing `--mcp-config`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 45,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   }
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash,Edit",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "HOME": "cwd",
+    "LANG": "C.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_B": "b-2"
+   },
+   "stdin": "USER: Hello",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 46,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "exit2",
+   "flags": "no-strict",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "exit2",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "refusing to spawn: governed turn is missing `--strict-mcp-config`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 47,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "big",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "mcpConfig": null,
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "CLI output exceeded the maximum size",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 48,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "none",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "result": {
+   "argv": [
+    "ok"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "HTTPS_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "HTTP_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "LANG": "nl_NL.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "http_proxy": "http://run:rt%201@127.0.0.1:9",
+    "https_proxy": "http://run:rt%201@127.0.0.1:9"
+   },
+   "stdin": "USER: Hello",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 49,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-disallowed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   }
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "failed to parse CLI output: unparseable",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 50,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-config",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "mcpConfig": null,
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash,Edit",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "HTTPS_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "HTTP_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "LANG": "C.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "http_proxy": "http://run:rt%201@127.0.0.1:9",
+    "https_proxy": "http://run:rt%201@127.0.0.1:9"
+   },
+   "stdin": "SYSTEM: Be brief.\n\nUSER: Twee",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 51,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "mcpConfig": "cfg",
+   "runToken": "rt 1"
+  },
+  "ambient": {},
+  "error": "CLI exited with code 2: provider says no: Bearer [REDACTED] and api_key=abc\n",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 52,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "mcpConfig": {
+    "mcpServers": {}
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash,Edit",
+    "--strict-mcp-config",
+    "--mcp-config",
+    "<SCRATCH>/mcp.json"
+   ],
+   "env": {
+    "HOME": "cwd",
+    "LANG": "nl_NL.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd"
+   },
+   "stdin": "USER: Hello",
+   "mcp": {
+    "mode": "600",
+    "body": "{\"mcpServers\":{}}",
+    "inScratch": true
+   }
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 53,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "governed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": "cfg",
+   "runToken": ""
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "failed to parse CLI output: unparseable",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"ok\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\"]",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 54,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash,Edit",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "LANG": "nl_NL.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd"
+   },
+   "stdin": "SYSTEM: Be brief.\n\nUSER: Twee",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 55,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "big",
+   "flags": "no-disallowed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "CLI output exceeded the maximum size",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"big\",\"--disallowedTools\",\"--strict-mcp-config\"]",
+   "[hermiq-llm-runner] DEBUG exit=<0 or killed> stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 56,
+  "label": {
+   "bin": "/nonexistent/cli",
+   "mode": "ok",
+   "flags": "tools",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "CLI process error: spawn /nonexistent/cli ENOENT",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: /nonexistent/cli [\"ok\",\"--disallowedTools\",\"Bash\",\"--tools\",\"\",\"--strict-mcp-config\"]"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 57,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "governed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [],
+   "mcpConfig": "cfg",
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "failed to parse CLI output: unparseable",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 58,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-config",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": {
+    "mcpServers": {}
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8"
+  },
+  "error": "refusing to spawn: governed turn is missing `--mcp-config`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 59,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "none",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "refusing to spawn: governed turn is missing `--disallowedTools <builtins>`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 60,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "big",
+   "flags": "no-strict",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": null,
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8"
+  },
+  "error": "CLI output exceeded the maximum size",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 61,
+  "label": {
+   "bin": "/nonexistent/cli",
+   "mode": "exit2",
+   "flags": "no-disallowed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "exit2",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "mcpConfig": {
+    "mcpServers": {}
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "CLI process error: spawn /nonexistent/cli ENOENT",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 62,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "tools",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "mcpConfig": null,
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash",
+    "--tools",
+    "",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "LANG": "nl_NL.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd"
+   },
+   "stdin": "SYSTEM: Be brief.\n\nUSER: Twee",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 63,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "no-disallowed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": null
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "CLI exited with code 2: provider says no: Bearer [REDACTED] and api_key=abc\n",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"stderr\",\"--disallowedTools\",\"--strict-mcp-config\"]",
+   "[hermiq-llm-runner] DEBUG exit=2 stderr=provider says no: Bearer [REDACTED] and api_key=abc"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 64,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-strict",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "mcpConfig": "cfg"
+  },
+  "ambient": {},
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash,Edit"
+   ],
+   "env": {
+    "HOME": "cwd",
+    "LANG": "C.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd"
+   },
+   "stdin": "SYSTEM: Be brief.\n\nUSER: Twee",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 65,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-disallowed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   }
+  },
+  "ambient": {
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "failed to parse CLI output: unparseable",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"ok\",\"--disallowedTools\",\"--strict-mcp-config\"]",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 66,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   }
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash,Edit",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "HOME": "cwd",
+    "LANG": "nl_NL.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_A": "a-1"
+   },
+   "stdin": "USER: Hello",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 67,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "governed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "failed to parse CLI output: unparseable",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"ok\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\"]",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 68,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "big",
+   "flags": "none",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [],
+   "mcpConfig": "cfg",
+   "runToken": ""
+  },
+  "ambient": {
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "CLI output exceeded the maximum size",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"big\"]",
+   "[hermiq-llm-runner] DEBUG exit=<0 or killed> stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 69,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-config",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   }
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "refusing to spawn: governed turn is missing `--mcp-config`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 70,
+  "label": {
+   "bin": "/nonexistent/cli",
+   "mode": "ok",
+   "flags": "no-config",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [],
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "CLI process error: spawn /nonexistent/cli ENOENT",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 71,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "governed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "mcpConfig": null
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "failed to parse CLI output: unparseable",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"ok\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\"]",
+   "[hermiq-llm-runner] DEBUG exit=-2 stderr=(empty)",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 72,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "big",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "mcpConfig": null,
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "CLI output exceeded the maximum size",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 73,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "no-strict",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "mcpConfig": null,
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8"
+  },
+  "error": "CLI exited with code 2: provider says no: Bearer [REDACTED] and api_key=abc\n",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 74,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "no-disallowed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [],
+   "mcpConfig": "cfg",
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8"
+  },
+  "error": "CLI exited with code 2: provider says no: Bearer [REDACTED] and api_key=abc\n",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 75,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "tools",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "runToken": ""
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash",
+    "--tools",
+    "",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "LANG": "C.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd"
+   },
+   "stdin": "USER: Hello",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 76,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "mcpConfig": {
+    "mcpServers": {}
+   }
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash,Edit",
+    "--strict-mcp-config",
+    "--mcp-config",
+    "<SCRATCH>/mcp.json"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "LANG": "C.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd"
+   },
+   "stdin": "USER: Hello",
+   "mcp": {
+    "mode": "600",
+    "body": "{\"mcpServers\":{}}",
+    "inScratch": true
+   }
+  },
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"ok\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\",\"--mcp-config\",\"<SCRATCH>/mcp.json\"]",
+   "[hermiq-llm-runner] DEBUG mcp.json: {\"mcpServers\":{}}",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 77,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-disallowed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "--strict-mcp-config",
+    "--mcp-config",
+    "<SCRATCH>/mcp.json"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "HTTPS_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "HTTP_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "LANG": "nl_NL.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_A": "a-1",
+    "http_proxy": "http://run:rt%201@127.0.0.1:9",
+    "https_proxy": "http://run:rt%201@127.0.0.1:9"
+   },
+   "stdin": "SYSTEM: Be brief.\n\nUSER: Twee",
+   "mcp": {
+    "mode": "600",
+    "body": "{\"mcpServers\":{},\"note\":\"kept\"}",
+    "inScratch": true
+   }
+  },
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"ok\",\"--disallowedTools\",\"--strict-mcp-config\",\"--mcp-config\",\"<SCRATCH>/mcp.json\"]",
+   "[hermiq-llm-runner] DEBUG mcp.json: {\"mcpServers\":{},\"note\":\"kept\"}",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 78,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "tools",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": null,
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash",
+    "--tools",
+    "",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "HOME": "cwd",
+    "HTTPS_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "HTTP_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "LANG": "C.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_A": "a-1",
+    "http_proxy": "http://run:rt%201@127.0.0.1:9",
+    "https_proxy": "http://run:rt%201@127.0.0.1:9"
+   },
+   "stdin": "",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 79,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "big",
+   "flags": "governed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "mcpConfig": {
+    "mcpServers": {}
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "CLI output exceeded the maximum size",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"big\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\",\"--mcp-config\",\"<SCRATCH>/mcp.json\"]",
+   "[hermiq-llm-runner] DEBUG mcp.json: {\"mcpServers\":{}}",
+   "[hermiq-llm-runner] DEBUG exit=<0 or killed> stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 80,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-strict",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   }
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "refusing to spawn: governed turn is missing `--strict-mcp-config`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 81,
+  "label": {
+   "bin": "/nonexistent/cli",
+   "mode": "ok",
+   "flags": "no-disallowed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "CLI process error: spawn /nonexistent/cli ENOENT",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 82,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-config",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": {
+    "mcpServers": {}
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8"
+  },
+  "error": "refusing to spawn: governed turn is missing `--mcp-config`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 83,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "none",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed"
+  },
+  "result": {
+   "argv": [
+    "ok"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "LANG": "nl_NL.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd"
+   },
+   "stdin": "USER: Hello",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 84,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "tools",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "mcpConfig": null,
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash",
+    "--tools",
+    "",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "HTTPS_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "HTTP_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "LANG": "nl_NL.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_B": "b-2",
+    "http_proxy": "http://run:rt%201@127.0.0.1:9",
+    "https_proxy": "http://run:rt%201@127.0.0.1:9"
+   },
+   "stdin": "",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 85,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "tools",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "mcpConfig": null
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8"
+  },
+  "error": "CLI exited with code 2: provider says no: Bearer [REDACTED] and api_key=abc\n",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 86,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "garbage",
+   "flags": "governed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "garbage",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ]
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "failed to parse CLI output: unparseable",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 87,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "governed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": null,
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "failed to parse CLI output: unparseable",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 88,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "big",
+   "flags": "none",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": null,
+   "runToken": ""
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "CLI output exceeded the maximum size",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 89,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-config",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": "cfg",
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash,Edit",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "LANG": "nl_NL.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_A": "a-1"
+   },
+   "stdin": "USER: Hello",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 90,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "none",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [],
+   "mcpConfig": {
+    "mcpServers": {}
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "refusing to spawn: governed turn is missing `--disallowedTools <builtins>`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 91,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "no-disallowed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": "cfg",
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "CLI exited with code 2: provider says no: Bearer [REDACTED] and api_key=abc\n",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"stderr\",\"--disallowedTools\",\"--strict-mcp-config\"]",
+   "[hermiq-llm-runner] DEBUG exit=2 stderr=provider says no: Bearer [REDACTED] and api_key=abc"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 92,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "big",
+   "flags": "no-strict",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   }
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "refusing to spawn: governed turn is missing `--strict-mcp-config`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 93,
+  "label": {
+   "bin": "/nonexistent/cli",
+   "mode": "exit2",
+   "flags": "governed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "exit2",
+   "messages": []
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "CLI process error: spawn /nonexistent/cli ENOENT",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: /nonexistent/cli [\"exit2\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\"]"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 94,
+  "label": {
+   "bin": "/nonexistent/cli",
+   "mode": "ok",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [],
+   "mcpConfig": {
+    "mcpServers": {}
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "CLI process error: spawn /nonexistent/cli ENOENT",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: /nonexistent/cli [\"ok\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\",\"--mcp-config\",\"<SCRATCH>/mcp.json\"]",
+   "[hermiq-llm-runner] DEBUG mcp.json: {\"mcpServers\":{}}"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 95,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-config",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": "cfg",
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash,Edit",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "HOME": "cwd",
+    "HTTPS_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "HTTP_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "LANG": "C.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_A": "a-1",
+    "http_proxy": "http://run:rt%201@127.0.0.1:9",
+    "https_proxy": "http://run:rt%201@127.0.0.1:9"
+   },
+   "stdin": "SYSTEM: Be brief.\n\nUSER: Twee",
+   "mcp": null
+  },
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"ok\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\"]",
+   "[hermiq-llm-runner] DEBUG exit=-2 stderr=(empty)",
+   "[hermiq-llm-runner] DEBUG exit=-2 stderr=(empty)",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 96,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-config",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   }
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "refusing to spawn: governed turn is missing `--mcp-config`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 97,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-disallowed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "--strict-mcp-config",
+    "--mcp-config",
+    "<SCRATCH>/mcp.json"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "LANG": "nl_NL.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd"
+   },
+   "stdin": "USER: Hello",
+   "mcp": {
+    "mode": "600",
+    "body": "{\"mcpServers\":{},\"note\":\"kept\"}",
+    "inScratch": true
+   }
+  },
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"ok\",\"--disallowedTools\",\"--strict-mcp-config\",\"--mcp-config\",\"<SCRATCH>/mcp.json\"]",
+   "[hermiq-llm-runner] DEBUG mcp.json: {\"mcpServers\":{},\"note\":\"kept\"}",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 98,
+  "label": {
+   "bin": "/nonexistent/cli",
+   "mode": "garbage",
+   "flags": "none",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "garbage",
+   "messages": [],
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "refusing to spawn: governed turn is missing `--disallowedTools <builtins>`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 99,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "governed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "mcpConfig": null
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "failed to parse CLI output: unparseable",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 100,
+  "label": {
+   "bin": "/nonexistent/cli",
+   "mode": "stderr",
+   "flags": "governed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "CLI process error: spawn /nonexistent/cli ENOENT",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 101,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "big",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   }
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "CLI output exceeded the maximum size",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 102,
+  "label": {
+   "bin": "/nonexistent/cli",
+   "mode": "exit2",
+   "flags": "no-config",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "exit2",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": {
+    "mcpServers": {}
+   }
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "refusing to spawn: governed turn is missing `--mcp-config`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 103,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-disallowed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "HTTPS_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "HTTP_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "LANG": "C.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_B": "b-2",
+    "http_proxy": "http://run:rt%201@127.0.0.1:9",
+    "https_proxy": "http://run:rt%201@127.0.0.1:9"
+   },
+   "stdin": "SYSTEM: Be brief.\n\nUSER: Twee",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 104,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "tools",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "CLI exited with code 2: provider says no: Bearer [REDACTED] and api_key=abc\n",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"stderr\",\"--disallowedTools\",\"Bash\",\"--tools\",\"\",\"--strict-mcp-config\"]",
+   "[hermiq-llm-runner] DEBUG exit=2 stderr=provider says no: Bearer [REDACTED] and api_key=abc"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 105,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "big",
+   "flags": "tools",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ]
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "CLI output exceeded the maximum size",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 106,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "governed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": {
+    "mcpServers": {}
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "failed to parse CLI output: unparseable",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"ok\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\",\"--mcp-config\",\"<SCRATCH>/mcp.json\"]",
+   "[hermiq-llm-runner] DEBUG mcp.json: {\"mcpServers\":{}}",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 107,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   }
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash,Edit",
+    "--strict-mcp-config",
+    "--mcp-config",
+    "<SCRATCH>/mcp.json"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "LANG": "nl_NL.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd"
+   },
+   "stdin": "USER: Hello",
+   "mcp": {
+    "mode": "600",
+    "body": "{\"mcpServers\":{},\"note\":\"kept\"}",
+    "inScratch": true
+   }
+  },
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"ok\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\",\"--mcp-config\",\"<SCRATCH>/mcp.json\"]",
+   "[hermiq-llm-runner] DEBUG mcp.json: {\"mcpServers\":{},\"note\":\"kept\"}",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 108,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "garbage",
+   "flags": "none",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "garbage",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   }
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "failed to parse CLI output: Unexpected token 'o', \"not json\" is not valid JSON",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"garbage\"]",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 109,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "mcpConfig": {
+    "mcpServers": {}
+   }
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash,Edit",
+    "--strict-mcp-config",
+    "--mcp-config",
+    "<SCRATCH>/mcp.json"
+   ],
+   "env": {
+    "HOME": "cwd",
+    "LANG": "C.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_B": "b-2"
+   },
+   "stdin": "",
+   "mcp": {
+    "mode": "600",
+    "body": "{\"mcpServers\":{}}",
+    "inScratch": true
+   }
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 110,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-strict",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash,Edit"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "LANG": "nl_NL.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_A": "a-1"
+   },
+   "stdin": "SYSTEM: Be brief.\n\nUSER: Twee",
+   "mcp": null
+  },
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"ok\",\"--disallowedTools\",\"Bash,Edit\"]",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 111,
+  "label": {
+   "bin": "/nonexistent/cli",
+   "mode": "stderr",
+   "flags": "governed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "mcpConfig": null
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "CLI process error: spawn /nonexistent/cli ENOENT",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 112,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "none",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": null,
+   "runToken": ""
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed"
+  },
+  "result": {
+   "argv": [
+    "ok"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "LANG": "C.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_A": "a-1"
+   },
+   "stdin": "SYSTEM: Be brief.\n\nUSER: Twee",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 113,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "no-strict",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "CLI exited with code 2: provider says no: Bearer [REDACTED] and api_key=abc\n",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 114,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "big",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "mcpConfig": "cfg",
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "CLI output exceeded the maximum size",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 115,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "no-strict",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "refusing to spawn: governed turn is missing `--strict-mcp-config`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 116,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "garbage",
+   "flags": "none",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "garbage",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": "cfg"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "failed to parse CLI output: Unexpected token 'o', \"not json\" is not valid JSON",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"garbage\"]",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 117,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "tools",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "mcpConfig": {
+    "mcpServers": {}
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "refusing to spawn: `--tools` excludes MCP tools; use `--disallowedTools`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 118,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-disallowed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": {
+    "mcpServers": {}
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "--strict-mcp-config",
+    "--mcp-config",
+    "<SCRATCH>/mcp.json"
+   ],
+   "env": {
+    "HOME": "cwd",
+    "HTTPS_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "HTTP_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "LANG": "C.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_A": "a-1",
+    "http_proxy": "http://run:rt%201@127.0.0.1:9",
+    "https_proxy": "http://run:rt%201@127.0.0.1:9"
+   },
+   "stdin": "SYSTEM: Be brief.\n\nUSER: Twee",
+   "mcp": {
+    "mode": "600",
+    "body": "{\"mcpServers\":{}}",
+    "inScratch": true
+   }
+  },
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"ok\",\"--disallowedTools\",\"--strict-mcp-config\",\"--mcp-config\",\"<SCRATCH>/mcp.json\"]",
+   "[hermiq-llm-runner] DEBUG mcp.json: {\"mcpServers\":{}}",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 119,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-config",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [],
+   "mcpConfig": null,
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash,Edit",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "HTTPS_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "HTTP_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "LANG": "nl_NL.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "http_proxy": "http://run:rt%201@127.0.0.1:9",
+    "https_proxy": "http://run:rt%201@127.0.0.1:9"
+   },
+   "stdin": "",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 120,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "garbage",
+   "flags": "no-disallowed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "garbage",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": null,
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8"
+  },
+  "error": "failed to parse CLI output: Unexpected token 'o', \"not json\" is not valid JSON",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 121,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "big",
+   "flags": "no-strict",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "refusing to spawn: governed turn is missing `--strict-mcp-config`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 122,
+  "label": {
+   "bin": "/nonexistent/cli",
+   "mode": "stderr",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": null
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "CLI process error: spawn /nonexistent/cli ENOENT",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: /nonexistent/cli [\"stderr\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\"]"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 123,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "big",
+   "flags": "tools",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [],
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "CLI output exceeded the maximum size",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 124,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "none",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "refusing to spawn: governed turn is missing `--disallowedTools <builtins>`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 125,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "big",
+   "flags": "no-strict",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "mcpConfig": "cfg"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8"
+  },
+  "error": "CLI output exceeded the maximum size",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 126,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "big",
+   "flags": "none",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": null
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "CLI output exceeded the maximum size",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"big\"]",
+   "[hermiq-llm-runner] DEBUG exit=<0 or killed> stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 127,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "garbage",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "garbage",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "mcpConfig": null
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "failed to parse CLI output: Unexpected token 'o', \"not json\" is not valid JSON",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 128,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "mcpConfig": "cfg",
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash,Edit",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "LANG": "nl_NL.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd"
+   },
+   "stdin": "SYSTEM: Be brief.\n\nUSER: Twee",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 129,
+  "label": {
+   "bin": "/nonexistent/cli",
+   "mode": "big",
+   "flags": "no-strict",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": null,
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "CLI process error: spawn /nonexistent/cli ENOENT",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: /nonexistent/cli [\"big\",\"--disallowedTools\",\"Bash,Edit\"]"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 130,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "no-strict",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": null,
+   "runToken": ""
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "CLI exited with code 2: provider says no: Bearer [REDACTED] and api_key=abc\n",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 131,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "garbage",
+   "flags": "none",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "garbage",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "failed to parse CLI output: Unexpected token 'o', \"not json\" is not valid JSON",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 132,
+  "label": {
+   "bin": "/nonexistent/cli",
+   "mode": "big",
+   "flags": "none",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   }
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "CLI process error: spawn /nonexistent/cli ENOENT",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 133,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "garbage",
+   "flags": "governed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "garbage",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "failed to parse CLI output: unparseable",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"garbage\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\"]",
+   "[hermiq-llm-runner] DEBUG exit=-2 stderr=(empty)",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 134,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "tools",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "mcpConfig": "cfg",
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash",
+    "--tools",
+    "",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "HTTPS_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "HTTP_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "LANG": "C.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "http_proxy": "http://run:rt%201@127.0.0.1:9",
+    "https_proxy": "http://run:rt%201@127.0.0.1:9"
+   },
+   "stdin": "USER: Hello",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 135,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "tools",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "mcpConfig": {
+    "mcpServers": {}
+   }
+  },
+  "ambient": {},
+  "error": "refusing to spawn: `--tools` excludes MCP tools; use `--disallowedTools`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 136,
+  "label": {
+   "bin": "/nonexistent/cli",
+   "mode": "big",
+   "flags": "tools",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "mcpConfig": "cfg",
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "CLI process error: spawn /nonexistent/cli ENOENT",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 137,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-config",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "failed to parse CLI output: unparseable",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"ok\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\"]",
+   "[hermiq-llm-runner] DEBUG exit=-2 stderr=(empty)",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 138,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "garbage",
+   "flags": "no-strict",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "garbage",
+   "messages": [],
+   "mcpConfig": "cfg",
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "failed to parse CLI output: Unexpected token 'o', \"not json\" is not valid JSON",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 139,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "governed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "failed to parse CLI output: unparseable",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"ok\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\",\"--mcp-config\",\"<SCRATCH>/mcp.json\"]",
+   "[hermiq-llm-runner] DEBUG mcp.json: {\"mcpServers\":{},\"note\":\"kept\"}",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 140,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "garbage",
+   "flags": "no-disallowed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "garbage",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "failed to parse CLI output: Unexpected token 'o', \"not json\" is not valid JSON",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 141,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "tools",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": null,
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash",
+    "--tools",
+    "",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "LANG": "nl_NL.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_A": "a-1"
+   },
+   "stdin": "SYSTEM: Be brief.\n\nUSER: Twee",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 142,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "exit2",
+   "flags": "no-config",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "exit2",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "refusing to spawn: governed turn is missing `--mcp-config`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 143,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "exit2",
+   "flags": "tools",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "exit2",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "mcpConfig": {
+    "mcpServers": {}
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "refusing to spawn: `--tools` excludes MCP tools; use `--disallowedTools`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 144,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   }
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash,Edit",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "LANG": "C.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_B": "b-2"
+   },
+   "stdin": "",
+   "mcp": null
+  },
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"ok\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\"]",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 145,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "tools",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": [],
+   "mcpConfig": null,
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "CLI exited with code 2: provider says no: Bearer [REDACTED] and api_key=abc\n",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 146,
+  "label": {
+   "bin": "/nonexistent/cli",
+   "mode": "big",
+   "flags": "no-config",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "CLI process error: spawn /nonexistent/cli ENOENT",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: /nonexistent/cli [\"big\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\"]"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 147,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash,Edit",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "HOME": "cwd",
+    "HTTPS_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "HTTP_PROXY": "http://run:rt%201@127.0.0.1:9",
+    "LANG": "C.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_B": "b-2",
+    "http_proxy": "http://run:rt%201@127.0.0.1:9",
+    "https_proxy": "http://run:rt%201@127.0.0.1:9"
+   },
+   "stdin": "SYSTEM: Be brief.\n\nUSER: Twee",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 148,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "result": {
+   "argv": [
+    "ok",
+    "--disallowedTools",
+    "Bash,Edit",
+    "--strict-mcp-config"
+   ],
+   "env": {
+    "GOLDEN_PASS": "passed",
+    "HOME": "cwd",
+    "LANG": "C.UTF-8",
+    "PATH": "set",
+    "TMPDIR": "cwd",
+    "TOKEN_B": "b-2"
+   },
+   "stdin": "SYSTEM: Be brief.\n\nUSER: Twee",
+   "mcp": null
+  },
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 149,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-config",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "refusing to spawn: governed turn is missing `--mcp-config`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 150,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "exit2",
+   "flags": "no-disallowed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "exit2",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "mcpConfig": "cfg",
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8"
+  },
+  "error": "CLI exited with code 2: ",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 151,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-strict",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": "cfg"
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "failed to parse CLI output: unparseable",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"ok\",\"--disallowedTools\",\"Bash,Edit\"]",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 152,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "exit2",
+   "flags": "no-disallowed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "exit2",
+   "messages": [],
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   }
+  },
+  "ambient": {
+   "HTTPS_PROXY": "http://static.invalid:1",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "CLI exited with code 2: ",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"exit2\",\"--disallowedTools\",\"--strict-mcp-config\",\"--mcp-config\",\"<SCRATCH>/mcp.json\"]",
+   "[hermiq-llm-runner] DEBUG mcp.json: {\"mcpServers\":{},\"note\":\"kept\"}",
+   "[hermiq-llm-runner] DEBUG exit=2 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 153,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-config",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [],
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "refusing to spawn: governed turn is missing `--mcp-config`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 154,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "exit2",
+   "flags": "no-config",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "exit2",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "refusing to spawn: governed turn is missing `--mcp-config`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 155,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "exit2",
+   "flags": "tools",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "exit2",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hello"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed"
+  },
+  "error": "refusing to spawn: `--tools` excludes MCP tools; use `--disallowedTools`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 156,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-strict",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_A": "a-1",
+    "PATH": "/evil",
+    "LD_PRELOAD": "x"
+   },
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   },
+   "runToken": ""
+  },
+  "ambient": {
+   "GOLDEN_PASS": "passed",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "refusing to spawn: governed turn is missing `--strict-mcp-config`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 157,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "ok",
+   "flags": "no-disallowed",
+   "parse": "throws"
+  },
+  "turn": {
+   "model": "ok",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "mcpConfig": "cfg"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "RUNNER_DEBUG_ARGV": "1"
+  },
+  "error": "failed to parse CLI output: unparseable",
+  "log": [
+   "[hermiq-llm-runner] DEBUG argv: <STUB> [\"ok\",\"--disallowedTools\",\"--strict-mcp-config\"]",
+   "[hermiq-llm-runner] DEBUG exit=0 stderr=(empty)"
+  ],
+  "scratchLeft": 0
+ },
+ {
+  "case": 158,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "big",
+   "flags": "no-config",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "big",
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Twee"
+    }
+   ],
+   "credentialEnv": {
+    "TOKEN_B": "b-2"
+   },
+   "mcpConfig": {
+    "mcpServers": {},
+    "note": "kept"
+   },
+   "runToken": "rt 1"
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "GOLDEN_PASS": "passed",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "refusing to spawn: governed turn is missing `--mcp-config`",
+  "log": [],
+  "scratchLeft": 0
+ },
+ {
+  "case": 159,
+  "label": {
+   "bin": "<STUB>",
+   "mode": "stderr",
+   "flags": "governed",
+   "parse": "json"
+  },
+  "turn": {
+   "model": "stderr",
+   "messages": []
+  },
+  "ambient": {
+   "LANG": "nl_NL.UTF-8",
+   "HTTPS_PROXY": "http://static.invalid:1"
+  },
+  "error": "CLI exited with code 2: provider says no: Bearer [REDACTED] and api_key=abc\n",
+  "log": [],
+  "scratchLeft": 0
+ }
+]

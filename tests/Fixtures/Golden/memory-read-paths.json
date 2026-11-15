@@ -1,0 +1,223 @@
+{
+    "\"alice\"": {
+        "reads": {
+            "sessions": 1,
+            "profiles": 1,
+            "turns": 1,
+            "turnsNoQuery": 1,
+            "entries": {
+                "memoryEntries": [
+                    {
+                        "text": "Prefers tea",
+                        "createdAt": "2026-01-01T00:00:00+00:00",
+                        "id": "e1"
+                    }
+                ],
+                "userProfileEntries": [
+                    {
+                        "text": "Prefers tea",
+                        "createdAt": "2026-01-01T00:00:00+00:00",
+                        "id": "e1"
+                    }
+                ]
+            },
+            "entriesNoSubject": {
+                "memoryEntries": [
+                    {
+                        "text": "Prefers tea",
+                        "createdAt": "2026-01-01T00:00:00+00:00",
+                        "id": "e1"
+                    }
+                ],
+                "userProfileEntries": []
+            },
+            "entriesNullSubject": {
+                "memoryEntries": [],
+                "userProfileEntries": []
+            },
+            "memory": "mem-uuid"
+        },
+        "calls": [
+            [
+                "agentsession",
+                {
+                    "filters": {
+                        "agentId": "agent-1",
+                        "@self.owner": "alice"
+                    },
+                    "limit": 100
+                }
+            ],
+            [
+                "userprofile",
+                {
+                    "filters": {
+                        "agentId": "agent-1",
+                        "subjectUid": "alice"
+                    },
+                    "limit": 100
+                }
+            ],
+            [
+                "agentsessionturn",
+                {
+                    "filters": {
+                        "agentId": "agent-1",
+                        "@self.owner": "alice"
+                    },
+                    "limit": 5,
+                    "search": "tea"
+                }
+            ],
+            [
+                "agentsessionturn",
+                {
+                    "filters": {
+                        "agentId": "agent-1",
+                        "@self.owner": "alice"
+                    },
+                    "limit": 20
+                }
+            ],
+            [
+                "memory",
+                {
+                    "filters": {
+                        "agentId": "agent-1"
+                    },
+                    "limit": 7,
+                    "search": "tea"
+                }
+            ],
+            [
+                "userprofile",
+                {
+                    "filters": {
+                        "agentId": "agent-1",
+                        "subjectUid": "bob"
+                    },
+                    "limit": 7,
+                    "search": "tea"
+                }
+            ],
+            [
+                "memory",
+                {
+                    "filters": {
+                        "agentId": "agent-1"
+                    },
+                    "limit": 20
+                }
+            ],
+            [
+                "memory",
+                {
+                    "filters": {
+                        "agentId": "agent-1"
+                    },
+                    "limit": 20,
+                    "search": "coffee"
+                }
+            ],
+            [
+                "memory",
+                {
+                    "filters": {
+                        "agentId": "agent-1"
+                    },
+                    "limit": 1
+                }
+            ]
+        ]
+    },
+    "null": {
+        "reads": {
+            "sessions": 0,
+            "profiles": 0,
+            "turns": 0,
+            "turnsNoQuery": 0,
+            "entries": {
+                "memoryEntries": [
+                    {
+                        "text": "Prefers tea",
+                        "createdAt": "2026-01-01T00:00:00+00:00",
+                        "id": "e1"
+                    }
+                ],
+                "userProfileEntries": [
+                    {
+                        "text": "Prefers tea",
+                        "createdAt": "2026-01-01T00:00:00+00:00",
+                        "id": "e1"
+                    }
+                ]
+            },
+            "entriesNoSubject": {
+                "memoryEntries": [
+                    {
+                        "text": "Prefers tea",
+                        "createdAt": "2026-01-01T00:00:00+00:00",
+                        "id": "e1"
+                    }
+                ],
+                "userProfileEntries": []
+            },
+            "entriesNullSubject": {
+                "memoryEntries": [],
+                "userProfileEntries": []
+            },
+            "memory": "mem-uuid"
+        },
+        "calls": [
+            [
+                "memory",
+                {
+                    "filters": {
+                        "agentId": "agent-1"
+                    },
+                    "limit": 7,
+                    "search": "tea"
+                }
+            ],
+            [
+                "userprofile",
+                {
+                    "filters": {
+                        "agentId": "agent-1",
+                        "subjectUid": "bob"
+                    },
+                    "limit": 7,
+                    "search": "tea"
+                }
+            ],
+            [
+                "memory",
+                {
+                    "filters": {
+                        "agentId": "agent-1"
+                    },
+                    "limit": 20
+                }
+            ],
+            [
+                "memory",
+                {
+                    "filters": {
+                        "agentId": "agent-1"
+                    },
+                    "limit": 20,
+                    "search": "coffee"
+                }
+            ],
+            [
+                "memory",
+                {
+                    "filters": {
+                        "agentId": "agent-1"
+                    },
+                    "limit": 1
+                }
+            ]
+        ]
+    }
+}
