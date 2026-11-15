@@ -11,3 +11,4 @@
       unit test that `ScheduleTask` keeps parallel runs off, and a test that a register update
       without a write grant is refused while a granted one goes through. Verify: both tests
       fail when the guard is removed.
+- [ ] 1.5 Show chat health on the connections page: one block that says whether chat works, with the AI provider, the default model and each connection's state and check time, read from `GET /api/chat/health` and the connection registry (row `op-health`, scenario "The connections page shows chat health with each dependency"). Verify: a component test with one failing dependency shows that row as not answering and no secret.

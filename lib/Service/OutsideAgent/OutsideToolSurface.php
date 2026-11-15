@@ -25,24 +25,25 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-an-outside-agent-must-reach-declared-tools-through-a-registration
+ * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-outside-agent-must-reach-declared-tools-through-a-registration
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\OutsideAgent;
 
-use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
+use OCA\Hermiq\Kernel\Contracts\OutsideToolSurfaceInterface;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
  * Publishes the tools an owning app declared reachable from outside.
  *
- * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#scenario-the-owning-app-declares-hermiq-publishes
+ * @spec openspec/specs/agent-tool-governance/spec.md#scenario-the-owning-app-declares-hermiq-publishes
  */
-class OutsideToolSurface {
+class OutsideToolSurface implements OutsideToolSurfaceInterface {
 
 	/**
 	 * The annotation an owning app sets on its own tool descriptor to declare that
@@ -79,7 +80,7 @@ class OutsideToolSurface {
 	 *
 	 * @return array<int, array<string, mixed>> The descriptors.
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#scenario-the-owning-app-declares-hermiq-publishes
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-the-owning-app-declares-hermiq-publishes
 	 */
 	public function declaredTools(): array {
 		try {
@@ -121,7 +122,7 @@ class OutsideToolSurface {
 	 *
 	 * @return array<string, mixed>|null The descriptor, or null.
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-an-outside-agent-must-reach-declared-tools-through-a-registration
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-outside-agent-must-reach-declared-tools-through-a-registration
 	 */
 	public function describe(string $toolId): ?array {
 		foreach ($this->declaredTools() as $descriptor) {
@@ -143,7 +144,7 @@ class OutsideToolSurface {
 	 *
 	 * @return bool True when the tool writes or destroys.
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#scenario-a-write-tool-is-denied-unless-granted
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-write-tool-is-denied-unless-granted
 	 */
 	public function writes(string $toolId, ?array $descriptor = null): bool {
 		return ToolGrantResolver::isWriteOrDestructive(id: $toolId, descriptor: $descriptor);

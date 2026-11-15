@@ -47,8 +47,12 @@ namespace OCA\Hermiq\Repair;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\Service\SeedFreshnessService;
+use OCA\Hermiq\Kernel\Contracts\SeedFreshnessServiceInterface;
+use OCA\Hermiq\Repair\Seed\LearningsSeedTarget;
+use OCA\Hermiq\Service\NamedObjectRows;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -86,17 +90,33 @@ class SeedMaturityExampleSkills implements IRepairStep {
 	private const SEED_ATTESTED_AT = '2026-01-15T09:00:00+00:00';
 
 	/**
+	 * The state every seeded example skill starts in: active, local (never
+	 * imported), unscanned, not quarantined, created by nobody and installed on
+	 * no agent. Spread into each seed row between its `files` and its levels.
+	 *
+	 * @var array<string, mixed>
+	 */
+	private const LOCAL_SEED_STATE = [
+		'state' => 'active',
+		'source' => 'local',
+		'quarantineReason' => null,
+		'scanReport' => null,
+		'createdBy' => '',
+		'installedOn' => [],
+	];
+
+	/**
 	 * Constructor.
 	 *
 	 * @param ContainerInterface $container Server container for lazy ObjectService resolution
 	 *                                      (OpenRegister may not be installed yet).
 	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param SeedFreshnessService $freshness Seed lifecycle freshness rules.
+	 * @param SeedFreshnessServiceInterface $freshness Seed lifecycle freshness rules.
 	 */
 	public function __construct(
 		private readonly ContainerInterface $container,
 		private readonly LoggerInterface $logger,
-		private readonly SeedFreshnessService $freshness,
+		private readonly SeedFreshnessServiceInterface $freshness,
 	) {
 	}//end __construct()
 
@@ -174,9 +194,11 @@ class SeedMaturityExampleSkills implements IRepairStep {
 						// any real l6 activity are never overwritten).
 						$this->ensureLearningsSeed(
 							objectService: $objectService,
-							skill: $existing,
-							output: $output,
-							refreshed: $refreshed
+							target: new LearningsSeedTarget(
+								skill: $existing,
+								output: $output,
+								refreshed: $refreshed
+							)
 						);
 						continue;
 					}
@@ -188,9 +210,10 @@ class SeedMaturityExampleSkills implements IRepairStep {
 
 					$objectService->saveObject(
 						object: $refreshed,
-						register: self::REGISTER_SLUG,
-						schema: self::SKILL_SCHEMA,
-						uuid: (string)$existing->getUuid(),
+						options: new ObjectSaveOptions(
+							target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+							uuid: (string)$existing->getUuid()
+						),
 						_rbac: false,
 						_multitenancy: false
 					);
@@ -204,8 +227,7 @@ class SeedMaturityExampleSkills implements IRepairStep {
 				// starts at seed time.
 				$objectService->saveObject(
 					object: $this->freshness->stampFresh(seed: $seed),
-					register: self::REGISTER_SLUG,
-					schema: self::SKILL_SCHEMA,
+					options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA)),
 					_rbac: false,
 					_multitenancy: false
 				);
@@ -264,12 +286,7 @@ class SeedMaturityExampleSkills implements IRepairStep {
 			'frontmatter' => $frontmatter,
 			'body' => $body,
 			'files' => [],
-			'state' => 'active',
-			'source' => 'local',
-			'quarantineReason' => null,
-			'scanReport' => null,
-			'createdBy' => '',
-			'installedOn' => [],
+			...self::LOCAL_SEED_STATE,
 			'maturityLevel' => 1,
 			'targetLevel' => 2,
 		];
@@ -351,12 +368,7 @@ class SeedMaturityExampleSkills implements IRepairStep {
 			'frontmatter' => $frontmatter,
 			'body' => $body,
 			'files' => [],
-			'state' => 'active',
-			'source' => 'local',
-			'quarantineReason' => null,
-			'scanReport' => null,
-			'createdBy' => '',
-			'installedOn' => [],
+			...self::LOCAL_SEED_STATE,
 			'maturityLevel' => 2,
 			'targetLevel' => 3,
 		];
@@ -466,12 +478,7 @@ class SeedMaturityExampleSkills implements IRepairStep {
 					'content' => self::seedCandidatesContent(),
 				],
 			],
-			'state' => 'active',
-			'source' => 'local',
-			'quarantineReason' => null,
-			'scanReport' => null,
-			'createdBy' => '',
-			'installedOn' => [],
+			...self::LOCAL_SEED_STATE,
 			'maturityLevel' => 4,
 			'targetLevel' => 5,
 			'levelEvidence' => [
@@ -580,20 +587,16 @@ class SeedMaturityExampleSkills implements IRepairStep {
 	 * folded into the same single write; when both are no-ops, a re-run changes nothing.
 	 *
 	 * @param ObjectService $objectService The OpenRegister object service.
-	 * @param ObjectEntity $skill The existing tender-summary Skill.
-	 * @param IOutput $output Repair output channel.
-	 * @param array<string, mixed>|null $refreshed Freshness-refreshed payload, or null when untouchable.
+	 * @param LearningsSeedTarget $target The skill a learnings seed is ensured for.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
 	 */
-	private function ensureLearningsSeed(
-		ObjectService $objectService,
-		ObjectEntity $skill,
-		IOutput $output,
-		?array $refreshed = null,
-	): void {
+	private function ensureLearningsSeed(ObjectService $objectService, LearningsSeedTarget $target): void {
+		$skill = $target->skill;
+		$output = $target->output;
+		$refreshed = $target->refreshed;
 		$data = ($refreshed ?? $skill->getObject());
 		$files = ($data['files'] ?? []);
 		if (is_array($files) === false) {
@@ -615,9 +618,10 @@ class SeedMaturityExampleSkills implements IRepairStep {
 
 		$objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: (string)$skill->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: (string)$skill->getUuid()
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -724,16 +728,6 @@ class SeedMaturityExampleSkills implements IRepairStep {
 				_multitenancy: false
 			);
 
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ((string)($object->getObject()['name'] ?? '') === $name) {
-				return $object;
-			}
-		}
-
-		return null;
+		return (new NamedObjectRows(objects: $objects))->first(name: $name);
 	}//end findByName()
 }//end class

@@ -28,7 +28,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-approval-reactions/tasks.md#1-bind-an-approval-to-the-message-that-carries-it
+ * @spec openspec/changes/archive/2026-07-30-talk-approval-reactions/tasks.md#1-bind-an-approval-to-the-message-that-carries-it
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
+ * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
  */
 class TalkApprovalNotifier {
 	/**
@@ -74,7 +74,7 @@ class TalkApprovalNotifier {
 	 *
 	 * @return bool True when the request was posted and bound.
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
 	 */
 	public function postRequest(ObjectEntity $approval, string $displayName): bool {
 		try {
@@ -162,7 +162,7 @@ class TalkApprovalNotifier {
 	 *
 	 * @return string The message body.
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-reviewers-reaction-decides-the-approval
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-a-reviewers-reaction-decides-the-approval
 	 */
 	private function requestText(string $displayName): string {
 		$body = "React 👍 to approve or 👎 to deny. Only the reviewer's reaction counts, "

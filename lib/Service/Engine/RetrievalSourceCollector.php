@@ -18,7 +18,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
  */
 
 declare(strict_types=1);
@@ -33,7 +33,7 @@ namespace OCA\Hermiq\Service\Engine;
  *
  * @psalm-type SourceSettings = array{include: array{file: mixed, object: mixed}, limit: array{file: mixed, object: mixed}}
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
  */
 class RetrievalSourceCollector {
 
@@ -67,7 +67,7 @@ class RetrievalSourceCollector {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
 	 */
 	public function __construct(
 		private readonly array $settings,
@@ -83,7 +83,7 @@ class RetrievalSourceCollector {
 	 *
 	 * @psalm-return array{text: mixed, sources: list<array<string, mixed>>, fileSources: int, objectSources: int}
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
 	 */
 	public function collect(array $found): array {
 		$text = $found['text'];
@@ -146,7 +146,7 @@ class RetrievalSourceCollector {
 	 *
 	 * @psalm-return 'file'|'object'|null
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
 	 */
 	private function limitedType(mixed $type): ?string {
 		if ($type === 'file' || $type === 'object') {
@@ -163,7 +163,7 @@ class RetrievalSourceCollector {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
 	 */
 	private function isClosed(string $type): bool {
 		return $this->settings['include'][$type] === false || $this->count[$type] >= $this->settings['limit'][$type];
@@ -176,7 +176,7 @@ class RetrievalSourceCollector {
 	 *
 	 * @return array<string, mixed>
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
 	 */
 	private function source(array $result): array {
 		$source = [
@@ -262,7 +262,7 @@ class RetrievalSourceCollector {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
 	 */
 	private function extractSourceName(array $result): string {
 		$name = $this->firstFilled(values: $result, fields: self::NAME_FIELDS);
@@ -314,7 +314,7 @@ class RetrievalSourceCollector {
 	 *
 	 * @return mixed
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
 	 */
 	private function firstFilled(array $values, array $fields): mixed {
 		foreach ($fields as $field) {

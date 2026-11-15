@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+ * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
  */
 
 declare(strict_types=1);
@@ -30,7 +30,7 @@ namespace OCA\Hermiq\Service;
 /**
  * The name and message parameters of one approval request.
  *
- * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+ * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
  */
 final class ApprovalWording {
 

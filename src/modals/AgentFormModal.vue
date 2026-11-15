@@ -26,10 +26,10 @@
   matching the Agent schema's `icon` property description. Empty clears back
   to the default agent icon.
 
-  @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
-  @spec openspec/changes/agent-engine-port/tasks.md#task-5-2
-  @spec openspec/changes/agent-management-ui/specs/agent-management-ui/spec.md
-  @spec openspec/changes/sub-agent-delegation/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-delegation-allowlist-in-place-mvp
+  @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
+  @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-5-2
+  @spec openspec/changes/archive/2026-09-06-agent-management-ui/specs/agent-management-ui/spec.md
+  @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-delegation-allowlist-in-place-mvp
 -->
 <template>
 	<NcModal :show="show" size="normal" :name="heading" @close="handleClose">
@@ -146,6 +146,60 @@
 							class="agent-form__finding"
 							data-testid="agent-form-finding-groups">
 							{{ findingText(finding) }}
+						</p>
+					</template>
+				</fieldset>
+
+				<!-- Whose rights the agent works with (agent-acting-identity-picker):
+			     two choices over the one field actingUser. Naming an account needs
+			     agent.set-acting-user; the server refuses the write without it, the
+			     page only says so up front. -->
+				<fieldset class="agent-form__field" data-testid="agent-form-acting">
+					<legend>{{ t('hermiq', 'On whose behalf the agent works') }}</legend>
+					<NcCheckboxRadioSwitch
+						v-model="form.actingChoice"
+						type="radio"
+						name="agent-acting"
+						value="person">
+						{{ t('hermiq', 'On behalf of the person who uses it') }}
+					</NcCheckboxRadioSwitch>
+					<p class="agent-form__hint">
+						{{ t('hermiq', 'Sees only what that person may see.') }}
+					</p>
+					<NcCheckboxRadioSwitch
+						v-model="form.actingChoice"
+						type="radio"
+						name="agent-acting"
+						value="service-account"
+						:disabled="!canSetActingUser">
+						{{ t('hermiq', 'As its own service account') }}
+					</NcCheckboxRadioSwitch>
+					<p class="agent-form__hint">
+						{{ t('hermiq', 'For schedules with nobody behind the screen.') }}
+					</p>
+					<p
+						v-if="!canSetActingUser"
+						class="agent-form__hint"
+						data-testid="agent-form-acting-admin-only">
+						{{ t('hermiq', 'An administrator sets the account an agent works with.') }}
+					</p>
+					<template v-if="form.actingChoice === 'service-account'">
+						<NcSelect
+							v-model="form.actingUser"
+							data-testid="agent-form-acting-user"
+							:inputLabel="t('hermiq', 'Service account')"
+							:options="actingUserOptions"
+							:filterable="false"
+							:disabled="!canSetActingUser"
+							label="label"
+							trackBy="value"
+							@search="onSearchActingUsers" />
+						<p
+							v-if="actingUserUnresolved"
+							class="agent-form__finding"
+							role="alert"
+							data-testid="agent-form-acting-unresolved">
+							{{ t('hermiq', 'The account {user} no longer exists or is disabled. Runs are refused until you choose another account or let the agent work on behalf of the person who uses it.', { user: actingUserStatus.actingUser }) }}
 						</p>
 					</template>
 				</fieldset>
@@ -503,6 +557,7 @@
 <script>
 import { CnIconPicker, fromOpenGemeenten } from '@conduction/nextcloud-vue'
 import axios from '@nextcloud/axios'
+import { loadState } from '@nextcloud/initial-state'
 import { generateUrl } from '@nextcloud/router'
 import {
 	NcButton,
@@ -516,6 +571,7 @@ import {
 } from '@nextcloud/vue'
 import PromptPlaceholderTools from '../components/PromptPlaceholderTools.vue'
 import StartFieldsEditor from '../components/StartFieldsEditor.vue'
+import { getActingUserStatus } from '../api/actingUser.js'
 import { listTools, setAppAssistant } from '../api/agents.js'
 import { searchGroups, searchUsers } from '../api/chat.js'
 import { getEffectiveModelPolicy } from '../api/modelPolicy.js'
@@ -524,6 +580,7 @@ import { flattenGrants } from '../api/toolTaxonomy.js'
 import { OPEN_GEMEENTEN_ICONS } from '../icons/openGemeentenIcons.js'
 import { KNOWN_MODELS, knownModelsFor } from '../llm/knownModels.js'
 import { useAgentStore } from '../store/store.js'
+import { actingChoiceOf, actingUserField, actingUserOf } from '../utils/agentActingUser.js'
 import { answersInItsApp, appOptions, appSlugOf } from '../utils/agentApp.js'
 import {
 	credentialOptions,
@@ -688,6 +745,8 @@ function accessFields(source) {
 		sharing: sharingOf(source),
 		invitedUsers: idOptions(source.invitedUsers),
 		groups: idOptions(source.groups),
+		actingChoice: actingChoiceOf(source),
+		actingUser: idOptions(actingUserOf(source) ? [actingUserOf(source)] : [])[0] || null,
 	}
 }
 
@@ -822,6 +881,13 @@ export default {
 			// Agents-sharing-and-catalog-columns: search results for the pickers.
 			peopleOptions: [],
 			groupOptions: [],
+			// agent-acting-identity-picker: whether the viewer may name an
+			// account (initial state from the action matrix; the server guard
+			// decides either way), the account picker's search results, and the
+			// server's answer on whether the stored account still resolves.
+			canSetActingUser: loadState('hermiq', 'can_set_acting_user', false) === true,
+			actingUserOptions: [],
+			actingUserStatus: null,
 			saving: false,
 			error: '',
 			// Effective model policy (tenant-model-policy); null until loaded.
@@ -848,6 +914,21 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * Whether the stored service account no longer resolves, while it is
+		 * still the one chosen: the server's answer, never a guess here.
+		 *
+		 * @return {boolean} True when the warning shows.
+		 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
+		 */
+		actingUserUnresolved() {
+			const status = this.actingUserStatus
+			if (!status || status.resolves !== false || this.form.actingChoice !== 'service-account') {
+				return false
+			}
+			return actingUserField(this.form.actingChoice, this.form.actingUser).actingUser === status.actingUser
+		},
+
 		/**
 		 * The dictation-engine picker's selection, as the option object NcSelect
 		 * wants, over the plain value the form stores.
@@ -947,7 +1028,7 @@ export default {
 		 * dialog that is usually opened to type a name.
 		 *
 		 * @return {object} The catalogues, by source key.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		iconCatalogues() {
 			return { opengemeenten: fromOpenGemeenten(OPEN_GEMEENTEN_ICONS) }
@@ -962,7 +1043,7 @@ export default {
 		 * supplies no `agent`/`item` prop).
 		 *
 		 * @return {object|null} The effective agent, or null when creating.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		effectiveAgent() {
 			return this.agent || this.item || this.routeAgent
@@ -972,7 +1053,7 @@ export default {
 		 * Modal heading — differs for create vs edit.
 		 *
 		 * @return {string} The localised heading.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		heading() {
 			return this.effectiveAgent
@@ -984,7 +1065,7 @@ export default {
 		 * The effective policy's providers as NcSelect options.
 		 *
 		 * @return {Array<object>} The { label, value } options.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		providerOptions() {
 			const allowed = this.policy?.allowed || []
@@ -1009,7 +1090,7 @@ export default {
 		 */
 		providerOption: {
 			/**
-			 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+			 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 			 */
 			get() {
 				return (
@@ -1023,7 +1104,7 @@ export default {
 			 * @param {{value: string, label: string}|null} option The picked provider, or null when cleared.
 			 *
 			 * @return {void}
-			 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+			 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 			 */
 			set(option) {
 				this.form.provider = option ? option.value : ''
@@ -1047,7 +1128,7 @@ export default {
 		 * The chosen provider's allowed models ([] means "any model" → free entry).
 		 *
 		 * @return {Array<string>} The allowed model ids.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		allowedModelsForProvider() {
 			const allowed = this.policy?.allowed || []
@@ -1061,7 +1142,7 @@ export default {
 		 * The allowed models as NcSelect options.
 		 *
 		 * @return {Array<object>} The { label, value } options.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		modelOptions() {
 			return this.offeredModels.map((model) => ({
@@ -1078,7 +1159,7 @@ export default {
 		 * only a starting point for an instance that has never written one.
 		 *
 		 * @return {Array<string>} The model ids.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		offeredModels() {
 			if (this.allowedModelsForProvider.length > 0) {
@@ -1099,7 +1180,7 @@ export default {
 		 * the key. Saying so here is cheaper than the support question.
 		 *
 		 * @return {string} The hint.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		modelHint() {
 			const source =
@@ -1146,7 +1227,7 @@ export default {
 		 * an agent may never delegate to itself).
 		 *
 		 * @return {Array<object>} The { label, value } options.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		/**
 		 * The apps the agent can serve (agents-bound-to-their-app).
@@ -1187,7 +1268,7 @@ export default {
 			 * @param {boolean} open Whether the modal is now open.
 			 *
 			 * @return {Promise<void>}
-			 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+			 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 			 */
 			async handler(open) {
 				if (!open) {
@@ -1203,6 +1284,7 @@ export default {
 				} finally {
 					this.loadingAgent = false
 				}
+				this.loadActingUserStatus()
 				this.loadTools()
 				this.loadPolicy()
 				this.loadCredentials()
@@ -1212,7 +1294,7 @@ export default {
 	},
 
 	/**
-	 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 	 */
 	created() {
 		this.store = useAgentStore()
@@ -1296,7 +1378,7 @@ export default {
 		 * to the `show` watcher's `immediate: true`.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		async loadRouteAgent() {
 			this.routeAgent = null
@@ -1318,7 +1400,7 @@ export default {
 		 * An empty agent form.
 		 *
 		 * @return {object} The blank form model.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		blankForm() {
 			return {
@@ -1337,6 +1419,8 @@ export default {
 				sharing: 'only-me',
 				invitedUsers: [],
 				groups: [],
+				actingChoice: 'person',
+				actingUser: null,
 				tools: [],
 				delegationAllowlist: [],
 				enableRag: false,
@@ -1386,6 +1470,50 @@ export default {
 		},
 
 		/**
+		 * Offer the accounts matching the typed text for the service account
+		 * (agent-acting-identity-picker). Nextcloud's user search offers
+		 * enabled accounts only.
+		 *
+		 * @param {string} search The typed text.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-agent-edit-page-sets-whose-rights-the-agent-works-with-req-agid-001
+		 */
+		async onSearchActingUsers(search) {
+			if (!search) {
+				return
+			}
+			try {
+				this.actingUserOptions = (await searchUsers(search)).map((user) => ({
+					label: user.uid,
+					value: user.uid,
+				}))
+			} catch {
+				this.actingUserOptions = []
+			}
+		},
+
+		/**
+		 * Ask the server whether the stored service account still resolves, for
+		 * an agent that names one (agent-acting-identity-picker REQ-AGID-003). An
+		 * unanswered question shows no warning: the run's own refusal stays.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
+		 */
+		async loadActingUserStatus() {
+			this.actingUserStatus = null
+			const agent = this.effectiveAgent
+			if (!agent || !agent.id || actingUserOf(agent) === '') {
+				return
+			}
+			try {
+				this.actingUserStatus = await getActingUserStatus(agent.id)
+			} catch {
+				this.actingUserStatus = null
+			}
+		},
+
+		/**
 		 * Offer the users matching the typed text (agents-sharing-and-catalog-columns).
 		 *
 		 * @param {string} search The typed text.
@@ -1431,7 +1559,7 @@ export default {
 		 * Seed the form from `effectiveAgent` (edit) or blank (create).
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		resetForm() {
 			this.error = ''
@@ -1464,7 +1592,7 @@ export default {
 		 * facade-backed /api/agents/tools endpoint).
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		async loadTools() {
 			this.toolsLoading = true
@@ -1513,7 +1641,7 @@ export default {
 		 * free entry and the server still enforces at run time.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		async loadPolicy() {
 			this.policy = await getEffectiveModelPolicy().catch(() => null)
@@ -1528,7 +1656,7 @@ export default {
 		 * still shows human names, not bare ids.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		async loadAgentCatalog() {
 			this.agentCatalogLoading = true
@@ -1556,7 +1684,7 @@ export default {
 		 *
 		 * @param {Array<string>} ids The selected agent ids.
 		 * @return {Array<object>} The { label, value } options.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		mapDelegationAllowlistToOptions(ids) {
 			return (ids || []).map((id) => {
@@ -1572,7 +1700,7 @@ export default {
 		 * (client-side mirror of the ProviderFactory enforcement).
 		 *
 		 * @return {boolean} True when the pair is out of policy.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		violatesPolicy() {
 			const allowed = this.policy?.allowed
@@ -1672,7 +1800,7 @@ export default {
 		 * by definition and there is no prior object to escalate against.
 		 *
 		 * @return {object} The agent payload for saveObject().
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		buildPayload() {
 			const base = editableCopy(this.effectiveAgent)
@@ -1697,7 +1825,7 @@ export default {
 		 *
 		 * @param {object} base The editable copy of the stored agent.
 		 * @return {object} The form's fields, in the payload's order.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		formFields(base) {
 			return {
@@ -1727,7 +1855,7 @@ export default {
 		 *
 		 * @param {object} payload The payload being built.
 		 * @return {void}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		applyOptionalFields(payload) {
 			assignDefined(payload, tuningFields(this.form))
@@ -1740,6 +1868,7 @@ export default {
 				),
 			)
 			assignDefined(payload, limitFields(this.form))
+			Object.assign(payload, actingUserField(this.form.actingChoice, this.form.actingUser))
 		},
 
 		appSlugOf,
@@ -1757,7 +1886,7 @@ export default {
 		 * The grant list the user has selected, as plain strings.
 		 *
 		 * @return {Array<string>} The selected tool grant entries.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		selectedGrants() {
 			return (this.form.tools || []).map((tool) => tool.value)
@@ -1824,7 +1953,7 @@ export default {
 		 * Persist the agent via the createObjectStore and notify the parent.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		async save() {
 			if (this.violatesPolicy()) {

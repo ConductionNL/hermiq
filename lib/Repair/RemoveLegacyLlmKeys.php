@@ -32,14 +32,14 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-4-delete-the-cleartext-keys
+ * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-4-delete-the-cleartext-keys
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCP\IAppConfig;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -49,7 +49,7 @@ use Throwable;
 /**
  * Strips the retired, cleartext LLM API keys out of the `hermiq.llm` config blob.
  *
- * @spec openspec/changes/llm-keys-via-broker/tasks.md
+ * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md
  */
 class RemoveLegacyLlmKeys implements IRepairStep {
 	/**
@@ -83,7 +83,7 @@ class RemoveLegacyLlmKeys implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/llm-keys-via-broker/tasks.md
+	 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md
 	 */
 	public function getName(): string {
 		return 'Remove the legacy cleartext LLM API keys (they live in the credential broker now)';
@@ -96,7 +96,7 @@ class RemoveLegacyLlmKeys implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-4-delete-the-cleartext-keys
+	 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-4-delete-the-cleartext-keys
 	 */
 	public function run(IOutput $output): void {
 		$config = $this->storedConfig(output: $output);
@@ -127,7 +127,7 @@ class RemoveLegacyLlmKeys implements IRepairStep {
 	 * @return array|null
 	 */
 	private function storedConfig(IOutput $output): ?array {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, self::LLM_CONFIG_KEY, '');
+		$raw = $this->appConfig->getValueString(AppIdentity::APP_ID, self::LLM_CONFIG_KEY, '');
 		if ($raw === '') {
 			$output->info('No Hermiq LLM config stored; nothing to remove.');
 			return null;
@@ -206,7 +206,7 @@ class RemoveLegacyLlmKeys implements IRepairStep {
 	private function rewrite(array $config, IOutput $output): bool {
 		try {
 			$this->appConfig->setValueString(
-				Application::APP_ID,
+				AppIdentity::APP_ID,
 				self::LLM_CONFIG_KEY,
 				(string)json_encode($config)
 			);

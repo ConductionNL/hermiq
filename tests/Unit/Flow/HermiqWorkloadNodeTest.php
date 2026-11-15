@@ -45,6 +45,11 @@ use UnexpectedValueException;
 
 /**
  * @covers \OCA\Hermiq\Flow\HermiqWorkloadNode
+ * @uses \OCA\Hermiq\Flow\FlowItemSlot
+ * @uses \OCA\Hermiq\Flow\ItemPlaceholders
+ * @uses \OCA\Hermiq\Flow\WorkloadStageRun
+ * @uses \OCA\Hermiq\Service\StageOptions
+ * @uses \OCA\Hermiq\Service\StageRequest
  */
 class HermiqWorkloadNodeTest extends TestCase {
 

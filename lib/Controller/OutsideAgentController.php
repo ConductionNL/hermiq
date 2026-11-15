@@ -23,19 +23,19 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-an-outside-agent-must-reach-declared-tools-through-a-registration
+ * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-outside-agent-must-reach-declared-tools-through-a-registration
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\OutsideAgent\OutsideAgentGateway;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\OutsideAgentGatewayInterface;
+use OCA\Hermiq\Kernel\Contracts\OutsideToolSurfaceInterface;
 use OCA\Hermiq\Service\OutsideAgent\OutsideCallRefusedException;
-use OCA\Hermiq\Service\OutsideAgent\OutsideToolSurface;
-use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
+use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -48,7 +48,7 @@ use Throwable;
 /**
  * Publishes the outside tool surface and runs one governed call.
  *
- * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-both-gates-must-open-before-a-tool-runs
+ * @spec openspec/specs/agent-tool-governance/spec.md#requirement-both-gates-must-open-before-a-tool-runs
  */
 class OutsideAgentController extends Controller {
 
@@ -64,21 +64,21 @@ class OutsideAgentController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param OutsideToolSurface $surface What the owning apps declared reachable.
-	 * @param OutsideAgentGateway $gateway The two gates and the response filter.
+	 * @param OutsideToolSurfaceInterface $surface What the owning apps declared reachable.
+	 * @param OutsideAgentGatewayInterface $gateway The two gates and the response filter.
 	 * @param IUserSession $userSession Resolves the calling principal.
 	 * @param AuditTrailMapper $auditTrailMapper Records the call.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly OutsideToolSurface $surface,
-		private readonly OutsideAgentGateway $gateway,
+		private readonly OutsideToolSurfaceInterface $surface,
+		private readonly OutsideAgentGatewayInterface $gateway,
 		private readonly IUserSession $userSession,
 		private readonly AuditTrailMapper $auditTrailMapper,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 
@@ -91,7 +91,7 @@ class OutsideAgentController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#scenario-the-owning-app-declares-hermiq-publishes
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-the-owning-app-declares-hermiq-publishes
 	 */
 	public function tools(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -130,7 +130,7 @@ class OutsideAgentController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-both-gates-must-open-before-a-tool-runs
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-both-gates-must-open-before-a-tool-runs
 	 */
 	public function call(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -179,7 +179,7 @@ class OutsideAgentController extends Controller {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-an-outside-agents-calls-must-be-recorded-like-an-internal-agents
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-outside-agents-calls-must-be-recorded-like-an-internal-agents
 	 */
 	private function record(string $principal, string $toolId, string $outcome, string $gate): void {
 		try {

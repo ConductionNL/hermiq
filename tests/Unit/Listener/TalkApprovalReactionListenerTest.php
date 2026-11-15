@@ -27,6 +27,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Listener;
 
 use OCA\Hermiq\Listener\TalkApprovalReactionListener;
+use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\Talk\TalkApprovalBinding;
 use OCA\Hermiq\Service\Talk\TalkBridge;
@@ -64,6 +65,11 @@ class TalkApprovalReactionListenerTest extends TestCase {
 	private $approvals;
 
 	/**
+	 * @var ApprovalInbox&\PHPUnit\Framework\MockObject\MockObject
+	 */
+	private $inbox;
+
+	/**
 	 * Listener under test.
 	 *
 	 * @var TalkApprovalReactionListener
@@ -81,6 +87,7 @@ class TalkApprovalReactionListenerTest extends TestCase {
 		$this->bridge = $this->createMock(originalClassName: TalkBridge::class);
 		$this->binding = $this->createMock(originalClassName: TalkApprovalBinding::class);
 		$this->approvals = $this->createMock(originalClassName: ApprovalService::class);
+		$this->inbox = $this->createMock(originalClassName: ApprovalInbox::class);
 
 		$this->bridge->method('isAvailable')->willReturn(true);
 
@@ -88,7 +95,8 @@ class TalkApprovalReactionListenerTest extends TestCase {
 			bridge: $this->bridge,
 			approvalBinding: $this->binding,
 			approvalService: $this->approvals,
-			logger: $this->createMock(originalClassName: LoggerInterface::class)
+			logger: $this->createMock(originalClassName: LoggerInterface::class),
+			approvalInbox: $this->inbox
 		);
 
 	}//end setUp()
@@ -298,7 +306,8 @@ class TalkApprovalReactionListenerTest extends TestCase {
 			}
 		);
 		$approvals = $this->createMock(originalClassName: ApprovalService::class);
-		$approvals->method('isReviewer')->willReturnCallback(
+		$inbox = $this->createMock(originalClassName: ApprovalInbox::class);
+		$inbox->method('isReviewer')->willReturnCallback(
 			function (ObjectEntity $subject, string $uid) use (&$calls, $reviewer): bool {
 				$calls[] = 'isReviewer ' . $subject->getUuid() . ' ' . $uid;
 				return $reviewer;
@@ -320,7 +329,8 @@ class TalkApprovalReactionListenerTest extends TestCase {
 			bridge: $bridge,
 			approvalBinding: $binding,
 			approvalService: $approvals,
-			logger: $this->createMock(originalClassName: LoggerInterface::class)
+			logger: $this->createMock(originalClassName: LoggerInterface::class),
+			approvalInbox: $inbox
 		);
 		$listener->handle(event: $event);
 
@@ -337,7 +347,7 @@ class TalkApprovalReactionListenerTest extends TestCase {
 	 */
 	public function testNonReviewerReactionIsIgnored(): void {
 		$this->binding->method('findByMessageId')->willReturn($this->makeApproval());
-		$this->approvals->method('isReviewer')->willReturn(false);
+		$this->inbox->method('isReviewer')->willReturn(false);
 
 		$this->approvals->expects($this->never())->method('approve');
 		$this->approvals->expects($this->never())->method('deny');
@@ -354,7 +364,7 @@ class TalkApprovalReactionListenerTest extends TestCase {
 	 */
 	public function testReviewerThumbsUpApproves(): void {
 		$this->binding->method('findByMessageId')->willReturn($this->makeApproval());
-		$this->approvals->method('isReviewer')->willReturn(true);
+		$this->inbox->method('isReviewer')->willReturn(true);
 
 		$this->approvals->expects($this->once())
 			->method('approve')
@@ -374,7 +384,7 @@ class TalkApprovalReactionListenerTest extends TestCase {
 	 */
 	public function testReviewerThumbsDownDenies(): void {
 		$this->binding->method('findByMessageId')->willReturn($this->makeApproval());
-		$this->approvals->method('isReviewer')->willReturn(true);
+		$this->inbox->method('isReviewer')->willReturn(true);
 
 		$this->approvals->expects($this->once())->method('deny');
 		$this->approvals->expects($this->never())->method('approve');
@@ -403,7 +413,7 @@ class TalkApprovalReactionListenerTest extends TestCase {
 	 */
 	public function testUndoDoesNotReverseAndIsAnswered(): void {
 		$this->binding->method('findByMessageId')->willReturn($this->makeApproval(status: 'approved'));
-		$this->approvals->method('isReviewer')->willReturn(true);
+		$this->inbox->method('isReviewer')->willReturn(true);
 
 		$this->approvals->expects($this->never())->method('approve');
 		$this->approvals->expects($this->never())->method('deny');
@@ -421,7 +431,7 @@ class TalkApprovalReactionListenerTest extends TestCase {
 	 */
 	public function testAlreadyDecidedIsVisibleNoOp(): void {
 		$this->binding->method('findByMessageId')->willReturn($this->makeApproval(status: 'denied'));
-		$this->approvals->method('isReviewer')->willReturn(true);
+		$this->inbox->method('isReviewer')->willReturn(true);
 
 		$this->approvals->expects($this->never())->method('approve');
 		$this->bridge->expects($this->once())->method('postToRoom');
@@ -475,7 +485,7 @@ class TalkApprovalReactionListenerTest extends TestCase {
 	 */
 	public function testActorPrefixIsStrippedBeforeAuthorization(): void {
 		$this->binding->method('findByMessageId')->willReturn($this->makeApproval());
-		$this->approvals->expects($this->once())
+		$this->inbox->expects($this->once())
 			->method('isReviewer')
 			->with($this->anything(), 'alice')
 			->willReturn(true);

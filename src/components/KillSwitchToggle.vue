@@ -12,8 +12,8 @@
   TenantControl through the guarded endpoints in src/api/approvals.js; the server
   remains the real authorization boundary.
 
-  @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
-  @spec openspec/changes/human-approval-gate-ui/specs/human-approval-gate-ui/spec.md
+  @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-4-1
+  @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/specs/human-approval-gate-ui/spec.md
 -->
 <template>
 	<div v-if="canManage && organisations.length > 0" class="kill-switch">
@@ -77,6 +77,7 @@ import {
 import AlertOctagon from 'vue-material-design-icons/AlertOctagon.vue'
 import { getKillSwitch, toggleKillSwitch } from '../api/approvals.js'
 import { errorMessage } from '../utils/errorMessage.js'
+import { organisationPicker } from '../utils/organisationPicker.js'
 
 export default {
 	name: 'KillSwitchToggle',
@@ -88,6 +89,8 @@ export default {
 		NcNoteCard,
 		NcSelect,
 	},
+
+	mixins: [organisationPicker('load')],
 
 	data() {
 		// Capability + manageable organisations come from the backend via
@@ -105,47 +108,8 @@ export default {
 		}
 	},
 
-	computed: {
-		/**
-		 * The manageable organisations as NcSelect options.
-		 *
-		 * @return {Array<object>} The { label, value } options.
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
-		 */
-		orgOptions() {
-			return this.organisations.map((org) => ({
-				label: org.label || org.id,
-				value: org.id,
-			}))
-		},
-
-		/**
-		 * Two-way bridge between the selected org id and the NcSelect option object.
-		 */
-		orgOption: {
-			/**
-			 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
-			 */
-			get() {
-				return (
-					this.orgOptions.find(
-						(option) => option.value === this.selectedOrg,
-					) || this.orgOptions[0]
-				)
-			},
-
-			/**
-			 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
-			 */
-			set(option) {
-				this.selectedOrg = option ? option.value : ''
-				this.load()
-			},
-		},
-	},
-
 	/**
-	 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-4-1
 	 */
 	created() {
 		if (this.canManage && this.organisations.length > 0) {
@@ -159,7 +123,7 @@ export default {
 		 * Read the current kill-switch state for the selected organisation.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-4-1
 		 */
 		async load() {
 			if (!this.selectedOrg) {
@@ -183,7 +147,7 @@ export default {
 		 *
 		 * @param {boolean} next The requested engaged state.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-4-1
 		 */
 		async onToggle(next) {
 			if (!this.selectedOrg) {

@@ -27,16 +27,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-memory/tasks.md#3-controller-routes
+ * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#3-controller-routes
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\AgentAccessService;
-use OCA\Hermiq\Service\MemoryService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\MemoryServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -49,7 +49,7 @@ use Throwable;
 /**
  * Tenant-scoped agent-memory read/manage endpoints.
  *
- * @spec openspec/changes/agent-memory/tasks.md#3-controller-routes
+ * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#3-controller-routes
  */
 class MemoryController extends Controller {
 
@@ -71,21 +71,21 @@ class MemoryController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param MemoryService $memoryService The memory read/write path.
+	 * @param MemoryServiceInterface $memoryService The memory read/write path.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param AgentAccessService $agentAccess Per-agent authorization (IDOR guard).
+	 * @param AgentAccessServiceInterface $agentAccess Per-agent authorization (IDOR guard).
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-3-1
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly MemoryService $memoryService,
+		private readonly MemoryServiceInterface $memoryService,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
-		private readonly AgentAccessService $agentAccess,
+		private readonly AgentAccessServiceInterface $agentAccess,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -98,7 +98,7 @@ class MemoryController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-3-1
 	 */
 	public function memory(string $agentId): JSONResponse {
 		$refusal = $this->refusal(agentId: $agentId, level: self::READ);
@@ -131,7 +131,7 @@ class MemoryController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-3-1
 	 */
 	public function addMemory(string $agentId): JSONResponse {
 		$refusal = $this->refusal(agentId: $agentId, level: self::WRITE);
@@ -237,7 +237,7 @@ class MemoryController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-3-1
 	 */
 	public function userProfiles(string $agentId): JSONResponse {
 		$refusal = $this->refusal(agentId: $agentId, level: self::READ);
@@ -265,7 +265,7 @@ class MemoryController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-3-1
 	 */
 	public function sessions(string $agentId): JSONResponse {
 		$refusal = $this->refusal(agentId: $agentId, level: self::READ);
@@ -294,7 +294,7 @@ class MemoryController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-3-1
 	 */
 	public function consolidate(string $agentId): JSONResponse {
 		$refusal = $this->refusal(agentId: $agentId, level: self::WRITE);
@@ -335,7 +335,7 @@ class MemoryController extends Controller {
 	 * (`GET /api/agents/{agentId}/recall?q=…`) — NC binds route params by name, so
 	 * renaming it would break the API contract.
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-3-1
 	 */
 	public function recall(string $agentId, string $q = ''): JSONResponse {
 		$refusal = $this->refusal(agentId: $agentId, level: self::READ);

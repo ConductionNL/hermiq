@@ -41,13 +41,13 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\ActionAuthService;
-use OCA\Hermiq\Service\ApprovalService;
-use OCA\Hermiq\Service\SeedCustodyService;
-use OCA\Hermiq\Service\SkillConsolidationService;
-use OCA\Hermiq\Service\SkillService;
-use OCA\Hermiq\Service\SkillVersionService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SeedCustodyServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillConsolidationServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillVersionServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -82,12 +82,12 @@ class SkillDraftController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param SkillService $skillService Tenant-scoped skill visibility reads.
-	 * @param SkillConsolidationService $consolidation The draft pipeline owner.
-	 * @param ApprovalService $approvalService The ONE human-decision surface.
-	 * @param SkillVersionService $versionService Post-accept version id resolution.
-	 * @param ActionAuthService $actionAuth ADR-023 action authorization.
-	 * @param SeedCustodyService $seedCustody Owner-or-seed-custodian check.
+	 * @param SkillServiceInterface $skillService Tenant-scoped skill visibility reads.
+	 * @param SkillConsolidationServiceInterface $consolidation The draft pipeline owner.
+	 * @param ApprovalServiceInterface $approvalService The ONE human-decision surface.
+	 * @param SkillVersionServiceInterface $versionService Post-accept version id resolution.
+	 * @param ActionAuthServiceInterface $actionAuth ADR-023 action authorization.
+	 * @param SeedCustodyServiceInterface $seedCustody Owner-or-seed-custodian check.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 *
@@ -96,16 +96,16 @@ class SkillDraftController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly SkillService $skillService,
-		private readonly SkillConsolidationService $consolidation,
-		private readonly ApprovalService $approvalService,
-		private readonly SkillVersionService $versionService,
-		private readonly ActionAuthService $actionAuth,
-		private readonly SeedCustodyService $seedCustody,
+		private readonly SkillServiceInterface $skillService,
+		private readonly SkillConsolidationServiceInterface $consolidation,
+		private readonly ApprovalServiceInterface $approvalService,
+		private readonly SkillVersionServiceInterface $versionService,
+		private readonly ActionAuthServiceInterface $actionAuth,
+		private readonly SeedCustodyServiceInterface $seedCustody,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**

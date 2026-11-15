@@ -27,15 +27,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-chat-bridge/tasks.md#4-out-of-request-turn-execution-one-service-two-hand-offs
+ * @spec openspec/changes/archive/2026-07-30-talk-chat-bridge/tasks.md#4-out-of-request-turn-execution-one-service-two-hand-offs
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Talk;
 
-use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
+use OCA\Hermiq\Kernel\Contracts\TalkTurnServiceInterface;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -47,9 +48,9 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+ * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
  */
-class TalkTurnService {
+class TalkTurnService implements TalkTurnServiceInterface {
 	/**
 	 * Constructor.
 	 *
@@ -88,7 +89,7 @@ class TalkTurnService {
 	 *
 	 * @return bool True when an answer was posted.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
 	 */
 	public function runTurn(string $conversationUuid, string $speakerUid, string $message, string $roomToken): bool {
 		$speaker = $this->userManager->get($speakerUid);
@@ -191,7 +192,7 @@ class TalkTurnService {
 	 *
 	 * @return bool Always false — a reported failure is still a failure.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
 	 */
 	private function reportFailure(string $roomToken, string $reason): bool {
 		$this->bridge->postToRoom(
@@ -209,7 +210,7 @@ class TalkTurnService {
 	 *
 	 * @return string|null The display name, or null when unresolvable.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
 	 *
 	 * @psalm-suppress TypeDoesNotContainType OCP 35 types getDisplayName() as
 	 *   non-empty-string; Nextcloud 32-34 can still return '', so the guard stays.
@@ -243,7 +244,7 @@ class TalkTurnService {
 	 *
 	 * @return string|null The agent uuid, or null.
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
 	 */
 	private function agentForRoom(string $roomToken): ?string {
 		$conversation = $this->roomBinding->findByRoomToken(roomToken: $roomToken);

@@ -26,7 +26,7 @@ namespace OCA\Hermiq\Tests\Unit\Repair;
 
 use JsonException;
 use OCA\Hermiq\Repair\InitializeActions;
-use OCA\Hermiq\Service\ActionAuthService;
+use OCA\Hermiq\Service\ActionMatrix;
 use OCP\Migration\IOutput;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -82,7 +82,7 @@ class InitializeActionsGoldenTest extends TestCase {
 	 */
 	public function testAnExistingMatrixIsPreserved(): void {
 		foreach ([1 => 'entry', 3 => 'entries'] as $size => $word) {
-			$auth = $this->createMock(ActionAuthService::class);
+			$auth = $this->createMock(ActionMatrix::class);
 			$auth->method('getMatrix')->willReturn(array_fill(0, $size, ['allow' => ['admin']]));
 			$auth->expects($this->never())->method('setMatrix');
 
@@ -101,7 +101,7 @@ class InitializeActionsGoldenTest extends TestCase {
 	public function testAnEmptyMatrixIsSeededWithTheShippedActions(): void {
 		$expected = $this->seedActions();
 		$written = null;
-		$auth = $this->createMock(ActionAuthService::class);
+		$auth = $this->createMock(ActionMatrix::class);
 		$auth->method('getMatrix')->willReturn([]);
 		$auth->expects($this->once())->method('setMatrix')->willReturnCallback(
 			function (array $matrix) use (&$written): void {
@@ -124,7 +124,7 @@ class InitializeActionsGoldenTest extends TestCase {
 	 * @return void
 	 */
 	public function testAFailedWriteIsReported(): void {
-		$auth = $this->createMock(ActionAuthService::class);
+		$auth = $this->createMock(ActionMatrix::class);
 		$auth->method('getMatrix')->willReturn([]);
 		$auth->method('setMatrix')->willThrowException(new JsonException('depth'));
 

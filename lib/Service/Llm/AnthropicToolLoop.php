@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+ * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
  */
 
 declare(strict_types=1);
@@ -29,7 +29,7 @@ namespace OCA\Hermiq\Service\Llm;
 /**
  * One Anthropic tool loop. Built and read only inside ProviderFactory.
  *
- * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+ * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
  */
 final class AnthropicToolLoop {
 
@@ -88,6 +88,13 @@ final class AnthropicToolLoop {
 	 * @var string
 	 */
 	public string $text = '';
+
+	/**
+	 * The prompt-cache breakpoints every round's request carries, or null when the admin switched caching off.
+	 *
+	 * @var AnthropicCacheBreakpoints|null
+	 */
+	public ?AnthropicCacheBreakpoints $breakpoints = null;
 
 	/**
 	 * Constructor.

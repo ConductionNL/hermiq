@@ -26,7 +26,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\Service\GitHubTemplateCatalogService;
+use OCA\Hermiq\Kernel\Contracts\GitHubTemplateCatalogServiceInterface;
 
 /**
  * Owner, repo and ref of a skill repository, with the caller and the credential.
@@ -119,7 +119,7 @@ final class GitHubSkillTarget {
 	 */
 	public function fetchArguments(): array {
 		return [
-			'kind' => GitHubTemplateCatalogService::KIND_SKILL,
+			'kind' => GitHubTemplateCatalogServiceInterface::KIND_SKILL,
 			'owner' => $this->owner,
 			'repo' => $this->repo,
 			'ref' => $this->ref,

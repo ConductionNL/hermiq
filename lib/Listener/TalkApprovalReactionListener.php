@@ -12,7 +12,7 @@
  * if any bystander's 👍 released a gated run this listener would make Hermiq's
  * oversight mechanism weaker than not having it at all. The reactor is
  * therefore checked against the approval's resolved reviewer — using the SAME
- * `ApprovalService::isReviewer()` the inbox uses, never a second opinion — and
+ * `ApprovalInbox::isReviewer()` the inbox uses, never a second opinion — and
  * a reaction from anyone else is ignored.
  *
  * Unlike the chat bridge's turn, the decision runs INLINE: applying an approval
@@ -31,15 +31,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-approval-reactions/tasks.md#2-reaction-listener
+ * @spec openspec/changes/archive/2026-07-30-talk-approval-reactions/tasks.md#2-reaction-listener
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Listener;
 
-use OCA\Hermiq\Service\ApprovalService;
-use OCA\Hermiq\Service\Talk\TalkApprovalBinding;
+use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkApprovalBindingInterface;
+use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\Talk\TalkBridge;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\EventDispatcher\Event;
@@ -54,7 +55,7 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-reviewers-reaction-decides-the-approval
+ * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-a-reviewers-reaction-decides-the-approval
  */
 class TalkApprovalReactionListener implements IEventListener {
 
@@ -76,15 +77,17 @@ class TalkApprovalReactionListener implements IEventListener {
 	 * Constructor.
 	 *
 	 * @param TalkBridge $bridge Talk availability and room posting.
-	 * @param TalkApprovalBinding $approvalBinding Resolves an approval from a message id.
-	 * @param ApprovalService $approvalService Applies the decision — the same path the inbox uses.
+	 * @param TalkApprovalBindingInterface $approvalBinding Resolves an approval from a message id.
+	 * @param ApprovalServiceInterface $approvalService Applies the decision — the same path the inbox uses.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param ApprovalInbox $approvalInbox The reviewer guard — the same check the inbox uses.
 	 */
 	public function __construct(
 		private readonly TalkBridge $bridge,
-		private readonly TalkApprovalBinding $approvalBinding,
-		private readonly ApprovalService $approvalService,
+		private readonly TalkApprovalBindingInterface $approvalBinding,
+		private readonly ApprovalServiceInterface $approvalService,
 		private readonly LoggerInterface $logger,
+		private readonly ApprovalInbox $approvalInbox,
 	) {
 	}//end __construct()
 
@@ -99,7 +102,7 @@ class TalkApprovalReactionListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-reviewers-reaction-decides-the-approval
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-a-reviewers-reaction-decides-the-approval
 	 */
 	public function handle(Event $event): void {
 		try {
@@ -120,7 +123,7 @@ class TalkApprovalReactionListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-only-the-reviewer-may-decide-by-reaction
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-only-the-reviewer-may-decide-by-reaction
 	 */
 	private function handleReaction(Event $event): void {
 		$payload = $this->readPayload(event: $event);
@@ -155,10 +158,10 @@ class TalkApprovalReactionListener implements IEventListener {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-only-the-reviewer-may-decide-by-reaction
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-only-the-reviewer-may-decide-by-reaction
 	 */
 	private function fromReviewer(ObjectEntity $approval, string $reactor): bool {
-		if ($this->approvalService->isReviewer($approval, $reactor) === true) {
+		if ($this->approvalInbox->isReviewer($approval, $reactor) === true) {
 			return true;
 		}
 
@@ -187,7 +190,7 @@ class TalkApprovalReactionListener implements IEventListener {
 	 * @return array{messageId: string, reactor: string, emoji: string, undo: bool}|null
 	 *                                                                                   The decision inputs, or null.
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-reviewers-reaction-decides-the-approval
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-a-reviewers-reaction-decides-the-approval
 	 */
 	private function readDecision(array $payload): ?array {
 		$undo = ((string)($payload['type'] ?? '') === 'Undo');
@@ -238,7 +241,7 @@ class TalkApprovalReactionListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-decision-is-confirmed-in-the-room-and-is-not-reversible-by-un-reacting
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-a-decision-is-confirmed-in-the-room-and-is-not-reversible-by-un-reacting
 	 */
 	private function decide(ObjectEntity $approval, array $decision): void {
 		$data = $approval->getObject();
@@ -272,7 +275,7 @@ class TalkApprovalReactionListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-decision-is-confirmed-in-the-room-and-is-not-reversible-by-un-reacting
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-a-decision-is-confirmed-in-the-room-and-is-not-reversible-by-un-reacting
 	 */
 	private function applyDecision(ObjectEntity $approval, array $decision): void {
 		$data = $approval->getObject();
@@ -299,7 +302,7 @@ class TalkApprovalReactionListener implements IEventListener {
 	 *
 	 * @return string|null
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-decision-is-confirmed-in-the-room-and-is-not-reversible-by-un-reacting
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-a-decision-is-confirmed-in-the-room-and-is-not-reversible-by-un-reacting
 	 */
 	private function confirmingAgent(array $data): ?string {
 		$agentId = (string)($data['agentId'] ?? '');
@@ -319,7 +322,7 @@ class TalkApprovalReactionListener implements IEventListener {
 	 *
 	 * @return string The confirmation to post.
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-decision-is-confirmed-in-the-room-and-is-not-reversible-by-un-reacting
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-a-decision-is-confirmed-in-the-room-and-is-not-reversible-by-un-reacting
 	 */
 	private function recordDecision(ObjectEntity $approval, array $decision): string {
 		$uuid = (string)$approval->getUuid();
@@ -345,7 +348,7 @@ class TalkApprovalReactionListener implements IEventListener {
 	 *
 	 * @return array|null The reaction payload, or null.
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-the-reaction-path-is-inert-without-talk
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-the-reaction-path-is-inert-without-talk
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) See TalkBotInvokeListener::readPayload():
 	 * the URL predicate is static so the real rule stays in the path under test.
@@ -391,7 +394,7 @@ class TalkApprovalReactionListener implements IEventListener {
 	 *
 	 * @return string The bare uid.
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-only-the-reviewer-may-decide-by-reaction
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-only-the-reviewer-may-decide-by-reaction
 	 */
 	private function bareUid(string $actorId): string {
 		if (str_starts_with($actorId, 'users/') === true) {

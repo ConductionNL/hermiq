@@ -23,7 +23,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\Hermiq\Service\ActionAuthService;
+use OCA\Hermiq\Kernel\Contracts\ActionMatrixInterface;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
 use Psr\Log\LoggerInterface;
@@ -39,11 +39,11 @@ class InitializeActions implements IRepairStep {
 	/**
 	 * Constructor.
 	 *
-	 * @param ActionAuthService $actionAuth The action authorization service.
+	 * @param ActionMatrixInterface $actionMatrix The stored action matrix.
 	 * @param LoggerInterface $logger Logger.
 	 */
 	public function __construct(
-		private ActionAuthService $actionAuth,
+		private ActionMatrixInterface $actionMatrix,
 		private LoggerInterface $logger,
 	) {
 	}//end __construct()
@@ -69,7 +69,7 @@ class InitializeActions implements IRepairStep {
 	 * @spec openspec/architecture/adr-023-action-authorization.md
 	 */
 	public function run(IOutput $output): void {
-		$existing = $this->actionAuth->getMatrix();
+		$existing = $this->actionMatrix->getMatrix();
 		if (count($existing) > 0) {
 			$output->info($this->preservedMessage(count: count($existing)));
 			return;
@@ -97,7 +97,7 @@ class InitializeActions implements IRepairStep {
 	 */
 	private function writeMatrix(array $actions, IOutput $output): bool {
 		try {
-			$this->actionAuth->setMatrix($actions);
+			$this->actionMatrix->setMatrix($actions);
 		} catch (\JsonException $e) {
 			$output->warning('Failed to write matrix: ' . $e->getMessage());
 			return false;

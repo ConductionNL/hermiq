@@ -31,15 +31,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
- * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-paid-search-api-credentials-come-from-the-credential-broker
- * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-the-admin-configured-search-endpoint-is-exempt-from-the-private-address-block
+ * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
+ * @spec openspec/specs/web-research-tool/spec.md#requirement-paid-search-api-credentials-come-from-the-credential-broker
+ * @spec openspec/specs/web-research-tool/spec.md#requirement-the-admin-configured-search-endpoint-is-exempt-from-the-private-address-block
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\WebResearch;
 
+use OCA\Hermiq\Kernel\Contracts\WebSearchClientInterface;
 use OCP\Http\Client\IClientService;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -50,9 +51,9 @@ use Throwable;
  * `hermiq.webSearch`'s implementation: guarded call to the configured search backend,
  * parsed via the provider's native shape or an admin-supplied field mapping.
  *
- * @spec openspec/changes/web-research-tool/tasks.md#task-4-websearchclient-searxng--generic-json
+ * @spec openspec/changes/archive/2026-07-14-web-research-tool/tasks.md#task-4-websearchclient-searxng--generic-json
  */
-class WebSearchClient {
+class WebSearchClient implements WebSearchClientInterface {
 
 	/**
 	 * OpenRegister's credential broker. Resolved lazily so Hermiq still boots without
@@ -127,7 +128,7 @@ class WebSearchClient {
 	 *
 	 * @return array<string, mixed> `{query, results}` on success, or `{error: {code, message}}`.
 	 *
-	 * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#scenario-an-admin-configures-a-self-hosted-searxng-instance
+	 * @spec openspec/specs/web-research-tool/spec.md#scenario-an-admin-configures-a-self-hosted-searxng-instance
 	 */
 	public function search(string $query, ?string $actingUserId = null): array {
 		$run = new WebSearchRun(query: $query, config: $this->settingsHandler->getWebResearchSettingsOnly());

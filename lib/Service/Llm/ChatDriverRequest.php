@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
  */
 
 declare(strict_types=1);
@@ -31,7 +31,7 @@ namespace OCA\Hermiq\Service\Llm;
 /**
  * One chat-driver resolution. Built and read only inside ProviderFactory.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
  */
 final class ChatDriverRequest {
 

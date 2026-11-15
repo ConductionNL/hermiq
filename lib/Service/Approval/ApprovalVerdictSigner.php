@@ -49,7 +49,16 @@ class ApprovalVerdictSigner
      *
      * @var string
      */
-    public const SECRET_KEY = 'approval_verdict_secret_key';
+    public const SIGNING_CONFIG_NAME = 'approval_verdict_secret_key';
+
+    /**
+     * The former name of SIGNING_CONFIG_NAME.
+     *
+     * @var string
+     *
+     * @deprecated Use SIGNING_CONFIG_NAME.
+     */
+    public const SECRET_KEY = self::SIGNING_CONFIG_NAME;
 
     /**
      * Constructor.
@@ -116,7 +125,7 @@ class ApprovalVerdictSigner
      */
     private function storedSecret(): ?string
     {
-        $secret = base64_decode($this->appConfig->getValueString('hermiq', self::SECRET_KEY, ''), true);
+        $secret = base64_decode($this->appConfig->getValueString('hermiq', self::SIGNING_CONFIG_NAME, ''), true);
         $public = base64_decode($this->appConfig->getValueString('hermiq', self::PUBLIC_KEY, ''), true);
         if ($this->isPair(secret: $secret, public: $public) === true) {
             return $secret;
@@ -161,7 +170,7 @@ class ApprovalVerdictSigner
     {
         $pair   = sodium_crypto_sign_keypair();
         $secret = sodium_crypto_sign_secretkey($pair);
-        $this->appConfig->setValueString('hermiq', self::SECRET_KEY, base64_encode($secret), lazy: true, sensitive: true);
+        $this->appConfig->setValueString('hermiq', self::SIGNING_CONFIG_NAME, base64_encode($secret), lazy: true, sensitive: true);
         $public = base64_encode(sodium_crypto_sign_publickey($pair));
         $this->appConfig->setValueString('hermiq', self::PUBLIC_KEY, $public, lazy: false, sensitive: false);
 

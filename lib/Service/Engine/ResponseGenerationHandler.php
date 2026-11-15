@@ -35,8 +35,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
- * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
  */
 
 declare(strict_types=1);
@@ -79,7 +79,7 @@ use Psr\Log\LoggerInterface;
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
  */
 class ResponseGenerationHandler {
 
@@ -126,7 +126,7 @@ class ResponseGenerationHandler {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function __construct(
 		private readonly ProviderFactory $providerFactory,
@@ -196,15 +196,16 @@ class ResponseGenerationHandler {
 	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag)    Dry-run preview (run-replay-and-dry-run)
 	 * is a cross-cutting mode threaded through the engine as a flag by design.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
-	 * @spec openspec/changes/agent-context-system/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-context-system/tasks.md#task-3-2
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
-	 * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
+	 * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
 	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
 	 */
 	public function generateResponse(
 		string $userMessage,
@@ -222,6 +223,15 @@ class ResponseGenerationHandler {
 		array $attachments = [],
 		string $speaker = '',
 	): string {
+		// Chat-about-a-document: a scoped turn with nothing in scope is answered
+		// with that fact, and the model is never asked to answer from general knowledge.
+		$noMatch = self::scopedNoMatchReply(context: $context);
+		if ($noMatch !== null) {
+			$this->attachmentNotices = [];
+			$this->lastUsage = [];
+			return $noMatch;
+		}
+
 		$run = $this->startTurn(run: new ResponseTurnRun(userMessage: $userMessage, context: $context), agent: $agent);
 		$run->selectedTools = $selectedTools;
 		$run->messageHistory = $messageHistory;
@@ -237,6 +247,24 @@ class ResponseGenerationHandler {
 
 		return $this->runTurn(run: $run);
 	}//end generateResponse()
+
+	/**
+	 * The reply of a scoped turn with nothing in scope, or null for any other turn.
+	 *
+	 * @param array<string, mixed> $context The turn's context.
+	 *
+	 * @return string|null The no-match sentence.
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
+	 */
+	private static function scopedNoMatchReply(array $context): ?string {
+		$reply = (string)($context['noMatch'] ?? '');
+		if (($context['scoped'] ?? false) === true && ($context['sources'] ?? []) === [] && $reply !== '') {
+			return $reply;
+		}
+
+		return null;
+	}//end scopedNoMatchReply()
 
 	/**
 	 * Start a turn: its clock, a clean set of attachment notices, and the agent.
@@ -575,7 +603,7 @@ class ResponseGenerationHandler {
 	 * path uses (ToolLoop::buildFunctionInfos — one shared FacadeToolInvoker,
 	 * agent/guardrails/approval/redaction/trace/dry-run all applied) via
 	 * FunctionInfo::callWithArguments(). The tool name Claude receives
-	 * (ProviderFactory::buildAnthropicTools) and the FunctionInfo name both
+	 * (AnthropicMessageFormat::buildAnthropicTools) and the FunctionInfo name both
 	 * derive from `$functions['name']`, so they match. Null when there are no
 	 * tools → callAnthropicChat runs text-only (the fail-safe: never advertise a
 	 * tool Hermiq cannot run).

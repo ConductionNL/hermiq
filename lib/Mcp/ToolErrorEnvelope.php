@@ -53,7 +53,7 @@ final class ToolErrorEnvelope {
 	 *
 	 * @return array<string, mixed> The error envelope.
 	 *
-	 * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
 	 */
 	public function noAgentContext(): array {
 		return $this->build(

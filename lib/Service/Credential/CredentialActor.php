@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+ * @spec openspec/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
  */
 
 declare(strict_types=1);
@@ -30,7 +30,7 @@ namespace OCA\Hermiq\Service\Credential;
 /**
  * The acting user and organisation of one credential resolution.
  *
- * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+ * @spec openspec/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
  */
 final class CredentialActor {
 
@@ -51,7 +51,7 @@ final class CredentialActor {
 	 *
 	 * @return bool True for a non-empty uid.
 	 *
-	 * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
 	 */
 	public function hasUser(): bool {
 		return ($this->userId ?? '') !== '';
@@ -62,7 +62,7 @@ final class CredentialActor {
 	 *
 	 * @return bool True for a non-empty organisation.
 	 *
-	 * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
 	 */
 	public function hasOrganisation(): bool {
 		return ($this->organisation ?? '') !== '';

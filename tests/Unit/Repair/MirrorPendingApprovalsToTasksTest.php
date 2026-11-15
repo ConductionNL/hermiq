@@ -37,6 +37,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Tests the in-flight approval mirror pass.
@@ -121,6 +122,7 @@ class MirrorPendingApprovalsToTasksTest extends TestCase {
 		$saved = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (array $object, ...$rest) use (&$saved): ObjectEntity {
+				$rest = array_slice(LegacyObjectArgs::positional(method: 'saveObject', args: [$object, ...$rest]), 1);
 				unset($rest);
 				$saved[] = $object;
 				return new ObjectEntity();
@@ -171,4 +173,33 @@ class MirrorPendingApprovalsToTasksTest extends TestCase {
 		$this->addToAssertionCount(1);
 
 	}//end testUnreadableRegisterSkips()
+
+	/**
+	 * Non-entities and decided approvals are not mirrored; a backlink that
+	 * cannot be written is logged and named, and the summary counts it.
+	 *
+	 * @return void
+	 */
+	public function testDecidedApprovalsAreSkippedAndAFailedBacklinkIsNamed(): void {
+		$this->objectService->method('findAll')->willReturn(
+			[
+				'junk',
+				$this->approval('appr-done', ['status' => 'approved']),
+				$this->approval('appr-1', ['status' => 'pending']),
+			]
+		);
+		$this->taskBridge->expects($this->once())->method('ensureTaskFor')->willReturn('task-1');
+		$this->objectService->expects($this->once())->method('saveObject')->willThrowException(new RuntimeException('locked'));
+
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects($this->once())->method('warning')
+			->with('MirrorPendingApprovalsToTasks could not write taskUuid onto approval appr-1: locked', $this->arrayHasKey('exception'));
+
+		$output = $this->createMock(IOutput::class);
+		$output->expects($this->once())->method('info')->with('Hermiq approval mirroring: 0 mirrored, 0 already mirrored, 1 failed.');
+		$output->expects($this->once())->method('warning')->with('Unmirrored approvals: appr-1');
+
+		(new MirrorPendingApprovalsToTasks($this->objectService, $this->taskBridge, $logger))->run($output);
+
+	}//end testDecidedApprovalsAreSkippedAndAFailedBacklinkIsNamed()
 }//end class

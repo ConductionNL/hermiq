@@ -31,7 +31,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
+ * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-5
  */
 
 declare(strict_types=1);
@@ -46,7 +46,7 @@ use Throwable;
 /**
  * Cross-app learner-signal reads, each degrading independently.
  *
- * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md
+ * @spec openspec/specs/course-recommendations/spec.md
  */
 class LearnerSignalReader {
 
@@ -141,7 +141,7 @@ class LearnerSignalReader {
 	 *     signalsUsed: array<string, mixed>
 	 * }
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-5
 	 */
 	public function collect(string $learnerUid, string $registerSlug): array {
 		$scope = new LearnerSignalScope(learnerUid: $learnerUid, register: $registerSlug);
@@ -161,7 +161,7 @@ class LearnerSignalReader {
 	 *
 	 * @return array<string, mixed>
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-5
 	 */
 	private function summarise(array $signals): array {
 		$competencyRows = ($signals['competency'] ?? []);
@@ -186,7 +186,7 @@ class LearnerSignalReader {
 	 *
 	 * @return array<string, int|bool>
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-5
 	 */
 	private function signalsUsed(array $collected, bool $competencyAvailable): array {
 		return [
@@ -206,7 +206,7 @@ class LearnerSignalReader {
 	 *
 	 * @return array<int, array<string, mixed>>
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-5
 	 */
 	private function openGoals(array $plans): array {
 		$goals = [];
@@ -228,7 +228,7 @@ class LearnerSignalReader {
 	 *
 	 * @return array<int, string>
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-5
 	 */
 	private function competencyGapIds(array $rows): array {
 		$gapIds = [];
@@ -249,7 +249,7 @@ class LearnerSignalReader {
 	 *
 	 * @return int
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-5
 	 */
 	private function completedCount(array $enrolments): int {
 		$completed = 0;
@@ -278,7 +278,7 @@ class LearnerSignalReader {
 	 * @return array<int, array<string, mixed>>|null The object payloads (each carries
 	 *                                               `_uuid`), or null on failure.
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-5
 	 */
 	private function readSignal(LearnerSignalScope $scope, string $signal): ?array {
 		[$schema, $learnerField, $limit] = self::SIGNAL_READS[$signal];

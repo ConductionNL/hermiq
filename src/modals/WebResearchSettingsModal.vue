@@ -253,7 +253,7 @@ export default {
 		 *
 		 * @return {Promise<void>}
 		 *
-		 * @spec openspec/changes/web-research-tool/tasks.md#task-8-admin-settings-ui-for-the-web-research-backend
+		 * @spec openspec/changes/archive/2026-07-14-web-research-tool/tasks.md#task-8-admin-settings-ui-for-the-web-research-backend
 		 */
 		async load() {
 			this.loading = true
@@ -332,7 +332,7 @@ export default {
 		 *
 		 * @return {Promise<void>}
 		 *
-		 * @spec openspec/changes/web-research-tool/tasks.md#task-8-admin-settings-ui-for-the-web-research-backend
+		 * @spec openspec/changes/archive/2026-07-14-web-research-tool/tasks.md#task-8-admin-settings-ui-for-the-web-research-backend
 		 */
 		async save() {
 			this.saving = true

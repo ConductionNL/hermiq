@@ -36,6 +36,7 @@ use RuntimeException;
  * Requests raised before requests became system-owned are handed to the system.
  *
  * @covers \OCA\Hermiq\Repair\AssignToolAccessRequestsToSystem
+ * @uses \OCA\Hermiq\Repair\RequestOwnerRun
  *
  * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
  */

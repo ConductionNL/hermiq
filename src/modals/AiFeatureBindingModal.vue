@@ -88,6 +88,7 @@ import {
 } from '@nextcloud/vue'
 import { bindAiFeature } from '../api/aiFeatures.js'
 import { getEffectiveModelPolicy } from '../api/modelPolicy.js'
+import { BUSY_FIELDS, busyAction } from '../utils/busyAction.js'
 import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
@@ -268,20 +269,14 @@ export default {
 		 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
 		 */
 		async save() {
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				await bindAiFeature(this.featureId, {
 					provider: this.useDefault ? '' : this.providerOption.value,
 					model: this.useDefault ? '' : this.chosenModel,
 					requiredResidency: this.residencyOption?.value || '',
 				})
 				this.$emit('saved')
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 	},
 }

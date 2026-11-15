@@ -31,9 +31,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller\Settings;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\Connection\ConnectionReporter;
-use OCA\Hermiq\Service\WebResearch\WebResearchSettingsHandler;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ConnectionReporterInterface;
+use OCA\Hermiq\Kernel\Contracts\WebResearchSettingsHandlerInterface;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -53,20 +53,20 @@ class WebResearchSettingsController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request.
-	 * @param WebResearchSettingsHandler $settingsHandler Reads/writes `hermiq.webResearch`.
+	 * @param WebResearchSettingsHandlerInterface $settingsHandler Reads/writes `hermiq.webResearch`.
 	 * @param LoggerInterface $logger Logger.
-	 * @param ConnectionReporter|null $connectionReporter Reports the saved search backend to integriq's
+	 * @param ConnectionReporterInterface|null $connectionReporter Reports the saved search backend to integriq's
 	 *                                                   connection registry; null when built by hand in a test.
 	 *
 	 * @return void
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly WebResearchSettingsHandler $settingsHandler,
+		private readonly WebResearchSettingsHandlerInterface $settingsHandler,
 		private readonly LoggerInterface $logger,
-		private readonly ?ConnectionReporter $connectionReporter = null,
+		private readonly ?ConnectionReporterInterface $connectionReporter = null,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 
@@ -163,7 +163,7 @@ class WebResearchSettingsController extends Controller {
 	private function providerRefusal(array $data): ?JSONResponse {
 		$provider = $data['searchProvider'] ?? null;
 		if ($provider === null
-			|| in_array($provider, WebResearchSettingsHandler::ALLOWED_SEARCH_PROVIDERS, true) === true
+			|| in_array($provider, WebResearchSettingsHandlerInterface::ALLOWED_SEARCH_PROVIDERS, true) === true
 		) {
 			return null;
 		}
@@ -171,7 +171,7 @@ class WebResearchSettingsController extends Controller {
 		return new JSONResponse(
 			[
 				'error' => 'Unsupported search provider',
-				'allowed' => WebResearchSettingsHandler::ALLOWED_SEARCH_PROVIDERS,
+				'allowed' => WebResearchSettingsHandlerInterface::ALLOWED_SEARCH_PROVIDERS,
 			],
 			Http::STATUS_UNPROCESSABLE_ENTITY
 		);

@@ -12,7 +12,7 @@
   template" button. Emits `imported` on success (parent refreshes the list) and `close`
   to dismiss. Mirrors SkillImportModal.vue's shape exactly.
 
-  @spec openspec/changes/agent-template-gallery/tasks.md#task-8-templateimportmodalvue-agentcatalogvue-entry-point
+  @spec openspec/changes/archive/2026-07-13-agent-template-gallery/tasks.md#task-8-templateimportmodalvue-agentcatalogvue-entry-point
 -->
 <template>
 	<NcModal size="normal" :noClose="busy" @close="$emit('close')">
@@ -187,7 +187,7 @@ export default {
 		 *
 		 * @param {string} source The import source ('local' | 'org').
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-template-gallery/tasks.md#task-8-templateimportmodalvue-agentcatalogvue-entry-point
+		 * @spec openspec/changes/archive/2026-07-13-agent-template-gallery/tasks.md#task-8-templateimportmodalvue-agentcatalogvue-entry-point
 		 */
 		async run(source) {
 			const pkg = this.importText.trim()

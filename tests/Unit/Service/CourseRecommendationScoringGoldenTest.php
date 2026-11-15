@@ -26,7 +26,7 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\LearnerSignalReader;
 use OCA\Hermiq\Service\LearnerSignalRegister;
@@ -131,7 +131,7 @@ class CourseRecommendationScoringGoldenTest extends TestCase {
 			$this->createMock(ObjectService::class),
 			$this->createMock(LearnerSignalRegister::class),
 			$this->createMock(LearnerSignalReader::class),
-			$this->createMock(AiFeatureService::class),
+			$this->createMock(AiFeatureLookup::class),
 			$this->createMock(ScheduleService::class),
 			$this->createMock(ProviderFactory::class),
 			$this->createMock(OrganisationMapper::class),

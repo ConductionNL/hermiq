@@ -27,6 +27,7 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 use InvalidArgumentException;
 use OCA\Hermiq\Controller\GuardrailPolicyController;
 use OCA\Hermiq\Controller\OrganisationModelPolicyController;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -57,6 +58,13 @@ class OrganisationPolicyControllersGoldenTest extends TestCase {
 	 * @var (GuardrailPolicyService&MockObject)|(OrganisationModelPolicyService&MockObject)
 	 */
 	private MockObject $service;
+
+	/**
+	 * The double the controller reads the effective policy from.
+	 *
+	 * @var MockObject
+	 */
+	private MockObject $reads;
 
 	/**
 	 * Every logger call, as `<level>: <message>`.
@@ -126,11 +134,13 @@ class OrganisationPolicyControllersGoldenTest extends TestCase {
 
 		if ($kind === 'guardrail') {
 			$this->service = $this->createMock(GuardrailPolicyService::class);
+			$this->reads = $this->service;
 			return new GuardrailPolicyController($request, $this->service, $session, $groups, $mapper, $logger);
 		}
 
 		$this->service = $this->createMock(OrganisationModelPolicyService::class);
-		return new OrganisationModelPolicyController($request, $this->service, $session, $groups, $mapper, $logger);
+		$this->reads = $this->createMock(EffectiveModelPolicy::class);
+		return new OrganisationModelPolicyController($request, $this->service, $this->reads, $session, $groups, $mapper, $logger);
 	}//end controller()
 
 	/**
@@ -196,7 +206,7 @@ class OrganisationPolicyControllersGoldenTest extends TestCase {
 		foreach (['guardrail', 'model'] as $kind) {
 			foreach (['effective', 'index', 'create', 'update'] as $action) {
 				$controller = $this->controller($kind, ['user' => null]);
-				$this->service->expects($this->never())->method('effectivePolicyFor');
+				$this->reads->expects($this->never())->method('effectivePolicyFor');
 				$response = $action === 'update' ? $controller->update('p-1') : $controller->{$action}();
 				$this->answer($response, Http::STATUS_UNAUTHORIZED, ['error' => 'Unauthenticated'], $kind . ' ' . $action);
 			}
@@ -219,7 +229,7 @@ class OrganisationPolicyControllersGoldenTest extends TestCase {
 		foreach ($expected as $uid => $organisations) {
 			$controller = $this->controller('guardrail', ['user' => $uid]);
 			$this->service->method('listAll')->willReturn($stored);
-			$this->service->method('effectivePolicyFor')->willReturnCallback(static fn (string $org): array => ['for' => $org]);
+			$this->reads->method('effectivePolicyFor')->willReturnCallback(static fn (string $org): array => ['for' => $org]);
 			$this->answer(
 				$controller->index(),
 				Http::STATUS_OK,
@@ -229,7 +239,7 @@ class OrganisationPolicyControllersGoldenTest extends TestCase {
 
 			$controller = $this->controller('model', ['user' => $uid]);
 			$this->service->method('listAll')->willReturn($stored);
-			$this->service->method('effectivePolicyFor')->willReturnCallback(static fn (string $org): array => ['for' => $org]);
+			$this->reads->method('effectivePolicyFor')->willReturnCallback(static fn (string $org): array => ['for' => $org]);
 			$ids = ['' => 'p-default', 'org-a' => 'p-a', 'org-b' => 'p-b', 'org-x' => 'p-x'];
 			$this->answer(
 				$controller->index(),
@@ -360,7 +370,7 @@ class OrganisationPolicyControllersGoldenTest extends TestCase {
 			$controller = $this->controller('guardrail', ['user' => $uid, 'params' => $params, 'active' => $active]);
 			$name = $uid . ' ' . json_encode($params) . ' ' . $active;
 			if ($read === 'REFUSED') {
-				$this->service->expects($this->never())->method('effectivePolicyFor');
+				$this->reads->expects($this->never())->method('effectivePolicyFor');
 				$this->answer(
 					$controller->effective(),
 					Http::STATUS_FORBIDDEN,
@@ -370,17 +380,17 @@ class OrganisationPolicyControllersGoldenTest extends TestCase {
 				continue;
 			}
 
-			$this->service->expects($this->once())->method('effectivePolicyFor')->with($read)->willReturn(['for' => $read]);
+			$this->reads->expects($this->once())->method('effectivePolicyFor')->with($read)->willReturn(['for' => $read]);
 			$this->answer($controller->effective(), Http::STATUS_OK, ['for' => $read], $name);
 		}
 
 		$controller = $this->controller('guardrail', ['user' => 'eve', 'active' => new RuntimeException('no org app')]);
-		$this->service->expects($this->once())->method('effectivePolicyFor')->with('')->willReturn([]);
+		$this->reads->expects($this->once())->method('effectivePolicyFor')->with('')->willReturn([]);
 		$this->answer($controller->effective(), Http::STATUS_OK, [], 'active org fails');
 		$this->assertSame(['warning: Hermiq could not resolve active organisation: no org app'], $this->logged);
 
 		$controller = $this->controller('guardrail', ['user' => 'admin']);
-		$this->service->method('effectivePolicyFor')->willThrowException(new RuntimeException('db down'));
+		$this->reads->method('effectivePolicyFor')->willThrowException(new RuntimeException('db down'));
 		$this->answer($controller->effective(), Http::STATUS_INTERNAL_SERVER_ERROR, ['error' => 'Could not load the effective guardrail policy'], 'fails');
 		$this->assertSame(['error: Hermiq guardrail-policy effective read failed: db down'], $this->logged);
 	}//end testGuardrailEffectiveAccess()
@@ -393,17 +403,17 @@ class OrganisationPolicyControllersGoldenTest extends TestCase {
 	public function testModelEffective(): void {
 		foreach (['org-a', 'org-x', ''] as $active) {
 			$controller = $this->controller('model', ['user' => 'eve', 'params' => ['organisation' => 'org-b'], 'active' => $active]);
-			$this->service->expects($this->once())->method('effectivePolicyFor')->with($active)->willReturn(['for' => $active]);
+			$this->reads->expects($this->once())->method('effectivePolicyFor')->with($active)->willReturn(['for' => $active]);
 			$this->answer($controller->effective(), Http::STATUS_OK, ['for' => $active], $active);
 		}
 
 		$controller = $this->controller('model', ['user' => 'eve', 'active' => new RuntimeException('no org app')]);
-		$this->service->expects($this->once())->method('effectivePolicyFor')->with('')->willReturn([]);
+		$this->reads->expects($this->once())->method('effectivePolicyFor')->with('')->willReturn([]);
 		$this->answer($controller->effective(), Http::STATUS_OK, [], 'active org fails');
 		$this->assertSame(['warning: Hermiq could not resolve active organisation: no org app'], $this->logged);
 
 		$controller = $this->controller('model', ['user' => 'eve']);
-		$this->service->method('effectivePolicyFor')->willThrowException(new RuntimeException('db down'));
+		$this->reads->method('effectivePolicyFor')->willThrowException(new RuntimeException('db down'));
 		$this->answer($controller->effective(), Http::STATUS_INTERNAL_SERVER_ERROR, ['error' => 'Could not load the effective model policy'], 'fails');
 		$this->assertSame(['error: Hermiq model-policy effective read failed: db down'], $this->logged);
 	}//end testModelEffective()

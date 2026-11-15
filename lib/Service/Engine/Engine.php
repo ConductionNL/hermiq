@@ -50,8 +50,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
- * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#1-port-the-chat-engine
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#1-port-the-chat-engine
  */
 
 declare(strict_types=1);
@@ -60,6 +60,7 @@ namespace OCA\Hermiq\Service\Engine;
 
 use Exception;
 use OCA\Hermiq\BackgroundJob\ConversationTitleJob;
+use OCA\Hermiq\Kernel\Contracts\EngineInterface;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Service\AiFeature\RedactionRequiredException;
 use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
@@ -67,7 +68,9 @@ use OCA\Hermiq\Service\Chat\ImageGenerationService;
 use OCA\Hermiq\Service\Chat\TurnAttachmentResolver;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
+use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\BackgroundJob\IJobList;
 use OCP\IUserManager;
@@ -92,14 +95,14 @@ use Throwable;
  * @category Service
  * @package  OCA\Hermiq\Service\Engine
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#1-port-the-chat-engine
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Facade orchestrates the handler set by design.
  * @SuppressWarnings(PHPMD.LongVariable)           `$guardrailPolicyService` is a promoted
  *   constructor collaborator named after its class (GuardrailPolicyService) —
  *   shortening it would obscure which service is injected.
  */
-class Engine {
+class Engine implements EngineInterface {
 	use SanitizesForSaveTrait;
 
 	/**
@@ -172,11 +175,12 @@ class Engine {
 	 *                                                        refuses any turn that carries one.
 	 * @param ImageGenerationService|null $images Hands over the images the agent created in the
 	 *                                            turn, for the answer (chat-attachments-and-images D8).
+	 * @param TraceExportQueue|null $traceExportQueue Hands the finished run to trace export (observability-export-traces).
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
-	 * @spec openspec/changes/agent-context-system/tasks.md#3-engine-wiring
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#1-port-the-chat-engine
+	 * @spec openspec/changes/archive/2026-09-06-agent-context-system/tasks.md#3-engine-wiring
 	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-3-wire-input-output-filters-into-engine-processmessage
 	 * @spec openspec/specs/agent-engine-port/spec.md
 	 *
@@ -198,6 +202,7 @@ class Engine {
 		private readonly ?PromptVariableResolver $promptVariables = null,
 		private readonly ?TurnAttachmentResolver $attachmentResolver = null,
 		private readonly ?ImageGenerationService $images = null,
+		private readonly ?TraceExportQueue $traceExportQueue = null,
 	) {
 	}//end __construct()
 
@@ -277,8 +282,8 @@ class Engine {
 	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag)    Dry-run preview (run-replay-and-dry-run)
 	 *   is a cross-cutting mode threaded through the engine as a flag by design.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
-	 * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#1-port-the-chat-engine
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#1-port-the-chat-engine
 	 * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-2-thread-the-collector-through-engine-toolloop-facadetoolinvoker
 	 * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
 	 * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
@@ -320,6 +325,7 @@ class Engine {
 					'authorId' => $authorId,
 					'authorDisplayName' => $authorDisplayName,
 					'attachments' => $attachments,
+					'ragSettings' => $ragSettings,
 				]
 			);
 			$turn += [
@@ -363,9 +369,11 @@ class Engine {
 				'answerAttachments' => ($this->images?->takeCreated() ?? []),
 				'sources' => $ragContext['sources'],
 			];
+			// Chat-how-an-answer-came-about D1: identities and outcomes, never content.
+			$turn['provenance'] = (new AnswerProvenance())->build(trace: $trace, sources: $turn['sources']);
 			$turn['assistantStored'] = $this->storeAnswer(turn: $turn);
 
-			return $this->turnEnvelope(turn: $turn, timings: $timings);
+			return $this->exportTurn(turn: $turn, envelope: $this->turnEnvelope(turn: $turn, timings: $timings), timings: $timings);
 		} catch (Exception $e) {
 			$this->logger->error(
 				message: '[Engine] Message processing failed',
@@ -396,14 +404,13 @@ class Engine {
 	 *
 	 * @throws Exception When the conversation is missing or the caller may not take a turn.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
 	 */
 	private function admitTurn(array $request): array {
 		$turn = $request;
 		$turn['conversation'] = $this->objectService->find(
 			id: $request['conversationId'],
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 		);
 		if ($turn['conversation'] === null) {
 			throw new Exception('Conversation not found: ' . $request['conversationId']);
@@ -429,6 +436,13 @@ class Engine {
 			speaker: ($turn['authorId'] ?? $request['userId'])
 		);
 
+		// Chat-about-a-document: a turn scoped to a file or folder the speaker
+		// cannot open is refused (404), read as the speaker like an attachment.
+		$this->contextHandler->assertScopeReadable(
+			ragSettings: $request['ragSettings'],
+			speaker: ($turn['authorId'] ?? $request['userId'])
+		);
+
 		$turn['agent'] = null;
 		$agentId = $turn['conversationData']['agentId'] ?? null;
 		if (is_string($agentId) === true && $agentId !== '') {
@@ -439,8 +453,7 @@ class Engine {
 			// still applies.
 			$turn['agent'] = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false
 			);
 		}
@@ -499,7 +512,8 @@ class Engine {
 			query: $turn['userMessage'],
 			agent: $turn['agent'],
 			selectedViews: $turn['selectedViews'],
-			ragSettings: $turn['ragSettings']
+			ragSettings: $turn['ragSettings'],
+			speaker: $this->scopeSpeaker(turn: $turn)
 		);
 		$timings['context'] = microtime(true) - $startTime;
 		if ($token !== null) {
@@ -508,6 +522,24 @@ class Engine {
 
 		return $context;
 	}//end turnContext()
+
+	/**
+	 * The uid a scoped turn's files are read as: the speaker, never the owner.
+	 * An unscoped turn reads no Files, so it passes none.
+	 *
+	 * @param array<string, mixed> $turn The turn.
+	 *
+	 * @return string The speaker's uid, or ''.
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 */
+	private function scopeSpeaker(array $turn): string {
+		if (is_array($turn['ragSettings']['scope'] ?? null) === false) {
+			return '';
+		}
+
+		return (string)($turn['authorId'] ?? $turn['userId']);
+	}//end scopeSpeaker()
 
 	/**
 	 * Build the turn's history of earlier turns, timed as a `history` step.
@@ -576,7 +608,7 @@ class Engine {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#1-port-the-chat-engine
 	 * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
 	 */
 	private function turnResponse(array $turn, array &$timings): string {
@@ -597,10 +629,12 @@ class Engine {
 				conversationId: $turn['conversationId'],
 				promptVariables: $this->promptVariablesFor(
 					userId: $turn['userId'],
-					agent: $turn['agent'],
-					organisation: $turn['organisation'],
-					appContext: $turn['cnAiContext'],
-					conversationData: $turn['conversationData']
+					scope: new PromptVariableScope(
+						agent: $turn['agent'],
+						organisation: $turn['organisation'],
+						appContext: $turn['cnAiContext'],
+						conversationData: $turn['conversationData']
+					)
 				),
 				attachments: $turn['resolvedAttachments'],
 				speaker: ($turn['authorId'] ?? $turn['userId'])
@@ -625,7 +659,7 @@ class Engine {
 	 *
 	 * @return array<string, mixed>
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#1-port-the-chat-engine
 	 */
 	private function turnEnvelope(array $turn, array $timings): array {
 		$totalTime = ($timings['context'] + $timings['history'] + $timings['llm']);
@@ -653,11 +687,53 @@ class Engine {
 			// Run-trace-observability: the collector's full ordered step
 			// timeline, empty when no collector was supplied.
 			'steps' => $turn['trace']?->toArray() ?? [],
+			// Chat-how-an-answer-came-about: the record stored on the answer.
+			'provenance' => $turn['provenance'],
 			// Skill-evals: the skill uuids actually exposed to this run's context,
 			// recorded on the run's audit entry for ALL runs.
 			'skillsUsed' => $turn['skillsUsed'],
 		];
 	}//end turnEnvelope()
+
+	/**
+	 * Hand the finished chat turn to trace export (observability-export-traces D5).
+	 *
+	 * Only the turn's identities, timing, usage and step timeline are handed over, plus
+	 * the prompt and answer for the exporter to filter and redact when an administrator
+	 * chose redacted text. A dry run is a preview and is not exported. Never throws: the
+	 * queue swallows its own failures, so the turn's result is never changed.
+	 *
+	 * @param array<string, mixed> $turn     The finished turn.
+	 * @param array<string, mixed> $envelope The turn's result envelope.
+	 * @param array<string, float> $timings  The context, history and llm timings, in seconds.
+	 *
+	 * @return array<string, mixed> The envelope, unchanged.
+	 *
+	 * @spec openspec/changes/observability-export-traces/tasks.md#task-4-every-run-writer-and-the-chat-turn-enqueue
+	 */
+	private function exportTurn(array $turn, array $envelope, array $timings): array {
+		if ($this->traceExportQueue === null || ($turn['dryRun'] ?? false) === true) {
+			return $envelope;
+		}
+
+		$endedAt = microtime(true);
+		$this->traceExportQueue->enqueueChatTurn(
+			turn: [
+				'conversationId' => (string)($turn['conversationId'] ?? ''),
+				'userId' => (string)($turn['userId'] ?? ''),
+				'agentId' => (string)($turn['conversationData']['agentId'] ?? ''),
+				'prompt' => (string)($turn['userMessage'] ?? ''),
+				'message' => (string)($envelope['message'] ?? ''),
+				'usage' => (array)($envelope['usage'] ?? []),
+				'steps' => (array)($envelope['steps'] ?? []),
+				'startedAt' => ($endedAt - (float)array_sum($timings)),
+				'endedAt' => $endedAt,
+			],
+			organisation: (string)($turn['organisation'] ?? '')
+		);
+
+		return $envelope;
+	}//end exportTurn()
 
 	/**
 	 * Store the user's turn, then check whether the conversation needs a summary.
@@ -670,7 +746,7 @@ class Engine {
 	 *
 	 * @return ObjectEntity The stored user Message.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#1-port-the-chat-engine
 	 */
 	private function storeUserTurn(array $turn): ObjectEntity {
 		$userTurn = $this->historyHandler->storeMessage(
@@ -702,6 +778,7 @@ class Engine {
 	 * @return ObjectEntity The stored assistant Message.
 	 *
 	 * @spec openspec/specs/agent-engine-port/spec.md
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
 	 */
 	private function storeAnswer(array $turn): ObjectEntity {
 		$assistantStored = $this->historyHandler->storeMessage(
@@ -709,7 +786,8 @@ class Engine {
 			role: 'assistant',
 			content: $turn['aiResponse'],
 			sources: $turn['sources'],
-			attachments: $turn['answerAttachments']
+			attachments: $turn['answerAttachments'],
+			provenance: $turn['provenance']
 		);
 
 		$this->queueTitleGeneration(
@@ -776,7 +854,7 @@ class Engine {
 	 *
 	 * @return string Generated title.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#1-port-the-chat-engine
 	 */
 	public function generateConversationTitle(string $firstMessage): string {
 		return $this->conversationHandler->generateConversationTitle(firstMessage: $firstMessage);
@@ -793,7 +871,7 @@ class Engine {
 	 *
 	 * @return string Unique title.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#1-port-the-chat-engine
 	 */
 	public function ensureUniqueTitle(string $baseTitle, string $userId, string $agentId): string {
 		return $this->conversationHandler->ensureUniqueTitle(
@@ -857,22 +935,17 @@ class Engine {
 	 * sent as written.
 	 *
 	 * @param string               $userId           The acting person.
-	 * @param ObjectEntity|null    $agent            The session's agent.
-	 * @param string               $organisation     The session's organisation.
-	 * @param array<string, mixed> $appContext       The companion's snapshot.
-	 * @param array<string, mixed> $conversationData The session's data.
+	 * @param PromptVariableScope $scope The agent, organisation and context a turn's prompt variables are resolved in.
 	 *
 	 * @return array<string, string>
 	 *
 	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
 	 */
-	private function promptVariablesFor(
-		string $userId,
-		?ObjectEntity $agent,
-		string $organisation,
-		array $appContext,
-		array $conversationData,
-	): array {
+	private function promptVariablesFor(string $userId, PromptVariableScope $scope): array {
+		$agent = $scope->agent;
+		$organisation = $scope->organisation;
+		$appContext = $scope->appContext;
+		$conversationData = $scope->conversationData;
 		if ($this->promptVariables === null || $agent === null) {
 			return [];
 		}

@@ -131,6 +131,7 @@ class ContactWriteService {
 	 * @param ContactWrite $write The contact being saved.
 	 *
 	 * @return array<string, string> The vCard properties.
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored-req-ailbl-001
 	 */
 	private function properties(ContactWrite $write): array {
 		$properties = ['FN' => $write->name];

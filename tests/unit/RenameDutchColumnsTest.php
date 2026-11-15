@@ -270,6 +270,7 @@ final class FakeStatement implements IPreparedStatement {
 
 /**
  * @covers \OCA\Hermiq\Repair\RenameDutchColumns
+ * @uses \OCA\Hermiq\Repair\ColumnMigrationRun
  */
 class RenameDutchColumnsTest extends TestCase {
 	/** @var array<int, string> Every statement the step executed. */

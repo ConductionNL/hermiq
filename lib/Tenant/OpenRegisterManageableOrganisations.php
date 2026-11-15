@@ -44,7 +44,7 @@ use Throwable;
  * louder than the caller already does; the kill-switch endpoints re-check
  * authorization server-side regardless, so an empty answer is safe.
  *
- * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-4-1
  */
 final class OpenRegisterManageableOrganisations implements ManageableOrganisations {
 
@@ -86,7 +86,7 @@ final class OpenRegisterManageableOrganisations implements ManageableOrganisatio
 	 *
 	 * @return array<int, array{id: string, label: string}> Organisation id/label pairs.
 	 *
-	 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-4-1
 	 */
 	public function forUser(string $userId, bool $isAdmin): array {
 		if ($this->appManager->isInstalled('openregister') === false) {

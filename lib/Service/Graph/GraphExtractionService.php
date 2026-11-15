@@ -32,6 +32,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Graph;
 
+use OCA\Hermiq\Kernel\Contracts\GraphExtractionServiceInterface;
 use OCA\Hermiq\Service\Engine\ConversationManagementHandler;
 use OCA\Hermiq\Service\RedactionService;
 use Psr\Log\LoggerInterface;
@@ -42,7 +43,7 @@ use Throwable;
  *
  * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
  */
-class GraphExtractionService {
+class GraphExtractionService implements GraphExtractionServiceInterface {
 
 	/**
 	 * This extractor's identity and version, stored on every entry it writes.

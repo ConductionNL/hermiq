@@ -55,6 +55,7 @@ import { NcButton, NcModal, NcNoteCard, NcSelect } from '@nextcloud/vue'
 import { installSkill } from '../api/skills.js'
 import { useAgentStore } from '../store/store.js'
 import { errorMessage } from '../utils/errorMessage.js'
+import { agentPickerOptions } from '../widgets/evalRunLabels.js'
 
 export default {
 	name: 'SkillInstallModal',
@@ -94,10 +95,7 @@ export default {
 		 * @return {Array<object>} NcSelect options.
 		 */
 		agentOptions() {
-			return this.agents.map((agent) => ({
-				label: agent.name || agent.uuid || agent.id,
-				value: agent.uuid || agent.id,
-			}))
+			return agentPickerOptions(this.agents)
 		},
 
 		/**

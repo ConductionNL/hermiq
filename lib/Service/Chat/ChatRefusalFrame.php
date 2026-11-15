@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use Throwable;
 /**
  * Maps one cause of a failed chat turn to the error frame the person reads.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
  */
 class ChatRefusalFrame {
 
@@ -48,7 +48,7 @@ class ChatRefusalFrame {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
 	public function __construct(
 		private readonly IL10N $l10n,
@@ -62,7 +62,7 @@ class ChatRefusalFrame {
 	 *
 	 * @return array<string, string>|null
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
 	public function forCause(Throwable $cause): ?array {
 		// An attachment that is not available to the speaker, or that the
@@ -92,9 +92,31 @@ class ChatRefusalFrame {
 				code: DataUseViolationException::ERROR_CODE,
 				message: $this->l10n->t('This assistant cannot answer: your organisation only allows AI providers that never train on its data.')
 			),
+			// Chat-about-a-document: the scope is malformed or cannot be opened.
+			$cause instanceof TurnScopeException => $this->frame(
+				code: $cause->errorCode(),
+				message: $this->scopeMessage(cause: $cause)
+			),
 			default => null,
 		};
 	}//end forCause()
+
+	/**
+	 * The sentence for a refused scope.
+	 *
+	 * @param TurnScopeException $cause The refusal.
+	 *
+	 * @return string The sentence.
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 */
+	private function scopeMessage(TurnScopeException $cause): string {
+		if ($cause->errorCode() === TurnScopeException::NOT_FOUND) {
+			return $this->l10n->t('The document or folder this question is about cannot be opened.');
+		}
+
+		return $this->l10n->t('This question names its document or folder in a way hermiq does not understand.');
+	}//end scopeMessage()
 
 	/**
 	 * One error frame.
@@ -104,7 +126,7 @@ class ChatRefusalFrame {
 	 *
 	 * @return array{code: string, message: string}
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
 	private function frame(string $code, string $message): array {
 		return ['code' => $code, 'message' => $message];

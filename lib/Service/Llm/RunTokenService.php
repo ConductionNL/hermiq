@@ -63,13 +63,14 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Llm;
 
+use OCA\Hermiq\Kernel\Contracts\RunTokenServiceInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Security\ISecureRandom;
 use RuntimeException;
@@ -78,9 +79,9 @@ use RuntimeException;
  * Mint / verify / consume the per-run bearer token that authenticates both
  * governed CLI endpoints.
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
  */
-class RunTokenService {
+class RunTokenService implements RunTokenServiceInterface {
 
 	/**
 	 * Token length: 43 alphanumeric characters ≈ 256 bits of entropy (matches
@@ -156,7 +157,7 @@ class RunTokenService {
 	 *
 	 * @return string The plaintext bearer token.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
 	 */
 	public function mint(
 		string $runId,
@@ -179,7 +180,7 @@ class RunTokenService {
 	 *
 	 * @return string The plaintext bearer token.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
 	 */
 	public function mintFor(RunTokenRequest $request): string {
 		$token = $this->secureRandom->generate(self::TOKEN_LENGTH, ISecureRandom::CHAR_ALPHANUMERIC);
@@ -258,7 +259,7 @@ class RunTokenService {
 	 * @return array{runId: string, agentId: string, userId: string, conversationId: string}|null
 	 *                                                                                            The binding, or null when the token is not valid.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
 	 */
 	public function verify(string $token): ?array {
 		// Always compute the digest (constant work) even for an empty token, so
@@ -339,7 +340,7 @@ class RunTokenService {
 	 *
 	 * @return bool True when a record for this token exists.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
 	 */
 	public function isKnown(string $token): bool {
 		if ($token === '') {
@@ -368,7 +369,7 @@ class RunTokenService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-the-token-dies-with-the-run-for-both-endpoints
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-the-token-dies-with-the-run-for-both-endpoints
 	 */
 	public function consume(string $token): void {
 		if ($token === '') {

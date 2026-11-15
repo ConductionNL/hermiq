@@ -30,8 +30,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Chat;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ImageGenerationServiceInterface;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\NcNative\AgentArtefactMarker;
 use OCA\Hermiq\Service\NcNative\ArtefactMarkingFailedException;
 use OCP\Files\File;
@@ -46,7 +47,7 @@ use Throwable;
  *
  * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-images-are-created-through-nextcloud-taskprocessing-req-cimg-001
  */
-class ImageGenerationService {
+class ImageGenerationService implements ImageGenerationServiceInterface {
 
 	/**
 	 * The AiFeature that has to be enabled before an image is created.
@@ -68,14 +69,14 @@ class ImageGenerationService {
 	 * @param IManager            $taskManager Nextcloud TaskProcessing.
 	 * @param GeneratedImageFiles $files       Reads the task's output and writes the PNG to Files.
 	 * @param AgentArtefactMarker $marker      Tags the file "Agent authored".
-	 * @param AiFeatureService    $features    The AI-feature governance register.
+	 * @param AiFeatureLookup     $features    The AI-feature governance register.
 	 * @param LoggerInterface     $logger      Logger.
 	 */
 	public function __construct(
 		private readonly IManager $taskManager,
 		private readonly GeneratedImageFiles $files,
 		private readonly AgentArtefactMarker $marker,
-		private readonly AiFeatureService $features,
+		private readonly AiFeatureLookup $features,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()
@@ -284,7 +285,7 @@ class ImageGenerationService {
 	 * @throws ImageGenerationException When the task fails or returns no image.
 	 */
 	private function runTask(string $uid, string $prompt): string {
-		$task = new Task(TextToImage::ID, ['input' => $prompt, 'numberOfImages' => 1], Application::APP_ID, $uid);
+		$task = new Task(TextToImage::ID, ['input' => $prompt, 'numberOfImages' => 1], AppIdentity::APP_ID, $uid);
 		try {
 			$done = $this->taskManager->runTask($task);
 		} catch (Throwable $e) {

@@ -21,7 +21,7 @@
   - says what may show without a model call, `POST /api/assistant/summarise`
   - writes one with the assistant of the object's app.
   -
-  - @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+  - @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
   - @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 -->
 <template>
@@ -166,7 +166,7 @@ function refusalSentence(reason) {
  *
  * @param {object} e The audit-trail entry.
  * @return {boolean} True for an agent run.
- * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+ * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
  */
 function isAgentRunEntry(e) {
 	return e.action === 'agent-run'
@@ -232,7 +232,7 @@ export default {
 		objectId: {
 			immediate: true,
 			/**
-			 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+			 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
 			 */
 			handler() {
 				this.refresh()
@@ -243,7 +243,7 @@ export default {
 	methods: {
 		t,
 		/**
-		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
 		 */
 		statusLabel(status) {
 			const map = {
@@ -258,7 +258,7 @@ export default {
 		},
 
 		/**
-		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
 		 */
 		async refresh() {
 			if (this.objectId === '') {
@@ -333,7 +333,7 @@ export default {
 		},
 
 		/**
-		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
 		 */
 		async loadAgents() {
 			if (this.agents.length > 0) {
@@ -363,7 +363,7 @@ export default {
 		},
 
 		/**
-		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
 		 */
 		async loadHistory() {
 			this.loadingHistory = true
@@ -392,7 +392,7 @@ export default {
 		},
 
 		/**
-		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
 		 */
 		toRun(entry) {
 			const ctx = entry.context || entry.changed || {}
@@ -405,7 +405,7 @@ export default {
 		},
 
 		/**
-		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
 		 */
 		async runAgent() {
 			if (!this.selectedAgent || this.dispatching) {
@@ -432,7 +432,7 @@ export default {
 		 * @param {number} status The response status.
 		 * @param {object} body The response body.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
 		 */
 		async showRunOutcome(status, body) {
 			if (status === 202) {
@@ -453,7 +453,7 @@ export default {
 		 * @param {string} type The notice type (success|error).
 		 * @param {string} text The translated text.
 		 * @return {void}
-		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
 		 */
 		showNotice(type, text) {
 			this.noticeType = type
@@ -465,7 +465,7 @@ export default {
 		 *
 		 * @param {string} url The generated URL.
 		 * @return {Promise<Response>} The response.
-		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
 		 */
 		getWithToken(url) {
 			return fetch(url, {
@@ -478,7 +478,7 @@ export default {
 		 *
 		 * @param {string} url The generated URL.
 		 * @return {Promise<Response>} The response.
-		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
 		 */
 		postObjectRef(url) {
 			return fetch(url, {

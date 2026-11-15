@@ -191,7 +191,7 @@ import {
 	useEvalRunStore,
 	useSkillStore,
 } from '../store/store.js'
-import { errorMessage } from '../utils/errorMessage.js'
+import { BUSY_FIELDS, busyAction, LOADING_FIELDS } from '../utils/busyAction.js'
 
 export default {
 	name: 'SkillVersionHistory',
@@ -320,9 +320,7 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async load() {
-			this.loading = true
-			this.error = ''
-			try {
+			await busyAction(this, LOADING_FIELDS)(async () => {
 				const [skill, versions, datasets, evalRuns] = await Promise.all([
 					this.skillStore.fetchObject('agentskill', this.skillId),
 					listSkillVersions(this.skillId),
@@ -337,11 +335,7 @@ export default {
 				this.evalRuns = Array.isArray(evalRuns)
 					? evalRuns
 					: evalRuns?.results || []
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Could not load the version history.'))
-			} finally {
-				this.loading = false
-			}
+			}, () => this.t('hermiq', 'Could not load the version history.'))
 		},
 
 		/**
@@ -352,9 +346,7 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async showDiff(versionId) {
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				const currentId = this.versions[0]?.id
 				this.diff = await diffSkillVersions(
 					this.skillId,
@@ -362,11 +354,7 @@ export default {
 					currentId,
 				)
 				this.diffVersionId = versionId
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Diff failed.'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Diff failed.'))
 		},
 
 		/**
@@ -378,18 +366,12 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async doRollback(versionId) {
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				await rollbackSkill(this.skillId, versionId)
 				this.diff = {}
 				this.diffVersionId = ''
 				await this.load()
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Rollback failed.'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Rollback failed.'))
 		},
 
 		/**
@@ -400,16 +382,10 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async doRepublish() {
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				await republishSkill(this.skillId, this.republishCredentialId.trim())
 				await this.load()
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Republish failed.'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Republish failed.'))
 		},
 
 		/**

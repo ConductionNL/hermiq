@@ -221,7 +221,7 @@ final class GitHubCatalogPayload {
 	 *
 	 * @return array<int, string> The wanted blob paths.
 	 *
-	 * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+	 * @spec openspec/changes/archive/2026-09-06-skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
 	 */
 	public function wantedBlobPaths(array $tree, callable $accept): array {
 		$paths = [];

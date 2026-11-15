@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+ * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
  */
 
 declare(strict_types=1);
@@ -31,7 +31,7 @@ use Closure;
 /**
  * Accepts entries in order up to the kind's cap, once per safe name.
  *
- * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+ * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
  */
 final class BundleSelection {
 
@@ -62,7 +62,7 @@ final class BundleSelection {
 	 * @param BundleKind $kind   The entry kind.
 	 * @param Closure    $reject Logs a rejected entry: reject(what, why).
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	public function __construct(
 		private readonly BundleKind $kind,
@@ -78,7 +78,7 @@ final class BundleSelection {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	public function offer(array $item, ?string $name): void {
 		$rawName = (string)($item['name'] ?? '');

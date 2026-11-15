@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+ * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
  */
 
 declare(strict_types=1);
@@ -30,7 +30,7 @@ namespace OCA\Hermiq\Service;
 /**
  * Outcome of a delivery attempt.
  *
- * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+ * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
  */
 class DeliveryResult {
 	/**
@@ -54,7 +54,7 @@ class DeliveryResult {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#task-1-2
 	 */
 	public function isDelivered(): bool {
 		return $this->delivered;
@@ -65,7 +65,7 @@ class DeliveryResult {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#task-1-2
 	 */
 	public function getChannel(): string {
 		return $this->channel;
@@ -76,7 +76,7 @@ class DeliveryResult {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#task-1-2
 	 */
 	public function didFallBack(): bool {
 		return $this->fellBack;
@@ -87,7 +87,7 @@ class DeliveryResult {
 	 *
 	 * @return string|null
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#task-1-2
 	 */
 	public function getWarning(): ?string {
 		return $this->warning;

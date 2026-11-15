@@ -12,8 +12,8 @@
   neither the agent's owner/actingUser nor holds compliance.view-factsheet) renders a
   clear "not available" state, not a raw error (tasks.md Task 7).
 
-  @spec openspec/changes/compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
-  @spec openspec/changes/compliance-control-packs/specs/compliance-control-packs/spec.md#requirement-an-ai-factsheet-summarises-an-agents-governance-lifecycle
+  @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
+  @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-ai-factsheet-summarises-an-agents-governance-lifecycle
 -->
 <template>
 	<NcDialog
@@ -89,7 +89,7 @@
 							— {{ t('hermiq', 'DPO-acknowledged by') }}
 							{{ factsheet.aiFeature.dpoAckBy }} ({{
 								/**
-								 * @spec openspec/changes/compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
+								 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
 								 */
 								formatDate(factsheet.aiFeature.dpoAckAt)
 							}})
@@ -157,6 +157,7 @@ import {
 } from '@nextcloud/vue'
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
 import { getAgentFactsheet } from '../api/compliance.js'
+import { dateOrDash } from '../utils/displayDate.js'
 import { agentModalTarget, loadWhenShown } from './agentModalTarget.js'
 
 export default {
@@ -191,7 +192,7 @@ export default {
 		 * than a raw error.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
+		 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
 		 */
 		async load() {
 			if (!this.resolvedAgentId) {
@@ -222,15 +223,9 @@ export default {
 		 *
 		 * @param {string} value An ISO-8601 timestamp.
 		 * @return {string} The formatted date.
-		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
+		 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
 		 */
-		formatDate(value) {
-			if (!value) {
-				return '—'
-			}
-			const date = new Date(value)
-			return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
-		},
+		formatDate: dateOrDash,
 	},
 }
 </script>

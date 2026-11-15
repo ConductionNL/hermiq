@@ -60,13 +60,14 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/run-analytics/tasks.md#1-analyticsservice
+ * @spec openspec/changes/archive/2026-09-06-run-analytics/tasks.md#1-analyticsservice
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\AnalyticsServiceInterface;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -75,9 +76,9 @@ use OCA\OpenRegister\Service\ObjectService;
 /**
  * Computes run metrics from Hermiq's OpenRegister run audit entries (tenant-scoped).
  *
- * @spec openspec/changes/run-analytics/tasks.md#1-analyticsservice
+ * @spec openspec/changes/archive/2026-09-06-run-analytics/tasks.md#1-analyticsservice
  */
-class AnalyticsService
+class AnalyticsService implements AnalyticsServiceInterface
 {
 
     /**
@@ -177,7 +178,7 @@ class AnalyticsService
      *
      * @return array<string, mixed> The metrics payload.
      *
-     * @spec openspec/changes/run-analytics/tasks.md#task-1-3
+     * @spec openspec/changes/archive/2026-09-06-run-analytics/tasks.md#task-1-3
      */
     public function computeAnalytics(?string $agentId=null): array
     {
@@ -582,7 +583,6 @@ class AnalyticsService
 
     }//end entryStamps()
 
-
     /**
      * The latest thumbs-down ratings with a comment on one agent, newest first.
      *
@@ -747,7 +747,7 @@ class AnalyticsService
      *
      * @return array<string, mixed> The tokens block.
      *
-     * @spec openspec/changes/run-analytics/tasks.md#task-1-3
+     * @spec openspec/changes/archive/2026-09-06-run-analytics/tasks.md#task-1-3
      */
     private function tokens(bool $recorded, int $prompt, int $completion): array
     {

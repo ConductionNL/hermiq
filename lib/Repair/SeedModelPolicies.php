@@ -27,16 +27,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
+ * @spec openspec/changes/archive/2026-07-12-tenant-model-policy/tasks.md#task-9-seed-data
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
+use OCA\Hermiq\Kernel\Contracts\OrganisationModelPolicyServiceInterface;
 use OCA\Hermiq\Repair\Support\FirstOrganisation;
 use OCA\Hermiq\Repair\Support\OrganisationSeed;
-use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -47,7 +47,7 @@ use Throwable;
 /**
  * Seed the instance-default + sample org ModelPolicy objects (idempotent).
  *
- * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
+ * @spec openspec/changes/archive/2026-07-12-tenant-model-policy/tasks.md#task-9-seed-data
  */
 class SeedModelPolicies implements IRepairStep {
 	/**
@@ -98,7 +98,7 @@ class SeedModelPolicies implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
+	 * @spec openspec/changes/archive/2026-07-12-tenant-model-policy/tasks.md#task-9-seed-data
 	 */
 	public function getName(): string {
 		return 'Seed model policies (tenant-model-policy)';
@@ -113,7 +113,7 @@ class SeedModelPolicies implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
+	 * @spec openspec/changes/archive/2026-07-12-tenant-model-policy/tasks.md#task-9-seed-data
 	 */
 	public function run(IOutput $output): void {
 		$run = $this->startRun(output: $output);
@@ -142,7 +142,7 @@ class SeedModelPolicies implements IRepairStep {
 	private function startRun(IOutput $output): ?ModelPolicySeedRun {
 		$run = new ModelPolicySeedRun(output: $output);
 		try {
-			$run->policyService = $this->container->get(OrganisationModelPolicyService::class);
+			$run->policyService = $this->container->get(OrganisationModelPolicyServiceInterface::class);
 			$run->organisationMapper = $this->container->get(OrganisationMapper::class);
 		} catch (Throwable $e) {
 			$output->warning('OpenRegister not available — skipping model-policy seed.');

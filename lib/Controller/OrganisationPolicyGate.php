@@ -28,7 +28,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
+ * @spec openspec/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
  */
 
 declare(strict_types=1);
@@ -45,8 +45,8 @@ use Throwable;
 /**
  * Read and administer rights on organisation-scoped policies.
  *
- * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
- * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
+ * @spec openspec/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
+ * @spec openspec/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
  */
 final class OrganisationPolicyGate {
 
@@ -74,8 +74,8 @@ final class OrganisationPolicyGate {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
 	 */
 	public function mayAdminister(string $organisation, IUser $user): bool {
 		$isAdmin = $this->groupManager->isAdmin($user->getUID());
@@ -99,7 +99,7 @@ final class OrganisationPolicyGate {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
 	 */
 	public function ownsOrganisation(string $organisation, string $uid): bool {
 		if ($organisation === '') {
@@ -125,7 +125,7 @@ final class OrganisationPolicyGate {
 	 *
 	 * @return array<int, ObjectEntity> The visible policies, in listed order.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
 	 */
 	public function visiblePolicies(IUser $user, callable $listAll): array {
 		$isAdmin = $this->groupManager->isAdmin($user->getUID());
@@ -152,7 +152,7 @@ final class OrganisationPolicyGate {
 	 *
 	 * @return string The organisation identifier, or '' when none resolves.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
 	 */
 	public function activeOrganisation(string $uid, LoggerInterface $logger): string {
 		try {

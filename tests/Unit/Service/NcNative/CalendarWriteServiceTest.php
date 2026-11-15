@@ -308,4 +308,107 @@ class CalendarWriteServiceTest extends TestCase {
 
 	}//end testAFailedWriteIsReported()
 
+	/**
+	 * A blank summary is refused before any calendar is looked up.
+	 *
+	 * @return void
+	 */
+	public function testABlankSummaryIsRefused(): void {
+		$calendars = $this->createMock(ICalendarManager::class);
+		$calendars->expects($this->never())->method('getCalendarsForPrincipal');
+
+		$result = $this->service($calendars)->create('alice', ['summary' => '   '] + self::VALID);
+
+		$this->assertSame('invalid_argument', $result['error']['code']);
+		$this->assertSame('A summary is required.', $result['error']['message']);
+
+	}//end testABlankSummaryIsRefused()
+
+	/**
+	 * A missing end date is refused as an invalid date range.
+	 *
+	 * @return void
+	 */
+	public function testAMissingEndIsRefused(): void {
+		$calendars = $this->createMock(ICalendarManager::class);
+		$calendars->expects($this->never())->method('getCalendarsForPrincipal');
+
+		$result = $this->service($calendars)->create('alice', ['summary' => 'Kickoff', 'start' => '2026-09-01T09:00:00Z']);
+
+		$this->assertSame('invalid_argument', $result['error']['code']);
+		$this->assertSame('start and end must be ISO-8601 date-times.', $result['error']['message']);
+
+	}//end testAMissingEndIsRefused()
+
+	/**
+	 * A trimmed description is passed to the builder when given.
+	 *
+	 * @return void
+	 */
+	public function testADescriptionIsWrittenTrimmed(): void {
+		$builder = $this->createMock(ICalendarEventBuilder::class);
+		foreach (['setSummary', 'setStartDate', 'setEndDate', 'setLocation'] as $setter) {
+			$builder->method($setter)->willReturnSelf();
+		}
+
+		$builder->expects($this->once())->method('setDescription')->with('Agenda attached')->willReturnSelf();
+		$builder->expects($this->never())->method('setLocation');
+		$builder->method('toIcs')->willReturn("BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n");
+		$calendars = $this->createMock(ICalendarManager::class);
+		$calendars->method('getCalendarsForPrincipal')->willReturn([$this->calendar(true)]);
+		$calendars->method('createEventBuilder')->willReturn($builder);
+
+		$result = $this->service($calendars)->create('alice', ['description' => "  Agenda attached\n"] + self::VALID);
+
+		$this->assertTrue($result['created']);
+
+	}//end testADescriptionIsWrittenTrimmed()
+
+	/**
+	 * Calendars that cannot take a new object, or whose uri differs from the one
+	 * asked for, are passed over; the named writable calendar is used.
+	 *
+	 * @return void
+	 */
+	public function testOnlyACreatableCalendarWithTheRequestedUriIsUsed(): void {
+		$added = [];
+		$plain = $this->createMock(\OCP\Calendar\ICalendar::class);
+		$plain->method('getUri')->willReturn('work');
+
+		$work = $this->createMockForIntersectionOfInterfaces([ICreateFromString::class, ICalendarIsWritable::class]);
+		$work->method('isWritable')->willReturn(true);
+		$work->method('getUri')->willReturn('work');
+		$work->method('getDisplayName')->willReturn('Work');
+		$work->expects($this->once())->method('createFromString');
+
+		$calendars = $this->createMock(ICalendarManager::class);
+		$calendars->method('getCalendarsForPrincipal')->willReturn([$plain, $this->calendar(true), $work]);
+		$calendars->method('createEventBuilder')->willReturn($this->builder($added));
+
+		$result = $this->service($calendars)->create('alice', ['calendarUri' => ' work '] + self::VALID);
+		$this->assertSame('Work', $result['calendar']);
+
+		$missing = $this->service($calendars)->create('alice', ['calendarUri' => 'holidays'] + self::VALID);
+		$this->assertSame('no_writable_calendar', $missing['error']['code']);
+
+	}//end testOnlyACreatableCalendarWithTheRequestedUriIsUsed()
+
+	/**
+	 * Attendees that are not a list are ignored rather than refused.
+	 *
+	 * @return void
+	 */
+	public function testANonListAttendeesArgumentAddsNoAttendees(): void {
+		$added = [];
+		$calendars = $this->createMock(ICalendarManager::class);
+		$calendars->method('getCalendarsForPrincipal')->willReturn([$this->calendar(true)]);
+		$calendars->method('createEventBuilder')->willReturn($this->builder($added));
+
+		$result = $this->service($calendars)->create('alice', ['attendees' => 'a@example.org'] + self::VALID);
+
+		$this->assertSame(0, $result['attendeeCount']);
+		$this->assertSame([], $added);
+
+	}//end testANonListAttendeesArgumentAddsNoAttendees()
+
 }//end class

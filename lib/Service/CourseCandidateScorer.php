@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md
+ * @spec openspec/specs/course-recommendations/spec.md
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use DateTimeImmutable;
  * @psalm-import-type Evidence from CourseEvidenceIndexer
  * @psalm-type Candidate = array{uuid: array-key, course: array<string, mixed>}
  *
- * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md
+ * @spec openspec/specs/course-recommendations/spec.md
  */
 class CourseCandidateScorer {
 
@@ -116,7 +116,7 @@ class CourseCandidateScorer {
 	 *
 	 * @return array{candidateCount: int, recommendations: array<int, array<string, mixed>>}
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md#requirement-ranking-is-deterministic-and-reproducible-explanation-phrasing-is-optional-and-never-changes-it
+	 * @spec openspec/specs/course-recommendations/spec.md#requirement-ranking-is-deterministic-and-reproducible-explanation-phrasing-is-optional-and-never-changes-it
 	 */
 	public function score(array $learner, DateTimeImmutable $now): array {
 		$evidence = (new CourseEvidenceIndexer())->index(learner: $learner, now: $now);
@@ -147,7 +147,7 @@ class CourseCandidateScorer {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md#requirement-ranking-is-deterministic-and-reproducible-explanation-phrasing-is-optional-and-never-changes-it
+	 * @spec openspec/specs/course-recommendations/spec.md#requirement-ranking-is-deterministic-and-reproducible-explanation-phrasing-is-optional-and-never-changes-it
 	 */
 	private function isCandidate(array $evidence, int|string $uuid): bool {
 		$course = $evidence['courses'][$uuid];
@@ -162,7 +162,7 @@ class CourseCandidateScorer {
 	 *
 	 * @return array<string, mixed>
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md#requirement-ranking-is-deterministic-and-reproducible-explanation-phrasing-is-optional-and-never-changes-it
+	 * @spec openspec/specs/course-recommendations/spec.md#requirement-ranking-is-deterministic-and-reproducible-explanation-phrasing-is-optional-and-never-changes-it
 	 */
 	private function recommendation(array $candidate, array $signals): array {
 		return [

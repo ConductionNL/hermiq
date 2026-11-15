@@ -24,6 +24,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Repair;
 
+use OCA\Hermiq\Kernel\Contracts\BudgetServiceInterface;
 use OCA\Hermiq\Repair\SeedBudgets;
 use OCA\Hermiq\Service\BudgetService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -126,7 +127,7 @@ class SeedBudgetsTest extends TestCase {
 				return match ($class) {
 					ObjectService::class => $objectService,
 					OrganisationMapper::class => $orgMapper,
-					BudgetService::class => $budgetService,
+					BudgetServiceInterface::class => $budgetService,
 					default => throw new \RuntimeException("Unexpected service: {$class}"),
 				};
 			}

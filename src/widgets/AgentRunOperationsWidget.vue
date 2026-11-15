@@ -68,21 +68,12 @@
 			<p
 				v-if="estimate && estimate.available"
 				class="agent-run-ops-widget__estimate">
-				{{
-					t(
-						'hermiq',
-						'Estimate: ~{tokens} tokens per run (average of the last {count} runs)',
-						{
-							tokens: estimate.avgTotalTokens,
-							count: estimate.sampleSize,
-						},
-					)
-				}}
+				{{ estimateLine(estimate) }}
 			</p>
 			<p
 				v-else-if="estimate"
 				class="agent-run-ops-widget__estimate agent-run-ops-widget__estimate--empty">
-				{{ t('hermiq', 'Not enough run history yet for a cost estimate.') }}
+				{{ estimateLine(estimate) }}
 			</p>
 
 			<NcNoteCard
@@ -321,6 +312,7 @@ import {
 	rotateWebhookSecret,
 } from '../api/webhooks.js'
 import { useScheduleStore } from '../store/store.js'
+import { estimateLine } from '../utils/costEstimate.js'
 import { dateOrDash } from '../utils/displayDate.js'
 import { stepTypeLabel } from './runStepLabels.js'
 
@@ -410,6 +402,7 @@ export default {
 	},
 
 	methods: {
+		estimateLine,
 		formatDate: dateOrDash,
 		stepTypeLabel,
 

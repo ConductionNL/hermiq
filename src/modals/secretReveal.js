@@ -15,7 +15,7 @@ import { t } from '@nextcloud/l10n'
  *
  * @param {FocusEvent} event The focus event.
  * @return {void}
- * @spec openspec/changes/agent-webhook-trigger/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-webhook-trigger-in-place-mvp
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-webhook-trigger-in-place-mvp
  */
 export function selectAll(event) {
 	if (event && event.target && typeof event.target.select === 'function') {
@@ -29,7 +29,7 @@ export function selectAll(event) {
  *
  * @param {string} secret The plaintext secret.
  * @return {Promise<void>}
- * @spec openspec/changes/agent-webhook-trigger/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-webhook-trigger-in-place-mvp
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-webhook-trigger-in-place-mvp
  */
 export async function copySecret(secret) {
 	try {

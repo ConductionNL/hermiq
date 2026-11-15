@@ -70,7 +70,7 @@ class ToolCatalogView {
 	 * @return array{disclosureThreshold: int, resolvedCount: int, disclosureActive: bool, tools: array<int, array<string, mixed>>}
 	 *
 	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/design.md#api-design
-	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-the-reach-of-every-catalogue-entry-is-readable-through-the-tool-catalogue-api
+	 * @spec openspec/specs/agent-capability-reach/spec.md#scenario-the-reach-of-every-catalogue-entry-is-readable-through-the-tool-catalogue-api
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) RepoEffectingGrants::filterIds is a pure static
 	 *   filter over the resolved ids.

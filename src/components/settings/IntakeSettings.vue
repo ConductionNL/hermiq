@@ -13,7 +13,7 @@
   The number is on the screen because whoever set it has to be able to answer what it
   is.
 
-  @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-the-threshold-is-readable
+  @spec openspec/specs/conversational-intake/spec.md#scenario-the-threshold-is-readable
 -->
 <template>
 	<div class="intake-settings">
@@ -74,7 +74,7 @@ export default {
 		 * Read the threshold in force.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-the-threshold-is-readable
+		 * @spec openspec/specs/conversational-intake/spec.md#scenario-the-threshold-is-readable
 		 */
 		async load() {
 			await this.withFlag('loading', async () => {
@@ -87,7 +87,7 @@ export default {
 		 * Save the threshold.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#requirement-a-classification-must-carry-a-confidence-and-must-be-able-to-abstain
+		 * @spec openspec/specs/conversational-intake/spec.md#requirement-a-classification-must-carry-a-confidence-and-must-be-able-to-abstain
 		 */
 		async save() {
 			await this.withFlag('busy', async () => {

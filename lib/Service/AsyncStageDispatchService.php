@@ -47,12 +47,13 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\AsyncStageDispatchServiceInterface;
 use RuntimeException;
 
 /**
  * The async half of the stage transport.
  */
-class AsyncStageDispatchService extends StageDispatchService {
+class AsyncStageDispatchService extends StageDispatchService implements AsyncStageDispatchServiceInterface {
 
 	/**
 	 * Start a stage and return a handle to collect it with.

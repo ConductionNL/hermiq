@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/session-about-a-subject/tasks.md
+ * @spec openspec/changes/archive/2026-11-12-session-about-a-subject/tasks.md
  */
 
 declare(strict_types=1);
@@ -32,7 +32,7 @@ use OCA\Hermiq\Service\Talk\TalkSessionRoom;
 /**
  * Holds the session endpoints' collaborators.
  *
- * @spec openspec/changes/session-about-a-subject/tasks.md
+ * @spec openspec/changes/archive/2026-11-12-session-about-a-subject/tasks.md
  */
 class SessionCollaborators {
 
@@ -44,7 +44,7 @@ class SessionCollaborators {
 	 * @param SessionSubject          $subject          Reads and filters on the record a session is about.
 	 * @param SessionPendingApprovals $pendingApprovals The approvals a session's agent waits on.
 	 *
-	 * @spec openspec/changes/session-about-a-subject/tasks.md
+	 * @spec openspec/changes/archive/2026-11-12-session-about-a-subject/tasks.md
 	 */
 	public function __construct(
 		public readonly TalkSessionRoom $sessionRoom,

@@ -51,6 +51,8 @@ use OCP\IAppConfig;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Recording ObjectService stub: find() serves seeded objects by uuid, findAll()
@@ -136,15 +138,16 @@ class RecordingObjectService extends ObjectService {
 	 */
 	public function find(
 		int|string $id,
-		?array $_extend = [],
-		bool $files = false,
-		mixed $register = null,
-		mixed $schema = null,
+		?ObjectFindOptions $options = null,
 		bool $_rbac = true,
-		bool $_multitenancy = true,
-		bool $_render = true,
-		bool $_audit = true,
+		bool $_multitenancy = true
 	): ?ObjectEntity {
+		$_extend = $options?->extend ?? [];
+		$files = $options?->files ?? false;
+		$register = $options?->register;
+		$schema = $options?->schema;
+		$_render = $options?->render ?? true;
+		$_audit = $options?->audit ?? true;
 		return ($this->objects[(string)$id] ?? null);
 	}//end find()
 
@@ -163,40 +166,22 @@ class RecordingObjectService extends ObjectService {
 	 */
 	public function saveObject(
 		array|ObjectEntity $object,
-		?array $extend = [],
-		mixed $register = null,
-		mixed $schema = null,
-		?string $uuid = null,
+		ObjectSaveOptions $options = new ObjectSaveOptions(),
 		bool $_rbac = true,
-		bool $_multitenancy = true,
-		bool $silent = false,
-		// Added by openregister@8729969f7 (decline schema re-validation on save),
-		// 2026-08-13 00:07Z, INSERTED MID-SIGNATURE — appending it would not have
-		// matched. Second such break in 70 minutes; see #2211's note above.
-		bool $_validation = true,
-		?array $uploadedFiles = null,
-		?\OCP\IUser $currentUser = null,
-		// Added by openregister#2211 (insert-only saves). A double that does not
-		// track the real signature is a FATAL, not a failed assertion: PHP
-		// refuses to declare the class, so every test in the suite dies before
-		// it runs — which is what took all six PHPUnit matrix jobs down.
-		bool $failIfExists = false,
-		// Added by openregister (stamp the SYSTEM identity as owner even when a
-		// user session exists). Appended, so unlike $_validation above it needed
-		// no re-ordering — but it is the third such break, and it only surfaces
-		// where the REAL ObjectService is loaded: CI runs this suite against the
-		// OCP stubs, so the fatal appears locally (inside a booted Nextcloud)
-		// while CI stays green.
-		bool $_unowned = false,
-		// Added by openregister (duplicate detection), seen 2026-09-16. Appended,
-		// so no re-ordering was needed. Note which way round this one broke: the
-		// LOCAL suite stayed green, because tests/bootstrap.php resolves
-		// ObjectService from hermiq's own stub, while CI installs the real
-		// openregister and PHP refused to declare this class, killing all six
-		// cells with a fatal before a single test ran.
-		bool $_dedupOverride = false,
-		?string $_owner = null,
+		bool $_multitenancy = true
 	): ObjectEntity {
+		$extend = $options->extend ?? [];
+		$register = $options->target->register;
+		$schema = $options->target->schema;
+		$uuid = $options->uuid;
+		$silent = $options->policy->silent ?? false;
+		$_validation = $options->policy->validation ?? true;
+		$uploadedFiles = $options->uploadedFiles;
+		$currentUser = $options->actor->currentUser;
+		$failIfExists = $options->policy->failIfExists ?? false;
+		$_unowned = $options->actor->unowned ?? false;
+		$_dedupOverride = $options->policy->dedupOverride ?? false;
+		$_owner = $options->actor->owner;
 		$payload = (is_array($object) === true) ? $object : $object->getObject();
 		if ($this->onSave !== null) {
 			($this->onSave)((is_string($schema) === true) ? $schema : null);
@@ -1058,6 +1043,174 @@ class EvalRunServicePairedTest extends TestCase {
 		$this->assertArrayNotHasKey('skillResults', $run);
 
 	}//end testPlainRunRecordsSkillsUsedAndNoPairedFields()
+
+	/**
+	 * A plain run skips a case that is not an array, records a turn that throws
+	 * as a failed infra-error case (stored without the infraError flag), runs
+	 * every turn as the agent's owner with no skill-set override, and sums every
+	 * case's usage and exposed skills into the one audit entry.
+	 *
+	 * @return void
+	 */
+	public function testPlainRunRecordsEachCaseTurnAndItsUsage(): void {
+		$turns = [];
+		$schedule = $this->createMock(ScheduleService::class);
+		$schedule->method('isOrganisationEngaged')->willReturn(false);
+		$schedule->method('runAgentAsOwner')->willReturnCallback(
+			function (string $owner, string $agentId, string $prompt, string $organisation = '', bool $dryRun = false, bool $forceOwner = false, ?ObjectEntity $anchor = null, ?array $skillSetOverride = null) use (&$turns): string {
+				$turns[] = [$owner, $agentId, $prompt, $organisation, $skillSetOverride];
+				if ($prompt === 'a') {
+					throw new RuntimeException('no provider');
+				}
+
+				return 'output MARKER';
+			}
+		);
+		$schedule->method('getLastRunUsage')->willReturnOnConsecutiveCalls(
+			['promptTokens' => 4, 'completionTokens' => 2],
+			['promptTokens' => 6]
+		);
+		$schedule->method('getLastRunSkillsUsed')->willReturnOnConsecutiveCalls(['skill-x'], ['skill-y', 'skill-x']);
+
+		$objectService = new RecordingObjectService();
+		$service = $this->service(objectService: $objectService, schedule: $schedule, scoring: $this->scoring());
+		$cases = $this->cases(3);
+		array_splice($cases, 1, 0, ['not-a-case']);
+
+		$result = $service->run($this->dataset($cases), $this->agent());
+
+		$this->assertSame('failed', $result['status']);
+		$this->assertSame((2 / 3), $result['passRate']);
+		$this->assertSame(
+			[
+				['alice', 'agent-uuid', 'a', 'org-a', null],
+				['alice', 'agent-uuid', 'b', 'org-a', null],
+				['alice', 'agent-uuid', 'c', 'org-a', null],
+			],
+			$turns
+		);
+		$results = $objectService->savesFor('evalrun')[0]['object']['results'];
+		$this->assertSame(
+			[
+				'caseIndex' => 0,
+				'prompt' => 'a',
+				'expectationType' => 'contains',
+				'actualOutput' => '',
+				'passed' => false,
+				'errorMessage' => 'Agent run failed: no provider',
+				'score' => null,
+				'judgeRationale' => null,
+			],
+			$results[0]
+		);
+		$this->assertSame([0, 2, 3], array_column($results, 'caseIndex'));
+		$this->assertSame(['promptTokens' => 10, 'completionTokens' => 2], $this->auditContexts[0]['usage']);
+		$this->assertSame(['skill-x', 'skill-y'], $this->auditContexts[0]['skillsUsed']);
+
+	}//end testPlainRunRecordsEachCaseTurnAndItsUsage()
+
+	/**
+	 * Golden: run()'s governance gates in every combination (organisation set or
+	 * empty, kill-switch engaged or not, a failing soft-threshold check, budget
+	 * hard cap, plain or baseline) call the gates in the recorded order, allow or
+	 * refuse exactly as recorded, and write and return exactly what was recorded.
+	 * GOLDEN_RECORD=1 rewrites the fixture.
+	 *
+	 * @return void
+	 */
+	public function testRunGatesMatchTheRecordedFixture(): void {
+		$fixture = __DIR__ . '/../../Fixtures/Golden/eval-run-gates.json';
+		$actual = [];
+		foreach (['org-a', ''] as $organisation) {
+			foreach ([false, true] as $engaged) {
+				foreach ([false, true] as $softThrows) {
+					foreach ([false, true] as $blocked) {
+						foreach ([false, true] as $baseline) {
+							$scenario = ['organisation' => $organisation, 'engaged' => $engaged, 'softThrows' => $softThrows, 'blocked' => $blocked, 'baseline' => $baseline];
+							$actual[(string)json_encode($scenario)] = $this->gateTrace(scenario: $scenario);
+						}
+					}
+				}
+			}
+		}
+
+		$actual = json_decode(json_encode($actual, JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+
+		if (getenv('GOLDEN_RECORD') === '1') {
+			file_put_contents($fixture, json_encode($actual, JSON_PRETTY_PRINT | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR) . "\n");
+			$this->markTestSkipped('Fixture recorded.');
+		}
+
+		$expected = json_decode((string)file_get_contents($fixture), true, 512, JSON_THROW_ON_ERROR);
+		$this->assertSame($expected, $actual);
+	}//end testRunGatesMatchTheRecordedFixture()
+
+	/**
+	 * Runs one gate scenario and returns the gate calls, turns, saves, audit
+	 * entries and result, with timestamps and durations masked.
+	 *
+	 * @param array<string, mixed> $scenario The scenario values.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function gateTrace(array $scenario): array {
+		$calls = [];
+		$schedule = $this->createMock(ScheduleService::class);
+		$schedule->method('isOrganisationEngaged')->willReturnCallback(
+			function (string $organisation) use (&$calls, $scenario): bool {
+				$calls[] = ['isOrganisationEngaged' => $organisation];
+				return $scenario['engaged'];
+			}
+		);
+		$schedule->method('runAgentAsOwner')->willReturnCallback(
+			function (string $owner, string $agentId, string $prompt) use (&$calls): string {
+				$calls[] = ['runAgentAsOwner' => $prompt];
+				return 'output MARKER';
+			}
+		);
+		$schedule->method('getLastRunUsage')->willReturn(['promptTokens' => 1, 'completionTokens' => 1]);
+		$schedule->method('getLastRunSkillsUsed')->willReturn([]);
+
+		$budget = $this->createMock(BudgetService::class);
+		$budget->method('checkAndDeliverWarnings')->willReturnCallback(
+			function (string $organisation, string $agentId) use (&$calls, $scenario): void {
+				$calls[] = ['checkAndDeliverWarnings' => [$organisation, $agentId]];
+				if ($scenario['softThrows'] === true) {
+					throw new RuntimeException('warning delivery failed');
+				}
+			}
+		);
+		$budget->method('isBlocked')->willReturnCallback(
+			function (string $organisation, string $agentId) use (&$calls, $scenario): bool {
+				$calls[] = ['isBlocked' => [$organisation, $agentId]];
+				return $scenario['blocked'];
+			}
+		);
+
+		$objectService = new RecordingObjectService(
+			objects: ['agent-uuid' => $this->entity('agent-uuid', ['name' => 'demo-agent', 'skillInstalls' => []])]
+		);
+		$service = $this->service(objectService: $objectService, schedule: $schedule, budget: $budget);
+		$agent = $this->agent();
+		$agent->setOrganisation($scenario['organisation']);
+
+		$result = $service->run(
+			$this->dataset($this->cases(1), skillRefs: ['skill-a']),
+			$agent,
+			agentVersionId: 'version-1',
+			regressionThresholdOverride: 5,
+			baseline: $scenario['baseline']
+		);
+
+		return $this->masked(
+			value: [
+				'result' => $result,
+				'calls' => $calls,
+				'saves' => $objectService->saves,
+				'audit' => $this->auditContexts,
+			]
+		);
+	}//end gateTrace()
 
 	/**
 	 * A completed joint run writes in this order: the run, its audit entry, the

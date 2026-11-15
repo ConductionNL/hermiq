@@ -20,7 +20,7 @@
   - distinguishable in the surface, and a reply produced with no context is marked
   - as not grounded in the object rather than presented as if it were.
   -
-  - @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-object-scoped-agent-chat-reuses-the-tool-free-surface
+  - @spec openspec/specs/agent-object-leaf/spec.md#requirement-object-scoped-agent-chat-reuses-the-tool-free-surface
   - @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-declarative-bounded-agent-context-allowlist
 -->
 <template>
@@ -223,7 +223,7 @@ export default {
 		 * person reads it, may change it, and sends it.
 		 *
 		 * @param {{prompt: string}} prompt The picked prompt.
-		 * @spec openspec/changes/record-chat-ready-made-prompts/specs/ai-feature-admin-surface/spec.md#requirement-the-record-chat-offers-the-ready-made-prompts-for-its-record-type-req-rcprompt-001
+		 * @spec openspec/specs/ai-feature-admin-surface/spec.md#requirement-the-record-chat-offers-the-ready-made-prompts-for-its-record-type-req-rcprompt-001
 		 */
 		pickPrompt(prompt) {
 			this.draft = withPrompt(this.draft, prompt.prompt)

@@ -16,8 +16,8 @@
   guards and behaviour — only the host page changed.
 
   @spec openspec/specs/inapp-settings-section/spec.md#requirement-tenant-ops-must-retain-only-true-per-organisation-operational-controls
-  @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-incident-records-linked-to-runs-and-agents
-  @spec openspec/changes/multi-tenant-ops/specs/multi-tenant-ops/spec.md
+  @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-incident-records-linked-to-runs-and-agents
+  @spec openspec/specs/multi-tenant-ops/spec.md
 -->
 <template>
 	<div class="compliance-operations">
@@ -197,6 +197,7 @@ import {
 	setRetention,
 } from '../api/tenantOps.js'
 import { dateOrDash } from '../utils/displayDate.js'
+import { downloadJson } from '../utils/downloadJson.js'
 
 export default {
 	name: 'ComplianceOperations',
@@ -269,27 +270,7 @@ export default {
 			}
 		},
 
-		/**
-		 * Trigger a client-side download of a JSON object.
-		 *
-		 * @param {object} data The payload to download.
-		 * @param {string} filename The download filename.
-		 * @return {void}
-		 * @spec openspec/specs/inapp-settings-section/spec.md#requirement-tenant-ops-must-retain-only-true-per-organisation-operational-controls
-		 */
-		downloadJson(data, filename) {
-			const blob = new Blob([JSON.stringify(data, null, 2)], {
-				type: 'application/json',
-			})
-			const url = URL.createObjectURL(blob)
-			const a = document.createElement('a')
-			a.href = url
-			a.download = filename
-			document.body.appendChild(a)
-			a.click()
-			document.body.removeChild(a)
-			URL.revokeObjectURL(url)
-		},
+		downloadJson,
 
 		/**
 		 * Load the organisation's incident records (agent-lifecycle-governance).

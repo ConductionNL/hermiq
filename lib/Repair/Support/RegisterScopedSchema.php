@@ -26,7 +26,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+ * @spec openspec/specs/session-data-migration/spec.md
  */
 
 declare(strict_types=1);
@@ -40,7 +40,7 @@ use Throwable;
 /**
  * Resolves a schema slug to its id, scoped to one register.
  *
- * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+ * @spec openspec/specs/session-data-migration/spec.md
  */
 class RegisterScopedSchema {
 
@@ -66,7 +66,7 @@ class RegisterScopedSchema {
 	 * @return string|null The schema id, or null when it does not resolve inside that
 	 *                     register.
 	 *
-	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
 	public function idFor(string $registerSlug, string $schemaSlug): ?string {
 		$ids = $this->schemaIdsOf(registerSlug: $registerSlug);
@@ -86,7 +86,7 @@ class RegisterScopedSchema {
 	 *
 	 * @return iterable<mixed>|null
 	 *
-	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
 	private function schemasNamed(string $schemaSlug): ?iterable {
 		try {
@@ -108,7 +108,7 @@ class RegisterScopedSchema {
 	 *
 	 * @return string|null
 	 *
-	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
 	private function firstIn(iterable $matches, array $ids): ?string {
 		foreach ($matches as $schema) {

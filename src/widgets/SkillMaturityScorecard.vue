@@ -152,7 +152,7 @@ import CloseThick from 'vue-material-design-icons/CloseThick.vue'
 import SkillMaturityDots from './SkillMaturityDots.vue'
 import { attestSkillL4, qualifySkill } from '../api/skills.js'
 import { useSkillStore } from '../store/store.js'
-import { errorMessage } from '../utils/errorMessage.js'
+import { busyAction, BusyFields } from '../utils/busyAction.js'
 
 /**
  * The line for a level the system checks by itself.
@@ -218,6 +218,10 @@ const EVIDENCE_LINES = {
 				})
 			: '',
 }
+
+const QUALIFY_FIELDS = new BusyFields('qualifying', 'error')
+
+const ATTEST_FIELDS = new BusyFields('attesting', 'attestError')
 
 export default {
 	name: 'SkillMaturityScorecard',
@@ -418,17 +422,11 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async doQualify() {
-			this.qualifying = true
-			this.error = ''
-			try {
+			await busyAction(this, QUALIFY_FIELDS)(async () => {
 				const result = await qualifySkill(this.skillId)
 				this.scorecard = result.scorecard || []
 				await this.fetchSkill()
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
-			} finally {
-				this.qualifying = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 
 		/**
@@ -439,9 +437,7 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async doAttest() {
-			this.attesting = true
-			this.attestError = ''
-			try {
+			await busyAction(this, ATTEST_FIELDS)(async () => {
 				const result = await attestSkillL4(
 					this.skillId,
 					this.attestNote.trim(),
@@ -449,11 +445,7 @@ export default {
 				this.scorecard = result.scorecard || []
 				this.attestNote = ''
 				await this.fetchSkill()
-			} catch (e) {
-				this.attestError = errorMessage(e, this.t('hermiq', 'Unknown error'))
-			} finally {
-				this.attesting = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 	},
 }

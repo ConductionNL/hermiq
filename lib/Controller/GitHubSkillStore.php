@@ -28,8 +28,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\Service\GitHubTemplateCatalogService;
-use OCA\Hermiq\Service\SkillMarketplaceService;
+use OCA\Hermiq\Kernel\Contracts\GitHubTemplateCatalogServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillMarketplaceServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 
 /**
@@ -45,7 +45,7 @@ final class GitHubSkillStore {
 	 * @var array{outcome: string, cards: array{}, brokerUsed: bool, rateLimited: bool}
 	 */
 	public const UNREACHABLE = [
-		'outcome' => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE,
+		'outcome' => GitHubTemplateCatalogServiceInterface::OUTCOME_UNREACHABLE,
 		'cards' => [],
 		'brokerUsed' => false,
 		'rateLimited' => false,
@@ -54,14 +54,14 @@ final class GitHubSkillStore {
 	/**
 	 * Build the store steps.
 	 *
-	 * @param GitHubTemplateCatalogService $catalog     Searches and fetches GitHub repositories.
-	 * @param SkillMarketplaceService      $marketplace Installs a package through the quarantine gate.
+	 * @param GitHubTemplateCatalogServiceInterface $catalog     Searches and fetches GitHub repositories.
+	 * @param SkillMarketplaceServiceInterface      $marketplace Installs a package through the quarantine gate.
 	 *
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-skill-through-the-skill-quarantine-gate
 	 */
 	public function __construct(
-		private readonly GitHubTemplateCatalogService $catalog,
-		private readonly SkillMarketplaceService $marketplace,
+		private readonly GitHubTemplateCatalogServiceInterface $catalog,
+		private readonly SkillMarketplaceServiceInterface $marketplace,
 	) {
 	}//end __construct()
 

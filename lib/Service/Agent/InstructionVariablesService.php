@@ -36,11 +36,15 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Agent;
 
+use OCA\Hermiq\Kernel\Contracts\InstructionVariablesServiceInterface;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\Engine\PromptVariableResolver;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use RuntimeException;
 
@@ -49,7 +53,7 @@ use RuntimeException;
  *
  * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
  */
-class InstructionVariablesService {
+class InstructionVariablesService implements InstructionVariablesServiceInterface {
 	use SanitizesForSaveTrait;
 
 	/**
@@ -144,7 +148,10 @@ class InstructionVariablesService {
 	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 	 */
 	public function answer(string $sessionId, string $uid, array $values): ObjectEntity {
-		$session = $this->objectService->find(id: $sessionId, register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA);
+		$session = $this->objectService->find(
+			id: $sessionId,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA)
+		);
 		if ($session === null || (string)($session->getObject()['userId'] ?? '') !== $uid || $uid === '') {
 			throw new RuntimeException('Session not found', 404);
 		}
@@ -172,9 +179,10 @@ class InstructionVariablesService {
 
 		return $this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $data),
-			register: self::REGISTER_SLUG,
-			schema: self::SESSION_SCHEMA,
-			uuid: $sessionId
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA),
+				uuid: $sessionId
+			)
 		);
 	}//end answer()
 
@@ -190,7 +198,11 @@ class InstructionVariablesService {
 			return [];
 		}
 
-		$agent = $this->objectService->find(id: $agentId, register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA, _rbac: false);
+		$agent = $this->objectService->find(
+			id: $agentId,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+			_rbac: false
+		);
 		if ($agent === null) {
 			return [];
 		}

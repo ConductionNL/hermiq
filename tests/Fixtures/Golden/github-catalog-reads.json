@@ -1,0 +1,394 @@
+{
+    "{\"credentialId\":\"cred-uuid\",\"actingUserId\":\"alice\"}": {
+        "reads": {
+            "search": {
+                "outcome": "ok",
+                "cards": [
+                    {
+                        "owner": "acme",
+                        "repo": "demo",
+                        "stars": 0,
+                        "kind": "agent-template",
+                        "installable": true,
+                        "unparseable": false,
+                        "name": "Brokered",
+                        "description": "",
+                        "category": "",
+                        "version": ""
+                    }
+                ],
+                "brokerUsed": true,
+                "rateLimited": false
+            },
+            "demo": "{\"name\":\"Brokered\"}",
+            "limited": null,
+            "failing": null,
+            "refuse": "{\"name\":\"Anonymous\"}"
+        },
+        "broker": [
+            [
+                "cred-uuid",
+                "hermiq",
+                "GET",
+                "\/search\/repositories?q=topic%3Ahermiq-agent-template%20notes&per_page=30",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                "alice"
+            ],
+            [
+                "cred-uuid",
+                "hermiq",
+                "GET",
+                "\/repos\/acme\/demo\/contents\/hermiq-agent-template.json",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                "alice"
+            ],
+            [
+                "cred-uuid",
+                "hermiq",
+                "GET",
+                "\/repos\/acme\/demo\/contents\/hermiq-agent-template.json?ref=v1",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                "alice"
+            ],
+            [
+                "cred-uuid",
+                "hermiq",
+                "GET",
+                "\/repos\/acme\/limited\/contents\/hermiq-agent-template.json?ref=v1",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                "alice"
+            ],
+            [
+                "cred-uuid",
+                "hermiq",
+                "GET",
+                "\/repos\/acme\/failing\/contents\/hermiq-agent-template.json?ref=v1",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                "alice"
+            ],
+            [
+                "cred-uuid",
+                "hermiq",
+                "GET",
+                "\/repos\/acme\/refuse\/contents\/hermiq-agent-template.json?ref=v1",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                "alice"
+            ]
+        ],
+        "anonymous": [
+            "https:\/\/api.github.com\/repos\/acme\/refuse\/contents\/hermiq-agent-template.json?ref=v1"
+        ]
+    },
+    "{\"credentialId\":\"cred-uuid\",\"actingUserId\":null}": {
+        "reads": {
+            "search": {
+                "outcome": "ok",
+                "cards": [
+                    {
+                        "owner": "acme",
+                        "repo": "demo",
+                        "stars": 0,
+                        "kind": "agent-template",
+                        "installable": true,
+                        "unparseable": false,
+                        "name": "Brokered",
+                        "description": "",
+                        "category": "",
+                        "version": ""
+                    }
+                ],
+                "brokerUsed": true,
+                "rateLimited": false
+            },
+            "demo": "{\"name\":\"Brokered\"}",
+            "limited": null,
+            "failing": null,
+            "refuse": "{\"name\":\"Anonymous\"}"
+        },
+        "broker": [
+            [
+                "cred-uuid",
+                "hermiq",
+                "GET",
+                "\/search\/repositories?q=topic%3Ahermiq-agent-template%20notes&per_page=30",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                null
+            ],
+            [
+                "cred-uuid",
+                "hermiq",
+                "GET",
+                "\/repos\/acme\/demo\/contents\/hermiq-agent-template.json",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                null
+            ],
+            [
+                "cred-uuid",
+                "hermiq",
+                "GET",
+                "\/repos\/acme\/demo\/contents\/hermiq-agent-template.json?ref=v1",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                null
+            ],
+            [
+                "cred-uuid",
+                "hermiq",
+                "GET",
+                "\/repos\/acme\/limited\/contents\/hermiq-agent-template.json?ref=v1",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                null
+            ],
+            [
+                "cred-uuid",
+                "hermiq",
+                "GET",
+                "\/repos\/acme\/failing\/contents\/hermiq-agent-template.json?ref=v1",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                null
+            ],
+            [
+                "cred-uuid",
+                "hermiq",
+                "GET",
+                "\/repos\/acme\/refuse\/contents\/hermiq-agent-template.json?ref=v1",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                null
+            ]
+        ],
+        "anonymous": [
+            "https:\/\/api.github.com\/repos\/acme\/refuse\/contents\/hermiq-agent-template.json?ref=v1"
+        ]
+    },
+    "{\"credentialId\":\"\",\"actingUserId\":\"alice\"}": {
+        "reads": {
+            "search": {
+                "outcome": "ok",
+                "cards": [
+                    {
+                        "owner": "acme",
+                        "repo": "demo",
+                        "stars": 3,
+                        "kind": "agent-template",
+                        "installable": true,
+                        "unparseable": false,
+                        "name": "Anonymous",
+                        "description": "",
+                        "category": "",
+                        "version": ""
+                    },
+                    {
+                        "owner": "acme",
+                        "repo": "refuse",
+                        "stars": 0,
+                        "kind": "agent-template",
+                        "installable": true,
+                        "unparseable": false,
+                        "name": "Anonymous",
+                        "description": "",
+                        "category": "",
+                        "version": ""
+                    }
+                ],
+                "brokerUsed": false,
+                "rateLimited": false
+            },
+            "demo": "{\"name\":\"Anonymous\"}",
+            "limited": "{\"name\":\"Anonymous\"}",
+            "failing": "{\"name\":\"Anonymous\"}",
+            "refuse": "{\"name\":\"Anonymous\"}"
+        },
+        "broker": [],
+        "anonymous": [
+            "https:\/\/api.github.com\/search\/repositories?q=topic%3Ahermiq-agent-template%20notes&per_page=30",
+            "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-agent-template.json",
+            "https:\/\/api.github.com\/repos\/acme\/refuse\/contents\/hermiq-agent-template.json",
+            "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-agent-template.json?ref=v1",
+            "https:\/\/api.github.com\/repos\/acme\/limited\/contents\/hermiq-agent-template.json?ref=v1",
+            "https:\/\/api.github.com\/repos\/acme\/failing\/contents\/hermiq-agent-template.json?ref=v1",
+            "https:\/\/api.github.com\/repos\/acme\/refuse\/contents\/hermiq-agent-template.json?ref=v1"
+        ]
+    },
+    "{\"credentialId\":\"\",\"actingUserId\":null}": {
+        "reads": {
+            "search": {
+                "outcome": "ok",
+                "cards": [
+                    {
+                        "owner": "acme",
+                        "repo": "demo",
+                        "stars": 3,
+                        "kind": "agent-template",
+                        "installable": true,
+                        "unparseable": false,
+                        "name": "Anonymous",
+                        "description": "",
+                        "category": "",
+                        "version": ""
+                    },
+                    {
+                        "owner": "acme",
+                        "repo": "refuse",
+                        "stars": 0,
+                        "kind": "agent-template",
+                        "installable": true,
+                        "unparseable": false,
+                        "name": "Anonymous",
+                        "description": "",
+                        "category": "",
+                        "version": ""
+                    }
+                ],
+                "brokerUsed": false,
+                "rateLimited": false
+            },
+            "demo": "{\"name\":\"Anonymous\"}",
+            "limited": "{\"name\":\"Anonymous\"}",
+            "failing": "{\"name\":\"Anonymous\"}",
+            "refuse": "{\"name\":\"Anonymous\"}"
+        },
+        "broker": [],
+        "anonymous": [
+            "https:\/\/api.github.com\/search\/repositories?q=topic%3Ahermiq-agent-template%20notes&per_page=30",
+            "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-agent-template.json",
+            "https:\/\/api.github.com\/repos\/acme\/refuse\/contents\/hermiq-agent-template.json",
+            "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-agent-template.json?ref=v1",
+            "https:\/\/api.github.com\/repos\/acme\/limited\/contents\/hermiq-agent-template.json?ref=v1",
+            "https:\/\/api.github.com\/repos\/acme\/failing\/contents\/hermiq-agent-template.json?ref=v1",
+            "https:\/\/api.github.com\/repos\/acme\/refuse\/contents\/hermiq-agent-template.json?ref=v1"
+        ]
+    },
+    "{\"credentialId\":null,\"actingUserId\":\"alice\"}": {
+        "reads": {
+            "search": {
+                "outcome": "ok",
+                "cards": [
+                    {
+                        "owner": "acme",
+                        "repo": "demo",
+                        "stars": 3,
+                        "kind": "agent-template",
+                        "installable": true,
+                        "unparseable": false,
+                        "name": "Anonymous",
+                        "description": "",
+                        "category": "",
+                        "version": ""
+                    },
+                    {
+                        "owner": "acme",
+                        "repo": "refuse",
+                        "stars": 0,
+                        "kind": "agent-template",
+                        "installable": true,
+                        "unparseable": false,
+                        "name": "Anonymous",
+                        "description": "",
+                        "category": "",
+                        "version": ""
+                    }
+                ],
+                "brokerUsed": false,
+                "rateLimited": false
+            },
+            "demo": "{\"name\":\"Anonymous\"}",
+            "limited": "{\"name\":\"Anonymous\"}",
+            "failing": "{\"name\":\"Anonymous\"}",
+            "refuse": "{\"name\":\"Anonymous\"}"
+        },
+        "broker": [],
+        "anonymous": [
+            "https:\/\/api.github.com\/search\/repositories?q=topic%3Ahermiq-agent-template%20notes&per_page=30",
+            "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-agent-template.json",
+            "https:\/\/api.github.com\/repos\/acme\/refuse\/contents\/hermiq-agent-template.json",
+            "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-agent-template.json?ref=v1",
+            "https:\/\/api.github.com\/repos\/acme\/limited\/contents\/hermiq-agent-template.json?ref=v1",
+            "https:\/\/api.github.com\/repos\/acme\/failing\/contents\/hermiq-agent-template.json?ref=v1",
+            "https:\/\/api.github.com\/repos\/acme\/refuse\/contents\/hermiq-agent-template.json?ref=v1"
+        ]
+    },
+    "{\"credentialId\":null,\"actingUserId\":null}": {
+        "reads": {
+            "search": {
+                "outcome": "ok",
+                "cards": [
+                    {
+                        "owner": "acme",
+                        "repo": "demo",
+                        "stars": 3,
+                        "kind": "agent-template",
+                        "installable": true,
+                        "unparseable": false,
+                        "name": "Anonymous",
+                        "description": "",
+                        "category": "",
+                        "version": ""
+                    },
+                    {
+                        "owner": "acme",
+                        "repo": "refuse",
+                        "stars": 0,
+                        "kind": "agent-template",
+                        "installable": true,
+                        "unparseable": false,
+                        "name": "Anonymous",
+                        "description": "",
+                        "category": "",
+                        "version": ""
+                    }
+                ],
+                "brokerUsed": false,
+                "rateLimited": false
+            },
+            "demo": "{\"name\":\"Anonymous\"}",
+            "limited": "{\"name\":\"Anonymous\"}",
+            "failing": "{\"name\":\"Anonymous\"}",
+            "refuse": "{\"name\":\"Anonymous\"}"
+        },
+        "broker": [],
+        "anonymous": [
+            "https:\/\/api.github.com\/search\/repositories?q=topic%3Ahermiq-agent-template%20notes&per_page=30",
+            "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-agent-template.json",
+            "https:\/\/api.github.com\/repos\/acme\/refuse\/contents\/hermiq-agent-template.json",
+            "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-agent-template.json?ref=v1",
+            "https:\/\/api.github.com\/repos\/acme\/limited\/contents\/hermiq-agent-template.json?ref=v1",
+            "https:\/\/api.github.com\/repos\/acme\/failing\/contents\/hermiq-agent-template.json?ref=v1",
+            "https:\/\/api.github.com\/repos\/acme\/refuse\/contents\/hermiq-agent-template.json?ref=v1"
+        ]
+    }
+}

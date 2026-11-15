@@ -55,13 +55,15 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-egress-guard-blocks-ssrf-shaped-destinations-for-webfetch
- * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-the-admin-configured-search-endpoint-is-exempt-from-the-private-address-block
+ * @spec openspec/specs/web-research-tool/spec.md#requirement-egress-guard-blocks-ssrf-shaped-destinations-for-webfetch
+ * @spec openspec/specs/web-research-tool/spec.md#requirement-the-admin-configured-search-endpoint-is-exempt-from-the-private-address-block
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\WebResearch;
+
+use OCA\Hermiq\Kernel\Contracts\WebResearchEgressGuardInterface;
 
 /**
  * SSRF/allowlist/denylist validation for every web-research outbound destination.
@@ -70,9 +72,9 @@ namespace OCA\Hermiq\Service\WebResearch;
  *   two trust tiers exactly (see the file docblock) across all three guard methods —
  *   the length IS the clarity.
  *
- * @spec openspec/changes/web-research-tool/tasks.md#task-3-webresearchegressguard-ssrf--allowlistdenylist
+ * @spec openspec/changes/archive/2026-07-14-web-research-tool/tasks.md#task-3-webresearchegressguard-ssrf--allowlistdenylist
  */
-class WebResearchEgressGuard {
+class WebResearchEgressGuard implements WebResearchEgressGuardInterface {
 
 	/**
 	 * Cloud-metadata addresses. Blocked UNCONDITIONALLY — even for the
@@ -102,8 +104,8 @@ class WebResearchEgressGuard {
 	 *
 	 * @return array{allowed: bool, code: ?string, message: ?string} The verdict.
 	 *
-	 * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-egress-guard-blocks-ssrf-shaped-destinations-for-webfetch
-	 * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-the-admin-configured-search-endpoint-is-exempt-from-the-private-address-block
+	 * @spec openspec/specs/web-research-tool/spec.md#requirement-egress-guard-blocks-ssrf-shaped-destinations-for-webfetch
+	 * @spec openspec/specs/web-research-tool/spec.md#requirement-the-admin-configured-search-endpoint-is-exempt-from-the-private-address-block
 	 *
 	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Not ad-hoc mode switches:
 	 *   `$isAdminConfiguredEndpoint` is the spec's binding trust-tier input and
@@ -298,7 +300,7 @@ class WebResearchEgressGuard {
 	 *
 	 * @return string[] The resolved addresses (empty when resolution fails).
 	 *
-	 * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-egress-guard-blocks-ssrf-shaped-destinations-for-webfetch
+	 * @spec openspec/specs/web-research-tool/spec.md#requirement-egress-guard-blocks-ssrf-shaped-destinations-for-webfetch
 	 */
 	protected function resolveAddresses(string $host): array {
 		if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
@@ -344,7 +346,7 @@ class WebResearchEgressGuard {
 	 *
 	 * @return array<int, array<string, mixed>>|false
 	 *
-	 * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-egress-guard-blocks-ssrf-shaped-destinations-for-webfetch
+	 * @spec openspec/specs/web-research-tool/spec.md#requirement-egress-guard-blocks-ssrf-shaped-destinations-for-webfetch
 	 */
 	protected function dnsGetRecord(string $hostname, int $type): array|false {
 		return dns_get_record($hostname, $type);

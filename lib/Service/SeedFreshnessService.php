@@ -44,6 +44,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\SeedFreshnessServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use Throwable;
 
@@ -52,7 +53,7 @@ use Throwable;
  *
  * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
  */
-class SeedFreshnessService {
+class SeedFreshnessService implements SeedFreshnessServiceInterface {
 	/**
 	 * Stamp `lastActivityAt = now` on a seed payload about to be created, so the
 	 * Curator's staleness clock starts at seed time.

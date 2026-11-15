@@ -13,7 +13,7 @@ import { t } from '@nextcloud/l10n'
  *
  * @param {object} policy The GuardrailPolicy record.
  * @return {Array<object>} The rules.
- * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
+ * @spec openspec/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
  */
 function toolRulesOf(policy) {
 	return Array.isArray(policy.toolPolicy) ? policy.toolPolicy : []
@@ -24,7 +24,7 @@ function toolRulesOf(policy) {
  *
  * @param {object} draft The form draft.
  * @return {{inputFilters: object, outputFilters: object}} The filters.
- * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
+ * @spec openspec/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
  */
 export function filtersFromDraft(draft) {
 	return {
@@ -44,7 +44,7 @@ export function filtersFromDraft(draft) {
  *
  * @param {string} text The textarea's text.
  * @return {Array<object>} The `{ toolId, classification }` rules.
- * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
+ * @spec openspec/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
  */
 export function parseToolPolicy(text) {
 	return text
@@ -67,7 +67,7 @@ export function parseToolPolicy(text) {
  *
  * @param {object} policy The GuardrailPolicy record.
  * @return {object} The draft.
- * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
+ * @spec openspec/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
  */
 export function draftFromPolicy(policy) {
 	return {
@@ -85,7 +85,7 @@ export function draftFromPolicy(policy) {
  *
  * @param {object} policy The GuardrailPolicy record.
  * @return {string} The summary line.
- * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
+ * @spec openspec/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
  */
 export function policySummary(policy) {
 	const input = policy.inputFilters || {}

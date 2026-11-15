@@ -36,24 +36,16 @@ namespace OCA\OpenRegister\Db;
  */
 class FlowMapper {
 	/**
-	 * List flows, optionally scoped by app, tenant and enabled state.
+	 * List flows. Same signature as OpenRegister's FlowMapper::findAllFlows().
 	 *
-	 * @param string|null $app Restrict to one owning app id.
-	 * @param string|null $applicationSlug Restrict to one application slug.
-	 * @param string|null $organisation Restrict to one tenant.
-	 * @param boolean|null $enabled Restrict to enabled or disabled flows.
-	 * @param integer $limit Page size.
-	 * @param integer $offset Page offset.
+	 * @param \OCA\OpenRegister\Db\Flow\FlowSelection   $selection Which flows.
+	 * @param \OCA\OpenRegister\Kernel\Contracts\ListQuery $query     The page.
 	 *
 	 * @return array<int, Flow> The matching flows.
 	 */
 	public function findAllFlows(
-		?string $app = null,
-		?string $applicationSlug = null,
-		?string $organisation = null,
-		?bool $enabled = null,
-		int $limit = 100,
-		int $offset = 0,
+		\OCA\OpenRegister\Db\Flow\FlowSelection $selection=new \OCA\OpenRegister\Db\Flow\FlowSelection(),
+		\OCA\OpenRegister\Kernel\Contracts\ListQuery $query=new \OCA\OpenRegister\Kernel\Contracts\ListQuery(limit: 100, offset: 0),
 	): array {
 		return [];
 	}//end findAllFlows()

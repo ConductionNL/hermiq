@@ -141,6 +141,20 @@
 					<p class="llm-provider-modal__hint">
 						{{ credentialHint(anthropicCredentialProviderIds) }}
 					</p>
+					<NcCheckboxRadioSwitch
+						v-model="form.anthropicConfig.promptCaching"
+						type="switch"
+						data-testid="llm-anthropic-prompt-caching">
+						{{ t('hermiq', 'Use the provider’s prompt cache') }}
+					</NcCheckboxRadioSwitch>
+					<p class="llm-provider-modal__hint">
+						{{
+							t(
+								'hermiq',
+								'Anthropic reads the unchanged start of each request from its cache, which makes repeat turns cheaper and faster. The answer stays the same.',
+							)
+						}}
+					</p>
 					<NcNoteCard
 						v-if="anthropicAuthModeValue === 'oauth'"
 						type="warning">
@@ -309,6 +323,7 @@ export default {
 					chatModel: '',
 					credentialId: '',
 					authMode: 'api_key',
+					promptCaching: true,
 				},
 			},
 		}
@@ -548,7 +563,7 @@ export default {
 		 * @param {string} chatProvider The stored provider.
 		 * @return {void}
 		 *
-		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-5-admin-ui
 		 */
 		reflectPickers(chatProvider) {
 			this.openaiCredential = optionWithValue(this.credentialsFor('openai'), this.form.openaiConfig.credentialId)
@@ -569,7 +584,7 @@ export default {
 		 *                                        depending on the transport.
 		 * @return {Array} NcSelect options.
 		 *
-		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-5-admin-ui
 		 */
 		credentialsFor(provider) {
 			const providers = Array.isArray(provider) ? provider : [provider]
@@ -584,7 +599,7 @@ export default {
 		 * @param {string|Array<string>} provider One broker provider id, or several.
 		 * @return {string} The hint text.
 		 *
-		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-5-admin-ui
 		 */
 		credentialHint(provider) {
 			if (!this.loadingCredentials && !this.credentialsFor(provider).length) {
@@ -632,7 +647,7 @@ export default {
 		 *
 		 * @return {object|null} The section.
 		 *
-		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-5-admin-ui
 		 */
 		openaiSection() {
 			if (!this.openaiCredential) {
@@ -663,7 +678,7 @@ export default {
 		 *
 		 * @return {object|null} The section.
 		 *
-		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-5-admin-ui
 		 */
 		fireworksSection() {
 			if (!this.fireworksCredential) {
@@ -685,7 +700,7 @@ export default {
 		 *
 		 * @return {object|null} The section.
 		 *
-		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-5-admin-ui
 		 */
 		anthropicSection() {
 			if (this.anthropicAuthModeValue === 'oauth') {
@@ -701,6 +716,7 @@ export default {
 				chatModel: this.form.anthropicConfig.chatModel,
 				credentialId: this.anthropicCredential.value,
 				authMode: this.anthropicAuthModeValue,
+				promptCaching: this.form.anthropicConfig.promptCaching !== false,
 				// Admin settings are always organisation scope.
 				scope: 'organisation',
 			}

@@ -17,7 +17,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
  */
 
 declare(strict_types=1);
@@ -31,7 +31,7 @@ use OCA\OpenRegister\Db\ObjectEntity;
  *
  * Built and read only inside ToolLoop.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
  */
 final class ToolSurfaceRun {
 

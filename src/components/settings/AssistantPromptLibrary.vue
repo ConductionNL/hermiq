@@ -18,7 +18,7 @@
   A standard settings component — no inline modal (modal-isolation gate), no DOM
   reads, all strings via t().
 
-  @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#requirement-the-prompts-the-assistant-offers-must-be-administered-objects
+  @spec openspec/specs/ai-feature-admin-surface/spec.md#requirement-the-prompts-the-assistant-offers-must-be-administered-objects
 -->
 <template>
 	<div class="prompt-library">
@@ -119,7 +119,7 @@ export default {
 		 * Read the library, in the administrator's order.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#scenario-order-is-the-administrators
+		 * @spec openspec/specs/ai-feature-admin-surface/spec.md#scenario-order-is-the-administrators
 		 */
 		async load() {
 			await this.withFlag('loading', async () => {
@@ -132,7 +132,7 @@ export default {
 		 *
 		 * @param {object} prompt The prompt row.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#scenario-coming-back-is-deliberate
+		 * @spec openspec/specs/ai-feature-admin-surface/spec.md#scenario-coming-back-is-deliberate
 		 */
 		async toggle(prompt) {
 			await this.withFlag('busy', async () => {
@@ -147,7 +147,7 @@ export default {
 		 * Switch every prompt off in one act.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#scenario-everything-stops-in-one-act
+		 * @spec openspec/specs/ai-feature-admin-surface/spec.md#scenario-everything-stops-in-one-act
 		 */
 		async disableAll() {
 			await this.withFlag('busy', async () => {

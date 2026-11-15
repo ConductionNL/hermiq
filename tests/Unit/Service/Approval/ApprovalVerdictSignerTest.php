@@ -103,7 +103,7 @@ class ApprovalVerdictSignerTest extends TestCase {
 		$publicKey = base64_decode($this->values[ApprovalVerdictSigner::PUBLIC_KEY] ?? '', true);
 		$this->assertIsString($publicKey);
 		$this->assertSame(SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES, strlen($publicKey));
-		$this->assertTrue($this->sensitive[ApprovalVerdictSigner::SECRET_KEY] ?? false);
+		$this->assertTrue($this->sensitive[ApprovalVerdictSigner::SIGNING_CONFIG_NAME] ?? false);
 		$this->assertFalse($this->sensitive[ApprovalVerdictSigner::PUBLIC_KEY] ?? true);
 		$this->assertSame('approval_verdict_public_key', ApprovalVerdictSigner::PUBLIC_KEY);
 
@@ -147,7 +147,7 @@ class ApprovalVerdictSignerTest extends TestCase {
 	 * @return void
 	 */
 	public function testAnUnreadableSecretRotatesThePair(): void {
-		$this->values[ApprovalVerdictSigner::SECRET_KEY] = 'not-a-key';
+		$this->values[ApprovalVerdictSigner::SIGNING_CONFIG_NAME] = 'not-a-key';
 		$this->values[ApprovalVerdictSigner::PUBLIC_KEY] = base64_encode(str_repeat('x', 32));
 
 		$signature = base64_decode((new ApprovalVerdictSigner(appConfig: $this->appConfig()))->sign(verdict: $this->verdict()), true);
@@ -168,15 +168,15 @@ class ApprovalVerdictSignerTest extends TestCase {
 	public function testAMismatchedPairRotates(): void {
 		$stale = sodium_crypto_sign_keypair();
 		$other = sodium_crypto_sign_keypair();
-		$this->values[ApprovalVerdictSigner::SECRET_KEY] = base64_encode(sodium_crypto_sign_secretkey($stale));
+		$this->values[ApprovalVerdictSigner::SIGNING_CONFIG_NAME] = base64_encode(sodium_crypto_sign_secretkey($stale));
 		$this->values[ApprovalVerdictSigner::PUBLIC_KEY] = base64_encode(sodium_crypto_sign_publickey($other));
 
 		$signature = base64_decode((new ApprovalVerdictSigner(appConfig: $this->appConfig()))->sign(verdict: $this->verdict()), true);
 		$published = (string)base64_decode($this->values[ApprovalVerdictSigner::PUBLIC_KEY], true);
 
 		$this->assertNotSame(expected: sodium_crypto_sign_publickey($other), actual: $published);
-		$this->assertNotSame(expected: base64_encode(sodium_crypto_sign_secretkey($stale)), actual: $this->values[ApprovalVerdictSigner::SECRET_KEY]);
-		$this->assertTrue(condition: $this->sensitive[ApprovalVerdictSigner::SECRET_KEY]);
+		$this->assertNotSame(expected: base64_encode(sodium_crypto_sign_secretkey($stale)), actual: $this->values[ApprovalVerdictSigner::SIGNING_CONFIG_NAME]);
+		$this->assertTrue(condition: $this->sensitive[ApprovalVerdictSigner::SIGNING_CONFIG_NAME]);
 		$this->assertTrue(
 			condition: sodium_crypto_sign_verify_detached((string)$signature, ApprovalVerdictSigner::canonical(verdict: $this->verdict()), $published)
 		);

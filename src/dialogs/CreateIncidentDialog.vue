@@ -9,8 +9,8 @@
   (action-auth-gated), NOT the generic createObjectStore object path — incident
   creation is a governance action (ADR-023), not ordinary CRUD.
 
-  @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
-  @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-incident-records-linked-to-runs-and-agents
+  @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
+  @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-incident-records-linked-to-runs-and-agents
 -->
 <template>
 	<NcDialog
@@ -83,6 +83,7 @@ import {
 	NcTextField,
 } from '@nextcloud/vue'
 import { createIncident } from '../api/tenantOps.js'
+import { resetOnOpen } from '../modals/resetOnOpen.js'
 import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
@@ -97,13 +98,9 @@ export default {
 		NcTextField,
 	},
 
-	props: {
-		/** Whether the dialog is visible. */
-		show: {
-			type: Boolean,
-			default: false,
-		},
+	mixins: [resetOnOpen],
 
+	props: {
 		/** Optional agent UUID to preselect (e.g. opened from an agent/run context). */
 		defaultAgentId: {
 			type: String,
@@ -134,7 +131,7 @@ export default {
 		 * actionsTaken are all required (matches the Incident schema).
 		 *
 		 * @return {boolean}
-		 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
+		 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
 		 */
 		canSave() {
 			return (
@@ -145,23 +142,12 @@ export default {
 		},
 	},
 
-	watch: {
-		/**
-		 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
-		 */
-		show(open) {
-			if (open) {
-				this.resetForm()
-			}
-		},
-	},
-
 	methods: {
 		/**
 		 * A blank incident form.
 		 *
 		 * @return {object} The blank form model.
-		 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
+		 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
 		 */
 		blankForm() {
 			return {
@@ -176,7 +162,7 @@ export default {
 		 * Seed the form from the default props (create-only; no edit mode).
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
+		 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
 		 */
 		resetForm() {
 			this.error = ''
@@ -188,7 +174,7 @@ export default {
 		 * Persist the incident and notify the parent.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
+		 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
 		 */
 		async save() {
 			this.saving = true

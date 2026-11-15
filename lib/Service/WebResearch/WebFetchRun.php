@@ -16,7 +16,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#scenario-an-agent-fetches-an-html-page
+ * @spec openspec/specs/web-research-tool/spec.md#scenario-an-agent-fetches-an-html-page
  */
 
 declare(strict_types=1);
@@ -26,7 +26,7 @@ namespace OCA\Hermiq\Service\WebResearch;
 /**
  * One web fetch.
  *
- * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#scenario-an-agent-fetches-an-html-page
+ * @spec openspec/specs/web-research-tool/spec.md#scenario-an-agent-fetches-an-html-page
  */
 final class WebFetchRun {
 

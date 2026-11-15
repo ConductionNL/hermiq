@@ -41,16 +41,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-3-webhooktriggercontroller-public-secret-authenticated-enumeration-safe
+ * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-3-webhooktriggercontroller-public-secret-authenticated-enumeration-safe
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\BackgroundJob\WebhookAgentRunJob;
-use OCA\Hermiq\Service\WebhookSecretService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\WebhookSecretServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -66,7 +66,7 @@ use Throwable;
 /**
  * The public, secret-authenticated per-agent webhook trigger endpoint.
  *
- * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-3-webhooktriggercontroller-public-secret-authenticated-enumeration-safe
+ * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-3-webhooktriggercontroller-public-secret-authenticated-enumeration-safe
  */
 class WebhookTriggerController extends Controller {
 
@@ -77,7 +77,7 @@ class WebhookTriggerController extends Controller {
 	 *
 	 * @var string
 	 */
-	private const SECRET_HEADER = 'X-Hermiq-Webhook-Secret';
+	private const SHARED_CREDENTIAL_HEADER = 'X-Hermiq-Webhook-Secret';
 
 	/**
 	 * Hard payload-size cap in bytes (64 KiB, design.md API Design).
@@ -90,7 +90,7 @@ class WebhookTriggerController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param WebhookSecretService $webhookSecretService The enumeration-safe secret verifier.
+	 * @param WebhookSecretServiceInterface $webhookSecretService The enumeration-safe secret verifier.
 	 * @param IJobList $jobList Enqueues the one-shot WebhookAgentRunJob.
 	 * @param LoggerInterface $logger PSR-3 logger (enqueue failures only — never
 	 *                                auth-failure diagnostics, which must stay silent
@@ -98,11 +98,11 @@ class WebhookTriggerController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly WebhookSecretService $webhookSecretService,
+		private readonly WebhookSecretServiceInterface $webhookSecretService,
 		private readonly IJobList $jobList,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -118,9 +118,9 @@ class WebhookTriggerController extends Controller {
 	 * @PublicPage
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-the-public-trigger-endpoint-authenticates-by-secret-not-session
-	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-the-payload-is-size-capped-before-it-is-processed
-	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-the-trigger-endpoint-is-rate-limited
+	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-the-public-trigger-endpoint-authenticates-by-secret-not-session
+	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-the-payload-is-size-capped-before-it-is-processed
+	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-the-trigger-endpoint-is-rate-limited
 	 */
 	#[PublicPage]
 	#[NoCSRFRequired]
@@ -133,7 +133,7 @@ class WebhookTriggerController extends Controller {
 			return $this->tooLargeResponse();
 		}
 
-		$secret = (string)$this->request->getHeader(self::SECRET_HEADER);
+		$secret = (string)$this->request->getHeader(self::SHARED_CREDENTIAL_HEADER);
 		$webhook = $this->webhookSecretService->verifyAndLoad(agentId: $id, providedSecret: $secret);
 		if ($webhook === null) {
 			// Enumeration-safe: identical for unknown agent / no webhook / disabled / wrong secret.
@@ -234,7 +234,7 @@ class WebhookTriggerController extends Controller {
 	 *
 	 * @return string The raw request body, or '' when unreadable.
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-the-payload-is-size-capped-before-it-is-processed
+	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-the-payload-is-size-capped-before-it-is-processed
 	 */
 	protected function readRawBody(): string {
 		$body = file_get_contents('php://input');
@@ -252,7 +252,7 @@ class WebhookTriggerController extends Controller {
 	 *
 	 * @return JSONResponse The 401 response.
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-the-public-trigger-endpoint-authenticates-by-secret-not-session
+	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-the-public-trigger-endpoint-authenticates-by-secret-not-session
 	 */
 	private function unauthorizedResponse(): JSONResponse {
 		return new JSONResponse(['error' => 'unauthorized'], Http::STATUS_UNAUTHORIZED);
@@ -263,7 +263,7 @@ class WebhookTriggerController extends Controller {
 	 *
 	 * @return JSONResponse The 413 response.
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-the-payload-is-size-capped-before-it-is-processed
+	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-the-payload-is-size-capped-before-it-is-processed
 	 */
 	private function tooLargeResponse(): JSONResponse {
 		return new JSONResponse(['error' => 'payload_too_large'], Http::STATUS_REQUEST_ENTITY_TOO_LARGE);
@@ -275,7 +275,7 @@ class WebhookTriggerController extends Controller {
 	 *
 	 * @return string The generated UUID v4.
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-the-public-trigger-endpoint-authenticates-by-secret-not-session
+	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-the-public-trigger-endpoint-authenticates-by-secret-not-session
 	 */
 	private function generateCorrelationId(): string {
 		$data = random_bytes(16);

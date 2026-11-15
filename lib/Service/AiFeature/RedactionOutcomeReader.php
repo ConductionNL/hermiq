@@ -29,7 +29,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/woo-llm-anonymisation/spec.md#requirement-hermiq-must-not-redact-and-must-not-treat-detection-as-redaction
+ * @spec openspec/specs/woo-llm-anonymisation/spec.md#requirement-hermiq-must-not-redact-and-must-not-treat-detection-as-redaction
  */
 
 declare(strict_types=1);
@@ -46,7 +46,7 @@ use Throwable;
 /**
  * Reads filinq's redaction outcome for a document reference.
  *
- * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/woo-llm-anonymisation/spec.md#requirement-a-feature-may-require-that-a-document-was-redacted-before-it-is-read
+ * @spec openspec/specs/woo-llm-anonymisation/spec.md#requirement-a-feature-may-require-that-a-document-was-redacted-before-it-is-read
  */
 class RedactionOutcomeReader {
 
@@ -100,7 +100,7 @@ class RedactionOutcomeReader {
 	 *
 	 * @return bool True when filinq is installed.
 	 *
-	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/woo-llm-anonymisation/spec.md#requirement-a-missing-redaction-client-must-fail-closed
+	 * @spec openspec/specs/woo-llm-anonymisation/spec.md#requirement-a-missing-redaction-client-must-fail-closed
 	 */
 	public function clientAvailable(): bool {
 		return FleetAppId::isInstalled(appManager: $this->appManager, canonical: self::REDACTION_APP);
@@ -114,7 +114,7 @@ class RedactionOutcomeReader {
 	 * @return array{available: bool, redacted: bool, status: string, redactedAt: string, reason: string}
 	 *         What filinq says, or why nothing could be said.
 	 *
-	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/woo-llm-anonymisation/spec.md#requirement-a-feature-may-require-that-a-document-was-redacted-before-it-is-read
+	 * @spec openspec/specs/woo-llm-anonymisation/spec.md#requirement-a-feature-may-require-that-a-document-was-redacted-before-it-is-read
 	 */
 	public function outcomeFor(string $documentReference): array {
 		if ($this->clientAvailable() === false) {

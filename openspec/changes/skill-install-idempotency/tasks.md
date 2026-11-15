@@ -2,8 +2,8 @@
 
 ### 1. Identity resolution
 
-- [ ] Add `lib/Service/SkillIdentityResolver.php` — canonicalise a bundle skill to `https://<canonical-host>/<owner>/<repo>/skills/<bundleName>` with mirror hosts normalised and NO git ref
-- [ ] Resolve: exact `sourceUrl` match → one-time normalised-name fallback restricted to skills with NO `sourceUrl` → return the match plus how it matched
+- [x] Add `lib/Service/SkillIdentityResolver.php` — canonicalise a bundle skill to `https://<canonical-host>/<owner>/<repo>/skills/<bundleName>` with mirror hosts normalised and NO git ref
+- [x] Resolve: exact `sourceUrl` match → one-time normalised-name fallback restricted to skills with NO `sourceUrl` → return the match plus how it matched
 
 Acceptance criteria
 - A name collision against a skill carrying a DIFFERENT `sourceUrl` does not match
@@ -11,10 +11,10 @@ Acceptance criteria
 
 ### 2. Upsert policy
 
-- [ ] Add `lib/Service/SkillUpsertPolicy.php` — merge bundle content over an existing skill, writing ONLY `body`, `frontmatter`, `files`, `description` and never the curated keys
-- [ ] Re-quarantine on ANY content difference, with a reason naming the change; leave state untouched when content is identical
-- [ ] Keep the local `learnings.md` when `lastAcceptedVersionAt` postdates `sourceUpdatedAt` AND the incoming file differs — apply the rest of the update and flag `learningsKept`
-- [ ] Stamp `sourceUrl` and `sourceUpdatedAt` on every successful install or update
+- [x] Add `lib/Service/SkillUpsertPolicy.php` — merge bundle content over an existing skill, writing ONLY `body`, `frontmatter`, `files`, `description` and never the curated keys
+- [x] Re-quarantine on ANY content difference, with a reason naming the change; leave state untouched when content is identical
+- [x] Keep the local `learnings.md` when `lastAcceptedVersionAt` postdates `sourceUpdatedAt` AND the incoming file differs — apply the rest of the update and flag `learningsKept`
+- [x] Stamp `sourceUrl` and `sourceUpdatedAt` on every successful install or update
 
 Acceptance criteria
 - `maturityLevel`, `targetLevel`, `levelEvidence`, `installedOn`, `createdBy`, `publishedAt`, `archivedAt`, `lastAcceptedVersionAt` are never written by the merge
@@ -22,8 +22,8 @@ Acceptance criteria
 
 ### 3. Wire into the install path
 
-- [ ] Use the resolver and policy in `SkillMarketplaceService::installFromSource()` so create-vs-update is decided in one place
-- [ ] Report `updated` / `unchanged` / `learningsKept` / `matchedBy` / `sourceUrl` per skill in `SkillBundleInstaller`, and surface them through `SkillController`
+- [x] Use the resolver and policy in `SkillMarketplaceService::installFromSource()` so create-vs-update is decided in one place
+- [x] Report `updated` / `unchanged` / `learningsKept` / `matchedBy` / `sourceUrl` per skill in `SkillBundleInstaller`, and surface them through `SkillController`
 
 Acceptance criteria
 - The HTTP route and OpenBuild's cross-app caller inherit the behaviour identically
@@ -31,8 +31,10 @@ Acceptance criteria
 
 ### 4. Tests
 
-- [ ] Unit-test identity, merge, re-quarantine, learnings preservation and the refresh clock per test-plan.md
-- [ ] Mutation-check three ways: remove the identity match, compare learnings against `publishedAt`, and preserve state across a content change — each MUST turn the suite red
+Built: `SkillIdentityResolver`, `SkillUpsertPolicy`, their wiring in `SkillMarketplaceService::installFromSource()` / `SkillBundleInstaller`, and `SkillIdentityResolverTest` (7), `SkillUpsertPolicyTest` (7, including `testTheLearningsClockIsSourceUpdatedAtNotPublishedAt`), `SkillBundleInstallerTest` and `SkillMarketplaceServiceTest` are on development; 35 tests green (checked 2026-11-13).
+
+- [x] Unit-test identity, merge, re-quarantine, learnings preservation and the refresh clock per test-plan.md
+- [x] Mutation-check three ways: remove the identity match, compare learnings against `publishedAt`, and preserve state across a content change — each MUST turn the suite red
 
 Acceptance criteria
 - Every new test is proven capable of failing before it is trusted

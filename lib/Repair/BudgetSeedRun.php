@@ -25,7 +25,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\Hermiq\Service\BudgetService;
+use OCA\Hermiq\Kernel\Contracts\BudgetServiceInterface;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
@@ -54,9 +54,9 @@ final class BudgetSeedRun {
 	/**
 	 * The budget write-path.
 	 *
-	 * @var BudgetService
+	 * @var BudgetServiceInterface
 	 */
-	public BudgetService $budgetService;
+	public BudgetServiceInterface $budgetService;
 
 	/**
 	 * Start the run.
