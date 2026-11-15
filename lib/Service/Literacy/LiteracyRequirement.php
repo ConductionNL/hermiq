@@ -30,6 +30,8 @@ namespace OCA\Hermiq\Service\Literacy;
 use OCA\Hermiq\Kernel\Contracts\LiteracyRequirementInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IGroupManager;
 use OCP\IUser;
@@ -153,9 +155,10 @@ class LiteracyRequirement implements LiteracyRequirementInterface {
 		$data['@self'] = ['organisation' => $organisation];
 		$this->objects->saveObject(
 			object: $data,
-			register: LiteracyCourse::REGISTER_SLUG,
-			schema: self::CONTROL_SCHEMA,
-			uuid: $uuid,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: LiteracyCourse::REGISTER_SLUG, schema: self::CONTROL_SCHEMA),
+				uuid: $uuid
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

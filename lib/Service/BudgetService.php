@@ -53,6 +53,9 @@ use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use Psr\Log\LoggerInterface;
@@ -271,9 +274,10 @@ class BudgetService implements BudgetServiceInterface {
 		try {
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::BUDGET_SCHEMA,
-				uuid: (string)$budget->getUuid(),
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::BUDGET_SCHEMA),
+					uuid: (string)$budget->getUuid()
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -496,8 +500,7 @@ class BudgetService implements BudgetServiceInterface {
 
 		return $this->objectService->find(
 			id: $budgetId,
-			register: self::REGISTER_SLUG,
-			schema: self::BUDGET_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::BUDGET_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -543,8 +546,7 @@ class BudgetService implements BudgetServiceInterface {
 
 		$budget = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::BUDGET_SCHEMA,
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::BUDGET_SCHEMA)),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -588,9 +590,10 @@ class BudgetService implements BudgetServiceInterface {
 
 		$budget = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::BUDGET_SCHEMA,
-			uuid: $budgetId,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::BUDGET_SCHEMA),
+				uuid: $budgetId
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -829,9 +832,10 @@ class BudgetService implements BudgetServiceInterface {
 			$data['lastHardBlockAt'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::BUDGET_SCHEMA,
-				uuid: (string)$budget->getUuid(),
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::BUDGET_SCHEMA),
+					uuid: (string)$budget->getUuid()
+				),
 				_rbac: false,
 				_multitenancy: false
 			);

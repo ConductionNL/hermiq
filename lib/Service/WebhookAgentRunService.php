@@ -57,9 +57,11 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Kernel\Contracts\WebhookAgentRunServiceInterface;
 use OCA\Hermiq\Service\AgentRun\WebhookRunOutcome;
+use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Service\ObjectService;
@@ -112,6 +114,7 @@ class WebhookAgentRunService implements WebhookAgentRunServiceInterface {
 	 * @param SkillVersionService $skillVersionService Resolves the exposed skills' version identifiers,
 	 *                                                 pinned onto the run-audit context
 	 *                                                 (skill-self-improvement) — never fatal to the run.
+	 * @param TraceExportQueue|null $traceExportQueue Hands the finished run to trace export (observability-export-traces).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
 	 *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -127,6 +130,7 @@ class WebhookAgentRunService implements WebhookAgentRunServiceInterface {
 		private readonly BudgetService $budgetService,
 		private readonly AgentVersionService $agentVersionService,
 		private readonly SkillVersionService $skillVersionService,
+		private readonly ?TraceExportQueue $traceExportQueue = null,
 	) {
 	}//end __construct()
 
@@ -400,8 +404,7 @@ class WebhookAgentRunService implements WebhookAgentRunServiceInterface {
 
 		$agentObject = $this->objectService->find(
 			id: $agentId,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -560,6 +563,7 @@ class WebhookAgentRunService implements WebhookAgentRunServiceInterface {
 					context: $auditContext
 				)
 			);
+			$this->traceExportQueue?->enqueueRun(context: $auditContext, trigger: 'webhook');
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				sprintf(

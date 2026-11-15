@@ -66,6 +66,7 @@ class Notifier implements INotifier {
 		'skill_published_behind',
 		'skill_rollback_suggested',
 		'session_participant_added',
+		'run_done',
 		'session_shared',
 		'goal_reached',
 		'goal_exhausted',
@@ -178,6 +179,7 @@ class Notifier implements INotifier {
 			'skill_published_behind' => $this->skillPublishedBehindText(name: $name, l: $l),
 			'skill_rollback_suggested' => $this->skillRollbackSuggestedText(name: $name, l: $l),
 			'session_participant_added' => $this->sessionParticipantAddedText(owner: (string)($subjectRaw['owner'] ?? ''), name: $name, l: $l),
+			'run_done' => $this->runDoneText(name: $name, succeeded: (($subjectRaw['result'] ?? '') === 'ok'), l: $l),
 			'session_shared' => $this->sessionSharedText(owner: (string)($subjectRaw['owner'] ?? ''), name: $name, l: $l),
 			'goal_reached' => $this->goalText(reached: true, name: $name, l: $l),
 			'goal_exhausted' => $this->goalText(reached: false, name: $name, l: $l),
@@ -185,6 +187,31 @@ class Notifier implements INotifier {
 			default => $this->runCompleteText(name: $name, l: $l),
 		};
 	}//end resolveSubjectAndMessage()
+
+	/**
+	 * The `run_done` wording (personal-preferences): the agent and the result of a
+	 * run the recipient started, sent because they asked to be told.
+	 *
+	 * @param string $name      The agent's name, when known.
+	 * @param bool   $succeeded Whether the run succeeded.
+	 * @param IL10N  $l         The recipient-language localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 */
+	private function runDoneText(string $name, bool $succeeded, IL10N $l): array {
+		$subject = $l->t('Your agent run is done');
+		if ($name !== '') {
+			$subject = $l->t('%s is done', [$name]);
+		}
+
+		if ($succeeded === true) {
+			return [$subject, $l->t('The run finished successfully.')];
+		}
+
+		return [$subject, $l->t('The run ended with an error.')];
+	}//end runDoneText()
 
 	/**
 	 * The default `run_complete` wording (also the fallback for any subject key

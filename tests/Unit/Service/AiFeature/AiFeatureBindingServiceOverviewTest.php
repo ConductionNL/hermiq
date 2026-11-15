@@ -32,6 +32,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * The AI-feature overview shows each feature's resolved binding and where its provider runs.
@@ -191,13 +192,13 @@ final class AiFeatureBindingServiceOverviewTest extends TestCase {
 		$saved = new ObjectEntity();
 		$this->objects->expects($this->once())
 			->method('saveObject')
-			->with(
-				['slug' => 'samenvatten', 'id' => 'f-1', 'provider' => 'ollama', 'model' => 'llama3', 'requiredResidency' => 'eu'],
-				[],
-				'hermiq',
-				'agentaifeature',
-				'f-1'
-			)
+			->with(...LegacyObjectArgs::with(method: 'saveObject', expected: [
+					'object' => ['slug' => 'samenvatten', 'id' => 'f-1', 'provider' => 'ollama', 'model' => 'llama3', 'requiredResidency' => 'eu'],
+					'extend' => [],
+					'register' => 'hermiq',
+					'schema' => 'agentaifeature',
+					'uuid' => 'f-1',
+				]))
 			->willReturn($saved);
 
 		$this->assertSame($saved, $this->service()->bind(id: 'f-1', provider: 'ollama ', model: ' llama3', requiredResidency: 'eu'));

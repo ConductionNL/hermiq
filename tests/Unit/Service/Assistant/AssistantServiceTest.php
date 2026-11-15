@@ -44,6 +44,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Tests for AssistantService.
@@ -678,6 +679,7 @@ class AssistantServiceTest extends TestCase {
 		$args = null;
 		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$passed = LegacyObjectArgs::positional(method: 'saveObject', args: $passed);
 				$args = $passed;
 				return $this->entity('conv-new', $passed[0]);
 			}
@@ -729,7 +731,12 @@ class AssistantServiceTest extends TestCase {
 	public function testAnUnprovisionedAgentRefusedByTheRegisterGives403AndNoSession(): void {
 		$this->objectService->method('findAll')->willReturn([]);
 		$this->objectService->expects($this->once())->method('saveObject')
-			->with($this->anything(), $this->anything(), 'hermiq', 'agent')
+			->with(...LegacyObjectArgs::with(method: 'saveObject', expected: [
+				'object' => $this->anything(),
+				'extend' => $this->anything(),
+				'register' => 'hermiq',
+				'schema' => 'agent',
+			]))
 			->willThrowException(new \Exception("User 'bob' does not have permission to 'create' objects in schema 'Agent'", 403));
 
 		$this->expectExceptionCode(403);
@@ -745,6 +752,7 @@ class AssistantServiceTest extends TestCase {
 		$calls = new \ArrayObject();
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use ($calls): ObjectEntity {
+				$passed = LegacyObjectArgs::positional(method: 'saveObject', args: $passed);
 				$calls[] = $passed;
 				return $this->entity('saved-' . count($calls), $passed[0]);
 			}

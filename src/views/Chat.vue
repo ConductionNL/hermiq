@@ -36,7 +36,7 @@
 		<!-- Session list column -->
 		<aside class="chat-page__list">
 			<div class="chat-page__list-head">
-				<NcButton variant="primary" wide @click="newSession">
+				<NcButton variant="primary" wide @click="onNewSessionClick">
 					<template #icon>
 						<Plus :size="20" />
 					</template>
@@ -949,6 +949,7 @@ import {
 	uploadChatAttachment,
 	warmChat,
 } from '../api/chat.js'
+import { getPreference, PREFERENCE_KEYS } from '../api/preferences.js'
 import { speechCapabilities } from '../api/speech.js'
 import { useAgentStore } from '../store/store.js'
 import {
@@ -966,6 +967,7 @@ import {
 	startFieldsOf,
 	startValueSummary,
 } from '../utils/instructionVariables.js'
+import { defaultAgentOf } from '../utils/personalPreferences.js'
 import { canForkSession, forkedSessionToOpen } from '../utils/sessionFork.js'
 import { canShareSession } from '../utils/sessionShare.js'
 import { sessionStartErrorMessage } from '../utils/sessionStartError.js'
@@ -1088,6 +1090,8 @@ export default {
 
 			// Agent selector
 			agents: [],
+			// personal-preferences: the agent a new session starts with, or ''.
+			defaultAgentId: '',
 			agentsLoading: true,
 			agentsError: '',
 			startingId: '',
@@ -1400,6 +1404,7 @@ export default {
 		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
 		this.loadSessions()
 		this.loadAgents()
+		this.loadDefaultAgent()
 		this.loadSpeechService()
 		this.loadImageAvailability()
 	},
@@ -1822,6 +1827,37 @@ export default {
 				return time
 			}
 			return `${agent} · ${time}`
+		},
+
+		/**
+		 * The "New session" button: with a default agent the person can still
+		 * pick (personal-preferences), start a session with it at once; else
+		 * clear the thread and show the agent picker.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+		 */
+		onNewSessionClick() {
+			const agent = defaultAgentOf(this.agents, this.defaultAgentId)
+			if (agent && !this.startingId) {
+				this.startWithAgent(agent)
+				return
+			}
+			this.newSession()
+		},
+
+		/**
+		 * Read the person's default agent for new sessions; none on failure.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+		 */
+		async loadDefaultAgent() {
+			try {
+				this.defaultAgentId = await getPreference(PREFERENCE_KEYS.defaultAgent)
+			} catch {
+				this.defaultAgentId = ''
+			}
 		},
 
 		/**
