@@ -24,6 +24,9 @@ use DateTimeInterface;
 use InvalidArgumentException;
 use OCA\Hermiq\BackgroundJob\HandoffResultJob;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJobList;
@@ -150,8 +153,9 @@ class HandoffService {
 
 		$saved = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG)
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -234,8 +238,7 @@ class HandoffService {
 
 		$object = $this->objectService->find(
 			id: $handoffId,
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -400,8 +403,7 @@ class HandoffService {
 
 		$object = $this->objectService->find(
 			id: $handoffId,
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -432,9 +434,10 @@ class HandoffService {
 	private function store(string $handoffId, array $handoff): void {
 		$this->objectService->saveObject(
 			object: $handoff,
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG,
-			uuid: $handoffId,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
+				uuid: $handoffId
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

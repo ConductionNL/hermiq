@@ -27,6 +27,8 @@ use OCA\Hermiq\Service\RemoteAgent\RemoteAgentService;
 use OCA\Hermiq\Service\RemoteAgent\RemoteAgentUnavailableException;
 use OCA\Hermiq\Service\RemoteAgent\RemoteTasks;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -90,8 +92,8 @@ class RemoteAgentTest extends TestCase {
 		$this->objects = $this->createMock(ObjectService::class);
 		$this->objects->method('setRegister')->willReturnSelf();
 		$this->objects->method('setSchema')->willReturnSelf();
-		$this->objects->method('find')->willReturnCallback(function (string $id, mixed $extend = [], bool $files = false, mixed $register = null, mixed $schema = null): ?ObjectEntity {
-			if ($schema === 'source') {
+		$this->objects->method('find')->willReturnCallback(function (string $id, ?ObjectFindOptions $options = null): ?ObjectEntity {
+			if ($options?->schema === 'source') {
 				return ($id === 'src-kvk') ? $this->entity(uuid: 'src-kvk', data: ['name' => 'kvk-a2a']) : null;
 			}
 
@@ -108,8 +110,8 @@ class RemoteAgentTest extends TestCase {
 
 			return $found;
 		});
-		$this->objects->method('saveObject')->willReturnCallback(function (array $object, mixed $extend = null, mixed $register = null, mixed $schema = null, ?string $uuid = null): ObjectEntity {
-			$uuid = ($uuid ?? 'ra-' . (count($this->agents) + 1));
+		$this->objects->method('saveObject')->willReturnCallback(function (array $object, ?ObjectSaveOptions $options = null): ObjectEntity {
+			$uuid = ($options?->uuid ?? 'ra-' . (count($this->agents) + 1));
 			$this->agents[$uuid] = $object;
 			return $this->entity(uuid: $uuid, data: $object);
 		});

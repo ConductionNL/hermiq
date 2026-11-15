@@ -23,6 +23,7 @@ use DateTimeImmutable;
 use OCA\Hermiq\Kernel\Contracts\MessageHistoryHandlerInterface;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Notification\IManager as INotificationManager;
 use Psr\Log\LoggerInterface;
@@ -278,8 +279,7 @@ class HandoffDelivery {
 
 		$session = $this->objectService->find(
 			id: $conversationId,
-			register: HandoffService::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
+			options: new ObjectFindOptions(register: HandoffService::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -304,8 +304,7 @@ class HandoffDelivery {
 
 		$object = $this->objectService->find(
 			id: $handoffId,
-			register: HandoffService::REGISTER_SLUG,
-			schema: HandoffService::SCHEMA_SLUG,
+			options: new ObjectFindOptions(register: HandoffService::REGISTER_SLUG, schema: HandoffService::SCHEMA_SLUG),
 			_rbac: false,
 			_multitenancy: false
 		);

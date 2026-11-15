@@ -23,6 +23,8 @@ use InvalidArgumentException;
 use OCA\Hermiq\BackgroundJob\HandoffResultJob;
 use OCA\Hermiq\Service\Handoff\HandoffService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJobList;
@@ -100,8 +102,8 @@ class HandoffServiceTest extends TestCase {
 	public function testANewHandoffWaitsWithADayToAnswer(): void {
 		$stored = null;
 		$this->objects->expects($this->once())->method('saveObject')
-			->willReturnCallback(function (array $object, ?array $extend, string $register, string $schema) use (&$stored): ObjectEntity {
-				$stored = ['object' => $object, 'register' => $register, 'schema' => $schema];
+			->willReturnCallback(function (array $object, ObjectSaveOptions $options) use (&$stored): ObjectEntity {
+				$stored = ['object' => $object, 'register' => $options->target->register, 'schema' => $options->target->schema];
 				return $this->entity(uuid: 'h-1', data: $object);
 			});
 
@@ -203,10 +205,7 @@ class HandoffServiceTest extends TestCase {
 		$this->objects->expects($this->once())->method('saveObject')
 			->with(
 				['status' => 'done', 'result' => ['vergunningVereist' => true], 'closedAt' => '2026-11-13T14:02:00+00:00'] + $this->waitingHandoff(),
-				[],
-				'hermiq',
-				'agenthandoff',
-				'h-1',
+				new ObjectSaveOptions(target: new ObjectFindTarget(register: 'hermiq', schema: 'agenthandoff'), uuid: 'h-1'),
 				false,
 				false
 			)
@@ -231,10 +230,7 @@ class HandoffServiceTest extends TestCase {
 		$this->objects->expects($this->once())->method('saveObject')
 			->with(
 				['status' => 'done', 'result' => $stored, 'closedAt' => '2026-11-13T14:02:00+00:00'] + $this->waitingHandoff(),
-				[],
-				'hermiq',
-				'agenthandoff',
-				'h-1',
+				new ObjectSaveOptions(target: new ObjectFindTarget(register: 'hermiq', schema: 'agenthandoff'), uuid: 'h-1'),
 				false,
 				false
 			)
@@ -302,10 +298,7 @@ class HandoffServiceTest extends TestCase {
 		$this->objects->expects($this->once())->method('saveObject')
 			->with(
 				['status' => 'expired', 'closedAt' => '2026-11-13T14:02:00+00:00'] + $late,
-				[],
-				'hermiq',
-				'agenthandoff',
-				'late',
+				new ObjectSaveOptions(target: new ObjectFindTarget(register: 'hermiq', schema: 'agenthandoff'), uuid: 'late'),
 				false,
 				false
 			)

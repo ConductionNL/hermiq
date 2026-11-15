@@ -20,6 +20,7 @@ namespace OCA\Hermiq\Service\RemoteAgent;
 
 use OCA\Hermiq\Support\FleetAppId;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Container\ContainerInterface;
 use Throwable;
@@ -300,8 +301,7 @@ class A2aClient {
 
 		$source = $this->objectService->find(
 			id: $sourceId,
-			register: self::SOURCE_REGISTER,
-			schema: self::SOURCE_SCHEMA,
+			options: new ObjectFindOptions(register: self::SOURCE_REGISTER, schema: self::SOURCE_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);

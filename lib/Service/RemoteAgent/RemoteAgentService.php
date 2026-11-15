@@ -20,6 +20,10 @@ namespace OCA\Hermiq\Service\RemoteAgent;
 
 use InvalidArgumentException;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 
 /**
@@ -101,8 +105,9 @@ class RemoteAgentService {
 				'agentCard'   => self::cardSnapshot(card: $card),
 				'enabled'     => false,
 			],
-			register: self::REGISTER,
-			schema: self::SCHEMA,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER, schema: self::SCHEMA)
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -159,9 +164,10 @@ class RemoteAgentService {
 
 		$saved = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER,
-			schema: self::SCHEMA,
-			uuid: $id,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER, schema: self::SCHEMA),
+				uuid: $id
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -185,9 +191,10 @@ class RemoteAgentService {
 		}
 
 		$this->objectService->deleteObject(
-			uuid: (string) $object->getUuid(),
-			register: self::REGISTER,
-			schema: self::SCHEMA,
+			new ObjectDeletion(
+				uuid: (string) $object->getUuid(),
+				target: new ObjectFindTarget(register: self::REGISTER, schema: self::SCHEMA)
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -274,7 +281,12 @@ class RemoteAgentService {
 			return null;
 		}
 
-		$object = $this->objectService->find(id: $id, register: self::REGISTER, schema: self::SCHEMA, _rbac: false, _multitenancy: false);
+		$object = $this->objectService->find(
+			id: $id,
+			options: new ObjectFindOptions(register: self::REGISTER, schema: self::SCHEMA),
+			_rbac: false,
+			_multitenancy: false
+		);
 		if (($object instanceof ObjectEntity) === false) {
 			return null;
 		}
