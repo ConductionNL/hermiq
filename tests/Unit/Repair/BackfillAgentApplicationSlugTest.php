@@ -30,7 +30,7 @@ namespace OCA\Hermiq\Tests\Unit\Repair;
 use OCA\Hermiq\Repair\BackfillAgentApplicationSlug;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
-use OCA\OpenRegister\Service\Object\ObjectPatch;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectPatch;
 use OCP\Migration\IOutput;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
@@ -372,7 +372,7 @@ class BackfillAgentApplicationSlugTest extends TestCase {
 		(new BackfillAgentApplicationSlug(container: $this->containerWith($objectService), logger: $this->createMock(LoggerInterface::class)))
 			->run($output);
 
-		$this->assertSame([['uuid-2', ['applicationSlug' => 'hydra-console']]], $patchCalls);
+		$this->assertSame([['uuid-2', ['applicationSlug' => 'hydra-console'], ['hermiq', 'agent', false, false]]], $patchCalls);
 	}//end testAnAgentWithoutUuidIsSkippedAndCounted()
 
 	/**
@@ -411,8 +411,8 @@ class BackfillAgentApplicationSlugTest extends TestCase {
 			}
 		);
 		$objectService->method('patchObject')->willReturnCallback(
-			static function (string $objectId, array $data) use (&$patched, $agent): ObjectEntity {
-				$patched[] = $objectId;
+			static function (ObjectPatch $patch) use (&$patched, $agent): ObjectEntity {
+				$patched[] = $patch->objectId;
 				return $agent;
 			}
 		);
