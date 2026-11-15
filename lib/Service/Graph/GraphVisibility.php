@@ -37,6 +37,7 @@ namespace OCA\Hermiq\Service\Graph;
 
 use OCA\Hermiq\Service\NcNative\MailReadService;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Files\IRootFolder;
 use Psr\Log\LoggerInterface;
@@ -127,7 +128,7 @@ class GraphVisibility {
 
 		return (bool)$this->actingUser->run(
 			uid: $uid,
-			work: fn (): bool => $this->objectService->find(id: $uuid, register: $register, schema: $schema) !== null
+			work: fn (): bool => $this->objectService->find(id: $uuid, options: new ObjectFindOptions(register: $register, schema: $schema)) !== null
 		);
 
 	}//end objectVisible()
@@ -165,7 +166,7 @@ class GraphVisibility {
 		}
 
 		foreach (self::SESSION_SCHEMAS as $schema) {
-			$session = $this->objectService->find(id: $uuid, register: 'hermiq', schema: $schema, _rbac: false);
+			$session = $this->objectService->find(id: $uuid, options: new ObjectFindOptions(register: 'hermiq', schema: $schema), _rbac: false);
 			if ($session !== null) {
 				return $this->participation->mayTakeTurn(conversationData: $session->getObject(), userId: $uid);
 			}

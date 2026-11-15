@@ -133,6 +133,102 @@ function parseRegistry(srcPath) {
 	return sandbox.module.exports
 }
 
+/**
+ * Validate one registry entry.
+ *
+ * @param {string} key The entry's key.
+ * @param {*} entry The entry.
+ * @return {{kind: string|null, errors: string[]}} The entry's kind when it is a valid one, and the violations.
+ */
+function checkEntry(key, entry) {
+	if (!entry || typeof entry !== 'object') {
+		return { kind: null, errors: [`entry "${key}": must be an object`] }
+	}
+
+	const kind = entry.kind
+	if (typeof kind !== 'string' || kind.length === 0) {
+		return { kind: null, errors: [`entry "${key}": missing required "kind" field`] }
+	}
+
+	if (!VALID_KINDS.includes(kind)) {
+		return {
+			kind: null,
+			errors: [
+				`entry "${key}": unknown kind "${kind}" (must be one of: ${VALID_KINDS.join(', ')})`,
+			],
+		}
+	}
+
+	return { kind, errors: [...requiredFieldErrors(key, entry), ...appliesToErrors(key, entry)] }
+}
+
+/**
+ * The component and the kind-specific metadata fields an entry must carry.
+ *
+ * @param {string} key The entry's key.
+ * @param {object} entry The entry, of a valid kind.
+ * @return {string[]} The violations.
+ */
+function requiredFieldErrors(key, entry) {
+	const errors = []
+	const kind = entry.kind
+
+	// Validate component is present (but we only check it's set, since the
+	// value is a stubbed Vue object during this parse step)
+	if (!entry.component) {
+		errors.push(
+			`entry "${key}" (kind=${kind}): missing required "component" field`,
+		)
+	}
+
+	// Validate kind-specific required metadata fields
+	const requiredMeta = KIND_REQUIRED_META[kind] || []
+	for (const field of requiredMeta) {
+		if (entry[field] === undefined) {
+			errors.push(
+				`entry "${key}" (kind=${kind}): missing required metadata field "${field}"`,
+			)
+		}
+	}
+
+	// Extra: widget entries need a _note justifying why no built-in widget
+	// fits (ADR-049 built-in-first rule; mirrors hydra gate 29)
+	if (
+		kind === 'widget'
+		&& (typeof entry._note !== 'string' || entry._note.trim().length === 0)
+	) {
+		errors.push(
+			`entry "${key}" (kind=widget): missing "_note" — custom widgets require a justification why no built-in widget (object-table, stats-block, …) fits (hydra ADR-049)`,
+		)
+	}
+
+	return errors
+}
+
+/**
+ * appliesTo rules: a form-field names a format or property, a cell-renderer
+ * names a schema and a property.
+ *
+ * @param {string} key The entry's key.
+ * @param {object} entry The entry, of a valid kind.
+ * @return {string[]} The violations.
+ */
+function appliesToErrors(key, entry) {
+	const applies = entry.appliesTo
+	if (!applies || typeof applies !== 'object') return []
+	if (entry.kind === 'form-field' && !applies.format && !applies.property) {
+		return [
+			`entry "${key}" (kind=form-field): appliesTo must have "format" or "property"`,
+		]
+	}
+	if (entry.kind === 'cell-renderer' && (!applies.schema || !applies.property)) {
+		return [
+			`entry "${key}" (kind=cell-renderer): appliesTo must have "schema" and "property"`,
+		]
+	}
+	return []
+}
+
 function main() {
 	if (!fs.existsSync(REGISTRY_PATH)) {
 		console.error(`[registry.spec] registry not found: ${REGISTRY_PATH}`)
@@ -156,80 +252,9 @@ function main() {
 	const foundKinds = new Set()
 
 	for (const [key, entry] of entries) {
-		if (!entry || typeof entry !== 'object') {
-			errors.push(`entry "${key}": must be an object`)
-			continue
-		}
-
-		const kind = entry.kind
-		if (typeof kind !== 'string' || kind.length === 0) {
-			errors.push(`entry "${key}": missing required "kind" field`)
-			continue
-		}
-
-		if (!VALID_KINDS.includes(kind)) {
-			errors.push(
-				`entry "${key}": unknown kind "${kind}" (must be one of: ${VALID_KINDS.join(', ')})`,
-			)
-			continue
-		}
-
-		foundKinds.add(kind)
-
-		// Validate component is present (but we only check it's set, since the
-		// value is a stubbed Vue object during this parse step)
-		if (!entry.component) {
-			errors.push(
-				`entry "${key}" (kind=${kind}): missing required "component" field`,
-			)
-		}
-
-		// Validate kind-specific required metadata fields
-		const requiredMeta = KIND_REQUIRED_META[kind] || []
-		for (const field of requiredMeta) {
-			if (entry[field] === undefined) {
-				errors.push(
-					`entry "${key}" (kind=${kind}): missing required metadata field "${field}"`,
-				)
-			}
-		}
-
-		// Extra: form-field appliesTo must have format or property
-		if (
-			kind === 'form-field'
-			&& entry.appliesTo
-			&& typeof entry.appliesTo === 'object'
-		) {
-			if (!entry.appliesTo.format && !entry.appliesTo.property) {
-				errors.push(
-					`entry "${key}" (kind=form-field): appliesTo must have "format" or "property"`,
-				)
-			}
-		}
-
-		// Extra: cell-renderer appliesTo must have schema AND property
-		if (
-			kind === 'cell-renderer'
-			&& entry.appliesTo
-			&& typeof entry.appliesTo === 'object'
-		) {
-			if (!entry.appliesTo.schema || !entry.appliesTo.property) {
-				errors.push(
-					`entry "${key}" (kind=cell-renderer): appliesTo must have "schema" and "property"`,
-				)
-			}
-		}
-
-		// Extra: widget entries need a _note justifying why no built-in widget
-		// fits (ADR-049 built-in-first rule; mirrors hydra gate 29)
-		if (
-			kind === 'widget'
-			&& (typeof entry._note !== 'string' || entry._note.trim().length === 0)
-		) {
-			errors.push(
-				`entry "${key}" (kind=widget): missing "_note" — custom widgets require a justification why no built-in widget (object-table, stats-block, …) fits (hydra ADR-049)`,
-			)
-		}
+		const checked = checkEntry(key, entry)
+		errors.push(...checked.errors)
+		if (checked.kind !== null) foundKinds.add(checked.kind)
 	}
 
 	// Check all required kinds are represented (widget is deliberately optional)

@@ -1,0 +1,1394 @@
+{
+    "{\"talk\":true,\"target\":\"room-x\",\"noteToSelf\":true,\"notify\":true,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                true,
+                "talk",
+                false,
+                null
+            ],
+            [
+                true,
+                "talk",
+                false,
+                null
+            ]
+        ],
+        "posts": [
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ],
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ]
+        ],
+        "binds": [
+            [
+                "conv-1",
+                "room-x"
+            ]
+        ],
+        "notifications": [],
+        "warnings": []
+    },
+    "{\"talk\":true,\"target\":\"room-x\",\"noteToSelf\":true,\"notify\":true,\"conversation\":null}": {
+        "results": [
+            [
+                true,
+                "talk",
+                false,
+                null
+            ],
+            [
+                true,
+                "talk",
+                false,
+                null
+            ]
+        ],
+        "posts": [
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ],
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ]
+        ],
+        "binds": [],
+        "notifications": [],
+        "warnings": []
+    },
+    "{\"talk\":true,\"target\":\"room-x\",\"noteToSelf\":true,\"notify\":false,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                true,
+                "talk",
+                false,
+                null
+            ],
+            [
+                true,
+                "talk",
+                false,
+                null
+            ]
+        ],
+        "posts": [
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ],
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ]
+        ],
+        "binds": [
+            [
+                "conv-1",
+                "room-x"
+            ]
+        ],
+        "notifications": [],
+        "warnings": []
+    },
+    "{\"talk\":true,\"target\":\"room-x\",\"noteToSelf\":true,\"notify\":false,\"conversation\":null}": {
+        "results": [
+            [
+                true,
+                "talk",
+                false,
+                null
+            ],
+            [
+                true,
+                "talk",
+                false,
+                null
+            ]
+        ],
+        "posts": [
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ],
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ]
+        ],
+        "binds": [],
+        "notifications": [],
+        "warnings": []
+    },
+    "{\"talk\":true,\"target\":\"room-x\",\"noteToSelf\":false,\"notify\":true,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                true,
+                "talk",
+                false,
+                null
+            ],
+            [
+                true,
+                "talk",
+                false,
+                null
+            ]
+        ],
+        "posts": [
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ],
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ]
+        ],
+        "binds": [
+            [
+                "conv-1",
+                "room-x"
+            ]
+        ],
+        "notifications": [],
+        "warnings": []
+    },
+    "{\"talk\":true,\"target\":\"room-x\",\"noteToSelf\":false,\"notify\":true,\"conversation\":null}": {
+        "results": [
+            [
+                true,
+                "talk",
+                false,
+                null
+            ],
+            [
+                true,
+                "talk",
+                false,
+                null
+            ]
+        ],
+        "posts": [
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ],
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ]
+        ],
+        "binds": [],
+        "notifications": [],
+        "warnings": []
+    },
+    "{\"talk\":true,\"target\":\"room-x\",\"noteToSelf\":false,\"notify\":false,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                true,
+                "talk",
+                false,
+                null
+            ],
+            [
+                true,
+                "talk",
+                false,
+                null
+            ]
+        ],
+        "posts": [
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ],
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ]
+        ],
+        "binds": [
+            [
+                "conv-1",
+                "room-x"
+            ]
+        ],
+        "notifications": [],
+        "warnings": []
+    },
+    "{\"talk\":true,\"target\":\"room-x\",\"noteToSelf\":false,\"notify\":false,\"conversation\":null}": {
+        "results": [
+            [
+                true,
+                "talk",
+                false,
+                null
+            ],
+            [
+                true,
+                "talk",
+                false,
+                null
+            ]
+        ],
+        "posts": [
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ],
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ]
+        ],
+        "binds": [],
+        "notifications": [],
+        "warnings": []
+    },
+    "{\"talk\":true,\"target\":\"ghost-room\",\"noteToSelf\":true,\"notify\":true,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                true,
+                "talk",
+                true,
+                "target room 'ghost-room' unavailable: not a member of ghost-room \u2014 delivered to Note-to-self"
+            ],
+            [
+                true,
+                "talk",
+                true,
+                "target room 'ghost-room' unavailable: not a member of ghost-room \u2014 delivered to Note-to-self"
+            ]
+        ],
+        "posts": [
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ],
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ]
+        ],
+        "binds": [],
+        "notifications": [],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via talk degraded: target room 'ghost-room' unavailable: not a member of ghost-room \u2014 delivered to Note-to-self",
+            "Hermiq schedule schedule-1 delivery via talk degraded: target room 'ghost-room' unavailable: not a member of ghost-room \u2014 delivered to Note-to-self"
+        ]
+    },
+    "{\"talk\":true,\"target\":\"ghost-room\",\"noteToSelf\":true,\"notify\":true,\"conversation\":null}": {
+        "results": [
+            [
+                true,
+                "talk",
+                true,
+                "target room 'ghost-room' unavailable: not a member of ghost-room \u2014 delivered to Note-to-self"
+            ],
+            [
+                true,
+                "talk",
+                true,
+                "target room 'ghost-room' unavailable: not a member of ghost-room \u2014 delivered to Note-to-self"
+            ]
+        ],
+        "posts": [
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ],
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ]
+        ],
+        "binds": [],
+        "notifications": [],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via talk degraded: target room 'ghost-room' unavailable: not a member of ghost-room \u2014 delivered to Note-to-self",
+            "Hermiq schedule schedule-1 delivery via talk degraded: target room 'ghost-room' unavailable: not a member of ghost-room \u2014 delivered to Note-to-self"
+        ]
+    },
+    "{\"talk\":true,\"target\":\"ghost-room\",\"noteToSelf\":true,\"notify\":false,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                true,
+                "talk",
+                true,
+                "target room 'ghost-room' unavailable: not a member of ghost-room \u2014 delivered to Note-to-self"
+            ],
+            [
+                true,
+                "talk",
+                true,
+                "target room 'ghost-room' unavailable: not a member of ghost-room \u2014 delivered to Note-to-self"
+            ]
+        ],
+        "posts": [
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ],
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ]
+        ],
+        "binds": [],
+        "notifications": [],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via talk degraded: target room 'ghost-room' unavailable: not a member of ghost-room \u2014 delivered to Note-to-self",
+            "Hermiq schedule schedule-1 delivery via talk degraded: target room 'ghost-room' unavailable: not a member of ghost-room \u2014 delivered to Note-to-self"
+        ]
+    },
+    "{\"talk\":true,\"target\":\"ghost-room\",\"noteToSelf\":true,\"notify\":false,\"conversation\":null}": {
+        "results": [
+            [
+                true,
+                "talk",
+                true,
+                "target room 'ghost-room' unavailable: not a member of ghost-room \u2014 delivered to Note-to-self"
+            ],
+            [
+                true,
+                "talk",
+                true,
+                "target room 'ghost-room' unavailable: not a member of ghost-room \u2014 delivered to Note-to-self"
+            ]
+        ],
+        "posts": [
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ],
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ]
+        ],
+        "binds": [],
+        "notifications": [],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via talk degraded: target room 'ghost-room' unavailable: not a member of ghost-room \u2014 delivered to Note-to-self",
+            "Hermiq schedule schedule-1 delivery via talk degraded: target room 'ghost-room' unavailable: not a member of ghost-room \u2014 delivered to Note-to-self"
+        ]
+    },
+    "{\"talk\":true,\"target\":\"ghost-room\",\"noteToSelf\":false,\"notify\":true,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                true,
+                "notification",
+                true,
+                "target room 'ghost-room' unavailable: not a member of ghost-room; Note-to-self unavailable: no note to self for alice"
+            ],
+            [
+                true,
+                "notification",
+                true,
+                "target room 'ghost-room' unavailable: not a member of ghost-room; Note-to-self unavailable: no note to self for alice"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: target room 'ghost-room' unavailable: not a member of ghost-room; Note-to-self unavailable: no note to self for alice",
+            "Hermiq schedule schedule-1 delivery via notification degraded: target room 'ghost-room' unavailable: not a member of ghost-room; Note-to-self unavailable: no note to self for alice"
+        ]
+    },
+    "{\"talk\":true,\"target\":\"ghost-room\",\"noteToSelf\":false,\"notify\":true,\"conversation\":null}": {
+        "results": [
+            [
+                true,
+                "notification",
+                true,
+                "target room 'ghost-room' unavailable: not a member of ghost-room; Note-to-self unavailable: no note to self for alice"
+            ],
+            [
+                true,
+                "notification",
+                true,
+                "target room 'ghost-room' unavailable: not a member of ghost-room; Note-to-self unavailable: no note to self for alice"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: target room 'ghost-room' unavailable: not a member of ghost-room; Note-to-self unavailable: no note to self for alice",
+            "Hermiq schedule schedule-1 delivery via notification degraded: target room 'ghost-room' unavailable: not a member of ghost-room; Note-to-self unavailable: no note to self for alice"
+        ]
+    },
+    "{\"talk\":true,\"target\":\"ghost-room\",\"noteToSelf\":false,\"notify\":false,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                false,
+                "notification",
+                true,
+                "target room 'ghost-room' unavailable: not a member of ghost-room; Note-to-self unavailable: no note to self for alice; notification failed: notifications down"
+            ],
+            [
+                false,
+                "notification",
+                true,
+                "target room 'ghost-room' unavailable: not a member of ghost-room; Note-to-self unavailable: no note to self for alice; notification failed: notifications down"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: target room 'ghost-room' unavailable: not a member of ghost-room; Note-to-self unavailable: no note to self for alice; notification failed: notifications down",
+            "Hermiq schedule schedule-1 delivery via notification degraded: target room 'ghost-room' unavailable: not a member of ghost-room; Note-to-self unavailable: no note to self for alice; notification failed: notifications down"
+        ]
+    },
+    "{\"talk\":true,\"target\":\"ghost-room\",\"noteToSelf\":false,\"notify\":false,\"conversation\":null}": {
+        "results": [
+            [
+                false,
+                "notification",
+                true,
+                "target room 'ghost-room' unavailable: not a member of ghost-room; Note-to-self unavailable: no note to self for alice; notification failed: notifications down"
+            ],
+            [
+                false,
+                "notification",
+                true,
+                "target room 'ghost-room' unavailable: not a member of ghost-room; Note-to-self unavailable: no note to self for alice; notification failed: notifications down"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: target room 'ghost-room' unavailable: not a member of ghost-room; Note-to-self unavailable: no note to self for alice; notification failed: notifications down",
+            "Hermiq schedule schedule-1 delivery via notification degraded: target room 'ghost-room' unavailable: not a member of ghost-room; Note-to-self unavailable: no note to self for alice; notification failed: notifications down"
+        ]
+    },
+    "{\"talk\":true,\"target\":\"\",\"noteToSelf\":true,\"notify\":true,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                true,
+                "talk",
+                false,
+                null
+            ],
+            [
+                true,
+                "talk",
+                false,
+                null
+            ]
+        ],
+        "posts": [
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ],
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ]
+        ],
+        "binds": [],
+        "notifications": [],
+        "warnings": []
+    },
+    "{\"talk\":true,\"target\":\"\",\"noteToSelf\":true,\"notify\":true,\"conversation\":null}": {
+        "results": [
+            [
+                true,
+                "talk",
+                false,
+                null
+            ],
+            [
+                true,
+                "talk",
+                false,
+                null
+            ]
+        ],
+        "posts": [
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ],
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ]
+        ],
+        "binds": [],
+        "notifications": [],
+        "warnings": []
+    },
+    "{\"talk\":true,\"target\":\"\",\"noteToSelf\":true,\"notify\":false,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                true,
+                "talk",
+                false,
+                null
+            ],
+            [
+                true,
+                "talk",
+                false,
+                null
+            ]
+        ],
+        "posts": [
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ],
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ]
+        ],
+        "binds": [],
+        "notifications": [],
+        "warnings": []
+    },
+    "{\"talk\":true,\"target\":\"\",\"noteToSelf\":true,\"notify\":false,\"conversation\":null}": {
+        "results": [
+            [
+                true,
+                "talk",
+                false,
+                null
+            ],
+            [
+                true,
+                "talk",
+                false,
+                null
+            ]
+        ],
+        "posts": [
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ],
+            [
+                "users",
+                "alice",
+                "Daily briefing",
+                true
+            ]
+        ],
+        "binds": [],
+        "notifications": [],
+        "warnings": []
+    },
+    "{\"talk\":true,\"target\":\"\",\"noteToSelf\":false,\"notify\":true,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                true,
+                "notification",
+                true,
+                "Note-to-self unavailable: no note to self for alice"
+            ],
+            [
+                true,
+                "notification",
+                true,
+                "Note-to-self unavailable: no note to self for alice"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Note-to-self unavailable: no note to self for alice",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Note-to-self unavailable: no note to self for alice"
+        ]
+    },
+    "{\"talk\":true,\"target\":\"\",\"noteToSelf\":false,\"notify\":true,\"conversation\":null}": {
+        "results": [
+            [
+                true,
+                "notification",
+                true,
+                "Note-to-self unavailable: no note to self for alice"
+            ],
+            [
+                true,
+                "notification",
+                true,
+                "Note-to-self unavailable: no note to self for alice"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Note-to-self unavailable: no note to self for alice",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Note-to-self unavailable: no note to self for alice"
+        ]
+    },
+    "{\"talk\":true,\"target\":\"\",\"noteToSelf\":false,\"notify\":false,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                false,
+                "notification",
+                true,
+                "Note-to-self unavailable: no note to self for alice; notification failed: notifications down"
+            ],
+            [
+                false,
+                "notification",
+                true,
+                "Note-to-self unavailable: no note to self for alice; notification failed: notifications down"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Note-to-self unavailable: no note to self for alice; notification failed: notifications down",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Note-to-self unavailable: no note to self for alice; notification failed: notifications down"
+        ]
+    },
+    "{\"talk\":true,\"target\":\"\",\"noteToSelf\":false,\"notify\":false,\"conversation\":null}": {
+        "results": [
+            [
+                false,
+                "notification",
+                true,
+                "Note-to-self unavailable: no note to self for alice; notification failed: notifications down"
+            ],
+            [
+                false,
+                "notification",
+                true,
+                "Note-to-self unavailable: no note to self for alice; notification failed: notifications down"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Note-to-self unavailable: no note to self for alice; notification failed: notifications down",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Note-to-self unavailable: no note to self for alice; notification failed: notifications down"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"room-x\",\"noteToSelf\":true,\"notify\":true,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ],
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"room-x\",\"noteToSelf\":true,\"notify\":true,\"conversation\":null}": {
+        "results": [
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ],
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"room-x\",\"noteToSelf\":true,\"notify\":false,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ],
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"room-x\",\"noteToSelf\":true,\"notify\":false,\"conversation\":null}": {
+        "results": [
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ],
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"room-x\",\"noteToSelf\":false,\"notify\":true,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ],
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"room-x\",\"noteToSelf\":false,\"notify\":true,\"conversation\":null}": {
+        "results": [
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ],
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"room-x\",\"noteToSelf\":false,\"notify\":false,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ],
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"room-x\",\"noteToSelf\":false,\"notify\":false,\"conversation\":null}": {
+        "results": [
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ],
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"ghost-room\",\"noteToSelf\":true,\"notify\":true,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ],
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"ghost-room\",\"noteToSelf\":true,\"notify\":true,\"conversation\":null}": {
+        "results": [
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ],
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"ghost-room\",\"noteToSelf\":true,\"notify\":false,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ],
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"ghost-room\",\"noteToSelf\":true,\"notify\":false,\"conversation\":null}": {
+        "results": [
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ],
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"ghost-room\",\"noteToSelf\":false,\"notify\":true,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ],
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"ghost-room\",\"noteToSelf\":false,\"notify\":true,\"conversation\":null}": {
+        "results": [
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ],
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"ghost-room\",\"noteToSelf\":false,\"notify\":false,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ],
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"ghost-room\",\"noteToSelf\":false,\"notify\":false,\"conversation\":null}": {
+        "results": [
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ],
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"\",\"noteToSelf\":true,\"notify\":true,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ],
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"\",\"noteToSelf\":true,\"notify\":true,\"conversation\":null}": {
+        "results": [
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ],
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"\",\"noteToSelf\":true,\"notify\":false,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ],
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"\",\"noteToSelf\":true,\"notify\":false,\"conversation\":null}": {
+        "results": [
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ],
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"\",\"noteToSelf\":false,\"notify\":true,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ],
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"\",\"noteToSelf\":false,\"notify\":true,\"conversation\":null}": {
+        "results": [
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ],
+            [
+                true,
+                "notification",
+                true,
+                "Talk (spreed) is not available"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"\",\"noteToSelf\":false,\"notify\":false,\"conversation\":\"conv-1\"}": {
+        "results": [
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ],
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down"
+        ]
+    },
+    "{\"talk\":false,\"target\":\"\",\"noteToSelf\":false,\"notify\":false,\"conversation\":null}": {
+        "results": [
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ],
+            [
+                false,
+                "notification",
+                true,
+                "Talk (spreed) is not available; notification failed: notifications down"
+            ]
+        ],
+        "posts": [],
+        "binds": [],
+        "notifications": [
+            "notify",
+            "notify"
+        ],
+        "warnings": [
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down",
+            "Hermiq schedule schedule-1 delivery via notification degraded: Talk (spreed) is not available; notification failed: notifications down"
+        ]
+    }
+}

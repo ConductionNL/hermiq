@@ -26,10 +26,15 @@ namespace OCA\Hermiq\Service\Agent;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\AgentAvailabilityServiceInterface;
 use OCA\Hermiq\Service\AgentAccessService;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IGroupManager;
 use Psr\Log\LoggerInterface;
@@ -41,7 +46,7 @@ use Throwable;
  *
  * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
  */
-class AgentAvailabilityService {
+class AgentAvailabilityService implements AgentAvailabilityServiceInterface {
 
 	/**
 	 * The audit action of a switch.
@@ -126,9 +131,10 @@ class AgentAvailabilityService {
 
 		$stored = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
-			uuid: (string)$agent->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+				uuid: (string)$agent->getUuid()
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -318,8 +324,7 @@ class AgentAvailabilityService {
 		try {
 			return $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -339,10 +344,12 @@ class AgentAvailabilityService {
 	 */
 	private function audit(ObjectEntity $agent, array $context): void {
 		try {
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $agent,
-				action: self::AUDIT_ACTION,
-				context: $context
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $agent,
+					action: self::AUDIT_ACTION,
+					context: $context
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning('Hermiq could not record an agent switch: ' . $e->getMessage(), ['exception' => $e]);

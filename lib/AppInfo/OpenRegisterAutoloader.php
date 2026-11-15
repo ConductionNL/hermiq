@@ -58,7 +58,7 @@ namespace OCA\Hermiq\AppInfo;
  * contract — "this NEVER throws, whatever the instance looks like" — is directly
  * assertable, and it is asserted.
  *
- * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-agent-integration-leaf-registration
+ * @spec openspec/specs/agent-object-leaf/spec.md#requirement-agent-integration-leaf-registration
  */
 final class OpenRegisterAutoloader {
 
@@ -117,7 +117,7 @@ final class OpenRegisterAutoloader {
 	 * service locator, and this runs at the composition root where no
 	 * container is available to inject from.
 	 *
-	 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-agent-integration-leaf-registration
+	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-agent-integration-leaf-registration
 	 */
 	public static function register(?\OCP\App\IAppManager $appManager=null): bool {
 		try {

@@ -26,14 +26,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/ai-course-recommendations/tasks.md#5-seed-the-aifeature-governance-data-not-schema
+ * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#5-seed-the-aifeature-governance-data-not-schema
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\Hermiq\Repair\Support\AiFeatureRows;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -44,7 +46,7 @@ use Throwable;
 /**
  * Seed the `course-recommendations` AiFeature via ObjectService (idempotent).
  *
- * @spec openspec/changes/ai-course-recommendations/tasks.md#task-5-1
+ * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-5-1
  */
 class SeedCourseRecommendationFeature implements IRepairStep {
 	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
@@ -87,7 +89,7 @@ class SeedCourseRecommendationFeature implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-5-1
 	 */
 	public function getName(): string {
 		return 'Seed the course-recommendations AI feature (ai-course-recommendations)';
@@ -100,7 +102,7 @@ class SeedCourseRecommendationFeature implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-5-1
 	 */
 	public function run(IOutput $output): void {
 		try {
@@ -152,8 +154,7 @@ class SeedCourseRecommendationFeature implements IRepairStep {
 					'lifecycle' => 'disabled',
 					'tenantId' => '',
 				],
-				register: self::REGISTER_SLUG,
-				schema: self::AIFEATURE_SCHEMA,
+				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA)),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -173,25 +174,6 @@ class SeedCourseRecommendationFeature implements IRepairStep {
 	 * @return bool True when the feature already exists.
 	 */
 	private function slugExists(ObjectService $objectService): bool {
-		$objects = $objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema(self::AIFEATURE_SCHEMA)
-			->findAll(
-				config: ['filters' => ['slug' => self::FEATURE_SLUG], 'limit' => 200],
-				_rbac: false,
-				_multitenancy: false
-			);
-
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ((string)($object->getObject()['slug'] ?? '') === self::FEATURE_SLUG) {
-				return true;
-			}
-		}
-
-		return false;
+		return (new AiFeatureRows(objectService: $objectService))->exists(slug: self::FEATURE_SLUG);
 	}//end slugExists()
 }//end class

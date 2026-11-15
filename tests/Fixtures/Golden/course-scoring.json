@@ -1,0 +1,5631 @@
+[
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "C-1",
+                "courseName": "Course 97",
+                "score": 20,
+                "matchedSignals": [
+                    "engagement-recency"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c5",
+                "courseCode": "C-1",
+                "courseName": "Course 91",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c8",
+                "courseCode": "C-2",
+                "courseName": "Course 43",
+                "score": 60,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "engagement-recency"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "",
+                "courseName": "Course 48",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c7",
+                "courseCode": "C-1",
+                "courseName": "Course 21",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "",
+                "courseName": "Course 93",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c4",
+                "courseCode": "R-1",
+                "courseName": "Course 95",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "C-1",
+                "courseName": "Course 54",
+                "score": 20,
+                "matchedSignals": [
+                    "engagement-recency"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "C-2",
+                "courseName": "Course 59",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "R-1",
+                "courseName": "Course 89",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "C-2",
+                "courseName": "Course 18",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c2",
+                "courseCode": "C-2",
+                "courseName": "Course 38",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "C-1",
+                "courseName": "Course 43",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c5",
+                "courseCode": "",
+                "courseName": "Course 33",
+                "score": 20,
+                "matchedSignals": [
+                    "engagement-recency"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "",
+                "courseName": "",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 42,
+                "courseCode": "R-1",
+                "courseName": "Course 3",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c7",
+                "courseCode": "",
+                "courseName": "Course 7",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c1",
+                "courseCode": "R-1",
+                "courseName": "Course 69",
+                "score": 70,
+                "matchedSignals": [
+                    "mandatory-renewal",
+                    "engagement-recency"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "",
+                "courseName": "Course 96",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 4,
+        "recommendations": [
+            {
+                "courseId": "c1",
+                "courseCode": "",
+                "courseName": "Course 79",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 7,
+                "courseCode": "",
+                "courseName": "Course 23",
+                "score": 60,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "engagement-recency"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c6",
+                "courseCode": "C-2",
+                "courseName": "Course 1",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c5",
+                "courseCode": "",
+                "courseName": "Course 65",
+                "score": 85,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "engagement-recency",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c5",
+                "courseCode": "",
+                "courseName": "Course 63",
+                "score": 55,
+                "matchedSignals": [
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 42,
+                "courseCode": "",
+                "courseName": "Course 81",
+                "score": 30,
+                "matchedSignals": [
+                    "curriculum-path"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c3",
+                "courseCode": "",
+                "courseName": "Course 60",
+                "score": 45,
+                "matchedSignals": [
+                    "engagement-recency",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c1",
+                "courseCode": "",
+                "courseName": "Course 75",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "C-1",
+                "courseName": "Course 94",
+                "score": 85,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "engagement-recency",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c4",
+                "courseCode": "C-2",
+                "courseName": "Course 74",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "R-1",
+                "courseName": "Course 96",
+                "score": 30,
+                "matchedSignals": [
+                    "curriculum-path"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c1",
+                "courseCode": "C-2",
+                "courseName": "",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "",
+                "courseName": "Course 55",
+                "score": 75,
+                "matchedSignals": [
+                    "curriculum-path",
+                    "engagement-recency",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c3",
+                "courseCode": "",
+                "courseName": "Course 90",
+                "score": 55,
+                "matchedSignals": [
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "C-2",
+                "courseName": "Course 37",
+                "score": 70,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c8",
+                "courseCode": "",
+                "courseName": "Course 88",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "C-1",
+                "courseName": "Course 42",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "",
+                "courseName": "Course 49",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c3",
+                "courseCode": "",
+                "courseName": "",
+                "score": 70,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c6",
+                "courseCode": "",
+                "courseName": "",
+                "score": 30,
+                "matchedSignals": [
+                    "curriculum-path"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "R-1",
+                "courseName": "",
+                "score": 70,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "R-1",
+                "courseName": "Course 8",
+                "score": 55,
+                "matchedSignals": [
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c4",
+                "courseCode": "",
+                "courseName": "Course 17",
+                "score": 30,
+                "matchedSignals": [
+                    "curriculum-path"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c5",
+                "courseCode": "C-1",
+                "courseName": "Course 47",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "R-1",
+                "courseName": "Course 38",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "",
+                "courseName": "Course 8",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c5",
+                "courseCode": "",
+                "courseName": "Course 93",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c5",
+                "courseCode": "C-1",
+                "courseName": "",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c3",
+                "courseCode": "R-1",
+                "courseName": "",
+                "score": 45,
+                "matchedSignals": [
+                    "engagement-recency",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c8",
+                "courseCode": "",
+                "courseName": "Course 69",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c1",
+                "courseCode": "C-1",
+                "courseName": "",
+                "score": 20,
+                "matchedSignals": [
+                    "engagement-recency"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "",
+                "courseName": "Course 4",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 42,
+                "courseCode": "C-1",
+                "courseName": "Course 15",
+                "score": 30,
+                "matchedSignals": [
+                    "curriculum-path"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c3",
+                "courseCode": "C-2",
+                "courseName": "Course 61",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c7",
+                "courseCode": "R-1",
+                "courseName": "Course 43",
+                "score": 55,
+                "matchedSignals": [
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "C-1",
+                "courseName": "",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c7",
+                "courseCode": "",
+                "courseName": "",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 4,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "C-2",
+                "courseName": "Course 24",
+                "score": 70,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c2",
+                "courseCode": "C-1",
+                "courseName": "Course 81",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c8",
+                "courseCode": "C-1",
+                "courseName": "Course 78",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 3
+            },
+            {
+                "courseId": "c6",
+                "courseCode": "C-2",
+                "courseName": "Course 91",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 4
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "",
+                "courseName": "Course 5",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c5",
+                "courseCode": "R-1",
+                "courseName": "Course 87",
+                "score": 50,
+                "matchedSignals": [
+                    "curriculum-path",
+                    "engagement-recency"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c2",
+                "courseCode": "C-1",
+                "courseName": "Course 51",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "",
+                "courseName": "",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c7",
+                "courseCode": "",
+                "courseName": "Course 37",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c6",
+                "courseCode": "C-1",
+                "courseName": "Course 26",
+                "score": 45,
+                "matchedSignals": [
+                    "engagement-recency",
+                    "competency-gap"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c2",
+                "courseCode": "",
+                "courseName": "Course 43",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c5",
+                "courseCode": "C-1",
+                "courseName": "Course 52",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "",
+                "courseName": "Course 71",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c6",
+                "courseCode": "C-2",
+                "courseName": "Course 52",
+                "score": 20,
+                "matchedSignals": [
+                    "engagement-recency"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "C-1",
+                "courseName": "Course 53",
+                "score": 30,
+                "matchedSignals": [
+                    "curriculum-path"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "",
+                "courseName": "",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c4",
+                "courseCode": "R-1",
+                "courseName": "Course 19",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c7",
+                "courseCode": "C-1",
+                "courseName": "Course 18",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c1",
+                "courseCode": "R-1",
+                "courseName": "Course 69",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "",
+                "courseName": "Course 42",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 7,
+                "courseCode": "R-1",
+                "courseName": "Course 1",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "R-1",
+                "courseName": "Course 9",
+                "score": 60,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "engagement-recency"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c4",
+                "courseCode": "",
+                "courseName": "Course 37",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c5",
+                "courseCode": "C-2",
+                "courseName": "Course 7",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "C-1",
+                "courseName": "Course 65",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 42,
+                "courseCode": "C-1",
+                "courseName": "Course 57",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "R-1",
+                "courseName": "Course 70",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c1",
+                "courseCode": "R-1",
+                "courseName": "Course 25",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c7",
+                "courseCode": "",
+                "courseName": "Course 69",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 4,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "R-1",
+                "courseName": "Course 67",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c1",
+                "courseCode": "R-1",
+                "courseName": "Course 86",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": 42,
+                "courseCode": "C-1",
+                "courseName": "Course 76",
+                "score": 20,
+                "matchedSignals": [
+                    "engagement-recency"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "C-1",
+                "courseName": "Course 14",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c3",
+                "courseCode": "C-1",
+                "courseName": "Course 28",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c4",
+                "courseCode": "C-2",
+                "courseName": "Course 19",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c1",
+                "courseCode": "C-1",
+                "courseName": "",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c1",
+                "courseCode": "",
+                "courseName": "Course 36",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c4",
+                "courseCode": "",
+                "courseName": "Course 9",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "R-1",
+                "courseName": "Course 20",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "R-1",
+                "courseName": "Course 59",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c3",
+                "courseCode": "R-1",
+                "courseName": "Course 57",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "C-2",
+                "courseName": "Course 23",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "C-2",
+                "courseName": "Course 62",
+                "score": 45,
+                "matchedSignals": [
+                    "engagement-recency",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "C-2",
+                "courseName": "Course 58",
+                "score": 75,
+                "matchedSignals": [
+                    "curriculum-path",
+                    "engagement-recency",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c6",
+                "courseCode": "R-1",
+                "courseName": "Course 27",
+                "score": 30,
+                "matchedSignals": [
+                    "curriculum-path"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c7",
+                "courseCode": "",
+                "courseName": "Course 31",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "C-2",
+                "courseName": "Course 63",
+                "score": 90,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path",
+                    "engagement-recency"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "",
+                "courseName": "Course 77",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c1",
+                "courseCode": "R-1",
+                "courseName": "Course 65",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c3",
+                "courseCode": "R-1",
+                "courseName": "Course 78",
+                "score": 60,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "engagement-recency"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c6",
+                "courseCode": "C-1",
+                "courseName": "Course 79",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c5",
+                "courseCode": "C-2",
+                "courseName": "Course 5",
+                "score": 50,
+                "matchedSignals": [
+                    "mandatory-renewal"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c4",
+                "courseCode": "R-1",
+                "courseName": "Course 99",
+                "score": 30,
+                "matchedSignals": [
+                    "curriculum-path"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 4,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "R-1",
+                "courseName": "Course 21",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 7,
+                "courseCode": "R-1",
+                "courseName": "Course 6",
+                "score": 20,
+                "matchedSignals": [
+                    "engagement-recency"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c3",
+                "courseCode": "",
+                "courseName": "Course 72",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "C-1",
+                "courseName": "Course 17",
+                "score": 30,
+                "matchedSignals": [
+                    "curriculum-path"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c5",
+                "courseCode": "C-2",
+                "courseName": "Course 29",
+                "score": 30,
+                "matchedSignals": [
+                    "curriculum-path"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "C-2",
+                "courseName": "Course 29",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "",
+                "courseName": "Course 92",
+                "score": 60,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "engagement-recency"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c6",
+                "courseCode": "R-1",
+                "courseName": "Course 15",
+                "score": 45,
+                "matchedSignals": [
+                    "engagement-recency",
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "",
+                "courseName": "Course 91",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "C-1",
+                "courseName": "Course 20",
+                "score": 95,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c2",
+                "courseCode": "C-1",
+                "courseName": "Course 33",
+                "score": 70,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c5",
+                "courseCode": "R-1",
+                "courseName": "Course 6",
+                "score": 55,
+                "matchedSignals": [
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "",
+                "courseName": "Course 87",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "C-2",
+                "courseName": "Course 53",
+                "score": 70,
+                "matchedSignals": [
+                    "mandatory-renewal",
+                    "engagement-recency"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 7,
+                "courseCode": "",
+                "courseName": "Course 35",
+                "score": 55,
+                "matchedSignals": [
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "",
+                "courseName": "Course 81",
+                "score": 70,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c7",
+                "courseCode": "",
+                "courseName": "Course 33",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 42,
+                "courseCode": "C-2",
+                "courseName": "Course 79",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "",
+                "courseName": "Course 28",
+                "score": 85,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "engagement-recency",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c1",
+                "courseCode": "",
+                "courseName": "Course 34",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c7",
+                "courseCode": "",
+                "courseName": "Course 73",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c1",
+                "courseCode": "R-1",
+                "courseName": "Course 75",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "R-1",
+                "courseName": "Course 12",
+                "score": 45,
+                "matchedSignals": [
+                    "engagement-recency",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c4",
+                "courseCode": "",
+                "courseName": "Course 61",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "C-1",
+                "courseName": "Course 43",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c3",
+                "courseCode": "C-2",
+                "courseName": "Course 76",
+                "score": 55,
+                "matchedSignals": [
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c3",
+                "courseCode": "",
+                "courseName": "Course 97",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "",
+                "courseName": "Course 12",
+                "score": 20,
+                "matchedSignals": [
+                    "engagement-recency"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c5",
+                "courseCode": "",
+                "courseName": "Course 81",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "",
+                "courseName": "Course 22",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "C-2",
+                "courseName": "",
+                "score": 80,
+                "matchedSignals": [
+                    "curriculum-path",
+                    "mandatory-renewal"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c5",
+                "courseCode": "C-1",
+                "courseName": "Course 41",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "",
+                "courseName": "Course 9",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "C-1",
+                "courseName": "Course 75",
+                "score": 30,
+                "matchedSignals": [
+                    "curriculum-path"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c7",
+                "courseCode": "",
+                "courseName": "Course 26",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "R-1",
+                "courseName": "",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 4,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "",
+                "courseName": "",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 7,
+                "courseCode": "C-2",
+                "courseName": "",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c1",
+                "courseCode": "R-1",
+                "courseName": "Course 86",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 3
+            },
+            {
+                "courseId": "c6",
+                "courseCode": "C-1",
+                "courseName": "Course 68",
+                "score": 20,
+                "matchedSignals": [
+                    "engagement-recency"
+                ],
+                "rank": 4
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "R-1",
+                "courseName": "Course 48",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "C-1",
+                "courseName": "Course 51",
+                "score": 55,
+                "matchedSignals": [
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "R-1",
+                "courseName": "Course 94",
+                "score": 45,
+                "matchedSignals": [
+                    "engagement-recency",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c5",
+                "courseCode": "C-1",
+                "courseName": "Course 80",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 4,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "",
+                "courseName": "Course 78",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c8",
+                "courseCode": "R-1",
+                "courseName": "Course 60",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c1",
+                "courseCode": "C-1",
+                "courseName": "Course 29",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "R-1",
+                "courseName": "",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "R-1",
+                "courseName": "Course 69",
+                "score": 55,
+                "matchedSignals": [
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 4,
+        "recommendations": [
+            {
+                "courseId": "c1",
+                "courseCode": "",
+                "courseName": "Course 8",
+                "score": 30,
+                "matchedSignals": [
+                    "curriculum-path"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c6",
+                "courseCode": "",
+                "courseName": "Course 25",
+                "score": 20,
+                "matchedSignals": [
+                    "engagement-recency"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "C-1",
+                "courseName": "",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "C-2",
+                "courseName": "Course 52",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c4",
+                "courseCode": "C-1",
+                "courseName": "Course 82",
+                "score": 20,
+                "matchedSignals": [
+                    "engagement-recency"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "C-2",
+                "courseName": "Course 2",
+                "score": 110,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "mandatory-renewal",
+                    "engagement-recency"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "",
+                "courseName": "Course 92",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c2",
+                "courseCode": "",
+                "courseName": "",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c3",
+                "courseCode": "C-1",
+                "courseName": "Course 77",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "",
+                "courseName": "Course 20",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c3",
+                "courseCode": "R-1",
+                "courseName": "Course 83",
+                "score": 85,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "engagement-recency",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c4",
+                "courseCode": "",
+                "courseName": "Course 56",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "C-1",
+                "courseName": "Course 1",
+                "score": 60,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "engagement-recency"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "R-1",
+                "courseName": "Course 97",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c5",
+                "courseCode": "R-1",
+                "courseName": "Course 99",
+                "score": 80,
+                "matchedSignals": [
+                    "curriculum-path",
+                    "mandatory-renewal"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c2",
+                "courseCode": "",
+                "courseName": "Course 73",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "",
+                "courseName": "Course 15",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "",
+                "courseName": "Course 45",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 7,
+                "courseCode": "C-1",
+                "courseName": "",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c7",
+                "courseCode": "R-1",
+                "courseName": "",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "R-1",
+                "courseName": "Course 88",
+                "score": 55,
+                "matchedSignals": [
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "R-1",
+                "courseName": "Course 77",
+                "score": 95,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c1",
+                "courseCode": "C-1",
+                "courseName": "Course 46",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "C-1",
+                "courseName": "Course 7",
+                "score": 95,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c5",
+                "courseCode": "C-2",
+                "courseName": "Course 19",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "C-1",
+                "courseName": "Course 76",
+                "score": 60,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "engagement-recency"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 42,
+                "courseCode": "",
+                "courseName": "Course 66",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "C-1",
+                "courseName": "",
+                "score": 85,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "engagement-recency",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "C-2",
+                "courseName": "Course 96",
+                "score": 55,
+                "matchedSignals": [
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c7",
+                "courseCode": "C-2",
+                "courseName": "Course 9",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 4,
+        "recommendations": [
+            {
+                "courseId": "c5",
+                "courseCode": "",
+                "courseName": "Course 36",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 7,
+                "courseCode": "R-1",
+                "courseName": "Course 36",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "C-2",
+                "courseName": "Course 46",
+                "score": 45,
+                "matchedSignals": [
+                    "engagement-recency",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 42,
+                "courseCode": "",
+                "courseName": "Course 8",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "C-2",
+                "courseName": "Course 96",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "",
+                "courseName": "Course 57",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "R-1",
+                "courseName": "Course 25",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c7",
+                "courseCode": "R-1",
+                "courseName": "Course 47",
+                "score": 20,
+                "matchedSignals": [
+                    "engagement-recency"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c3",
+                "courseCode": "C-1",
+                "courseName": "Course 59",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "",
+                "courseName": "Course 73",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c6",
+                "courseCode": "C-1",
+                "courseName": "Course 94",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c3",
+                "courseCode": "C-1",
+                "courseName": "Course 10",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c4",
+                "courseCode": "C-1",
+                "courseName": "Course 31",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c6",
+                "courseCode": "C-2",
+                "courseName": "Course 29",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c1",
+                "courseCode": "",
+                "courseName": "Course 7",
+                "score": 95,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "",
+                "courseName": "Course 93",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "C-2",
+                "courseName": "",
+                "score": 45,
+                "matchedSignals": [
+                    "engagement-recency",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c2",
+                "courseCode": "C-2",
+                "courseName": "Course 68",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c7",
+                "courseCode": "",
+                "courseName": "Course 13",
+                "score": 20,
+                "matchedSignals": [
+                    "engagement-recency"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "C-2",
+                "courseName": "Course 71",
+                "score": 60,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "engagement-recency"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c3",
+                "courseCode": "C-2",
+                "courseName": "Course 47",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c3",
+                "courseCode": "C-2",
+                "courseName": "Course 83",
+                "score": 90,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "mandatory-renewal"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "C-1",
+                "courseName": "",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c1",
+                "courseCode": "R-1",
+                "courseName": "",
+                "score": 50,
+                "matchedSignals": [
+                    "curriculum-path",
+                    "engagement-recency"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 42,
+                "courseCode": "C-1",
+                "courseName": "Course 24",
+                "score": 30,
+                "matchedSignals": [
+                    "curriculum-path"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "",
+                "courseName": "Course 27",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c2",
+                "courseCode": "C-2",
+                "courseName": "",
+                "score": 20,
+                "matchedSignals": [
+                    "engagement-recency"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "",
+                "courseName": "Course 94",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "C-1",
+                "courseName": "Course 11",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "",
+                "courseName": "Course 23",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "C-2",
+                "courseName": "Course 26",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "",
+                "courseName": "Course 87",
+                "score": 85,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "engagement-recency",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c5",
+                "courseCode": "C-1",
+                "courseName": "Course 43",
+                "score": 60,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "engagement-recency"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "C-2",
+                "courseName": "Course 26",
+                "score": 60,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "engagement-recency"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c1",
+                "courseCode": "C-1",
+                "courseName": "Course 64",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c4",
+                "courseCode": "C-2",
+                "courseName": "",
+                "score": 20,
+                "matchedSignals": [
+                    "engagement-recency"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "C-2",
+                "courseName": "Course 89",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c5",
+                "courseCode": "R-1",
+                "courseName": "Course 43",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "",
+                "courseName": "Course 61",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 42,
+                "courseCode": "C-2",
+                "courseName": "Course 16",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "C-1",
+                "courseName": "Course 42",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "",
+                "courseName": "Course 6",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "C-2",
+                "courseName": "Course 53",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "R-1",
+                "courseName": "Course 96",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "C-1",
+                "courseName": "Course 4",
+                "score": 55,
+                "matchedSignals": [
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "C-1",
+                "courseName": "Course 74",
+                "score": 70,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c5",
+                "courseCode": "R-1",
+                "courseName": "Course 33",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "",
+                "courseName": "Course 82",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c6",
+                "courseCode": "R-1",
+                "courseName": "Course 45",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c1",
+                "courseCode": "C-1",
+                "courseName": "Course 33",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "C-1",
+                "courseName": "Course 60",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c7",
+                "courseCode": "R-1",
+                "courseName": "Course 92",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "",
+                "courseName": "Course 51",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 42,
+                "courseCode": "",
+                "courseName": "Course 69",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c3",
+                "courseCode": "C-1",
+                "courseName": "Course 61",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "C-1",
+                "courseName": "Course 80",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "",
+                "courseName": "Course 73",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c1",
+                "courseCode": "",
+                "courseName": "Course 98",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "C-1",
+                "courseName": "Course 32",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c4",
+                "courseCode": "R-1",
+                "courseName": "",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c5",
+                "courseCode": "",
+                "courseName": "Course 44",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 4,
+        "recommendations": [
+            {
+                "courseId": "c1",
+                "courseCode": "",
+                "courseName": "Course 45",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c5",
+                "courseCode": "C-1",
+                "courseName": "Course 96",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": 42,
+                "courseCode": "C-2",
+                "courseName": "Course 3",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "R-1",
+                "courseName": "Course 58",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c8",
+                "courseCode": "C-2",
+                "courseName": "Course 91",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "C-2",
+                "courseName": "Course 99",
+                "score": 90,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "mandatory-renewal"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 7,
+                "courseCode": "",
+                "courseName": "Course 12",
+                "score": 70,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "R-1",
+                "courseName": "Course 68",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c7",
+                "courseCode": "R-1",
+                "courseName": "Course 88",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c7",
+                "courseCode": "R-1",
+                "courseName": "Course 80",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "",
+                "courseName": "Course 43",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c8",
+                "courseCode": "R-1",
+                "courseName": "Course 35",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c5",
+                "courseCode": "",
+                "courseName": "Course 56",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c8",
+                "courseCode": "C-2",
+                "courseName": "Course 51",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c7",
+                "courseCode": "C-2",
+                "courseName": "Course 45",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "",
+                "courseName": "Course 82",
+                "score": 60,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "engagement-recency"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c3",
+                "courseCode": "",
+                "courseName": "",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c2",
+                "courseCode": "C-1",
+                "courseName": "Course 54",
+                "score": 20,
+                "matchedSignals": [
+                    "engagement-recency"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "",
+                "courseName": "Course 25",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c3",
+                "courseCode": "R-1",
+                "courseName": "Course 81",
+                "score": 70,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "",
+                "courseName": "Course 58",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c2",
+                "courseCode": "C-1",
+                "courseName": "Course 32",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c5",
+                "courseCode": "",
+                "courseName": "Course 13",
+                "score": 95,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c2",
+                "courseCode": "C-2",
+                "courseName": "",
+                "score": 95,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": 7,
+                "courseCode": "C-2",
+                "courseName": "Course 5",
+                "score": 95,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "",
+                "courseName": "Course 22",
+                "score": 95,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c8",
+                "courseCode": "R-1",
+                "courseName": "Course 89",
+                "score": 30,
+                "matchedSignals": [
+                    "curriculum-path"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "",
+                "courseName": "Course 71",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c1",
+                "courseCode": "C-1",
+                "courseName": "Course 85",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c4",
+                "courseCode": "C-2",
+                "courseName": "",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": 7,
+                "courseCode": "C-2",
+                "courseName": "",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "",
+                "courseName": "Course 95",
+                "score": 70,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 7,
+                "courseCode": "",
+                "courseName": "Course 22",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "",
+                "courseName": "Course 10",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c5",
+                "courseCode": "C-1",
+                "courseName": "Course 52",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c7",
+                "courseCode": "",
+                "courseName": "Course 90",
+                "score": 95,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c6",
+                "courseCode": "",
+                "courseName": "Course 9",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "",
+                "courseName": "Course 71",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c6",
+                "courseCode": "C-2",
+                "courseName": "Course 74",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c3",
+                "courseCode": "",
+                "courseName": "Course 44",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "C-1",
+                "courseName": "Course 1",
+                "score": 95,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "R-1",
+                "courseName": "Course 51",
+                "score": 20,
+                "matchedSignals": [
+                    "engagement-recency"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 4,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "C-1",
+                "courseName": "Course 48",
+                "score": 70,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c6",
+                "courseCode": "C-1",
+                "courseName": "Course 23",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c3",
+                "courseCode": "C-2",
+                "courseName": "Course 98",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 3
+            },
+            {
+                "courseId": 7,
+                "courseCode": "",
+                "courseName": "Course 86",
+                "score": 30,
+                "matchedSignals": [
+                    "curriculum-path"
+                ],
+                "rank": 4
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "",
+                "courseName": "Course 76",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "C-2",
+                "courseName": "Course 32",
+                "score": 70,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c4",
+                "courseCode": "",
+                "courseName": "Course 6",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 5,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "C-1",
+                "courseName": "Course 64",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c6",
+                "courseCode": "C-2",
+                "courseName": "Course 67",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": 42,
+                "courseCode": "",
+                "courseName": "Course 52",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 3
+            },
+            {
+                "courseId": "c1",
+                "courseCode": "",
+                "courseName": "Course 94",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 4
+            },
+            {
+                "courseId": "c8",
+                "courseCode": "R-1",
+                "courseName": "Course 15",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 5
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "C-2",
+                "courseName": "Course 26",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c1",
+                "courseCode": "R-1",
+                "courseName": "Course 82",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "C-2",
+                "courseName": "Course 72",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 4,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "C-1",
+                "courseName": "Course 39",
+                "score": 70,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 42,
+                "courseCode": "C-1",
+                "courseName": "",
+                "score": 45,
+                "matchedSignals": [
+                    "engagement-recency",
+                    "competency-gap"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": 7,
+                "courseCode": "C-1",
+                "courseName": "Course 27",
+                "score": 30,
+                "matchedSignals": [
+                    "curriculum-path"
+                ],
+                "rank": 3
+            },
+            {
+                "courseId": "c6",
+                "courseCode": "C-2",
+                "courseName": "Course 91",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 4
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "C-1",
+                "courseName": "",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "C-2",
+                "courseName": "Course 96",
+                "score": 70,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c4",
+                "courseCode": "",
+                "courseName": "Course 69",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c1",
+                "courseCode": "R-1",
+                "courseName": "Course 84",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "C-1",
+                "courseName": "Course 24",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c1",
+                "courseCode": "",
+                "courseName": "Course 24",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "R-1",
+                "courseName": "Course 45",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "C-2",
+                "courseName": "Course 20",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c7",
+                "courseCode": "R-1",
+                "courseName": "Course 39",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c3",
+                "courseCode": "C-1",
+                "courseName": "Course 21",
+                "score": 45,
+                "matchedSignals": [
+                    "engagement-recency",
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "C-1",
+                "courseName": "Course 67",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "C-2",
+                "courseName": "Course 15",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "R-1",
+                "courseName": "Course 6",
+                "score": 20,
+                "matchedSignals": [
+                    "engagement-recency"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "",
+                "courseName": "Course 31",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c6",
+                "courseCode": "C-2",
+                "courseName": "Course 65",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "",
+                "courseName": "Course 26",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "R-1",
+                "courseName": "Course 35",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c3",
+                "courseCode": "C-2",
+                "courseName": "Course 66",
+                "score": 30,
+                "matchedSignals": [
+                    "curriculum-path"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c1",
+                "courseCode": "",
+                "courseName": "Course 63",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "C-1",
+                "courseName": "Course 33",
+                "score": 90,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path",
+                    "engagement-recency"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "",
+                "courseName": "Course 48",
+                "score": 70,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c6",
+                "courseCode": "C-1",
+                "courseName": "Course 41",
+                "score": 70,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c5",
+                "courseCode": "R-1",
+                "courseName": "Course 79",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c1",
+                "courseCode": "",
+                "courseName": "Course 55",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c6",
+                "courseCode": "C-1",
+                "courseName": "Course 30",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c2",
+                "courseCode": "",
+                "courseName": "Course 67",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 42,
+                "courseCode": "C-1",
+                "courseName": "Course 84",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c8",
+                "courseCode": "R-1",
+                "courseName": "Course 23",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c3",
+                "courseCode": "",
+                "courseName": "Course 68",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c5",
+                "courseCode": "",
+                "courseName": "",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c1",
+                "courseCode": "C-1",
+                "courseName": "",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c7",
+                "courseCode": "",
+                "courseName": "Course 30",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "R-1",
+                "courseName": "Course 52",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c1",
+                "courseCode": "R-1",
+                "courseName": "Course 89",
+                "score": 70,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "curriculum-path"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c5",
+                "courseCode": "C-1",
+                "courseName": "Course 29",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "R-1",
+                "courseName": "Course 59",
+                "score": 55,
+                "matchedSignals": [
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": 7,
+                "courseCode": "R-1",
+                "courseName": "Course 50",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c5",
+                "courseCode": "C-2",
+                "courseName": "Course 63",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 7,
+                "courseCode": "R-1",
+                "courseName": "Course 11",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c4",
+                "courseCode": "C-2",
+                "courseName": "Course 67",
+                "score": 55,
+                "matchedSignals": [
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "C-2",
+                "courseName": "Course 82",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c6",
+                "courseCode": "",
+                "courseName": "Course 39",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c4",
+                "courseCode": "C-2",
+                "courseName": "Course 74",
+                "score": 55,
+                "matchedSignals": [
+                    "curriculum-path",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c6",
+                "courseCode": "C-2",
+                "courseName": "Course 87",
+                "score": 30,
+                "matchedSignals": [
+                    "curriculum-path"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c1",
+                "courseCode": "C-2",
+                "courseName": "Course 77",
+                "score": 30,
+                "matchedSignals": [
+                    "curriculum-path"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c7",
+                "courseCode": "C-2",
+                "courseName": "Course 85",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c3",
+                "courseCode": "",
+                "courseName": "Course 84",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": "c7",
+                "courseCode": "",
+                "courseName": "Course 16",
+                "score": 65,
+                "matchedSignals": [
+                    "goal-alignment",
+                    "competency-gap"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": 42,
+                "courseCode": "C-1",
+                "courseName": "Course 9",
+                "score": 30,
+                "matchedSignals": [
+                    "curriculum-path"
+                ],
+                "rank": 2
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 1,
+        "recommendations": [
+            {
+                "courseId": "c8",
+                "courseCode": "",
+                "courseName": "Course 2",
+                "score": 40,
+                "matchedSignals": [
+                    "goal-alignment"
+                ],
+                "rank": 1
+            }
+        ]
+    },
+    {
+        "candidateCount": 0,
+        "recommendations": []
+    },
+    {
+        "candidateCount": 3,
+        "recommendations": [
+            {
+                "courseId": "c7",
+                "courseCode": "C-2",
+                "courseName": "Course 54",
+                "score": 30,
+                "matchedSignals": [
+                    "curriculum-path"
+                ],
+                "rank": 1
+            },
+            {
+                "courseId": "c8",
+                "courseCode": "",
+                "courseName": "Course 12",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 2
+            },
+            {
+                "courseId": "c5",
+                "courseCode": "",
+                "courseName": "Course 19",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 3
+            }
+        ]
+    },
+    {
+        "candidateCount": 2,
+        "recommendations": [
+            {
+                "courseId": 42,
+                "courseCode": "",
+                "courseName": "Course 80",
+                "score": 25,
+                "matchedSignals": [
+                    "competency-gap"
+                ],
+                "rank": 1
+            }
+        ]
+    }
+]

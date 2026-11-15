@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-intake-cannot-touch-an-existing-record
+ * @spec openspec/specs/conversational-intake/spec.md#scenario-intake-cannot-touch-an-existing-record
  */
 
 declare(strict_types=1);
@@ -31,7 +31,7 @@ use RuntimeException;
 /**
  * A call the intake surface's narrow grant does not cover.
  *
- * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-intake-cannot-touch-an-existing-record
+ * @spec openspec/specs/conversational-intake/spec.md#scenario-intake-cannot-touch-an-existing-record
  */
 class IntakeRefusedException extends RuntimeException {
 

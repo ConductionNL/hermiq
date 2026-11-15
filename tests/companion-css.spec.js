@@ -13,7 +13,12 @@
 const assert = require('assert')
 const fs = require('fs')
 const path = require('path')
-const { purge, scopeToCompanion, topLevel, usedNames } = require('../scripts/build-companion-css.js')
+const {
+	purge,
+	scopeToCompanion,
+	topLevel,
+	usedNames,
+} = require('../scripts/build-companion-css.js')
 
 const failures = []
 function check(name, fn) {
@@ -138,7 +143,9 @@ if (fs.existsSync(LEAF)) {
 	})
 }
 
-const USED = usedNames(['h("div",{class:"cn-ai-panel cn-ai-floating-button--"+pos}) "button-vue"'])
+const USED = usedNames([
+	'h("div",{class:"cn-ai-panel cn-ai-floating-button--"+pos}) "button-vue"',
+])
 const PURGE_SAMPLE = [
 	'@charset "UTF-8";',
 	'@keyframes spin{to{transform:rotate(1turn)}}',
@@ -155,26 +162,46 @@ const PURGE_SAMPLE = [
 ].join('\n')
 const PURGED = purge(PURGE_SAMPLE, USED)
 
-check('the purge keeps the rules the companion bundles use, and the at-rules', () => {
-	for (const kept of ['@charset', '@keyframes spin', ':root{--cn-x', '.cn-ai-panel{display', '.cn-table, .button-vue', '.fade-enter-active']) {
-		assert.ok(PURGED.includes(kept), `missing ${kept}`)
-	}
-})
+check(
+	'the purge keeps the rules the companion bundles use, and the at-rules',
+	() => {
+		for (const kept of [
+			'@charset',
+			'@keyframes spin',
+			':root{--cn-x',
+			'.cn-ai-panel{display',
+			'.cn-table, .button-vue',
+			'.fade-enter-active',
+		]) {
+			assert.ok(PURGED.includes(kept), `missing ${kept}`)
+		}
+	},
+)
 
 check('a modifier the bundles build at runtime is kept by its prefix', () => {
 	assert.ok(PURGED.includes('.cn-ai-floating-button--bottom-right'))
 })
 
-check('the purge drops rules for classes no bundle uses, a comment\'s comma notwithstanding', () => {
-	assert.ok(!PURGED.includes('.cn-table-container'))
-	assert.ok(!PURGED.includes('.cn-look-board .cn-table'))
-	assert.ok(!PURGED.includes('.cn-unused'))
-})
+check(
+	"the purge drops rules for classes no bundle uses, a comment's comma notwithstanding",
+	() => {
+		assert.ok(!PURGED.includes('.cn-table-container'))
+		assert.ok(!PURGED.includes('.cn-look-board .cn-table'))
+		assert.ok(!PURGED.includes('.cn-unused'))
+	},
+)
 
-check('inside @media the unused rules go, and an emptied block goes with them', () => {
-	assert.ok(/@media \(max-width:600px\) \{\.cn-ai-panel\{width:100%\}\}/.test(PURGED))
-	assert.ok(!PURGED.includes('@media print'))
-})
+check(
+	'inside @media the unused rules go, and an emptied block goes with them',
+	() => {
+		assert.ok(
+			/@media \(max-width:600px\) \{\.cn-ai-panel\{width:100%\}\}/.test(
+				PURGED,
+			),
+		)
+		assert.ok(!PURGED.includes('@media print'))
+	},
+)
 
 if (failures.length > 0) {
 	console.log(`\n${failures.length} failing`)

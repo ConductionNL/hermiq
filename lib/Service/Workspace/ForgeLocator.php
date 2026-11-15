@@ -35,7 +35,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Workspace;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\WebResearch\WebResearchEgressGuard;
 use OCA\Hermiq\Service\WebResearch\WebResearchSettingsHandler;
 use OCP\IAppConfig;
@@ -106,7 +106,7 @@ class ForgeLocator {
 	 */
 	public function cloneUrl(string $repository): string {
 		$slug = $this->slug(repository: $repository);
-		$base = rtrim($this->appConfig->getValueString(Application::APP_ID, 'workspace_forge_base_url', self::DEFAULT_BASE_URL), '/');
+		$base = rtrim($this->appConfig->getValueString(AppIdentity::APP_ID, 'workspace_forge_base_url', self::DEFAULT_BASE_URL), '/');
 		if ($base === '') {
 			$base = self::DEFAULT_BASE_URL;
 		}

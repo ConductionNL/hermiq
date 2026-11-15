@@ -39,6 +39,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\AiFeature;
 
+use OCA\Hermiq\Kernel\Contracts\DocumentFeatureRunInterface;
 use OCA\Hermiq\Service\AiFeatureService;
 use OCA\Hermiq\Service\Chat\AttachmentTextReader;
 use OCA\Hermiq\Service\GuardrailBlockedException;
@@ -55,7 +56,7 @@ use Throwable;
  *
  * @spec openspec/changes/ai-feature-run-on-a-document/specs/ai-feature-governance/spec.md#requirement-an-app-can-run-an-ai-feature-on-a-document-it-names-and-the-gates-apply-to-that-document
  */
-class DocumentFeatureRun {
+class DocumentFeatureRun implements DocumentFeatureRunInterface {
 
 	/**
 	 * The longest instruction an app may send with a run.
@@ -67,7 +68,7 @@ class DocumentFeatureRun {
 	/**
 	 * Constructor.
 	 *
-	 * @param AiFeatureService            $features        Reads the feature register.
+	 * @param AiFeatureLookup             $features        Reads the feature register.
 	 * @param LiteracyRequirement         $literacy        The course requirement and the caller's organisation.
 	 * @param IRootFolder                 $rootFolder      Resolves the document in the caller's Files.
 	 * @param AttachmentTextReader        $textReader      Reads a file's text as the caller.
@@ -77,7 +78,7 @@ class DocumentFeatureRun {
 	 * @return void
 	 */
 	public function __construct(
-		private readonly AiFeatureService $features,
+		private readonly AiFeatureLookup $features,
 		private readonly LiteracyRequirement $literacy,
 		private readonly IRootFolder $rootFolder,
 		private readonly AttachmentTextReader $textReader,
@@ -106,25 +107,12 @@ class DocumentFeatureRun {
 	public function run(string $uid, string $featureSlug, string $documentReference, string $instruction): array {
 		$documentReference = trim($documentReference);
 		$instruction = trim($instruction);
-		if ($documentReference === '' || ctype_digit($documentReference) === false) {
-			throw new RuntimeException('A feature run on a document needs the document reference', 400);
-		}
-
-		if ($instruction === '') {
-			throw new RuntimeException('A feature run on a document needs an instruction', 400);
-		}
+		$this->assertRequestComplete(documentReference: $documentReference, instruction: $instruction);
 
 		$this->literacy->assertMayUseAgents(uid: $uid);
 		$this->assertEnabled(featureSlug: $featureSlug);
 
-		$file = $this->readableFile(uid: $uid, fileId: (int)$documentReference);
-		$read = $this->textReader->read(
-			attachments: [['fileId' => $file->getId(), 'name' => $file->getName(), 'mimeType' => $file->getMimetype()]],
-			speaker: $uid
-		);
-		if (trim($read['text']) === '') {
-			throw new RuntimeException('hermiq cannot read the text of this document', 422);
-		}
+		$read = $this->readDocument(uid: $uid, documentReference: $documentReference);
 
 		$organisation = $this->literacy->organisationOf(uid: $uid);
 		$text = $this->filterInput(organisation: $organisation, text: $read['text']);
@@ -144,6 +132,49 @@ class DocumentFeatureRun {
 			'notices' => $read['notices'],
 		];
 	}//end run()
+
+	/**
+	 * Refuse a run without a numeric document reference or without an instruction.
+	 *
+	 * @param string $documentReference The trimmed document reference.
+	 * @param string $instruction The trimmed instruction.
+	 *
+	 * @return void
+	 *
+	 * @throws RuntimeException 400 on a missing reference or instruction.
+	 */
+	private function assertRequestComplete(string $documentReference, string $instruction): void {
+		if ($documentReference === '' || ctype_digit($documentReference) === false) {
+			throw new RuntimeException('A feature run on a document needs the document reference', 400);
+		}
+
+		if ($instruction === '') {
+			throw new RuntimeException('A feature run on a document needs an instruction', 400);
+		}
+	}//end assertRequestComplete()
+
+	/**
+	 * Read the document's text as the caller.
+	 *
+	 * @param string $uid The caller.
+	 * @param string $documentReference The document's Nextcloud file id.
+	 *
+	 * @return array{text: string, notices: list<string>} What was read.
+	 *
+	 * @throws RuntimeException 404 when the caller cannot open it, 422 when it has no readable text.
+	 */
+	private function readDocument(string $uid, string $documentReference): array {
+		$file = $this->readableFile(uid: $uid, fileId: (int)$documentReference);
+		$read = $this->textReader->read(
+			attachments: [['fileId' => $file->getId(), 'name' => $file->getName(), 'mimeType' => $file->getMimetype()]],
+			speaker: $uid
+		);
+		if (trim($read['text']) === '') {
+			throw new RuntimeException('hermiq cannot read the text of this document', 422);
+		}
+
+		return $read;
+	}//end readDocument()
 
 	/**
 	 * Refuse a feature that is unknown or switched off.
