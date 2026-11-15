@@ -37,6 +37,7 @@ use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for the agent-versioning AgentVersionService.
@@ -336,7 +337,11 @@ class AgentVersionServiceTest extends TestCase {
 		$objectService->expects($this->once())
 			->method('saveObject')
 			->willReturnCallback(
-				function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null, bool $rbac = true, bool $multitenancy = true) use (&$savedPayload): ObjectEntity {
+				function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions(), bool $rbac = true, bool $multitenancy = true) use (&$savedPayload): ObjectEntity {
+					$extend = $options->extend ?? [];
+					$register = $options->target->register;
+					$schema = $options->target->schema;
+					$uuid = $options->uuid;
 					$savedPayload = $object;
 					$this->assertSame('hermiq', $register);
 					$this->assertSame('agent', $schema);

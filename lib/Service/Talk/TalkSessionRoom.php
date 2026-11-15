@@ -42,6 +42,9 @@ namespace OCA\Hermiq\Service\Talk;
 
 use OCA\Hermiq\Kernel\Contracts\TalkSessionRoomInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserManager;
 use Psr\Container\ContainerInterface;
@@ -239,9 +242,10 @@ class TalkSessionRoom implements TalkSessionRoomInterface {
 
 			return $this->objectService->saveObject(
 				object: $payload,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
-				uuid: (string)$conversation->getUuid()
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+					uuid: (string)$conversation->getUuid()
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(
@@ -281,8 +285,7 @@ class TalkSessionRoom implements TalkSessionRoomInterface {
 		try {
 			$fresh = $this->objectService->find(
 				id: (string)$conversation->getUuid(),
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 
 			if ($fresh instanceof ObjectEntity) {
