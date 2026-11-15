@@ -25,6 +25,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Delegation;
 
 use OCA\Hermiq\Service\Delegation\PollClock;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -89,7 +90,8 @@ final class DelegatedRunsDouble {
 			}
 		);
 		$service->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options): ObjectEntity {
+				$uuid               = $options->uuid;
 				$id                 = ($uuid ?? 'part-'.(count($this->records) + 1));
 				$this->records[$id] = $object;
 				if ($this->afterSave !== null) {

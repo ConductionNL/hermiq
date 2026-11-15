@@ -28,6 +28,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Delegation;
 
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Lock\ILockingProvider;
 use OCP\Lock\LockedException;
@@ -113,8 +116,7 @@ class DelegatedRunStore {
 		try {
 			$found = $this->objectService->find(
 				id: $id,
-				register: self::REGISTER,
-				schema: self::SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER, schema: self::SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -261,9 +263,10 @@ class DelegatedRunStore {
 
 		return $this->objectService->saveObject(
 			object: $record,
-			register: self::REGISTER,
-			schema: self::SCHEMA,
-			uuid: $id,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER, schema: self::SCHEMA),
+				uuid: $id
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
