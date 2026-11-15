@@ -1,8 +1,10 @@
 # agent-engine-port Specification
 
 ## Purpose
-TBD - created by archiving change llm-keys-via-broker. Update Purpose after archive.
+How hermiq's agent engine runs a chat turn: it holds no model API key of its own (keys come from the credential broker), generates a conversation title without holding up the reply and without bypassing the model policy, and hands the model the person's turn once. Created by the change `llm-keys-via-broker`; the turn-once requirement came from `user-turn-sent-once` (archived 2026-10-30).
+
 ## Requirements
+
 ### Requirement: Hermiq holds no LLM API key
 
 Hermiq SHALL NOT accept, store, or transmit an OpenAI or Fireworks API key. Every call to
@@ -192,3 +194,33 @@ policy, which is the part deferral could have broken.
 - **THEN** the policy MUST be enforced exactly as it is on the synchronous path it replaced
 - **AND** the system MUST NOT bypass the policy by passing a null organisation
 
+### Requirement: The model receives the user's turn once
+
+A chat turn SHALL send the user's latest message to the model exactly once, as the
+last turn of the request, on every provider. The conversation history handed to
+the response handler SHALL hold the turns before the current one only; the
+response handler SHALL be the single place that appends the current turn.
+
+#### Scenario: The latest question is sent once
+- **GIVEN** a conversation on the openai, ollama, fireworks or anthropic provider
+- **WHEN** a person asks a question
+- **THEN** the provider request carries that question once
+- **AND** it is the last message of the request
+
+#### Scenario: A multi-turn conversation keeps its earlier turns
+- **GIVEN** a conversation where the person asked a question and the agent answered
+- **WHEN** the person asks a second question
+- **THEN** the provider request carries the first question, then the answer, then the second question
+- **AND** each of them appears once
+
+#### Scenario: Storing the turn does not change what is sent
+- **GIVEN** the engine stores the person's turn before it builds the history
+- **WHEN** the history is built for the model
+- **THEN** the stored copy of the current turn is left out of the history
+- **AND** the stored turn itself is unchanged
+
+#### Scenario: A shared session still names who is asking
+- **GIVEN** a session where two people have taken turns
+- **WHEN** one of them asks a question
+- **THEN** the provider request carries that question once, prefixed with the asker's name
+- **AND** the earlier turns keep their speakers' names as before

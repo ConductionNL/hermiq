@@ -32,6 +32,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Workspace;
 
+use OCP\IUser;
 use OCP\IUserManager;
 
 /**
@@ -93,6 +94,31 @@ class WorkspaceEditor {
 	 */
 	public function writeFile(string $runKey, string $root, array $arguments): array {
 		$path = (string)($arguments['path'] ?? '');
+		$content = $this->writableContent(arguments: $arguments);
+		$absolute = $this->guard->forWrite(root: $root, relativePath: $path);
+		$exists = $this->writeTargetExists(absolute: $absolute, arguments: $arguments);
+		$oldBytes = $this->existingBytes(absolute: $absolute, exists: $exists);
+		$this->provider->reserve(runKey: $runKey, addBytes: (strlen($content) - $oldBytes), addFiles: (int)($exists === false));
+		$this->putFile(absolute: $absolute, content: $content);
+
+		$action = 'created';
+		if ($exists === true) {
+			$action = 'modified';
+		}
+
+		return ['path' => $path, 'action' => $action, 'bytes' => strlen($content)];
+	}//end writeFile()
+
+	/**
+	 * The content of a write, refused unless it is text of at most one megabyte.
+	 *
+	 * @param array<string, mixed> $arguments The tool arguments.
+	 *
+	 * @return string
+	 *
+	 * @throws WorkspaceException invalid_argument.
+	 */
+	private function writableContent(array $arguments): string {
 		$content = $arguments['content'] ?? null;
 		if (is_string($content) === false || strlen($content) > self::MAX_WRITE_BYTES) {
 			throw new WorkspaceException(
@@ -101,7 +127,20 @@ class WorkspaceEditor {
 			);
 		}
 
-		$absolute = $this->guard->forWrite(root: $root, relativePath: $path);
+		return $content;
+	}//end writableContent()
+
+	/**
+	 * Whether the write target is an existing file; refuses a folder, and an existing file in create mode.
+	 *
+	 * @param string               $absolute  The guarded absolute path.
+	 * @param array<string, mixed> $arguments The tool arguments (`mode`).
+	 *
+	 * @return bool
+	 *
+	 * @throws WorkspaceException invalid_argument.
+	 */
+	private function writeTargetExists(string $absolute, array $arguments): bool {
 		$exists = is_file($absolute);
 		if ($exists === false && file_exists($absolute) === true) {
 			throw new WorkspaceException(errorCode: WorkspaceException::INVALID_ARGUMENT, message: 'That path is a folder, not a file.');
@@ -111,26 +150,41 @@ class WorkspaceEditor {
 			throw new WorkspaceException(errorCode: WorkspaceException::INVALID_ARGUMENT, message: 'That file already exists.');
 		}
 
-		$oldBytes = 0;
-		$newFiles = 1;
-		$action = 'created';
-		if ($exists === true) {
-			$oldBytes = (int)filesize($absolute);
-			$newFiles = 0;
-			$action = 'modified';
+		return $exists;
+	}//end writeTargetExists()
+
+	/**
+	 * The size of the file a write replaces, or 0 for a new file.
+	 *
+	 * @param string $absolute The absolute path.
+	 * @param bool   $exists   Whether the file exists.
+	 *
+	 * @return int
+	 */
+	private function existingBytes(string $absolute, bool $exists): int {
+		if ($exists === false) {
+			return 0;
 		}
 
-		$this->provider->reserve(runKey: $runKey, addBytes: (strlen($content) - $oldBytes), addFiles: $newFiles);
+		return (int)filesize($absolute);
+	}//end existingBytes()
 
+	/**
+	 * Write a file, creating its folder first when needed.
+	 *
+	 * @param string $absolute The absolute path.
+	 * @param string $content  The content.
+	 *
+	 * @return void
+	 */
+	private function putFile(string $absolute, string $content): void {
 		$folder = dirname($absolute);
 		if (is_dir($folder) === false) {
 			mkdir($folder, 0755, true);
 		}
 
 		file_put_contents($absolute, $content);
-
-		return ['path' => $path, 'action' => $action, 'bytes' => strlen($content)];
-	}//end writeFile()
+	}//end putFile()
 
 	/**
 	 * `delete_file`: remove one file.
@@ -170,14 +224,43 @@ class WorkspaceEditor {
 	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-patch-touching-a-refused-path-is-rejected-whole
 	 */
 	public function applyPatch(string $runKey, string $root, array $arguments): array {
+		$patch = $this->patchText(arguments: $arguments);
+		$targets = $this->guard->patchTargets(root: $root, patch: $patch);
+		$this->provider->reserve(runKey: $runKey, addBytes: strlen($patch), addFiles: count($targets));
+		$this->applyCleanly(root: $root, patch: $patch);
+
+		return ['files' => $targets, 'action' => 'patched'];
+	}//end applyPatch()
+
+	/**
+	 * The patch text, refused when empty or larger than one megabyte.
+	 *
+	 * @param array<string, mixed> $arguments The tool arguments (`patch`).
+	 *
+	 * @return string
+	 *
+	 * @throws WorkspaceException patch_rejected.
+	 */
+	private function patchText(array $arguments): string {
 		$patch = (string)($arguments['patch'] ?? '');
 		if ($patch === '' || strlen($patch) > self::MAX_WRITE_BYTES) {
 			throw new WorkspaceException(errorCode: WorkspaceException::PATCH_REJECTED, message: 'Send a unified diff of at most one megabyte.');
 		}
 
-		$targets = $this->guard->patchTargets(root: $root, patch: $patch);
-		$this->provider->reserve(runKey: $runKey, addBytes: strlen($patch), addFiles: count($targets));
+		return $patch;
+	}//end patchText()
 
+	/**
+	 * Apply a patch, checking first that every hunk applies.
+	 *
+	 * @param string $root  The workspace root.
+	 * @param string $patch The unified diff.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException patch_rejected.
+	 */
+	private function applyCleanly(string $root, string $patch): void {
 		// `--check` first, so a patch that does not apply cleanly leaves no hunk
 		// behind; git itself also refuses paths beyond a symbolic link.
 		foreach ([['apply', '--check', '--whitespace=nowarn', '-'], ['apply', '--whitespace=nowarn', '-']] as $command) {
@@ -189,9 +272,7 @@ class WorkspaceEditor {
 				);
 			}
 		}
-
-		return ['files' => $targets, 'action' => 'patched'];
-	}//end applyPatch()
+	}//end applyCleanly()
 
 	/**
 	 * `create_branch`: start a new local branch at the current commit and switch to it.
@@ -245,12 +326,65 @@ class WorkspaceEditor {
 	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-commit-identity-comes-from-the-owner-not-the-model
 	 */
 	public function commit(string $root, string $ownerUid, array $arguments): array {
-		$identity = $this->identity(ownerUid: $ownerUid);
+		$environment = $this->commitEnvironment(identity: $this->identity(ownerUid: $ownerUid));
+		$message = $this->commitMessage(arguments: $arguments);
+		$this->gitOk(root: $root, arguments: $this->stagingArguments(root: $root, arguments: $arguments), failure: 'The changes could not be staged.');
+		$result = $this->git->run(
+			arguments: ['commit', '--quiet', '--no-verify', '--no-gpg-sign', '--file', '-'],
+			workingDir: $root,
+			timeoutSeconds: self::TIMEOUT_SECONDS,
+			extraEnv: $environment,
+			stdin: $message
+		);
+		$this->assertCommitted(result: $result);
+
+		return $this->committed(root: $root, ownerUid: $ownerUid);
+	}//end commit()
+
+	/**
+	 * Refuse when `git commit` found nothing to commit.
+	 *
+	 * @param array{exit: int} $result The commit run's result.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException invalid_argument.
+	 */
+	private function assertCommitted(array $result): void {
+		if ($result['exit'] !== 0) {
+			throw new WorkspaceException(errorCode: WorkspaceException::INVALID_ARGUMENT, message: 'There is nothing to commit.');
+		}
+	}//end assertCommitted()
+
+	/**
+	 * The trimmed commit message, refused when empty or longer than the limit.
+	 *
+	 * @param array<string, mixed> $arguments The tool arguments (`message`).
+	 *
+	 * @return string
+	 *
+	 * @throws WorkspaceException invalid_argument.
+	 */
+	private function commitMessage(array $arguments): string {
 		$message = trim((string)($arguments['message'] ?? ''));
 		if ($message === '' || mb_strlen($message) > self::MAX_MESSAGE_CHARS) {
 			throw new WorkspaceException(errorCode: WorkspaceException::INVALID_ARGUMENT, message: 'Write a commit message of at most 5000 characters.');
 		}
 
+		return $message;
+	}//end commitMessage()
+
+	/**
+	 * The `git add` arguments: the guarded named paths, or everything.
+	 *
+	 * @param string               $root      The workspace root.
+	 * @param array<string, mixed> $arguments The tool arguments (`paths`).
+	 *
+	 * @return array<int, string>
+	 *
+	 * @throws WorkspaceException when a path fails the guard.
+	 */
+	private function stagingArguments(string $root, array $arguments): array {
 		$add = ['add', '--all', '--'];
 		foreach ((array)($arguments['paths'] ?? []) as $path) {
 			$this->guard->forWrite(root: $root, relativePath: (string)$path);
@@ -261,25 +395,36 @@ class WorkspaceEditor {
 			$add[] = '.';
 		}
 
-		$this->gitOk(root: $root, arguments: $add, failure: 'The changes could not be staged.');
+		return $add;
+	}//end stagingArguments()
 
-		$env = [
+	/**
+	 * The environment that makes the owner both author and committer.
+	 *
+	 * @param array{name: string, email: string} $identity The owner identity.
+	 *
+	 * @return array<string, string>
+	 */
+	private function commitEnvironment(array $identity): array {
+		return [
 			'GIT_AUTHOR_NAME' => $identity['name'],
 			'GIT_AUTHOR_EMAIL' => $identity['email'],
 			'GIT_COMMITTER_NAME' => $identity['name'],
 			'GIT_COMMITTER_EMAIL' => $identity['email'],
 		];
-		$result = $this->git->run(
-			arguments: ['commit', '--quiet', '--no-verify', '--no-gpg-sign', '--file', '-'],
-			workingDir: $root,
-			timeoutSeconds: self::TIMEOUT_SECONDS,
-			extraEnv: $env,
-			stdin: $message
-		);
-		if ($result['exit'] !== 0) {
-			throw new WorkspaceException(errorCode: WorkspaceException::INVALID_ARGUMENT, message: 'There is nothing to commit.');
-		}
+	}//end commitEnvironment()
 
+	/**
+	 * Read the new commit back: sha, branch, author and changed-file count.
+	 *
+	 * @param string $root     The workspace root.
+	 * @param string $ownerUid The run owner.
+	 *
+	 * @return array{sha: string, branch: string, author: string, filesChanged: int}
+	 *
+	 * @throws WorkspaceException git_failed.
+	 */
+	private function committed(string $root, string $ownerUid): array {
 		$changed = $this->gitOk(
 			root: $root,
 			arguments: ['diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD'],
@@ -292,7 +437,7 @@ class WorkspaceEditor {
 			'author' => $ownerUid,
 			'filesChanged' => count(array_filter(explode("\n", $changed), static fn (string $line): bool => $line !== '')),
 		];
-	}//end commit()
+	}//end committed()
 
 	/**
 	 * The commit identity of the run owner.
@@ -306,6 +451,25 @@ class WorkspaceEditor {
 	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-an-unowned-run-cannot-author-or-push
 	 */
 	private function identity(string $ownerUid): array {
+		$user = $this->owner(ownerUid: $ownerUid);
+		$email = (string)$user->getEMailAddress();
+		if ($email === '') {
+			$email = $ownerUid . '@users.noreply.invalid';
+		}
+
+		return ['name' => $user->getDisplayName(), 'email' => $email];
+	}//end identity()
+
+	/**
+	 * The run owner's account, refused when the run has none.
+	 *
+	 * @param string $ownerUid The run owner's Nextcloud user id.
+	 *
+	 * @return IUser
+	 *
+	 * @throws WorkspaceException owner_unresolvable.
+	 */
+	private function owner(string $ownerUid): IUser {
 		$user = null;
 		if (trim($ownerUid) !== '') {
 			$user = $this->userManager->get($ownerUid);
@@ -318,13 +482,8 @@ class WorkspaceEditor {
 			);
 		}
 
-		$email = (string)$user->getEMailAddress();
-		if ($email === '') {
-			$email = $ownerUid . '@users.noreply.invalid';
-		}
-
-		return ['name' => $user->getDisplayName(), 'email' => $email];
-	}//end identity()
+		return $user;
+	}//end owner()
 
 	/**
 	 * Run a local git command and return its output, or refuse with a sentence.

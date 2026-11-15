@@ -32,6 +32,8 @@ use OCA\Hermiq\Service\Schedule\ScheduleFlowPublisher;
 use OCA\Hermiq\Service\Schedule\ScheduleMirrorDefinition;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\Flow;
+use OCA\OpenRegister\Db\Flow\FlowSelection;
+use OCA\OpenRegister\Kernel\Contracts\ListQuery;
 use OCA\OpenRegister\Db\FlowMapper;
 use OCA\OpenRegister\Db\FlowVersion;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -120,6 +122,13 @@ class ScheduleFlowBridgeTest extends TestCase {
 	 *
 	 * @return void
 	 */
+	/**
+	 * A logger a test steers; a fresh mock otherwise.
+	 *
+	 * @var LoggerInterface|null
+	 */
+	private ?LoggerInterface $loggerOverride = null;
+
 	protected function setUp(): void {
 		parent::setUp();
 		$this->objectService = $this->createMock(ObjectService::class);
@@ -194,7 +203,7 @@ class ScheduleFlowBridgeTest extends TestCase {
 			publisher: new ScheduleFlowPublisher(container: $container),
 			definition: new ScheduleMirrorDefinition(),
 			userManager: $this->userManager,
-			logger: $this->createMock(LoggerInterface::class),
+			logger: ($this->loggerOverride ?? $this->createMock(LoggerInterface::class)),
 		);
 	}//end bridge()
 
@@ -833,4 +842,225 @@ class ScheduleFlowBridgeTest extends TestCase {
 		$this->assertSame(0, $stats['mirrored']);
 
 	}//end testScheduleReadFailureIsCountedNotThrown()
+
+	/**
+	 * A mirror flow at the given cron, run-as and enabled state.
+	 *
+	 * @param string $cron The flow cron.
+	 * @param string $runAs The trigger's run-as user.
+	 * @param bool $enabled Whether the flow is enabled.
+	 *
+	 * @return Flow
+	 */
+	private function mirrorFlow(string $cron, string $runAs, bool $enabled): Flow {
+		$flow = new Flow();
+		$flow->setUuid('flow-1');
+		$flow->setCron($cron);
+		$flow->setEnabled($enabled);
+		$flow->setLifecycleStatus(FlowVersion::STATUS_PUBLISHED);
+		$flow->setNodes([['id' => 'trigger', 'type' => 'openregister.trigger-schedule', 'config' => ['cron' => $cron, 'runAs' => $runAs]]]);
+		return $flow;
+	}//end mirrorFlow()
+
+	/**
+	 * syncAll() skips what is not a schedule, counts each schedule's outcome, and
+	 * counts (and logs) one whose sync throws without stopping the rest.
+	 *
+	 * @return void
+	 */
+	public function testSyncCountsEveryOutcomeAndSurvivesAFailingSchedule(): void {
+		$skipped = $this->schedule(['kind' => 'cron', 'cronExpr' => '0 8 * * *', 'agentId' => '', 'engineFlowId' => 'flow-1', 'enabled' => true], 'sched-skip');
+		$failing = $this->schedule(['kind' => 'cron', 'cronExpr' => '0 8 * * *', 'agentId' => '', 'engineFlowId' => 'flow-gone', 'enabled' => true], 'sched-fail');
+		$this->objectService->method('findAll')->willReturn(['not-a-schedule', $failing, $skipped]);
+		$this->flowMapper->method('findByUuid')->willReturnCallback(
+			function (string $uuid): Flow {
+				if ($uuid === 'flow-gone') {
+					throw new \OCP\AppFramework\Db\DoesNotExistException('gone');
+				}
+
+				return $this->mirrorFlow('0 8 * * *', 'alice', true);
+			}
+		);
+		$this->scheduleService->method('clearEngineDelegation')->willThrowException(new \RuntimeException('store down'));
+		$warnings = [];
+		$this->loggerOverride = $this->createMock(LoggerInterface::class);
+		$this->loggerOverride->method('warning')->willReturnCallback(
+			static function (string $message) use (&$warnings): void {
+				$warnings[] = $message;
+			}
+		);
+
+		$stats = $this->bridge()->syncAll();
+
+		$this->assertSame(['mirrored' => 0, 'refreshed' => 0, 'retired' => 0, 'skipped' => 1, 'failed' => 1], $stats);
+		$this->assertSame(['[hermiq] Schedule flow sync failed for sched-fail: store down'], $warnings);
+
+	}//end testSyncCountsEveryOutcomeAndSurvivesAFailingSchedule()
+
+	/**
+	 * The run-as identity is the agent's live acting user, else the schedule's live
+	 * (trimmed) owner, else nobody.
+	 *
+	 * @return void
+	 */
+	public function testRunAsFallsBackFromTheActingUserToTheOwner(): void {
+		$agent = new ObjectEntity();
+		$agent->setUuid('agent-1');
+		$agent->setObject(['actingUser' => 'svc-off']);
+		$this->objectService->method('find')->willReturnCallback(static fn (...$args): ?ObjectEntity => ($args[0] === 'agent-1') ? $agent : null);
+		$live = $this->createMock(IUser::class);
+		$live->method('isEnabled')->willReturn(true);
+		$disabled = $this->createMock(IUser::class);
+		$disabled->method('isEnabled')->willReturn(false);
+		$this->userManager = $this->createMock(IUserManager::class);
+		$this->userManager->method('get')->willReturnCallback(
+			static fn (string $uid): ?IUser => match ($uid) {
+				'alice' => $live,
+				'svc-off', 'bob' => $disabled,
+				default => null,
+			}
+		);
+		$bridge = $this->bridge();
+
+		$this->assertSame('alice', $bridge->resolveRunAs(schedule: $this->schedule(['agentId' => 'agent-1'], 'sched-1', ' alice ')));
+		$this->assertSame('alice', $bridge->resolveRunAs(schedule: $this->schedule(['agentId' => 'unknown'], 'sched-1', 'alice')));
+		$this->assertNull($bridge->resolveRunAs(schedule: $this->schedule(['agentId' => 'agent-1'], 'sched-1', 'bob')));
+		$this->assertNull($bridge->resolveRunAs(schedule: $this->schedule(['agentId' => 'agent-1'], 'sched-1', '  ')));
+
+	}//end testRunAsFallsBackFromTheActingUserToTheOwner()
+
+	/**
+	 * A mirror drifted in any one of cron, run-as or enabled is redefined and
+	 * republished: drafted, updated with all three, then published.
+	 *
+	 * @return void
+	 */
+	public function testAnyOneDriftRedefinesAndRepublishesTheMirror(): void {
+		$schedule = $this->schedule(['kind' => 'cron', 'cronExpr' => '0 8 * * *', 'agentId' => '', 'engineFlowId' => 'flow-1', 'enabled' => true]);
+		$this->objectService->method('findAll')->willReturn([$schedule]);
+		$flows = [
+			'cron' => $this->mirrorFlow('0 9 * * *', 'alice', true),
+			'runAs' => $this->mirrorFlow('0 8 * * *', 'bob', true),
+			'enabled' => $this->mirrorFlow('0 8 * * *', 'alice', false),
+		];
+		$current = null;
+		$this->flowMapper->method('findByUuid')->willReturnCallback(function () use (&$current): Flow {
+			return $current;
+		});
+		$updates = [];
+		$this->flowMapper->method('update')->willReturnCallback(
+			function (Flow $flow) use (&$updates): Flow {
+				$this->versionCalls[] = 'update';
+				$updates[] = [$flow->getCron(), $flow->getEnabled(), $flow->getNodes()[0]['config']['runAs'] ?? null];
+				return $flow;
+			}
+		);
+
+		foreach ($flows as $drift => $flow) {
+			$current = $flow;
+			$this->versionCalls = [];
+			$this->assertSame(1, $this->bridge()->syncAll()['refreshed'], $drift);
+			$this->assertSame(['createDraft', 'update', 'publish'], $this->versionCalls, $drift);
+		}
+
+		$this->assertSame(array_fill(0, 3, ['0 8 * * *', true, 'alice']), $updates);
+
+	}//end testAnyOneDriftRedefinesAndRepublishesTheMirror()
+
+	/**
+	 * A stored mirror flow that dispatches the given schedule.
+	 *
+	 * @param string $uuid       The flow uuid.
+	 * @param string $scheduleId The schedule its dispatch node fires; '' for no dispatch node.
+	 *
+	 * @return Flow
+	 */
+	private function storedMirror(string $uuid, string $scheduleId): Flow {
+		$flow = new Flow();
+		$flow->setUuid($uuid);
+		$nodes = [['id' => 'trigger', 'type' => 'openregister.trigger-schedule', 'config' => ['cron' => '0 8 * * *', 'runAs' => 'alice']]];
+		if ($scheduleId !== '') {
+			$nodes[] = ['id' => 'dispatch', 'type' => 'hermiq.schedule-dispatch', 'config' => ['scheduleId' => $scheduleId]];
+		}
+
+		$flow->setNodes($nodes);
+		return $flow;
+	}//end storedMirror()
+
+	/**
+	 * A mirror flow whose schedule was deleted is removed from the flow side on
+	 * the next pass and counted as retired; a mirror of a live schedule and a
+	 * flow without a dispatch node are left alone.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-3-1
+	 */
+	public function testAnOrphanedMirrorIsSweptFromTheFlowSide(): void {
+		$this->objectService->method('findAll')->willReturn(
+			[$this->schedule(['kind' => 'once', 'runAt' => '2026-12-01T08:00:00+00:00', 'enabled' => true], 'sched-live')]
+		);
+		$flows = [
+			'flow-live' => $this->storedMirror('flow-live', 'sched-live'),
+			'flow-orphan' => $this->storedMirror('flow-orphan', 'sched-gone'),
+			'flow-odd' => $this->storedMirror('flow-odd', ''),
+		];
+		$selections = [];
+		$this->flowMapper->method('findAllFlows')->willReturnCallback(
+			function (FlowSelection $selection, ListQuery $query) use (&$selections, $flows): array {
+				$selections[] = [$selection->app, $selection->applicationSlug, $query->limit];
+				return array_values($flows);
+			}
+		);
+		$this->flowMapper->method('findByUuid')->willReturnCallback(static fn (string $uuid): Flow => $flows[$uuid]);
+		$deleted = [];
+		$this->flowMapper->method('delete')->willReturnCallback(
+			static function (Flow $flow) use (&$deleted): Flow {
+				$deleted[] = $flow->getUuid();
+				return $flow;
+			}
+		);
+
+		$stats = $this->bridge()->syncAll();
+
+		$this->assertSame(['flow-orphan'], $deleted);
+		$this->assertSame(1, $stats['retired']);
+		$this->assertSame([['hermiq', 'hermiq-schedules', 1000]], $selections);
+	}//end testAnOrphanedMirrorIsSweptFromTheFlowSide()
+
+	/**
+	 * A pass that read a full page of schedules cannot prove one gone, so it
+	 * sweeps nothing; a listing that fails sweeps nothing and says so.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-3-1
+	 */
+	public function testNoSweepWithoutTheWholePictureOrTheListing(): void {
+		$this->objectService->method('findAll')->willReturn(array_fill(0, 1000, 'not-a-schedule'));
+		$this->flowMapper->expects($this->never())->method('findAllFlows');
+		$this->flowMapper->expects($this->never())->method('delete');
+		$this->assertSame(0, $this->bridge()->syncAll()['retired']);
+	}//end testNoSweepWithoutTheWholePictureOrTheListing()
+
+	/**
+	 * A listing failure deletes nothing and is logged.
+	 *
+	 * @return void
+	 */
+	public function testAFailingListingSweepsNothing(): void {
+		$this->objectService->method('findAll')->willReturn([]);
+		$this->flowMapper->method('findAllFlows')->willThrowException(new \RuntimeException('flows table locked'));
+		$this->flowMapper->expects($this->never())->method('delete');
+		$warnings = [];
+		$this->loggerOverride = $this->createMock(LoggerInterface::class);
+		$this->loggerOverride->method('warning')->willReturnCallback(
+			static function (string $message) use (&$warnings): void {
+				$warnings[] = $message;
+			}
+		);
+
+		$this->assertSame(0, $this->bridge()->syncAll()['retired']);
+		$this->assertSame(['[hermiq] Schedule flow sync could not list mirror flows; no orphans swept: flows table locked'], $warnings);
+	}//end testAFailingListingSweepsNothing()
 }//end class

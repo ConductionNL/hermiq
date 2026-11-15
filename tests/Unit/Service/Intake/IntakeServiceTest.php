@@ -35,13 +35,16 @@ use OCA\Hermiq\Service\Intake\IntakeSettings;
 use OCA\Hermiq\Service\Intake\IntakeToolGrant;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * IntakeService unit tests.
@@ -102,6 +105,7 @@ class IntakeServiceTest extends TestCase {
 		);
 		$service->method('find')->willReturnCallback(
 			function (mixed $id, mixed ...$rest): ?ObjectEntity {
+				$rest = array_slice(LegacyObjectArgs::positional(method: 'find', args: [$id, ...$rest]), 1);
 				if (isset($this->conversations[(string)$id]) === false) {
 					return null;
 				}
@@ -113,7 +117,11 @@ class IntakeServiceTest extends TestCase {
 			}
 		);
 		$service->method('saveObject')->willReturnCallback(
-			function (array|ObjectEntity $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null): ObjectEntity {
+			function (array|ObjectEntity $object, ObjectSaveOptions $options = new ObjectSaveOptions()): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$key = ($uuid ?? ('conversation-' . (count($this->conversations) + 1)));
 				$this->conversations[$key] = (array)$object;
 
@@ -137,6 +145,8 @@ class IntakeServiceTest extends TestCase {
 		return [
 			[
 				'name' => 'dossiq.melding.create',
+				'scope' => 'create',
+				'action' => 'create',
 				'annotations' => [IntakeToolGrant::INTAKE_ANNOTATION => true, 'destructiveHint' => true],
 			],
 			[
@@ -185,12 +195,12 @@ class IntakeServiceTest extends TestCase {
 	 */
 	private function auditTrailMapper(): AuditTrailMapper {
 		$mapper = $this->createMock(AuditTrailMapper::class);
-		$mapper->method('createAuditTrailEntry')->willReturnCallback(
-			function (ObjectEntity $object, string $action, array $context = []): AuditTrail {
-				$this->audits[] = ['action' => $action, 'context' => $context];
+		$mapper->method('recordObjectEvent')->willReturnCallback(
+			function (ObjectAuditEvent $event): AuditTrail {
+				$this->audits[] = ['action' => $event->action, 'context' => $event->context];
 
 				$entry = new AuditTrail();
-				$entry->setAction($action);
+				$entry->setAction($event->action);
 				return $entry;
 			}
 		);
@@ -645,4 +655,60 @@ class IntakeServiceTest extends TestCase {
 		$this->assertStringContainsString("'tools' => [self::NO_TOOLS_SENTINEL]", $source);
 		$this->assertStringNotContainsString(IntakeToolGrant::INTAKE_ANNOTATION, $source);
 	}//end testTheCaseAssistantStaysToolFree()
+	/**
+	 * Golden: receive, review and conclude over every classification shape (in,
+	 * out of, blank and padded against the catalogue; below, at and above the
+	 * threshold; missing confidence), an accepted and a refused filing and a
+	 * missing conversation, store, call, record and return exactly what was
+	 * recorded. GOLDEN_RECORD=1 rewrites the fixture.
+	 *
+	 * @return void
+	 */
+	public function testIntakeVariantsMatchTheRecordedFixture(): void {
+		$fixture = __DIR__ . '/../../../Fixtures/Golden/intake-variants.json';
+		$now = new DateTimeImmutable('2026-11-11T10:00:00+00:00');
+		$actual = [];
+		foreach (['vraag', 'onbekend', '', ' vraag '] as $type) {
+			foreach ([0.2, 0.5, 0.99, null] as $confidence) {
+				foreach ([false, true] as $refused) {
+					$service = $this->service(threshold: 0.5, invokeResult: ($refused === true ? ['result' => 'nope', 'isError' => true] : null));
+					$service->receive(person: 'burger-1', subject: 'iets', channel: 'email', text: 'Eerste', now: $now);
+					$conversation = $service->receive(person: 'burger-1', subject: 'iets', channel: 'portal', text: 'Tweede', now: $now);
+					$classification = ['type' => $type];
+					if ($confidence !== null) {
+						$classification['confidence'] = $confidence;
+					}
+
+					$result = $service->conclude(
+						conversationId: $conversation['id'],
+						classification: $classification,
+						catalogue: self::CATALOGUE,
+						intakeTool: 'dossiq.melding.create',
+						now: $now
+					);
+					$key = (string)json_encode(['type' => $type, 'confidence' => $confidence, 'refused' => $refused]);
+					$actual[$key] = ['result' => $result, 'store' => $this->conversations, 'calls' => $this->calls, 'audits' => $this->audits];
+				}
+			}
+		}
+
+		$service = $this->service(threshold: 0.5);
+		$conversation = $service->receive(person: 'burger-1', subject: 'bouwplan', channel: 'portal', text: 'Aanbouw', now: $now);
+		$reviewed = $service->review(conversationId: $conversation['id'], toolId: 'buildiq.planreview.run', arguments: ['plan' => 'x'], now: $now);
+		$actual['review'] = ['result' => $reviewed, 'store' => $this->conversations, 'calls' => $this->calls];
+		$actual['missing'] = [
+			'conclude' => $service->conclude(conversationId: 'nope', classification: ['type' => 'vraag', 'confidence' => 1.0], catalogue: self::CATALOGUE, intakeTool: 'dossiq.melding.create', now: $now),
+			'review' => $service->review(conversationId: 'nope', toolId: 'buildiq.planreview.run', arguments: [], now: $now),
+		];
+
+		$actual = json_decode(json_encode($actual, JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+		if (getenv('GOLDEN_RECORD') === '1') {
+			file_put_contents($fixture, json_encode($actual, JSON_PRETTY_PRINT | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR) . "\n");
+			$this->markTestSkipped('Fixture recorded.');
+		}
+
+		$expected = json_decode((string)file_get_contents($fixture), true, 512, JSON_THROW_ON_ERROR);
+		$this->assertSame($expected, $actual);
+
+	}//end testIntakeVariantsMatchTheRecordedFixture()
 }//end class

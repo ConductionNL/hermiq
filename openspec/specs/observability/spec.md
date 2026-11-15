@@ -32,7 +32,7 @@ to work without credentials.
 
 ## Requirements
 
-### REQ-OBS-001: Prometheus metrics endpoint (admin only)
+### Requirement: Prometheus metrics endpoint (admin only) (REQ-OBS-001)
 
 The system MUST expose `GET /api/metrics` returning Prometheus text exposition
 format (`Content-Type: text/plain; version=0.0.4`). The endpoint MUST be
@@ -62,7 +62,7 @@ version) and `{app_id}_health_status` (1 when healthy, 0 when degraded).
 - THEN the system MUST log the exception server-side with full context
 - AND the response MUST be HTTP 500 with a static generic error message (per ADR-005)
 
-### REQ-OBS-002: Health check endpoint (public)
+### Requirement: Health check endpoint (public) (REQ-OBS-002)
 
 The system MUST expose `GET /api/health` as a **public** endpoint
 (`#[PublicPage]` + `#[NoCSRFRequired]`) returning a JSON object summarising the

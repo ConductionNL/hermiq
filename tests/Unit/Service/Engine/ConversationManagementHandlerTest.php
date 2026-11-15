@@ -32,6 +32,7 @@ use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for conversation titles and summarisation.
@@ -253,7 +254,11 @@ class ConversationManagementHandlerTest extends TestCase {
 		$objectService->method('setSchema')->willReturnSelf();
 		$objectService->method('findAll')->willReturn($messages);
 		$objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$savedPayload): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$savedPayload): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$savedPayload = ['object' => $object, 'uuid' => $uuid];
 				return new ObjectEntity();
 			}

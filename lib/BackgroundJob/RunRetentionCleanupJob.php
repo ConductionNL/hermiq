@@ -22,14 +22,14 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#requirement-a-scheduled-job-must-enforce-retention-and-must-report-that-it-did
+ * @spec openspec/specs/run-audit-log/spec.md#requirement-a-scheduled-job-must-enforce-retention-and-must-report-that-it-did
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\BackgroundJob;
 
-use OCA\Hermiq\Service\AiFeature\RunRetentionCleaner;
+use OCA\Hermiq\Kernel\Contracts\RunRetentionCleanerInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\TimedJob;
 use Psr\Log\LoggerInterface;
@@ -41,7 +41,7 @@ use Throwable;
  * @psalm-api
  * @SuppressWarnings(PHPMD.UnusedFormalParameter)
  *
- * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#requirement-a-scheduled-job-must-enforce-retention-and-must-report-that-it-did
+ * @spec openspec/specs/run-audit-log/spec.md#requirement-a-scheduled-job-must-enforce-retention-and-must-report-that-it-did
  */
 class RunRetentionCleanupJob extends TimedJob {
 
@@ -49,12 +49,12 @@ class RunRetentionCleanupJob extends TimedJob {
 	 * Constructor.
 	 *
 	 * @param ITimeFactory $time Time factory for TimedJob scheduling.
-	 * @param RunRetentionCleaner $cleaner Removes expired run payloads.
+	 * @param RunRetentionCleanerInterface $cleaner Removes expired run payloads.
 	 * @param LoggerInterface $logger Isolates a failed cleanup from the cron tick.
 	 */
 	public function __construct(
 		ITimeFactory $time,
-		private readonly RunRetentionCleaner $cleaner,
+		private readonly RunRetentionCleanerInterface $cleaner,
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct(time: $time);
@@ -78,7 +78,7 @@ class RunRetentionCleanupJob extends TimedJob {
 	 *
 	 * @phpstan-param mixed $argument
 	 *
-	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#scenario-expired-runs-lose-their-payload
+	 * @spec openspec/specs/run-audit-log/spec.md#scenario-expired-runs-lose-their-payload
 	 */
 	protected function run($argument): void {
 		try {

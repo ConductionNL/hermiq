@@ -29,7 +29,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
  */
 
 declare(strict_types=1);
@@ -42,7 +42,7 @@ use OCP\IDBConnection;
 /**
  * Run-token records in the `hermiq_run_tokens` table.
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
  */
 class DatabaseRunTokenStore implements RunTokenStore {
 
@@ -73,7 +73,7 @@ class DatabaseRunTokenStore implements RunTokenStore {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
 	 */
 	public function put(string $digest, string $record, int $expiresAt, int $retainUntil): void {
 		$qb = $this->db->getQueryBuilder();
@@ -97,7 +97,7 @@ class DatabaseRunTokenStore implements RunTokenStore {
 	 *
 	 * @return array{record: string, expiresAt: int, consumed: bool}|null The record, or null.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
 	 */
 	public function find(string $digest): ?array {
 		$qb = $this->db->getQueryBuilder();
@@ -128,7 +128,7 @@ class DatabaseRunTokenStore implements RunTokenStore {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
 	 */
 	public function markConsumed(string $digest): void {
 		$qb = $this->db->getQueryBuilder();
@@ -145,7 +145,7 @@ class DatabaseRunTokenStore implements RunTokenStore {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
 	 */
 	public function purge(int $now): void {
 		$qb = $this->db->getQueryBuilder();

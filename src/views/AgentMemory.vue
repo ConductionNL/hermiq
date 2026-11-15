@@ -14,9 +14,9 @@
   this page is the operator management surface. Every NcSelect carries an inputLabel
   (ADR-004, WCAG 2.1 AA).
 
-  @spec openspec/changes/agent-memory/tasks.md#task-4-1
-  @spec openspec/changes/agent-memory/specs/agent-memory/spec.md
-  @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+  @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-4-1
+  @spec openspec/specs/agent-memory/spec.md
+  @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 -->
 <template>
 	<div class="agent-memory">
@@ -67,6 +67,8 @@ import { NcEmptyContent, NcLoadingIcon, NcNoteCard, NcSelect } from '@nextcloud/
 import BrainIcon from 'vue-material-design-icons/Brain.vue'
 import AgentMemoryPanel from '../components/AgentMemoryPanel.vue'
 import { useAgentStore } from '../store/store.js'
+import { errorMessage } from '../utils/errorMessage.js'
+import { agentPickerOptions } from '../widgets/evalRunLabels.js'
 
 export default {
 	name: 'AgentMemory',
@@ -94,18 +96,15 @@ export default {
 		 * The agents as NcSelect options.
 		 *
 		 * @return {Array<object>} The { label, value } options.
-		 * @spec openspec/changes/agent-memory/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-4-1
 		 */
 		agentOptions() {
-			return this.agents.map((agent) => ({
-				label: agent.name || agent.uuid || agent.id,
-				value: agent.uuid || agent.id,
-			}))
+			return agentPickerOptions(this.agents)
 		},
 	},
 
 	/**
-	 * @spec openspec/changes/agent-memory/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-4-1
 	 */
 	created() {
 		this.agentStore = useAgentStore()
@@ -119,7 +118,7 @@ export default {
 		 * first one.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-memory/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-4-1
 		 */
 		async loadAgents() {
 			this.loading = true
@@ -136,10 +135,7 @@ export default {
 					this.selectedAgent = this.agentOptions[0]
 				}
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.loading = false
 			}

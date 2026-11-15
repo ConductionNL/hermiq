@@ -168,6 +168,21 @@ class AlgoritmekaderMapperTest extends TestCase {
 	}//end testBlankMandatoryFieldIsMissing()
 
 	/**
+	 * Everything that is missing is named, gates first and then the mandatory fields in their order.
+	 *
+	 * @return void
+	 */
+	public function testEveryFailureIsNamedInOrder(): void {
+		$failing = (new AlgoritmekaderMapper())->assessReadiness(feature: ['riskCategory' => 'limited', 'lifecycle' => 'draft']);
+
+		$this->assertSame(
+			expected: array_merge(['riskCategory', 'lifecycle', 'dpoAcknowledgement'], AlgoritmekaderMapper::MANDATORY_FIELDS),
+			actual: $failing
+		);
+
+	}//end testEveryFailureIsNamedInOrder()
+
+	/**
 	 * The mapping produces the Algoritmekader publication shape with the metadata carried.
 	 *
 	 * @return void

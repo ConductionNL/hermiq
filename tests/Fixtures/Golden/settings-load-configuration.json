@@ -1,0 +1,310 @@
+[
+    {
+        "outcome": "absent",
+        "force": false,
+        "result": {
+            "success": false,
+            "message": "OpenRegister is not installed or enabled."
+        },
+        "calls": [],
+        "log": [
+            {
+                "level": "warning",
+                "message": "Hermiq: OpenRegister not available, skipping register initialization",
+                "context": []
+            }
+        ]
+    },
+    {
+        "outcome": "absent",
+        "force": true,
+        "result": {
+            "success": false,
+            "message": "OpenRegister is not installed or enabled."
+        },
+        "calls": [],
+        "log": [
+            {
+                "level": "warning",
+                "message": "Hermiq: OpenRegister not available, skipping register initialization",
+                "context": []
+            }
+        ]
+    },
+    {
+        "outcome": "no-service",
+        "force": false,
+        "result": {
+            "success": false,
+            "message": "no OCA\\OpenRegister\\Service\\ConfigurationService"
+        },
+        "calls": [],
+        "log": [
+            {
+                "level": "error",
+                "message": "Hermiq: configuration import failed",
+                "context": {
+                    "exception": "no OCA\\OpenRegister\\Service\\ConfigurationService"
+                }
+            }
+        ]
+    },
+    {
+        "outcome": "no-service",
+        "force": true,
+        "result": {
+            "success": false,
+            "message": "no OCA\\OpenRegister\\Service\\ConfigurationService"
+        },
+        "calls": [],
+        "log": [
+            {
+                "level": "error",
+                "message": "Hermiq: configuration import failed",
+                "context": {
+                    "exception": "no OCA\\OpenRegister\\Service\\ConfigurationService"
+                }
+            }
+        ]
+    },
+    {
+        "outcome": "throws",
+        "force": false,
+        "result": {
+            "success": false,
+            "message": "import failed"
+        },
+        "calls": [
+            {
+                "appId": "hermiq",
+                "dataIsTheRegisterFile": true,
+                "versionIsTheFileVersion": true,
+                "force": false
+            }
+        ],
+        "log": [
+            {
+                "level": "error",
+                "message": "Hermiq: configuration import failed",
+                "context": {
+                    "exception": "import failed"
+                }
+            }
+        ]
+    },
+    {
+        "outcome": "throws",
+        "force": true,
+        "result": {
+            "success": false,
+            "message": "import failed"
+        },
+        "calls": [
+            {
+                "appId": "hermiq",
+                "dataIsTheRegisterFile": true,
+                "versionIsTheFileVersion": true,
+                "force": true
+            }
+        ],
+        "log": [
+            {
+                "level": "error",
+                "message": "Hermiq: configuration import failed",
+                "context": {
+                    "exception": "import failed"
+                }
+            }
+        ]
+    },
+    {
+        "outcome": [],
+        "force": false,
+        "result": {
+            "success": false,
+            "message": "Import returned an empty result."
+        },
+        "calls": [
+            {
+                "appId": "hermiq",
+                "dataIsTheRegisterFile": true,
+                "versionIsTheFileVersion": true,
+                "force": false
+            }
+        ],
+        "log": []
+    },
+    {
+        "outcome": [],
+        "force": true,
+        "result": {
+            "success": false,
+            "message": "Import returned an empty result."
+        },
+        "calls": [
+            {
+                "appId": "hermiq",
+                "dataIsTheRegisterFile": true,
+                "versionIsTheFileVersion": true,
+                "force": true
+            }
+        ],
+        "log": []
+    },
+    {
+        "outcome": {
+            "version": "9.9.9"
+        },
+        "force": false,
+        "result": {
+            "success": true,
+            "message": "Configuration imported successfully.",
+            "version": "9.9.9"
+        },
+        "calls": [
+            {
+                "appId": "hermiq",
+                "dataIsTheRegisterFile": true,
+                "versionIsTheFileVersion": true,
+                "force": false
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "Hermiq: register configuration imported successfully",
+                "context": []
+            }
+        ]
+    },
+    {
+        "outcome": {
+            "version": "9.9.9"
+        },
+        "force": true,
+        "result": {
+            "success": true,
+            "message": "Configuration imported successfully.",
+            "version": "9.9.9"
+        },
+        "calls": [
+            {
+                "appId": "hermiq",
+                "dataIsTheRegisterFile": true,
+                "versionIsTheFileVersion": true,
+                "force": true
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "Hermiq: register configuration imported successfully",
+                "context": []
+            }
+        ]
+    },
+    {
+        "outcome": {
+            "imported": 3
+        },
+        "force": false,
+        "result": {
+            "success": true,
+            "message": "Configuration imported successfully.",
+            "version": "(the register file version)"
+        },
+        "calls": [
+            {
+                "appId": "hermiq",
+                "dataIsTheRegisterFile": true,
+                "versionIsTheFileVersion": true,
+                "force": false
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "Hermiq: register configuration imported successfully",
+                "context": []
+            }
+        ]
+    },
+    {
+        "outcome": {
+            "imported": 3
+        },
+        "force": true,
+        "result": {
+            "success": true,
+            "message": "Configuration imported successfully.",
+            "version": "(the register file version)"
+        },
+        "calls": [
+            {
+                "appId": "hermiq",
+                "dataIsTheRegisterFile": true,
+                "versionIsTheFileVersion": true,
+                "force": true
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "Hermiq: register configuration imported successfully",
+                "context": []
+            }
+        ]
+    },
+    {
+        "outcome": {
+            "version": ""
+        },
+        "force": false,
+        "result": {
+            "success": true,
+            "message": "Configuration imported successfully.",
+            "version": ""
+        },
+        "calls": [
+            {
+                "appId": "hermiq",
+                "dataIsTheRegisterFile": true,
+                "versionIsTheFileVersion": true,
+                "force": false
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "Hermiq: register configuration imported successfully",
+                "context": []
+            }
+        ]
+    },
+    {
+        "outcome": {
+            "version": ""
+        },
+        "force": true,
+        "result": {
+            "success": true,
+            "message": "Configuration imported successfully.",
+            "version": ""
+        },
+        "calls": [
+            {
+                "appId": "hermiq",
+                "dataIsTheRegisterFile": true,
+                "versionIsTheFileVersion": true,
+                "force": true
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "Hermiq: register configuration imported successfully",
+                "context": []
+            }
+        ]
+    }
+]

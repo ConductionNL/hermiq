@@ -63,13 +63,14 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Llm;
 
+use OCA\Hermiq\Kernel\Contracts\RunTokenServiceInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Security\ISecureRandom;
 use RuntimeException;
@@ -78,9 +79,9 @@ use RuntimeException;
  * Mint / verify / consume the per-run bearer token that authenticates both
  * governed CLI endpoints.
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
  */
-class RunTokenService {
+class RunTokenService implements RunTokenServiceInterface {
 
 	/**
 	 * Token length: 43 alphanumeric characters ≈ 256 bits of entropy (matches
@@ -156,7 +157,7 @@ class RunTokenService {
 	 *
 	 * @return string The plaintext bearer token.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
 	 */
 	public function mint(
 		string $runId,
@@ -165,29 +166,26 @@ class RunTokenService {
 		string $conversationId = '',
 		?int $ttlSeconds = null,
 	): string {
+		$request = new RunTokenRequest(runId: $runId, agentId: $agentId);
+		$request->userId = $userId;
+		$request->conversationId = $conversationId;
+		$request->ttlSeconds = $ttlSeconds;
+		return $this->mintFor(request: $request);
+	}//end mint()
+
+	/**
+	 * Mint a token for one run binding, sweeping closed records first.
+	 *
+	 * @param RunTokenRequest $request The binding and lifetime.
+	 *
+	 * @return string The plaintext bearer token.
+	 *
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
+	 */
+	public function mintFor(RunTokenRequest $request): string {
 		$token = $this->secureRandom->generate(self::TOKEN_LENGTH, ISecureRandom::CHAR_ALPHANUMERIC);
-
-		$record = [
-			'runId' => $runId,
-			'agentId' => $agentId,
-			'userId' => $userId,
-			'conversationId' => $conversationId,
-			// The token's own digest — re-checked with hash_equals() on verify().
-			'hash' => $this->digest(token: $token),
-		];
-
-		$encoded = json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-		if (is_string($encoded) === false) {
-			// Never mint a token whose record could not be stored — a token that
-			// cannot be verified later is worse than no token.
-			throw new RuntimeException('Could not encode the run-token record.');
-		}
-
-		$ttl = $this->ttlSeconds();
-		if ($ttlSeconds !== null && $ttlSeconds > 0) {
-			$ttl = $ttlSeconds;
-		}
-
+		$encoded = $this->encodedRecord(request: $request, token: $token);
+		$ttl = $this->ttlFor(request: $request);
 		$now = $this->timeFactory->getTime();
 
 		// Sweep first, on the one indexed column: records whose recognition
@@ -202,7 +200,53 @@ class RunTokenService {
 		);
 
 		return $token;
-	}//end mint()
+	}//end mintFor()
+
+	/**
+	 * The stored record: the binding and the token's own digest, JSON with slashes and unicode unescaped.
+	 *
+	 * @param RunTokenRequest $request The binding.
+	 * @param string          $token   The plaintext token.
+	 *
+	 * @return string The encoded record.
+	 *
+	 * @throws RuntimeException When the record cannot be encoded.
+	 */
+	private function encodedRecord(RunTokenRequest $request, string $token): string {
+		$record = [
+			'runId' => $request->runId,
+			'agentId' => $request->agentId,
+			'userId' => $request->userId,
+			'conversationId' => $request->conversationId,
+			// The token's own digest — re-checked with hash_equals() on verify().
+			'hash' => $this->digest(token: $token),
+		];
+
+		$encoded = json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+		if (is_string($encoded) === false) {
+			// Never mint a token whose record could not be stored — a token that
+			// cannot be verified later is worse than no token.
+			throw new RuntimeException('Could not encode the run-token record.');
+		}
+
+		return $encoded;
+	}//end encodedRecord()
+
+	/**
+	 * The token's lifetime: a positive override, else the turn default.
+	 *
+	 * @param RunTokenRequest $request The request.
+	 *
+	 * @return int Seconds.
+	 */
+	private function ttlFor(RunTokenRequest $request): int {
+		$ttl = $this->ttlSeconds();
+		if ($request->ttlSeconds !== null && $request->ttlSeconds > 0) {
+			$ttl = $request->ttlSeconds;
+		}
+
+		return $ttl;
+	}//end ttlFor()
 
 	/**
 	 * Verify a presented token and return its binding, or null when it is missing,
@@ -215,29 +259,15 @@ class RunTokenService {
 	 * @return array{runId: string, agentId: string, userId: string, conversationId: string}|null
 	 *                                                                                            The binding, or null when the token is not valid.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
 	 */
 	public function verify(string $token): ?array {
 		// Always compute the digest (constant work) even for an empty token, so
 		// the presence/absence of a token is not itself a timing signal.
 		$presentedDigest = $this->digest(token: $token);
 
-		$stored = $this->store->find(digest: $presentedDigest);
-		if ($stored === null) {
-			return null;
-		}
-
-		// Consumed (the run closed) or past its TTL: recognised, not authorised.
-		if ($stored['consumed'] === true || $stored['expiresAt'] <= $this->timeFactory->getTime()) {
-			return null;
-		}
-
-		$record = json_decode($stored['record'], true);
-		if (is_array($record) === false || isset($record['hash']) === false || is_string($record['hash']) === false) {
-			return null;
-		}
-
-		if (hash_equals($record['hash'], $presentedDigest) === false) {
+		$record = $this->liveRecord(digest: $presentedDigest);
+		if ($record === null || hash_equals($record['hash'], $presentedDigest) === false) {
 			return null;
 		}
 
@@ -256,6 +286,44 @@ class RunTokenService {
 	}//end verify()
 
 	/**
+	 * The stored record for a digest while it may authorise: found, not consumed,
+	 * not expired, and carrying a digest of its own.
+	 *
+	 * @param string $digest The presented token's digest.
+	 *
+	 * @return array<string, mixed>|null The record, or null.
+	 */
+	private function liveRecord(string $digest): ?array {
+		$stored = $this->store->find(digest: $digest);
+		if ($stored === null) {
+			return null;
+		}
+
+		// Consumed (the run closed) or past its TTL: recognised, not authorised.
+		if ($stored['consumed'] === true || $stored['expiresAt'] <= $this->timeFactory->getTime()) {
+			return null;
+		}
+
+		return $this->decodedRecord(raw: $stored['record']);
+	}//end liveRecord()
+
+	/**
+	 * A stored record decoded, or null when it is not an object with a string digest.
+	 *
+	 * @param string $raw The stored JSON.
+	 *
+	 * @return array<string, mixed>|null The record, or null.
+	 */
+	private function decodedRecord(string $raw): ?array {
+		$record = json_decode($raw, true);
+		if (is_array($record) === false || isset($record['hash']) === false || is_string($record['hash']) === false) {
+			return null;
+		}
+
+		return $record;
+	}//end decodedRecord()
+
+	/**
 	 * Whether this token was genuinely issued by this instance, whatever its state
 	 * now: live, consumed or expired (within the recognition window).
 	 *
@@ -272,7 +340,7 @@ class RunTokenService {
 	 *
 	 * @return bool True when a record for this token exists.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
 	 */
 	public function isKnown(string $token): bool {
 		if ($token === '') {
@@ -301,7 +369,7 @@ class RunTokenService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-the-token-dies-with-the-run-for-both-endpoints
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-the-token-dies-with-the-run-for-both-endpoints
 	 */
 	public function consume(string $token): void {
 		if ($token === '') {

@@ -134,6 +134,38 @@ class SetupControllerDemoDataTest extends TestCase {
 		$this->assertSame('demo', $this->written['demo_dataset'] ?? null);
 	}
 
+	/**
+	 * Only allow-listed keys are stored, and a non-scalar value is stored empty.
+	 *
+	 * @return void
+	 */
+	public function testOnlyWritableKeysAreStoredAndANonScalarIsStoredEmpty(): void {
+		$this->demoData->method('listChoices')->willReturn([['id' => 'demo']]);
+
+		$response = $this->controller(
+			params: ['llmendpoint' => ['x'], 'demo_dataset' => 'demo', 'other' => 'no', '_route' => 'r']
+		)->saveConfig();
+
+		$this->assertSame(expected: ['success' => true], actual: $response->getData());
+		$this->assertSame(expected: ['llmendpoint' => '', 'demo_dataset' => 'demo'], actual: $this->written);
+	}
+
+	/**
+	 * An unknown dataset is refused with its name, or "that" when it has none.
+	 *
+	 * @return void
+	 */
+	public function testAnUnknownDatasetIsRefusedWithItsName(): void {
+		$this->demoData->method('listChoices')->willReturn([['id' => 'demo']]);
+
+		$named = $this->controller(params: ['demo_dataset' => 'atlantis'])->saveConfig();
+		$unnamed = $this->controller(params: ['demo_dataset' => ['x']])->saveConfig();
+
+		$this->assertSame(expected: ['success' => false, 'message' => 'No dataset is called "atlantis".'], actual: $named->getData());
+		$this->assertSame(expected: ['success' => false, 'message' => 'No dataset is called "that".'], actual: $unnamed->getData());
+		$this->assertSame(expected: [], actual: $this->written);
+	}
+
 	public function testAnUnknownDatasetIsRefusedRatherThanStored(): void {
 		// Storing it would leave the load step pointing at nothing, so the
 		// failure would surface one step later with no clue why.

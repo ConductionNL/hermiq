@@ -52,6 +52,7 @@ import TemplateImportModal from './modals/TemplateImportModal.vue'
 import AgentMemory from './views/AgentMemory.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
 import Chat from './views/Chat.vue'
+import SharedSession from './views/SharedSession.vue'
 import TenantOps from './views/TenantOps.vue'
 import AgentEvalBaselineWidget from './widgets/AgentEvalBaselineWidget.vue'
 import AgentMemoryWidget from './widgets/AgentMemoryWidget.vue'
@@ -72,6 +73,7 @@ import AgentTemplateGithubStore from './widgets/AgentTemplateGithubStore.vue'
 import AgentTemplateRowActions from './widgets/AgentTemplateRowActions.vue'
 import AgentToolActivityWidget from './widgets/AgentToolActivityWidget.vue'
 import AgentToolGovernanceWidget from './widgets/AgentToolGovernanceWidget.vue'
+import AiLabelSection from './widgets/AiLabelSection.vue'
 import AnalyticsBreakdownWidget from './widgets/AnalyticsBreakdownWidget.vue'
 // inapp-settings-section: Incidents / EU AI Act audit export / Retention,
 // moved off TenantOps.vue onto the Compliance index page's below-header slot.
@@ -102,6 +104,20 @@ import SkillProvenance from './widgets/SkillProvenance.vue'
 import SkillRowActions from './widgets/SkillRowActions.vue'
 import SkillVersionHistory from './widgets/SkillVersionHistory.vue'
 
+/**
+ * The props schema of a modal opened with nothing but its `show` flag.
+ *
+ * @return {object} A fresh schema object.
+ */
+function showOnlyProps() {
+	return {
+		type: 'object',
+		properties: {
+			show: { type: 'boolean' },
+		},
+	}
+}
+
 export default {
 	// -------------------------------------------------------------------------
 	// kind: "modal" — opened via actions[].type: "open-modal"
@@ -120,12 +136,7 @@ export default {
 	'agent-form': {
 		kind: 'modal',
 		component: AgentFormModal,
-		propsSchema: {
-			type: 'object',
-			properties: {
-				show: { type: 'boolean' },
-			},
-		},
+		propsSchema: showOnlyProps(),
 	},
 
 	/**
@@ -137,12 +148,7 @@ export default {
 	'agent-version-history': {
 		kind: 'modal',
 		component: AgentVersionHistoryDialog,
-		propsSchema: {
-			type: 'object',
-			properties: {
-				show: { type: 'boolean' },
-			},
-		},
+		propsSchema: showOnlyProps(),
 	},
 
 	/**
@@ -153,12 +159,7 @@ export default {
 	'agent-availability': {
 		kind: 'modal',
 		component: AgentAvailabilityDialog,
-		propsSchema: {
-			type: 'object',
-			properties: {
-				show: { type: 'boolean' },
-			},
-		},
+		propsSchema: showOnlyProps(),
 	},
 
 	/**
@@ -169,12 +170,7 @@ export default {
 	'agent-factsheet': {
 		kind: 'modal',
 		component: AgentFactsheetDialog,
-		propsSchema: {
-			type: 'object',
-			properties: {
-				show: { type: 'boolean' },
-			},
-		},
+		propsSchema: showOnlyProps(),
 	},
 
 	/**
@@ -195,12 +191,7 @@ export default {
 	'agent-git': {
 		kind: 'modal',
 		component: AgentGitModal,
-		propsSchema: {
-			type: 'object',
-			properties: {
-				show: { type: 'boolean' },
-			},
-		},
+		propsSchema: showOnlyProps(),
 	},
 
 	/**
@@ -239,12 +230,7 @@ export default {
 	EvalDatasetFormModal: {
 		kind: 'modal',
 		component: EvalDatasetFormModal,
-		propsSchema: {
-			type: 'object',
-			properties: {
-				show: { type: 'boolean' },
-			},
-		},
+		propsSchema: showOnlyProps(),
 	},
 
 	// -------------------------------------------------------------------------
@@ -266,6 +252,15 @@ export default {
 	},
 
 	/**
+	 * SharedSession — the read-only page of a session shared with the reader
+	 * (chat-fork-and-share-link): the thread, "Shared by", no message box.
+	 */
+	SharedSession: {
+		kind: 'page',
+		component: SharedSession,
+	},
+
+	/**
 	 * Approval inbox — the reviewer's pending human-approval-gate queue plus the
 	 * org kill-switch (human-approval-gate-ui). Standard nav page, not a dashboard.
 	 */
@@ -281,6 +276,21 @@ export default {
 	AgentMemory: {
 		kind: 'page',
 		component: AgentMemory,
+	},
+
+	/**
+	 * The AI label section of the AI oversight page (agent-authored-marking): counts of
+	 * agent-written files the viewer can read, the reviewed share, and a Files link.
+	 */
+	'ai-label-section': {
+		kind: 'widget',
+		component: AiLabelSection,
+		defaultSize: { w: 12, h: 4 },
+		minSize: { w: 4, h: 3 },
+		maxSize: { w: 12, h: 6 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'Reads the computed /api/ai-label/stats endpoint, whose counts are limited to the files the viewer can read and whose label is shown as \'Made with AI\', never the stored tag name; a stat tile cannot render the share and the Files link together, so a custom widget is required (ADR-049).',
 	},
 
 	/**

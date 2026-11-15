@@ -4,7 +4,7 @@
 // Plain (non-Pinia) API helper for the budget-guardrails surface (cost-guardrails).
 // Budget objects are thin Hermiq-controller endpoints (BudgetController), NOT the
 // generic createObjectStore object path: write access is admin/owner-gated
-// server-side (mirrors TenantControlController), which the generic OR objects path
+// server-side (mirrors OrganisationControlController), which the generic OR objects path
 // does not express — so we hit the resource directly, mirroring src/api/approvals.js.
 //
 // Deliberately a set of stateless functions (no defineStore) — the hard rule is

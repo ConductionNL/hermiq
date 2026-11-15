@@ -35,31 +35,12 @@
 
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
+import { listOrNestedResults as toList } from './listEnvelope.js'
 
 /** Hermiq agents resource base path (tools catalogue only — CRUD is useAgentStore). */
 const AGENTS_BASE = '/apps/hermiq/api/agents'
 /** Hermiq schedule action/read base path. */
 const HERMIQ_SCHEDULES_BASE = '/apps/hermiq/api/schedules'
-
-/**
- * Normalise the various Hermiq/OpenRegister list envelopes to a plain array.
- * Handles `{ results: [] }`, `{ data: { results: [] } }`, and a bare array.
- *
- * @param {object} data The response body.
- * @return {Array<object>} The extracted list (empty array on miss).
- */
-function toList(data) {
-	if (Array.isArray(data)) {
-		return data
-	}
-	if (Array.isArray(data?.results)) {
-		return data.results
-	}
-	if (Array.isArray(data?.data?.results)) {
-		return data.data.results
-	}
-	return []
-}
 
 /**
  * The agent's instructions filled in for its owner (agents-instruction-variables).
