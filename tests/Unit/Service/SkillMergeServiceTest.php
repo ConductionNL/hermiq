@@ -29,6 +29,7 @@ use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Detection, approval, rejection, and that nothing is ever deleted.
@@ -97,7 +98,11 @@ class SkillMergeServiceTest extends TestCase {
 		$objects->method('setSchema')->willReturnSelf();
 		$objects->method('findAll')->willReturnCallback(fn (): array => array_map(fn (string $u): ObjectEntity => $this->entity(uuid: $u), array_keys($this->skills)));
 		$objects->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null, bool $_rbac = true, bool $_multitenancy = true): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions(), bool $_rbac = true, bool $_multitenancy = true): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$this->skills[(string)$uuid]['data'] = $object;
 				if ($_rbac === false) {
 					$this->systemSaves[] = (string)$uuid;

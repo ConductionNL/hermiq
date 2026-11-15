@@ -62,6 +62,7 @@ use OCP\Security\Bruteforce\IThrottler;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 
 /**
  * The blocking send, the SSE stream and the cli replay under a conversation's
@@ -207,7 +208,11 @@ final class ToolDetailDriveTest extends TestCase {
 		$objects->method('setRegister')->willReturnSelf();
 		$objects->method('setSchema')->willReturnSelf();
 		$objects->method('find')->willReturnCallback(
-			static function (string $id, ?array $extend = [], bool $files = false, mixed $register = null, mixed $schema = null) use ($conversation, $agent): ObjectEntity {
+			static function (string $id, ?ObjectFindOptions $options = null) use ($conversation, $agent): ObjectEntity {
+				$extend = $options?->extend ?? [];
+				$files = $options?->files ?? false;
+				$register = $options?->register;
+				$schema = $options?->schema;
 				if ($schema === 'agent') {
 					return $agent;
 				}

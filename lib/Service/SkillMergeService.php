@@ -48,6 +48,8 @@ use DateTimeInterface;
 use DateTimeZone;
 use OCA\Hermiq\Kernel\Contracts\SkillMergeServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 
@@ -288,9 +290,10 @@ class SkillMergeService implements SkillMergeServiceInterface {
 		];
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: (string)$duplicate->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: (string)$duplicate->getUuid()
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -307,9 +310,10 @@ class SkillMergeService implements SkillMergeServiceInterface {
 	private function save(array $data, string $uuid): void {
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: $uuid
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: $uuid
+			)
 		);
 	}//end save()
 

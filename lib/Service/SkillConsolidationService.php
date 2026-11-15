@@ -50,9 +50,13 @@ use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\SkillConsolidationServiceInterface;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\SkillConsolidation\DraftEvalSubject;
+use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
@@ -231,6 +235,7 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 	 * @param IUserManager $userManager Resolves the skill owner for impersonation.
 	 * @param IURLGenerator $urlGenerator SkillDetail deep link for the Approval payload.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param TraceExportQueue|null $traceExportQueue Hands the finished run to trace export (observability-export-traces).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
 	 *   a distinct injected collaborator (one per pipeline gate), not a logic-bearing
@@ -256,6 +261,7 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 		private readonly IUserManager $userManager,
 		private readonly IURLGenerator $urlGenerator,
 		private readonly LoggerInterface $logger,
+		private readonly ?TraceExportQueue $traceExportQueue = null,
 	) {
 	}//end __construct()
 
@@ -838,9 +844,10 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 
 		$this->objectService->saveObject(
 			object: $payload,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: (string)($draftData['skillId'] ?? ''),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: (string)($draftData['skillId'] ?? '')
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1242,8 +1249,7 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 
 		$draft = $this->objectService->find(
 			id: $draftId,
-			register: self::REGISTER_SLUG,
-			schema: self::DRAFT_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::DRAFT_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1868,8 +1874,7 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 
 		$skill = $this->objectService->find(
 			id: $skillId,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1911,9 +1916,10 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 		try {
 			return $this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::DRAFT_SCHEMA,
-				uuid: $uuid,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::DRAFT_SCHEMA),
+					uuid: $uuid
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -2001,20 +2007,22 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 	 */
 	private function recordConsolidationUsage(ObjectEntity $draft, string $prompt, string $response): void {
 		try {
+			$runContext = [
+				'status' => 'consolidation',
+				'usage' => [
+					'promptTokens' => (int)ceil(strlen($prompt) / self::CHARS_PER_TOKEN),
+					'completionTokens' => (int)ceil(strlen($response) / self::CHARS_PER_TOKEN),
+				],
+				'summary' => 'Skill consolidation LLM pass (skill-self-improvement).',
+			];
 			$this->auditTrailMapper->recordObjectEvent(
 				event: new ObjectAuditEvent(
 					object: $draft,
 					action: 'run',
-					context: [
-						'status' => 'consolidation',
-						'usage' => [
-							'promptTokens' => (int)ceil(strlen($prompt) / self::CHARS_PER_TOKEN),
-							'completionTokens' => (int)ceil(strlen($response) / self::CHARS_PER_TOKEN),
-						],
-						'summary' => 'Skill consolidation LLM pass (skill-self-improvement).',
-					]
+					context: $runContext
 				)
 			);
+			$this->traceExportQueue?->enqueueRun(context: $runContext, trigger: 'skill');
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				'Hermiq could not record consolidation usage for draft '

@@ -55,6 +55,7 @@ use ReflectionMethod;
 use RuntimeException;
 use Stringable;
 use Throwable;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Golden comparison of one engine turn.
@@ -239,7 +240,7 @@ class EngineTurnGoldenTest extends TestCase {
 	 */
 	private function named(string $class, string $method, array $args): array {
 		$named = [];
-		foreach ((new ReflectionMethod($class, $method))->getParameters() as $index => $param) {
+		foreach (LegacyObjectArgs::parameters($class, $method) as $index => $param) {
 			if (array_key_exists($index, $args) === false) {
 				continue;
 			}
@@ -284,6 +285,7 @@ class EngineTurnGoldenTest extends TestCase {
 		$service = $this->createMock(ObjectService::class);
 		$service->method('find')->willReturnCallback(
 			function (...$args) use ($conversationData): ?ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'find', args: $args);
 				$named = $this->named(class: ObjectService::class, method: 'find', args: $args);
 				$this->events[] = ['find' => $named];
 				$id = (string)($named['id'] ?? '');

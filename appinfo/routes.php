@@ -171,6 +171,9 @@ $routes = [
         // Agent's OpenRegister AuditTrail as a version timeline + diff, and owner-only
         // rollback. No new storage — reads/replays the SAME AuditTrail SaveObject
         // already writes on every Agent save.
+        // Whether an agent's declared acting user still resolves (agent-acting-identity-picker
+        // REQ-AGID-003): read-scoped, so the edit page can warn before a run is refused.
+        ['name' => 'agentActingUser#show', 'url' => '/api/agents/{id}/acting-user', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentVersion#index', 'url' => '/api/agents/{id}/versions', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentVersion#diff',  'url' => '/api/agents/{id}/versions/diff', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         [
@@ -500,6 +503,9 @@ $routes = [
         // cleanup job last enforced it and how much it removed.
         ['name' => 'Settings\RunRetentionSettings#get', 'url' => '/api/settings/run-retention', 'verb' => 'GET'],
         ['name' => 'Settings\RunRetentionSettings#update', 'url' => '/api/settings/run-retention', 'verb' => 'PUT'],
+        // observability-export-traces: trace export settings, admin only (REQ-TREX-001).
+        ['name' => 'Settings\TraceExportSettings#get', 'url' => '/api/settings/trace-export', 'verb' => 'GET'],
+        ['name' => 'Settings\TraceExportSettings#update', 'url' => '/api/settings/trace-export', 'verb' => 'PUT'],
         // Working with AI (compliance-ai-literacy): the lessons and answer check for the
         // signed-in person, and the organisation report and requirement switch for its admin.
         ['name' => 'literacy#lessons', 'url' => '/api/literacy/lessons', 'verb' => 'GET'],
@@ -670,6 +676,8 @@ $routes = [
             'verb'         => 'DELETE',
             'requirements' => ['uuid' => '[^/]+'],
         ],
+        // chat-fork-and-share-link: the owner starts a new session from one of the session's answers.
+        ['name' => 'sessionFork#create', 'url' => '/api/sessions/{uuid}/fork', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
         // chat-work-together-in-one-session: the owner invites colleagues into a web session.
         ['name' => 'sessionParticipant#index', 'url' => '/api/sessions/{uuid}/participants', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
         ['name' => 'sessionParticipant#create', 'url' => '/api/sessions/{uuid}/participants', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
@@ -678,6 +686,15 @@ $routes = [
             'url'          => '/api/sessions/{uuid}/participants/{uid}',
             'verb'         => 'DELETE',
             'requirements' => ['uuid' => '[^/]+', 'uid' => '[^/]+'],
+        ],
+        // chat-fork-and-share-link: the owner shares a session read-only with users and groups.
+        ['name' => 'sessionShare#index', 'url' => '/api/sessions/{uuid}/shares', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'sessionShare#create', 'url' => '/api/sessions/{uuid}/shares', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
+        [
+            'name'         => 'sessionShare#destroy',
+            'url'          => '/api/sessions/{uuid}/shares/{type}/{id}',
+            'verb'         => 'DELETE',
+            'requirements' => ['uuid' => '[^/]+', 'type' => 'user|group', 'id' => '[^/]+'],
         ],
 
         // DEPRECATED aliases. Same controller, same methods, same auth. Retire them on
