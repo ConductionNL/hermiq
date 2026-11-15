@@ -58,11 +58,12 @@ Kind: code. Size L. Rows `hermiq:dm-browser-use`, `hermiq:dm-computer-use`.
   - GIVEN a policy that allows computerClick WHEN it is called THEN it still needs approval
   - GIVEN a 15 minute pre-authorisation WHEN it expires or another machine or run is named THEN a new approval is needed
   - GIVEN a screenshot WHEN it is called THEN no approval is created
-- [ ] Implement
+- [x] Implement
   - Done: the floor. `FacadeToolInvoker::classifyTool()` returns `confirm` for click, type and key whatever the policy says (a `deny` still refuses), and an owner's `#noapproval` waiver never answers them (`waivable()`). A screenshot creates no approval.
-  - Open: the 15 minute run-scoped pre-authorisation per machine (run id into the invoker, `ApprovalService` request and lookup with a clock), and the approval card in `src/views/ApprovalInbox.vue` showing the machine, the action and the screenshot with the point marked.
+  - Done: the 15 minute run-scoped pre-authorisation per machine. Approving a computer action with `scope: machine-run` (`ApprovalController::approve()`) records a `computer-run` Approval decided by the reviewer with `expiresAt` fifteen minutes on (`ApprovalService::preauthoriseComputerRun()`; Approval declares `runId` and `expiresAt`, schema 0.9.0). The invoker takes the run id (`ToolLoop::buildFunctionInfos(runId:)`: the run token's id on the governed transport, `conversation:<id>` in chat, where a held action ends the turn and the next turn retries it) and lets a click, typing or key action through under `computerRunPreAuthorisation()` while it lasts for that run and machine, as `invoked_under_preauthorisation` with its approval id on the step; another run, another machine or a moment past its end asks anew. A toolcall approval of a computer action records its run.
+  - Done: the approval card in `src/views/ApprovalInbox.vue` names the machine and the action with its point, offers "Approve for 15 minutes", and on "Show the screen" reads the machine's screen now through `GET /api/approvals/{id}/screenshot` (reviewer of a pending computer action only, through the computer-use gate, never stored) with the point marked.
 - [ ] Test (PHPUnit with a fake clock; Playwright under tests/e2e/spec-coverage/ on the approval card)
-  - PHPUnit on the floor done: `FacadeToolInvokerComputerTest` (no policy, auto, waiver, deny, screenshot). The fake-clock test waits on the pre-authorisation.
+  - PHPUnit on the floor done: `FacadeToolInvokerComputerTest` (no policy, auto, waiver, deny, screenshot, pre-authorised machine, run on the request). Fake clock: `ApprovalServiceComputerRunTest` (fifteen minutes, sixteen minutes later a new approval, another run or machine, unsigned or denied records). `ApprovalControllerTest` on the scope and the reviewer's screen; Vitest `approval-inbox-rows.spec.js` on the card. Playwright needs a live instance and was not run.
 
 ### Task 7: The run record for browser and computer actions
 - **spec_ref**: `openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-the-run-records-actions-and-never-stores-screenshots-req-computer-004`

@@ -26,6 +26,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\ApprovalController;
+use OCA\Hermiq\Kernel\Contracts\ComputerUseServiceInterface;
 use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -214,6 +215,78 @@ class ApprovalControllerTest extends TestCase {
 		$this->assertSame('', $refused->getData()['preauthorisedUntil']);
 
 	}//end testWithoutTheScopeOnlyTheOneActionIsApproved()
+
+	/**
+	 * A pending click held for approval.
+	 *
+	 * @return ObjectEntity
+	 */
+	private function heldClick(): ObjectEntity {
+		$entity = new ObjectEntity();
+		$entity->setUuid('appr-1');
+		$entity->setObject(['status' => 'pending', 'sourceType' => 'toolcall', 'toolId' => 'hermiq.computerClick', 'toolArguments' => ['target' => 'Werkplek Burgerzaken 03', 'x' => 412, 'y' => 230], 'reviewer' => 'bob', 'reviewerType' => 'user']);
+		return $entity;
+	}//end heldClick()
+
+	/**
+	 * The controller with a computer-use service.
+	 *
+	 * @param ApprovalService             $service  The approval service.
+	 * @param ComputerUseServiceInterface $computer The computer-use service.
+	 * @param string|null                 $uid      The signed-in user.
+	 *
+	 * @return ApprovalController
+	 */
+	private function screenController(ApprovalService $service, ComputerUseServiceInterface $computer, ?string $uid = 'bob'): ApprovalController {
+		return new ApprovalController($this->createMock(IRequest::class), $service, $this->session($uid), $this->createMock(LoggerInterface::class), $this->inbox, $computer);
+	}//end screenController()
+
+	/**
+	 * REQ-COMPUTER-003: the reviewer sees the machine's screen now, through the computer-use gate, with the click point.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	public function testTheReviewerSeesTheScreenWithThePoint(): void {
+		$service = $this->createMock(ApprovalService::class);
+		$service->method('loadApproval')->willReturn($this->heldClick());
+		$this->inbox->method('isReviewer')->willReturn(true);
+		$computer = $this->createMock(ComputerUseServiceInterface::class);
+		$computer->expects($this->once())->method('invoke')
+			->with('bob', 'hermiq.computerScreenshot', ['target' => 'Werkplek Burgerzaken 03'])
+			->willReturn(['target' => 'Werkplek Burgerzaken 03', 'targetId' => 'ct-1', 'image' => 'UE5H', 'mimeType' => 'image/png', 'width' => 1280, 'height' => 800]);
+
+		$response = $this->screenController($service, $computer)->screenshot('appr-1');
+
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame(['image' => 'UE5H', 'mimeType' => 'image/png', 'width' => 1280, 'height' => 800, 'x' => 412, 'y' => 230], $response->getData());
+
+	}//end testTheReviewerSeesTheScreenWithThePoint()
+
+	/**
+	 * No screen for another kind of approval, for someone who is not its reviewer, or when the gate refuses.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	public function testTheScreenIsOnlyForTheReviewerOfAComputerAction(): void {
+		$service = $this->createMock(ApprovalService::class);
+		$service->method('loadApproval')->willReturnOnConsecutiveCalls($this->approval('pending'), $this->heldClick(), $this->heldClick());
+		$this->inbox->method('isReviewer')->willReturnCallback(static fn (ObjectEntity $approval, string $uid): bool => $uid === 'bob');
+		$computer = $this->createMock(ComputerUseServiceInterface::class);
+		$computer->expects($this->once())->method('invoke')->willReturn(['error' => ['code' => 'computer_use_not_enabled', 'message' => 'Computer use must be enabled.']]);
+
+		$schedule = $this->screenController($service, $computer)->screenshot('appr-1');
+		$stranger = $this->screenController($service, $computer, 'mallory')->screenshot('appr-1');
+		$refused  = $this->screenController($service, $computer)->screenshot('appr-1');
+
+		$this->assertSame(Http::STATUS_NOT_FOUND, $schedule->getStatus());
+		$this->assertSame(Http::STATUS_NOT_FOUND, $stranger->getStatus());
+		$this->assertSame([Http::STATUS_CONFLICT, ['error' => 'Computer use must be enabled.']], [$refused->getStatus(), $refused->getData()]);
+
+	}//end testTheScreenIsOnlyForTheReviewerOfAComputerAction()
 
 	/**
 	 * A non-reviewer is refused with 404 and never reaches approve().

@@ -3841,6 +3841,45 @@
                 }
             }
         },
+        "/approvals/{approvalId}/screenshot": {
+            "get": {
+                "operationId": "approval-screenshot",
+                "summary": "The machine's screen now, for the reviewer of a pending computer action",
+                "description": "The machine's screen now, with the held action's point, for the reviewer deciding a pending computer action; shown and never stored. Only the approval's reviewer gets it, only while it is pending, and only when computer use is enabled. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "approval"
+                ],
+                "parameters": [
+                    {
+                        "name": "approvalId",
+                        "in": "path",
+                        "required": true,
+                        "description": "The Approval object UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
         "/approvals/{approvalId}/deny": {
             "post": {
                 "operationId": "approval-deny",

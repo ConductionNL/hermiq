@@ -202,6 +202,8 @@ $routes = [
         ['name' => 'approvalVerify#verify', 'url' => '/api/approvals/verify', 'verb' => 'POST'],
         ['name' => 'approval#index',   'url' => '/api/approvals', 'verb' => 'GET'],
         ['name' => 'approval#approve', 'url' => '/api/approvals/{approvalId}/approve', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
+        // tools-browser-and-computer-use: the machine's screen now, for the reviewer of a pending computer action.
+        ['name' => 'approval#screenshot', 'url' => '/api/approvals/{approvalId}/screenshot', 'verb' => 'GET', 'requirements' => ['approvalId' => '[^/]+']],
         ['name' => 'approval#deny',    'url' => '/api/approvals/{approvalId}/deny', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
         // One route for the chat's approval card: {decision: granted|refused}.
         ['name' => 'approval#resolve', 'url' => '/api/approvals/{approvalId}/resolve', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
