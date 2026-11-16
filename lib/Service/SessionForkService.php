@@ -28,6 +28,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeInterface;
+use OCA\Hermiq\Kernel\Contracts\SessionForkServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\TalkSessionRoomInterface;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -41,7 +42,7 @@ use OCA\OpenRegister\Service\ObjectService;
  *
  * @spec openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
  */
-class SessionForkService {
+class SessionForkService implements SessionForkServiceInterface {
 	use SanitizesForSaveTrait;
 
 	/**

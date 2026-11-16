@@ -26,8 +26,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\AiLabelStatsService;
-use OCA\Hermiq\Service\NcNative\AgentArtefactMarker;
+use OCA\Hermiq\Kernel\Contracts\AgentArtefactMarkerInterface;
+use OCA\Hermiq\Kernel\Contracts\AiLabelStatsServiceInterface;
 use OCA\Hermiq\Service\NcNative\ArtefactMarkingFailedException;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -47,18 +47,18 @@ class AiLabelController extends Controller {
 	/**
 	 * Constructor.
 	 *
-	 * @param IRequest            $request     The request.
-	 * @param AgentArtefactMarker $marker      Reads and sets the two tags.
-	 * @param AiLabelStatsService $stats       The label counts.
-	 * @param IRootFolder         $rootFolder  Opens the caller's own Files.
-	 * @param IUserSession        $userSession Resolves the caller.
+	 * @param IRequest                     $request     The request.
+	 * @param AgentArtefactMarkerInterface $marker      Reads and sets the two tags.
+	 * @param AiLabelStatsServiceInterface $stats       The label counts.
+	 * @param IRootFolder                  $rootFolder  Opens the caller's own Files.
+	 * @param IUserSession                 $userSession Resolves the caller.
 	 *
 	 * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly AgentArtefactMarker $marker,
-		private readonly AiLabelStatsService $stats,
+		private readonly AgentArtefactMarkerInterface $marker,
+		private readonly AiLabelStatsServiceInterface $stats,
 		private readonly IRootFolder $rootFolder,
 		private readonly IUserSession $userSession,
 	) {

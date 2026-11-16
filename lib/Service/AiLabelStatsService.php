@@ -30,6 +30,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\AiLabelStatsServiceInterface;
 use OCA\Hermiq\Service\NcNative\AgentArtefactMarker;
 use OCA\Hermiq\Service\NcNative\MarkedObjectCounter;
 use OCP\Files\IRootFolder;
@@ -41,7 +42,7 @@ use Throwable;
  *
  * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
  */
-class AiLabelStatsService {
+class AiLabelStatsService implements AiLabelStatsServiceInterface {
 
 	/**
 	 * The most tagged file ids checked against the viewer's Files in one read.
