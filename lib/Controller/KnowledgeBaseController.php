@@ -27,9 +27,9 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\KnowledgeBaseServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SourceSharingInspectorInterface;
 use OCA\Hermiq\Service\KnowledgeBase\KnowledgeBaseException;
-use OCA\Hermiq\Service\KnowledgeBase\KnowledgeBaseService;
-use OCA\Hermiq\Service\KnowledgeBase\SourceSharingInspector;
 use OCA\Hermiq\Service\KnowledgeBase\VectorFacadeProbe;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -48,18 +48,18 @@ class KnowledgeBaseController extends Controller {
 	/**
 	 * Constructor.
 	 *
-	 * @param IRequest               $request     The request.
-	 * @param KnowledgeBaseService   $service     The owner's writes.
-	 * @param SourceSharingInspector $inspector   Which sources only the owner can read.
-	 * @param VectorFacadeProbe      $probe       Whether search is available and each file's indexing state.
-	 * @param IUserSession           $userSession The caller.
+	 * @param IRequest                        $request     The request.
+	 * @param KnowledgeBaseServiceInterface   $service     The owner's writes.
+	 * @param SourceSharingInspectorInterface $inspector   Which sources only the owner can read.
+	 * @param VectorFacadeProbe               $probe       Whether search is available and each file's indexing state.
+	 * @param IUserSession                    $userSession The caller.
 	 *
 	 * @spec openspec/changes/memory-knowledge-bases/specs/knowledge-bases/spec.md#requirement-an-owner-can-create-a-knowledge-base-and-fill-it-from-files-req-kb-001
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly KnowledgeBaseService $service,
-		private readonly SourceSharingInspector $inspector,
+		private readonly KnowledgeBaseServiceInterface $service,
+		private readonly SourceSharingInspectorInterface $inspector,
 		private readonly VectorFacadeProbe $probe,
 		private readonly IUserSession $userSession,
 	) {

@@ -26,6 +26,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\KnowledgeBase;
 
+use OCA\Hermiq\Kernel\Contracts\KnowledgeBaseServiceInterface;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
@@ -42,7 +43,7 @@ use Throwable;
  *
  * @spec openspec/changes/memory-knowledge-bases/specs/knowledge-bases/spec.md#requirement-an-owner-can-create-a-knowledge-base-and-fill-it-from-files-req-kb-001
  */
-class KnowledgeBaseService {
+class KnowledgeBaseService implements KnowledgeBaseServiceInterface {
 	use SanitizesForSaveTrait;
 
 	/**

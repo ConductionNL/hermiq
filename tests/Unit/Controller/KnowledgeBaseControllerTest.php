@@ -22,7 +22,7 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\KnowledgeBaseController;
 use OCA\Hermiq\Service\KnowledgeBase\KnowledgeBaseException;
-use OCA\Hermiq\Service\KnowledgeBase\KnowledgeBaseService;
+use OCA\Hermiq\Kernel\Contracts\KnowledgeBaseServiceInterface;
 use OCA\Hermiq\Service\KnowledgeBase\SourceSharingInspector;
 use OCA\Hermiq\Service\KnowledgeBase\VectorFacadeProbe;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -44,8 +44,8 @@ class KnowledgeBaseControllerTest extends TestCase {
 	/** @var IRequest&MockObject */
 	private IRequest $request;
 
-	/** @var KnowledgeBaseService&MockObject */
-	private KnowledgeBaseService $service;
+	/** @var KnowledgeBaseServiceInterface&MockObject */
+	private KnowledgeBaseServiceInterface $service;
 
 	/** @var SourceSharingInspector&MockObject */
 	private SourceSharingInspector $inspector;
@@ -55,7 +55,7 @@ class KnowledgeBaseControllerTest extends TestCase {
 
 	protected function setUp(): void {
 		$this->request   = $this->createMock(IRequest::class);
-		$this->service   = $this->createMock(KnowledgeBaseService::class);
+		$this->service   = $this->createMock(KnowledgeBaseServiceInterface::class);
 		$this->inspector = $this->createMock(SourceSharingInspector::class);
 		$this->probe     = $this->createMock(VectorFacadeProbe::class);
 	}//end setUp()

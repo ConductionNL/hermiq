@@ -28,6 +28,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\KnowledgeBase;
 
+use OCA\Hermiq\Kernel\Contracts\SourceSharingInspectorInterface;
 use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
 use OCP\Files\Node;
@@ -41,7 +42,7 @@ use Throwable;
  *
  * @spec openspec/changes/memory-knowledge-bases/specs/knowledge-bases/spec.md#requirement-a-person-only-gets-answers-from-documents-they-may-read-req-kb-003
  */
-class SourceSharingInspector {
+class SourceSharingInspector implements SourceSharingInspectorInterface {
 
 	/**
 	 * The share types that let another person read a node in their own Files.
