@@ -22,13 +22,17 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Mcp;
 
+use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\TalkMessageToolInterface;
 use OCA\Hermiq\Mcp\NcTalkToolDescriptors;
 use OCA\Hermiq\Service\Engine\FacadeToolInvoker;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\NcNative\TalkMessageTool;
 use OCA\Hermiq\Service\Talk\TalkBridge;
+use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
+use OCA\OpenRegister\Service\ObjectService;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -49,11 +53,12 @@ class TalkMessageToolTest extends TestCase {
 	 * A tool over a Talk where the agent `agent-1` bot is in `servicedesk` only.
 	 *
 	 * @param bool        $talk     Whether Talk is installed.
-	 * @param string|null $postedId The id Talk answers a post with, or null when it refuses.
+	 * @param string|null $postedId   The id Talk answers a post with, or null when it refuses.
+	 * @param bool        $agentFound Whether the agent register holds the agent.
 	 *
 	 * @return TalkMessageTool The tool.
 	 */
-	private function tool(bool $talk = true, ?string $postedId = 'msg-42'): TalkMessageTool {
+	private function tool(bool $talk = true, ?string $postedId = 'msg-42', bool $agentFound = true): TalkMessageTool {
 		$this->posts = [];
 		$bridge = $this->createMock(TalkBridge::class);
 		$bridge->method('isAvailable')->willReturn($talk);
@@ -67,7 +72,27 @@ class TalkMessageToolTest extends TestCase {
 			}
 		);
 
-		return new TalkMessageTool($bridge, new NullLogger());
+		// `anne` may use agent-1 and agent-2; `bob` may use neither.
+		$objects = $this->createMock(ObjectService::class);
+		$objects->method('find')->willReturnCallback(
+			function (int|string $id, ?ObjectFindOptions $options = null, bool $_rbac = true, bool $_multitenancy = true) use ($agentFound): ?ObjectEntity {
+				$this->assertSame('hermiq', $options?->register);
+				$this->assertSame('agent', $options?->schema);
+				if ($agentFound === false) {
+					return null;
+				}
+
+				$agent = new ObjectEntity();
+				$agent->setUuid((string)$id);
+				return $agent;
+			}
+		);
+		$access = $this->createMock(AgentAccessServiceInterface::class);
+		$access->method('canUserAccessAgent')->willReturnCallback(
+			static fn (ObjectEntity $agent, string $userId): bool => $userId === 'anne'
+		);
+
+		return new TalkMessageTool($bridge, $objects, $access, new NullLogger());
 	}//end tool()
 
 	public function testAGrantedAgentPostsInItsOwnConversationAsItsOwnBot(): void {
@@ -97,6 +122,17 @@ class TalkMessageToolTest extends TestCase {
 		$this->assertSame('not_a_member', $other['error']['code'] ?? null);
 		$this->assertSame([], $this->posts);
 	}//end testAConversationTheAgentIsNotInIsRefusedWithoutPosting()
+
+	public function testAUserWhoMayNotUseTheAgentCannotPostAsItsBot(): void {
+		$args = ['agentId' => 'agent-1', 'conversation' => 'servicedesk', 'message' => 'Hallo'];
+
+		$this->assertSame('agent_not_accessible', $this->tool()->invoke('bob', NcTalkToolDescriptors::SEND_MESSAGE, $args)['error']['code'] ?? null);
+		$this->assertSame([], $this->posts);
+		$this->assertSame('agent_not_accessible', $this->tool()->invoke('', NcTalkToolDescriptors::SEND_MESSAGE, $args)['error']['code'] ?? null);
+		$this->assertSame([], $this->posts);
+		$this->assertSame('agent_not_accessible', $this->tool(agentFound: false)->invoke('anne', NcTalkToolDescriptors::SEND_MESSAGE, $args)['error']['code'] ?? null);
+		$this->assertSame([], $this->posts);
+	}//end testAUserWhoMayNotUseTheAgentCannotPostAsItsBot()
 
 	public function testWithoutTalkTheAgentGetsAReadableErrorAndNothingIsPosted(): void {
 		$result = $this->tool(talk: false)->invoke('anne', NcTalkToolDescriptors::SEND_MESSAGE, [
