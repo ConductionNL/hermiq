@@ -23,6 +23,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\KnowledgeBase;
 use OCA\Hermiq\Service\KnowledgeBase\KnowledgeBaseException;
 use OCA\Hermiq\Service\KnowledgeBase\KnowledgeBaseService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Files\File;
 use OCP\Files\Folder;
@@ -129,8 +130,8 @@ class KnowledgeBaseServiceTest extends TestCase {
 
 		$saved = null;
 		$this->objects->expects($this->once())->method('saveObject')->willReturnCallback(
-			function (array $object, mixed $extend = null, mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$saved): ObjectEntity {
-				$saved = ['object' => $object, 'register' => $register, 'schema' => $schema, 'uuid' => $uuid];
+			function (array $object, ObjectSaveOptions $options) use (&$saved): ObjectEntity {
+				$saved = ['object' => $object, 'register' => $options->target->register, 'schema' => $options->target->schema, 'uuid' => $options->uuid];
 				return new ObjectEntity();
 			}
 		);

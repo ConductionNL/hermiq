@@ -29,6 +29,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Repair;
 
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IConfig;
 use OCP\Migration\IOutput;
@@ -130,8 +132,9 @@ class SeedKnowledgeBases implements IRepairStep {
 
 			$saved = $objectService->saveObject(
 				object: self::knowledgeBase(),
-				register: self::REGISTER_SLUG,
-				schema: self::KNOWLEDGE_BASE_SCHEMA,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::KNOWLEDGE_BASE_SCHEMA)
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -175,9 +178,10 @@ class SeedKnowledgeBases implements IRepairStep {
 		$data['knowledgeBaseRefs'] = [...$refs, $knowledgeBaseUuid];
 		$objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
-			uuid: (string)$agent->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+				uuid: (string)$agent->getUuid()
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

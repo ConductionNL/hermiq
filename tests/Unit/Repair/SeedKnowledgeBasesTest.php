@@ -22,6 +22,7 @@ namespace OCA\Hermiq\Tests\Unit\Repair;
 
 use OCA\Hermiq\Repair\SeedKnowledgeBases;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IConfig;
 use OCP\Migration\IOutput;
@@ -77,23 +78,12 @@ class SeedKnowledgeBasesTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				bool $failIfExists = false,
-				bool $_unowned = false,
-				bool $_dedupOverride = false,
-				?string $_owner = null,
+				bool $_multitenancy = true
 			): ObjectEntity {
 				$payload = is_array($object) ? $object : $object->getObject();
-				$this->saved[] = ['schema' => (string)$schema, 'object' => $payload, 'uuid' => $uuid, 'elevated' => $this->elevated];
+				$this->saved[] = ['schema' => (string)$options->target->schema, 'object' => $payload, 'uuid' => $options->uuid, 'elevated' => $this->elevated];
 				$entity = new ObjectEntity();
 				$entity->setUuid('kb-new');
 				$entity->setObject($payload);

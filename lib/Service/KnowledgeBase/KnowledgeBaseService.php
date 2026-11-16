@@ -28,6 +28,9 @@ namespace OCA\Hermiq\Service\KnowledgeBase;
 
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
@@ -116,9 +119,10 @@ class KnowledgeBaseService {
 		$payload['folderPath'] = implode('/', $path);
 		$this->objects->saveObject(
 			object: $this->sanitizeForSave(data: $payload),
-			register: self::REGISTER,
-			schema: KnowledgeBaseRetrieval::SCHEMA,
-			uuid: $id
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER, schema: KnowledgeBaseRetrieval::SCHEMA),
+				uuid: $id
+			)
 		);
 
 		return $sources;
@@ -140,7 +144,12 @@ class KnowledgeBaseService {
 		$entity = null;
 		if ($callerUid !== '' && trim($id) !== '') {
 			try {
-				$entity = $this->objects->find(id: $id, register: self::REGISTER, schema: KnowledgeBaseRetrieval::SCHEMA, _rbac: false, _multitenancy: false);
+				$entity = $this->objects->find(
+					id: $id,
+					options: new ObjectFindOptions(register: self::REGISTER, schema: KnowledgeBaseRetrieval::SCHEMA),
+					_rbac: false,
+					_multitenancy: false
+				);
 			} catch (Throwable) {
 				$entity = null;
 			}
