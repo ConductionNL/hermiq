@@ -785,7 +785,7 @@
 						"id": "knowledge-base-sources",
 						"type": "custom",
 						"title": "Sources",
-						"icon": "BookshelfOutline",
+						"icon": "BookOpenVariantOutline",
 						"_note": "Sources with their indexing state, the only-you notice and where an outside source comes from; upload, add from Files, add a folder, remove. Resolved via page.slots.widget-knowledge-base-sources -> knowledge-base-sources."
 					}
 				],
