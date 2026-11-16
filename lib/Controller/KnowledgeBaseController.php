@@ -73,6 +73,8 @@ class KnowledgeBaseController extends Controller {
 	 *
 	 * @return JSONResponse `{results: sources}`; 404 for anyone but the owner.
 	 *
+	 * @no-admin-idor-exempt the owner check runs in KnowledgeBaseServiceInterface::owned(), which answers 404 to anyone but the knowledge base's owner.
+	 *
 	 * @spec openspec/changes/memory-knowledge-bases/specs/knowledge-bases/spec.md#requirement-an-owner-can-create-a-knowledge-base-and-fill-it-from-files-req-kb-001
 	 */
 	#[NoAdminRequired]
@@ -89,6 +91,8 @@ class KnowledgeBaseController extends Controller {
 	 * @param string $id The knowledge base uuid.
 	 *
 	 * @return JSONResponse `{results: sources, searchAvailable: bool}`; 404 for anyone but the owner.
+	 *
+	 * @no-admin-idor-exempt the owner check runs in KnowledgeBaseServiceInterface::owned(), which answers 404 to anyone but the knowledge base's owner.
 	 *
 	 * @spec openspec/changes/memory-knowledge-bases/specs/knowledge-bases/spec.md#requirement-a-person-only-gets-answers-from-documents-they-may-read-req-kb-003
 	 * @spec openspec/changes/memory-knowledge-bases/specs/knowledge-bases/spec.md#requirement-the-vector-facade-offers-a-file-scope-and-an-indexing-state-req-kb-005
