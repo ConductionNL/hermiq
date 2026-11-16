@@ -365,26 +365,25 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	 * fields to `role` — the OpenRegister importer rejects conditional blocks —
 	 * so the constraint is upheld here, at the single writer.
 	 *
-	 * @param array $payload The message payload being built.
-	 * @param string $role The message role.
-	 * @param string|null $authorId The human author's uid, if any.
-	 * @param string|null $authorDisplayName The author's display name at send time.
+	 * @param array $payload The message payload being built, with its role.
+	 * @param array{authorId: ?string, authorDisplayName: ?string} $author The human author's uid and
+	 *                                                                    display name at send time, if any.
 	 *
 	 * @return array The payload, with authorship attached where applicable.
 	 *
 	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
 	 */
-	private function withAuthorship(array $payload, string $role, ?string $authorId, ?string $authorDisplayName): array {
-		if ($role !== 'user') {
+	private function withAuthorship(array $payload, array $author): array {
+		if ($payload['role'] !== 'user') {
 			return $payload;
 		}
 
-		if ($authorId !== null && $authorId !== '') {
-			$payload['authorId'] = $authorId;
+		if ($author['authorId'] !== null && $author['authorId'] !== '') {
+			$payload['authorId'] = $author['authorId'];
 		}
 
-		if ($authorDisplayName !== null && $authorDisplayName !== '') {
-			$payload['authorDisplayName'] = $authorDisplayName;
+		if ($author['authorDisplayName'] !== null && $author['authorDisplayName'] !== '') {
+			$payload['authorDisplayName'] = $author['authorDisplayName'];
 		}
 
 		return $payload;
@@ -545,35 +544,58 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 		array $attachments = [],
 		?array $provenance = null,
 	): ObjectEntity {
-		$payload = [
-			'sessionId' => $conversationId,
-			'role' => $role,
-			'content' => $content,
-		];
-
-		if ($sources !== null && empty($sources) === false) {
-			$payload['sources'] = $sources;
-		}
-
-		if ($context !== null && empty($context) === false) {
-			$payload['context'] = $context;
-		}
-
-		if ($attachments !== []) {
-			$payload['attachments'] = array_values($attachments);
-		}
-
-		if ($provenance !== null) {
-			$payload['provenance'] = $provenance;
-		}
-
+		$payload = $this->messagePayload(
+			message: ['sessionId' => $conversationId, 'role' => $role, 'content' => $content],
+			extras: ['sources' => $sources, 'context' => $context, 'attachments' => $attachments, 'provenance' => $provenance]
+		);
 		$payload = $this->withAuthorship(
 			payload: $payload,
-			role: $role,
-			authorId: $authorId,
-			authorDisplayName: $authorDisplayName
+			author: ['authorId' => $authorId, 'authorDisplayName' => $authorDisplayName]
 		);
 
+		return $this->saveMessage(payload: $payload);
+	}//end storeMessage()
+
+	/**
+	 * The Message payload: the session, role and content, plus each optional
+	 * part that carries something. Empty sources or context are left out,
+	 * attachments are re-indexed, provenance is kept whenever it is given.
+	 *
+	 * @param array{sessionId: string, role: string, content: string} $message The session id, role and content.
+	 * @param array{sources: ?array, context: ?array, attachments: array, provenance: ?array} $extras The optional parts.
+	 *
+	 * @return array<string, mixed> The payload.
+	 */
+	private function messagePayload(array $message, array $extras): array {
+		$payload = $message;
+
+		if ($extras['sources'] !== null && empty($extras['sources']) === false) {
+			$payload['sources'] = $extras['sources'];
+		}
+
+		if ($extras['context'] !== null && empty($extras['context']) === false) {
+			$payload['context'] = $extras['context'];
+		}
+
+		if ($extras['attachments'] !== []) {
+			$payload['attachments'] = array_values($extras['attachments']);
+		}
+
+		if ($extras['provenance'] !== null) {
+			$payload['provenance'] = $extras['provenance'];
+		}
+
+		return $payload;
+	}//end messagePayload()
+
+	/**
+	 * Persist a Message payload and log what was stored.
+	 *
+	 * @param array<string, mixed> $payload The payload, with its sessionId and role.
+	 *
+	 * @return ObjectEntity The persisted Message object.
+	 */
+	private function saveMessage(array $payload): ObjectEntity {
 		// `_rbac: false`: SessionTurn grants an owner-only `read` and lists no
 		// `create`, on purpose (hermiq#319): a create grant would let anyone POST a
 		// turn into somebody else's sessionId through the object API, and a thread
@@ -593,12 +615,12 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 				'file' => __FILE__,
 				'line' => __LINE__,
 				'messageId' => $stored->getUuid(),
-				'conversationId' => $conversationId,
-				'role' => $role,
-				'hasSources' => $sources !== null && empty($sources) === false,
+				'conversationId' => $payload['sessionId'],
+				'role' => $payload['role'],
+				'hasSources' => isset($payload['sources']),
 			]
 		);
 
 		return $stored;
-	}//end storeMessage()
+	}//end saveMessage()
 }//end class
