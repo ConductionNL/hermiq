@@ -548,7 +548,13 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	): ObjectEntity {
 		$payload = $this->messagePayload(
 			message: ['sessionId' => $conversationId, 'role' => $role, 'content' => $content],
-			extras: ['sources' => $sources, 'context' => $context, 'attachments' => $attachments, 'provenance' => $provenance, 'retrievalScope' => $retrievalScope]
+			extras: [
+				'sources' => $sources,
+				'context' => $context,
+				'attachments' => $attachments,
+				'provenance' => $provenance,
+				'retrievalScope' => $retrievalScope,
+			]
 		);
 		$payload = $this->withAuthorship(
 			payload: $payload,
