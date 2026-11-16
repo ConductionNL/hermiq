@@ -31,8 +31,8 @@ Kind: code. Size M. Row `hermiq:tl-custom-tool`.
   - GIVEN bad arguments WHEN invoked THEN invalid_argument is returned before any call
   - GIVEN a flow target WHEN invoked THEN openregister.runFlow runs for that flow only, under the owner rule
   - GIVEN an integriq target WHEN invoked THEN CallService is called, the body template is rendered, and the answer is capped and delimited
-- [ ] Implement
-- [ ] Test (PHPUnit with the facade and CallService stubbed)
+- [x] Implement
+- [x] Test (PHPUnit with the facade and CallService stubbed)
 
 ### Task 4: Governance and the run record
 - **spec_ref**: `openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-passes-the-same-governance-as-every-tool-req-custool-004`
@@ -40,8 +40,8 @@ Kind: code. Size M. Row `hermiq:tl-custom-tool`.
 - **acceptance_criteria**:
   - GIVEN a confirm classification WHEN called THEN the approval gate holds it
   - GIVEN any call WHEN traced THEN the step names the tool, its audit version and its target
-- [ ] Implement
-- [ ] Test (PHPUnit on the chain for a custom id)
+- [x] Implement
+- [x] Test (PHPUnit on the chain for a custom id)
 
 ### Task 5: The Custom tools page and editor
 - **spec_ref**: `openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001`

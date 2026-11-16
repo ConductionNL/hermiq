@@ -107,6 +107,7 @@ use OCA\Hermiq\Kernel\Contracts\TalkMessageToolInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\WebFetchServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\WebSearchClientInterface;
+use OCA\Hermiq\Service\CustomTool\CustomToolInvoker;
 use OCA\Hermiq\Service\CustomTool\CustomToolService;
 use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
 use OCA\Hermiq\Service\Workspace\WorkspaceWrites;
@@ -825,6 +826,11 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-exposed-as-governed-agent-tools
 	 */
 	private function routed(string $toolId, NativeToolCall $call): ?array {
+		// A custom tool of the acting user's organisation (tools-custom-tools-without-code).
+		if (CustomToolDescriptors::slugOf(toolId: $toolId) !== null) {
+			return $this->invokeCustomTool(toolId: $toolId, call: $call);
+		}
+
 		$service = $this->userScopedServiceFor(toolId: $toolId);
 		if ($service !== null) {
 			return $this->container->get($service)->invoke(uid: $call->uid, toolId: $toolId, arguments: $call->arguments);
@@ -836,6 +842,31 @@ class HermiqToolProvider implements IMcpToolProvider {
 
 		return null;
 	}//end routed()
+
+	/**
+	 * Run a custom tool through its invoker; a failure becomes the `tool_failed` envelope.
+	 *
+	 * @param string         $toolId The `hermiq.custom_<slug>` id.
+	 * @param NativeToolCall $call   The acting user and arguments.
+	 *
+	 * @return array<string, mixed> The answer, or an error envelope.
+	 *
+	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+	 */
+	private function invokeCustomTool(string $toolId, NativeToolCall $call): array {
+		try {
+			$invoker = $this->container->get(CustomToolInvoker::class);
+		} catch (Throwable $e) {
+			$this->logger->warning('Hermiq custom tools are not available: ' . $e->getMessage());
+			return $this->error(code: 'tool_failed', message: 'The tool call failed.');
+		}
+
+		if (($invoker instanceof CustomToolInvoker) === false) {
+			return $this->error(code: 'tool_failed', message: 'The tool call failed.');
+		}
+
+		return $invoker->invoke(toolId: $toolId, arguments: $call->arguments);
+	}//end invokeCustomTool()
 
 	/**
 	 * The service that owns a graph, Nextcloud task or image tool, checked in that order.

@@ -146,6 +146,38 @@ class CustomToolService {
 	}//end save()
 
 	/**
+	 * The enabled custom tool with this slug, read as the acting user.
+	 *
+	 * A tool of another organisation, a disabled one, or one that cannot be read
+	 * is null, so the caller answers as for an unknown tool.
+	 *
+	 * @param string $slug The tool's slug.
+	 *
+	 * @return array<string, mixed>|null The stored tool with its id, or null.
+	 *
+	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+	 */
+	public function findEnabledForActingUser(string $slug): ?array {
+		try {
+			$entities = $this->all(multitenancy: true);
+		} catch (Throwable $e) {
+			$this->logger->warning('Hermiq custom tool ' . $slug . ' could not be read: ' . $e->getMessage());
+			return null;
+		}
+
+		foreach ($entities as $entity) {
+			$tool = $entity->getObject();
+			if ((string)($tool['slug'] ?? '') === $slug && ($tool['enabled'] ?? true) !== false) {
+				$found            = $this->shape(entity: $entity);
+				$found['version'] = (string)($entity->getVersion() ?? '');
+				return $found;
+			}
+		}
+
+		return null;
+	}//end findEnabledForActingUser()
+
+	/**
 	 * The descriptors of the enabled custom tools the acting user can read.
 	 *
 	 * Never throws: a catalogue that cannot be read offers no custom tools.
