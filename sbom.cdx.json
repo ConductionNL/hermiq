@@ -7,7 +7,7 @@
     "tools": [
       {
         "name": "composer",
-        "version": "2.10.2"
+        "version": "2.8.12"
       },
       {
         "vendor": "cyclonedx",
@@ -158,10 +158,10 @@
       ]
     },
     {
-      "bom-ref": "dragonmantank/cron-expression-3.6.0.0",
+      "bom-ref": "dragonmantank/cron-expression-3.6.1.0",
       "type": "library",
       "name": "cron-expression",
-      "version": "v3.6.0",
+      "version": "v3.6.1",
       "group": "dragonmantank",
       "description": "CRON for PHP: Calculate the next or previous run date and determine if a CRON expression is due",
       "author": "Chris Tankersley",
@@ -172,17 +172,17 @@
           }
         }
       ],
-      "purl": "pkg:composer/dragonmantank/cron-expression@v3.6.0",
+      "purl": "pkg:composer/dragonmantank/cron-expression@v3.6.1",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/dragonmantank/cron-expression/zipball/d61a8a9604ec1f8c3d150d09db6ce98b32675013",
-          "comment": "dist reference: d61a8a9604ec1f8c3d150d09db6ce98b32675013"
+          "url": "https://api.github.com/repos/dragonmantank/cron-expression/zipball/4189372ffeff09bf14f731f67a9de90c7b413ebe",
+          "comment": "dist reference: 4189372ffeff09bf14f731f67a9de90c7b413ebe"
         },
         {
           "type": "vcs",
           "url": "https://github.com/dragonmantank/cron-expression.git",
-          "comment": "source reference: d61a8a9604ec1f8c3d150d09db6ce98b32675013"
+          "comment": "source reference: 4189372ffeff09bf14f731f67a9de90c7b413ebe"
         },
         {
           "type": "issue-tracker",
@@ -191,18 +191,18 @@
         },
         {
           "type": "vcs",
-          "url": "https://github.com/dragonmantank/cron-expression/tree/v3.6.0",
+          "url": "https://github.com/dragonmantank/cron-expression/tree/v3.6.1",
           "comment": "as detected from Composer manifest 'support.source'"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "d61a8a9604ec1f8c3d150d09db6ce98b32675013"
+          "value": "4189372ffeff09bf14f731f67a9de90c7b413ebe"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "d61a8a9604ec1f8c3d150d09db6ce98b32675013"
+          "value": "4189372ffeff09bf14f731f67a9de90c7b413ebe"
         },
         {
           "name": "cdx:composer:package:type",
@@ -211,10 +211,10 @@
       ]
     },
     {
-      "bom-ref": "guzzlehttp/guzzle-7.15.5.0",
+      "bom-ref": "guzzlehttp/guzzle-7.16.1.0",
       "type": "library",
       "name": "guzzle",
-      "version": "7.15.5",
+      "version": "7.16.1",
       "group": "guzzlehttp",
       "description": "Guzzle is a PHP HTTP client library",
       "author": "Graham Campbell, Michael Dowling, Jeremy Lindblom, George Mponos, Tobias Nyholm, Márk Sági-Kazár, Tobias Schultze",
@@ -225,17 +225,17 @@
           }
         }
       ],
-      "purl": "pkg:composer/guzzlehttp/guzzle@7.15.5",
+      "purl": "pkg:composer/guzzlehttp/guzzle@7.16.1",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/guzzle/guzzle/zipball/ee80339fd9177ba44c49cdb653ff02a4d1106b9a",
-          "comment": "dist reference: ee80339fd9177ba44c49cdb653ff02a4d1106b9a"
+          "url": "https://api.github.com/repos/guzzle/guzzle/zipball/81755d989b3007ca7f88a069857553cd08e7dc2e",
+          "comment": "dist reference: 81755d989b3007ca7f88a069857553cd08e7dc2e"
         },
         {
           "type": "vcs",
           "url": "https://github.com/guzzle/guzzle.git",
-          "comment": "source reference: ee80339fd9177ba44c49cdb653ff02a4d1106b9a"
+          "comment": "source reference: 81755d989b3007ca7f88a069857553cd08e7dc2e"
         },
         {
           "type": "issue-tracker",
@@ -244,18 +244,18 @@
         },
         {
           "type": "vcs",
-          "url": "https://github.com/guzzle/guzzle/tree/7.15.5",
+          "url": "https://github.com/guzzle/guzzle/tree/7.16.1",
           "comment": "as detected from Composer manifest 'support.source'"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "ee80339fd9177ba44c49cdb653ff02a4d1106b9a"
+          "value": "81755d989b3007ca7f88a069857553cd08e7dc2e"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "ee80339fd9177ba44c49cdb653ff02a4d1106b9a"
+          "value": "81755d989b3007ca7f88a069857553cd08e7dc2e"
         },
         {
           "name": "cdx:composer:package:type",
@@ -264,10 +264,10 @@
       ]
     },
     {
-      "bom-ref": "guzzlehttp/promises-2.5.3.0",
+      "bom-ref": "guzzlehttp/promises-2.6.0.0",
       "type": "library",
       "name": "promises",
-      "version": "2.5.3",
+      "version": "2.6.0",
       "group": "guzzlehttp",
       "description": "Guzzle promises library",
       "author": "Graham Campbell, Michael Dowling, Tobias Nyholm, Tobias Schultze",
@@ -278,17 +278,17 @@
           }
         }
       ],
-      "purl": "pkg:composer/guzzlehttp/promises@2.5.3",
+      "purl": "pkg:composer/guzzlehttp/promises@2.6.0",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/guzzle/promises/zipball/cde49999552d185d64715fe9c1f77a2aadd2f9f1",
-          "comment": "dist reference: cde49999552d185d64715fe9c1f77a2aadd2f9f1"
+          "url": "https://api.github.com/repos/guzzle/promises/zipball/3d88c829bd5f13d13847b39067dbf09a60af2154",
+          "comment": "dist reference: 3d88c829bd5f13d13847b39067dbf09a60af2154"
         },
         {
           "type": "vcs",
           "url": "https://github.com/guzzle/promises.git",
-          "comment": "source reference: cde49999552d185d64715fe9c1f77a2aadd2f9f1"
+          "comment": "source reference: 3d88c829bd5f13d13847b39067dbf09a60af2154"
         },
         {
           "type": "issue-tracker",
@@ -297,18 +297,18 @@
         },
         {
           "type": "vcs",
-          "url": "https://github.com/guzzle/promises/tree/2.5.3",
+          "url": "https://github.com/guzzle/promises/tree/2.6.0",
           "comment": "as detected from Composer manifest 'support.source'"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "cde49999552d185d64715fe9c1f77a2aadd2f9f1"
+          "value": "3d88c829bd5f13d13847b39067dbf09a60af2154"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "cde49999552d185d64715fe9c1f77a2aadd2f9f1"
+          "value": "3d88c829bd5f13d13847b39067dbf09a60af2154"
         },
         {
           "name": "cdx:composer:package:type",
@@ -317,10 +317,10 @@
       ]
     },
     {
-      "bom-ref": "guzzlehttp/psr7-2.13.1.0",
+      "bom-ref": "guzzlehttp/psr7-2.13.3.0",
       "type": "library",
       "name": "psr7",
-      "version": "2.13.1",
+      "version": "2.13.3",
       "group": "guzzlehttp",
       "description": "PSR-7 message implementation that also provides common utility methods",
       "author": "Graham Campbell, Michael Dowling, George Mponos, Tobias Nyholm, Márk Sági-Kazár, Tobias Schultze, Márk Sági-Kazár",
@@ -331,17 +331,17 @@
           }
         }
       ],
-      "purl": "pkg:composer/guzzlehttp/psr7@2.13.1",
+      "purl": "pkg:composer/guzzlehttp/psr7@2.13.3",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/guzzle/psr7/zipball/95e7828100de18b4e269fb1703be530082d5166d",
-          "comment": "dist reference: 95e7828100de18b4e269fb1703be530082d5166d"
+          "url": "https://api.github.com/repos/guzzle/psr7/zipball/6d3cd8285a97eaa352956a4ada92fa03ecce1c4e",
+          "comment": "dist reference: 6d3cd8285a97eaa352956a4ada92fa03ecce1c4e"
         },
         {
           "type": "vcs",
           "url": "https://github.com/guzzle/psr7.git",
-          "comment": "source reference: 95e7828100de18b4e269fb1703be530082d5166d"
+          "comment": "source reference: 6d3cd8285a97eaa352956a4ada92fa03ecce1c4e"
         },
         {
           "type": "issue-tracker",
@@ -350,18 +350,18 @@
         },
         {
           "type": "vcs",
-          "url": "https://github.com/guzzle/psr7/tree/2.13.1",
+          "url": "https://github.com/guzzle/psr7/tree/2.13.3",
           "comment": "as detected from Composer manifest 'support.source'"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "95e7828100de18b4e269fb1703be530082d5166d"
+          "value": "6d3cd8285a97eaa352956a4ada92fa03ecce1c4e"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "95e7828100de18b4e269fb1703be530082d5166d"
+          "value": "6d3cd8285a97eaa352956a4ada92fa03ecce1c4e"
         },
         {
           "name": "cdx:composer:package:type",
@@ -915,10 +915,10 @@
       ]
     },
     {
-      "bom-ref": "smalot/pdfparser-2.12.5.0",
+      "bom-ref": "smalot/pdfparser-2.13.1.0",
       "type": "library",
       "name": "pdfparser",
-      "version": "v2.12.5",
+      "version": "v2.13.1",
       "group": "smalot",
       "description": "Pdf parser library. Can read and extract information from pdf file.",
       "author": "Sebastien MALOT",
@@ -929,17 +929,17 @@
           }
         }
       ],
-      "purl": "pkg:composer/smalot/pdfparser@v2.12.5",
+      "purl": "pkg:composer/smalot/pdfparser@v2.13.1",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/smalot/pdfparser/zipball/2cfa0d92bd557875c9f52a75fde0e8392302a354",
-          "comment": "dist reference: 2cfa0d92bd557875c9f52a75fde0e8392302a354"
+          "url": "https://api.github.com/repos/smalot/pdfparser/zipball/a71c6dd38e60a995fdb4d36e4433b8b3557c65dc",
+          "comment": "dist reference: a71c6dd38e60a995fdb4d36e4433b8b3557c65dc"
         },
         {
           "type": "vcs",
           "url": "https://github.com/smalot/pdfparser.git",
-          "comment": "source reference: 2cfa0d92bd557875c9f52a75fde0e8392302a354"
+          "comment": "source reference: a71c6dd38e60a995fdb4d36e4433b8b3557c65dc"
         },
         {
           "type": "website",
@@ -953,18 +953,18 @@
         },
         {
           "type": "vcs",
-          "url": "https://github.com/smalot/pdfparser/tree/v2.12.5",
+          "url": "https://github.com/smalot/pdfparser/tree/v2.13.1",
           "comment": "as detected from Composer manifest 'support.source'"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "2cfa0d92bd557875c9f52a75fde0e8392302a354"
+          "value": "a71c6dd38e60a995fdb4d36e4433b8b3557c65dc"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "2cfa0d92bd557875c9f52a75fde0e8392302a354"
+          "value": "a71c6dd38e60a995fdb4d36e4433b8b3557c65dc"
         },
         {
           "name": "cdx:composer:package:type",
@@ -973,10 +973,10 @@
       ]
     },
     {
-      "bom-ref": "symfony/deprecation-contracts-3.7.1.0",
+      "bom-ref": "symfony/deprecation-contracts-3.8.1.0",
       "type": "library",
       "name": "deprecation-contracts",
-      "version": "v3.7.1",
+      "version": "v3.8.1",
       "group": "symfony",
       "description": "A generic function and convention to trigger deprecation notices",
       "author": "Nicolas Grekas, Symfony Community",
@@ -987,17 +987,17 @@
           }
         }
       ],
-      "purl": "pkg:composer/symfony/deprecation-contracts@v3.7.1",
+      "purl": "pkg:composer/symfony/deprecation-contracts@v3.8.1",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/symfony/deprecation-contracts/zipball/f3202fa1b5097b0af062dc978b32ecf63404e31d",
-          "comment": "dist reference: f3202fa1b5097b0af062dc978b32ecf63404e31d"
+          "url": "https://api.github.com/repos/symfony/deprecation-contracts/zipball/feb1edf4e546af3b85c5caebe8359a20db230ca3",
+          "comment": "dist reference: feb1edf4e546af3b85c5caebe8359a20db230ca3"
         },
         {
           "type": "vcs",
           "url": "https://github.com/symfony/deprecation-contracts.git",
-          "comment": "source reference: f3202fa1b5097b0af062dc978b32ecf63404e31d"
+          "comment": "source reference: feb1edf4e546af3b85c5caebe8359a20db230ca3"
         },
         {
           "type": "website",
@@ -1006,18 +1006,18 @@
         },
         {
           "type": "vcs",
-          "url": "https://github.com/symfony/deprecation-contracts/tree/v3.7.1",
+          "url": "https://github.com/symfony/deprecation-contracts/tree/v3.8.1",
           "comment": "as detected from Composer manifest 'support.source'"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "f3202fa1b5097b0af062dc978b32ecf63404e31d"
+          "value": "feb1edf4e546af3b85c5caebe8359a20db230ca3"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "f3202fa1b5097b0af062dc978b32ecf63404e31d"
+          "value": "feb1edf4e546af3b85c5caebe8359a20db230ca3"
         },
         {
           "name": "cdx:composer:package:type",
@@ -1026,10 +1026,10 @@
       ]
     },
     {
-      "bom-ref": "symfony/polyfill-mbstring-1.43.0.0",
+      "bom-ref": "symfony/polyfill-mbstring-1.43.3.0",
       "type": "library",
       "name": "polyfill-mbstring",
-      "version": "v1.43.0",
+      "version": "v1.43.3",
       "group": "symfony",
       "description": "Symfony polyfill for the Mbstring extension",
       "author": "Nicolas Grekas, Symfony Community",
@@ -1040,17 +1040,17 @@
           }
         }
       ],
-      "purl": "pkg:composer/symfony/polyfill-mbstring@v1.43.0",
+      "purl": "pkg:composer/symfony/polyfill-mbstring@v1.43.3",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/symfony/polyfill-mbstring/zipball/4d5d331bf731e0aedbc6b2f5e61135b7b7996a72",
-          "comment": "dist reference: 4d5d331bf731e0aedbc6b2f5e61135b7b7996a72"
+          "url": "https://api.github.com/repos/symfony/polyfill-mbstring/zipball/122889ed24dc000165bcbfd77ec412f15cbdfc6a",
+          "comment": "dist reference: 122889ed24dc000165bcbfd77ec412f15cbdfc6a"
         },
         {
           "type": "vcs",
           "url": "https://github.com/symfony/polyfill-mbstring.git",
-          "comment": "source reference: 4d5d331bf731e0aedbc6b2f5e61135b7b7996a72"
+          "comment": "source reference: 122889ed24dc000165bcbfd77ec412f15cbdfc6a"
         },
         {
           "type": "website",
@@ -1059,18 +1059,18 @@
         },
         {
           "type": "vcs",
-          "url": "https://github.com/symfony/polyfill-mbstring/tree/v1.43.0",
+          "url": "https://github.com/symfony/polyfill-mbstring/tree/v1.43.3",
           "comment": "as detected from Composer manifest 'support.source'"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "4d5d331bf731e0aedbc6b2f5e61135b7b7996a72"
+          "value": "122889ed24dc000165bcbfd77ec412f15cbdfc6a"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "4d5d331bf731e0aedbc6b2f5e61135b7b7996a72"
+          "value": "122889ed24dc000165bcbfd77ec412f15cbdfc6a"
         },
         {
           "name": "cdx:composer:package:type",
@@ -1132,10 +1132,10 @@
       ]
     },
     {
-      "bom-ref": "symfony/service-contracts-3.7.3.0",
+      "bom-ref": "symfony/service-contracts-3.8.1.0",
       "type": "library",
       "name": "service-contracts",
-      "version": "v3.7.3",
+      "version": "v3.8.1",
       "group": "symfony",
       "description": "Generic abstractions related to writing services",
       "author": "Nicolas Grekas, Symfony Community",
@@ -1146,17 +1146,17 @@
           }
         }
       ],
-      "purl": "pkg:composer/symfony/service-contracts@v3.7.3",
+      "purl": "pkg:composer/symfony/service-contracts@v3.8.1",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/symfony/service-contracts/zipball/15e6a07ec2a2c75ceb1b21dd98105ee8456d2257",
-          "comment": "dist reference: 15e6a07ec2a2c75ceb1b21dd98105ee8456d2257"
+          "url": "https://api.github.com/repos/symfony/service-contracts/zipball/052852a96fd5e5ebdb617dba22031e41a3300fb5",
+          "comment": "dist reference: 052852a96fd5e5ebdb617dba22031e41a3300fb5"
         },
         {
           "type": "vcs",
           "url": "https://github.com/symfony/service-contracts.git",
-          "comment": "source reference: 15e6a07ec2a2c75ceb1b21dd98105ee8456d2257"
+          "comment": "source reference: 052852a96fd5e5ebdb617dba22031e41a3300fb5"
         },
         {
           "type": "website",
@@ -1165,18 +1165,18 @@
         },
         {
           "type": "vcs",
-          "url": "https://github.com/symfony/service-contracts/tree/v3.7.3",
+          "url": "https://github.com/symfony/service-contracts/tree/v3.8.1",
           "comment": "as detected from Composer manifest 'support.source'"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "15e6a07ec2a2c75ceb1b21dd98105ee8456d2257"
+          "value": "052852a96fd5e5ebdb617dba22031e41a3300fb5"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "15e6a07ec2a2c75ceb1b21dd98105ee8456d2257"
+          "value": "052852a96fd5e5ebdb617dba22031e41a3300fb5"
         },
         {
           "name": "cdx:composer:package:type",
@@ -1185,10 +1185,10 @@
       ]
     },
     {
-      "bom-ref": "theodo-group/llphant-1.0.3.0",
+      "bom-ref": "theodo-group/llphant-1.0.10.0",
       "type": "library",
       "name": "llphant",
-      "version": "1.0.3",
+      "version": "1.0.10",
       "group": "theodo-group",
       "description": "LLPhant is a library to help you build Generative AI applications.",
       "author": "Maxime Thoonsen",
@@ -1199,37 +1199,22 @@
           }
         }
       ],
-      "purl": "pkg:composer/theodo-group/llphant@1.0.3",
+      "purl": "pkg:composer/theodo-group/llphant@1.0.10",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/LLPhant/LLPhant/zipball/52fcd7afd58e6d289b9e304ea357695ece9dc518",
-          "comment": "dist reference: 52fcd7afd58e6d289b9e304ea357695ece9dc518"
-        },
-        {
-          "type": "vcs",
-          "url": "https://github.com/LLPhant/LLPhant.git",
-          "comment": "source reference: 52fcd7afd58e6d289b9e304ea357695ece9dc518"
-        },
-        {
-          "type": "vcs",
-          "url": "https://github.com/LLPhant/LLPhant/tree/1.0.3",
-          "comment": "as detected from Composer manifest 'support.source'"
-        },
-        {
-          "type": "issue-tracker",
-          "url": "https://github.com/LLPhant/LLPhant/issues",
-          "comment": "as detected from Composer manifest 'support.issues'"
+          "url": "https://api.github.com/repos/theodo-group/LLPhant/zipball/d0a94b301dad628765a7e543abef9016f81ee387",
+          "comment": "dist reference: d0a94b301dad628765a7e543abef9016f81ee387"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "52fcd7afd58e6d289b9e304ea357695ece9dc518"
+          "value": "d0a94b301dad628765a7e543abef9016f81ee387"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "52fcd7afd58e6d289b9e304ea357695ece9dc518"
+          "value": "d0a94b301dad628765a7e543abef9016f81ee387"
         },
         {
           "name": "cdx:composer:package:type",
@@ -5897,6 +5882,40 @@
         {
           "name": "cdx:npm:package:path",
           "value": "node_modules/@humanwhocodes/retry"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "nonrecursive-glob-match",
+      "group": "@isaacs",
+      "version": "1.1.0",
+      "bom-ref": "hermiq@0.1.0|@isaacs/nonrecursive-glob-match@1.1.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "BlueOak-1.0.0"
+          }
+        }
+      ],
+      "purl": "pkg:npm/%40isaacs/nonrecursive-glob-match@1.1.0",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/@isaacs/nonrecursive-glob-match/-/nonrecursive-glob-match-1.1.0.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "18f9bf0dbbe4e512e68519f15c86bb9d3a4ad31b65e04d308f432c96cb8d889d45211394fb6fbd960502fdd805ec4cb84025a17c4b20c6294c44c09d1cf7c37f"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/@isaacs/nonrecursive-glob-match"
         }
       ]
     },
@@ -13016,10 +13035,6 @@
       ],
       "properties": [
         {
-          "name": "cdx:npm:package:development",
-          "value": "true"
-        },
-        {
           "name": "cdx:npm:package:path",
           "value": "node_modules/balanced-match"
         }
@@ -13263,8 +13278,8 @@
     {
       "type": "library",
       "name": "brace-expansion",
-      "version": "5.0.9",
-      "bom-ref": "hermiq@0.1.0|brace-expansion@5.0.9",
+      "version": "5.0.13",
+      "bom-ref": "hermiq@0.1.0|brace-expansion@5.0.13",
       "licenses": [
         {
           "license": {
@@ -13272,25 +13287,21 @@
           }
         }
       ],
-      "purl": "pkg:npm/brace-expansion@5.0.9",
+      "purl": "pkg:npm/brace-expansion@5.0.13",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.9.tgz",
+          "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.13.tgz",
           "type": "distribution",
           "hashes": [
             {
               "alg": "SHA-512",
-              "content": "49c43822ebc8105d533253fb66dfaf8c9ffff7394f6f64837315b13376e4f2ceade8619d27b28ed5d09c4e274e3c929e3d6df42c4ff6713ef00b23e1a3dfd6c6"
+              "content": "561ddd9856dce3065ea31eccf48ff42fd19f15df374aee3ec82724fce17d1a2fcffdd0079f4453ed7e0af51ee030d3210dc9370ef851e905ec9d07638e0c0dbd"
             }
           ],
           "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
         }
       ],
       "properties": [
-        {
-          "name": "cdx:npm:package:development",
-          "value": "true"
-        },
         {
           "name": "cdx:npm:package:path",
           "value": "node_modules/brace-expansion"
@@ -17289,8 +17300,8 @@
     {
       "type": "library",
       "name": "eslint",
-      "version": "10.11.0",
-      "bom-ref": "hermiq@0.1.0|eslint@10.11.0",
+      "version": "10.13.0",
+      "bom-ref": "hermiq@0.1.0|eslint@10.13.0",
       "licenses": [
         {
           "license": {
@@ -17298,15 +17309,15 @@
           }
         }
       ],
-      "purl": "pkg:npm/eslint@10.11.0",
+      "purl": "pkg:npm/eslint@10.13.0",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/eslint/-/eslint-10.11.0.tgz",
+          "url": "https://registry.npmjs.org/eslint/-/eslint-10.13.0.tgz",
           "type": "distribution",
           "hashes": [
             {
               "alg": "SHA-512",
-              "content": "3fb6ba50412a6fd1bde4c600b6a926b136d55c8632cc87e5e8d18e209935eb63da6a117117278672b9576054a26a0102838b049bc22c78975904a477af1e8cb1"
+              "content": "5288438c3e334b313085fe7c3373bbbdcff271cf0ed48edd36586d0f45b113c3f1f041cd24ab54c3306aaf3786862b11bafd9a838b0062cc2ccc225180a5d852"
             }
           ],
           "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
@@ -17327,7 +17338,7 @@
           "type": "library",
           "name": "ajv",
           "version": "6.15.0",
-          "bom-ref": "hermiq@0.1.0|eslint@10.11.0|ajv@6.15.0",
+          "bom-ref": "hermiq@0.1.0|eslint@10.13.0|ajv@6.15.0",
           "licenses": [
             {
               "license": {
@@ -17364,7 +17375,7 @@
           "type": "library",
           "name": "eslint-visitor-keys",
           "version": "5.0.1",
-          "bom-ref": "hermiq@0.1.0|eslint@10.11.0|eslint-visitor-keys@5.0.1",
+          "bom-ref": "hermiq@0.1.0|eslint@10.13.0|eslint-visitor-keys@5.0.1",
           "licenses": [
             {
               "license": {
@@ -17401,7 +17412,7 @@
           "type": "library",
           "name": "espree",
           "version": "11.2.0",
-          "bom-ref": "hermiq@0.1.0|eslint@10.11.0|espree@11.2.0",
+          "bom-ref": "hermiq@0.1.0|eslint@10.13.0|espree@11.2.0",
           "licenses": [
             {
               "license": {
@@ -17438,7 +17449,7 @@
           "type": "library",
           "name": "json-schema-traverse",
           "version": "0.4.1",
-          "bom-ref": "hermiq@0.1.0|eslint@10.11.0|json-schema-traverse@0.4.1",
+          "bom-ref": "hermiq@0.1.0|eslint@10.13.0|json-schema-traverse@0.4.1",
           "licenses": [
             {
               "license": {
@@ -25827,8 +25838,8 @@
     {
       "type": "library",
       "name": "pbkdf2",
-      "version": "3.1.6",
-      "bom-ref": "hermiq@0.1.0|pbkdf2@3.1.6",
+      "version": "3.1.7",
+      "bom-ref": "hermiq@0.1.0|pbkdf2@3.1.7",
       "licenses": [
         {
           "license": {
@@ -25836,15 +25847,15 @@
           }
         }
       ],
-      "purl": "pkg:npm/pbkdf2@3.1.6",
+      "purl": "pkg:npm/pbkdf2@3.1.7",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/pbkdf2/-/pbkdf2-3.1.6.tgz",
+          "url": "https://registry.npmjs.org/pbkdf2/-/pbkdf2-3.1.7.tgz",
           "type": "distribution",
           "hashes": [
             {
               "alg": "SHA-512",
-              "content": "053e9e7a53c1d44c861e8f290b4a3d065ea4e9261584a3b58c46ddde5713aedafb5c77633fc056d58a5f095dc6f4ac24c606adb64f92e6adbf46fbadb42b12d6"
+              "content": "9d2e26bc5815c14ade70f4d176976c78cd9fc2975f9d7d3f1e26c0f03801450b628540331d0609154da5f8e944b625eda6a92b32f08f0f0c973149c0483b7a43"
             }
           ],
           "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
@@ -27035,8 +27046,8 @@
     {
       "type": "library",
       "name": "qs",
-      "version": "6.16.0",
-      "bom-ref": "hermiq@0.1.0|qs@6.16.0",
+      "version": "6.17.1",
+      "bom-ref": "hermiq@0.1.0|qs@6.17.1",
       "licenses": [
         {
           "license": {
@@ -27044,15 +27055,15 @@
           }
         }
       ],
-      "purl": "pkg:npm/qs@6.16.0",
+      "purl": "pkg:npm/qs@6.17.1",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/qs/-/qs-6.16.0.tgz",
+          "url": "https://registry.npmjs.org/qs/-/qs-6.17.1.tgz",
           "type": "distribution",
           "hashes": [
             {
               "alg": "SHA-512",
-              "content": "87a7e1388691ac80f609b118d9faacfbbb7e517668f8c2c09d4e60448abce6e16d76250f09db00a4c947857a202953381ccd8355b22318d4d3607d8e7263f5bc"
+              "content": "8dddc23a468a5601945be647c841c21bd6c7ed1a1a6a25ae320cec2018d43158cb01a5865a9a14015c258d5bc11f146eff6a841e769d2c666b92eb585013d024"
             }
           ],
           "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
@@ -28308,8 +28319,8 @@
     {
       "type": "library",
       "name": "sass",
-      "version": "1.104.1",
-      "bom-ref": "hermiq@0.1.0|sass@1.104.1",
+      "version": "1.106.1",
+      "bom-ref": "hermiq@0.1.0|sass@1.106.1",
       "licenses": [
         {
           "license": {
@@ -28317,15 +28328,15 @@
           }
         }
       ],
-      "purl": "pkg:npm/sass@1.104.1",
+      "purl": "pkg:npm/sass@1.106.1",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/sass/-/sass-1.104.1.tgz",
+          "url": "https://registry.npmjs.org/sass/-/sass-1.106.1.tgz",
           "type": "distribution",
           "hashes": [
             {
               "alg": "SHA-512",
-              "content": "c8303ed5a206dc41e037857f06fba10afbbad4517a8447787bef43c629149bd5340801aebdd219fd4632eea6cec6385b6d642b6a8c8b94cbb375118e495e419b"
+              "content": "903f868baeafc9c65c6c9b7ee36342e33e0f5cd31c09a8d5ac93e1aa828a5f2e5c381326250b74e760b12017118f061778898760ea6eff275658665021e9e5ec"
             }
           ],
           "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
@@ -29836,8 +29847,8 @@
     {
       "type": "library",
       "name": "stylelint",
-      "version": "17.15.0",
-      "bom-ref": "hermiq@0.1.0|stylelint@17.15.0",
+      "version": "17.16.0",
+      "bom-ref": "hermiq@0.1.0|stylelint@17.16.0",
       "licenses": [
         {
           "license": {
@@ -29845,15 +29856,15 @@
           }
         }
       ],
-      "purl": "pkg:npm/stylelint@17.15.0",
+      "purl": "pkg:npm/stylelint@17.16.0",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/stylelint/-/stylelint-17.15.0.tgz",
+          "url": "https://registry.npmjs.org/stylelint/-/stylelint-17.16.0.tgz",
           "type": "distribution",
           "hashes": [
             {
               "alg": "SHA-512",
-              "content": "9962247ac610bd08dfe0abdd7aef67b3420bf3f2bfc2d8da1b13eab0f77a0e52d9bda4311b2b09b28731503ac17321d0e5595e024e2e48c6ade3232b5440fb3c"
+              "content": "7a39569db275df1d46537dbecd95daeac61026c28a93049dbf6078ac074edce59d126be148929c5e2e693a9850612cf26a3d645e9b8626bee970c04d7c322e3f"
             }
           ],
           "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
@@ -29874,7 +29885,7 @@
           "type": "library",
           "name": "ignore",
           "version": "7.0.7",
-          "bom-ref": "hermiq@0.1.0|stylelint@17.15.0|ignore@7.0.7",
+          "bom-ref": "hermiq@0.1.0|stylelint@17.16.0|ignore@7.0.7",
           "licenses": [
             {
               "license": {
@@ -32656,24 +32667,24 @@
         {
           "type": "library",
           "name": "minimatch",
-          "version": "9.0.9",
-          "bom-ref": "hermiq@0.1.0|webdav@5.10.0|minimatch@9.0.9",
+          "version": "11.0.8",
+          "bom-ref": "hermiq@0.1.0|webdav@5.10.0|minimatch@11.0.8",
           "licenses": [
             {
               "license": {
-                "id": "ISC"
+                "id": "BlueOak-1.0.0"
               }
             }
           ],
-          "purl": "pkg:npm/minimatch@9.0.9",
+          "purl": "pkg:npm/minimatch@11.0.8",
           "externalReferences": [
             {
-              "url": "https://registry.npmjs.org/minimatch/-/minimatch-9.0.9.tgz",
+              "url": "https://registry.npmjs.org/minimatch/-/minimatch-11.0.8.tgz",
               "type": "distribution",
               "hashes": [
                 {
                   "alg": "SHA-512",
-                  "content": "381c0137d00be1daa61139694b6cdab31faf4de59c956ce46e57d993b2930398f78de38e373fed4429d9a26532bcd83cdf02f966ff52b3a1cc2570202fc47662"
+                  "content": "9c542e6124d5ac6bf2b15069b39221fb405d9d814dfc28f70bcd7aafafa9ef22be147ad52c61383b837d005c3292b94d96f3361d8b7e45a775522ae8ea1f3c22"
                 }
               ],
               "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
@@ -32683,72 +32694,6 @@
             {
               "name": "cdx:npm:package:path",
               "value": "node_modules/webdav/node_modules/minimatch"
-            }
-          ]
-        },
-        {
-          "type": "library",
-          "name": "brace-expansion",
-          "version": "2.1.8",
-          "bom-ref": "hermiq@0.1.0|webdav@5.10.0|brace-expansion@2.1.8",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT"
-              }
-            }
-          ],
-          "purl": "pkg:npm/brace-expansion@2.1.8",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-2.1.8.tgz",
-              "type": "distribution",
-              "hashes": [
-                {
-                  "alg": "SHA-512",
-                  "content": "067943cc3610a29953b194af3e2f3a08dce66dc6f4ed7f2e7d1f1f935ce2bda8842655c9922ab5310c830959a559cb166e3e9a597a879ebc307af6eb9bf49a8a"
-                }
-              ],
-              "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/webdav/node_modules/brace-expansion"
-            }
-          ]
-        },
-        {
-          "type": "library",
-          "name": "balanced-match",
-          "version": "1.0.2",
-          "bom-ref": "hermiq@0.1.0|webdav@5.10.0|balanced-match@1.0.2",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT"
-              }
-            }
-          ],
-          "purl": "pkg:npm/balanced-match@1.0.2",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/balanced-match/-/balanced-match-1.0.2.tgz",
-              "type": "distribution",
-              "hashes": [
-                {
-                  "alg": "SHA-512",
-                  "content": "de849e50ed13315ebb84dd4099b5ec2b8c9aa94eed8e21e56f144364ea47d0a5bdf82797e1b440697d009f1b74b71d8cae94695b041a3f02252121098585393f"
-                }
-              ],
-              "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/webdav/node_modules/balanced-match"
             }
           ]
         }
@@ -33252,31 +33197,31 @@
       "ref": "cweagans/composer-configurable-plugin-2.0.0.0"
     },
     {
-      "ref": "dragonmantank/cron-expression-3.6.0.0"
+      "ref": "dragonmantank/cron-expression-3.6.1.0"
     },
     {
-      "ref": "guzzlehttp/guzzle-7.15.5.0",
+      "ref": "guzzlehttp/guzzle-7.16.1.0",
       "dependsOn": [
-        "guzzlehttp/promises-2.5.3.0",
-        "guzzlehttp/psr7-2.13.1.0",
+        "guzzlehttp/promises-2.6.0.0",
+        "guzzlehttp/psr7-2.13.3.0",
         "psr/http-client-1.0.3.0",
-        "symfony/deprecation-contracts-3.7.1.0",
+        "symfony/deprecation-contracts-3.8.1.0",
         "symfony/polyfill-php80-1.43.0.0"
       ]
     },
     {
-      "ref": "guzzlehttp/promises-2.5.3.0",
+      "ref": "guzzlehttp/promises-2.6.0.0",
       "dependsOn": [
-        "symfony/deprecation-contracts-3.7.1.0"
+        "symfony/deprecation-contracts-3.8.1.0"
       ]
     },
     {
-      "ref": "guzzlehttp/psr7-2.13.1.0",
+      "ref": "guzzlehttp/psr7-2.13.3.0",
       "dependsOn": [
         "psr/http-factory-1.1.0.0",
         "psr/http-message-2.0.0.0",
         "ralouphie/getallheaders-3.0.3.0",
-        "symfony/deprecation-contracts-3.7.1.0",
+        "symfony/deprecation-contracts-3.8.1.0",
         "symfony/polyfill-php80-1.43.0.0"
       ]
     },
@@ -33325,53 +33270,53 @@
       "ref": "ralouphie/getallheaders-3.0.3.0"
     },
     {
-      "ref": "smalot/pdfparser-2.12.5.0",
+      "ref": "smalot/pdfparser-2.13.1.0",
       "dependsOn": [
-        "symfony/polyfill-mbstring-1.43.0.0"
+        "symfony/polyfill-mbstring-1.43.3.0"
       ]
     },
     {
-      "ref": "symfony/deprecation-contracts-3.7.1.0"
+      "ref": "symfony/deprecation-contracts-3.8.1.0"
     },
     {
-      "ref": "symfony/polyfill-mbstring-1.43.0.0"
+      "ref": "symfony/polyfill-mbstring-1.43.3.0"
     },
     {
       "ref": "symfony/polyfill-php80-1.43.0.0"
     },
     {
-      "ref": "symfony/service-contracts-3.7.3.0",
+      "ref": "symfony/service-contracts-3.8.1.0",
       "dependsOn": [
         "psr/container-2.0.2.0",
-        "symfony/deprecation-contracts-3.7.1.0"
+        "symfony/deprecation-contracts-3.8.1.0"
       ]
     },
     {
-      "ref": "theodo-group/llphant-1.0.3.0",
+      "ref": "theodo-group/llphant-1.0.10.0",
       "dependsOn": [
-        "guzzlehttp/guzzle-7.15.5.0",
-        "guzzlehttp/psr7-2.13.1.0",
+        "guzzlehttp/guzzle-7.16.1.0",
+        "guzzlehttp/psr7-2.13.3.0",
         "openai-php/client-0.19.2.0",
         "php-http/multipart-stream-builder-1.4.2.0",
         "phpoffice/phpword-1.4.0.0",
         "psr/http-client-1.0.3.0",
         "psr/http-message-2.0.0.0",
         "psr/log-3.0.2.0",
-        "smalot/pdfparser-2.12.5.0",
+        "smalot/pdfparser-2.13.1.0",
         "yethee/tiktoken-0.10.0.0"
       ]
     },
     {
       "ref": "yethee/tiktoken-0.10.0.0",
       "dependsOn": [
-        "symfony/service-contracts-3.7.3.0"
+        "symfony/service-contracts-3.8.1.0"
       ]
     },
     {
       "ref": "conductionnl/hermiq-0.1.0.0",
       "dependsOn": [
-        "dragonmantank/cron-expression-3.6.0.0",
-        "theodo-group/llphant-1.0.3.0"
+        "dragonmantank/cron-expression-3.6.1.0",
+        "theodo-group/llphant-1.0.10.0"
       ]
     }
   ]
