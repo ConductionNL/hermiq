@@ -44,6 +44,9 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Engine;
 
 use OCA\Hermiq\Kernel\Contracts\ConversationTitleWriterInterface;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -180,8 +183,7 @@ class ConversationTitleWriter implements ConversationTitleWriterInterface {
 		try {
 			$conversation = $this->objectService->find(
 				id: $conversationId,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 		} catch (Throwable $e) {
 			$this->logger->info(
@@ -264,9 +266,10 @@ class ConversationTitleWriter implements ConversationTitleWriterInterface {
 
 		$this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $conversationData),
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
-			uuid: $conversationId
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+				uuid: $conversationId
+			)
 		);
 
 	}//end writeAsOwner()

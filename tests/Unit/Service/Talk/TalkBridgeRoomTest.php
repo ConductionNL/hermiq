@@ -181,6 +181,27 @@ final class TalkBridgeRoomTest extends TestCase {
 	}//end testAPostIsGuardedAndFailsAsAWarnedNull()
 
 	/**
+	 * postToRoom() reports success as a bool over the same post: true when a
+	 * comment id came back, false when the post was refused or failed.
+	 *
+	 * @return void
+	 */
+	public function testPostToRoomIsTheBooleanFormOfThePost(): void {
+		self::assertTrue($this->bridge()->postToRoom(roomToken: 'room-1', message: 'Hi', agentId: 'agent-2'));
+		self::assertCount(1, $this->sent);
+		self::assertSame('bot-' . sha1(TalkBridge::botUrlFor(agentId: 'agent-2')), $this->sent[0][3]);
+		self::assertSame('Hi', $this->sent[0][4]);
+
+		self::assertTrue($this->bridge()->postToRoom(roomToken: 'room-1', message: 'Shared'));
+		self::assertSame('bot-' . sha1(TalkBridge::BOT_URL), $this->sent[1][3]);
+
+		self::assertFalse($this->bridge()->postToRoom(roomToken: '', message: 'Hi'));
+		$this->fail = true;
+		self::assertFalse($this->bridge()->postToRoom(roomToken: 'room-1', message: 'Hi'));
+		self::assertCount(2, $this->sent);
+	}//end testPostToRoomIsTheBooleanFormOfThePost()
+
+	/**
 	 * One-to-one is room type 1 or 5; anything else, no Talk, no token or a failure is a group room.
 	 *
 	 * @return void

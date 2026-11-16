@@ -37,6 +37,8 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for the deferred conversation-title writer.
@@ -322,7 +324,11 @@ class ConversationTitleWriterTest extends TestCase {
 		$objectService->expects($this->once())
 			->method('saveObject')
 			->willReturnCallback(
-				function (array $object, mixed $extend = null, mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$saved): ObjectEntity {
+				function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$saved): ObjectEntity {
+					$extend = $options->extend;
+					$register = $options->target->register;
+					$schema = $options->target->schema;
+					$uuid = $options->uuid;
 					$saved = $object;
 					return new ObjectEntity();
 				}
@@ -584,6 +590,7 @@ class ConversationTitleWriterTest extends TestCase {
 		$saved = [];
 		$objectService->method('saveObject')->willReturnCallback(
 			function (...$args) use (&$saved): ObjectEntity {
+				$args = LegacyObjectArgs::flatten(args: $args);
 				$saved[] = ($args['object'] ?? $args[0]);
 				return new ObjectEntity();
 			}
@@ -603,4 +610,38 @@ class ConversationTitleWriterTest extends TestCase {
 		$this->assertSame('Leave policy', $saved[0]['title']);
 		$this->assertSame('kept', $saved[0]['summary']);
 	}//end testAnEmptyTitleIsGenerated()
+
+	/**
+	 * A conversation whose read throws (deleted, or no longer readable) is a
+	 * no-op too, and the owner's session is still released.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
+	 */
+	public function testAConversationThatCannotBeReadIsANoOp(): void {
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->expects($this->once())->method('find')
+			->with(...LegacyObjectArgs::with(method: 'find', expected: [
+				'id' => 'gone',
+				'_extend' => [],
+				'files' => false,
+				'register' => 'hermiq',
+				'schema' => 'agentsession',
+			]))
+			->willThrowException(new \RuntimeException('Object not found'));
+		$objectService->expects($this->never())->method('saveObject');
+
+		$handler = $this->createMock(ConversationManagementHandler::class);
+		$handler->expects($this->never())->method('generateConversationTitle');
+
+		$this->writer($objectService, $handler)->write(
+			conversationId: 'gone',
+			userMessage: 'anything',
+			userId: 'alice'
+		);
+
+		$this->assertSame(['setUser:alice', 'setUser:null'], $this->calls);
+
+	}//end testAConversationThatCannotBeReadIsANoOp()
 }//end class

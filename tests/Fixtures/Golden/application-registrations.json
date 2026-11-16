@@ -280,6 +280,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\TraceExportDeliveryInterface",
+            "OCA\\Hermiq\\Service\\TraceExport\\TraceExportDelivery"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\CourseRecommendationEngineInterface",
             "OCA\\Hermiq\\Service\\CourseRecommendationEngine"
         ],
@@ -382,6 +387,11 @@
             "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\IntakeSettingsInterface",
             "OCA\\Hermiq\\Service\\Intake\\IntakeSettings"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\FormFillEngineInterface",
+            "OCA\\Hermiq\\Service\\FormFillEngine"
         ],
         [
             "registerServiceAlias",
@@ -560,6 +570,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\SessionShareServiceInterface",
+            "OCA\\Hermiq\\Service\\SessionShareService"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\SessionPendingApprovalsInterface",
             "OCA\\Hermiq\\Service\\Chat\\SessionPendingApprovals"
         ],
@@ -597,6 +612,11 @@
             "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\SkillMarketplaceServiceInterface",
             "OCA\\Hermiq\\Service\\SkillMarketplaceService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\SkillMergeServiceInterface",
+            "OCA\\Hermiq\\Service\\SkillMergeService"
         ],
         [
             "registerServiceAlias",
@@ -680,6 +700,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\TalkMessageToolInterface",
+            "OCA\\Hermiq\\Service\\NcNative\\TalkMessageTool"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\ToolAccessRequestServiceInterface",
             "OCA\\Hermiq\\Service\\ToolAccessRequestService"
         ],
@@ -725,6 +750,31 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\BudgetHardCapInterface",
+            "OCA\\Hermiq\\Service\\BudgetService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AnswerProvenanceWriterInterface",
+            "OCA\\Hermiq\\Service\\Engine\\AnswerProvenanceWriter"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\SessionForkServiceInterface",
+            "OCA\\Hermiq\\Service\\SessionForkService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AgentArtefactMarkerInterface",
+            "OCA\\Hermiq\\Service\\NcNative\\AgentArtefactMarker"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AiLabelStatsServiceInterface",
+            "OCA\\Hermiq\\Service\\AiLabelStatsService"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Service\\Workspace\\WorkspaceProvider",
             "OCA\\Hermiq\\Service\\Workspace\\ServerSideWorkspaceProvider"
         ],
@@ -762,6 +812,14 @@
         [
             "registerTaskProcessingProvider",
             "OCA\\Hermiq\\TaskProcessing\\Text2TextHeadlineProvider"
+        ],
+        [
+            "registerTaskProcessingProvider",
+            "OCA\\Hermiq\\TaskProcessing\\Text2TextReformulationProvider"
+        ],
+        [
+            "registerTaskProcessingProvider",
+            "OCA\\Hermiq\\TaskProcessing\\Text2TextTranslateProvider"
         ],
         [
             "registerTaskProcessingProvider",

@@ -68,7 +68,9 @@ use OCA\Hermiq\Service\Chat\ImageGenerationService;
 use OCA\Hermiq\Service\Chat\TurnAttachmentResolver;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
+use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\BackgroundJob\IJobList;
 use OCP\IUserManager;
@@ -173,6 +175,7 @@ class Engine implements EngineInterface {
 	 *                                                        refuses any turn that carries one.
 	 * @param ImageGenerationService|null $images Hands over the images the agent created in the
 	 *                                            turn, for the answer (chat-attachments-and-images D8).
+	 * @param TraceExportQueue|null $traceExportQueue Hands the finished run to trace export (observability-export-traces).
 	 *
 	 * @return void
 	 *
@@ -199,6 +202,7 @@ class Engine implements EngineInterface {
 		private readonly ?PromptVariableResolver $promptVariables = null,
 		private readonly ?TurnAttachmentResolver $attachmentResolver = null,
 		private readonly ?ImageGenerationService $images = null,
+		private readonly ?TraceExportQueue $traceExportQueue = null,
 	) {
 	}//end __construct()
 
@@ -321,6 +325,7 @@ class Engine implements EngineInterface {
 					'authorId' => $authorId,
 					'authorDisplayName' => $authorDisplayName,
 					'attachments' => $attachments,
+					'ragSettings' => $ragSettings,
 				]
 			);
 			$turn += [
@@ -368,7 +373,7 @@ class Engine implements EngineInterface {
 			$turn['provenance'] = (new AnswerProvenance())->build(trace: $trace, sources: $turn['sources']);
 			$turn['assistantStored'] = $this->storeAnswer(turn: $turn);
 
-			return $this->turnEnvelope(turn: $turn, timings: $timings);
+			return $this->exportTurn(turn: $turn, envelope: $this->turnEnvelope(turn: $turn, timings: $timings), timings: $timings);
 		} catch (Exception $e) {
 			$this->logger->error(
 				message: '[Engine] Message processing failed',
@@ -405,8 +410,7 @@ class Engine implements EngineInterface {
 		$turn = $request;
 		$turn['conversation'] = $this->objectService->find(
 			id: $request['conversationId'],
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 		);
 		if ($turn['conversation'] === null) {
 			throw new Exception('Conversation not found: ' . $request['conversationId']);
@@ -432,6 +436,13 @@ class Engine implements EngineInterface {
 			speaker: ($turn['authorId'] ?? $request['userId'])
 		);
 
+		// Chat-about-a-document: a turn scoped to a file or folder the speaker
+		// cannot open is refused (404), read as the speaker like an attachment.
+		$this->contextHandler->assertScopeReadable(
+			ragSettings: $request['ragSettings'],
+			speaker: ($turn['authorId'] ?? $request['userId'])
+		);
+
 		$turn['agent'] = null;
 		$agentId = $turn['conversationData']['agentId'] ?? null;
 		if (is_string($agentId) === true && $agentId !== '') {
@@ -442,8 +453,7 @@ class Engine implements EngineInterface {
 			// still applies.
 			$turn['agent'] = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false
 			);
 		}
@@ -502,7 +512,8 @@ class Engine implements EngineInterface {
 			query: $turn['userMessage'],
 			agent: $turn['agent'],
 			selectedViews: $turn['selectedViews'],
-			ragSettings: $turn['ragSettings']
+			ragSettings: $turn['ragSettings'],
+			speaker: $this->scopeSpeaker(turn: $turn)
 		);
 		$timings['context'] = microtime(true) - $startTime;
 		if ($token !== null) {
@@ -511,6 +522,24 @@ class Engine implements EngineInterface {
 
 		return $context;
 	}//end turnContext()
+
+	/**
+	 * The uid a scoped turn's files are read as: the speaker, never the owner.
+	 * An unscoped turn reads no Files, so it passes none.
+	 *
+	 * @param array<string, mixed> $turn The turn.
+	 *
+	 * @return string The speaker's uid, or ''.
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 */
+	private function scopeSpeaker(array $turn): string {
+		if (is_array($turn['ragSettings']['scope'] ?? null) === false) {
+			return '';
+		}
+
+		return (string)($turn['authorId'] ?? $turn['userId']);
+	}//end scopeSpeaker()
 
 	/**
 	 * Build the turn's history of earlier turns, timed as a `history` step.
@@ -665,6 +694,46 @@ class Engine implements EngineInterface {
 			'skillsUsed' => $turn['skillsUsed'],
 		];
 	}//end turnEnvelope()
+
+	/**
+	 * Hand the finished chat turn to trace export (observability-export-traces D5).
+	 *
+	 * Only the turn's identities, timing, usage and step timeline are handed over, plus
+	 * the prompt and answer for the exporter to filter and redact when an administrator
+	 * chose redacted text. A dry run is a preview and is not exported. Never throws: the
+	 * queue swallows its own failures, so the turn's result is never changed.
+	 *
+	 * @param array<string, mixed> $turn     The finished turn.
+	 * @param array<string, mixed> $envelope The turn's result envelope.
+	 * @param array<string, float> $timings  The context, history and llm timings, in seconds.
+	 *
+	 * @return array<string, mixed> The envelope, unchanged.
+	 *
+	 * @spec openspec/changes/observability-export-traces/tasks.md#task-4-every-run-writer-and-the-chat-turn-enqueue
+	 */
+	private function exportTurn(array $turn, array $envelope, array $timings): array {
+		if ($this->traceExportQueue === null || ($turn['dryRun'] ?? false) === true) {
+			return $envelope;
+		}
+
+		$endedAt = microtime(true);
+		$this->traceExportQueue->enqueueChatTurn(
+			turn: [
+				'conversationId' => (string)($turn['conversationId'] ?? ''),
+				'userId' => (string)($turn['userId'] ?? ''),
+				'agentId' => (string)($turn['conversationData']['agentId'] ?? ''),
+				'prompt' => (string)($turn['userMessage'] ?? ''),
+				'message' => (string)($envelope['message'] ?? ''),
+				'usage' => (array)($envelope['usage'] ?? []),
+				'steps' => (array)($envelope['steps'] ?? []),
+				'startedAt' => ($endedAt - (float)array_sum($timings)),
+				'endedAt' => $endedAt,
+			],
+			organisation: (string)($turn['organisation'] ?? '')
+		);
+
+		return $envelope;
+	}//end exportTurn()
 
 	/**
 	 * Store the user's turn, then check whether the conversation needs a summary.

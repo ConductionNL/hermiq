@@ -103,6 +103,7 @@ use OCA\Hermiq\Kernel\Contracts\MailReadServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\MemoryServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\NcNativeWriteServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\TaskWriteServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkMessageToolInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\WebFetchServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\WebSearchClientInterface;
@@ -559,6 +560,51 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'idempotentHint' => false,
 			'scope' => 'create',
 		],
+		[
+			'id' => AppIdentity::APP_ID . '.delegateAgents',
+			// The same act as `delegateAgent`, for several independent parts at
+			// once: each part passes every gate a single delegation passes.
+			'subject' => 'agent',
+			'action' => 'delegate',
+			'reach' => ToolReachResolver::REACH_INSTANCE,
+			'name' => 'Delegate parts to several agents',
+			'description' => 'Hand several independent parts of one task to agents on your delegation allowlist, '
+				. 'in the same organisation, in one call. Use this instead of several delegateAgent calls when the '
+				. 'parts do not depend on each other. Each part runs the target agent in its own isolated '
+				. 'conversation. Returns one result per part, in the order of the parts: its final text, or why '
+				. 'it was refused or failed. A refused part does not stop the others.',
+			'inputSchema' => [
+				'type' => 'object',
+				'properties' => [
+					'parts' => [
+						'type' => 'array',
+						'minItems' => 1,
+						'description' => 'The parts, each with the agent to hand it to and its bounded task.',
+						'items' => [
+							'type' => 'object',
+							'properties' => [
+								'targetAgentId' => [
+									'type' => 'string',
+									'format' => 'uuid',
+									'description' => 'UUID of the agent for this part (must be on your delegation allowlist).',
+								],
+								'task' => [
+									'type' => 'string',
+									'description' => 'The bounded task/prompt for this part.',
+								],
+							],
+							'required' => ['targetAgentId', 'task'],
+						],
+					],
+				],
+				'required' => ['parts'],
+			],
+			// Real sub-agent runs, like delegateAgent: never read-only, never idempotent.
+			'readOnlyHint' => false,
+			'destructiveHint' => true,
+			'idempotentHint' => false,
+			'scope' => 'create',
+		],
 	];
 
 	/**
@@ -664,6 +710,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			WorkspaceToolDescriptors::ALL,
 			GraphToolDescriptors::ALL,
 			$this->taskDescriptors(),
+			NcTalkToolDescriptors::ALL,
 			$this->imageDescriptors(),
 			$this->customToolDescriptors()
 		);
@@ -802,6 +849,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			in_array($toolId, GraphToolDescriptors::IDS, true) => GraphToolsInterface::class,
 			in_array($toolId, NcTaskToolDescriptors::IDS, true) => TaskWriteServiceInterface::class,
 			in_array($toolId, ImageToolDescriptors::IDS, true) => ImageGenerationServiceInterface::class,
+			in_array($toolId, NcTalkToolDescriptors::IDS, true) => TalkMessageToolInterface::class,
 			default => null,
 		};
 
@@ -902,6 +950,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 			// carry per-agent data — attribution lives in the run trace.
 			AppIdentity::APP_ID . '.createNote' => $this->writeService->createNote(uid: $call->uid, arguments: $call->arguments),
 			AppIdentity::APP_ID . '.updateNote' => $this->writeService->updateNote(uid: $call->uid, arguments: $call->arguments),
+			AppIdentity::APP_ID . '.createFile' => $this->writeService->createFile(uid: $call->uid, arguments: $call->arguments),
+			AppIdentity::APP_ID . '.moveFile' => $this->writeService->moveFile(uid: $call->uid, arguments: $call->arguments),
 			AppIdentity::APP_ID . '.listMailAccounts' => $this->mailReadService->listAccounts(uid: $call->uid),
 			AppIdentity::APP_ID . '.listMailMessages' => $this->mailReadService->listMessages(uid: $call->uid, arguments: $call->arguments),
 			AppIdentity::APP_ID . '.readMailMessage' => $this->mailReadService->readMessage(uid: $call->uid, arguments: $call->arguments),
@@ -948,6 +998,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			AppIdentity::APP_ID . '.webSearch' => $this->webSearch(uid: $call->uid, query: $call->text(name: 'query')),
 			AppIdentity::APP_ID . '.webFetch' => $this->webFetch(url: $call->text(name: 'url')),
 			AppIdentity::APP_ID . '.delegateAgent' => $this->delegateAgent(arguments: $call->arguments),
+			AppIdentity::APP_ID . '.delegateAgents' => $this->delegateAgents(arguments: $call->arguments),
 			AppIdentity::APP_ID . '.listAvailableTools' => $this->accessRequests->listAvailable(
 				uid: $call->uid,
 				agentId: $call->agentId,
@@ -992,6 +1043,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @param string $path The folder path relative to the user root.
 	 *
 	 * @return array<string, mixed> The listing, or an error envelope.
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/nc-native-tools/spec.md#REQ-SPCOV-005
 	 */
 	private function listFiles(string $uid, string $path): array {
 		$target = $this->listingTarget(userFolder: $this->rootFolder->getUserFolder($uid), path: $path);
@@ -1067,6 +1119,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @param string $path The file path relative to the user root.
 	 *
 	 * @return array<string, mixed> The content, or an error envelope.
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/nc-native-tools/spec.md#REQ-SPCOV-005
 	 */
 	private function readFile(string $uid, string $path): array {
 		if (trim($path, '/') === '') {
@@ -1135,6 +1188,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @param int $days The look-ahead window in days.
 	 *
 	 * @return array<string, mixed> The events, or an error envelope.
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/nc-native-tools/spec.md#REQ-SPCOV-006
 	 */
 	private function listCalendarEvents(string $uid, int $days): array {
 		$window = max(1, min(90, $days));
@@ -1417,6 +1471,32 @@ class HermiqToolProvider implements IMcpToolProvider {
 
 		return $this->delegationService->delegate(callerAgentId: $callerAgentId, targetAgentId: $targetAgentId, task: $task);
 	}//end delegateAgent()
+
+	/**
+	 * Delegate several independent parts to sub-agents in one call
+	 * (delegation-runs-in-parallel). Checks the tool's own input shape, then
+	 * forwards to `DelegationService::delegateMany()`, where every gate lives.
+	 *
+	 * @param array<string, mixed> $arguments The tool arguments (`parts`, plus the
+	 *                                        run-injected `agentId`).
+	 *
+	 * @return array<string, mixed> One result per part, or an error envelope.
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-several-parts-of-one-task-run-on-sub-agents-at-the-same-time-req-dlgpar-001
+	 */
+	private function delegateAgents(array $arguments): array {
+		$callerAgentId = trim((string)($arguments['agentId'] ?? ''));
+		if ($callerAgentId === '') {
+			return (new ToolErrorEnvelope())->noAgentContext();
+		}
+
+		$parts = ($arguments['parts'] ?? null);
+		if (is_array($parts) === false || $parts === [] || array_is_list($parts) === false) {
+			return $this->error(code: 'invalid_argument', message: 'parts must be a non-empty list of {targetAgentId, task}.');
+		}
+
+		return $this->delegationService->delegateMany(callerAgentId: $callerAgentId, parts: $parts);
+	}//end delegateAgents()
 
 	/**
 	 * Build a structured error envelope (invokeTool never throws).

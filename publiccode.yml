@@ -24,6 +24,7 @@ description:
       delivered to Nextcloud Talk. Agents, their memory and their
       self-improving skills are stored as OpenRegister objects, so every run
       is governed, auditable and multi-tenant.
+      Conduction maintains this component within the Nextcloud ISV programme.
     features:
       - OpenRegister register and schema initialisation
       - Manifest-driven SPA with CnAppRoot
@@ -42,6 +43,7 @@ description:
       Nextcloud Talk. Agents, hun geheugen en hun zelflerende vaardigheden worden
       opgeslagen als OpenRegister-objecten, zodat elke run beheerst,
       controleerbaar en geschikt voor meerdere organisaties is.
+      Conduction onderhoudt dit component binnen het Nextcloud ISV-programma.
     features:
       - Initialisatie van OpenRegister-register en -schema's
       - Manifestgestuurde single-page-app met CnAppRoot
@@ -55,7 +57,12 @@ legal:
   repoOwner: "ConductionNL"
 
 maintenance:
-  type: internal
+  type: contract
+  contractors:
+    - name: Conduction B.V.
+      until: "2028-12-31"
+      email: info@conduction.nl
+      website: https://conduction.nl
   contacts:
     - name: "Conduction B.V."
       email: "info@conduction.nl"
@@ -67,11 +74,6 @@ localisation:
     - en
     - nl
 
-# Common Ground layer (nl.vng profile). The NL country section is deprecated in
-# publiccode.yml 1.0, so the same layer is also declared as a supports entry.
+# Common Ground layer (nl.vng profile), as a standard supports entry.
 supports:
   - id: https://commonground.nl/cms/view/54476261/5-lagen-model#service
-NL:
-  vng:
-    commonground:
-      layer: service

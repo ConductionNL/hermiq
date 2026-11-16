@@ -45,10 +45,15 @@ use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Service\AppAssistantResolver;
 use OCA\Hermiq\Service\Chat\ChatRefusalFrame;
 use OCA\Hermiq\Service\Chat\SessionSubject;
+use OCA\Hermiq\Service\Chat\TurnScope;
+use OCA\Hermiq\Service\Chat\TurnScopeException;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolutionException;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\ObjectService;
@@ -236,7 +241,7 @@ class ChatStreamController extends Controller {
 				userMessage: $turn['message'],
 				selectedViews: [],
 				selectedTools: [],
-				ragSettings: [],
+				ragSettings: $turn['ragSettings'],
 				context: $turn['contextArr'],
 				channel: $channel,
 				// Chat-how-an-answer-came-about D1: a trace on this path too, so a
@@ -273,7 +278,8 @@ class ChatStreamController extends Controller {
 	 *
 	 * @param string $userId The session user.
 	 *
-	 * @return array{userId: string, message: string, agentUuid: string, conversationUuid: string, context: mixed, contextArr: array, attachments: array}
+	 * @return array{userId: string, message: string, agentUuid: string, conversationUuid: string, context: mixed,
+	 *     contextArr: array, attachments: array, ragSettings: array<string, mixed>}
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
@@ -310,8 +316,36 @@ class ChatStreamController extends Controller {
 			$turn['attachments'] = array_values($body['attachments']);
 		}
 
+		$turn['ragSettings'] = $this->readScope(body: $body);
+
 		return $turn;
 	}//end readTurn()
+
+	/**
+	 * The RAG settings a turn's optional scope gives: one file or folder.
+	 *
+	 * Any other shape ends the stream before anything is stored.
+	 *
+	 * @param array<string, mixed> $body The decoded request body.
+	 *
+	 * @return array<string, mixed> The RAG settings, with `scope` when one was given.
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 */
+	private function readScope(array $body): array {
+		$ragSettings = [];
+		try {
+			$scope = (new TurnScope())->parse(value: ($body['scope'] ?? null));
+		} catch (TurnScopeException $e) {
+			$this->emitAndExit(eventType: 'error', payload: ['code' => $e->errorCode(), 'message' => $e->getMessage()]);
+		}
+
+		if ($scope !== null) {
+			$ragSettings['scope'] = $scope;
+		}
+
+		return $ragSettings;
+	}//end readScope()
 
 	/**
 	 * The turn's agent: the one named, or for a fresh chat that names none an
@@ -485,6 +519,9 @@ class ChatStreamController extends Controller {
 			// Chat-attachments-and-images D8: the answer's attachments, such as an
 			// image the agent created, so a client can show them without a reload.
 			'attachments' => array_values((array)($result['attachments'] ?? [])),
+			// Chat-about-a-document: the answer's sources in citation order, so
+			// marker [n] is sources[n-1] without a reload.
+			'sources' => array_values((array)($result['sources'] ?? [])),
 			// Chat-how-an-answer-came-about: how the answer came about, as stored on it.
 			'provenance' => ($result['provenance'] ?? null),
 		];
@@ -817,8 +854,7 @@ class ChatStreamController extends Controller {
 		if ($conversationUuid !== '') {
 			$conversation = $this->objectService->find(
 				id: $conversationUuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 			if ($conversation === null) {
 				throw new RuntimeException('Conversation not found: ' . $conversationUuid);
@@ -838,8 +874,7 @@ class ChatStreamController extends Controller {
 		// Need an agent to create a new conversation.
 		$agent = $this->objectService->find(
 			id: $agentUuid,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 		);
 		// A private agent the caller may not use answers exactly like a missing
 		// one, so the stream cannot confirm it exists (hermiq#976).
@@ -864,8 +899,7 @@ class ChatStreamController extends Controller {
 					context: $turn['contextArr']
 				)
 			),
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)),
 			_rbac: false
 		);
 	}//end resolveConversation()

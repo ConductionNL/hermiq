@@ -37,12 +37,14 @@ use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\NullLogger;
 use ReflectionMethod;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Golden comparison of the learnings upgrade.
  *
  * @covers \OCA\Hermiq\Repair\SeedMaturityExampleSkills
  * @uses   \OCA\Hermiq\Service\SeedFreshnessService
+ * @uses   \OCA\Hermiq\Repair\Seed\LearningsSeedTarget
  *
  * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
  */
@@ -146,11 +148,12 @@ class SeedLearningsUpgradeGoldenTest extends TestCase {
 		$saved = [];
 		$names = array_map(
 			static fn ($parameter): string => $parameter->getName(),
-			(new ReflectionMethod(ObjectService::class, 'saveObject'))->getParameters()
+			LegacyObjectArgs::parameters(ObjectService::class, 'saveObject')
 		);
 		$objectService = $this->createMock(originalClassName: ObjectService::class);
 		$objectService->method('saveObject')->willReturnCallback(
 			function (...$args) use (&$saved, $names): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
 				$named = [];
 				foreach ($args as $position => $value) {
 					$key = $position;

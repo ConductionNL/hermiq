@@ -171,6 +171,9 @@ $routes = [
         // Agent's OpenRegister AuditTrail as a version timeline + diff, and owner-only
         // rollback. No new storage — reads/replays the SAME AuditTrail SaveObject
         // already writes on every Agent save.
+        // Whether an agent's declared acting user still resolves (agent-acting-identity-picker
+        // REQ-AGID-003): read-scoped, so the edit page can warn before a run is refused.
+        ['name' => 'agentActingUser#show', 'url' => '/api/agents/{id}/acting-user', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentVersion#index', 'url' => '/api/agents/{id}/versions', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentVersion#diff',  'url' => '/api/agents/{id}/versions/diff', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         [
@@ -183,6 +186,9 @@ $routes = [
         // Advisory AI-oversight records about one subject, for whoever may open that subject.
         ['name' => 'aiOversight#subject', 'url' => '/api/ai-oversight/subject', 'verb' => 'GET'],
         ['name' => 'aiOversight#subjectExport', 'url' => '/api/ai-oversight/subject/export', 'verb' => 'GET'],
+        // agent-authored-marking: mark an agent-authored file as reviewed, and the label counts.
+        ['name' => 'aiLabel#markReviewed', 'url' => '/api/ai-label/files/{fileId}/reviewed', 'verb' => 'POST', 'requirements' => ['fileId' => '\\d+']],
+        ['name' => 'aiLabel#stats', 'url' => '/api/ai-label/stats', 'verb' => 'GET'],
 
         // Human-approval gate (human-approval-gate-enforcement): reviewer inbox + decisions.
         // Approval verification contract (hermiq#1045): another app asks for a signed verdict.
@@ -263,6 +269,13 @@ $routes = [
             'url'          => '/api/agents/{agentId}/tool-invocations',
             'verb'         => 'GET',
             'requirements' => ['agentId' => '[^/]+'],
+        ],
+        // verify-row-scenarios (row ov-tool-oversight): mark one tool call as misuse, with a reason.
+        [
+            'name'         => 'toolOversight#markToolInvocation',
+            'url'          => '/api/agents/{agentId}/tool-invocations/{callId}/mark',
+            'verb'         => 'POST',
+            'requirements' => ['agentId' => '[^/]+', 'callId' => '[^/]+'],
         ],
 
         // Tenant ops (multi-tenant-ops): per-org quota status + EU AI Act audit export (tenant-scoped).
@@ -406,6 +419,11 @@ $routes = [
         ['name' => 'skillVersion#rollback', 'url' => '/api/skills/{id}/rollback', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'skillVersion#republish', 'url' => '/api/skills/{id}/republish', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
 
+        // Skill merges (skills-curator-merges-duplicates): the curator's pending merge
+        // proposals, and approving or rejecting one (action skill.merge-duplicates).
+        ['name' => 'skillMerge#index',   'url' => '/api/skill-merges', 'verb' => 'GET'],
+        ['name' => 'skillMerge#approve', 'url' => '/api/skill-merges/{id}/approve', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'skillMerge#reject',  'url' => '/api/skill-merges/{id}/reject', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         // Skills marketplace (skills-marketplace): quarantine install-from-source, review-approve, hub publish.
         ['name' => 'skillMarketplace#installFromSource', 'url' => '/api/skills/install-from-source', 'verb' => 'POST'],
         ['name' => 'skillMarketplace#approve',           'url' => '/api/skills/{id}/approve', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
@@ -496,6 +514,9 @@ $routes = [
         // cleanup job last enforced it and how much it removed.
         ['name' => 'Settings\RunRetentionSettings#get', 'url' => '/api/settings/run-retention', 'verb' => 'GET'],
         ['name' => 'Settings\RunRetentionSettings#update', 'url' => '/api/settings/run-retention', 'verb' => 'PUT'],
+        // observability-export-traces: trace export settings, admin only (REQ-TREX-001).
+        ['name' => 'Settings\TraceExportSettings#get', 'url' => '/api/settings/trace-export', 'verb' => 'GET'],
+        ['name' => 'Settings\TraceExportSettings#update', 'url' => '/api/settings/trace-export', 'verb' => 'PUT'],
         // Working with AI (compliance-ai-literacy): the lessons and answer check for the
         // signed-in person, and the organisation report and requirement switch for its admin.
         ['name' => 'literacy#lessons', 'url' => '/api/literacy/lessons', 'verb' => 'GET'],
@@ -624,6 +645,10 @@ $routes = [
         // see design.md for why it is a sibling of assistant#converse, not a
         // reuse of it as-is.
         ['name' => 'assistant#detectPii', 'url' => '/api/assistant/detect-pii', 'verb' => 'POST'],
+        // Paste to fill (forms-smart-paste-fill): proposals from pasted text, and
+        // whether the form may offer it. Gated by the `form-fill` AiFeature.
+        ['name' => 'formFill#fill', 'url' => '/api/assistant/form-fill', 'verb' => 'POST'],
+        ['name' => 'formFill#available', 'url' => '/api/assistant/form-fill/available', 'verb' => 'GET'],
 
         // Sessions: CRUD + turns + archive lifecycle (restore/permanent).
         //
@@ -662,6 +687,8 @@ $routes = [
             'verb'         => 'DELETE',
             'requirements' => ['uuid' => '[^/]+'],
         ],
+        // chat-fork-and-share-link: the owner starts a new session from one of the session's answers.
+        ['name' => 'sessionFork#create', 'url' => '/api/sessions/{uuid}/fork', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
         // chat-work-together-in-one-session: the owner invites colleagues into a web session.
         ['name' => 'sessionParticipant#index', 'url' => '/api/sessions/{uuid}/participants', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
         ['name' => 'sessionParticipant#create', 'url' => '/api/sessions/{uuid}/participants', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
@@ -670,6 +697,15 @@ $routes = [
             'url'          => '/api/sessions/{uuid}/participants/{uid}',
             'verb'         => 'DELETE',
             'requirements' => ['uuid' => '[^/]+', 'uid' => '[^/]+'],
+        ],
+        // chat-fork-and-share-link: the owner shares a session read-only with users and groups.
+        ['name' => 'sessionShare#index', 'url' => '/api/sessions/{uuid}/shares', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'sessionShare#create', 'url' => '/api/sessions/{uuid}/shares', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
+        [
+            'name'         => 'sessionShare#destroy',
+            'url'          => '/api/sessions/{uuid}/shares/{type}/{id}',
+            'verb'         => 'DELETE',
+            'requirements' => ['uuid' => '[^/]+', 'type' => 'user|group', 'id' => '[^/]+'],
         ],
 
         // DEPRECATED aliases. Same controller, same methods, same auth. Retire them on

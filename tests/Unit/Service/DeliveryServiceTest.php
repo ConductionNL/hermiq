@@ -1357,6 +1357,58 @@ class DeliveryServiceTest extends TestCase {
 	}//end testWebhookRetriesWithBackoffThenSucceeds()
 
 	/**
+	 * The attempt count and backoff base are clamped to their schema bounds, a
+	 * missing value takes its default and a non-numeric one clamps from zero;
+	 * every attempt posts the same HMAC header and a failed run reports the
+	 * clamped count.
+	 *
+	 * @return void
+	 */
+	public function testWebhookAttemptAndBackoffBoundsAreClamped(): void {
+		$this->scheduleWebhookSecretService->method('retrieveSecret')->willReturn('shh-secret');
+		$client = $this->createMock(IClient::class);
+		$this->clientService->method('newClient')->willReturn($client);
+		$posts = [];
+		$client->method('post')->willReturnCallback(
+			function (string $url, array $options) use (&$posts): IResponse {
+				$posts[] = [$url, $options['headers']['X-Hermiq-Signature'], $options['timeout']];
+				return $this->responseMock(503);
+			}
+		);
+
+		$outcomes = [];
+		$settings = [
+			['deliverWebhookMaxAttempts' => 10, 'deliverWebhookBackoffBaseSeconds' => 100],
+			['deliverWebhookMaxAttempts' => 0, 'deliverWebhookBackoffBaseSeconds' => 0],
+			['deliverWebhookMaxAttempts' => 'many', 'deliverWebhookBackoffBaseSeconds' => '5'],
+			[],
+		];
+		foreach ($settings as $setting) {
+			$posts = [];
+			$this->service->sleeps = [];
+			$schedule = $this->schedule(['deliver' => 'webhook', 'deliverTarget' => 'https://sink.example.org/hook'] + $setting);
+			$result = $this->service->deliver(channel: 'webhook', output: 'Run finished ok', schedule: $schedule);
+			$outcomes[] = [
+				'sleeps' => $this->service->sleeps,
+				'posts' => count($posts),
+				'sameHmac' => (count(array_unique(array_column($posts, 1))) === 1),
+				'warning' => $result->getWarning(),
+			];
+		}
+
+		$this->assertSame(
+			[
+				['sleeps' => [30, 60, 120, 240], 'posts' => 5, 'sameHmac' => true, 'warning' => 'Webhook delivery failed after 5 attempt(s): webhook responded with status 503'],
+				['sleeps' => [], 'posts' => 1, 'sameHmac' => true, 'warning' => 'Webhook delivery failed after 1 attempt(s): webhook responded with status 503'],
+				['sleeps' => [], 'posts' => 1, 'sameHmac' => true, 'warning' => 'Webhook delivery failed after 1 attempt(s): webhook responded with status 503'],
+				['sleeps' => [2, 4], 'posts' => 3, 'sameHmac' => true, 'warning' => 'Webhook delivery failed after 3 attempt(s): webhook responded with status 503'],
+			],
+			$outcomes
+		);
+
+	}//end testWebhookAttemptAndBackoffBoundsAreClamped()
+
+	/**
 	 * A webhook retry budget exhaustion makes exactly maxAttempts attempts and
 	 * records a warning, never fails the run.
 	 *

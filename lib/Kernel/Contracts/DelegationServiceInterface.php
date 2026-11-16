@@ -63,4 +63,16 @@ interface DelegationServiceInterface {
 	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning as above.
 	 */
 	public function delegate(string $callerAgentId, string $targetAgentId, string $task): array;
+
+	/**
+	 * Delegate several parts of one task, each to its own target agent.
+	 *
+	 * @param string                           $callerAgentId The delegating agent's own UUID (server-injected).
+	 * @param array<int, array<string, mixed>> $parts         One `{targetAgentId, task}` per part.
+	 *
+	 * @return array<string, mixed> `{results: [...]}`, one slot per part in call order.
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-several-parts-of-one-task-run-on-sub-agents-at-the-same-time-req-dlgpar-001
+	 */
+	public function delegateMany(string $callerAgentId, array $parts): array;
 }//end interface
