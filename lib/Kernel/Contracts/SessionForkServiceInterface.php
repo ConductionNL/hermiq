@@ -23,7 +23,6 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Kernel\Contracts;
 
-use OCA\Hermiq\Service\SessionForkException;
 use OCA\OpenRegister\Db\ObjectEntity;
 
 /**
@@ -48,7 +47,7 @@ interface SessionForkServiceInterface {
 	 *
 	 * @return array{session: ObjectEntity, turns: int} The new session and how many turns it holds.
 	 *
-	 * @throws SessionForkException 404 when the caller does not own the session, 400 when the
+	 * @throws \OCA\Hermiq\Service\SessionForkException 404 when the caller does not own the session, 400 when the
 	 *                              turn is not an answer in it.
 	 *
 	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001

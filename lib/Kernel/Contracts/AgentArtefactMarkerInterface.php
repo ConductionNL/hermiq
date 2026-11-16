@@ -23,7 +23,6 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Kernel\Contracts;
 
-use OCA\Hermiq\Service\NcNative\ArtefactMarkingFailedException;
 
 /**
  * Contract of AgentArtefactMarker.
@@ -63,7 +62,7 @@ interface AgentArtefactMarkerInterface {
 	 *
 	 * @return void
 	 *
-	 * @throws ArtefactMarkingFailedException When the reviewed tag cannot be resolved or assigned.
+	 * @throws \OCA\Hermiq\Service\NcNative\ArtefactMarkingFailedException When the reviewed tag cannot be resolved or assigned.
 	 *
 	 * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
 	 */
