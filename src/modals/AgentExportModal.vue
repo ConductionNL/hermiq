@@ -26,7 +26,7 @@
 				{{
 					t(
 						'hermiq',
-						'The template appears in the Store. Colleagues create their own agent from it with Use this template. Sharing, schedules and credentials stay with this agent.',
+						'The template appears in the Marketplace. Colleagues create their own agent from it with Use this template. Sharing, schedules and credentials stay with this agent.',
 					)
 				}}
 			</p>
@@ -137,7 +137,7 @@ export default {
 					const template = await saveAgentAsTemplate(this.resolvedAgentId)
 					this.done = this.t(
 						'hermiq',
-						'Saved as the template {name}. You find it in the Store.',
+						'Saved as the template {name}. You find it in the Marketplace.',
 						{ name: template?.name || '' },
 					)
 				} else {

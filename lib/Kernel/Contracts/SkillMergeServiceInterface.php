@@ -66,4 +66,13 @@ interface SkillMergeServiceInterface {
 	 * @spec exclude Structural contract, no functional requirement.
 	 */
 	public function rejectMerge(string $duplicateId): array;
+
+	/**
+	 * The merges proposed and not yet decided, for the person who decides them.
+	 *
+	 * @return array<int, array<string, mixed>> One entry per proposal.
+	 *
+	 * @spec exclude Structural contract, no functional requirement.
+	 */
+	public function pendingMerges(): array;
 }//end interface

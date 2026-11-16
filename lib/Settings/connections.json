@@ -41,7 +41,7 @@
         },
         {
             "key": "github-templates",
-            "title": "GitHub store",
+            "title": "GitHub marketplace",
             "description": "Finds and installs agent templates and skills from GitHub repositories.",
             "order": 60,
             "settingsUrl": "/settings/admin/hermiq#section-organisation-credentials",

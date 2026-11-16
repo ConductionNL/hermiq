@@ -26,6 +26,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Listener;
 
+use OCA\Hermiq\Service\Config\HermiqAgentTemplateShareableConfigType;
 use OCA\Hermiq\Service\Config\HermiqSkillShareableConfigType;
 use OCA\OpenRegister\Service\Config\RegisterShareableConfigTypesEvent;
 use OCP\EventDispatcher\Event;
@@ -35,7 +36,7 @@ use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
- * Registers hermiq's skill shareable-config type.
+ * Registers hermiq's skill and agent-template shareable-config types.
  *
  * @template-implements IEventListener<RegisterShareableConfigTypesEvent>
  *
@@ -59,7 +60,7 @@ class ShareableConfigTypeListener implements IEventListener {
 	}//end __construct()
 
 	/**
-	 * Register the skill type.
+	 * Register the skill and agent-template types.
 	 *
 	 * @param Event $event The dispatched event.
 	 *
@@ -74,13 +75,20 @@ class ShareableConfigTypeListener implements IEventListener {
 			return;
 		}
 
-		try {
-			$event->registerType(type: $this->container->get(HermiqSkillShareableConfigType::class));
-		} catch (Throwable $e) {
-			$this->logger->warning(
-				'[Hermiq] could not register the skill shareable-config type: ' . $e->getMessage(),
-				['app' => 'hermiq']
-			);
+		$types = [
+			'skill' => HermiqSkillShareableConfigType::class,
+			'agent-template' => HermiqAgentTemplateShareableConfigType::class,
+		];
+		// Each type on its own: one that cannot be built never keeps the other out.
+		foreach ($types as $label => $class) {
+			try {
+				$event->registerType(type: $this->container->get($class));
+			} catch (Throwable $e) {
+				$this->logger->warning(
+					'[Hermiq] could not register the ' . $label . ' shareable-config type: ' . $e->getMessage(),
+					['app' => 'hermiq']
+				);
+			}
 		}
 
 	}//end handle()

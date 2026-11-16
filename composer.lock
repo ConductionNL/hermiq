@@ -2346,7 +2346,8 @@
                 "issues": "https://github.com/ConductionNL/.github/issues",
                 "source": "https://github.com/ConductionNL/.github/tree/v1.19.0"
             },
-            "time": "2026-11-03T13:10:23+00:00"
+            "time": "2026-11-03T13:10:23+00:00",
+            "published-time": "2026-11-03T20:51:57+00:00"
         },
         {
             "name": "consolidation/annotated-command",
@@ -9751,5 +9752,5 @@
         "php": "8.3",
         "ext-xsl": "1"
     },
-    "plugin-api-version": "2.9.0"
+    "plugin-api-version": "2.11.0"
 }
