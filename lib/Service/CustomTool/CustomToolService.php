@@ -28,6 +28,9 @@ namespace OCA\Hermiq\Service\CustomTool;
 use InvalidArgumentException;
 use OCA\Hermiq\Mcp\CustomToolDescriptors;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -79,7 +82,12 @@ class CustomToolService {
 			return null;
 		}
 
-		return $this->objectService->find(id: $uuid, register: self::REGISTER, schema: self::SCHEMA, _rbac: false, _multitenancy: false);
+		return $this->objectService->find(
+			id: $uuid,
+			options: new ObjectFindOptions(register: self::REGISTER, schema: self::SCHEMA),
+			_rbac: false,
+			_multitenancy: false
+		);
 	}//end findById()
 
 	/**
@@ -126,9 +134,10 @@ class CustomToolService {
 		$data['@self'] = ['organisation' => $organisation];
 		$saved         = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER,
-			schema: self::SCHEMA,
-			uuid: $uuid,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER, schema: self::SCHEMA),
+				uuid: $uuid
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

@@ -17,6 +17,7 @@ use OCA\Hermiq\Controller\CustomToolController;
 use OCA\Hermiq\Service\CustomTool\CustomToolService;
 use OCA\Hermiq\Tests\Unit\Service\CustomTool\CustomToolDefinitionTest;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Db\Organisation;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCA\OpenRegister\Service\ObjectService;
@@ -102,7 +103,8 @@ final class CustomToolControllerTest extends TestCase {
 			}
 		);
 		$objects->method('saveObject')->willReturnCallback(
-			function (array|ObjectEntity $object, ?array $extend=[], mixed $register=null, mixed $schema=null, ?string $uuid=null): ObjectEntity {
+			function (array|ObjectEntity $object, ObjectSaveOptions $options=new ObjectSaveOptions()): ObjectEntity {
+				$uuid = $options->uuid;
 				$this->saves[] = $object;
 				$entity = new ObjectEntity();
 				$entity->setUuid($uuid ?? 'new-uuid');

@@ -17,6 +17,7 @@ use InvalidArgumentException;
 use OCA\Hermiq\Service\CustomTool\CustomToolDefinition;
 use OCA\Hermiq\Service\CustomTool\CustomToolService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -69,8 +70,9 @@ final class CustomToolServiceTest extends TestCase {
 			}
 		);
 		$objects->method('saveObject')->willReturnCallback(
-			function (array|ObjectEntity $object, ?array $extend=[], mixed $register=null, mixed $schema=null, ?string $uuid=null, bool $_rbac=true, bool $_multitenancy=true): ObjectEntity {
-				$this->saves[] = ['object' => $object, 'schema' => $schema, 'uuid' => $uuid, 'rbac' => $_rbac];
+			function (array|ObjectEntity $object, ObjectSaveOptions $options=new ObjectSaveOptions(), bool $_rbac=true, bool $_multitenancy=true): ObjectEntity {
+				$uuid = $options->uuid;
+				$this->saves[] = ['object' => $object, 'schema' => $options->target->schema, 'uuid' => $uuid, 'rbac' => $_rbac];
 				$entity = new ObjectEntity();
 				$entity->setUuid($uuid ?? 'new-uuid');
 				$entity->setOrganisation((string)($object['@self']['organisation'] ?? ''));
