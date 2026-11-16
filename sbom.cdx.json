@@ -158,10 +158,10 @@
       ]
     },
     {
-      "bom-ref": "dragonmantank/cron-expression-3.6.0.0",
+      "bom-ref": "dragonmantank/cron-expression-3.6.1.0",
       "type": "library",
       "name": "cron-expression",
-      "version": "v3.6.0",
+      "version": "v3.6.1",
       "group": "dragonmantank",
       "description": "CRON for PHP: Calculate the next or previous run date and determine if a CRON expression is due",
       "author": "Chris Tankersley",
@@ -172,17 +172,17 @@
           }
         }
       ],
-      "purl": "pkg:composer/dragonmantank/cron-expression@v3.6.0",
+      "purl": "pkg:composer/dragonmantank/cron-expression@v3.6.1",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/dragonmantank/cron-expression/zipball/d61a8a9604ec1f8c3d150d09db6ce98b32675013",
-          "comment": "dist reference: d61a8a9604ec1f8c3d150d09db6ce98b32675013"
+          "url": "https://api.github.com/repos/dragonmantank/cron-expression/zipball/4189372ffeff09bf14f731f67a9de90c7b413ebe",
+          "comment": "dist reference: 4189372ffeff09bf14f731f67a9de90c7b413ebe"
         },
         {
           "type": "vcs",
           "url": "https://github.com/dragonmantank/cron-expression.git",
-          "comment": "source reference: d61a8a9604ec1f8c3d150d09db6ce98b32675013"
+          "comment": "source reference: 4189372ffeff09bf14f731f67a9de90c7b413ebe"
         },
         {
           "type": "issue-tracker",
@@ -191,18 +191,18 @@
         },
         {
           "type": "vcs",
-          "url": "https://github.com/dragonmantank/cron-expression/tree/v3.6.0",
+          "url": "https://github.com/dragonmantank/cron-expression/tree/v3.6.1",
           "comment": "as detected from Composer manifest 'support.source'"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "d61a8a9604ec1f8c3d150d09db6ce98b32675013"
+          "value": "4189372ffeff09bf14f731f67a9de90c7b413ebe"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "d61a8a9604ec1f8c3d150d09db6ce98b32675013"
+          "value": "4189372ffeff09bf14f731f67a9de90c7b413ebe"
         },
         {
           "name": "cdx:composer:package:type",
@@ -33212,7 +33212,7 @@
       "ref": "cweagans/composer-configurable-plugin-2.0.0.0"
     },
     {
-      "ref": "dragonmantank/cron-expression-3.6.0.0"
+      "ref": "dragonmantank/cron-expression-3.6.1.0"
     },
     {
       "ref": "guzzlehttp/guzzle-7.15.5.0",
@@ -33330,7 +33330,7 @@
     {
       "ref": "conductionnl/hermiq-0.1.0.0",
       "dependsOn": [
-        "dragonmantank/cron-expression-3.6.0.0",
+        "dragonmantank/cron-expression-3.6.1.0",
         "theodo-group/llphant-1.0.3.0"
       ]
     }
