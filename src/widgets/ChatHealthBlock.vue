@@ -71,6 +71,12 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * The one sentence that says whether chat works, and if not, why.
+		 *
+		 * @return {string} The headline.
+		 * @spec openspec/changes/spec-coverage-built-rows/specs/observability/spec.md#REQ-SPCOV-012
+		 */
 		headline() {
 			if (this.view.chatStatus === 'ok') {
 				return this.t('hermiq', 'Chat works.')
@@ -81,6 +87,12 @@ export default {
 			return this.t('hermiq', 'Chat does not work: its settings could not be read.')
 		},
 
+		/**
+		 * The note card's tone: success when chat works, warning when no provider is chosen, else error.
+		 *
+		 * @return {string} `success`, `warning` or `error`.
+		 * @spec openspec/changes/spec-coverage-built-rows/specs/observability/spec.md#REQ-SPCOV-012
+		 */
 		noteType() {
 			if (this.view.chatStatus === 'ok') {
 				return 'success'
