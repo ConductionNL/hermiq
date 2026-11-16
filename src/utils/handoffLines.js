@@ -43,17 +43,25 @@ export function handoffsByMessage(handoffs, messages) {
 		.filter((handoff) => handoff && HANDOFF_STATUSES.includes(handoff.status))
 		.sort((a, b) => (timeOf(a.requestedAt) || 0) - (timeOf(b.requestedAt) || 0))
 	for (const handoff of sorted) {
-		const at = timeOf(handoff.requestedAt)
-		let owner = list[list.length - 1]
-		if (!Number.isNaN(at)) {
-			const before = list.filter((message) => timeOf(message.created) <= at)
-			if (before.length > 0) {
-				owner = before[before.length - 1]
-			}
-		}
+		const owner = ownerOf(handoff, list)
 		grouped[owner.id] = [...(grouped[owner.id] || []), handoff]
 	}
 	return grouped
+}
+
+/**
+ * The message a handoff belongs under: the last one created at or before it was
+ * requested, else the last message.
+ *
+ * @param {object} handoff The handoff.
+ * @param {Array<object>} list The messages with an id, oldest first; not empty.
+ * @return {object} The owning message.
+ * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+ */
+function ownerOf(handoff, list) {
+	const at = timeOf(handoff.requestedAt)
+	const before = Number.isNaN(at) ? [] : list.filter((message) => timeOf(message.created) <= at)
+	return before.length > 0 ? before[before.length - 1] : list[list.length - 1]
 }
 
 /**

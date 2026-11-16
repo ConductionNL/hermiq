@@ -120,15 +120,7 @@ class HandoffService {
 	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
 	 */
 	public function open(array $handoff): array {
-		foreach (self::REQUIRED as $field) {
-			if (is_string($handoff[$field] ?? null) === false || trim($handoff[$field]) === '') {
-				throw new InvalidArgumentException(sprintf('A handoff needs a %s.', $field));
-			}
-		}
-
-		if (in_array($handoff['kind'], self::KINDS, true) === false) {
-			throw new InvalidArgumentException(sprintf('A handoff cannot wait on "%s".', $handoff['kind']));
-		}
+		$this->assertOpenable(handoff: $handoff);
 
 		$now = $this->now();
 		$hours = $this->deadlineHours(requested: ($handoff['deadlineHours'] ?? null));
@@ -162,6 +154,29 @@ class HandoffService {
 
 		return $this->toArray(object: $saved);
 	}//end open()
+
+	/**
+	 * Refuse a handoff without its required fields or with an unknown kind.
+	 *
+	 * @param array<string, mixed> $handoff The handoff to open.
+	 *
+	 * @return void
+	 *
+	 * @throws InvalidArgumentException When a required field is missing or the kind is unknown.
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+	 */
+	private function assertOpenable(array $handoff): void {
+		foreach (self::REQUIRED as $field) {
+			if (is_string($handoff[$field] ?? null) === false || trim($handoff[$field]) === '') {
+				throw new InvalidArgumentException(sprintf('A handoff needs a %s.', $field));
+			}
+		}
+
+		if (in_array($handoff['kind'], self::KINDS, true) === false) {
+			throw new InvalidArgumentException(sprintf('A handoff cannot wait on "%s".', $handoff['kind']));
+		}
+	}//end assertOpenable()
 
 	/**
 	 * Close a waiting handoff with the work's answer.

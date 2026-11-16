@@ -113,20 +113,32 @@ class WebhookHandoffs {
 		}
 
 		$handoff = $this->handoffs->find(handoffId: $handoffId);
-		if ($handoff === null
-			|| ($handoff['kind'] ?? null) !== 'webhook'
-			|| ($handoff['status'] ?? null) !== HandoffService::WAITING
-		) {
-			return false;
-		}
-
-		$stored = (string) ($handoff['resultTokenHash'] ?? '');
-		if ($stored === '' || hash_equals($stored, self::hashOf(token: $token)) === false) {
+		if ($handoff === null || self::waitsWithToken(handoff: $handoff, token: $token) === false) {
 			return false;
 		}
 
 		return $this->handoffs->close(handoffId: $handoffId, status: 'done', result: $result);
 	}//end acceptResult()
+
+	/**
+	 * Whether a handoff is a waiting webhook handoff whose stored hash matches the token.
+	 *
+	 * @param array<string, mixed> $handoff The stored handoff.
+	 * @param string               $token   The token the workflow sent.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 */
+	private static function waitsWithToken(array $handoff, string $token): bool {
+		if (($handoff['kind'] ?? null) !== 'webhook' || ($handoff['status'] ?? null) !== HandoffService::WAITING) {
+			return false;
+		}
+
+		$stored = (string) ($handoff['resultTokenHash'] ?? '');
+
+		return $stored !== '' && hash_equals($stored, self::hashOf(token: $token)) === true;
+	}//end waitsWithToken()
 
 	/**
 	 * The stored form of a token.

@@ -104,11 +104,7 @@ class HandoffResultController extends Controller {
 		}
 
 		$result = $this->decoded(raw: $raw);
-		$token  = trim((string) $this->request->getHeader(self::TOKEN_HEADER));
-		if ($token === '' && is_array($result) === true && is_string($result[self::TOKEN_FIELD] ?? null) === true) {
-			$token = trim($result[self::TOKEN_FIELD]);
-		}
-
+		$token  = $this->tokenOf(result: $result);
 		if (is_array($result) === true) {
 			unset($result[self::TOKEN_FIELD]);
 		}
@@ -119,6 +115,24 @@ class HandoffResultController extends Controller {
 
 		return new JSONResponse(['accepted' => true], Http::STATUS_ACCEPTED);
 	}//end post()
+
+	/**
+	 * The token from its header, else from the body's token field; empty when neither carries one.
+	 *
+	 * @param mixed $result The decoded body.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 */
+	private function tokenOf(mixed $result): string {
+		$token = trim((string) $this->request->getHeader(self::TOKEN_HEADER));
+		if ($token === '' && is_array($result) === true && is_string($result[self::TOKEN_FIELD] ?? null) === true) {
+			$token = trim($result[self::TOKEN_FIELD]);
+		}
+
+		return $token;
+	}//end tokenOf()
 
 	/**
 	 * The body as JSON when it is JSON, else the text as it arrived; null when empty.

@@ -102,11 +102,7 @@ class FlowHandoffs {
 	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
 	 */
 	public function afterRunFlow(array $arguments, mixed $result, FlowTurn $turn): mixed {
-		$runUuid = '';
-		if (is_array($result) === true) {
-			$runUuid = (string) ($result['runUuid'] ?? '');
-		}
-
+		$runUuid = self::runUuidOf(result: $result);
 		if ($runUuid === '' || $turn->isComplete() === false) {
 			return $result;
 		}
@@ -139,6 +135,23 @@ class FlowHandoffs {
 
 		return $result;
 	}//end afterRunFlow()
+
+	/**
+	 * The queued run's uuid in a runFlow result, or an empty string.
+	 *
+	 * @param mixed $result The tool's result.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
+	 */
+	private static function runUuidOf(mixed $result): string {
+		if (is_array($result) === false) {
+			return '';
+		}
+
+		return (string) ($result['runUuid'] ?? '');
+	}//end runUuidOf()
 
 	/**
 	 * Close the waiting handoff of a run that reached a terminal status.

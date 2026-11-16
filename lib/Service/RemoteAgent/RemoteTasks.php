@@ -73,13 +73,10 @@ class RemoteTasks {
 	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
 	 */
 	public function ask(string $remoteAgent, string $task): array {
-		$agent = $this->remoteAgents->findBySlug(slug: trim($remoteAgent));
-		if ($agent === null || ($agent['enabled'] ?? false) !== true) {
-			return ['error' => 'remote_agent_unavailable', 'message' => sprintf('No switched-on remote agent "%s".', $remoteAgent)];
-		}
-
-		if (trim($task) === '') {
-			return ['error' => 'task_missing', 'message' => 'Say what the remote agent should do.'];
+		$agent   = $this->remoteAgents->findBySlug(slug: trim($remoteAgent));
+		$refusal = $this->refusal(agent: $agent, remoteAgent: $remoteAgent, task: $task);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
 		try {
@@ -92,6 +89,43 @@ class RemoteTasks {
 			return ['error' => 'remote_agent_unreachable', 'message' => $e->getMessage()];
 		}
 
+		return $this->outcome(agent: $agent, answer: $answer);
+	}//end ask()
+
+	/**
+	 * Why a task cannot be sent, or null when it can.
+	 *
+	 * @param array<string, mixed>|null $agent       The remote agent found by its handle.
+	 * @param string                    $remoteAgent The handle as asked.
+	 * @param string                    $task        The task text.
+	 *
+	 * @return array<string, string>|null `{error, message}`, or null.
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
+	 */
+	private function refusal(?array $agent, string $remoteAgent, string $task): ?array {
+		if ($agent === null || ($agent['enabled'] ?? false) !== true) {
+			return ['error' => 'remote_agent_unavailable', 'message' => sprintf('No switched-on remote agent "%s".', $remoteAgent)];
+		}
+
+		if (trim($task) === '') {
+			return ['error' => 'task_missing', 'message' => 'Say what the remote agent should do.'];
+		}
+
+		return null;
+	}//end refusal()
+
+	/**
+	 * What the remote agent's answer means for the turn.
+	 *
+	 * @param array<string, mixed> $agent  The remote agent.
+	 * @param array<string, mixed> $answer The answer: state, text and taskId.
+	 *
+	 * @return array<string, mixed> `{status: completed, answer}`, `{status: working, ...}` or `{error, message}`.
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
+	 */
+	private function outcome(array $agent, array $answer): array {
 		if ($answer['state'] === 'completed') {
 			return ['status' => 'completed', 'remoteAgent' => $agent['slug'], 'answer' => $answer['text']];
 		}
@@ -106,7 +140,7 @@ class RemoteTasks {
 		}
 
 		return ['status' => 'working', 'remoteAgent' => $agent['slug'], 'label' => (string) $agent['name'], 'taskId' => $answer['taskId']];
-	}//end ask()
+	}//end outcome()
 
 	/**
 	 * After the tool answered a working task in a turn: open its a2a handoff and say so.

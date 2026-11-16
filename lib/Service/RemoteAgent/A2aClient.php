@@ -239,14 +239,8 @@ class A2aClient {
 			throw new RemoteAgentUnavailableException('The remote agent cannot be reached: its integriq source is not available.');
 		}
 
-		$config = ['headers' => ['Accept' => 'application/json']];
-		if ($body !== null) {
-			$config['body'] = (string) json_encode($body);
-			$config['headers']['Content-Type'] = 'application/json';
-		}
-
 		try {
-			$log = $caller->call(source: $source, endpoint: $endpoint, method: $method, config: $config);
+			$log = $caller->call(source: $source, endpoint: $endpoint, method: $method, config: self::configFor(body: $body));
 		} catch (Throwable $e) {
 			throw new RemoteAgentUnavailableException('The remote agent could not be reached: ' . $e->getMessage());
 		}
@@ -258,6 +252,23 @@ class A2aClient {
 
 		return $this->decodedBody(response: $response);
 	}//end request()
+
+	/**
+	 * The call configuration: JSON accepted, and the body as JSON when there is one.
+	 *
+	 * @param array<string, mixed>|null $body The JSON body, or null.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function configFor(?array $body): array {
+		$config = ['headers' => ['Accept' => 'application/json']];
+		if ($body !== null) {
+			$config['body'] = (string) json_encode($body);
+			$config['headers']['Content-Type'] = 'application/json';
+		}
+
+		return $config;
+	}//end configFor()
 
 	/**
 	 * The decoded JSON body of a successful answer.
