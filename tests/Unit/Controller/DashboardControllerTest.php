@@ -32,6 +32,7 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\DashboardController;
 use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
+use OCA\Hermiq\Service\AnswerCache\SimilarQuestionSearch;
 use OCA\Hermiq\Service\DashboardPageState;
 use OCA\Hermiq\Tenant\ManageableOrganisations;
 use OCP\App\IAppManager;
@@ -85,6 +86,7 @@ class DashboardControllerTest extends TestCase {
 		array $organisations = [],
 		bool $opencatalogi = false,
 		bool $canSetActingUser = false,
+		?SimilarQuestionSearch $similarQuestions = null,
 	): DashboardController {
 		$this->state = [];
 
@@ -124,7 +126,8 @@ class DashboardControllerTest extends TestCase {
 				$groupManager,
 				$tenants,
 				$appManager,
-				$this->actions
+				$this->actions,
+				$similarQuestions
 			)
 		);
 
@@ -295,4 +298,28 @@ class DashboardControllerTest extends TestCase {
 		$this->assertFalse($this->state['can_set_acting_user']);
 
 	}//end testAnAnonymousRequestMayNotSetTheActingUser()
+
+	/**
+	 * The agent form learns whether similar questions can be matched: only when
+	 * OpenRegister's vector search is there and can answer.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#scenario-no-vector-search-no-similarity-layer
+	 */
+	public function testVectorSearchAvailabilityTracksTheFacade(): void {
+		$available = $this->createMock(SimilarQuestionSearch::class);
+		$available->method('isAvailable')->willReturn(true);
+		$this->controller('alice', similarQuestions: $available)->page();
+		$this->assertTrue($this->state['vector_search_available']);
+
+		$unavailable = $this->createMock(SimilarQuestionSearch::class);
+		$unavailable->method('isAvailable')->willReturn(false);
+		$this->controller('alice', similarQuestions: $unavailable)->page();
+		$this->assertFalse($this->state['vector_search_available']);
+
+		$this->controller('alice')->page();
+		$this->assertFalse($this->state['vector_search_available']);
+
+	}//end testVectorSearchAvailabilityTracksTheFacade()
 }//end class

@@ -33,8 +33,10 @@ use DateTimeZone;
 use OCA\Hermiq\Service\AgentVersionService;
 use OCA\Hermiq\Service\Engine\ResponseTurnRun;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
+use OCA\Hermiq\Service\RedactionService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
@@ -61,6 +63,16 @@ class AnswerCacheService {
 	private const PURGE_PAGE = 500;
 
 	/**
+	 * The lowest similarity a similar question is served at.
+	 */
+	public const MIN_SIMILARITY = 0.95;
+
+	/**
+	 * How many nearest questions the similarity layer asks the facade for.
+	 */
+	private const SIMILAR_LIMIT = 5;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param ObjectService                  $objects  OpenRegister's single read and write path.
@@ -69,6 +81,8 @@ class AnswerCacheService {
 	 * @param IUserSession                   $session  The person asking.
 	 * @param ITimeFactory                   $time     The clock.
 	 * @param LoggerInterface                $logger   The logger.
+	 * @param SimilarQuestionSearch|null     $similar  OpenRegister's vector search, for the similarity layer.
+	 * @param RedactionService|null          $redactor Redacts the question stored for the similarity layer.
 	 */
 	public function __construct(
 		private readonly ObjectService $objects,
@@ -77,6 +91,8 @@ class AnswerCacheService {
 		private readonly IUserSession $session,
 		private readonly ITimeFactory $time,
 		private readonly LoggerInterface $logger,
+		private readonly ?SimilarQuestionSearch $similar=null,
+		private readonly ?RedactionService $redactor=null,
 	) {
 	}//end __construct()
 
@@ -150,7 +166,10 @@ class AnswerCacheService {
 	 *
 	 * @param ResponseTurnRun $run The turn, with its messages built.
 	 *
-	 * @return array{answer: string, entryId: string, layer: string}|null
+	 * When the exact layer misses, the similarity layer may serve the answer to a
+	 * differently worded first question (REQ-ACACHE-003).
+	 *
+	 * @return array{answer: string, entryId: string, layer: string, similarity?: float}|null
 	 *
 	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-an-exact-repeat-within-one-organisation-gets-the-stored-answer-req-acache-002
 	 */
@@ -162,24 +181,16 @@ class AnswerCacheService {
 		try {
 			$versionId = $this->versions->currentVersionId(agentUuid: (string)$run->agent?->getUuid());
 			$entry     = $this->find(run: $run, keyHash: $this->key(run: $run, versionId: $versionId), versionId: $versionId);
-			if ($entry === null) {
+			if ($entry !== null) {
+				return $this->serve(run: $run, entry: $entry, layer: 'exact');
+			}
+
+			$similar = $this->findSimilar(run: $run, versionId: $versionId);
+			if ($similar === null) {
 				return null;
 			}
 
-			$data    = $entry->getObject();
-			$allowed = $this->policy->isAllowed(
-				organisation: (string)($run->progress->organisation ?? ''),
-				provider: (string)($data['provider'] ?? ''),
-				model: (string)($data['model'] ?? '')
-			);
-			if ($allowed === false) {
-				$this->remove(entryId: (string)$entry->getUuid());
-				return null;
-			}
-
-			$this->countHit(entry: $entry);
-
-			return ['answer' => (string)($data['answer'] ?? ''), 'entryId' => (string)$entry->getUuid(), 'layer' => 'exact'];
+			return $this->serve(run: $run, entry: $similar['entry'], layer: 'similar', similarity: $similar['similarity']);
 		} catch (Throwable $error) {
 			$this->logger->warning('[AnswerCache] lookup failed, calling the model', ['exception' => $error->getMessage()]);
 			return null;
@@ -205,19 +216,26 @@ class AnswerCacheService {
 			$versionId = $this->versions->currentVersionId(agentUuid: (string)$run->agent?->getUuid());
 			$now       = $this->now();
 			$minutes   = $this->ttlMinutes(run: $run);
+			$entry     = [
+				'agentId' => (string)$run->agent?->getUuid(),
+				'agentVersionId' => (string)$versionId,
+				'keyHash' => $this->key(run: $run, versionId: $versionId),
+				'answer' => $answer,
+				'provider' => $run->progress->driver->provider,
+				'model' => $run->progress->driver->model,
+				'userId' => (string)$this->session->getUser()?->getUID(),
+				'createdAt' => $now->format(DateTimeInterface::ATOM),
+				'expiresAt' => $now->modify('+' . $minutes . ' minutes')->format(DateTimeInterface::ATOM),
+				'hitCount' => 0,
+			];
+			// The question is kept, redacted, only for the similarity layer.
+			$question = $this->storedQuestion(run: $run);
+			if ($question !== null) {
+				$entry['question'] = $question;
+			}
+
 			$this->objects->saveObject(
-				object: [
-					'agentId' => (string)$run->agent?->getUuid(),
-					'agentVersionId' => (string)$versionId,
-					'keyHash' => $this->key(run: $run, versionId: $versionId),
-					'answer' => $answer,
-					'provider' => $run->progress->driver->provider,
-					'model' => $run->progress->driver->model,
-					'userId' => (string)$this->session->getUser()?->getUID(),
-					'createdAt' => $now->format(DateTimeInterface::ATOM),
-					'expiresAt' => $now->modify('+' . $minutes . ' minutes')->format(DateTimeInterface::ATOM),
-					'hitCount' => 0,
-				],
+				object: $entry,
 				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER, schema: self::SCHEMA)),
 				_rbac: false
 			);
@@ -331,6 +349,205 @@ class AnswerCacheService {
 
 		return $removed;
 	}//end clearForAgent()
+
+	/**
+	 * The similarity layer's scope for this turn: `user`, `organisation`, or null when off.
+	 *
+	 * `organisation` is refused, and the layer off, while the agent searches data
+	 * (enableRag), since retrieved context may differ per person.
+	 *
+	 * @param ResponseTurnRun $run The turn.
+	 *
+	 * @return string|null
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-similar-questions-match-only-through-openregisters-vector-facade-req-acache-003
+	 */
+	public function similarityScope(ResponseTurnRun $run): ?string {
+		$scope = ($this->setting(run: $run)['similarity'] ?? 'off');
+		if ($scope === 'user') {
+			return 'user';
+		}
+
+		if ($scope === 'organisation' && ($run->agentData()['enableRag'] ?? false) !== true) {
+			return 'organisation';
+		}
+
+		return null;
+	}//end similarityScope()
+
+	/**
+	 * Serve a found entry: re-check the model policy, count the hit, return the answer.
+	 *
+	 * An entry whose provider or model the effective policy no longer allows is
+	 * deleted and the model is called.
+	 *
+	 * @param ResponseTurnRun $run        The turn.
+	 * @param ObjectEntity    $entry      The entry.
+	 * @param string          $layer      `exact` or `similar`.
+	 * @param float|null      $similarity The similarity score, for the similar layer.
+	 *
+	 * @return array{answer: string, entryId: string, layer: string, similarity?: float}|null
+	 */
+	private function serve(ResponseTurnRun $run, ObjectEntity $entry, string $layer, ?float $similarity=null): ?array {
+		$data    = $entry->getObject();
+		$allowed = $this->policy->isAllowed(
+			organisation: (string)($run->progress->organisation ?? ''),
+			provider: (string)($data['provider'] ?? ''),
+			model: (string)($data['model'] ?? '')
+		);
+		if ($allowed === false) {
+			$this->remove(entryId: (string)$entry->getUuid());
+			return null;
+		}
+
+		$this->countHit(entry: $entry);
+
+		$hit = ['answer' => (string)($data['answer'] ?? ''), 'entryId' => (string)$entry->getUuid(), 'layer' => $layer];
+		if ($similarity !== null) {
+			$hit['similarity'] = $similarity;
+		}
+
+		return $hit;
+	}//end serve()
+
+	/**
+	 * The stored question for the similarity layer: redacted, and only when the layer is on.
+	 *
+	 * @param ResponseTurnRun $run The turn.
+	 *
+	 * @return string|null
+	 */
+	private function storedQuestion(ResponseTurnRun $run): ?string {
+		if ($this->similarityScope(run: $run) === null || $this->isFirstQuestion(run: $run) === false) {
+			return null;
+		}
+
+		return $this->redacted(question: $run->userMessage);
+	}//end storedQuestion()
+
+	/**
+	 * The question with sensitive values removed; null when there is no redactor or no question.
+	 *
+	 * Without a redactor nothing is stored or searched, so an unredacted question
+	 * never reaches the index.
+	 *
+	 * @param string $question The question.
+	 *
+	 * @return string|null
+	 */
+	private function redacted(string $question): ?string {
+		if ($this->redactor === null || trim($question) === '') {
+			return null;
+		}
+
+		return $this->redactor->redact(text: $question);
+	}//end redacted()
+
+	/**
+	 * Whether this turn is the first question of its conversation.
+	 *
+	 * @param ResponseTurnRun $run The turn, with its messages built.
+	 *
+	 * @return bool
+	 */
+	private function isFirstQuestion(ResponseTurnRun $run): bool {
+		$questions = 0;
+		foreach ($run->messageHistory as $message) {
+			if ((string)$message->role->value === 'user') {
+				$questions++;
+			}
+		}
+
+		return $questions <= 1;
+	}//end isFirstQuestion()
+
+	/**
+	 * The stored entry of a similar question, re-checked here, or null.
+	 *
+	 * Only for the first question of a conversation, with the layer on and the
+	 * facade available. Every row the facade returns is re-checked: an object of
+	 * this agent's cache, same organisation, same agent version, in scope (`user`:
+	 * stored by this person), not expired, and a similarity of at least
+	 * MIN_SIMILARITY. A row that fails any check is ignored.
+	 *
+	 * @param ResponseTurnRun $run       The turn.
+	 * @param string|null     $versionId The agent's current version id.
+	 *
+	 * @return array{entry: ObjectEntity, similarity: float}|null
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-similar-questions-match-only-through-openregisters-vector-facade-req-acache-003
+	 */
+	private function findSimilar(ResponseTurnRun $run, ?string $versionId): ?array {
+		$scope = $this->similarityScope(run: $run);
+		if ($scope === null || $this->similar === null || $this->isFirstQuestion(run: $run) === false) {
+			return null;
+		}
+
+		$question = $this->redacted(question: $run->userMessage);
+		if ($question === null || $this->similar->isAvailable() === false) {
+			return null;
+		}
+
+		$best = null;
+		foreach ($this->similar->nearest(question: $question, limit: self::SIMILAR_LIMIT) as $row) {
+			$similarity = (float)($row['similarity'] ?? 0);
+			if (($row['entity_type'] ?? null) !== 'object' || $similarity < self::MIN_SIMILARITY || ($best !== null && $similarity <= $best['similarity'])) {
+				continue;
+			}
+
+			$entry = $this->similarEntry(run: $run, entityId: ($row['entity_id'] ?? null), versionId: $versionId, scope: $scope);
+			if ($entry !== null) {
+				$best = ['entry' => $entry, 'similarity' => $similarity];
+			}
+		}
+
+		return $best;
+	}//end findSimilar()
+
+	/**
+	 * The cache entry a facade row points at, when it passes every re-check; else null.
+	 *
+	 * @param ResponseTurnRun $run       The turn.
+	 * @param mixed           $entityId  The row's object id.
+	 * @param string|null     $versionId The agent's current version id.
+	 * @param string          $scope     `user` or `organisation`.
+	 *
+	 * @return ObjectEntity|null
+	 */
+	private function similarEntry(ResponseTurnRun $run, mixed $entityId, ?string $versionId, string $scope): ?ObjectEntity {
+		if ((is_string($entityId) === false || $entityId === '') && is_int($entityId) === false) {
+			return null;
+		}
+
+		$entry = $this->objects->find(
+			id: $entityId,
+			options: new ObjectFindOptions(register: self::REGISTER, schema: self::SCHEMA),
+			_rbac: false
+		);
+		if ($entry instanceof ObjectEntity === false) {
+			return null;
+		}
+
+		$data = $entry->getObject();
+		if ((string)($data['agentId'] ?? '') !== (string)$run->agent?->getUuid() || (string)($data['question'] ?? '') === '') {
+			return null;
+		}
+
+		if ((string)($entry->getOrganisation() ?? '') !== (string)($run->progress->organisation ?? '')) {
+			return null;
+		}
+
+		if ((string)($data['agentVersionId'] ?? '') !== (string)$versionId || $this->expired(data: $data, now: $this->now()) === true) {
+			return null;
+		}
+
+		$userId = (string)$this->session->getUser()?->getUID();
+		if ($scope === 'user' && ($userId === '' || (string)($data['userId'] ?? '') !== $userId)) {
+			return null;
+		}
+
+		return $entry;
+	}//end similarEntry()
 
 	/**
 	 * The deletion of one cache entry.

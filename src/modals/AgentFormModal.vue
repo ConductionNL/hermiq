@@ -956,14 +956,15 @@ export default {
 
 	computed: {
 		/**
-		 * Whether OpenRegister offers vector search here. No facade is exposed yet
-		 * (vector-rag), so similar questions are not matched and the choice is off.
+		 * Whether OpenRegister offers vector search here, as the page state says
+		 * (`vector_search_available`). Without it similar questions are not
+		 * matched and the choice is off.
 		 *
-		 * @return {boolean} False until the facade exists.
-		 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-4
+		 * @return {boolean} True when the vector facade can answer.
+		 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-6
 		 */
 		vectorSearchAvailable() {
-			return false
+			return loadState('hermiq', 'vector_search_available', false) === true
 		},
 
 		/**

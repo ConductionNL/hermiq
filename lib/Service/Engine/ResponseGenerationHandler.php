@@ -109,10 +109,11 @@ class ResponseGenerationHandler {
 
 	/**
 	 * How the last turn's answer came from the answer cache, or [] when the model
-	 * gave it (models-prompt-and-answer-cache): `layer` and `entryId`. Read by the
-	 * Engine onto its result, and from there onto the run and the `final` frame.
+	 * gave it (models-prompt-and-answer-cache): `layer`, `entryId` and, for the
+	 * similar layer, `similarity`. Read by the Engine onto its result, and from
+	 * there onto the run and the `final` frame.
 	 *
-	 * @var array<string, string>
+	 * @var array<string, string|float>
 	 */
 	public array $lastCache = [];
 
@@ -323,6 +324,10 @@ class ResponseGenerationHandler {
 			$cached = $this->answerCache?->lookup(run: $run);
 			if ($cached !== null) {
 				$this->lastCache = ['layer' => $cached['layer'], 'entryId' => $cached['entryId']];
+				if (isset($cached['similarity']) === true) {
+					$this->lastCache['similarity'] = $cached['similarity'];
+				}
+
 				$this->lastUsage = ['promptTokens' => 0, 'completionTokens' => 0, 'llmSeconds' => 0.0];
 				return $cached['answer'];
 			}

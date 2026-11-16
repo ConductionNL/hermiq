@@ -60,8 +60,10 @@ Kind: code. Size M. Rows `hermiq:dm-prompt-cache`, `integriq:gw-ai-cache`.
 - **acceptance_criteria**:
   - GIVEN the facade is absent WHEN a first question arrives THEN only the exact layer runs
   - GIVEN the facade returns a row of another user under user scope WHEN hermiq re-checks it THEN it is ignored
-- [ ] Implement
-- [ ] Test (PHPUnit with a stubbed facade)
+- [x] Implement
+  > 2026-11-16: OpenRegister main publishes `VectorSearchFacade`; hermiq reaches it only through `SimilarQuestionSearch` (resolved lazily from the container, so hermiq loads without it). `AnswerCacheService::lookup()` tries the exact layer first; on a miss, for the first question of a conversation with `similarity` `user` or `organisation` (organisation refused while `enableRag` is on, `similarityScope()`), it asks the facade's `searchSemantic()` for the nearest questions with the redacted question and re-checks every row in hermiq: an object of this agent's cache with a stored question, same organisation, same agent version, not expired, in scope (`user`: stored by this person), similarity at least 0.95, and the model policy. The best passing row is served as `layer: similar` with its score, which the run records in `cache`. `store()` keeps the question, redacted through `RedactionService`, only when the layer is on and it is the first question; without a redactor nothing is stored or searched. The agent form reads `vector_search_available` from the page state (`DashboardPageState`) instead of a fixed false. Live check left: the facade returns only rows the caller may read, and `AnswerCacheEntry` is admin-read, so whether non-admin callers get rows needs a live instance with an embedding backend.
+- [x] Test (PHPUnit with a stubbed facade)
+  > `AnswerCacheSimilarityTest` (served with its score, best passing row, user scope, every re-check, organisation scope refused with retrieval, first question only, no facade, no redactor, the redacted stored question), `SimilarQuestionSearchTest`, `ResponseAnswerCacheTest::testASimilarHitRecordsItsScore`, `DashboardControllerTest::testVectorSearchAvailabilityTracksTheFacade`, `tests/vitest/answer-cache-vector-search.spec.js`.
 
 ### Task 7: Clearing, expiry and the chat note
 - **spec_ref**: `openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004`

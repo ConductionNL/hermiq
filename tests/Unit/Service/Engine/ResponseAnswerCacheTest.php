@@ -88,6 +88,17 @@ class ResponseAnswerCacheTest extends TestCase {
 		$this->assertSame(0, $handler->lastUsage['completionTokens']);
 	}
 
+	public function testASimilarHitRecordsItsScore(): void {
+		$calls = 0;
+		$cache = $this->createMock(AnswerCacheService::class);
+		$cache->method('lookup')->willReturn(['answer' => 'From a similar question.', 'entryId' => 'entry-2', 'layer' => 'similar', 'similarity' => 0.97]);
+		$handler = new ResponseGenerationHandler($this->factory($calls), $this->loop(), new NullLogger(), null, null, $cache);
+
+		$this->assertSame('From a similar question.', $handler->generateResponse(userMessage: 'Q', context: ['text' => '', 'sources' => []], messageHistory: [], agent: $this->agent()));
+		$this->assertSame(0, $calls);
+		$this->assertSame(['layer' => 'similar', 'entryId' => 'entry-2', 'similarity' => 0.97], $handler->lastCache);
+	}
+
 	public function testAMissCallsTheModelAndStoresItsAnswer(): void {
 		$calls = 0;
 		$cache = $this->createMock(AnswerCacheService::class);
