@@ -2919,7 +2919,18 @@
         "counterfactualPair: the first of the two requests. When absent the case's prompt is used.": "counterfactualPair: the first of the two requests. When absent the case's prompt is used.",
         "counterfactualPair: the one attribute in which the two requests differ.": "counterfactualPair: the one attribute in which the two requests differ.",
         "counterfactualPair: the second request, identical to request A except for the attribute.": "counterfactualPair: the second request, identical to request A except for the attribute.",
-        "counterfactualPair: the second request, snapshotted at run time.": "counterfactualPair: the second request, snapshotted at run time."
+        "counterfactualPair: the second request, snapshotted at run time.": "counterfactualPair: the second request, snapshotted at run time.",
+        "Chat health": "Chat health",
+        "AI provider: {provider}": "AI provider: {provider}",
+        "Default model: {model}": "Default model: {model}",
+        "Checked {time}": "Checked {time}",
+        "Not checked yet": "Not checked yet",
+        "Chat works.": "Chat works.",
+        "Chat does not work: no AI provider is chosen.": "Chat does not work: no AI provider is chosen.",
+        "Chat does not work: its settings could not be read.": "Chat does not work: its settings could not be read.",
+        "Answers": "Answers",
+        "Does not answer": "Does not answer",
+        "Not set up": "Not set up"
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

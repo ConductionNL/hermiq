@@ -364,6 +364,9 @@ class ResponseGenerationHandler {
 	 * @param ResponseTurnRun $run The turn.
 	 *
 	 * @return void
+	 *
+	 * @throws ProviderUnavailableException When the driver serves background work only.
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
 	 */
 	private function resolveDriver(ResponseTurnRun $run): void {
 		$llmConfig = $this->providerFactory->getLlmConfig();
