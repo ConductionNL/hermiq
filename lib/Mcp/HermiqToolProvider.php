@@ -104,6 +104,7 @@ use OCA\Hermiq\Kernel\Contracts\MailReadServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\MemoryServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\NcNativeWriteServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\TaskWriteServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkMessageToolInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\WebFetchServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\WebSearchClientInterface;
@@ -709,6 +710,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			WorkspaceToolDescriptors::ALL,
 			GraphToolDescriptors::ALL,
 			$this->taskDescriptors(),
+			NcTalkToolDescriptors::ALL,
 			$this->imageDescriptors(),
 			ComputerToolDescriptors::ALL
 		);
@@ -827,6 +829,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			in_array($toolId, NcTaskToolDescriptors::IDS, true) => TaskWriteServiceInterface::class,
 			in_array($toolId, ImageToolDescriptors::IDS, true) => ImageGenerationServiceInterface::class,
 			in_array($toolId, ComputerToolDescriptors::IDS, true) => ComputerUseServiceInterface::class,
+			in_array($toolId, NcTalkToolDescriptors::IDS, true) => TalkMessageToolInterface::class,
 			default => null,
 		};
 

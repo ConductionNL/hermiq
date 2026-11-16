@@ -201,7 +201,7 @@ describe('AgentExportModal', () => {
 
 		expect(templates.saveAgentAsTemplate).toHaveBeenCalledWith('a1')
 		expect(templates.exportAgentToTemplate).not.toHaveBeenCalled()
-		expect(w.findComponent({ name: 'NcNoteCard' }).text()).toBe('Saved as the template Intake helper. You find it in the Store.')
+		expect(w.findComponent({ name: 'NcNoteCard' }).text()).toBe('Saved as the template Intake helper. You find it in the Marketplace.')
 	})
 
 	it('downloads the exported file under a name made from the agent name', async () => {
