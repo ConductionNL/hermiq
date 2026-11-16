@@ -160,9 +160,9 @@ class ContextRetrievalHandler {
 	 * Search the agent's sources for an unscoped turn and format them as context.
 	 * Never throws: a retrieval failure returns an empty context.
 	 *
-	 * @param array{query: string, agent: ObjectEntity|null, selectedViews: array, ragSettings: array, speaker: string} $turn
-	 *        The turn: user query text, agent object (optional), view filters for
-	 *        multitenancy, RAG configuration overrides and the uid its files are read as.
+	 * @param array $turn      The turn: `query` (user query text), `agent` (ObjectEntity or null),
+	 *                         `selectedViews` (view filters for multitenancy), `ragSettings`
+	 *                         (RAG configuration overrides) and `speaker` (the uid its files are read as).
 	 * @param bool  $validated Whether the agent is in validated mode.
 	 *
 	 * @return array `text`, `sources` and `retrievalScope`.
