@@ -408,6 +408,11 @@ $routes = [
         ['name' => 'skillVersion#rollback', 'url' => '/api/skills/{id}/rollback', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'skillVersion#republish', 'url' => '/api/skills/{id}/republish', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
 
+        // Skill merges (skills-curator-merges-duplicates): the curator's pending merge
+        // proposals, and approving or rejecting one (action skill.merge-duplicates).
+        ['name' => 'skillMerge#index',   'url' => '/api/skill-merges', 'verb' => 'GET'],
+        ['name' => 'skillMerge#approve', 'url' => '/api/skill-merges/{id}/approve', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'skillMerge#reject',  'url' => '/api/skill-merges/{id}/reject', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         // Skills marketplace (skills-marketplace): quarantine install-from-source, review-approve, hub publish.
         ['name' => 'skillMarketplace#installFromSource', 'url' => '/api/skills/install-from-source', 'verb' => 'POST'],
         ['name' => 'skillMarketplace#approve',           'url' => '/api/skills/{id}/approve', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
@@ -795,6 +800,10 @@ $routes = [
         ],
         ['name' => 'Settings\ReportSimilaritySettings#get',    'url' => '/api/settings/report-similarity', 'verb' => 'GET'],
         ['name' => 'Settings\ReportSimilaritySettings#update', 'url' => '/api/settings/report-similarity', 'verb' => 'PUT'],
+        // memory-retrieval-scope (REQ-RSCOPE-002): the Nextcloud tag that marks a document as validated.
+        ['name' => 'Settings\ValidatedTagSettings#get',    'url' => '/api/settings/validated-tag', 'verb' => 'GET'],
+        ['name' => 'Settings\ValidatedTagSettings#update', 'url' => '/api/settings/validated-tag', 'verb' => 'PUT'],
+        ['name' => 'Settings\ValidatedTagSettings#create', 'url' => '/api/settings/validated-tag', 'verb' => 'POST'],
 
         // A conversational intake that files for the citizen
         // (a-conversational-intake-that-files-for-the-citizen): one conversation per

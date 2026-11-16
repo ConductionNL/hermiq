@@ -445,6 +445,39 @@
 								</ul>
 							</details>
 
+							<!-- The scope the answer was given (memory-retrieval-scope D5). -->
+							<div
+								v-if="message.role === 'assistant' && scopeDisplay(message.retrievalScope)"
+								class="chat-page__scope"
+								data-testid="chat-retrieval-scope">
+								<p
+									v-if="scopeDisplay(message.retrievalScope).abstained"
+									class="chat-page__scope-abstained">
+									{{
+										t(
+											'hermiq',
+											'No validated document matched this question. The assistant did not answer from other knowledge.',
+										)
+									}}
+								</p>
+								<p class="chat-page__scope-detail">
+									<span v-if="scopeDisplay(message.retrievalScope).validated">{{
+										t(
+											'hermiq',
+											'Validated mode, floor {floor}. Passages at or above it: {passed}. Best match: {best}.',
+											{
+												passed: String(scopeDisplay(message.retrievalScope).passed),
+												floor: similarityText(scopeDisplay(message.retrievalScope).floor),
+												best: similarityText(scopeDisplay(message.retrievalScope).best),
+											},
+										)
+									}}</span>
+									<span v-if="scopeDisplay(message.retrievalScope).filtered">{{
+										t('hermiq', 'The agent’s file filters limited which files were searched.')
+									}}</span>
+								</p>
+							</div>
+
 							<!-- RAG sources -->
 							<div
 								v-if="message.sources && message.sources.length > 0"
@@ -952,6 +985,7 @@ import {
 	startValueSummary,
 } from '../utils/instructionVariables.js'
 import { defaultAgentOf } from '../utils/personalPreferences.js'
+import { scopeDisplay, similarityText } from '../utils/retrievalScope.js'
 import { canForkSession, forkedSessionToOpen } from '../utils/sessionFork.js'
 import { canShareSession } from '../utils/sessionShare.js'
 import { sessionStartErrorMessage } from '../utils/sessionStartError.js'
@@ -1391,6 +1425,8 @@ export default {
 
 	methods: {
 		sourceFileId,
+		scopeDisplay,
+		similarityText,
 		sourceName,
 		sourcePage,
 
@@ -3041,6 +3077,25 @@ export default {
 	padding-left: 20px;
 	list-style: disc;
 	color: var(--color-main-text);
+}
+
+.chat-page__scope {
+	margin-top: 10px;
+	font-size: 12px;
+	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__scope p {
+	margin: 0;
+}
+
+.chat-page__scope-abstained {
+	font-weight: 600;
+	color: var(--color-main-text);
+}
+
+.chat-page__scope-detail span + span::before {
+	content: ' ';
 }
 
 .chat-page__sources {

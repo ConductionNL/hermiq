@@ -712,6 +712,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\TalkMessageToolInterface",
+            "OCA\\Hermiq\\Service\\NcNative\\TalkMessageTool"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\ToolAccessRequestServiceInterface",
             "OCA\\Hermiq\\Service\\ToolAccessRequestService"
         ],
@@ -724,6 +729,11 @@
             "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\ToolSearchServiceInterface",
             "OCA\\Hermiq\\Service\\ToolSearchService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\ValidatedTagSettingsInterface",
+            "OCA\\Hermiq\\Service\\RetrievalScope\\ValidatedTagSettings"
         ],
         [
             "registerServiceAlias",
@@ -754,6 +764,31 @@
             "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\WebhookSecretServiceInterface",
             "OCA\\Hermiq\\Service\\WebhookSecretService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\BudgetHardCapInterface",
+            "OCA\\Hermiq\\Service\\BudgetService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AnswerProvenanceWriterInterface",
+            "OCA\\Hermiq\\Service\\Engine\\AnswerProvenanceWriter"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\SessionForkServiceInterface",
+            "OCA\\Hermiq\\Service\\SessionForkService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AgentArtefactMarkerInterface",
+            "OCA\\Hermiq\\Service\\NcNative\\AgentArtefactMarker"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AiLabelStatsServiceInterface",
+            "OCA\\Hermiq\\Service\\AiLabelStatsService"
         ],
         [
             "registerServiceAlias",

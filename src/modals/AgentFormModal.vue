@@ -30,6 +30,8 @@
   @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-5-2
   @spec openspec/changes/archive/2026-09-06-agent-management-ui/specs/agent-management-ui/spec.md
   @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-delegation-allowlist-in-place-mvp
+  @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-owner-can-limit-file-retrieval-by-owner-file-name-and-modified-date-req-rscope-001
+  @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-agent-in-validated-mode-refuses-without-asking-the-model-when-nothing-validated-matches-req-rscope-003
 -->
 <template>
 	<NcModal :show="show" size="normal" :name="heading" @close="handleClose">
@@ -476,6 +478,96 @@
 						type="number"
 						:label="t('hermiq', 'Number of RAG sources')"
 						placeholder="5" />
+
+					<!-- File filters (memory-retrieval-scope D1): resolved per turn
+					     through Nextcloud's file search as the person asking. -->
+					<fieldset
+						v-if="form.searchFiles"
+						class="agent-form__field"
+						data-testid="agent-form-file-filters">
+						<legend>{{ t('hermiq', 'Which files the agent searches') }}</legend>
+						<NcSelect
+							v-model="form.fileOwnerUsers"
+							data-testid="agent-form-file-owner-users"
+							:inputLabel="t('hermiq', 'Files owned by these people')"
+							:options="peopleOptions"
+							:multiple="true"
+							:filterable="false"
+							label="label"
+							trackBy="value"
+							@search="onSearchPeople" />
+						<NcSelect
+							v-model="form.fileOwnerGroups"
+							data-testid="agent-form-file-owner-groups"
+							:inputLabel="t('hermiq', 'Files owned by members of these groups')"
+							:options="groupOptions"
+							:multiple="true"
+							:filterable="false"
+							label="label"
+							trackBy="value"
+							@search="onSearchGroups" />
+						<NcTextField
+							v-model="form.fileNamePattern"
+							data-testid="agent-form-file-name-pattern"
+							:label="t('hermiq', 'File name contains')"
+							:helperText="t('hermiq', 'Use * for any text, for example besluit*.pdf.')" />
+						<div class="agent-form__row">
+							<NcTextField
+								v-model="form.fileModifiedAfter"
+								type="date"
+								data-testid="agent-form-file-modified-after"
+								:label="t('hermiq', 'Modified on or after')" />
+							<NcTextField
+								v-model="form.fileModifiedBefore"
+								type="date"
+								data-testid="agent-form-file-modified-before"
+								:label="t('hermiq', 'Modified before')" />
+						</div>
+						<p class="agent-form__hint">
+							{{
+								t(
+									'hermiq',
+									'Leave empty to search every file the person asking can read. Filters that match no file mean no file is searched.',
+								)
+							}}
+						</p>
+					</fieldset>
+
+					<!-- Validated mode (memory-retrieval-scope D3): enforced by the
+					     engine, not asked of the model. -->
+					<div class="agent-form__field">
+						<NcCheckboxRadioSwitch
+							v-model="form.answerOnlyFromValidated"
+							data-testid="agent-form-validated-mode">
+							{{ t('hermiq', 'Answer only from validated documents') }}
+						</NcCheckboxRadioSwitch>
+						<p class="agent-form__hint">
+							{{
+								t(
+									'hermiq',
+									'Searches only files carrying the validated tag, no objects and no tools. When no validated passage is close enough, the agent gives the message below and the model is not asked.',
+								)
+							}}
+						</p>
+					</div>
+					<template v-if="form.answerOnlyFromValidated">
+						<NcTextField
+							v-model="form.ragMinSimilarity"
+							type="number"
+							data-testid="agent-form-min-similarity"
+							:label="t('hermiq', 'Minimum similarity (0 to 1)')"
+							:placeholder="String(defaultMinSimilarity)" />
+						<NcTextArea
+							v-model="form.abstentionMessage"
+							data-testid="agent-form-abstention-message"
+							:label="t('hermiq', 'Answer when no validated document matches')"
+							:placeholder="
+								t(
+									'hermiq',
+									'I cannot answer this from the validated documents. Contact the Klantcontactcentrum for help.',
+								)
+							" />
+					</template>
 				</template>
 
 				<!--
@@ -600,6 +692,11 @@ import {
 import { ensembleOf, ensemblePayload, sendsEnsemble } from '../utils/agentEnsemble.js'
 import { sharingFields, sharingOf } from '../utils/agentSharing.js'
 import { insertPlaceholder, startFieldsOf } from '../utils/instructionVariables.js'
+import {
+	DEFAULT_MIN_SIMILARITY,
+	retrievalScopeFields,
+	retrievalScopePayload,
+} from '../utils/retrievalScope.js'
 import { formDialogSlot } from './formDialogSlot.js'
 
 /**
@@ -718,13 +815,11 @@ function limitFields(form) {
  * @return {object} The fields.
  */
 function describingFields(source) {
+	const text = Object.fromEntries(
+		['name', 'description', 'icon', 'provider', 'model', 'prompt'].map((key) => [key, source[key] || '']),
+	)
 	return {
-		name: source.name || '',
-		description: source.description || '',
-		icon: source.icon || '',
-		provider: source.provider || '',
-		model: source.model || '',
-		prompt: source.prompt || '',
+		...text,
 		startFields: startFieldsOf(source),
 		temperature: source.temperature ?? '',
 		maxTokens: source.maxTokens ?? '',
@@ -894,6 +989,8 @@ export default {
 			// Agents-sharing-and-catalog-columns: search results for the pickers.
 			peopleOptions: [],
 			groupOptions: [],
+			// Memory-retrieval-scope: the floor shown when the agent sets none.
+			defaultMinSimilarity: DEFAULT_MIN_SIMILARITY,
 			// agent-acting-identity-picker: whether the viewer may name an
 			// account (initial state from the action matrix; the server guard
 			// decides either way), the account picker's search results, and the
@@ -1446,6 +1543,7 @@ export default {
 				voiceConversationEnabled: false,
 				credentialIds: {},
 				ensemble: ensembleOf(undefined),
+				...retrievalScopeFields({}),
 			}
 		},
 
@@ -1598,6 +1696,7 @@ export default {
 					this.mapDelegationAllowlistToOptions(delegationAllowlist),
 
 				...searchAndVoiceFields(source),
+				...retrievalScopeFields(source),
 			}
 		},
 
@@ -1908,6 +2007,10 @@ export default {
 				),
 			)
 			assignDefined(payload, limitFields(this.form))
+			assignDefined(
+				payload,
+				retrievalScopePayload(this.form, editableCopy(this.effectiveAgent)),
+			)
 			Object.assign(payload, actingUserField(this.form.actingChoice, this.form.actingUser))
 		},
 

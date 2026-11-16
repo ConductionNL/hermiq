@@ -302,6 +302,7 @@ class ToolLoop implements ToolLoopInterface {
 	 * @throws ToolGrantResolutionException When granted tools resolve to nothing.
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) RepoEffectingGrants is a pure rule over the grant grammar, like ToolGrantResolver's static classifiers.
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-tool-governance/spec.md#REQ-SPCOV-015
 	 */
 	private function resolveGrantedFunctions(array $whitelist): array {
 		$functions = RepoEffectingGrants::filterDescriptors(
