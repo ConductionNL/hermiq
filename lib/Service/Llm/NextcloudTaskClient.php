@@ -543,6 +543,8 @@ class NextcloudTaskClient {
 	 * The current time in seconds.
 	 *
 	 * @return integer
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-1
 	 */
 	protected function now(): int {
 		if ($this->timeFactory === null) {
@@ -556,6 +558,8 @@ class NextcloudTaskClient {
 	 * Wait one second between polls. Overridden in tests.
 	 *
 	 * @return void
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-1
 	 */
 	protected function pause(): void {
 		sleep(1);
