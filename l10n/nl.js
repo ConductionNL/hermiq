@@ -2928,7 +2928,18 @@ OC.L10N.register(
         "The answer stored in validated mode when no validated passage matches. Empty uses: I cannot answer this from the validated documents. Contact the Klantcontactcentrum for help.": "Het antwoord dat in gevalideerde modus wordt opgeslagen als geen gevalideerde passage past. Leeg gebruikt: Dit kan ik niet beantwoorden op basis van de gevalideerde documenten. Neem contact op met het Klantcontactcentrum.",
         "The scope an assistant answer was given (memory-retrieval-scope D5): fileFilters applied, validated (whether validated mode was on), floor, passed (passages at or above it), bestSimilarity, and abstained (true when hermiq answered without the model).": "Het zoekbereik waarmee een antwoord van de assistent is gegeven (memory-retrieval-scope D5): toegepaste fileFilters, validated (of de gevalideerde modus aan stond), floor, passed (passages op of boven die drempel), bestSimilarity en abstained (true als hermiq antwoordde zonder het model).",
         "The similarity a passage needs in validated mode (0 to 1).": "De overeenkomst die een passage in gevalideerde modus nodig heeft (0 tot 1).",
-        "When on, a turn searches only files carrying the validated tag, searches no objects, resolves no tools and ignores session settings that would widen that; when no validated passage reaches ragMinSimilarity, hermiq stores abstentionMessage as the answer and does not call the model (memory-retrieval-scope D3).": "Als dit aan staat, zoekt een beurt alleen in bestanden met de tag voor gevalideerde documenten, zoekt niet in objecten, gebruikt geen tools en negeert sessie-instellingen die dat zouden verruimen; als geen gevalideerde passage ragMinSimilarity haalt, slaat hermiq abstentionMessage op als antwoord en wordt het model niet aangeroepen (memory-retrieval-scope D3)."
+        "When on, a turn searches only files carrying the validated tag, searches no objects, resolves no tools and ignores session settings that would widen that; when no validated passage reaches ragMinSimilarity, hermiq stores abstentionMessage as the answer and does not call the model (memory-retrieval-scope D3).": "Als dit aan staat, zoekt een beurt alleen in bestanden met de tag voor gevalideerde documenten, zoekt niet in objecten, gebruikt geen tools en negeert sessie-instellingen die dat zouden verruimen; als geen gevalideerde passage ragMinSimilarity haalt, slaat hermiq abstentionMessage op als antwoord en wordt het model niet aangeroepen (memory-retrieval-scope D3).",
+        "Chat health": "Chatstatus",
+        "AI provider: {provider}": "AI-aanbieder: {provider}",
+        "Default model: {model}": "Standaardmodel: {model}",
+        "Checked {time}": "Gecontroleerd {time}",
+        "Not checked yet": "Nog niet gecontroleerd",
+        "Chat works.": "Chat werkt.",
+        "Chat does not work: no AI provider is chosen.": "Chat werkt niet: er is geen AI-aanbieder gekozen.",
+        "Chat does not work: its settings could not be read.": "Chat werkt niet: de instellingen konden niet worden gelezen.",
+        "Answers": "Reageert",
+        "Does not answer": "Reageert niet",
+        "Not set up": "Niet ingesteld"
     },
     "nplurals=2; plural=(n != 1);"
 )

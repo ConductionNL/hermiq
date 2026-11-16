@@ -2948,7 +2948,18 @@
         "The answer stored in validated mode when no validated passage matches. Empty uses: I cannot answer this from the validated documents. Contact the Klantcontactcentrum for help.": "The answer stored in validated mode when no validated passage matches. Empty uses: I cannot answer this from the validated documents. Contact the Klantcontactcentrum for help.",
         "The scope an assistant answer was given (memory-retrieval-scope D5): fileFilters applied, validated (whether validated mode was on), floor, passed (passages at or above it), bestSimilarity, and abstained (true when hermiq answered without the model).": "The scope an assistant answer was given (memory-retrieval-scope D5): fileFilters applied, validated (whether validated mode was on), floor, passed (passages at or above it), bestSimilarity, and abstained (true when hermiq answered without the model).",
         "The similarity a passage needs in validated mode (0 to 1).": "The similarity a passage needs in validated mode (0 to 1).",
-        "When on, a turn searches only files carrying the validated tag, searches no objects, resolves no tools and ignores session settings that would widen that; when no validated passage reaches ragMinSimilarity, hermiq stores abstentionMessage as the answer and does not call the model (memory-retrieval-scope D3).": "When on, a turn searches only files carrying the validated tag, searches no objects, resolves no tools and ignores session settings that would widen that; when no validated passage reaches ragMinSimilarity, hermiq stores abstentionMessage as the answer and does not call the model (memory-retrieval-scope D3)."
+        "When on, a turn searches only files carrying the validated tag, searches no objects, resolves no tools and ignores session settings that would widen that; when no validated passage reaches ragMinSimilarity, hermiq stores abstentionMessage as the answer and does not call the model (memory-retrieval-scope D3).": "When on, a turn searches only files carrying the validated tag, searches no objects, resolves no tools and ignores session settings that would widen that; when no validated passage reaches ragMinSimilarity, hermiq stores abstentionMessage as the answer and does not call the model (memory-retrieval-scope D3).",
+        "Chat health": "Chat health",
+        "AI provider: {provider}": "AI provider: {provider}",
+        "Default model: {model}": "Default model: {model}",
+        "Checked {time}": "Checked {time}",
+        "Not checked yet": "Not checked yet",
+        "Chat works.": "Chat works.",
+        "Chat does not work: no AI provider is chosen.": "Chat does not work: no AI provider is chosen.",
+        "Chat does not work: its settings could not be read.": "Chat does not work: its settings could not be read.",
+        "Answers": "Answers",
+        "Does not answer": "Does not answer",
+        "Not set up": "Not set up"
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"
