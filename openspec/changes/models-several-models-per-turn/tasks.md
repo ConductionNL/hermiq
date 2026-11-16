@@ -54,8 +54,8 @@ Kind: code. Size L. Rows `hermiq:mo-failover`, `hermiq:dm-model-ensemble`, `inte
 - **acceptance_criteria**:
   - GIVEN an agent owner WHEN they pick two allowed reference models and save THEN the agent shows the ensemble and the cost line
   - GIVEN a reference model outside the policy WHEN saved THEN the save is refused
-- [ ] Implement
-- [ ] Test (PHPUnit on the save validation; Playwright under tests/e2e/spec-coverage/)
+- [x] Implement — `Agent` 0.15.0 `ensemble` `{enabled, referenceModels}` (register 0.59.0); `ReferenceModelSettings::normalise()` refuses a reference model the effective policy does not allow ("This model is not allowed by your organisation's model policy."), more than three, fewer than two when enabled, or a malformed list. The agent form writes through OpenRegister's objects API, so the check runs in `AgentEnsembleGuardListener` on `ObjectCreatingEvent`/`ObjectUpdatingEvent` (the agent's organisation, else the writer's active one; an unchanged ensemble is not checked again), and in `AgentsController::create()`/`update()` for the direct API (400, agent unchanged). `EnsembleEditor.vue` on the agent form: the switch "Answer with several models", two or three provider/model rows from the policy's lists, and "Each answer costs up to four model calls."; the agent's Configuration card shows "Ensemble: 2 reference models" through the `agentEnsemble` formatter. Strings in `l10n/en.json` and `l10n/nl.json`, `.js` regenerated.
+- [ ] Test (PHPUnit on the save validation; Playwright under tests/e2e/spec-coverage/) — PHPUnit done (`ReferenceModelSettingsTest`, `AgentEnsembleGuardListenerTest`, `AgentsControllerEnsembleTest`) and vitest `agent-ensemble.spec.js`; the Playwright run needs a live instance and is left
 
 ### Task 7: The ensemble turn and its budget
 - **spec_ref**: `openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002`

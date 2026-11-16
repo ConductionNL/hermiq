@@ -138,6 +138,11 @@ final class ListenerRegistrar {
 		// on every write path (agent-acting-identity-picker, REQ-AGID-002).
 		$context->registerEventListener(event: ObjectCreatingEvent::class, listener: AgentActingUserGuardListener::class);
 		$context->registerEventListener(event: ObjectUpdatingEvent::class, listener: AgentActingUserGuardListener::class);
+
+		// An agent's reference models stay inside the model policy, on every
+		// write path (models-several-models-per-turn, REQ-MENS-001).
+		$context->registerEventListener(event: ObjectCreatingEvent::class, listener: AgentEnsembleGuardListener::class);
+		$context->registerEventListener(event: ObjectUpdatingEvent::class, listener: AgentEnsembleGuardListener::class);
 	}//end registerAgentObjectListeners()
 
 	/**

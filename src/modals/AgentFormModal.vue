@@ -276,6 +276,15 @@
 					</p>
 				</div>
 
+				<!-- Several models per answer (models-several-models-per-turn): the
+			     reference models are offered from the same policy-filtered lists as
+			     the agent's own model; the server refuses one the policy does not
+			     allow, and that refusal shows as the form's error. -->
+				<EnsembleEditor
+					v-model="form.ensemble"
+					:providerOptions="providerOptions"
+					:modelsFor="ensembleModelsFor" />
+
 				<!-- The agent's own key per provider (operations-a-credential-per-agent).
 			     Only a reference is stored; the broker keeps the secret. When the
 			     pinned key cannot be used, the turn stops rather than use another. -->
@@ -569,6 +578,7 @@ import {
 	NcTextArea,
 	NcTextField,
 } from '@nextcloud/vue'
+import EnsembleEditor from '../components/EnsembleEditor.vue'
 import PromptPlaceholderTools from '../components/PromptPlaceholderTools.vue'
 import StartFieldsEditor from '../components/StartFieldsEditor.vue'
 import { getActingUserStatus } from '../api/actingUser.js'
@@ -587,6 +597,7 @@ import {
 	PINNABLE_PROVIDERS,
 	setPin,
 } from '../utils/agentCredentials.js'
+import { ensembleOf, ensemblePayload, sendsEnsemble } from '../utils/agentEnsemble.js'
 import { sharingFields, sharingOf } from '../utils/agentSharing.js'
 import { insertPlaceholder, startFieldsOf } from '../utils/instructionVariables.js'
 import { formDialogSlot } from './formDialogSlot.js'
@@ -718,6 +729,7 @@ function describingFields(source) {
 		temperature: source.temperature ?? '',
 		maxTokens: source.maxTokens ?? '',
 		maxToolCalls: source.maxToolCalls ?? 10,
+		ensemble: ensembleOf(source.ensemble),
 	}
 }
 
@@ -823,6 +835,7 @@ export default {
 
 	components: {
 		CnIconPicker,
+		EnsembleEditor,
 		PromptPlaceholderTools,
 		StartFieldsEditor,
 		NcButton,
@@ -1432,6 +1445,7 @@ export default {
 				voiceSilenceTimeout: '',
 				voiceConversationEnabled: false,
 				credentialIds: {},
+				ensemble: ensembleOf(undefined),
 			}
 		},
 
@@ -1696,6 +1710,24 @@ export default {
 		},
 
 		/**
+		 * The models offered for one reference model's provider: the policy's
+		 * allowed models when it names any, the provider's known ones otherwise.
+		 *
+		 * @param {string} provider The reference model's provider.
+		 * @return {Array<string>} The model ids.
+		 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+		 */
+		ensembleModelsFor(provider) {
+			const entry = (this.policy?.allowed || []).find(
+				(candidate) => candidate.provider === provider,
+			)
+			if (Array.isArray(entry?.models) && entry.models.length > 0) {
+				return entry.models
+			}
+			return knownModelsFor(provider)
+		},
+
+		/**
 		 * Whether the current provider/model pair violates the loaded policy
 		 * (client-side mirror of the ProviderFactory enforcement).
 		 *
@@ -1811,6 +1843,14 @@ export default {
 			}
 
 			this.applyOptionalFields(payload)
+
+			// The ensemble is sent when it is on, or when the agent had one, so
+			// an agent that never used it is saved without the field.
+			if (sendsEnsemble(this.form.ensemble, base.ensemble)) {
+				payload.ensemble = ensemblePayload(this.form.ensemble)
+			} else {
+				delete payload.ensemble
+			}
 
 			// Preserve the object id on edit so saveObject issues a PUT.
 			if (this.effectiveAgent && this.effectiveAgent.id) {

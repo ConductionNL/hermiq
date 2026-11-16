@@ -2927,7 +2927,30 @@
         "Move fallback down": "Move fallback down",
         "Remove fallback": "Remove fallback",
         "Add fallback": "Add fallback",
-        "fallbacks": "fallbacks"
+        "fallbacks": "fallbacks",
+        "Several models": "Several models",
+        "Answer with several models": "Answer with several models",
+        "The reference models answer first, without tools. This agent's own model then merges their answers into one reply, with its tools.": "The reference models answer first, without tools. This agent's own model then merges their answers into one reply, with its tools.",
+        "Each answer costs up to four model calls.": "Each answer costs up to four model calls.",
+        "Reference provider {number}": "Reference provider {number}",
+        "Reference model {number}": "Reference model {number}",
+        "Remove reference model {number}": "Remove reference model {number}",
+        "Add reference model": "Add reference model",
+        "Pick at least two reference models.": "Pick at least two reference models.",
+        "This model is not allowed by your organisation's model policy.": "This model is not allowed by your organisation's model policy.",
+        "_Ensemble: {count} reference model_::_Ensemble: {count} reference models_": [
+            "Ensemble: {count} reference model",
+            "Ensemble: {count} reference models"
+        ],
+        "Ensemble: {count} reference model": "Ensemble: {count} reference model",
+        "Ensemble: {count} reference models": "Ensemble: {count} reference models",
+        "When on, two or three reference models answer each prompt first, without tools; the agent's own model then merges their answers into one reply, with its tools. Each reference model must be allowed by the organisation's model policy, and is checked again on every call. Each answer costs up to four model calls.": "When on, two or three reference models answer each prompt first, without tools; the agent's own model then merges their answers into one reply, with its tools. Each reference model must be allowed by the organisation's model policy, and is checked again on every call. Each answer costs up to four model calls.",
+        "Reference models": "Reference models",
+        "Two or three {provider, model} pairs that answer before the agent's own model merges.": "Two or three {provider, model} pairs that answer before the agent's own model merges.",
+        "Fallback when a provider fails": "Fallback when a provider fails",
+        "Ordered {provider, model} pairs a turn moves to when the provider answering it fails with a rate limit, a server error, a timeout or a connection error, before any answer text is shown or any tool has run. At most four. Every entry MUST itself be allowed by this policy (service-level validation), and is checked again on every hop at run time.": "Ordered {provider, model} pairs a turn moves to when the provider answering it fails with a rate limit, a server error, a timeout or a connection error, before any answer text is shown or any tool has run. At most four. Every entry MUST itself be allowed by this policy (service-level validation), and is checked again on every hop at run time.",
+        "The provider of this fallback. Must be one of the providers this policy allows.": "The provider of this fallback. Must be one of the providers this policy allows.",
+        "The model identifier as the provider names it. Must be allowed for the chosen provider.": "The model identifier as the provider names it. Must be allowed for the chosen provider."
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"
