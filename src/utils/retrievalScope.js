@@ -7,6 +7,8 @@
 // validated mode (`answerOnlyFromValidated`, `ragMinSimilarity`,
 // `abstentionMessage`); the server enforces both, this only reads and writes them.
 
+import { getCanonicalLocale } from '@nextcloud/l10n'
+
 /** The floor the register defaults to when an agent sets none. */
 export const DEFAULT_MIN_SIMILARITY = 0.5
 
@@ -174,11 +176,37 @@ export function scopeDisplay(scope) {
 }
 
 /**
- * A similarity as the two decimals the record is read in, or '–' when unknown.
+ * The reader's locale, or undefined (the runtime's own) when Nextcloud cannot say.
+ *
+ * @return {string|undefined} For example 'nl-NL'.
+ */
+function readerLocale() {
+	try {
+		return getCanonicalLocale()
+	} catch {
+		return undefined
+	}
+}
+
+/**
+ * A similarity as the two decimals the record is read in, written in the reader's
+ * locale (0,41 in Dutch), or '–' when unknown or not a number.
  *
  * @param {number|null} value The similarity.
+ * @param {string} [locale] The locale to write it in; the reader's own by default.
  * @return {string} For example '0.41'.
  */
-export function similarityText(value) {
-	return value === null || value === undefined ? '–' : Number(value).toFixed(2)
+export function similarityText(value, locale = readerLocale()) {
+	if (value === null || value === undefined || value === '') {
+		return '–'
+	}
+	const number = Number(value)
+	if (!Number.isFinite(number)) {
+		return '–'
+	}
+	try {
+		return new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(number)
+	} catch {
+		return number.toFixed(2)
+	}
 }

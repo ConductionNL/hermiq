@@ -172,4 +172,15 @@ describe('similarityText', () => {
 		expect(similarityText(0.5)).toBe('0.50')
 		expect(similarityText(null)).toBe('–')
 	})
+
+	it('writes the decimal the way the reader\'s locale does', () => {
+		expect(similarityText(0.4123, 'nl-NL')).toBe('0,41')
+		expect(similarityText(0.4123, 'en-US')).toBe('0.41')
+	})
+
+	it('gives a dash for a value that is not a number', () => {
+		expect(similarityText('abc')).toBe('–')
+		expect(similarityText(Number.NaN)).toBe('–')
+		expect(similarityText(undefined)).toBe('–')
+	})
 })

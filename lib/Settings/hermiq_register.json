@@ -3214,18 +3214,24 @@
 						"properties": {
 							"owners": {
 								"type": "array",
+								"title": "Owners",
+								"description": "Users or groups whose files the agent searches; empty searches files of any owner.",
 								"items": {
 									"type": "object",
 									"properties": {
 										"type": {
 											"type": "string",
+											"title": "Owner type",
+											"description": "Whether the owner is a user or a group; a missing type means user.",
 											"enum": [
 												"user",
 												"group"
 											]
 										},
 										"id": {
-											"type": "string"
+											"type": "string",
+											"title": "Owner id",
+											"description": "The Nextcloud user id or group id of the owner."
 										}
 									},
 									"required": [
@@ -3234,15 +3240,21 @@
 								}
 							},
 							"namePattern": {
-								"type": "string"
+								"type": "string",
+								"title": "File name pattern",
+								"description": "Only files whose name matches this pattern are searched; * stands for any text."
 							},
 							"modifiedAfter": {
 								"type": "string",
-								"format": "date"
+								"format": "date",
+								"title": "Modified after",
+								"description": "Only files modified on or after this date (YYYY-MM-DD) are searched."
 							},
 							"modifiedBefore": {
 								"type": "string",
-								"format": "date"
+								"format": "date",
+								"title": "Modified before",
+								"description": "Only files modified before this date (YYYY-MM-DD) are searched."
 							}
 						}
 					},
