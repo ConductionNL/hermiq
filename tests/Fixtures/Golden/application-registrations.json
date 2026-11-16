@@ -750,6 +750,31 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\BudgetHardCapInterface",
+            "OCA\\Hermiq\\Service\\BudgetService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AnswerProvenanceWriterInterface",
+            "OCA\\Hermiq\\Service\\Engine\\AnswerProvenanceWriter"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\SessionForkServiceInterface",
+            "OCA\\Hermiq\\Service\\SessionForkService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AgentArtefactMarkerInterface",
+            "OCA\\Hermiq\\Service\\NcNative\\AgentArtefactMarker"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AiLabelStatsServiceInterface",
+            "OCA\\Hermiq\\Service\\AiLabelStatsService"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Service\\Workspace\\WorkspaceProvider",
             "OCA\\Hermiq\\Service\\Workspace\\ServerSideWorkspaceProvider"
         ],
