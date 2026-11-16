@@ -17552,8 +17552,8 @@
     {
       "type": "library",
       "name": "eslint",
-      "version": "10.11.0",
-      "bom-ref": "hermiq@0.1.0|eslint@10.11.0",
+      "version": "10.13.0",
+      "bom-ref": "hermiq@0.1.0|eslint@10.13.0",
       "licenses": [
         {
           "license": {
@@ -17561,15 +17561,15 @@
           }
         }
       ],
-      "purl": "pkg:npm/eslint@10.11.0",
+      "purl": "pkg:npm/eslint@10.13.0",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/eslint/-/eslint-10.11.0.tgz",
+          "url": "https://registry.npmjs.org/eslint/-/eslint-10.13.0.tgz",
           "type": "distribution",
           "hashes": [
             {
               "alg": "SHA-512",
-              "content": "3fb6ba50412a6fd1bde4c600b6a926b136d55c8632cc87e5e8d18e209935eb63da6a117117278672b9576054a26a0102838b049bc22c78975904a477af1e8cb1"
+              "content": "5288438c3e334b313085fe7c3373bbbdcff271cf0ed48edd36586d0f45b113c3f1f041cd24ab54c3306aaf3786862b11bafd9a838b0062cc2ccc225180a5d852"
             }
           ],
           "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
@@ -17590,7 +17590,7 @@
           "type": "library",
           "name": "ajv",
           "version": "6.15.0",
-          "bom-ref": "hermiq@0.1.0|eslint@10.11.0|ajv@6.15.0",
+          "bom-ref": "hermiq@0.1.0|eslint@10.13.0|ajv@6.15.0",
           "licenses": [
             {
               "license": {
@@ -17627,7 +17627,7 @@
           "type": "library",
           "name": "eslint-visitor-keys",
           "version": "5.0.1",
-          "bom-ref": "hermiq@0.1.0|eslint@10.11.0|eslint-visitor-keys@5.0.1",
+          "bom-ref": "hermiq@0.1.0|eslint@10.13.0|eslint-visitor-keys@5.0.1",
           "licenses": [
             {
               "license": {
@@ -17664,7 +17664,7 @@
           "type": "library",
           "name": "espree",
           "version": "11.2.0",
-          "bom-ref": "hermiq@0.1.0|eslint@10.11.0|espree@11.2.0",
+          "bom-ref": "hermiq@0.1.0|eslint@10.13.0|espree@11.2.0",
           "licenses": [
             {
               "license": {
@@ -17701,7 +17701,7 @@
           "type": "library",
           "name": "json-schema-traverse",
           "version": "0.4.1",
-          "bom-ref": "hermiq@0.1.0|eslint@10.11.0|json-schema-traverse@0.4.1",
+          "bom-ref": "hermiq@0.1.0|eslint@10.13.0|json-schema-traverse@0.4.1",
           "licenses": [
             {
               "license": {
