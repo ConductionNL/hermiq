@@ -2939,7 +2939,27 @@ OC.L10N.register(
         "Chat does not work: its settings could not be read.": "Chat does not work: its settings could not be read.",
         "Answers": "Answers",
         "Does not answer": "Does not answer",
-        "Not set up": "Not set up"
+        "Not set up": "Not set up",
+        "A system connected through integriq": "A system connected through integriq",
+        "Add a custom tool": "Add a custom tool",
+        "Add input": "Add input",
+        "An OpenRegister flow": "An OpenRegister flow",
+        "Changes data": "Changes data",
+        "Changes data irreversibly": "Changes data irreversibly",
+        "Changes nothing": "Changes nothing",
+        "Choices": "Choices",
+        "Could not save the custom tool": "Could not save the custom tool",
+        "Edit custom tool": "Edit custom tool",
+        "Input name": "Input name",
+        "Offer this tool to agents": "Offer this tool to agents",
+        "Optional: the only values allowed, separated by commas.": "Optional: the only values allowed, separated by commas.",
+        "Remove input": "Remove input",
+        "The server did not accept the custom tool.": "The server did not accept the custom tool.",
+        "The tool could not be run.": "The tool could not be run.",
+        "This really runs the flow or calls the system.": "This really runs the flow or calls the system.",
+        "Try it": "Try it",
+        "Whole number": "Whole number",
+        "Yes or no": "Yes or no"
     },
     "nplurals=2; plural=(n != 1);"
 )

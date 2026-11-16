@@ -344,6 +344,12 @@ $routes = [
             'verb'         => 'PUT',
             'requirements' => ['id' => '[^/]+'],
         ],
+        [
+            'name'         => 'customTool#tryTool',
+            'url'          => '/api/custom-tools/{id}/try',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
 
         // Compliance control packs (compliance-control-packs): org-scoped dashboard,
         // auditor's-pack export (both action-auth-gated), and per-agent AI factsheet

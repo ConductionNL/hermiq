@@ -128,6 +128,27 @@ class CustomToolInvoker {
 		$owner = trim((string)($arguments[self::OWNER_ARGUMENT] ?? ''));
 		unset($arguments[self::OWNER_ARGUMENT]);
 
+		return $this->run(tool: $tool, arguments: $arguments, owner: $owner);
+	}//end invoke()
+
+	/**
+	 * Run a stored tool once: check the arguments, then call its target.
+	 *
+	 * The caller has decided the tool may be run: the agent engine through the
+	 * grant chain, or an organisation admin's "Try it".
+	 *
+	 * @param array<string, mixed> $tool      The stored tool, with its slug.
+	 * @param array<string, mixed> $arguments The arguments, without the owner.
+	 * @param string               $owner     Who the run is for; a flow is never queued without one.
+	 *
+	 * @return array<string, mixed> The answer, or an error envelope, with the `customTool` record.
+	 *
+	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+	 */
+	public function run(array $tool, array $arguments, string $owner): array {
+		$slug   = (string)($tool['slug'] ?? '');
+		$toolId = CustomToolDescriptors::idOf(slug: $slug);
+
 		$schema = ($tool['inputSchema'] ?? []);
 		if (is_array($schema) === false) {
 			$schema = [];
@@ -162,7 +183,7 @@ class CustomToolInvoker {
 		];
 
 		return $answer;
-	}//end invoke()
+	}//end run()
 
 	/**
 	 * Why the arguments do not match the input schema, or null when they do.

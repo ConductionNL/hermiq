@@ -27,6 +27,7 @@ namespace OCA\Hermiq\Controller;
 
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Service\CustomTool\CustomToolInvoker;
 use OCA\Hermiq\Service\CustomTool\CustomToolService;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\AppFramework\Controller;
@@ -41,7 +42,8 @@ use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
- * The custom tools API: GET and POST /api/custom-tools, PUT /api/custom-tools/{id}.
+ * The custom tools API: GET and POST /api/custom-tools, PUT /api/custom-tools/{id},
+ * POST /api/custom-tools/{id}/try.
  *
  * Every route checks OrganisationPolicyGate::mayAdminister() for the
  * organisation the tool belongs to: its owner or an instance admin.
@@ -59,6 +61,7 @@ class CustomToolController extends Controller {
 	 * @param IGroupManager      $groupManager       Instance admins.
 	 * @param OrganisationMapper $organisationMapper Organisation owners and the active organisation.
 	 * @param LoggerInterface    $logger             Logs a failed read or write.
+	 * @param CustomToolInvoker  $invoker            Runs a tool once for "Try it".
 	 */
 	public function __construct(
 		IRequest $request,
@@ -67,6 +70,7 @@ class CustomToolController extends Controller {
 		private readonly IGroupManager $groupManager,
 		private readonly OrganisationMapper $organisationMapper,
 		private readonly LoggerInterface $logger,
+		private readonly CustomToolInvoker $invoker,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
@@ -154,6 +158,52 @@ class CustomToolController extends Controller {
 
 		return $this->write(organisation: $organisation, uuid: $id, status: Http::STATUS_OK);
 	}//end update()
+
+	/**
+	 * Run a custom tool once with sample inputs ("Try it"), as the caller.
+	 *
+	 * This really runs the flow or calls the system. The arguments are checked
+	 * against the tool's input schema first, exactly as for an agent's call.
+	 *
+	 * Access control: owner of the tool's organisation or instance admin.
+	 *
+	 * @param string $id The custom tool's uuid.
+	 *
+	 * @return JSONResponse 200 the tool's answer; 400 on invalid arguments; 401, 403 or 404
+	 *
+	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+	 */
+	#[NoAdminRequired]
+	public function tryTool(string $id): JSONResponse {
+		$user = $this->userSession->getUser();
+		if ($user === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		$existing = $this->customTools->findById(uuid: $id);
+		if ($existing === null) {
+			return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
+		}
+
+		$organisation = (string)($existing->getOrganisation() ?? '');
+		if ($this->policyGate()->mayAdminister(organisation: $organisation, user: $user) === false) {
+			return new JSONResponse(['error' => 'Forbidden'], Http::STATUS_FORBIDDEN);
+		}
+
+		$arguments = $this->request->getParam('arguments', []);
+		if (is_array($arguments) === false) {
+			return new JSONResponse(['error' => 'arguments: must be an object'], Http::STATUS_BAD_REQUEST);
+		}
+
+		$tool            = $existing->getObject();
+		$tool['version'] = (string)($existing->getVersion() ?? '');
+		$answer          = $this->invoker->run(tool: $tool, arguments: $arguments, owner: $user->getUID());
+		if (($answer['error']['code'] ?? '') === 'invalid_argument') {
+			return new JSONResponse($answer, Http::STATUS_BAD_REQUEST);
+		}
+
+		return new JSONResponse($answer);
+	}//end tryTool()
 
 	/**
 	 * Save the request's tool, answering a validation failure with 400.

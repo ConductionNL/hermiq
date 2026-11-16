@@ -5436,6 +5436,72 @@
                 }
             }
         },
+        "/custom-tools/{id}/try": {
+            "post": {
+                "operationId": "custom-tool-try",
+                "summary": "Try a custom tool",
+                "description": "Run a custom tool once with sample inputs, as the caller. This really runs the flow or calls the system. Only the owner of its organisation or an instance admin. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "custom-tool"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The custom tool.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "arguments": {
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    }
+                }
+            }
+        },
         "/egress/authorize": {
             "post": {
                 "operationId": "egress-authorize-authorize",

@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\CustomToolController;
+use OCA\Hermiq\Service\CustomTool\CustomToolInvoker;
 use OCA\Hermiq\Service\CustomTool\CustomToolService;
 use OCA\Hermiq\Tests\Unit\Service\CustomTool\CustomToolDefinitionTest;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -36,6 +37,9 @@ final class CustomToolControllerTest extends TestCase {
 
 	/** @var list<array<string, mixed>> */
 	private array $saves = [];
+
+	/** @var list<array{tool: array<string, mixed>, arguments: array<string, mixed>, owner: string}> */
+	private array $runs = [];
 
 	/**
 	 * The controller, for a caller in the voorbeeld organisation.
@@ -114,13 +118,26 @@ final class CustomToolControllerTest extends TestCase {
 			}
 		);
 
+		$invoker = $this->createMock(CustomToolInvoker::class);
+		$invoker->method('run')->willReturnCallback(
+			function (array $tool, array $arguments, string $owner): array {
+				$this->runs[] = ['tool' => $tool, 'arguments' => $arguments, 'owner' => $owner];
+				if (isset($arguments['activiteit']) === true && $arguments['activiteit'] === 'bouw') {
+					return ['error' => ['code' => 'invalid_argument', 'message' => 'activiteit: must be one of terras, evenement, kap']];
+				}
+
+				return ['result' => ['runUuid' => 'run-1']];
+			}
+		);
+
 		return new CustomToolController(
 			request: $request,
 			customTools: new CustomToolService(objectService: $objects, logger: new NullLogger()),
 			userSession: $session,
 			groupManager: $groups,
 			organisationMapper: $mapper,
-			logger: new NullLogger()
+			logger: new NullLogger(),
+			invoker: $invoker
 		);
 	}//end controller()
 
@@ -191,4 +208,41 @@ final class CustomToolControllerTest extends TestCase {
 		$this->assertStringContainsString('string, number, integer, boolean', $response->getData()['error']);
 		$this->assertSame([], $this->saves);
 	}//end testAnInvalidToolIsABadRequest()
+
+	/**
+	 * "Try it" runs the stored tool once as the caller, and only for its organisation's admin.
+	 *
+	 * @return void
+	 */
+	public function testTryItRunsTheToolAsTheAdminOnly(): void {
+		$params = ['arguments' => ['adres' => 'Markt 3', 'activiteit' => 'terras']];
+
+		$this->assertSame(Http::STATUS_FORBIDDEN, $this->controller(uid: 'beheerder', params: $params)->tryTool(id: 'tool-other')->getStatus());
+		$this->assertSame(Http::STATUS_NOT_FOUND, $this->controller(uid: 'admin', isAdmin: true, params: $params)->tryTool(id: 'no-such-tool')->getStatus());
+		$this->assertSame([], $this->runs);
+
+		$response = $this->controller(uid: 'admin', isAdmin: true, params: $params)->tryTool(id: 'tool-other');
+
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame(['result' => ['runUuid' => 'run-1']], $response->getData());
+		$this->assertSame('admin', $this->runs[0]['owner']);
+		$this->assertSame(['adres' => 'Markt 3', 'activiteit' => 'terras'], $this->runs[0]['arguments']);
+		$this->assertSame('vergunningcheck', $this->runs[0]['tool']['slug']);
+	}//end testTryItRunsTheToolAsTheAdminOnly()
+
+	/**
+	 * Wrong sample inputs are a bad request; arguments that are not an object run nothing.
+	 *
+	 * @return void
+	 */
+	public function testTryItWithWrongInputIsABadRequest(): void {
+		$wrong = $this->controller(uid: 'admin', isAdmin: true, params: ['arguments' => ['adres' => 'Markt 3', 'activiteit' => 'bouw']])->tryTool(id: 'tool-other');
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $wrong->getStatus());
+		$this->assertSame('invalid_argument', $wrong->getData()['error']['code']);
+
+		$runs = count($this->runs);
+		$notAnObject = $this->controller(uid: 'admin', isAdmin: true, params: ['arguments' => 'adres=Markt 3'])->tryTool(id: 'tool-other');
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $notAnObject->getStatus());
+		$this->assertCount($runs, $this->runs);
+	}//end testTryItWithWrongInputIsABadRequest()
 }//end class

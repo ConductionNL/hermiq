@@ -1430,6 +1430,38 @@
 			"title": "MCP tools"
 		},
 		{
+			"id": "CustomTools",
+			"route": "/custom-tools",
+			"type": "index",
+			"title": "Custom tools",
+			"config": {
+				"register": "hermiq",
+				"schema": "customtool",
+				"_note": "tools-custom-tools-without-code: an organisation's own tools that call a flow or an integriq endpoint. Reads go through the generic objects path (the schema lets authenticated users read their organisation's tools); create and edit mount CustomToolFormModal through slots.form-dialog, which writes through hermiq's /api/custom-tools, the endpoint only an organisation admin or instance admin passes. Reached from the MCP tools page.",
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "slug",
+						"label": "Slug"
+					},
+					{
+						"key": "changesData",
+						"label": "Changes data"
+					},
+					{
+						"key": "enabled",
+						"label": "Enabled"
+					}
+				]
+			},
+			"slots": {
+				"form-dialog": "CustomToolFormModal"
+			}
+		},
+		{
 			"id": "FlowIndex",
 			"route": "/flows",
 			"type": "index",

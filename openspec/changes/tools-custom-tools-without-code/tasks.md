@@ -49,7 +49,7 @@ Kind: code. Size M. Row `hermiq:tl-custom-tool`.
 - **acceptance_criteria**:
   - GIVEN an organisation admin WHEN they build inputs, pick a target and press Try it THEN the warning is shown and the real answer appears
   - GIVEN the editor WHEN a field uses NcSelect THEN it has an inputLabel
-- [ ] Implement
+- [x] Implement
 - [ ] Test (Playwright under tests/e2e/spec-coverage/)
 
 ## Verification
