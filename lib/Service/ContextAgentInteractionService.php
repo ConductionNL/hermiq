@@ -56,6 +56,9 @@ use OCA\Hermiq\Service\Engine\Engine;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IAppConfig;
@@ -260,8 +263,7 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 			// below stays under the caller's own read rule.
 			$agent = $this->objectService->find(
 				id: $configured,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false
 			);
 			if ($agent instanceof ObjectEntity) {
@@ -309,8 +311,7 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 			try {
 				$existing = $this->objectService->find(
 					id: $conversationToken,
-					register: self::REGISTER_SLUG,
-					schema: self::CONVERSATION_SCHEMA
+					options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 				);
 			} catch (DoesNotExistException) {
 				$existing = null;
@@ -338,8 +339,7 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 				'title' => 'Assistant agent chat',
 				'metadata' => ['source' => 'contextagent'],
 			],
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)),
 			_rbac: false
 		);
 

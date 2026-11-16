@@ -35,6 +35,8 @@ use OCA\Hermiq\Kernel\Contracts\AppTemplateOffersInterface;
 use OCA\Hermiq\Service\AppTemplate\OfferSave;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\App\IAppManager;
@@ -274,9 +276,13 @@ class AppTemplateOffers implements AppTemplateOffersInterface {
 
 		return $this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $data),
-			register: AgentTemplateService::REGISTER_SLUG,
-			schema: AgentTemplateService::TEMPLATE_SCHEMA,
-			uuid: $replaceUuid,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(
+						register: AgentTemplateService::REGISTER_SLUG,
+						schema: AgentTemplateService::TEMPLATE_SCHEMA
+					),
+				uuid: $replaceUuid
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

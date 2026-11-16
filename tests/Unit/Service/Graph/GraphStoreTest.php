@@ -23,6 +23,7 @@ use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Tests for GraphStore.
@@ -54,7 +55,12 @@ class GraphStoreTest extends TestCase {
 	public function testCreateReturnsTheNewUuid(): void {
 		$objects = $this->createMock(ObjectService::class);
 		$objects->expects(self::once())->method('saveObject')
-			->with(['label' => 'Acme'], [], 'hermiq', 'graphentity')
+			->with(...LegacyObjectArgs::with(method: 'saveObject', expected: [
+				'object' => ['label' => 'Acme'],
+				'extend' => [],
+				'register' => 'hermiq',
+				'schema' => 'graphentity',
+			]))
 			->willReturn($this->entity('e-1'));
 
 		self::assertSame('e-1', (new GraphStore($objects, $this->createMock(LoggerInterface::class)))->create('graphentity', ['label' => 'Acme']));
@@ -67,14 +73,14 @@ class GraphStoreTest extends TestCase {
 	 */
 	public function testUpdateSavesASanitisedPayloadUnderTheUuid(): void {
 		$objects = $this->createMock(ObjectService::class);
-		$objects->expects(self::once())->method('saveObject')->with(
-			['label' => 'Acme', 'seenAt' => (new \DateTime('2026-01-02 03:04:05'))->format('c'), 'meta' => null],
-			[],
-			'hermiq',
-			'graphrelation',
-			'r-1',
-			false
-		)->willReturn($this->entity('r-1'));
+		$objects->expects(self::once())->method('saveObject')->with(...LegacyObjectArgs::with(method: 'saveObject', expected: [
+				'object' => ['label' => 'Acme', 'seenAt' => (new \DateTime('2026-01-02 03:04:05'))->format('c'), 'meta' => null],
+				'extend' => [],
+				'register' => 'hermiq',
+				'schema' => 'graphrelation',
+				'uuid' => 'r-1',
+				'_rbac' => false,
+			]))->willReturn($this->entity('r-1'));
 
 		(new GraphStore($objects, $this->createMock(LoggerInterface::class)))->update('graphrelation', 'r-1', [
 			'@self' => ['id' => 'r-1'],
@@ -93,7 +99,14 @@ class GraphStoreTest extends TestCase {
 	public function testEntityReadsTheEntity(): void {
 		$objects = $this->createMock(ObjectService::class);
 		$objects->expects(self::once())->method('find')
-			->with('e-1', [], false, 'hermiq', 'graphentity', false)
+			->with(...LegacyObjectArgs::with(method: 'find', expected: [
+				'id' => 'e-1',
+				'_extend' => [],
+				'files' => false,
+				'register' => 'hermiq',
+				'schema' => 'graphentity',
+				'_rbac' => false,
+			]))
 			->willReturn($this->entity('e-1'));
 
 		self::assertSame('e-1', (new GraphStore($objects, $this->createMock(LoggerInterface::class)))->entity('e-1')?->getUuid());
