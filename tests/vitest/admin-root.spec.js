@@ -19,6 +19,7 @@ vi.mock('../../src/components/settings/RemoteAgents.vue', () => ({ default: { na
 vi.mock('../../src/components/settings/ReportGroupingSettings.vue', () => ({ default: { name: 'ReportGroupingSettings', render: () => null } }))
 vi.mock('../../src/components/settings/RunRetentionSettings.vue', () => ({ default: { name: 'RunRetentionSettings', render: () => null } }))
 vi.mock('../../src/components/settings/TalkBridgeSettings.vue', () => ({ default: { name: 'TalkBridgeSettings', render: () => null } }))
+vi.mock('../../src/components/settings/ValidatedTagSettings.vue', () => ({ default: { name: 'ValidatedTagSettings', render: () => null } }))
 vi.mock('../../src/modals/LlmProviderModal.vue', () => ({ default: { name: 'LlmProviderModal', props: ['show'], emits: ['close', 'saved'], render: () => null } }))
 vi.mock('../../src/modals/WebResearchSettingsModal.vue', () => ({ default: { name: 'WebResearchSettingsModal', props: ['show'], emits: ['close', 'saved'], render: () => null } }))
 vi.mock('../../src/views/AiFeatureRegister.vue', () => ({ default: { name: 'AiFeatureRegister', render: () => null } }))
@@ -49,6 +50,7 @@ const CHILDREN = [
 	'ReportGroupingSettings',
 	'RunRetentionSettings',
 	'TalkBridgeSettings',
+	'ValidatedTagSettings',
 	'WebResearchSettingsModal',
 ]
 
@@ -148,6 +150,7 @@ describe('AdminRoot', () => {
 			'Conversational intake',
 			'Report grouping',
 			'Assistant prompts',
+			'Validated documents',
 			'AI run retention',
 			'Trace export',
 			'Talk chat bridge',

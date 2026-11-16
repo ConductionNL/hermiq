@@ -43,6 +43,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
 
+use OCA\Hermiq\Service\RetrievalScope\ValidatedMode;
 use Closure;
 use Exception;
 use LLPhant\Chat\Message as LLPhantMessage;
@@ -340,6 +341,14 @@ class ResponseGenerationHandler {
 	 */
 	private function loadFunctions(ResponseTurnRun $run): void {
 		$toolsStartTime = microtime(true);
+		// Validated mode (memory-retrieval-scope D3): the turn resolves no tools,
+		// so the model cannot fetch anything beyond the validated passages.
+		if (ValidatedMode::isOn(agentData: ($run->agent?->getObject() ?? [])) === true) {
+			$run->progress->functions = [];
+			$run->progress->toolsTime = microtime(true) - $toolsStartTime;
+			return;
+		}
+
 		$run->progress->functions = $this->toolLoop->listAgentFunctions(agent: $run->agent, selectedTools: $run->selectedTools);
 		$run->progress->toolsTime = microtime(true) - $toolsStartTime;
 		if (empty($run->progress->functions) === true) {
