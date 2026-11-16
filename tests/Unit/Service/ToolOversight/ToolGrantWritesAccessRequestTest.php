@@ -25,6 +25,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\ToolOversight;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\ToolOversight\ToolGrantWrites;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -87,7 +88,9 @@ class ToolGrantWritesAccessRequestTest extends TestCase {
 
 		$this->assertSame('agent-1', $data['agentId']);
 		$this->assertSame('mail.send', $data['toolId']);
-		$this->assertSame(['req-1', 'hermiq', 'toolAccessRequest'], [$finds[0][0], $finds[0][3], $finds[0][4]]);
+		$this->assertSame('req-1', $finds[0][0]);
+		$this->assertInstanceOf(ObjectFindOptions::class, $finds[0][1]);
+		$this->assertSame(['hermiq', 'toolAccessRequest'], [$finds[0][1]->register, $finds[0][1]->schema]);
 	}//end testTheAgentsOwnRequestIsFound()
 
 	/**
