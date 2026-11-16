@@ -489,26 +489,32 @@
 				"properties": {
 					"name": {
 						"type": "string",
+						"title": "Name",
 						"description": "The name agents and admins see, for example KvK-assistent."
 					},
 					"slug": {
 						"type": "string",
+						"title": "Handle",
 						"description": "The handle a tool call and a grant constraint name, for example kvk-assistent."
 					},
 					"description": {
 						"type": "string",
+						"title": "Description",
 						"description": "What this remote agent is for."
 					},
 					"source": {
 						"type": "string",
+						"title": "Source",
 						"description": "The uuid of the integriq source that carries every call to this remote agent."
 					},
 					"agentCard": {
 						"type": "object",
+						"title": "Agent card",
 						"description": "The remote agent card as fetched through the source at registration: name, description and skills."
 					},
 					"enabled": {
 						"type": "boolean",
+						"title": "Enabled",
 						"default": false,
 						"description": "Whether agents may ask it. Off until an admin turns it on."
 					}
@@ -520,6 +526,7 @@
 				"version": "0.2.0",
 				"title": "Handoff",
 				"description": "Work an agent started and did not wait for: a flow run, a webhook workflow or a task on a remote agent. The result comes back later as a new turn in the same conversation. Only waiting is open; done (the work answered, even when its answer reports an error), failed (the work could not be carried out) and expired (the deadline passed) are terminal and final. Opened and closed by HandoffService, never by a client. Read only by the user it was started for (requestedBy); writes stay with the owner and admins, because the authorization block lists read only.",
+				"x-openregister-demo-data": "Written by HandoffService as the record of work an agent started; a sample handoff would be swept, expired and delivered as a turn to a user who does not exist.",
 				"type": "object",
 				"required": [
 					"kind",
@@ -625,6 +632,7 @@
 					},
 					"resultTokenHash": {
 						"type": "string",
+						"title": "Result token hash",
 						"nullable": true,
 						"description": "SHA-256 of the one-time token a webhook workflow posts its result with. The token itself is never stored; the hash is useless once the handoff leaves waiting."
 					}

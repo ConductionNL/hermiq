@@ -131,10 +131,22 @@ export default {
 		 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 		 */
 		selectedSource: {
+			/**
+			 * The option whose id is `form.source`, or null.
+			 *
+			 * @return {object|null} The selected source option.
+			 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+			 */
 			get() {
 				return this.sources.find((source) => source.id === this.form.source) ?? null
 			},
 
+			/**
+			 * Keep `form.source` in step with the chosen option.
+			 *
+			 * @param {object|null} option The chosen source option.
+			 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+			 */
 			set(option) {
 				this.form.source = option?.id ?? ''
 			},
@@ -159,6 +171,12 @@ export default {
 		 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 		 */
 		show: {
+			/**
+			 * Fill the form when the modal opens.
+			 *
+			 * @param {boolean} open Whether it opened.
+			 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+			 */
 			handler(open) {
 				if (open) {
 					this.form = formOf(this.agent)

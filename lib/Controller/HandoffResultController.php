@@ -158,6 +158,8 @@ class HandoffResultController extends Controller {
 	 * The raw request body.
 	 *
 	 * @return string
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 */
 	protected function readRawBody(): string {
 		$body = file_get_contents('php://input');
