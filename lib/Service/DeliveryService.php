@@ -58,6 +58,7 @@ use OCA\Hermiq\Service\Talk\TalkRoomBinding;
 use OCA\Hermiq\Service\Talk\TalkSafeText;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\Http\Client\IClientService;
+use OCP\Http\Client\IResponse;
 use OCP\IConfig;
 use OCP\IURLGenerator;
 use OCP\IUserManager;
@@ -190,6 +191,17 @@ class DeliveryService {
 	private const WEBHOOK_SIGNATURE_HEADER = 'X-Hermiq-Signature';
 
 	/**
+	 * The webhook retry settings a schedule may carry: key → [default, minimum,
+	 * maximum], the bounds the schema documents.
+	 *
+	 * @var array<string, array{0: int, 1: int, 2: int}>
+	 */
+	private const WEBHOOK_SETTING_BOUNDS = [
+		'deliverWebhookMaxAttempts' => [3, 1, 5],
+		'deliverWebhookBackoffBaseSeconds' => [2, 1, 30],
+	];
+
+	/**
 	 * Hard, non-user-configurable per-attempt HTTP timeout in seconds
 	 * (delivery-channels design.md Decision 2) — a hung endpoint cannot itself
 	 * defeat the attempt budget.
@@ -302,7 +314,7 @@ class DeliveryService {
 			'notification' => $this->deliverNotification(delivery: $delivery),
 			'talk' => $this->deliverTalk(delivery: $delivery),
 			'email' => $this->deliverEmail(schedule: $delivery->schedule, output: $delivery->output),
-			'webhook' => $this->deliverWebhook(schedule: $delivery->schedule, output: $delivery->output),
+			'webhook' => $this->deliverWebhook(delivery: $delivery),
 			default => $this->unknownChannel(channel: $channel),
 		};
 
@@ -1180,8 +1192,7 @@ class DeliveryService {
 	 * exponential-backoff retry. NEVER throws: a missing URL/secret or an
 	 * exhausted retry budget is reported as a warning, never fails the run.
 	 *
-	 * @param ObjectEntity $schedule The schedule being delivered.
-	 * @param string $output The agent output to POST (redacted before send).
+	 * @param ScheduleDelivery $delivery The delivery (output redacted before send).
 	 *
 	 * @return DeliveryResult The webhook delivery outcome.
 	 *
@@ -1190,51 +1201,125 @@ class DeliveryService {
 	 * @spec openspec/specs/talk-delivery/spec.md#requirement-webhook-payload-is-size-capped-before-it-is-signed-and-sent-mvp
 	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 */
-	private function deliverWebhook(ObjectEntity $schedule, string $output): DeliveryResult {
-		$uuid = (string)$schedule->getUuid();
-		$data = $schedule->getObject();
-		$url = trim((string)($data['deliverTarget'] ?? ''));
-
+	private function deliverWebhook(ScheduleDelivery $delivery): DeliveryResult {
+		$url = $delivery->target();
 		if ($url === '') {
-			$warning = 'No destination URL is configured';
-			$this->logWarning(warning: $warning, uuid: $uuid, channel: 'webhook');
-			return new DeliveryResult(delivered: false, channel: 'webhook', fellBack: false, warning: $warning);
+			return $this->webhookNotSent(delivery: $delivery, warning: 'No destination URL is configured');
 		}
 
-		$secret = $this->scheduleWebhookSecretService->retrieveSecret(schedule: $schedule);
+		$secret = $this->scheduleWebhookSecretService->retrieveSecret(schedule: $delivery->schedule);
 		if ($secret === null) {
-			$warning = 'No signing secret is configured';
-			$this->logWarning(warning: $warning, uuid: $uuid, channel: 'webhook');
-			return new DeliveryResult(delivered: false, channel: 'webhook', fellBack: false, warning: $warning);
+			return $this->webhookNotSent(delivery: $delivery, warning: 'No signing secret is configured');
 		}
 
-		$redacted = $this->redactionService->redact(text: $output);
-		$body = $this->capWebhookPayload(
-			envelope: $this->buildWebhookEnvelope(schedule: $schedule, agentId: (string)($data['agentId'] ?? ''), output: $redacted)
+		$webhook = new WebhookDelivery(url: $url, secret: $secret);
+		$this->prepareWebhook(webhook: $webhook, delivery: $delivery);
+
+		return $this->sendWebhook(webhook: $webhook, delivery: $delivery);
+	}//end deliverWebhook()
+
+	/**
+	 * A webhook that could not be sent at all: logged, undelivered, never thrown.
+	 *
+	 * @param ScheduleDelivery $delivery The delivery.
+	 * @param string           $warning  Why it was not sent.
+	 *
+	 * @return DeliveryResult The undelivered outcome.
+	 */
+	private function webhookNotSent(ScheduleDelivery $delivery, string $warning): DeliveryResult {
+		$this->logWarning(warning: $warning, uuid: $delivery->uuid(), channel: 'webhook');
+		return new DeliveryResult(delivered: false, channel: 'webhook', fellBack: false, warning: $warning);
+	}//end webhookNotSent()
+
+	/**
+	 * Set the webhook's HMAC-covered body (the redacted, size-capped envelope) and its
+	 * attempt and backoff bounds from the schedule.
+	 *
+	 * @param WebhookDelivery  $webhook  The webhook delivery.
+	 * @param ScheduleDelivery $delivery The delivery.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-webhook-payload-is-size-capped-before-it-is-signed-and-sent-mvp
+	 */
+	private function prepareWebhook(WebhookDelivery $webhook, ScheduleDelivery $delivery): void {
+		$redacted = $this->redactionService->redact(text: $delivery->output);
+		$webhook->body = $this->capWebhookPayload(
+			envelope: $this->buildWebhookEnvelope(schedule: $delivery->schedule, output: $redacted)
 		);
 
-		$maxAttempts = $this->clampInt(value: ($data['deliverWebhookMaxAttempts'] ?? 3), min: 1, max: 5);
-		$backoffBase = $this->clampInt(value: ($data['deliverWebhookBackoffBaseSeconds'] ?? 2), min: 1, max: 30);
+		$data = $delivery->schedule->getObject();
+		$webhook->maxAttempts = $this->boundedWebhookSetting(data: $data, key: 'deliverWebhookMaxAttempts');
+		$webhook->backoffBase = $this->boundedWebhookSetting(data: $data, key: 'deliverWebhookBackoffBaseSeconds');
+	}//end prepareWebhook()
 
-		$lastError = '';
-		for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
-			if ($attempt > 1) {
-				$this->sleep(seconds: $backoffBase * (2 ** ($attempt - 2)));
-			}
-
-			$lastError = $this->tryPostWebhook(url: $url, body: $body, secret: $secret);
-			if ($lastError === '') {
-				$this->logWarning(warning: null, uuid: $uuid, channel: 'webhook');
-				$this->reportWebhookOutcome(url: $url, delivered: true, attempts: $attempt);
-				return new DeliveryResult(delivered: true, channel: 'webhook', fellBack: false, warning: null);
+	/**
+	 * Post the webhook until an attempt succeeds or the attempts run out.
+	 *
+	 * @param WebhookDelivery  $webhook  The webhook delivery.
+	 * @param ScheduleDelivery $delivery The delivery.
+	 *
+	 * @return DeliveryResult The webhook delivery outcome.
+	 *
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-webhook-delivery-retries-with-bounded-exponential-backoff-mvp
+	 */
+	private function sendWebhook(WebhookDelivery $webhook, ScheduleDelivery $delivery): DeliveryResult {
+		for ($attempt = 1; $attempt <= $webhook->maxAttempts; $attempt++) {
+			$this->waitBeforeAttempt(webhook: $webhook, attempt: $attempt);
+			$webhook->attempts = $attempt;
+			$webhook->lastError = $this->tryPostWebhook(webhook: $webhook);
+			if ($webhook->lastError === '') {
+				return $this->webhookDelivered(webhook: $webhook, delivery: $delivery);
 			}
 		}
 
-		$warning = sprintf('Webhook delivery failed after %d attempt(s): %s', $maxAttempts, $lastError);
-		$this->logWarning(warning: $warning, uuid: $uuid, channel: 'webhook');
-		$this->reportWebhookOutcome(url: $url, delivered: false, attempts: $maxAttempts);
+		return $this->webhookFailed(webhook: $webhook, delivery: $delivery);
+	}//end sendWebhook()
+
+	/**
+	 * A webhook a 2xx answer acknowledged: logged clean and reported.
+	 *
+	 * @param WebhookDelivery  $webhook  The webhook delivery.
+	 * @param ScheduleDelivery $delivery The delivery.
+	 *
+	 * @return DeliveryResult The delivered outcome.
+	 */
+	private function webhookDelivered(WebhookDelivery $webhook, ScheduleDelivery $delivery): DeliveryResult {
+		$this->logWarning(warning: null, uuid: $delivery->uuid(), channel: 'webhook');
+		$this->reportWebhookOutcome(webhook: $webhook, delivered: true);
+		return new DeliveryResult(delivered: true, channel: 'webhook', fellBack: false, warning: null);
+	}//end webhookDelivered()
+
+	/**
+	 * A webhook whose every attempt failed: the last failure is the warning.
+	 *
+	 * @param WebhookDelivery  $webhook  The webhook delivery, its attempts spent.
+	 * @param ScheduleDelivery $delivery The delivery.
+	 *
+	 * @return DeliveryResult The undelivered outcome.
+	 */
+	private function webhookFailed(WebhookDelivery $webhook, ScheduleDelivery $delivery): DeliveryResult {
+		$warning = sprintf('Webhook delivery failed after %d attempt(s): %s', $webhook->maxAttempts, $webhook->lastError);
+		$this->logWarning(warning: $warning, uuid: $delivery->uuid(), channel: 'webhook');
+		$this->reportWebhookOutcome(webhook: $webhook, delivered: false);
 		return new DeliveryResult(delivered: false, channel: 'webhook', fellBack: false, warning: $warning);
-	}//end deliverWebhook()
+	}//end webhookFailed()
+
+	/**
+	 * Back off before every attempt after the first: base × 2^(attempt − 2) seconds.
+	 *
+	 * @param WebhookDelivery $webhook The webhook delivery.
+	 * @param int             $attempt The attempt about to be made (1-based).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-webhook-delivery-retries-with-bounded-exponential-backoff-mvp
+	 */
+	private function waitBeforeAttempt(WebhookDelivery $webhook, int $attempt): void {
+		if ($attempt > 1) {
+			$this->sleep(seconds: $webhook->backoffBase * (2 ** ($attempt - 2)));
+		}
+	}//end waitBeforeAttempt()
 
 	/**
 	 * Tell integriq what a webhook delivery met, at most once an hour per status.
@@ -1244,68 +1329,62 @@ class DeliveryService {
 	 * The message names the target host only: the full URL may carry a token.
 	 * A missing target or secret is a gap in one schedule and sends nothing.
 	 *
-	 * @param string $url       The target URL the POST went to.
-	 * @param bool   $delivered Whether a 2xx answer came back.
-	 * @param int    $attempts  The attempts made.
+	 * @param WebhookDelivery $webhook   The webhook delivery (target and attempts made).
+	 * @param bool            $delivered Whether a 2xx answer came back.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 */
-	private function reportWebhookOutcome(string $url, bool $delivered, int $attempts): void {
+	private function reportWebhookOutcome(WebhookDelivery $webhook, bool $delivered): void {
 		if ($this->connectionReporter === null) {
 			return;
 		}
 
-		$host = parse_url($url, PHP_URL_HOST);
+		[$status, $message] = $this->webhookOutcomeReport(webhook: $webhook, delivered: $delivered);
+		$this->connectionReporter->reportThrottled(
+			key: 'webhook-delivery',
+			status: $status,
+			message: $message
+		);
+	}//end reportWebhookOutcome()
+
+	/**
+	 * The connection status and message for a webhook outcome, naming the host only.
+	 *
+	 * @param WebhookDelivery $webhook   The webhook delivery.
+	 * @param bool            $delivered Whether a 2xx answer came back.
+	 *
+	 * @return array{0: string, 1: string} The status and the message.
+	 */
+	private function webhookOutcomeReport(WebhookDelivery $webhook, bool $delivered): array {
+		$host = parse_url($webhook->url, PHP_URL_HOST);
 		if (is_string($host) === false || $host === '') {
 			$host = 'its target';
 		}
 
 		if ($delivered === true) {
-			$this->connectionReporter->reportThrottled(
-				key: 'webhook-delivery',
-				status: 'configured',
-				message: 'The last webhook delivery reached ' . $host . '.'
-			);
-			return;
+			return ['configured', 'The last webhook delivery reached ' . $host . '.'];
 		}
 
-		$this->connectionReporter->reportThrottled(
-			key: 'webhook-delivery',
-			status: 'error',
-			message: sprintf('The last webhook delivery to %s failed after %d attempt(s).', $host, $attempts)
-		);
-	}//end reportWebhookOutcome()
+		return ['error', sprintf('The last webhook delivery to %s failed after %d attempt(s).', $host, $webhook->attempts)];
+	}//end webhookOutcomeReport()
 
 	/**
 	 * Attempt a single signed webhook POST.
 	 *
-	 * @param string $url The destination URL.
-	 * @param string $body The exact, final (redacted, capped) JSON body to sign and send.
-	 * @param string $secret The schedule's webhook signing secret.
+	 * @param WebhookDelivery $webhook The webhook delivery: URL, secret and the exact,
+	 *                                 final (redacted, capped) JSON body the HMAC covers and that is sent.
 	 *
 	 * @return string '' on a successful (2xx) response, or a reason string on failure.
 	 *
 	 * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-a-signed-outbound-webhook-mvp
 	 */
-	private function tryPostWebhook(string $url, string $body, string $secret): string {
-		$signature = 'sha256=' . hash_hmac('sha256', $body, $secret);
+	private function tryPostWebhook(WebhookDelivery $webhook): string {
+		$signature = 'sha256=' . hash_hmac('sha256', $webhook->body, $webhook->secret);
 
 		try {
-			$response = $this->clientService->newClient()->post(
-				$url,
-				[
-					'body' => $body,
-					'headers' => [
-						'Content-Type' => 'application/json',
-						self::WEBHOOK_SIGNATURE_HEADER => $signature,
-					],
-					'timeout' => self::WEBHOOK_HTTP_TIMEOUT_SECONDS,
-				]
-			);
-
-			$status = $response->getStatusCode();
+			$status = $this->postWebhook(webhook: $webhook, signature: $signature)->getStatusCode();
 			if ($status >= 200 && $status < 300) {
 				return '';
 			}
@@ -1318,24 +1397,47 @@ class DeliveryService {
 	}//end tryPostWebhook()
 
 	/**
+	 * POST the webhook body with its HMAC header.
+	 *
+	 * @param WebhookDelivery $webhook   The webhook delivery.
+	 * @param string          $signature The `sha256=<hex>` HMAC over the body.
+	 *
+	 * @return IResponse The response.
+	 *
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-a-signed-outbound-webhook-mvp
+	 */
+	private function postWebhook(WebhookDelivery $webhook, string $signature): IResponse {
+		return $this->clientService->newClient()->post(
+			$webhook->url,
+			[
+				'body' => $webhook->body,
+				'headers' => [
+					'Content-Type' => 'application/json',
+					self::WEBHOOK_SIGNATURE_HEADER => $signature,
+				],
+				'timeout' => self::WEBHOOK_HTTP_TIMEOUT_SECONDS,
+			]
+		);
+	}//end postWebhook()
+
+	/**
 	 * Build the outbound webhook JSON envelope (delivery-channels design.md
 	 * Decision 4). `deliver()` only invokes webhook delivery from the SUCCESS
 	 * path of a run (`ScheduleService::runDue()` calls it after
 	 * `runAgentAsOwner()` returns without throwing), so `status` is always `ok`
 	 * here — a failed run never reaches this method.
 	 *
-	 * @param ObjectEntity $schedule The schedule being delivered.
-	 * @param string $agentId The bound agent's UUID.
+	 * @param ObjectEntity $schedule The schedule being delivered (its bound agent's UUID is `agentId`).
 	 * @param string $output The already-redacted output.
 	 *
 	 * @return array<string, mixed> The envelope (pre-size-cap).
 	 *
 	 * @spec openspec/specs/talk-delivery/spec.md#requirement-webhook-payload-is-size-capped-before-it-is-signed-and-sent-mvp
 	 */
-	private function buildWebhookEnvelope(ObjectEntity $schedule, string $agentId, string $output): array {
+	private function buildWebhookEnvelope(ObjectEntity $schedule, string $output): array {
 		return [
 			'scheduleId' => (string)$schedule->getUuid(),
-			'agentId' => $agentId,
+			'agentId' => (string)($schedule->getObject()['agentId'] ?? ''),
 			'status' => 'ok',
 			'deliveredAt' => (new DateTime())->format('c'),
 			'output' => $output,
@@ -1379,21 +1481,20 @@ class DeliveryService {
 	}//end capWebhookPayload()
 
 	/**
-	 * Clamp an integer schedule field to its documented schema bounds,
-	 * tolerating a missing/non-numeric stored value by falling back within range.
+	 * A webhook retry setting of the schedule, clamped to its documented schema
+	 * bounds; a missing value takes its default and a non-numeric one clamps from zero.
 	 *
-	 * @param mixed $value The raw stored value.
-	 * @param int $min The minimum allowed value.
-	 * @param int $max The maximum allowed value.
+	 * @param array<string, mixed> $data The schedule data.
+	 * @param string               $key  A key of WEBHOOK_SETTING_BOUNDS.
 	 *
 	 * @return int The clamped value.
 	 *
 	 * @spec openspec/specs/talk-delivery/spec.md#requirement-webhook-delivery-retries-with-bounded-exponential-backoff-mvp
 	 */
-	private function clampInt(mixed $value, int $min, int $max): int {
-		$int = (int)$value;
-		return max($min, min($max, $int));
-	}//end clampInt()
+	private function boundedWebhookSetting(array $data, string $key): int {
+		[$default, $min, $max] = self::WEBHOOK_SETTING_BOUNDS[$key];
+		return max($min, min($max, (int)($data[$key] ?? $default)));
+	}//end boundedWebhookSetting()
 
 	/**
 	 * Pause the current tick for the given number of seconds before the next
