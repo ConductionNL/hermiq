@@ -47,22 +47,39 @@ function ownerOptions(owners, type) {
  * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-agent-in-validated-mode-refuses-without-asking-the-model-when-nothing-validated-matches-req-rscope-003
  */
 export function retrievalScopeFields(source) {
-	const filters =
-		source && typeof source.ragFileFilters === 'object' && source.ragFileFilters !== null
-			? source.ragFileFilters
-			: {}
+	const filters = storedFileFilters(source)
 	const owners = Array.isArray(filters.owners) ? filters.owners : []
 	return {
 		fileOwnerUsers: ownerOptions(owners, 'user'),
 		fileOwnerGroups: ownerOptions(owners, 'group'),
-		fileNamePattern: typeof filters.namePattern === 'string' ? filters.namePattern : '',
+		fileNamePattern: textOrEmpty(filters.namePattern),
 		fileModifiedAfter: isoDate(filters.modifiedAfter),
 		fileModifiedBefore: isoDate(filters.modifiedBefore),
 		answerOnlyFromValidated: source?.answerOnlyFromValidated === true,
 		ragMinSimilarity: source?.ragMinSimilarity ?? '',
-		abstentionMessage:
-			typeof source?.abstentionMessage === 'string' ? source.abstentionMessage : '',
+		abstentionMessage: textOrEmpty(source?.abstentionMessage),
 	}
+}
+
+/**
+ * An agent's stored file filters, or an empty object when it has none.
+ *
+ * @param {object|null|undefined} source The stored agent.
+ * @return {object} The filters.
+ */
+function storedFileFilters(source) {
+	const filters = source?.ragFileFilters
+	return typeof filters === 'object' && filters !== null ? filters : {}
+}
+
+/**
+ * A stored string, or '' for anything else.
+ *
+ * @param {*} value The stored value.
+ * @return {string}
+ */
+function textOrEmpty(value) {
+	return typeof value === 'string' ? value : ''
 }
 
 /**
@@ -157,22 +174,39 @@ export function scopeDisplay(scope) {
 	if (!scope || typeof scope !== 'object') {
 		return null
 	}
-	const filters = scope.fileFilters
-	const filtered =
-		typeof filters === 'object' && filters !== null && Object.keys(filters).length > 0
+	const filtered = hasFilters(scope.fileFilters)
 	const validated = scope.validated === true
 	if (!validated && !filtered) {
 		return null
 	}
-	const number = (value) => (typeof value === 'number' && Number.isFinite(value) ? value : null)
 	return {
 		validated,
 		abstained: scope.abstained === true,
 		filtered,
-		floor: number(scope.floor),
+		floor: finiteOrNull(scope.floor),
 		passed: Number.isInteger(scope.passed) ? scope.passed : 0,
-		best: number(scope.bestSimilarity),
+		best: finiteOrNull(scope.bestSimilarity),
 	}
+}
+
+/**
+ * Whether a recorded filter object holds any filter.
+ *
+ * @param {*} filters The recorded filters.
+ * @return {boolean}
+ */
+function hasFilters(filters) {
+	return typeof filters === 'object' && filters !== null && Object.keys(filters).length > 0
+}
+
+/**
+ * A finite number, or null for anything else.
+ *
+ * @param {*} value The recorded value.
+ * @return {number|null}
+ */
+function finiteOrNull(value) {
+	return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
 /**

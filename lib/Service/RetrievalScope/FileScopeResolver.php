@@ -107,49 +107,97 @@ class FileScopeResolver {
 			return null;
 		}
 
-		$conditions = [];
-		$set        = false;
-		if (is_array($filters['owners'] ?? null) === true && $filters['owners'] !== []) {
-			$set    = true;
-			$owners = $this->ownerIds(owners: $filters['owners']);
-			if ($owners === []) {
-				return [];
-			}
+		$parts = [
+			$this->ownerConditions(filters: $filters),
+			self::nameConditions(filters: $filters),
+			self::dateConditions(filters: $filters),
+		];
 
-			$conditions[] = new FileSearchComparison(type: ISearchComparison::COMPARE_IN, field: 'owner', value: $owners);
+		$parts = array_filter($parts, static fn (array|false|null $part): bool => $part !== null);
+		if ($parts === []) {
+			return null;
 		}
 
+		if (in_array(false, $parts, true) === true) {
+			return [];
+		}
+
+		return array_merge(...array_values($parts));
+	}//end conditions()
+
+	/**
+	 * The owner condition: null when no owner is set, false when none of them resolves.
+	 *
+	 * @param array<string, mixed> $filters The agent's file filters.
+	 *
+	 * @return list<FileSearchComparison>|false|null
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-owner-can-limit-file-retrieval-by-owner-file-name-and-modified-date-req-rscope-001
+	 */
+	private function ownerConditions(array $filters): array|false|null {
+		if (is_array($filters['owners'] ?? null) === false || $filters['owners'] === []) {
+			return null;
+		}
+
+		$owners = $this->ownerIds(owners: $filters['owners']);
+		if ($owners === []) {
+			return false;
+		}
+
+		return [new FileSearchComparison(type: ISearchComparison::COMPARE_IN, field: 'owner', value: $owners)];
+	}//end ownerConditions()
+
+	/**
+	 * The file-name condition: null when no pattern is set.
+	 *
+	 * @param array<string, mixed> $filters The agent's file filters.
+	 *
+	 * @return list<FileSearchComparison>|null
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-owner-can-limit-file-retrieval-by-owner-file-name-and-modified-date-req-rscope-001
+	 */
+	private static function nameConditions(array $filters): ?array {
 		$pattern = trim((string)($filters['namePattern'] ?? ''));
-		if ($pattern !== '') {
-			$set          = true;
-			$conditions[] = new FileSearchComparison(
+		if ($pattern === '') {
+			return null;
+		}
+
+		return [
+			new FileSearchComparison(
 				type: ISearchComparison::COMPARE_LIKE,
 				field: 'name',
 				value: self::likePattern(pattern: $pattern)
-			);
-		}
+			),
+		];
+	}//end nameConditions()
 
-		$dates = ['modifiedAfter' => ISearchComparison::COMPARE_GREATER_THAN_EQUAL, 'modifiedBefore' => ISearchComparison::COMPARE_LESS_THAN];
+	/**
+	 * The modified-date conditions: null when no date is set, false when a set date does not parse.
+	 *
+	 * @param array<string, mixed> $filters The agent's file filters.
+	 *
+	 * @return list<FileSearchComparison>|false|null
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-owner-can-limit-file-retrieval-by-owner-file-name-and-modified-date-req-rscope-001
+	 */
+	private static function dateConditions(array $filters): array|false|null {
+		$dates      = ['modifiedAfter' => ISearchComparison::COMPARE_GREATER_THAN_EQUAL, 'modifiedBefore' => ISearchComparison::COMPARE_LESS_THAN];
+		$conditions = null;
 		foreach ($dates as $key => $type) {
 			if (trim((string)($filters[$key] ?? '')) === '') {
 				continue;
 			}
 
-			$set  = true;
 			$time = self::timestamp(date: (string)$filters[$key]);
 			if ($time === null) {
-				return [];
+				return false;
 			}
 
 			$conditions[] = new FileSearchComparison(type: $type, field: 'mtime', value: $time);
 		}
 
-		if ($set === false) {
-			return null;
-		}
-
 		return $conditions;
-	}//end conditions()
+	}//end dateConditions()
 
 	/**
 	 * Run the search as the person and collect the file ids.
@@ -177,6 +225,19 @@ class FileScopeResolver {
 			return [];
 		}
 
+		return self::fileIdsOf(nodes: $nodes);
+	}//end search()
+
+	/**
+	 * The distinct positive ids of the found nodes, in the order found.
+	 *
+	 * @param iterable<\OCP\Files\Node> $nodes The found nodes.
+	 *
+	 * @return list<int>
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-owner-can-limit-file-retrieval-by-owner-file-name-and-modified-date-req-rscope-001
+	 */
+	private static function fileIdsOf(iterable $nodes): array {
 		$ids = [];
 		foreach ($nodes as $node) {
 			$id = $node->getId();
@@ -186,7 +247,7 @@ class FileScopeResolver {
 		}
 
 		return array_values($ids);
-	}//end search()
+	}//end fileIdsOf()
 
 	/**
 	 * The user ids the owner filter names: users as given, groups as their members.
@@ -198,24 +259,55 @@ class FileScopeResolver {
 	private function ownerIds(array $owners): array {
 		$ids = [];
 		foreach ($owners as $owner) {
-			if (is_array($owner) === false || is_string($owner['id'] ?? null) === false || trim($owner['id']) === '') {
-				continue;
+			foreach ($this->ownerUids(owner: $owner) as $uid) {
+				$ids[$uid] = true;
 			}
-
-			$id = trim($owner['id']);
-			if (($owner['type'] ?? 'user') === 'group') {
-				foreach (($this->groups->get($id)?->getUsers() ?? []) as $member) {
-					$ids[$member->getUID()] = true;
-				}
-
-				continue;
-			}
-
-			$ids[$id] = true;
 		}
 
 		return array_map('strval', array_keys($ids));
 	}//end ownerIds()
+
+	/**
+	 * The user ids one owner entry names: a user as given, a group as its members,
+	 * nothing for an entry without an id.
+	 *
+	 * @param mixed $owner One owner entry (`{id, type}`).
+	 *
+	 * @return list<string>
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-owner-can-limit-file-retrieval-by-owner-file-name-and-modified-date-req-rscope-001
+	 */
+	private function ownerUids(mixed $owner): array {
+		$id = self::ownerId(owner: $owner);
+		if ($id === '') {
+			return [];
+		}
+
+		if (($owner['type'] ?? 'user') !== 'group') {
+			return [$id];
+		}
+
+		$members = ($this->groups->get($id)?->getUsers() ?? []);
+
+		return array_map(static fn ($member): string => (string)$member->getUID(), $members);
+	}//end ownerUids()
+
+	/**
+	 * The trimmed id of an owner entry, or '' when it has none.
+	 *
+	 * @param mixed $owner One owner entry.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-owner-can-limit-file-retrieval-by-owner-file-name-and-modified-date-req-rscope-001
+	 */
+	private static function ownerId(mixed $owner): string {
+		if (is_array($owner) === false || is_string($owner['id'] ?? null) === false) {
+			return '';
+		}
+
+		return trim($owner['id']);
+	}//end ownerId()
 
 	/**
 	 * A name pattern as a LIKE: `*` is any text, and a pattern without `*` matches anywhere in the name.

@@ -172,21 +172,22 @@ final class ValidatedMode {
 	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-agent-in-validated-mode-refuses-without-asking-the-model-when-nothing-validated-matches-req-rscope-003
 	 */
 	public static function aboveFloor(mixed $rows, float $floor): array {
-		$kept = [];
-		$best = null;
 		if (is_array($rows) === false) {
 			$rows = [];
 		}
 
-		foreach ($rows as $row) {
-			$similarity = self::similarityOf(row: $row);
-			if ($best === null || $similarity > $best) {
-				$best = $similarity;
-			}
-
-			if ($similarity >= $floor) {
+		$rows         = array_values($rows);
+		$similarities = array_map(static fn (mixed $row): float => self::similarityOf(row: $row), $rows);
+		$kept         = [];
+		foreach ($rows as $index => $row) {
+			if ($similarities[$index] >= $floor) {
 				$kept[] = $row;
 			}
+		}
+
+		$best = null;
+		if ($similarities !== []) {
+			$best = max($similarities);
 		}
 
 		return ['rows' => $kept, 'passed' => count($kept), 'best' => $best];
@@ -210,17 +211,30 @@ final class ValidatedMode {
 			$fileFilters = null;
 		}
 
-		if ($best !== null) {
-			$best = round($best, 4);
-		}
-
 		return [
 			'fileFilters' => $fileFilters,
 			'validated' => $validated,
 			'floor' => $floor,
 			'passed' => $passed,
-			'bestSimilarity' => $best,
+			'bestSimilarity' => self::rounded(value: $best),
 			'abstained' => ($validated === true && $passed === 0),
 		];
 	}//end record()
+
+	/**
+	 * A similarity rounded to four decimals; null stays null.
+	 *
+	 * @param float|null $value The similarity.
+	 *
+	 * @return float|null
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-agent-in-validated-mode-refuses-without-asking-the-model-when-nothing-validated-matches-req-rscope-003
+	 */
+	private static function rounded(?float $value): ?float {
+		if ($value === null) {
+			return null;
+		}
+
+		return round($value, 4);
+	}//end rounded()
 }//end class

@@ -144,6 +144,40 @@ class ContextRetrievalHandler {
 			);
 		}
 
+		return $this->searchContext(
+			query: $query,
+			agent: $agent,
+			selectedViews: $selectedViews,
+			ragSettings: $ragSettings,
+			speaker: $speaker,
+			validated: $validated
+		);
+	}//end retrieveContext()
+
+	/**
+	 * Search the agent's sources for an unscoped turn and format them as context.
+	 * Never throws: a retrieval failure returns an empty context.
+	 *
+	 * @param string            $query         User query text.
+	 * @param ObjectEntity|null $agent         Agent object (optional).
+	 * @param array             $selectedViews View filters for multitenancy.
+	 * @param array             $ragSettings   RAG configuration overrides.
+	 * @param string            $speaker       The uid the turn's files are read as.
+	 * @param bool              $validated     Whether the agent is in validated mode.
+	 *
+	 * @return array `text`, `sources` and `retrievalScope`.
+	 *
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-owner-can-limit-file-retrieval-by-owner-file-name-and-modified-date-req-rscope-001
+	 */
+	private function searchContext(
+		string $query,
+		?ObjectEntity $agent,
+		array $selectedViews,
+		array $ragSettings,
+		string $speaker,
+		bool $validated,
+	): array {
 		$agentData = [];
 		if ($agent !== null) {
 			$agentData = $agent->getObject();
@@ -171,38 +205,12 @@ class ContextRetrievalHandler {
 			),
 		];
 
-		// The agent's file filters become the file set the turn may search
-		// (memory-retrieval-scope D1). An empty set switches file search off; it never
-		// falls back to an unscoped search.
-		$run['fileIds'] = $this->fileScope?->resolve(filters: ($agentData['ragFileFilters'] ?? null));
-		if ($validated === true) {
-			$run['settings']['include']['object'] = false;
-			$run['viewFilters'] = [];
-			$run['fileIds'] = ValidatedMode::fileSet(fileIds: $run['fileIds'], tagged: ($this->validatedFiles?->fileIds() ?? []));
-		}
-
-		if ($run['fileIds'] === []) {
-			$run['settings']['include']['file'] = false;
-		}
+		$run         = $this->withFileScope(run: $run, validated: $validated);
+		$fileFilters = ($agentData['ragFileFilters'] ?? null);
 
 		try {
-			$found = $this->candidateResults(run: $run);
-			$found['results'] = self::withinFileScope(results: $found['results'], fileIds: $run['fileIds']);
-			// The agent's knowledge bases are their own scope (memory-knowledge-bases); a
-			// validated turn still answers from validated files only (memory-retrieval-scope).
-			$knowledge = $this->knowledgeBaseRows(run: $run);
-			if ($validated === true) {
-				$knowledge = self::withinFileScope(results: $knowledge, fileIds: ($run['fileIds'] ?? []));
-			}
-
-			$found['results'] = array_merge($knowledge, (array)$found['results']);
-			$floor = null;
-			if ($validated === true) {
-				$floor = ValidatedMode::floor(agentData: $agentData);
-				$found['results'] = self::validatedRows(results: $found['results'], include: $run['settings']['include']);
-				$found['text'] = '';
-			}
-
+			$floor = self::validatedFloor(agentData: $agentData, validated: $validated);
+			$found = $this->scopedCandidates(run: $run, validated: $validated);
 			$passing = ValidatedMode::aboveFloor(rows: $found['results'], floor: ($floor ?? 0.0));
 			$found['results'] = $passing['rows'];
 			$collected = (new RetrievalSourceCollector(settings: $run['settings']))->collect(found: $found);
@@ -212,7 +220,7 @@ class ContextRetrievalHandler {
 				'text' => $collected['text'],
 				'sources' => $collected['sources'],
 				'retrievalScope' => ValidatedMode::record(
-					fileFilters: ($agentData['ragFileFilters'] ?? null),
+					fileFilters: $fileFilters,
 					validated: $validated,
 					floor: $floor,
 					passed: count($collected['sources']),
@@ -233,7 +241,7 @@ class ContextRetrievalHandler {
 				'text' => '',
 				'sources' => [],
 				'retrievalScope' => ValidatedMode::record(
-					fileFilters: ($agentData['ragFileFilters'] ?? null),
+					fileFilters: $fileFilters,
 					validated: $validated,
 					floor: null,
 					passed: 0,
@@ -241,7 +249,84 @@ class ContextRetrievalHandler {
 				),
 			];
 		}//end try
-	}//end retrieveContext()
+	}//end searchContext()
+
+	/**
+	 * The relevance floor of a validated turn; null when the agent is not in validated mode.
+	 *
+	 * @param array $agentData The agent's data.
+	 * @param bool  $validated Whether the agent is in validated mode.
+	 *
+	 * @return float|null
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-agent-in-validated-mode-refuses-without-asking-the-model-when-nothing-validated-matches-req-rscope-003
+	 */
+	private static function validatedFloor(array $agentData, bool $validated): ?float {
+		if ($validated === false) {
+			return null;
+		}
+
+		return ValidatedMode::floor(agentData: $agentData);
+	}//end validatedFloor()
+
+	/**
+	 * Narrow a turn's run to the agent's file set (memory-retrieval-scope D1), and in
+	 * validated mode to the validated files only, with object search and views off.
+	 * An empty set switches file search off; it never falls back to an unscoped search.
+	 *
+	 * @param array<string, mixed> $run       The turn's run.
+	 * @param bool                 $validated Whether the agent is in validated mode.
+	 *
+	 * @return array<string, mixed> The run with `fileIds` set.
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-owner-can-limit-file-retrieval-by-owner-file-name-and-modified-date-req-rscope-001
+	 */
+	private function withFileScope(array $run, bool $validated): array {
+		$run['fileIds'] = $this->fileScope?->resolve(filters: ($run['agentData']['ragFileFilters'] ?? null));
+		if ($validated === true) {
+			$run['settings']['include']['object'] = false;
+			$run['viewFilters'] = [];
+			$run['fileIds'] = ValidatedMode::fileSet(fileIds: $run['fileIds'], tagged: ($this->validatedFiles?->fileIds() ?? []));
+		}
+
+		if ($run['fileIds'] === []) {
+			$run['settings']['include']['file'] = false;
+		}
+
+		return $run;
+	}//end withFileScope()
+
+	/**
+	 * The turn's candidate rows within its file scope, the agent's knowledge bases
+	 * first; a validated turn keeps file rows only and drops the search text.
+	 *
+	 * @param array<string, mixed> $run       The turn's run, with `fileIds`.
+	 * @param bool                 $validated Whether the agent is in validated mode.
+	 *
+	 * @return array<string, mixed> The found shape with `results` narrowed.
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-agent-in-validated-mode-refuses-without-asking-the-model-when-nothing-validated-matches-req-rscope-003
+	 */
+	private function scopedCandidates(array $run, bool $validated): array {
+		$found = $this->candidateResults(run: $run);
+		$found['results'] = self::withinFileScope(results: $found['results'], fileIds: $run['fileIds']);
+		// The agent's knowledge bases are their own scope (memory-knowledge-bases); a
+		// validated turn still answers from validated files only (memory-retrieval-scope).
+		$knowledge = $this->knowledgeBaseRows(run: $run);
+		if ($validated === false) {
+			$found['results'] = array_merge($knowledge, (array)$found['results']);
+			return $found;
+		}
+
+		$knowledge = self::withinFileScope(results: $knowledge, fileIds: ($run['fileIds'] ?? []));
+		$found['results'] = self::validatedRows(
+			results: array_merge($knowledge, (array)$found['results']),
+			include: $run['settings']['include']
+		);
+		$found['text'] = '';
+
+		return $found;
+	}//end scopedCandidates()
 
 	/**
 	 * The rows a validated turn may use: file rows only, and none when file

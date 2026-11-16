@@ -804,13 +804,11 @@ function limitFields(form) {
  * @return {object} The fields.
  */
 function describingFields(source) {
+	const text = Object.fromEntries(
+		['name', 'description', 'icon', 'provider', 'model', 'prompt'].map((key) => [key, source[key] || '']),
+	)
 	return {
-		name: source.name || '',
-		description: source.description || '',
-		icon: source.icon || '',
-		provider: source.provider || '',
-		model: source.model || '',
-		prompt: source.prompt || '',
+		...text,
 		startFields: startFieldsOf(source),
 		temperature: source.temperature ?? '',
 		maxTokens: source.maxTokens ?? '',

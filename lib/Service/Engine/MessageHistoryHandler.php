@@ -553,26 +553,17 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 			'content' => $content,
 		];
 
-		if ($sources !== null && empty($sources) === false) {
-			$payload['sources'] = $sources;
-		}
-
-		if ($context !== null && empty($context) === false) {
-			$payload['context'] = $context;
-		}
-
-		if ($attachments !== []) {
-			$payload['attachments'] = array_values($attachments);
-		}
-
-		if ($provenance !== null) {
-			$payload['provenance'] = $provenance;
-		}
-
-		// Memory-retrieval-scope D5: the scope the answer was given.
-		if ($retrievalScope !== null) {
-			$payload['retrievalScope'] = $retrievalScope;
-		}
+		$payload = self::withOptionalFields(
+			payload: $payload,
+			fields: [
+				'sources' => $sources,
+				'context' => $context,
+				'attachments' => $attachments,
+				'provenance' => $provenance,
+				// Memory-retrieval-scope D5: the scope the answer was given.
+				'retrievalScope' => $retrievalScope,
+			]
+		);
 
 		$payload = $this->withAuthorship(
 			payload: $payload,
@@ -608,4 +599,28 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 
 		return $stored;
 	}//end storeMessage()
+
+	/**
+	 * Add a turn's optional fields to its payload, in a fixed order: sources and
+	 * context when not empty, attachments as a list when there are any, provenance
+	 * and retrieval scope when given.
+	 *
+	 * @param array<string, mixed> $payload The turn's payload.
+	 * @param array<string, mixed> $fields  sources, context, attachments, provenance, retrievalScope.
+	 *
+	 * @return array<string, mixed> The payload with the fields that apply.
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-agent-in-validated-mode-refuses-without-asking-the-model-when-nothing-validated-matches-req-rscope-003
+	 */
+	private static function withOptionalFields(array $payload, array $fields): array {
+		$payload += array_filter(['sources' => $fields['sources'], 'context' => $fields['context']]);
+		if ($fields['attachments'] !== []) {
+			$payload['attachments'] = array_values($fields['attachments']);
+		}
+
+		return $payload + array_filter(
+			['provenance' => $fields['provenance'], 'retrievalScope' => $fields['retrievalScope']],
+			static fn (mixed $value): bool => $value !== null
+		);
+	}//end withOptionalFields()
 }//end class
