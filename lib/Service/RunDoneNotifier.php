@@ -92,29 +92,44 @@ class RunDoneNotifier {
 			return false;
 		}
 
-		try {
-			$result = 'error';
-			if ($succeeded === true) {
-				$result = 'ok';
-			}
+		$result = 'error';
+		if ($succeeded === true) {
+			$result = 'ok';
+		}
 
+		return $this->sendRunDone(
+			userId: $userId,
+			run: ['agentName' => $agentName, 'scheduleUuid' => $scheduleUuid, 'result' => $result]
+		);
+	}//end notifyScheduledRun()
+
+	/**
+	 * Send the run-done notification. A failure is logged, never raised.
+	 *
+	 * @param string                                                         $userId The person to notify.
+	 * @param array{agentName: string, scheduleUuid: string, result: string} $run    The agent's name, the schedule and `ok`|`error`.
+	 *
+	 * @return bool Whether the notification was sent.
+	 */
+	private function sendRunDone(string $userId, array $run): bool {
+		try {
 			$notification = $this->notificationManager->createNotification();
 			$notification->setApp('hermiq')
 				->setUser($userId)
 				->setDateTime(new DateTime())
-				->setObject('schedule', $scheduleUuid)
-				->setSubject(self::SUBJECT, ['name' => $agentName, 'result' => $result])
+				->setObject('schedule', $run['scheduleUuid'])
+				->setSubject(self::SUBJECT, ['name' => $run['agentName'], 'result' => $run['result']])
 				->setLink(
-					$this->urlGenerator->getAbsoluteURL('/index.php/apps/hermiq/runs?schedule=' . rawurlencode($scheduleUuid))
+					$this->urlGenerator->getAbsoluteURL('/index.php/apps/hermiq/runs?schedule=' . rawurlencode($run['scheduleUuid']))
 				);
 			$this->notificationManager->notify($notification);
 			return true;
 		} catch (Throwable $e) {
 			$this->logger->warning(
-				sprintf('Hermiq could not send the run-done notification for %s: %s', $scheduleUuid, $e->getMessage()),
+				sprintf('Hermiq could not send the run-done notification for %s: %s', $run['scheduleUuid'], $e->getMessage()),
 				['exception' => $e]
 			);
 			return false;
 		}//end try
-	}//end notifyScheduledRun()
+	}//end sendRunDone()
 }//end class
