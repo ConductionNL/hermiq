@@ -23,7 +23,7 @@ connection to Nextcloud on the same instance SHALL NOT be declared.
 #### Scenario: a settings link lands on a section that exists
 @e2e app-connections::a-settings-link-lands-on-a-section-that-exists
 
-- **GIVEN** the AI provider, web search and GitHub store rows carry a `settingsUrl`
+- **GIVEN** the AI provider, web search and GitHub marketplace rows carry a `settingsUrl`
 - **WHEN** the admin follows one
 - **THEN** the hermiq admin settings page SHALL hold an element with that id
 
@@ -96,7 +96,7 @@ already met. It SHALL NOT be sent on a page load (ADR-076).
 #### Scenario: a GitHub rate limit reads Limited, and repeats are throttled
 @e2e exclude A GitHub rate limit cannot be caused on demand from the browser suite. tests/Unit/Service/GitHubTemplateCatalogConnectionReportTest.php asserts the report, and tests/Unit/Service/Connection/ConnectionReporterTest.php asserts the throttle.
 
-- **GIVEN** GitHub answers a store search with HTTP 403
+- **GIVEN** GitHub answers a marketplace search with HTTP 403
 - **WHEN** the search runs twice within an hour
 - **THEN** hermiq SHALL report `github-templates` as `limited` once
 - **AND** a cached search SHALL report nothing
@@ -121,7 +121,7 @@ already met. It SHALL NOT be sent on a page load (ADR-076).
 @e2e exclude A throwing listener cannot be installed from a browser. tests/Unit/Service/Connection/ConnectionReporterTest.php asserts the exception is caught and logged.
 
 - **GIVEN** integriq's report listener throws
-- **WHEN** a store search reports
+- **WHEN** a marketplace search reports
 - **THEN** the search SHALL answer as it would without the report
 - **AND** the failure SHALL be logged as a warning naming the connection
 
