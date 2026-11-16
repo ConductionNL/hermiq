@@ -145,11 +145,13 @@ class ContextRetrievalHandler {
 		}
 
 		return $this->searchContext(
-			query: $query,
-			agent: $agent,
-			selectedViews: $selectedViews,
-			ragSettings: $ragSettings,
-			speaker: $speaker,
+			turn: [
+				'query' => $query,
+				'agent' => $agent,
+				'selectedViews' => $selectedViews,
+				'ragSettings' => $ragSettings,
+				'speaker' => $speaker,
+			],
 			validated: $validated
 		);
 	}//end retrieveContext()
@@ -158,26 +160,23 @@ class ContextRetrievalHandler {
 	 * Search the agent's sources for an unscoped turn and format them as context.
 	 * Never throws: a retrieval failure returns an empty context.
 	 *
-	 * @param string            $query         User query text.
-	 * @param ObjectEntity|null $agent         Agent object (optional).
-	 * @param array             $selectedViews View filters for multitenancy.
-	 * @param array             $ragSettings   RAG configuration overrides.
-	 * @param string            $speaker       The uid the turn's files are read as.
-	 * @param bool              $validated     Whether the agent is in validated mode.
+	 * @param array{query: string, agent: ObjectEntity|null, selectedViews: array, ragSettings: array, speaker: string} $turn
+	 *        The turn: user query text, agent object (optional), view filters for
+	 *        multitenancy, RAG configuration overrides and the uid its files are read as.
+	 * @param bool  $validated Whether the agent is in validated mode.
 	 *
 	 * @return array `text`, `sources` and `retrievalScope`.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
 	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-owner-can-limit-file-retrieval-by-owner-file-name-and-modified-date-req-rscope-001
 	 */
-	private function searchContext(
-		string $query,
-		?ObjectEntity $agent,
-		array $selectedViews,
-		array $ragSettings,
-		string $speaker,
-		bool $validated,
-	): array {
+	private function searchContext(array $turn, bool $validated): array {
+		$query         = (string)$turn['query'];
+		$agent         = $turn['agent'];
+		$selectedViews = $turn['selectedViews'];
+		$ragSettings   = $turn['ragSettings'];
+		$speaker       = (string)$turn['speaker'];
+
 		$agentData = [];
 		if ($agent !== null) {
 			$agentData = $agent->getObject();
