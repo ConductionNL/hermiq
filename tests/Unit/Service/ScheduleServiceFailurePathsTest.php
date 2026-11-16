@@ -63,6 +63,8 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for ScheduleService failure handling and offboarding pause.
@@ -137,7 +139,11 @@ class ScheduleServiceFailurePathsTest extends TestCase {
 			}
 		);
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend, string $register, string $schema, string $uuid): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$this->saves[] = [$schema, $uuid, $object];
 				return new ObjectEntity();
 			}
@@ -245,7 +251,15 @@ class ScheduleServiceFailurePathsTest extends TestCase {
 
 		$fresh = $this->entity('sched-1', ['enabled' => true, 'prompt' => 'brief', 'lastStatus' => 'success']);
 		$this->objectService->expects($this->once())->method('find')
-			->with('sched-1', [], false, 'hermiq', 'schedule', false, false)
+			->with(...LegacyObjectArgs::with(method: 'find', expected: [
+				'id' => 'sched-1',
+				'_extend' => [],
+				'files' => false,
+				'register' => 'hermiq',
+				'schema' => 'schedule',
+				'_rbac' => false,
+				'_multitenancy' => false,
+			]))
 			->willReturn($fresh);
 
 		$this->logger->expects($this->once())->method('warning')

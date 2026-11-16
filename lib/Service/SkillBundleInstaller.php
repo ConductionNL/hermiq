@@ -42,6 +42,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service;
 
 use OCA\Hermiq\Kernel\Contracts\SkillBundleInstallerInterface;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use Psr\Log\LoggerInterface;
@@ -193,8 +195,7 @@ class SkillBundleInstaller implements SkillBundleInstallerInterface {
 
 				$this->objectService->saveObject(
 					object: $payload,
-					register: self::AGENT_REGISTER_SLUG,
-					schema: self::AGENT_SCHEMA
+					options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::AGENT_REGISTER_SLUG, schema: self::AGENT_SCHEMA))
 				);
 
 				$outcomes[] = ['name' => $name, 'outcome' => 'installed'];

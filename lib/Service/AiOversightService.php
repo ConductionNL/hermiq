@@ -20,6 +20,8 @@ use DateTimeImmutable;
 use DateTimeInterface;
 use OCA\Hermiq\Kernel\Contracts\AiOversightServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 
@@ -137,8 +139,10 @@ class AiOversightService implements AiOversightServiceInterface {
         try {
             $saved = $this->objectService->saveObject(
                 object: $this->toApproval(record: $record, decidedAt: $decidedAt),
-                register: self::REGISTER_SLUG,
-                schema: self::APPROVAL_SCHEMA,
+                options: new ObjectSaveOptions(target: new ObjectFindTarget(
+                		register: self::REGISTER_SLUG,
+                		schema: self::APPROVAL_SCHEMA
+                	)),
                 _rbac: false,
                 _multitenancy: false
             );

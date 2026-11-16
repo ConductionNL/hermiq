@@ -31,6 +31,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Pins the run: skipped without OpenRegister, skipped when the agent exists,
@@ -158,7 +159,12 @@ class SeedHydraTriageAgentRunTest extends TestCase {
 		$grants = $step->grants();
 
 		$objectService->expects($this->once())->method('saveObject')
-			->with($step->agentObject(grants: $grants), [], 'hermiq', 'agent')
+			->with(...LegacyObjectArgs::with(method: 'saveObject', expected: [
+				'object' => $step->agentObject(grants: $grants),
+				'extend' => [],
+				'register' => 'hermiq',
+				'schema' => 'agent',
+			]))
 			->willReturn(new ObjectEntity());
 
 		$infos = [];
