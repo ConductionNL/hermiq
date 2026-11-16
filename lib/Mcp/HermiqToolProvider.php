@@ -922,6 +922,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 			// carry per-agent data — attribution lives in the run trace.
 			AppIdentity::APP_ID . '.createNote' => $this->writeService->createNote(uid: $call->uid, arguments: $call->arguments),
 			AppIdentity::APP_ID . '.updateNote' => $this->writeService->updateNote(uid: $call->uid, arguments: $call->arguments),
+			AppIdentity::APP_ID . '.createFile' => $this->writeService->createFile(uid: $call->uid, arguments: $call->arguments),
+			AppIdentity::APP_ID . '.moveFile' => $this->writeService->moveFile(uid: $call->uid, arguments: $call->arguments),
 			AppIdentity::APP_ID . '.listMailAccounts' => $this->mailReadService->listAccounts(uid: $call->uid),
 			AppIdentity::APP_ID . '.listMailMessages' => $this->mailReadService->listMessages(uid: $call->uid, arguments: $call->arguments),
 			AppIdentity::APP_ID . '.readMailMessage' => $this->mailReadService->readMessage(uid: $call->uid, arguments: $call->arguments),
@@ -1013,6 +1015,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @param string $path The folder path relative to the user root.
 	 *
 	 * @return array<string, mixed> The listing, or an error envelope.
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/nc-native-tools/spec.md#REQ-SPCOV-005
 	 */
 	private function listFiles(string $uid, string $path): array {
 		$target = $this->listingTarget(userFolder: $this->rootFolder->getUserFolder($uid), path: $path);
@@ -1088,6 +1091,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @param string $path The file path relative to the user root.
 	 *
 	 * @return array<string, mixed> The content, or an error envelope.
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/nc-native-tools/spec.md#REQ-SPCOV-005
 	 */
 	private function readFile(string $uid, string $path): array {
 		if (trim($path, '/') === '') {
@@ -1156,6 +1160,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @param int $days The look-ahead window in days.
 	 *
 	 * @return array<string, mixed> The events, or an error envelope.
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/nc-native-tools/spec.md#REQ-SPCOV-006
 	 */
 	private function listCalendarEvents(string $uid, int $days): array {
 		$window = max(1, min(90, $days));

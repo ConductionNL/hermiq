@@ -63,6 +63,7 @@ class ScheduleTask extends TimedJob {
 	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-2-2
 	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
 	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-schedule/spec.md#REQ-SPCOV-014
 	 */
 	public function __construct(
 		ITimeFactory $time,

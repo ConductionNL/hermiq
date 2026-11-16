@@ -1560,6 +1560,9 @@
 						}
 					}
 				]
+			},
+			"slots": {
+				"below-header": "chat-health"
 			}
 		},
 		{
