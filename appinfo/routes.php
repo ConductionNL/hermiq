@@ -166,6 +166,19 @@ $routes = [
             'verb'         => 'POST',
             'requirements' => ['id' => '[^/]+'],
         ],
+        // flows-hand-off-and-wait (REQ-A2A-001): Admin settings, Remote agents.
+        ['name' => 'remoteAgent#index',   'url' => '/api/remote-agents',      'verb' => 'GET'],
+        ['name' => 'remoteAgent#create',  'url' => '/api/remote-agents',      'verb' => 'POST'],
+        ['name' => 'remoteAgent#update',  'url' => '/api/remote-agents/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'remoteAgent#destroy', 'url' => '/api/remote-agents/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '[^/]+']],
+        // flows-hand-off-and-wait (REQ-HANDOFF-004): the one-time address a webhook workflow
+        // posts its late result to. Public on purpose; the handoff's single-use token is the check.
+        [
+            'name'         => 'handoffResult#post',
+            'url'          => '/api/handoffs/{id}/result',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
 
         // Agent version history (agent-versioning): owner/invited-scoped read of the
         // Agent's OpenRegister AuditTrail as a version timeline + diff, and owner-only

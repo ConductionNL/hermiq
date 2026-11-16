@@ -29,6 +29,10 @@
  `loadState('hermiq', …)`, now provided by this class's `getForm()`
  instead of DashboardController.
 
+ Also hosts the remote agents (flows-hand-off-and-wait D5): agents on other
+ servers reached through an integriq source, in
+ src/components/settings/RemoteAgents.vue.
+
  Also hosts the validated tag (memory-retrieval-scope D2): which restricted
  Nextcloud system tag marks a document as validated, in
  src/components/settings/ValidatedTagSettings.vue.
@@ -189,6 +193,18 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			id="section-remote-agents"
+			:name="t('hermiq', 'Remote agents')"
+			:description="
+				t(
+					'hermiq',
+					'Agents on other servers that a local agent may hand work to and wait for. Each is reached through an integriq source, which holds the address and the credential; Hermiq keeps only the agent card it fetched.',
+				)
+			">
+			<RemoteAgents />
+		</NcSettingsSection>
+
+		<NcSettingsSection
 			id="section-organisation-credentials"
 			:name="t('hermiq', 'Organisation credentials')"
 			:description="
@@ -212,6 +228,7 @@ import { NcButton, NcSettingsSection } from '@nextcloud/vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
 import AssistantPromptLibrary from '../components/settings/AssistantPromptLibrary.vue'
 import IntakeSettings from '../components/settings/IntakeSettings.vue'
+import RemoteAgents from '../components/settings/RemoteAgents.vue'
 import ReportGroupingSettings from '../components/settings/ReportGroupingSettings.vue'
 import RunRetentionSettings from '../components/settings/RunRetentionSettings.vue'
 import TalkBridgeSettings from '../components/settings/TalkBridgeSettings.vue'
@@ -247,6 +264,7 @@ export default {
 		NcButton,
 		IntakeSettings,
 		NcSettingsSection,
+		RemoteAgents,
 		ReportGroupingSettings,
 		RunRetentionSettings,
 		TalkBridgeSettings,

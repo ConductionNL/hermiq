@@ -661,7 +661,8 @@ class ResponseGenerationHandler {
 			trace: $run->trace,
 			agent: $run->agent,
 			organisation: $run->progress->organisation,
-			dryRun: $run->dryRun
+			dryRun: $run->dryRun,
+			conversationId: $run->conversationId
 		);
 	}//end functionInfosFor()
 
