@@ -31,6 +31,7 @@ use OCA\Hermiq\Listener\FlowOversightRegistrationListener;
 use OCA\Hermiq\Listener\ShareableConfigTypeListener;
 use OCA\Hermiq\Listener\TalkMessageText;
 use OCA\Hermiq\Service\AiOversightService;
+use OCA\Hermiq\Service\Config\HermiqAgentTemplateShareableConfigType;
 use OCA\Hermiq\Service\Config\HermiqSkillShareableConfigType;
 use OCA\OpenRegister\Service\Config\RegisterShareableConfigTypesEvent;
 use OCA\OpenRegister\Service\Flow\RegisterFlowOversightEvent;
@@ -75,39 +76,56 @@ final class RegistrationListenersTest extends TestCase {
 	}//end testAnOversightRecordSetsTheApprovalIdOnlyWhenTaken()
 
 	/**
-	 * The skill config type is registered on its event, built through the container.
+	 * The skill and agent-template config types are registered on their event, built through the container.
 	 *
 	 * @return void
 	 */
-	public function testTheSkillConfigTypeIsRegistered(): void {
-		$type = $this->createMock(HermiqSkillShareableConfigType::class);
+	public function testTheSkillAndAgentTemplateConfigTypesAreRegistered(): void {
+		$skill = $this->createMock(HermiqSkillShareableConfigType::class);
+		$template = $this->createMock(HermiqAgentTemplateShareableConfigType::class);
 		$container = $this->createMock(ContainerInterface::class);
-		$container->expects($this->once())->method('get')->with(HermiqSkillShareableConfigType::class)->willReturn($type);
-		$event = $this->createMock(RegisterShareableConfigTypesEvent::class);
-		$event->expects($this->once())->method('registerType')->with($this->identicalTo($type));
+		$container->method('get')->willReturnMap(
+			[
+				[HermiqSkillShareableConfigType::class, $skill],
+				[HermiqAgentTemplateShareableConfigType::class, $template],
+			]
+		);
+		$event = new RegisterShareableConfigTypesEvent();
 
 		$listener = new ShareableConfigTypeListener(container: $container, logger: $this->createMock(LoggerInterface::class));
 		$listener->handle(new Event());
 		$listener->handle($event);
-	}//end testTheSkillConfigTypeIsRegistered()
+
+		self::assertSame([$skill, $template], $event->getTypes());
+	}//end testTheSkillAndAgentTemplateConfigTypesAreRegistered()
 
 	/**
-	 * A type that cannot be built is logged as a warning and nothing is registered.
+	 * A type that cannot be built is logged as a warning and the other is still registered.
 	 *
 	 * @return void
 	 */
-	public function testAnUnbuildableConfigTypeIsLogged(): void {
+	public function testAnUnbuildableConfigTypeIsLoggedAndTheOtherStillRegisters(): void {
+		$template = $this->createMock(HermiqAgentTemplateShareableConfigType::class);
 		$container = $this->createMock(ContainerInterface::class);
-		$container->method('get')->willThrowException(new RuntimeException('missing dependency'));
+		$container->method('get')->willReturnCallback(
+			static function (string $id) use ($template): object {
+				if ($id === HermiqSkillShareableConfigType::class) {
+					throw new RuntimeException('missing dependency');
+				}
+
+				return $template;
+			}
+		);
 		$logger = $this->createMock(LoggerInterface::class);
 		$logger->expects($this->once())
 			->method('warning')
 			->with('[Hermiq] could not register the skill shareable-config type: missing dependency', ['app' => 'hermiq']);
-		$event = $this->createMock(RegisterShareableConfigTypesEvent::class);
-		$event->expects($this->never())->method('registerType');
+		$event = new RegisterShareableConfigTypesEvent();
 
 		(new ShareableConfigTypeListener(container: $container, logger: $logger))->handle($event);
-	}//end testAnUnbuildableConfigTypeIsLogged()
+
+		self::assertSame([$template], $event->getTypes());
+	}//end testAnUnbuildableConfigTypeIsLoggedAndTheOtherStillRegisters()
 
 	/**
 	 * The organisation kill switch and budget are registered on the flow oversight event only.
