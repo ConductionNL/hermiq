@@ -28535,8 +28535,8 @@
     {
       "type": "library",
       "name": "sass",
-      "version": "1.104.1",
-      "bom-ref": "hermiq@0.1.0|sass@1.104.1",
+      "version": "1.106.1",
+      "bom-ref": "hermiq@0.1.0|sass@1.106.1",
       "licenses": [
         {
           "license": {
@@ -28544,15 +28544,15 @@
           }
         }
       ],
-      "purl": "pkg:npm/sass@1.104.1",
+      "purl": "pkg:npm/sass@1.106.1",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/sass/-/sass-1.104.1.tgz",
+          "url": "https://registry.npmjs.org/sass/-/sass-1.106.1.tgz",
           "type": "distribution",
           "hashes": [
             {
               "alg": "SHA-512",
-              "content": "c8303ed5a206dc41e037857f06fba10afbbad4517a8447787bef43c629149bd5340801aebdd219fd4632eea6cec6385b6d642b6a8c8b94cbb375118e495e419b"
+              "content": "903f868baeafc9c65c6c9b7ee36342e33e0f5cd31c09a8d5ac93e1aa828a5f2e5c381326250b74e760b12017118f061778898760ea6eff275658665021e9e5ec"
             }
           ],
           "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
