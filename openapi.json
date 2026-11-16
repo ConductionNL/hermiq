@@ -322,6 +322,14 @@
         {
             "name": "ai-label",
             "description": "The AI label on what agents write."
+        },
+        {
+            "name": "remote-agent",
+            "description": "Agents on other servers that a local agent may hand work to, managed by an admin."
+        },
+        {
+            "name": "handoff-result",
+            "description": "The one-time address a webhook workflow posts its late result to."
         }
     ],
     "paths": {
