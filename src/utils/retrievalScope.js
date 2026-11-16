@@ -195,6 +195,7 @@ function readerLocale() {
  * @param {number|null} value The similarity.
  * @param {string} [locale] The locale to write it in; the reader's own by default.
  * @return {string} For example '0.41'.
+ * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-each-answer-records-the-scope-it-was-given-req-rscope-004
  */
 export function similarityText(value, locale = readerLocale()) {
 	if (value === null || value === undefined || value === '') {
