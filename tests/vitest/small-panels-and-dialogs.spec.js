@@ -196,7 +196,7 @@ describe('AgentExportModal', () => {
 		expect(w.vm.saveMode).toBe(true)
 		await w.vm.run()
 		expect(templates.saveAgentAsTemplate).toHaveBeenCalledWith('x1')
-		expect(w.vm.done).toBe('Saved as the template Bot template. You find it in the Store.')
+		expect(w.vm.done).toBe('Saved as the template Bot template. You find it in the Marketplace.')
 	})
 
 	it('explains a refusal to a non-owner and other failures per mode', async () => {
