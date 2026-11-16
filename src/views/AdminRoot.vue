@@ -29,6 +29,10 @@
  `loadState('hermiq', …)`, now provided by this class's `getForm()`
  instead of DashboardController.
 
+ Also hosts the validated tag (memory-retrieval-scope D2): which restricted
+ Nextcloud system tag marks a document as validated, in
+ src/components/settings/ValidatedTagSettings.vue.
+
  Also hosts organisation-scope credential management (agent-credentials): the
  shared, already-tested `CnCredentials` component mounted `scope="organisation"`
  — an admin manages the FULL allowed-app list for each org-wide broker
@@ -139,6 +143,18 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			id="section-validated-documents"
+			:name="t('hermiq', 'Validated documents')"
+			:description="
+				t(
+					'hermiq',
+					'The Nextcloud tag that marks a document as validated. An agent set to answer only from validated documents searches only files carrying it, and declines without asking the model when none of them matches.',
+				)
+			">
+			<ValidatedTagSettings />
+		</NcSettingsSection>
+
+		<NcSettingsSection
 			:name="t('hermiq', 'AI run retention')"
 			:description="
 				t(
@@ -200,6 +216,7 @@ import ReportGroupingSettings from '../components/settings/ReportGroupingSetting
 import RunRetentionSettings from '../components/settings/RunRetentionSettings.vue'
 import TalkBridgeSettings from '../components/settings/TalkBridgeSettings.vue'
 import TraceExportSettings from '../components/settings/TraceExportSettings.vue'
+import ValidatedTagSettings from '../components/settings/ValidatedTagSettings.vue'
 import LlmProviderModal from '../modals/LlmProviderModal.vue'
 import WebResearchSettingsModal from '../modals/WebResearchSettingsModal.vue'
 import AiFeatureRegister from './AiFeatureRegister.vue'
@@ -234,6 +251,7 @@ export default {
 		RunRetentionSettings,
 		TalkBridgeSettings,
 		TraceExportSettings,
+		ValidatedTagSettings,
 		WebResearchSettingsModal,
 	},
 
