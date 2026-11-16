@@ -300,6 +300,10 @@
             "description": "Qualify + attest-L4 endpoints for the skill maturity model."
         },
         {
+            "name": "skill-merge",
+            "description": "The curator's skill merge proposals: list, approve and reject."
+        },
+        {
             "name": "skill-version",
             "description": "Version history / diff / rollback / republish endpoints for skills."
         },
