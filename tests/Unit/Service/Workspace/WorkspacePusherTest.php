@@ -37,6 +37,7 @@ use OCA\Hermiq\Service\Workspace\GitRunner;
 use OCA\Hermiq\Service\Workspace\WorkspaceException;
 use OCA\Hermiq\Service\Workspace\WorkspacePusher;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\Credential\CredentialBrokerService;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
@@ -269,8 +270,8 @@ final class WorkspacePusherTest extends TestCase {
 
 		$objects = $this->createMock(ObjectService::class);
 		$objects->method('find')->willReturnCallback(
-			function (int|string $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schema = null, bool $_rbac = true, bool $_multitenancy = true) use ($agent): ?ObjectEntity {
-				$this->agentLookups[] = ['id' => $id, 'register' => $register, 'schema' => $schema, '_rbac' => $_rbac, '_multitenancy' => $_multitenancy];
+			function (int|string $id, ?ObjectFindOptions $options = null, bool $_rbac = true, bool $_multitenancy = true) use ($agent): ?ObjectEntity {
+				$this->agentLookups[] = ['id' => $id, 'register' => $options?->register, 'schema' => $options?->schema, '_rbac' => $_rbac, '_multitenancy' => $_multitenancy];
 				if ($agent instanceof RuntimeException) {
 					throw $agent;
 				}
