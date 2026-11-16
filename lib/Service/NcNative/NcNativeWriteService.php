@@ -62,11 +62,13 @@ class NcNativeWriteService implements NcNativeWriteServiceInterface {
 	 * @param CalendarWriteService $calendar Event creation.
 	 * @param ContactWriteService $contacts Contact upsert.
 	 * @param NotesWriteService $notes Notes list/create/update.
+	 * @param FilesWriteService|null $files File create/move in the user's own folder.
 	 */
 	public function __construct(
 		private readonly CalendarWriteService $calendar,
 		private readonly ContactWriteService $contacts,
 		private readonly NotesWriteService $notes,
+		private readonly ?FilesWriteService $files = null,
 	) {
 
 	}//end __construct()
@@ -81,6 +83,7 @@ class NcNativeWriteService implements NcNativeWriteServiceInterface {
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
 	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-per-object-idor-guard-on-every-provider
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/nc-native-tools/spec.md#REQ-SPCOV-006
 	 */
 	public function createCalendarEvent(string $uid, array $arguments, string $agentId = ''): array {
 		return $this->calendar->create(uid: $uid, arguments: $arguments, agentId: $agentId);
@@ -146,5 +149,45 @@ class NcNativeWriteService implements NcNativeWriteServiceInterface {
 		return $this->notes->updateNote(uid: $uid, arguments: $arguments);
 
 	}//end updateNote()
+
+	/**
+	 * Create a new file in the acting user's own Files.
+	 *
+	 * @param string $uid The acting user id.
+	 * @param array<string, mixed> $arguments path, content.
+	 *
+	 * @return array<string, mixed> The result, or an error envelope.
+	 *
+	 * @spec openspec/changes/spec-coverage-built-rows/tasks.md
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/nc-native-tools/spec.md#REQ-SPCOV-005
+	 */
+	public function createFile(string $uid, array $arguments): array {
+		if ($this->files === null) {
+			return ['error' => ['code' => 'files_unavailable', 'message' => 'Files cannot be written here.']];
+		}
+
+		return $this->files->createFile(uid: $uid, arguments: $arguments);
+
+	}//end createFile()
+
+	/**
+	 * Move a file within the acting user's own Files.
+	 *
+	 * @param string $uid The acting user id.
+	 * @param array<string, mixed> $arguments from, to.
+	 *
+	 * @return array<string, mixed> The result, or an error envelope.
+	 *
+	 * @spec openspec/changes/spec-coverage-built-rows/tasks.md
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/nc-native-tools/spec.md#REQ-SPCOV-005
+	 */
+	public function moveFile(string $uid, array $arguments): array {
+		if ($this->files === null) {
+			return ['error' => ['code' => 'files_unavailable', 'message' => 'Files cannot be written here.']];
+		}
+
+		return $this->files->moveFile(uid: $uid, arguments: $arguments);
+
+	}//end moveFile()
 
 }//end class

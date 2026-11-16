@@ -28,7 +28,7 @@
 		},
 		{
 			"id": "Store",
-			"label": "Store",
+			"label": "Marketplace",
 			"icon": "StoreOutline",
 			"route": "Store",
 			"order": 92,
@@ -728,7 +728,8 @@
 			"title": "Skills",
 			"slots": {
 				"row-actions": "skill-row-actions",
-				"form-dialog": "SkillFormModal"
+				"form-dialog": "SkillFormModal",
+				"below-header": "skill-merge-proposals"
 			}
 		},
 		{
@@ -879,7 +880,7 @@
 			"id": "Store",
 			"route": "/store",
 			"type": "index",
-			"title": "Store",
+			"title": "Marketplace",
 			"config": {
 				"register": "hermiq",
 				"schema": "agenttemplate",
@@ -1513,6 +1514,9 @@
 						}
 					}
 				]
+			},
+			"slots": {
+				"below-header": "chat-health"
 			}
 		},
 		{

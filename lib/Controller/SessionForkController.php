@@ -26,8 +26,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\SessionForkServiceInterface;
 use OCA\Hermiq\Service\SessionForkException;
-use OCA\Hermiq\Service\SessionForkService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\JSONResponse;
@@ -43,15 +43,15 @@ class SessionForkController extends Controller {
 	/**
 	 * Constructor.
 	 *
-	 * @param IRequest           $request     The request.
-	 * @param SessionForkService $forks       Forks a session (owner check inside).
-	 * @param IUserSession       $userSession Resolves the caller.
+	 * @param IRequest                    $request     The request.
+	 * @param SessionForkServiceInterface $forks       Forks a session (owner check inside).
+	 * @param IUserSession                $userSession Resolves the caller.
 	 *
 	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly SessionForkService $forks,
+		private readonly SessionForkServiceInterface $forks,
 		private readonly IUserSession $userSession,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
