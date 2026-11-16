@@ -276,6 +276,10 @@
             "description": "The settings trace export settings endpoints."
         },
         {
+            "name": "settings-validated-tag-settings",
+            "description": "The settings validated tag settings endpoints."
+        },
+        {
             "name": "settings-web-research-settings",
             "description": "The settings web research settings endpoints."
         },
