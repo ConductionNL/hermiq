@@ -2912,7 +2912,18 @@ OC.L10N.register(
         "The integriq sources could not be read.": "The integriq sources could not be read.",
         "Used in a grant to name this remote agent. Empty makes one from the name.": "Used in a grant to name this remote agent. Empty makes one from the name.",
         "Waiting for “{label}” (started {time})": "Waiting for “{label}” (started {time})",
-        "What the remote agent does": "What the remote agent does"
+        "What the remote agent does": "What the remote agent does",
+        "Chat health": "Chat health",
+        "AI provider: {provider}": "AI provider: {provider}",
+        "Default model: {model}": "Default model: {model}",
+        "Checked {time}": "Checked {time}",
+        "Not checked yet": "Not checked yet",
+        "Chat works.": "Chat works.",
+        "Chat does not work: no AI provider is chosen.": "Chat does not work: no AI provider is chosen.",
+        "Chat does not work: its settings could not be read.": "Chat does not work: its settings could not be read.",
+        "Answers": "Answers",
+        "Does not answer": "Does not answer",
+        "Not set up": "Not set up"
     },
     "nplurals=2; plural=(n != 1);"
 )
