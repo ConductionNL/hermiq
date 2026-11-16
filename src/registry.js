@@ -548,6 +548,8 @@ export default {
 	 * works, the AI provider, the default model and each connection's state
 	 * and check time, resolved via the Integrations index page's
 	 * `page.slots.below-header` above integriq's connection list.
+	 *
+	 * @custom-widget-ratchet exclude one verdict built from three sources (GET /api/chat/health, the masked LLM settings and integriq app_connection rows); no built-in widget reads more than one source and no existing custom widget shows chat or connection state, so nothing can absorb it (REQ-SPCOV-012)
 	 */
 	'chat-health': {
 		kind: 'widget',
