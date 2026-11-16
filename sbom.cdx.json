@@ -211,10 +211,10 @@
       ]
     },
     {
-      "bom-ref": "guzzlehttp/guzzle-7.15.5.0",
+      "bom-ref": "guzzlehttp/guzzle-7.16.1.0",
       "type": "library",
       "name": "guzzle",
-      "version": "7.15.5",
+      "version": "7.16.1",
       "group": "guzzlehttp",
       "description": "Guzzle is a PHP HTTP client library",
       "author": "Graham Campbell, Michael Dowling, Jeremy Lindblom, George Mponos, Tobias Nyholm, Márk Sági-Kazár, Tobias Schultze",
@@ -225,17 +225,17 @@
           }
         }
       ],
-      "purl": "pkg:composer/guzzlehttp/guzzle@7.15.5",
+      "purl": "pkg:composer/guzzlehttp/guzzle@7.16.1",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/guzzle/guzzle/zipball/ee80339fd9177ba44c49cdb653ff02a4d1106b9a",
-          "comment": "dist reference: ee80339fd9177ba44c49cdb653ff02a4d1106b9a"
+          "url": "https://api.github.com/repos/guzzle/guzzle/zipball/81755d989b3007ca7f88a069857553cd08e7dc2e",
+          "comment": "dist reference: 81755d989b3007ca7f88a069857553cd08e7dc2e"
         },
         {
           "type": "vcs",
           "url": "https://github.com/guzzle/guzzle.git",
-          "comment": "source reference: ee80339fd9177ba44c49cdb653ff02a4d1106b9a"
+          "comment": "source reference: 81755d989b3007ca7f88a069857553cd08e7dc2e"
         },
         {
           "type": "issue-tracker",
@@ -244,18 +244,18 @@
         },
         {
           "type": "vcs",
-          "url": "https://github.com/guzzle/guzzle/tree/7.15.5",
+          "url": "https://github.com/guzzle/guzzle/tree/7.16.1",
           "comment": "as detected from Composer manifest 'support.source'"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "ee80339fd9177ba44c49cdb653ff02a4d1106b9a"
+          "value": "81755d989b3007ca7f88a069857553cd08e7dc2e"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "ee80339fd9177ba44c49cdb653ff02a4d1106b9a"
+          "value": "81755d989b3007ca7f88a069857553cd08e7dc2e"
         },
         {
           "name": "cdx:composer:package:type",
@@ -264,10 +264,10 @@
       ]
     },
     {
-      "bom-ref": "guzzlehttp/promises-2.5.3.0",
+      "bom-ref": "guzzlehttp/promises-2.6.0.0",
       "type": "library",
       "name": "promises",
-      "version": "2.5.3",
+      "version": "2.6.0",
       "group": "guzzlehttp",
       "description": "Guzzle promises library",
       "author": "Graham Campbell, Michael Dowling, Tobias Nyholm, Tobias Schultze",
@@ -278,17 +278,17 @@
           }
         }
       ],
-      "purl": "pkg:composer/guzzlehttp/promises@2.5.3",
+      "purl": "pkg:composer/guzzlehttp/promises@2.6.0",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/guzzle/promises/zipball/cde49999552d185d64715fe9c1f77a2aadd2f9f1",
-          "comment": "dist reference: cde49999552d185d64715fe9c1f77a2aadd2f9f1"
+          "url": "https://api.github.com/repos/guzzle/promises/zipball/3d88c829bd5f13d13847b39067dbf09a60af2154",
+          "comment": "dist reference: 3d88c829bd5f13d13847b39067dbf09a60af2154"
         },
         {
           "type": "vcs",
           "url": "https://github.com/guzzle/promises.git",
-          "comment": "source reference: cde49999552d185d64715fe9c1f77a2aadd2f9f1"
+          "comment": "source reference: 3d88c829bd5f13d13847b39067dbf09a60af2154"
         },
         {
           "type": "issue-tracker",
@@ -297,18 +297,18 @@
         },
         {
           "type": "vcs",
-          "url": "https://github.com/guzzle/promises/tree/2.5.3",
+          "url": "https://github.com/guzzle/promises/tree/2.6.0",
           "comment": "as detected from Composer manifest 'support.source'"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "cde49999552d185d64715fe9c1f77a2aadd2f9f1"
+          "value": "3d88c829bd5f13d13847b39067dbf09a60af2154"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "cde49999552d185d64715fe9c1f77a2aadd2f9f1"
+          "value": "3d88c829bd5f13d13847b39067dbf09a60af2154"
         },
         {
           "name": "cdx:composer:package:type",
@@ -317,10 +317,10 @@
       ]
     },
     {
-      "bom-ref": "guzzlehttp/psr7-2.13.1.0",
+      "bom-ref": "guzzlehttp/psr7-2.13.3.0",
       "type": "library",
       "name": "psr7",
-      "version": "2.13.1",
+      "version": "2.13.3",
       "group": "guzzlehttp",
       "description": "PSR-7 message implementation that also provides common utility methods",
       "author": "Graham Campbell, Michael Dowling, George Mponos, Tobias Nyholm, Márk Sági-Kazár, Tobias Schultze, Márk Sági-Kazár",
@@ -331,17 +331,17 @@
           }
         }
       ],
-      "purl": "pkg:composer/guzzlehttp/psr7@2.13.1",
+      "purl": "pkg:composer/guzzlehttp/psr7@2.13.3",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/guzzle/psr7/zipball/95e7828100de18b4e269fb1703be530082d5166d",
-          "comment": "dist reference: 95e7828100de18b4e269fb1703be530082d5166d"
+          "url": "https://api.github.com/repos/guzzle/psr7/zipball/6d3cd8285a97eaa352956a4ada92fa03ecce1c4e",
+          "comment": "dist reference: 6d3cd8285a97eaa352956a4ada92fa03ecce1c4e"
         },
         {
           "type": "vcs",
           "url": "https://github.com/guzzle/psr7.git",
-          "comment": "source reference: 95e7828100de18b4e269fb1703be530082d5166d"
+          "comment": "source reference: 6d3cd8285a97eaa352956a4ada92fa03ecce1c4e"
         },
         {
           "type": "issue-tracker",
@@ -350,18 +350,18 @@
         },
         {
           "type": "vcs",
-          "url": "https://github.com/guzzle/psr7/tree/2.13.1",
+          "url": "https://github.com/guzzle/psr7/tree/2.13.3",
           "comment": "as detected from Composer manifest 'support.source'"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "95e7828100de18b4e269fb1703be530082d5166d"
+          "value": "6d3cd8285a97eaa352956a4ada92fa03ecce1c4e"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "95e7828100de18b4e269fb1703be530082d5166d"
+          "value": "6d3cd8285a97eaa352956a4ada92fa03ecce1c4e"
         },
         {
           "name": "cdx:composer:package:type",
@@ -915,10 +915,10 @@
       ]
     },
     {
-      "bom-ref": "smalot/pdfparser-2.12.5.0",
+      "bom-ref": "smalot/pdfparser-2.13.1.0",
       "type": "library",
       "name": "pdfparser",
-      "version": "v2.12.5",
+      "version": "v2.13.1",
       "group": "smalot",
       "description": "Pdf parser library. Can read and extract information from pdf file.",
       "author": "Sebastien MALOT",
@@ -929,17 +929,17 @@
           }
         }
       ],
-      "purl": "pkg:composer/smalot/pdfparser@v2.12.5",
+      "purl": "pkg:composer/smalot/pdfparser@v2.13.1",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/smalot/pdfparser/zipball/2cfa0d92bd557875c9f52a75fde0e8392302a354",
-          "comment": "dist reference: 2cfa0d92bd557875c9f52a75fde0e8392302a354"
+          "url": "https://api.github.com/repos/smalot/pdfparser/zipball/a71c6dd38e60a995fdb4d36e4433b8b3557c65dc",
+          "comment": "dist reference: a71c6dd38e60a995fdb4d36e4433b8b3557c65dc"
         },
         {
           "type": "vcs",
           "url": "https://github.com/smalot/pdfparser.git",
-          "comment": "source reference: 2cfa0d92bd557875c9f52a75fde0e8392302a354"
+          "comment": "source reference: a71c6dd38e60a995fdb4d36e4433b8b3557c65dc"
         },
         {
           "type": "website",
@@ -953,18 +953,18 @@
         },
         {
           "type": "vcs",
-          "url": "https://github.com/smalot/pdfparser/tree/v2.12.5",
+          "url": "https://github.com/smalot/pdfparser/tree/v2.13.1",
           "comment": "as detected from Composer manifest 'support.source'"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "2cfa0d92bd557875c9f52a75fde0e8392302a354"
+          "value": "a71c6dd38e60a995fdb4d36e4433b8b3557c65dc"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "2cfa0d92bd557875c9f52a75fde0e8392302a354"
+          "value": "a71c6dd38e60a995fdb4d36e4433b8b3557c65dc"
         },
         {
           "name": "cdx:composer:package:type",
@@ -973,10 +973,10 @@
       ]
     },
     {
-      "bom-ref": "symfony/deprecation-contracts-3.7.1.0",
+      "bom-ref": "symfony/deprecation-contracts-3.8.1.0",
       "type": "library",
       "name": "deprecation-contracts",
-      "version": "v3.7.1",
+      "version": "v3.8.1",
       "group": "symfony",
       "description": "A generic function and convention to trigger deprecation notices",
       "author": "Nicolas Grekas, Symfony Community",
@@ -987,17 +987,17 @@
           }
         }
       ],
-      "purl": "pkg:composer/symfony/deprecation-contracts@v3.7.1",
+      "purl": "pkg:composer/symfony/deprecation-contracts@v3.8.1",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/symfony/deprecation-contracts/zipball/f3202fa1b5097b0af062dc978b32ecf63404e31d",
-          "comment": "dist reference: f3202fa1b5097b0af062dc978b32ecf63404e31d"
+          "url": "https://api.github.com/repos/symfony/deprecation-contracts/zipball/feb1edf4e546af3b85c5caebe8359a20db230ca3",
+          "comment": "dist reference: feb1edf4e546af3b85c5caebe8359a20db230ca3"
         },
         {
           "type": "vcs",
           "url": "https://github.com/symfony/deprecation-contracts.git",
-          "comment": "source reference: f3202fa1b5097b0af062dc978b32ecf63404e31d"
+          "comment": "source reference: feb1edf4e546af3b85c5caebe8359a20db230ca3"
         },
         {
           "type": "website",
@@ -1006,18 +1006,18 @@
         },
         {
           "type": "vcs",
-          "url": "https://github.com/symfony/deprecation-contracts/tree/v3.7.1",
+          "url": "https://github.com/symfony/deprecation-contracts/tree/v3.8.1",
           "comment": "as detected from Composer manifest 'support.source'"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "f3202fa1b5097b0af062dc978b32ecf63404e31d"
+          "value": "feb1edf4e546af3b85c5caebe8359a20db230ca3"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "f3202fa1b5097b0af062dc978b32ecf63404e31d"
+          "value": "feb1edf4e546af3b85c5caebe8359a20db230ca3"
         },
         {
           "name": "cdx:composer:package:type",
@@ -1026,10 +1026,10 @@
       ]
     },
     {
-      "bom-ref": "symfony/polyfill-mbstring-1.43.0.0",
+      "bom-ref": "symfony/polyfill-mbstring-1.43.3.0",
       "type": "library",
       "name": "polyfill-mbstring",
-      "version": "v1.43.0",
+      "version": "v1.43.3",
       "group": "symfony",
       "description": "Symfony polyfill for the Mbstring extension",
       "author": "Nicolas Grekas, Symfony Community",
@@ -1040,17 +1040,17 @@
           }
         }
       ],
-      "purl": "pkg:composer/symfony/polyfill-mbstring@v1.43.0",
+      "purl": "pkg:composer/symfony/polyfill-mbstring@v1.43.3",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/symfony/polyfill-mbstring/zipball/4d5d331bf731e0aedbc6b2f5e61135b7b7996a72",
-          "comment": "dist reference: 4d5d331bf731e0aedbc6b2f5e61135b7b7996a72"
+          "url": "https://api.github.com/repos/symfony/polyfill-mbstring/zipball/122889ed24dc000165bcbfd77ec412f15cbdfc6a",
+          "comment": "dist reference: 122889ed24dc000165bcbfd77ec412f15cbdfc6a"
         },
         {
           "type": "vcs",
           "url": "https://github.com/symfony/polyfill-mbstring.git",
-          "comment": "source reference: 4d5d331bf731e0aedbc6b2f5e61135b7b7996a72"
+          "comment": "source reference: 122889ed24dc000165bcbfd77ec412f15cbdfc6a"
         },
         {
           "type": "website",
@@ -1059,18 +1059,18 @@
         },
         {
           "type": "vcs",
-          "url": "https://github.com/symfony/polyfill-mbstring/tree/v1.43.0",
+          "url": "https://github.com/symfony/polyfill-mbstring/tree/v1.43.3",
           "comment": "as detected from Composer manifest 'support.source'"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "4d5d331bf731e0aedbc6b2f5e61135b7b7996a72"
+          "value": "122889ed24dc000165bcbfd77ec412f15cbdfc6a"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "4d5d331bf731e0aedbc6b2f5e61135b7b7996a72"
+          "value": "122889ed24dc000165bcbfd77ec412f15cbdfc6a"
         },
         {
           "name": "cdx:composer:package:type",
@@ -1132,10 +1132,10 @@
       ]
     },
     {
-      "bom-ref": "symfony/service-contracts-3.7.3.0",
+      "bom-ref": "symfony/service-contracts-3.8.1.0",
       "type": "library",
       "name": "service-contracts",
-      "version": "v3.7.3",
+      "version": "v3.8.1",
       "group": "symfony",
       "description": "Generic abstractions related to writing services",
       "author": "Nicolas Grekas, Symfony Community",
@@ -1146,17 +1146,17 @@
           }
         }
       ],
-      "purl": "pkg:composer/symfony/service-contracts@v3.7.3",
+      "purl": "pkg:composer/symfony/service-contracts@v3.8.1",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/symfony/service-contracts/zipball/15e6a07ec2a2c75ceb1b21dd98105ee8456d2257",
-          "comment": "dist reference: 15e6a07ec2a2c75ceb1b21dd98105ee8456d2257"
+          "url": "https://api.github.com/repos/symfony/service-contracts/zipball/052852a96fd5e5ebdb617dba22031e41a3300fb5",
+          "comment": "dist reference: 052852a96fd5e5ebdb617dba22031e41a3300fb5"
         },
         {
           "type": "vcs",
           "url": "https://github.com/symfony/service-contracts.git",
-          "comment": "source reference: 15e6a07ec2a2c75ceb1b21dd98105ee8456d2257"
+          "comment": "source reference: 052852a96fd5e5ebdb617dba22031e41a3300fb5"
         },
         {
           "type": "website",
@@ -1165,18 +1165,18 @@
         },
         {
           "type": "vcs",
-          "url": "https://github.com/symfony/service-contracts/tree/v3.7.3",
+          "url": "https://github.com/symfony/service-contracts/tree/v3.8.1",
           "comment": "as detected from Composer manifest 'support.source'"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "15e6a07ec2a2c75ceb1b21dd98105ee8456d2257"
+          "value": "052852a96fd5e5ebdb617dba22031e41a3300fb5"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "15e6a07ec2a2c75ceb1b21dd98105ee8456d2257"
+          "value": "052852a96fd5e5ebdb617dba22031e41a3300fb5"
         },
         {
           "name": "cdx:composer:package:type",
@@ -1185,10 +1185,10 @@
       ]
     },
     {
-      "bom-ref": "theodo-group/llphant-1.0.3.0",
+      "bom-ref": "theodo-group/llphant-1.0.10.0",
       "type": "library",
       "name": "llphant",
-      "version": "1.0.3",
+      "version": "1.0.10",
       "group": "theodo-group",
       "description": "LLPhant is a library to help you build Generative AI applications.",
       "author": "Maxime Thoonsen",
@@ -1199,37 +1199,22 @@
           }
         }
       ],
-      "purl": "pkg:composer/theodo-group/llphant@1.0.3",
+      "purl": "pkg:composer/theodo-group/llphant@1.0.10",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/LLPhant/LLPhant/zipball/52fcd7afd58e6d289b9e304ea357695ece9dc518",
-          "comment": "dist reference: 52fcd7afd58e6d289b9e304ea357695ece9dc518"
-        },
-        {
-          "type": "vcs",
-          "url": "https://github.com/LLPhant/LLPhant.git",
-          "comment": "source reference: 52fcd7afd58e6d289b9e304ea357695ece9dc518"
-        },
-        {
-          "type": "vcs",
-          "url": "https://github.com/LLPhant/LLPhant/tree/1.0.3",
-          "comment": "as detected from Composer manifest 'support.source'"
-        },
-        {
-          "type": "issue-tracker",
-          "url": "https://github.com/LLPhant/LLPhant/issues",
-          "comment": "as detected from Composer manifest 'support.issues'"
+          "url": "https://api.github.com/repos/theodo-group/LLPhant/zipball/d0a94b301dad628765a7e543abef9016f81ee387",
+          "comment": "dist reference: d0a94b301dad628765a7e543abef9016f81ee387"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "52fcd7afd58e6d289b9e304ea357695ece9dc518"
+          "value": "d0a94b301dad628765a7e543abef9016f81ee387"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "52fcd7afd58e6d289b9e304ea357695ece9dc518"
+          "value": "d0a94b301dad628765a7e543abef9016f81ee387"
         },
         {
           "name": "cdx:composer:package:type",
@@ -33416,28 +33401,28 @@
       "ref": "dragonmantank/cron-expression-3.6.1.0"
     },
     {
-      "ref": "guzzlehttp/guzzle-7.15.5.0",
+      "ref": "guzzlehttp/guzzle-7.16.1.0",
       "dependsOn": [
-        "guzzlehttp/promises-2.5.3.0",
-        "guzzlehttp/psr7-2.13.1.0",
+        "guzzlehttp/promises-2.6.0.0",
+        "guzzlehttp/psr7-2.13.3.0",
         "psr/http-client-1.0.3.0",
-        "symfony/deprecation-contracts-3.7.1.0",
+        "symfony/deprecation-contracts-3.8.1.0",
         "symfony/polyfill-php80-1.43.0.0"
       ]
     },
     {
-      "ref": "guzzlehttp/promises-2.5.3.0",
+      "ref": "guzzlehttp/promises-2.6.0.0",
       "dependsOn": [
-        "symfony/deprecation-contracts-3.7.1.0"
+        "symfony/deprecation-contracts-3.8.1.0"
       ]
     },
     {
-      "ref": "guzzlehttp/psr7-2.13.1.0",
+      "ref": "guzzlehttp/psr7-2.13.3.0",
       "dependsOn": [
         "psr/http-factory-1.1.0.0",
         "psr/http-message-2.0.0.0",
         "ralouphie/getallheaders-3.0.3.0",
-        "symfony/deprecation-contracts-3.7.1.0",
+        "symfony/deprecation-contracts-3.8.1.0",
         "symfony/polyfill-php80-1.43.0.0"
       ]
     },
@@ -33486,53 +33471,53 @@
       "ref": "ralouphie/getallheaders-3.0.3.0"
     },
     {
-      "ref": "smalot/pdfparser-2.12.5.0",
+      "ref": "smalot/pdfparser-2.13.1.0",
       "dependsOn": [
-        "symfony/polyfill-mbstring-1.43.0.0"
+        "symfony/polyfill-mbstring-1.43.3.0"
       ]
     },
     {
-      "ref": "symfony/deprecation-contracts-3.7.1.0"
+      "ref": "symfony/deprecation-contracts-3.8.1.0"
     },
     {
-      "ref": "symfony/polyfill-mbstring-1.43.0.0"
+      "ref": "symfony/polyfill-mbstring-1.43.3.0"
     },
     {
       "ref": "symfony/polyfill-php80-1.43.0.0"
     },
     {
-      "ref": "symfony/service-contracts-3.7.3.0",
+      "ref": "symfony/service-contracts-3.8.1.0",
       "dependsOn": [
         "psr/container-2.0.2.0",
-        "symfony/deprecation-contracts-3.7.1.0"
+        "symfony/deprecation-contracts-3.8.1.0"
       ]
     },
     {
-      "ref": "theodo-group/llphant-1.0.3.0",
+      "ref": "theodo-group/llphant-1.0.10.0",
       "dependsOn": [
-        "guzzlehttp/guzzle-7.15.5.0",
-        "guzzlehttp/psr7-2.13.1.0",
+        "guzzlehttp/guzzle-7.16.1.0",
+        "guzzlehttp/psr7-2.13.3.0",
         "openai-php/client-0.19.2.0",
         "php-http/multipart-stream-builder-1.4.2.0",
         "phpoffice/phpword-1.4.0.0",
         "psr/http-client-1.0.3.0",
         "psr/http-message-2.0.0.0",
         "psr/log-3.0.2.0",
-        "smalot/pdfparser-2.12.5.0",
+        "smalot/pdfparser-2.13.1.0",
         "yethee/tiktoken-0.10.0.0"
       ]
     },
     {
       "ref": "yethee/tiktoken-0.10.0.0",
       "dependsOn": [
-        "symfony/service-contracts-3.7.3.0"
+        "symfony/service-contracts-3.8.1.0"
       ]
     },
     {
       "ref": "conductionnl/hermiq-0.1.0.0",
       "dependsOn": [
         "dragonmantank/cron-expression-3.6.1.0",
-        "theodo-group/llphant-1.0.3.0"
+        "theodo-group/llphant-1.0.10.0"
       ]
     }
   ]
