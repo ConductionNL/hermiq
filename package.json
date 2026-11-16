@@ -67,7 +67,7 @@
     "@nextcloud/initial-state": "^3.0.0",
     "@nextcloud/l10n": "^3.4.1",
     "@nextcloud/router": "^3.2.0",
-    "@nextcloud/vue": "^9.9.0",
+    "@nextcloud/vue": "^9.14.0",
     "@opengemeenten/iconset-web-component": "^2.0.0",
     "babel-loader": "^10.1.1",
     "dexie": "^4.4.6",
@@ -75,9 +75,9 @@
     "gridstack": "^14.0.0",
     "marked": "^18.1.2",
     "node-polyfill-webpack-plugin": "4.0.0",
-    "pinia": "^2.1.7",
+    "pinia": "^4.1.0",
     "vue": "^3.5.44",
-    "vue-material-design-icons": "^5.3.0",
+    "vue-material-design-icons": "^5.4.0",
     "vue-router": "^4.6.4"
   },
   "overrides": {
