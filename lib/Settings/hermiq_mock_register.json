@@ -2535,6 +2535,45 @@
         },
         "nextTurnAt": "2026-10-01T12:00:00+00:00",
         "setBy": "fatima.elamrani"
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "computertarget",
+          "slug": "computertarget-voorbeeld-name-1-1"
+        },
+        "name": "Voorbeeld Name 1",
+        "source": "00000000-0000-4000-8000-000000000000",
+        "description": "Voorbeeld Description 1",
+        "os": "windows",
+        "applications": "Voorbeeld Applications 1",
+        "enabled": false
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "computertarget",
+          "slug": "computertarget-voorbeeld-name-2-2"
+        },
+        "name": "Voorbeeld Name 2",
+        "source": "00000000-0000-4000-8000-000000000001",
+        "description": "Voorbeeld Description 2",
+        "os": "windows",
+        "applications": "Voorbeeld Applications 2",
+        "enabled": false
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "computertarget",
+          "slug": "computertarget-voorbeeld-name-3-3"
+        },
+        "name": "Voorbeeld Name 3",
+        "source": "00000000-0000-4000-8000-000000000002",
+        "description": "Voorbeeld Description 3",
+        "os": "windows",
+        "applications": "Voorbeeld Applications 3",
+        "enabled": false
       }
     ]
   }

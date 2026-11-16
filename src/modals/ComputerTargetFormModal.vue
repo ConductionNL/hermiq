@@ -140,10 +140,22 @@ export default {
 		 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-an-admin-registers-a-machine-reached-only-through-integriq-req-computer-001
 		 */
 		selectedSource: {
+			/**
+			 * The chosen source's option.
+			 *
+			 * @return {object|null} The option, or null when none is chosen.
+			 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-an-admin-registers-a-machine-reached-only-through-integriq-req-computer-001
+			 */
 			get() {
 				return this.sources.find((source) => source.id === this.form.source) ?? null
 			},
 
+			/**
+			 * Store the chosen option's id as the source.
+			 *
+			 * @param {object|null} option The chosen option.
+			 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-an-admin-registers-a-machine-reached-only-through-integriq-req-computer-001
+			 */
 			set(option) {
 				this.form.source = option?.id ?? ''
 			},
@@ -168,6 +180,12 @@ export default {
 		 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-an-admin-registers-a-machine-reached-only-through-integriq-req-computer-001
 		 */
 		show: {
+			/**
+			 * Fill the form when the modal opens.
+			 *
+			 * @param {boolean} open Whether it opened.
+			 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-an-admin-registers-a-machine-reached-only-through-integriq-req-computer-001
+			 */
 			handler(open) {
 				if (open) {
 					this.form = formOf(this.target)
