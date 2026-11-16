@@ -42,13 +42,13 @@ namespace OCA\Hermiq\Controller;
 use Exception;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\AnswerProvenanceWriterInterface;
 use OCA\Hermiq\Kernel\Contracts\EngineInterface;
 use OCA\Hermiq\Kernel\Contracts\SessionPendingApprovalsInterface;
 use OCA\Hermiq\Kernel\Contracts\SessionShareServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\TalkSessionRoomInterface;
 use OCA\Hermiq\Service\Chat\SessionCollaborators;
 use OCA\Hermiq\Service\Chat\SessionSubject;
-use OCA\Hermiq\Service\Engine\AnswerProvenanceWriter;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\SessionShareService;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
@@ -165,7 +165,7 @@ class SessionController extends Controller {
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param SessionCollaborators $collaborators The Talk room, agent access, subject and pending approvals.
 	 * @param ConversationParticipation $participation Owner-or-listed-participant read check.
-	 * @param AnswerProvenanceWriter|null $provenanceWriter How an answer came about, in the reader's language.
+	 * @param AnswerProvenanceWriterInterface|null $provenanceWriter How an answer came about, in the reader's language.
 	 * @param SessionShareServiceInterface|null $shares Who a session is shared with, read-only (chat-fork-and-share-link).
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
@@ -179,7 +179,7 @@ class SessionController extends Controller {
 		private readonly LoggerInterface $logger,
 		SessionCollaborators $collaborators,
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
-		private readonly ?AnswerProvenanceWriter $provenanceWriter = null,
+		private readonly ?AnswerProvenanceWriterInterface $provenanceWriter = null,
 		private readonly ?SessionShareServiceInterface $shares = null,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
