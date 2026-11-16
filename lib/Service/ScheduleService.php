@@ -207,6 +207,14 @@ class ScheduleService implements ScheduleServiceInterface {
 	private array $lastRunProviderAttempts = [];
 
 	/**
+	 * The answers of the last run's reference models, in an ensemble turn
+	 * (models-several-models-per-turn); empty otherwise.
+	 *
+	 * @var array<int, array{provider: string, model: string, text: string}>
+	 */
+	private array $lastRunReferenceAnswers = [];
+
+	/**
 	 * The last (top-level or delegated) run's own fresh run identifier
 	 * (sub-agent-delegation), generated in `runAgentViaEngine()` and pushed
 	 * onto `DelegationContext` — empty on the legacy (flag-off) ChatService
@@ -967,6 +975,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		$this->lastRunSteps = [];
 		$this->lastRunDisclosure = null;
 		$this->lastRunProviderAttempts = [];
+		$this->lastRunReferenceAnswers = [];
 		$this->lastRunId = '';
 		$this->lastRunSkillsUsed = [];
 
@@ -1157,6 +1166,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		$this->lastRunSteps = [];
 		$this->lastRunDisclosure = null;
 		$this->lastRunProviderAttempts = [];
+		$this->lastRunReferenceAnswers = [];
 		$this->lastRunAsUser = (string)($schedule->getOwner() ?? '');
 		$this->lastRunId = '';
 
@@ -1252,6 +1262,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		$this->lastRunSteps = [];
 		$this->lastRunDisclosure = null;
 		$this->lastRunProviderAttempts = [];
+		$this->lastRunReferenceAnswers = [];
 		$this->lastRunAsUser = (string)($schedule->getOwner() ?? '');
 		$this->lastRunId = '';
 
@@ -1907,6 +1918,10 @@ class ScheduleService implements ScheduleServiceInterface {
 				'providerDisclosure' => $this->lastRunDisclosure,
 				// Models-several-models-per-turn: every attempt of the turn at a provider, in order.
 				'providerAttempts' => $this->lastRunProviderAttempts,
+				// Models-several-models-per-turn: the reference models' answers of an
+				// ensemble turn, kept on the run and never shown in the chat; redacted
+				// before the append-only write like the summary.
+				'referenceAnswers' => $this->redactedReferenceAnswers(),
 				// Skill-evals: the skill uuids the run-loop seam actually exposed to
 				// this run's context — persisted for EVERY run (not just evals) so
 				// skill-learnings can later attribute run outcomes to skills.
@@ -2035,6 +2050,24 @@ class ScheduleService implements ScheduleServiceInterface {
 		}//end try
 
 	}//end enqueueLearningsCapture()
+
+	/**
+	 * The last run's reference answers with secrets and personal data masked.
+	 *
+	 * @return array<int, array{provider: string, model: string, text: string}>
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 */
+	private function redactedReferenceAnswers(): array {
+		return array_map(
+			fn (array $answer): array => [
+				'provider' => $answer['provider'],
+				'model' => $answer['model'],
+				'text' => $this->redactionService->redact($answer['text']),
+			],
+			$this->lastRunReferenceAnswers
+		);
+	}//end redactedReferenceAnswers()
 
 	/**
 	 * Whether a step timeline includes any `tool`-type step.
@@ -2362,6 +2395,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		$this->lastRunSteps = [];
 		$this->lastRunDisclosure = null;
 		$this->lastRunProviderAttempts = [];
+		$this->lastRunReferenceAnswers = [];
 		$this->lastRunAsUser = $owner;
 		$this->lastRunId = '';
 		$this->lastRunSkillsUsed = [];
@@ -2839,6 +2873,7 @@ class ScheduleService implements ScheduleServiceInterface {
 			$this->lastRunSteps = $trace->toArray();
 			$this->lastRunDisclosure = $trace->providerDisclosure();
 			$this->lastRunProviderAttempts = $trace->providerAttempts();
+			$this->lastRunReferenceAnswers = $trace->referenceAnswers();
 			if ($this->lastRunSteps === []) {
 				// @phpstan-ignore-next-line -- deliberate defensive fallback, see above.
 				$envelopeSteps = ($result['steps'] ?? []);

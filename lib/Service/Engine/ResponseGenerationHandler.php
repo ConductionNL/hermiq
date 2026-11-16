@@ -49,6 +49,7 @@ use LLPhant\Chat\Message as LLPhantMessage;
 use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
+use OCA\Hermiq\Service\BudgetService;
 use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\Llm\AttachmentPartBuilder;
 use OCA\Hermiq\Service\Llm\ChatDriver;
@@ -126,6 +127,9 @@ class ResponseGenerationHandler {
 	 *                                                    sends the text turn as before.
 	 * @param ProviderCooldown|null $cooldown Skips a provider cooling down for the organisation
 	 *                                       (models-several-models-per-turn). Null keeps none.
+	 * @param BudgetService|null $budget The budget's hard cap, checked before each reference
+	 *                                   call of an ensemble turn (models-several-models-per-turn).
+	 *                                   Null checks none.
 	 *
 	 * @return void
 	 *
@@ -138,6 +142,7 @@ class ResponseGenerationHandler {
 		private readonly ?FeatureProviderResolver $featureResolver = null,
 		private readonly ?AttachmentPartBuilder $attachmentParts = null,
 		private readonly ?ProviderCooldown $cooldown = null,
+		private readonly ?BudgetService $budget = null,
 	) {
 	}//end __construct()
 
@@ -301,7 +306,9 @@ class ResponseGenerationHandler {
 
 		try {
 			$this->resolveDriver(run: $run);
+			$references = $this->askReferenceModels(run: $run);
 			$response = $this->answerTurn(run: $run);
+			$this->addReferenceUsage(usages: $references, run: $run);
 			(new TurnPerformanceLog(logger: $this->logger))->record(run: $run, response: $response);
 			return $response;
 		} catch (TurnStoppedException $e) {
@@ -381,6 +388,87 @@ class ResponseGenerationHandler {
 		$this->assertChatProvider(provider: $run->progress->driver->provider);
 		$this->logProvider(run: $run);
 	}//end resolveDriver()
+
+	/**
+	 * The first half of an ensemble turn: ask each reference model the prompt
+	 * without tools, and hand their answers to the agent's own model as labelled
+	 * context (models-several-models-per-turn D7). Nothing happens for an agent
+	 * without an enabled ensemble.
+	 *
+	 * @param ResponseTurnRun $run The turn, with its own driver resolved.
+	 *
+	 * @return array<int, array{provider: string, model: string, usage: array<string, mixed>}> What each reference call cost.
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 */
+	private function askReferenceModels(ResponseTurnRun $run): array {
+		$references = ReferenceAnswerRound::referencesOf(agentData: $run->agentData());
+		if ($references === []) {
+			return [];
+		}
+
+		$round = new ReferenceAnswerRound(
+			driverFor: fn (string $provider, string $model): ChatDriver => $this->hopDriver(run: $run, provider: $provider, model: $model),
+			answer: fn (ChatDriver $driver): array => $this->answerAsReference(run: $run, driver: $driver),
+			budget: $this->budget
+		);
+		$collected = $round->collect(run: $run, references: $references);
+		$run->referenceAnswers = $collected['answers'];
+
+		return $collected['usages'];
+	}//end askReferenceModels()
+
+	/**
+	 * One reference call: the turn's prompt and history, no tools, no stream,
+	 * no trace steps of its own.
+	 *
+	 * @param ResponseTurnRun $run    The turn.
+	 * @param ChatDriver      $driver The reference model's driver.
+	 *
+	 * @return array{text: string, usage: array<string, mixed>} Its answer and what it cost.
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 */
+	private function answerAsReference(ResponseTurnRun $run, ChatDriver $driver): array {
+		$reference = new ResponseTurnRun(userMessage: $run->userMessage, context: $run->context);
+		$reference->agent = $run->agent;
+		$reference->cnAiContext = $run->cnAiContext;
+		$reference->contextPreamble = $run->contextPreamble;
+		$reference->dryRun = $run->dryRun;
+		$reference->conversationId = $run->conversationId;
+		$reference->promptVariables = $run->promptVariables;
+		$reference->attachments = $run->attachments;
+		$reference->speaker = $run->speaker;
+		$reference->progress->organisation = $run->progress->organisation;
+		$reference->progress->aiFeature = $run->progress->aiFeature;
+		$reference->progress->functions = [];
+
+		$this->lastUsage = [];
+		$text = $this->answerWith(run: $reference, driver: $driver, history: $run->messageHistory);
+
+		return ['text' => $text, 'usage' => $this->lastUsage];
+	}//end answerAsReference()
+
+	/**
+	 * Add the reference calls to the turn's usage: `usage` becomes the sum of every
+	 * call, and `usageByModel` holds each call's own (models-several-models-per-turn D8).
+	 *
+	 * @param array<int, array{provider: string, model: string, usage: array<string, mixed>}> $usages The reference calls.
+	 * @param ResponseTurnRun                                                                   $run    The turn, whose own driver answered last.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-ensemble-counts-every-call-against-the-budget-req-mens-004
+	 */
+	private function addReferenceUsage(array $usages, ResponseTurnRun $run): void {
+		if ($usages === []) {
+			return;
+		}
+
+		$own = $this->lastUsage;
+		$calls = array_merge($usages, [['provider' => $run->progress->driver->provider, 'model' => $run->progress->driver->model, 'usage' => $own]]);
+		$this->lastUsage = EnsembleUsage::sum(calls: $calls);
+	}//end addReferenceUsage()
 
 	/**
 	 * Answer the turn from the first provider, or from the fallback chain when it

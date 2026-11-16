@@ -92,6 +92,13 @@ class RunTraceCollector {
 	private array $providerAttempts = [];
 
 	/**
+	 * The answers of an ensemble turn's reference models, in order.
+	 *
+	 * @var array<int, array{provider: string, model: string, text: string}>
+	 */
+	private array $referenceAnswers = [];
+
+	/**
 	 * Monotonic token counter for `startStep()`.
 	 *
 	 * @var integer
@@ -324,6 +331,46 @@ class RunTraceCollector {
 	public function recordFallbackNote(string $note, string $outcome): void {
 		$this->endStep(token: $this->startStep(type: 'fallback', name: $note), outcome: $outcome);
 	}//end recordFallbackNote()
+
+	/**
+	 * Record a line about an ensemble turn on the run's steps ("Asked 2 models").
+	 *
+	 * @param string $note    What happened.
+	 * @param string $outcome The step outcome.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 */
+	public function recordEnsembleNote(string $note, string $outcome): void {
+		$this->endStep(token: $this->startStep(type: 'ensemble', name: $note), outcome: $outcome);
+	}//end recordEnsembleNote()
+
+	/**
+	 * Keep one reference model's answer on the run; it is never shown in the chat.
+	 *
+	 * @param string $provider The reference's provider.
+	 * @param string $model    The reference's model.
+	 * @param string $text     Its answer.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 */
+	public function recordReferenceAnswer(string $provider, string $model, string $text): void {
+		$this->referenceAnswers[] = ['provider' => $provider, 'model' => $model, 'text' => $text];
+	}//end recordReferenceAnswer()
+
+	/**
+	 * The reference answers of the turn, in order.
+	 *
+	 * @return array<int, array{provider: string, model: string, text: string}>
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 */
+	public function referenceAnswers(): array {
+		return $this->referenceAnswers;
+	}//end referenceAnswers()
 
 	/**
 	 * Whether a tool step was started in this run.

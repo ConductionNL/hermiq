@@ -64,8 +64,8 @@ Kind: code. Size L. Rows `hermiq:mo-failover`, `hermiq:dm-model-ensemble`, `inte
   - GIVEN two reference models WHEN a turn runs THEN each is called without tools, the agent's model merges with its tools, and usageByModel sums into usage
   - GIVEN a reference outside the residency or a budget at its cap WHEN the turn runs THEN that call is skipped and recorded
   - GIVEN an Anthropic, Fireworks or OpenAI call WHEN it returns THEN its input and output tokens are in the run's usage
-- [ ] Implement
-- [ ] Test (PHPUnit with stubbed drivers and BudgetService; one live chat turn on an ensemble agent)
+- [x] Implement — `ReferenceAnswerRound` asks each reference model (at most three) one after the other through `createChatDriver()` with the reference as override, so model policy, residency and redaction refuse one before it is called (recorded `skipped` with its step); each call is made on a copy of the turn with no tools, no stream and no trace steps; a failing reference is recorded `failed` with its kind and left out; `BudgetService::isBlocked()` is checked before each call and stops the round ("Budget reached: answered from 1 model"); the steps say "Asked 2 models", and with no answer the agent's own model answers alone and says so. `ResponseGenerationHandler` then runs the agent's own turn with the answers in the system prompt as a labelled block (`TurnSystemPrompt`), with its tools and stream; `EnsembleUsage` makes `usage` the sum of every call and adds `usageByModel`; `RunTraceCollector` keeps the reference answers and `ScheduleService` writes them, redacted, as `referenceAnswers` on the run audit entry. Usage from the Anthropic, Fireworks and OpenAI calls was already returned on development (hermiq#985), so no `ProviderFactory` change was needed.
+- [ ] Test (PHPUnit with stubbed drivers and BudgetService; one live chat turn on an ensemble agent) — PHPUnit done (`ReferenceAnswerRoundTest`, `EnsembleUsageTest`, `ResponseGenerationEnsembleTest`); the live chat turn needs a live instance and is left
 
 ## Verification
 - [ ] `openspec validate models-several-models-per-turn --type change --strict` passes
