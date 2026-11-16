@@ -77,6 +77,7 @@ import AiLabelSection from './widgets/AiLabelSection.vue'
 import AnalyticsBreakdownWidget from './widgets/AnalyticsBreakdownWidget.vue'
 // inapp-settings-section: Incidents / EU AI Act audit export / Retention,
 // moved off TenantOps.vue onto the Compliance index page's below-header slot.
+import ChatHealthBlock from './widgets/ChatHealthBlock.vue'
 import ComplianceOperations from './widgets/ComplianceOperations.vue'
 import EvalRunPanelWidget from './widgets/EvalRunPanelWidget.vue'
 // skill-self-improvement: the SkillDetail draft review surface (side-by-side
@@ -561,6 +562,24 @@ export default {
 		allowedSlots: ['body'],
 		propsSchema: { type: 'object', properties: {} },
 		_note: 'Approving a merge archives the duplicate and moves its agents to the survivor across two objects and the agents that use them, behind the skill.merge-duplicates action (SkillMergeController); a declared object-table/object-op over the skill schema cannot express that two-object decision or its action gate (ADR-049).',
+	},
+
+	/**
+	 * Chat health (spec-coverage-built-rows, row op-health) — whether chat
+	 * works, the AI provider, the default model and each connection's state
+	 * and check time, resolved via the Integrations index page's
+	 * `page.slots.below-header` above integriq's connection list.
+	 */
+	'chat-health': {
+		// @custom-widget-ratchet exclude one verdict built from three sources (GET /api/chat/health, the masked LLM settings and integriq app_connection rows); no built-in widget reads more than one source and no existing custom widget shows chat or connection state, so nothing can absorb it (REQ-SPCOV-012)
+		kind: 'widget',
+		component: ChatHealthBlock,
+		defaultSize: { w: 12, h: 3 },
+		minSize: { w: 6, h: 2 },
+		maxSize: { w: 12, h: 6 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'Combines GET /api/chat/health, the masked LLM settings and integriq app_connection rows into one verdict; no single OpenRegister object collection holds that answer (ADR-049), mirroring compliance-operations\' below-header placement.',
 	},
 
 	/**

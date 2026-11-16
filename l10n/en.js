@@ -1307,7 +1307,6 @@ OC.L10N.register(
         "app-availability.description": "This application requires OpenRegister to be installed and enabled.",
         "app-availability.title": "Required application unavailable",
         "body is 500 lines or more": "body is 500 lines or more",
-        "body is empty": "body is empty",
         "On whose behalf the agent works": "On whose behalf the agent works",
         "On behalf of the person who uses it": "On behalf of the person who uses it",
         "Sees only what that person may see.": "Sees only what that person may see.",
@@ -1316,6 +1315,7 @@ OC.L10N.register(
         "An administrator sets the account an agent works with.": "An administrator sets the account an agent works with.",
         "Service account": "Service account",
         "The account {user} no longer exists or is disabled. Runs are refused until you choose another account or let the agent work on behalf of the person who uses it.": "The account {user} no longer exists or is disabled. Runs are refused until you choose another account or let the agent work on behalf of the person who uses it.",
+        "body is empty": "body is empty",
         "characters": "characters",
         "current": "current",
         "default": "default",
@@ -2906,7 +2906,18 @@ OC.L10N.register(
         "counterfactualPair: the first of the two requests. When absent the case's prompt is used.": "counterfactualPair: the first of the two requests. When absent the case's prompt is used.",
         "counterfactualPair: the one attribute in which the two requests differ.": "counterfactualPair: the one attribute in which the two requests differ.",
         "counterfactualPair: the second request, identical to request A except for the attribute.": "counterfactualPair: the second request, identical to request A except for the attribute.",
-        "counterfactualPair: the second request, snapshotted at run time.": "counterfactualPair: the second request, snapshotted at run time."
+        "counterfactualPair: the second request, snapshotted at run time.": "counterfactualPair: the second request, snapshotted at run time.",
+        "Chat health": "Chat health",
+        "AI provider: {provider}": "AI provider: {provider}",
+        "Default model: {model}": "Default model: {model}",
+        "Checked {time}": "Checked {time}",
+        "Not checked yet": "Not checked yet",
+        "Chat works.": "Chat works.",
+        "Chat does not work: no AI provider is chosen.": "Chat does not work: no AI provider is chosen.",
+        "Chat does not work: its settings could not be read.": "Chat does not work: its settings could not be read.",
+        "Answers": "Answers",
+        "Does not answer": "Does not answer",
+        "Not set up": "Not set up"
     },
     "nplurals=2; plural=(n != 1);"
 )
