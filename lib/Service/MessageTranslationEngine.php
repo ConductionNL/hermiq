@@ -144,49 +144,89 @@ class MessageTranslationEngine implements MessageTranslationEngineInterface {
 			return $this->unavailableResult(reason: 'feature-not-enabled');
 		}
 
+		$request = [
+			'sourceText'     => $sourceText,
+			'targetLanguage' => $targetLanguage,
+			'glossary'       => $glossary,
+			'sourceLanguage' => $sourceLanguage,
+			'originalRef'    => $originalRef,
+		];
+
+		$translation = $this->machineTranslation(request: $request);
+		if ($translation === null) {
+			return $this->unavailableResult(reason: 'provider-error');
+		}
+
+		return $this->translatedResult(request: $request, translation: $translation);
+
+	}//end translate()
+
+	/**
+	 * Ask the provider for the translation. An empty answer and any provider
+	 * failure yield null (REQ-004): the caller degrades to unavailable.
+	 *
+	 * @param array{sourceText: string, targetLanguage: string, glossary: array} $request The text, the target and the glossary.
+	 *
+	 * @return array{text: string, provider: string, llmConfig: array}|null The translated text, provider and LLM config, or null.
+	 */
+	private function machineTranslation(array $request): ?array {
 		try {
 			$llmConfig = $this->providerFactory->getLlmConfig();
 			$provider  = (string)($llmConfig['chatProvider'] ?? '');
 
 			$translatedText = trim($this->providerFactory->generateText(
-				prompt: $this->buildPrompt(sourceText: $sourceText, targetLanguage: $targetLanguage, glossary: $glossary)
+				prompt: $this->buildPrompt(sourceText: $request['sourceText'], targetLanguage: $request['targetLanguage'], glossary: $request['glossary'])
 			));
 
 			if ($translatedText === '') {
-				return $this->unavailableResult(reason: 'provider-error');
+				return null;
 			}
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				'[MessageTranslationEngine] Translation failed: ' . $e->getMessage()
 			);
-			return $this->unavailableResult(reason: 'provider-error');
+			return null;
 		}//end try
 
-		// Provenance (REQ-006/REQ-007): caller first, detected second, und last.
-		$detected = false;
+		return ['text' => $translatedText, 'provider' => $provider, 'llmConfig' => $llmConfig];
+
+	}//end machineTranslation()
+
+	/**
+	 * The success envelope of a translation, with its provenance (REQ-006/REQ-007):
+	 * the caller's source language first, a detected one second, `und` last.
+	 *
+	 * @param array{sourceText: string, targetLanguage: string, sourceLanguage: ?string, originalRef: string} $request     The request.
+	 * @param array{text: string, provider: string, llmConfig: array}                                          $translation The provider's translation.
+	 *
+	 * @return array<string, mixed> The envelope.
+	 */
+	private function translatedResult(array $request, array $translation): array {
+		$sourceLanguage = $request['sourceLanguage'];
+		$detected       = false;
 		if ($sourceLanguage === null || $sourceLanguage === '') {
-			$sourceLanguage = $this->detectLanguage(sourceText: $sourceText);
+			$sourceLanguage = $this->detectLanguage(sourceText: $request['sourceText']);
 			$detected       = true;
 		}
 
-		$disclosure = $this->disclosure->forLanguages(sourceLanguage: $sourceLanguage, targetLanguage: $targetLanguage);
+		$disclosure = $this->disclosure->forLanguages(sourceLanguage: $sourceLanguage, targetLanguage: $request['targetLanguage']);
 
 		return [
 			'available'                => true,
-			'translatedText'           => $translatedText,
-			'targetLanguage'           => $targetLanguage,
+			'translatedText'           => $translation['text'],
+			'targetLanguage'           => $request['targetLanguage'],
 			'machineTranslationNotice' => self::MACHINE_TRANSLATION_NOTICE,
-			'provider'                 => $provider,
+			'provider'                 => $translation['provider'],
 			'translatedByAi'           => true,
 			'sourceLanguage'           => $sourceLanguage,
 			'sourceLanguageDetected'   => $detected,
-			'model'                    => $this->modelLabel(llmConfig: $llmConfig),
-			'originalRef'              => $originalRef,
+			'model'                    => $this->modelLabel(llmConfig: $translation['llmConfig']),
+			'originalRef'              => $request['originalRef'],
 			'disclosure'               => $disclosure['disclosure'],
 			'disclosureLanguage'       => $disclosure['disclosureLanguage'],
 		];
 
-	}//end translate()
+	}//end translatedResult()
 
 	/**
 	 * Ask the provider for the BCP-47 tag of the source text. Any answer that

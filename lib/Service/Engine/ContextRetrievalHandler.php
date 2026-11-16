@@ -129,6 +129,31 @@ class ContextRetrievalHandler {
 			);
 		}
 
+		$run = $this->retrievalRun(
+			request: [
+				'query' => $query,
+				'speaker' => $speaker,
+				'agent' => $agent,
+				'selectedViews' => $selectedViews,
+				'ragSettings' => $ragSettings,
+			]
+		);
+
+		return $this->retrieveForRun(run: $run);
+	}//end retrieveContext()
+
+	/**
+	 * The retrieval run of an unscoped turn: the query and speaker, the agent's
+	 * data, the effective retrieval settings and the view filters. Logs that
+	 * retrieval starts.
+	 *
+	 * @param array{query: string, speaker: string, agent: ObjectEntity|null, selectedViews: array, ragSettings: array} $request The
+	 *        turn's retrieval request.
+	 *
+	 * @return array{query: string, speaker: string, agentData: array, settings: array, viewFilters: array} The run.
+	 */
+	private function retrievalRun(array $request): array {
+		$agent = $request['agent'];
 		$agentData = [];
 		if ($agent !== null) {
 			$agentData = $agent->getObject();
@@ -139,23 +164,33 @@ class ContextRetrievalHandler {
 			context: [
 				'file' => __FILE__,
 				'line' => __LINE__,
-				'query' => substr($query, 0, 100),
+				'query' => substr($request['query'], 0, 100),
 				'hasAgent' => $agent !== null,
-				'ragSettings' => $ragSettings,
+				'ragSettings' => $request['ragSettings'],
 			]
 		);
 
-		$run = [
-			'query' => $query,
-			'speaker' => $speaker,
+		return [
+			'query' => $request['query'],
+			'speaker' => $request['speaker'],
 			'agentData' => $agentData,
-			'settings' => $this->retrievalSettings(agentData: $agentData, ragSettings: $ragSettings),
+			'settings' => $this->retrievalSettings(agentData: $agentData, ragSettings: $request['ragSettings']),
 			'viewFilters' => $this->resolveViewFilters(
 				agentViews: ($agentData['views'] ?? []),
-				selectedViews: $selectedViews
+				selectedViews: $request['selectedViews']
 			),
 		];
+	}//end retrievalRun()
 
+	/**
+	 * Retrieve and format the sources of a run. Never throws: a retrieval
+	 * failure is logged and returns an empty context.
+	 *
+	 * @param array<string, mixed> $run The run of {@see retrievalRun()}.
+	 *
+	 * @return array{text: string, sources: list<array>} The context.
+	 */
+	private function retrieveForRun(array $run): array {
 		try {
 			$found = $this->candidateResults(run: $run);
 			$found['results'] = array_merge($this->knowledgeBaseRows(run: $run), (array)$found['results']);
@@ -181,7 +216,7 @@ class ContextRetrievalHandler {
 				'sources' => [],
 			];
 		}//end try
-	}//end retrieveContext()
+	}//end retrieveForRun()
 
 	/**
 	 * Refuse a scoped turn whose file or folder the speaker cannot open, before
