@@ -105,9 +105,11 @@ final class LlphantChatCall {
 	 * @param OpenAIChat $chat The chat instance the turn ran on.
 	 * @param int $tokensBefore Its running total before the turn.
 	 *
-	 * @return array<string, int> `promptTokens` and `completionTokens`, or `[]`.
+	 * @return array<string, int> `promptTokens` and `completionTokens`, plus `cacheReadTokens` when
+	 *                            the last response reported its cached prompt tokens; or `[]`.
 	 *
 	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-7-the-ensemble-turn-and-its-budget
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/provider-prompt-caching/spec.md#requirement-the-run-reports-cache-tokens-req-pcache-003
 	 */
 	private function openAiUsage(OpenAIChat $chat, int $tokensBefore): array {
 		$total = ($chat->getTotalTokens() - $tokensBefore);
@@ -115,13 +117,22 @@ final class LlphantChatCall {
 			return [];
 		}
 
-		$completion = (int)($chat->getLastResponse()?->usage->completionTokens ?? 0);
-		$completion = min($completion, $total);
-
-		return [
+		$usage      = $chat->getLastResponse()?->usage;
+		$completion = min((int)($usage->completionTokens ?? 0), $total);
+		$counts     = [
 			'promptTokens' => ($total - $completion),
 			'completionTokens' => $completion,
 		];
+
+		// OpenAI counts the prompt read from its cache inside prompt_tokens and
+		// reports it apart as prompt_tokens_details.cached_tokens, for the last
+		// request only (REQ-PCACHE-003). promptTokens already includes it.
+		$details = $usage?->promptTokensDetails;
+		if ($details !== null) {
+			$counts['cacheReadTokens'] = min((int)$details->cachedTokens, $counts['promptTokens']);
+		}
+
+		return $counts;
 	}//end openAiUsage()
 
 	/**

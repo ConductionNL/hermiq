@@ -214,6 +214,23 @@ class LlphantChatCallTest extends TestCase {
 	}//end testOpenAiUsageIsThisTurnsShareOfTheRunningTotal()
 
 	/**
+	 * The prompt OpenAI read from its cache is reported apart, and stays inside promptTokens.
+	 *
+	 * @return void
+	 */
+	public function testOpenAiCachedPromptTokensAreReported(): void {
+		$chat = $this->createMock(OpenAIChat::class);
+		$chat->method('getTotalTokens')->willReturnOnConsecutiveCalls(100, 160);
+		$chat->method('getLastResponse')->willReturn($this->response(completionTokens: 15, cachedTokens: 32));
+		$chat->method('generateChat')->willReturn('reply');
+		$call = new LlphantChatCall(chat: $chat, logger: new NullLogger());
+
+		$call->generate(run: $this->turn(channel: null));
+
+		$this->assertSame(['promptTokens' => 45, 'completionTokens' => 15, 'cacheReadTokens' => 32], $call->usage());
+	}//end testOpenAiCachedPromptTokensAreReported()
+
+	/**
 	 * Completion tokens never exceed the turn's total, and with no response
 	 * to read every token counts as prompt.
 	 *
@@ -273,7 +290,12 @@ class LlphantChatCallTest extends TestCase {
 	 *
 	 * @return CreateResponse
 	 */
-	private function response(int $completionTokens): CreateResponse {
+	private function response(int $completionTokens, ?int $cachedTokens = null): CreateResponse {
+		$usage = ['prompt_tokens' => 1, 'completion_tokens' => $completionTokens, 'total_tokens' => 1 + $completionTokens];
+		if ($cachedTokens !== null) {
+			$usage['prompt_tokens_details'] = ['cached_tokens' => $cachedTokens];
+		}
+
 		return CreateResponse::from(
 			[
 				'id' => 'r1',
@@ -281,7 +303,7 @@ class LlphantChatCallTest extends TestCase {
 				'created' => 0,
 				'model' => 'm',
 				'choices' => [],
-				'usage' => ['prompt_tokens' => 1, 'completion_tokens' => $completionTokens, 'total_tokens' => 1 + $completionTokens],
+				'usage' => $usage,
 			],
 			MetaInformation::from([])
 		);

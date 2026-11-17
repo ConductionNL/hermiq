@@ -1,8 +1,8 @@
 # agent-template-github-store Specification
 
-**Status**: active (agent-template + skill GitHub search + publish live; unified into one Store page)
+**Status**: active (agent-template + skill GitHub search + publish live; unified into one Marketplace page)
 
-**OpenSpec changes:** `agent-template-github-store` — DONE: server-backed GitHub search for `topic:hermiq-agent-template` repos (`GitHubTemplateCatalogService`) + broker-authed publish (`GitHubTemplatePushService`, the GitHub token never reaches Hermiq). `hermiq-github-store` — DONE: generalises both services to also index/push skills, and replaces `AgentTemplateGallery` with one unified Store page (agent templates + skills, per-kind filter); the `/agent-templates` route + menu item are removed.
+**OpenSpec changes:** `agent-template-github-store` — DONE: server-backed GitHub search for `topic:hermiq-agent-template` repos (`GitHubTemplateCatalogService`) + broker-authed publish (`GitHubTemplatePushService`, the GitHub token never reaches Hermiq). `hermiq-github-store` — DONE: generalises both services to also index/push skills, and replaces `AgentTemplateGallery` with one unified Marketplace page (agent templates + skills, per-kind filter); the `/agent-templates` route + menu item are removed.
 
 ## Purpose
 TBD - created by archiving change agent-template-github-store. Update Purpose after archive.
@@ -23,12 +23,12 @@ content MUST use the package filename for that card's kind (the agent-template p
   stars
 
 #### Scenario: The kind filter restricts results to one kind
-- GIVEN the Store page is open with results of both kinds
+- GIVEN the Marketplace page is open with results of both kinds
 - WHEN the user selects the "Skills" kind filter
 - THEN only `kind: "skill"` cards are shown, and template cards are hidden
 
 #### Scenario: Free-text term narrows the search
-- GIVEN the Store page is open
+- GIVEN the Marketplace page is open
 - WHEN the user types a search term into the search box
 - THEN the term is appended to the topic query and the result cards update to the narrowed set across
   the active kind(s)
@@ -153,7 +153,7 @@ organisation's visibility.
 The system MUST present one "Store" manifest page that serves discovery and publish for both agent
 templates and skills, and MUST retire the standalone `AgentTemplateGallery` page: its `/agent-templates`
 route and its "Agent templates" menu item MUST be removed, with any in-app reference to the retired
-route repointed to the Store page. The Store page MUST reuse the existing `agent-template-github-store`
+route repointed to the Marketplace page. The Marketplace page MUST reuse the existing `agent-template-github-store`
 store widget and the `agent-template-row-actions` / `skill-row-actions` widgets rather than introduce a
 new action surface.
 
@@ -166,7 +166,7 @@ new action surface.
 #### Scenario: An in-app link that used to open the gallery now opens the Store
 - GIVEN an in-app action previously navigated to the `AgentTemplateGallery` route
 - WHEN that action is triggered after this change
-- THEN it navigates to the Store page instead, with no dead route
+- THEN it navigates to the Marketplace page instead, with no dead route
 
 ### Requirement: The system MUST install a discovered skill through the skill quarantine gate
 Installing a chosen GitHub result of kind `skill` MUST fetch its agentskills.io package file and pass it

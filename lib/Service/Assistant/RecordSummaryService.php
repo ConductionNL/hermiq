@@ -44,6 +44,9 @@ use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -220,9 +223,10 @@ class RecordSummaryService implements RecordSummaryServiceInterface {
 		// one reader, and it checked the record above as the caller.
 		$this->objectService->saveObject(
 			object: $payload,
-			register: self::REGISTER_SLUG,
-			schema: self::SUMMARY_SCHEMA,
-			uuid: $stored?->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SUMMARY_SCHEMA),
+				uuid: $stored?->getUuid()
+			),
 			_rbac: false
 		);
 
@@ -284,7 +288,7 @@ class RecordSummaryService implements RecordSummaryServiceInterface {
 		}
 
 		try {
-			$record = $this->objectService->find(id: $objectId, register: $register, schema: $schema);
+			$record = $this->objectService->find(id: $objectId, options: new ObjectFindOptions(register: $register, schema: $schema));
 		} catch (Throwable $e) {
 			$record = null;
 		}
@@ -326,7 +330,10 @@ class RecordSummaryService implements RecordSummaryServiceInterface {
 		}
 
 		try {
-			$agent = $this->objectService->find(id: $agentId, register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA);
+			$agent = $this->objectService->find(
+				id: $agentId,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
+			);
 		} catch (Throwable $e) {
 			$this->logger->warning('[RecordSummaryService] Agent ' . $agentId . ' could not be read: ' . $e->getMessage());
 			return null;

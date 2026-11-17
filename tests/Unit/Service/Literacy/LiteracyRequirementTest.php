@@ -32,6 +32,7 @@ use OCP\IUser;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for who must finish the course, and who may switch the requirement.
@@ -230,7 +231,11 @@ class LiteracyRequirementTest extends TestCase {
 		$this->groups->method('isAdmin')->willReturn(true);
 		$saved = [];
 		$this->objects->method('saveObject')->willReturnCallback(
-			function (array|ObjectEntity $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null, bool $rbac = true, bool $multi = true) use (&$saved): ObjectEntity {
+			function (array|ObjectEntity $object, ObjectSaveOptions $options = new ObjectSaveOptions(), bool $rbac = true, bool $multi = true) use (&$saved): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$saved[] = [$object, $register, $schema, $uuid, $rbac, $multi];
 				return new ObjectEntity();
 			}

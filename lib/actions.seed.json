@@ -43,6 +43,9 @@
     "skill.review-draft": [
       "admin"
     ],
+    "skill.merge-duplicates": [
+      "admin"
+    ],
     "agenttemplate.approve-quarantined": [
       "admin"
     ],
@@ -130,6 +133,10 @@
     "skill.review-draft": {
       "label": "Review a draft skill",
       "description": "Accept or reject a skill that is still a draft."
+    },
+    "skill.merge-duplicates": {
+      "label": "Merge duplicate skills",
+      "description": "Archive a duplicate skill and move its agents to the skill that stays."
     },
     "agenttemplate.approve-quarantined": {
       "label": "Approve a quarantined agent template",

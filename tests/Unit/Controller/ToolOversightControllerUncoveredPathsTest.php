@@ -54,6 +54,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Guard and failure answers of ToolOversightController.
@@ -192,7 +193,9 @@ final class ToolOversightControllerUncoveredPathsTest extends TestCase {
 	 */
 	public function testUpdateGrantsUnknownAgentIs404(): void {
 		$this->objectService->expects(self::once())->method('find')
-			->with('ghost')
+			->with(...LegacyObjectArgs::with(method: 'find', expected: [
+				'id' => 'ghost',
+			]))
 			->willThrowException(new DoesNotExistException('gone'));
 		$this->objectService->expects(self::never())->method('saveObject');
 
@@ -229,19 +232,19 @@ final class ToolOversightControllerUncoveredPathsTest extends TestCase {
 		$this->request->method('getParam')->with('grants')->willReturn(['pipelinq.lead.search']);
 		$saved = $this->agent(['name' => 'A', 'tools' => ['pipelinq.lead.search']]);
 		$this->objectService->expects(self::once())->method('saveObject')
-			->with(
-				self::callback(
+			->with(...LegacyObjectArgs::with(method: 'saveObject', expected: [
+				'object' => self::callback(
 					static function (array $payload): bool {
 						return $payload['tools'] === ['pipelinq.lead.search']
 							&& $payload['name'] === 'A'
 							&& array_key_exists('description', $payload) === false;
 					}
 				),
-				[],
-				'hermiq',
-				'agent',
-				'agent-1'
-			)
+				'extend' => [],
+				'register' => 'hermiq',
+				'schema' => 'agent',
+				'uuid' => 'agent-1',
+			]))
 			->willReturn($saved);
 
 		$response = $this->controller()->updateToolGrants('agent-1');

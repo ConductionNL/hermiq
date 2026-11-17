@@ -48,6 +48,8 @@ use DateTimeInterface;
 use DateTimeZone;
 use OCA\Hermiq\Kernel\Contracts\SkillMergeServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 
@@ -219,6 +221,58 @@ class SkillMergeService implements SkillMergeServiceInterface {
 	}//end rejectMerge()
 
 	/**
+	 * The merges proposed and not yet decided, newest first: per proposal the skill
+	 * that goes and the skill that stays (id, name, description and how many agents
+	 * use it), why the pair was proposed and when.
+	 *
+	 * @return array<int, array{duplicate: array<string, mixed>, survivor: array<string, mixed>, reason: string, proposedAt: string}>
+	 *
+	 * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#scenario-two-duplicate-skills-get-one-merge-proposal
+	 */
+	public function pendingMerges(): array {
+		$byId = [];
+		foreach ($this->loadSkills() as $skill) {
+			$byId[(string)$skill->getUuid()] = $skill->getObject();
+		}
+
+		$pending = [];
+		foreach ($byId as $id => $data) {
+			$proposal = self::pendingProposal(data: $data);
+			if ($proposal === null || isset($byId[$proposal['survivor']]) === false) {
+				continue;
+			}
+
+			$pending[] = [
+				'duplicate' => self::summary(id: $id, data: $data),
+				'survivor' => self::summary(id: $proposal['survivor'], data: $byId[$proposal['survivor']]),
+				'reason' => (string)($data['mergeProposal']['reason'] ?? ''),
+				'proposedAt' => (string)($data['mergeProposal']['proposedAt'] ?? ''),
+			];
+		}
+
+		usort($pending, static fn (array $one, array $two): int => strcmp($two['proposedAt'], $one['proposedAt']));
+
+		return $pending;
+	}//end pendingMerges()
+
+	/**
+	 * What a merge proposal shows of one skill.
+	 *
+	 * @param string               $id   The skill's uuid.
+	 * @param array<string, mixed> $data The skill.
+	 *
+	 * @return array{id: string, name: string, description: string, agents: int}
+	 */
+	private static function summary(string $id, array $data): array {
+		return [
+			'id' => $id,
+			'name' => (string)($data['name'] ?? ''),
+			'description' => (string)($data['description'] ?? ''),
+			'agents' => count(self::idList(value: ($data['installedOn'] ?? []))),
+		];
+	}//end summary()
+
+	/**
 	 * Write a proposal on the duplicate.
 	 *
 	 * @param ObjectEntity $duplicate The skill that would go.
@@ -236,9 +290,10 @@ class SkillMergeService implements SkillMergeServiceInterface {
 		];
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: (string)$duplicate->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: (string)$duplicate->getUuid()
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -255,9 +310,10 @@ class SkillMergeService implements SkillMergeServiceInterface {
 	private function save(array $data, string $uuid): void {
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: $uuid
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: $uuid
+			)
 		);
 	}//end save()
 
