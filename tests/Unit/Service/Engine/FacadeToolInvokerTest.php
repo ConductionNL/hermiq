@@ -571,6 +571,32 @@ class FacadeToolInvokerTest extends TestCase {
 	}//end testAgentIdIsInjectedForMemoryToolsOnly()
 
 	/**
+	 * A browser tool gets the run's agent and its conversation, so each
+	 * conversation drives its own browser context (tools-browser-and-computer-use D1).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/browser-use/spec.md#requirement-the-browser-reaches-only-what-the-egress-policy-allows-req-browse-001
+	 */
+	public function testBrowserToolsReceiveTheAgentAndTheConversation(): void {
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->expects($this->once())
+			->method('invokeTool')
+			->with('hermiq_browserOpen', ['url' => 'https://example.org/', 'agentId' => 'agent-1', 'conversationId' => 'conv-9'])
+			->willReturn(['result' => ['content' => ''], 'isError' => false]);
+
+		$invoker = new FacadeToolInvoker(
+			facade: $facade,
+			agentId: 'agent-1',
+			mcpIdByName: ['hermiq_browserOpen' => 'hermiq.browserOpen'],
+			conversationId: 'conv-9'
+		);
+
+		$invoker->hermiq_browserOpen(url: 'https://example.org/');
+
+	}//end testBrowserToolsReceiveTheAgentAndTheConversation()
+
+	/**
 	 * A NON-memory tool's arguments are never touched by the agentId injection —
 	 * every other tool's behaviour is byte-for-byte unchanged.
 	 *

@@ -137,6 +137,7 @@ namespace OCA\Hermiq\Service\Engine;
 
 use Closure;
 use DateTimeImmutable;
+use OCA\Hermiq\Mcp\BrowserToolDescriptors;
 use OCA\Hermiq\Mcp\ComputerToolDescriptors;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Mcp\CodeSandboxToolDescriptors;
@@ -1301,6 +1302,12 @@ class FacadeToolInvoker {
 
 		$arguments['agentId'] = $this->agentId;
 
+		// A browser tool also gets its conversation: each conversation has its own
+		// browser context (tools-browser-and-computer-use D1).
+		if (in_array($this->resolveToolId(name: $name), BrowserToolDescriptors::IDS, true) === true) {
+			$arguments['conversationId'] = $this->conversationId;
+		}
+
 		return $arguments;
 	}//end withAgentId()
 
@@ -1317,7 +1324,8 @@ class FacadeToolInvoker {
 			|| in_array($toolId, self::ARTEFACT_WRITE_TOOL_IDS, true) === true
 			|| in_array($toolId, self::INTEGRIQ_AGENT_TOOL_IDS, true) === true
 			|| $toolId === self::DELEGATE_AGENT_TOOL_ID
-			|| $toolId === self::DELEGATE_AGENTS_TOOL_ID;
+			|| $toolId === self::DELEGATE_AGENTS_TOOL_ID
+			|| in_array($toolId, BrowserToolDescriptors::IDS, true) === true;
 
 	}//end needsAgentId()
 

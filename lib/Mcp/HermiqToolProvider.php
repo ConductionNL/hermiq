@@ -108,6 +108,7 @@ use OCA\Hermiq\Kernel\Contracts\TalkMessageToolInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\WebFetchServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\WebSearchClientInterface;
+use OCA\Hermiq\Service\Browser\BrowserTool;
 use OCA\Hermiq\Service\CodeSandbox\CodeSandboxSettings;
 use OCA\Hermiq\Service\CodeSandbox\RunCodeTool;
 use OCA\Hermiq\Service\RemoteAgent\RemoteTasks;
@@ -751,7 +752,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 			NcTalkToolDescriptors::ALL,
 			$this->imageDescriptors(),
 			$this->codeSandboxDescriptors(),
-			ComputerToolDescriptors::ALL
+			ComputerToolDescriptors::ALL,
+			BrowserToolDescriptors::ALL
 		);
 	}//end getTools()
 
@@ -877,7 +879,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	}//end routed()
 
 	/**
-	 * The service that owns a graph, Nextcloud task, image, code or computer tool, checked in that order.
+	 * The service that owns a graph, Nextcloud task, image, code, computer or browser tool, checked in that order.
 	 *
 	 * @param string $toolId The namespaced tool id.
 	 *
@@ -891,6 +893,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			in_array($toolId, NcTaskToolDescriptors::IDS, true) => TaskWriteServiceInterface::class,
 			in_array($toolId, ImageToolDescriptors::IDS, true) => ImageGenerationServiceInterface::class,
 			in_array($toolId, ComputerToolDescriptors::IDS, true) => ComputerUseServiceInterface::class,
+			in_array($toolId, BrowserToolDescriptors::IDS, true) => BrowserTool::class,
 			in_array($toolId, CodeSandboxToolDescriptors::IDS, true) => RunCodeTool::class,
 			in_array($toolId, NcTalkToolDescriptors::IDS, true) => TalkMessageToolInterface::class,
 			default => null,

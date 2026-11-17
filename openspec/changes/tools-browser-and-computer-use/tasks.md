@@ -10,16 +10,16 @@ Kind: code. Size L. Rows `hermiq:dm-browser-use`, `hermiq:dm-computer-use`.
 - **acceptance_criteria**:
   - GIVEN a URL the policy refuses WHEN the browser opens it THEN no connection is made
   - GIVEN a conversation WHEN it ends or idles 10 minutes THEN its browser context is closed
-- [ ] Implement
-- [ ] Test (the ExApp tests against a proxy stub; PHPUnit on the decision point)
+- [x] Implement
+- [x] Test (the ExApp tests against a proxy stub; PHPUnit on the decision point)
 
 ### Task 2: The browser tools and untrusted snapshots
 - **spec_ref**: `openspec/changes/tools-browser-and-computer-use/specs/browser-use/spec.md#requirement-pages-reach-the-model-as-untrusted-content-req-browse-002`
 - **files**: `lib/Mcp/BrowserToolDescriptors.php`, `lib/Mcp/HermiqToolProvider.php`, `lib/Service/Browser/BrowserClient.php`
 - **acceptance_criteria**:
   - GIVEN a page WHEN it is returned THEN it is a snapshot with references, at most 20 KB, between the untrusted markers, after filterInput
-- [ ] Implement
-- [ ] Test (PHPUnit with the browser stubbed)
+- [x] Implement
+- [x] Test (PHPUnit with the browser stubbed)
 
 ### Task 3: Click, fill and the password refusal
 - **spec_ref**: `openspec/changes/tools-browser-and-computer-use/specs/browser-use/spec.md#requirement-clicking-and-filling-are-default-denied-approval-gated-under-policy-and-never-type-a-password-req-browse-003`
@@ -27,8 +27,8 @@ Kind: code. Size L. Rows `hermiq:dm-browser-use`, `hermiq:dm-computer-use`.
 - **acceptance_criteria**:
   - GIVEN the descriptors WHEN classified THEN click and fill are destructive with reach external
   - GIVEN a password field WHEN fill is called THEN nothing is typed
-- [ ] Implement
-- [ ] Test (PHPUnit on classification; the ExApp tests on the field refusal)
+- [x] Implement
+- [x] Test (PHPUnit on classification; the ExApp tests on the field refusal)
 
 ### Task 4: ComputerTarget and its admin screen
 - **spec_ref**: `openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-an-admin-registers-a-machine-reached-only-through-integriq-req-computer-001`
