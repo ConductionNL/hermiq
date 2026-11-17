@@ -39,6 +39,17 @@ would leave a misleading seam.
 - THEN the emitted tool id MUST be exactly `hermiq.searchTools`
 - AND `Engine\FacadeToolInvoker::__call()` MUST still short-circuit that id before the facade, so progressive disclosure keeps working
 
+#### Scenario: An agent looks up a contact
+- **GIVEN** an agent granted `hermiq.searchContacts`, acting for a case handler whose address book holds "Jansen Bouw BV"
+- **WHEN** the case handler asks "What is the email address of Jansen Bouw?"
+- **THEN** the agent searches the address books the case handler can read and answers with the contact's email address
+
+#### Scenario: An agent sends an email
+- **GIVEN** an agent granted `hermiq.sendMail`, acting for a case handler
+- **WHEN** the case handler asks it to mail "Uw aanvraag is compleet" to the applicant
+- **THEN** the mail goes out through the instance's mail server with that text
+- **AND** the sender is the case handler's own address
+
 ### Requirement: Per-object IDOR guard on every provider
 Every NC-native tool MUST enforce a per-object authorization guard before acting on a specific Files/Contacts/Calendar/Deck object, so an agent acting on behalf of one user cannot access another user's objects by ID.
 

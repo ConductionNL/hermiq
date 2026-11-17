@@ -120,6 +120,31 @@ argument-scoped form closes that; the schema-wildcard and exact-id forms are unc
 - **THEN** it MUST still classify write/destructive
 - **AND** the narrowing MUST NOT cause it to be treated as read-only or auto-allowed
 
+#### Scenario: An external-reach read tool is default-denied
+
+- **GIVEN** an agent with an empty `Agent.tools` ("all discovered tools allowed")
+- **AND** a catalog tool whose `scope` is `read` and whose resolved `reach` is `external`
+- **WHEN** the resolver applies default-deny
+- **THEN** the resolved set MUST NOT include that tool
+- **AND** the resolved set MUST still include `read`-scoped tools whose reach is `self` or `user`
+@e2e exclude Default-deny resolution over a synthesised catalog; asserted by unit test on the grant resolver.
+
+#### Scenario: A low reach does not relax the write/destructive rule
+
+- **GIVEN** a catalog tool whose `scope` is `delete` and whose resolved `reach` is `self`
+- **WHEN** the resolver applies default-deny for an empty `Agent.tools`
+- **THEN** the resolved set MUST NOT include that tool
+- **AND** the verdict MUST be identical to the verdict this resolver produced before reach existed
+@e2e exclude Non-regression assertion comparing pre- and post-change classification verdicts; asserted by unit test.
+
+#### Scenario: A waived grant resolves to the same catalog id as an unwaived one
+
+- **GIVEN** two agents, one granted `{toolId}` and the other granted `{toolId}#noapproval`
+- **WHEN** the resolver expands each agent's grants against the same catalog
+- **THEN** both resolved sets MUST contain exactly `{toolId}`
+- **AND** neither resolved set MUST contain an id containing the text `noapproval`
+@e2e exclude Resolver-internal expansion assertion on the fragment split order; asserted by unit test.
+
 ## ADDED Requirements
 
 ### Requirement: Argument constraints on a grant are enforced at invocation
