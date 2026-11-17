@@ -205,6 +205,24 @@ import { formDialogSlot } from './formDialogSlot.js'
 
 let keySeed = 0
 
+/**
+ * The target fields of the editable form for a stored tool's target.
+ *
+ * @param {object} target The stored target, or an empty object.
+ * @return {object}
+ * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+ */
+function targetFormFrom(target) {
+	return {
+		targetType: target.type === 'integriq' ? 'integriq' : 'flow',
+		flowId: target.flowId || '',
+		source: target.source || '',
+		method: target.method || 'GET',
+		path: target.path || '',
+		bodyTemplate: target.bodyTemplate || '',
+	}
+}
+
 export default {
 	name: 'CustomToolFormModal',
 
@@ -410,19 +428,13 @@ export default {
 		 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 		 */
 		formFrom(source) {
-			const target = source?.target || {}
 			return {
 				name: source?.name || '',
 				slug: source?.slug || '',
 				description: source?.description || '',
 				inputs: inputsFrom(source?.inputSchema).map((input) => ({ ...input, key: this.nextKey() })),
 				changesData: source?.changesData || 'no',
-				targetType: target.type === 'integriq' ? 'integriq' : 'flow',
-				flowId: target.flowId || '',
-				source: target.source || '',
-				method: target.method || 'GET',
-				path: target.path || '',
-				bodyTemplate: target.bodyTemplate || '',
+				...targetFormFrom(source?.target || {}),
 				enabled: source?.enabled !== false,
 			}
 		},

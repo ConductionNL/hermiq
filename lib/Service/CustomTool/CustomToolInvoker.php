@@ -208,28 +208,45 @@ class CustomToolInvoker {
 		}
 
 		foreach ($arguments as $name => $value) {
-			$property = ($properties[$name] ?? null);
-			if (is_array($property) === false) {
-				return $name . ': this tool has no such input';
-			}
-
-			if ($value === null) {
-				continue;
-			}
-
-			$type = (string)($property['type'] ?? '');
-			if (self::hasType(type: $type, value: $value) === false) {
-				return $name . ': must be a ' . $type;
-			}
-
-			$enum = ($property['enum'] ?? null);
-			if (is_array($enum) === true && in_array($value, $enum, true) === false) {
-				return $name . ': must be one of ' . implode(', ', $enum);
+			$refusal = self::invalidValue(name: (string)$name, property: ($properties[$name] ?? null), value: $value);
+			if ($refusal !== null) {
+				return $refusal;
 			}
 		}
 
 		return null;
 	}//end invalidArgument()
+
+	/**
+	 * Why one argument does not match its property, or null when it does.
+	 *
+	 * @param string $name     The argument name.
+	 * @param mixed  $property The property in the input schema, or null when there is none.
+	 * @param mixed  $value    The argument value.
+	 *
+	 * @return string|null The refusal naming the field, or null.
+	 */
+	private static function invalidValue(string $name, mixed $property, mixed $value): ?string {
+		if (is_array($property) === false) {
+			return $name . ': this tool has no such input';
+		}
+
+		if ($value === null) {
+			return null;
+		}
+
+		$type = (string)($property['type'] ?? '');
+		if (self::hasType(type: $type, value: $value) === false) {
+			return $name . ': must be a ' . $type;
+		}
+
+		$enum = ($property['enum'] ?? null);
+		if (is_array($enum) === true && in_array($value, $enum, true) === false) {
+			return $name . ': must be one of ' . implode(', ', $enum);
+		}
+
+		return null;
+	}//end invalidValue()
 
 	/**
 	 * Fill a JSON body template: a placeholder inside a string inserts the text,
@@ -370,22 +387,48 @@ class CustomToolInvoker {
 			return self::error(code: 'tool_failed', message: 'The system this tool calls is not available.');
 		}
 
+		$method  = (string)($target['method'] ?? 'GET');
+		$callLog = $callService->call(
+			source: $source,
+			endpoint: self::renderPath(path: (string)($target['path'] ?? ''), arguments: $arguments),
+			method: $method,
+			config: self::requestConfig(target: $target, method: $method, arguments: $arguments)
+		);
+
+		return self::answerFrom(callLog: $callLog);
+	}//end callIntegriq()
+
+	/**
+	 * The request config of an integriq call: the rendered body template, else the
+	 * arguments as JSON for a method that carries a body, else nothing.
+	 *
+	 * @param array<string, mixed> $target    The integriq target.
+	 * @param string               $method    The HTTP method.
+	 * @param array<string, mixed> $arguments The checked arguments.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function requestConfig(array $target, string $method, array $arguments): array {
 		$config   = [];
 		$template = (string)($target['bodyTemplate'] ?? '');
-		$method   = (string)($target['method'] ?? 'GET');
 		if ($template !== '') {
 			$config['json'] = self::renderBody(template: $template, arguments: $arguments);
 		} elseif ($method !== 'GET' && $method !== 'DELETE') {
 			$config['json'] = $arguments;
 		}
 
-		$callLog = $callService->call(
-			source: $source,
-			endpoint: self::renderPath(path: (string)($target['path'] ?? ''), arguments: $arguments),
-			method: $method,
-			config: $config
-		);
+		return $config;
+	}//end requestConfig()
 
+	/**
+	 * The tool's answer from integriq's call log: the status and the delimited body,
+	 * with an error when the status is not 2xx.
+	 *
+	 * @param mixed $callLog What CallService::call returned.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function answerFrom(mixed $callLog): array {
 		$log      = [];
 		$response = [];
 		if ($callLog instanceof ObjectEntity) {
@@ -405,7 +448,7 @@ class CustomToolInvoker {
 		}
 
 		return $answer;
-	}//end callIntegriq()
+	}//end answerFrom()
 
 	/**
 	 * Whether a value has a simple JSON Schema type.

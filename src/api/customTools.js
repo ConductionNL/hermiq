@@ -86,23 +86,35 @@ export function inputSchemaFrom(inputs) {
 		if (name === '') {
 			continue
 		}
-		const property = { type: input.type || 'string' }
-		if ((input.description || '').trim() !== '') {
-			property.description = input.description.trim()
-		}
-		const choices = (input.enumText || '')
-			.split(',')
-			.map((choice) => choice.trim())
-			.filter((choice) => choice !== '')
-		if (property.type === 'string' && choices.length > 0) {
-			property.enum = choices
-		}
-		properties[name] = property
+		properties[name] = propertyFrom(input)
 		if (input.required) {
 			required.push(name)
 		}
 	}
 	return { type: 'object', properties, required }
+}
+
+/**
+ * Turn one editor input row into its schema property.
+ *
+ * @param {{type: string, description: string, enumText: string}} input The row.
+ * @return {object} The property: its type, a description when given, and an enum for a string with choices.
+ *
+ * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+ */
+function propertyFrom(input) {
+	const property = { type: input.type || 'string' }
+	if ((input.description || '').trim() !== '') {
+		property.description = input.description.trim()
+	}
+	const choices = (input.enumText || '')
+		.split(',')
+		.map((choice) => choice.trim())
+		.filter((choice) => choice !== '')
+	if (property.type === 'string' && choices.length > 0) {
+		property.enum = choices
+	}
+	return property
 }
 
 /**
@@ -128,6 +140,15 @@ export function inputsFrom(schema) {
 }
 
 /**
+ * How a sample text becomes a typed argument, per input type; any other type stays text.
+ */
+const SAMPLE_PARSERS = {
+	integer: (text) => Number.parseInt(text, 10),
+	number: (text) => Number(text),
+	boolean: (text) => text === 'true',
+}
+
+/**
  * Turn the editor's sample values into typed arguments for "Try it".
  *
  * @param {Array<{name: string, type: string}>} inputs The input rows.
@@ -144,15 +165,7 @@ export function sampleArguments(inputs, samples) {
 		if (name === '' || text === '') {
 			continue
 		}
-		if (input.type === 'integer') {
-			args[name] = Number.parseInt(text, 10)
-		} else if (input.type === 'number') {
-			args[name] = Number(text)
-		} else if (input.type === 'boolean') {
-			args[name] = text === 'true'
-		} else {
-			args[name] = text
-		}
+		args[name] = Object.hasOwn(SAMPLE_PARSERS, input.type) ? SAMPLE_PARSERS[input.type](text) : text
 	}
 	return args
 }

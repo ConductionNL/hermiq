@@ -123,19 +123,32 @@ final class CustomToolDefinition {
 			$clean[(string)$name] = self::input(name: (string)$name, property: $property);
 		}
 
-		$required = ($raw['required'] ?? []);
-		if (is_array($required) === false || array_is_list($required) === false) {
+		return ['type' => 'object', 'properties' => $clean, 'required' => self::required(raw: ($raw['required'] ?? []), inputs: $clean)];
+	}//end inputSchema()
+
+	/**
+	 * The required inputs: a list naming only declared inputs, without repeats.
+	 *
+	 * @param mixed                               $raw    The required list as sent.
+	 * @param array<string, array<string, mixed>> $inputs The checked inputs.
+	 *
+	 * @return list<string>
+	 *
+	 * @throws InvalidArgumentException When it is not a list of declared input names.
+	 */
+	private static function required(mixed $raw, array $inputs): array {
+		if (is_array($raw) === false || array_is_list($raw) === false) {
 			throw new InvalidArgumentException('inputSchema.required: must be a list of input names');
 		}
 
-		foreach ($required as $name) {
-			if (is_string($name) === false || isset($clean[$name]) === false) {
+		foreach ($raw as $name) {
+			if (is_string($name) === false || isset($inputs[$name]) === false) {
 				throw new InvalidArgumentException('inputSchema.required: ' . (string)json_encode($name) . ' is not one of the inputs');
 			}
 		}
 
-		return ['type' => 'object', 'properties' => $clean, 'required' => array_values(array_unique($required))];
-	}//end inputSchema()
+		return array_values(array_unique($raw));
+	}//end required()
 
 	/**
 	 * One input: a simple type, a string enum, and an optional description.
@@ -167,16 +180,30 @@ final class CustomToolDefinition {
 		}
 
 		if (isset($property['enum']) === true) {
-			$enum = $property['enum'];
-			if ($type !== 'string' || is_array($enum) === false || $enum === [] || count(array_filter($enum, 'is_string')) !== count($enum)) {
-				throw new InvalidArgumentException('inputSchema.properties.' . $name . ': an enum is a non-empty list of strings on a string input');
-			}
-
-			$clean['enum'] = array_values($enum);
+			$clean['enum'] = self::enum(name: $name, type: $type, enum: $property['enum']);
 		}
 
 		return $clean;
 	}//end input()
+
+	/**
+	 * An input's enum: a non-empty list of strings, allowed on a string input only.
+	 *
+	 * @param string $name The input name.
+	 * @param string $type The input's type.
+	 * @param mixed  $enum The enum as sent.
+	 *
+	 * @return list<string>
+	 *
+	 * @throws InvalidArgumentException When it is not a non-empty list of strings on a string input.
+	 */
+	private static function enum(string $name, string $type, mixed $enum): array {
+		if ($type !== 'string' || is_array($enum) === false || $enum === [] || count(array_filter($enum, 'is_string')) !== count($enum)) {
+			throw new InvalidArgumentException('inputSchema.properties.' . $name . ': an enum is a non-empty list of strings on a string input');
+		}
+
+		return array_values($enum);
+	}//end enum()
 
 	/**
 	 * The target: a flow, or an integriq source with a method and a path.
@@ -194,18 +221,44 @@ final class CustomToolDefinition {
 
 		$type = (string)($raw['type'] ?? '');
 		if ($type === 'flow') {
-			$flowId = self::text(payload: $raw, field: 'flowId');
-			if ($flowId === '') {
-				throw new InvalidArgumentException('target.flowId: choose the flow the tool runs');
-			}
-
-			return ['type' => 'flow', 'flowId' => $flowId];
+			return self::flowTarget(raw: $raw);
 		}
 
 		if ($type !== 'integriq') {
 			throw new InvalidArgumentException('target.type: must be flow or integriq');
 		}
 
+		return self::integriqTarget(raw: $raw);
+	}//end target()
+
+	/**
+	 * A flow target: the flow the tool runs.
+	 *
+	 * @param array<string, mixed> $raw The target as sent.
+	 *
+	 * @return array<string, string>
+	 *
+	 * @throws InvalidArgumentException When no flow is chosen.
+	 */
+	private static function flowTarget(array $raw): array {
+		$flowId = self::text(payload: $raw, field: 'flowId');
+		if ($flowId === '') {
+			throw new InvalidArgumentException('target.flowId: choose the flow the tool runs');
+		}
+
+		return ['type' => 'flow', 'flowId' => $flowId];
+	}//end flowTarget()
+
+	/**
+	 * An integriq target: a source, a method, a path and an optional JSON body template.
+	 *
+	 * @param array<string, mixed> $raw The target as sent.
+	 *
+	 * @return array<string, string>
+	 *
+	 * @throws InvalidArgumentException When it is incomplete.
+	 */
+	private static function integriqTarget(array $raw): array {
 		$source = self::text(payload: $raw, field: 'source');
 		if ($source === '') {
 			throw new InvalidArgumentException('target.source: choose the integriq source the tool calls');
@@ -222,17 +275,31 @@ final class CustomToolDefinition {
 		}
 
 		$target = ['type' => 'integriq', 'source' => $source, 'method' => $method, 'path' => $path];
-		$body   = self::text(payload: $raw, field: 'bodyTemplate');
+		$body   = self::bodyTemplate(raw: $raw);
 		if ($body !== '') {
-			if (json_decode(preg_replace('/\{\{\s*input\.[A-Za-z0-9_]+\s*\}\}/', '0', $body) ?? '') === null) {
-				throw new InvalidArgumentException('target.bodyTemplate: must be JSON, with {{input.<name>}} where an argument goes');
-			}
-
 			$target['bodyTemplate'] = $body;
 		}
 
 		return $target;
-	}//end target()
+	}//end integriqTarget()
+
+	/**
+	 * The body template of an integriq target, or an empty string when there is none.
+	 *
+	 * @param array<string, mixed> $raw The target as sent.
+	 *
+	 * @return string
+	 *
+	 * @throws InvalidArgumentException When it is not JSON with {{input.<name>}} placeholders.
+	 */
+	private static function bodyTemplate(array $raw): string {
+		$body = self::text(payload: $raw, field: 'bodyTemplate');
+		if ($body !== '' && json_decode(preg_replace('/\{\{\s*input\.[A-Za-z0-9_]+\s*\}\}/', '0', $body) ?? '') === null) {
+			throw new InvalidArgumentException('target.bodyTemplate: must be JSON, with {{input.<name>}} where an argument goes');
+		}
+
+		return $body;
+	}//end bodyTemplate()
 
 	/**
 	 * A trimmed text field, or an empty string.
