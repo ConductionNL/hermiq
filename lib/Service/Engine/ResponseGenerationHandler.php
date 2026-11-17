@@ -50,7 +50,7 @@ use LLPhant\Chat\Message as LLPhantMessage;
 use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
-use OCA\Hermiq\Service\BudgetService;
+use OCA\Hermiq\Kernel\Contracts\BudgetHardCapInterface;
 use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\Llm\AttachmentPartBuilder;
 use OCA\Hermiq\Service\Llm\ChatDriver;
@@ -128,7 +128,7 @@ class ResponseGenerationHandler {
 	 *                                                    sends the text turn as before.
 	 * @param ProviderCooldown|null $cooldown Skips a provider cooling down for the organisation
 	 *                                       (models-several-models-per-turn). Null keeps none.
-	 * @param BudgetService|null $budget The budget's hard cap, checked before each reference
+	 * @param BudgetHardCapInterface|null $budget The budget's hard cap, checked before each reference
 	 *                                   call of an ensemble turn (models-several-models-per-turn).
 	 *                                   Null checks none.
 	 *
@@ -143,7 +143,7 @@ class ResponseGenerationHandler {
 		private readonly ?FeatureProviderResolver $featureResolver = null,
 		private readonly ?AttachmentPartBuilder $attachmentParts = null,
 		private readonly ?ProviderCooldown $cooldown = null,
-		private readonly ?BudgetService $budget = null,
+		private readonly ?BudgetHardCapInterface $budget = null,
 	) {
 	}//end __construct()
 

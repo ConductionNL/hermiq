@@ -33,10 +33,10 @@ namespace OCA\Hermiq\Service\Engine;
 
 use Closure;
 use Exception;
+use OCA\Hermiq\Kernel\Contracts\BudgetHardCapInterface;
 use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
 use OCA\Hermiq\Service\AiFeature\RedactionRequiredException;
 use OCA\Hermiq\Service\AiFeature\ResidencyViolationException;
-use OCA\Hermiq\Service\BudgetService;
 use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
 use OCA\Hermiq\Service\Llm\ProviderCallFailedException;
@@ -74,14 +74,14 @@ final class ReferenceAnswerRound {
 	 *
 	 * @param Closure            $driverFor fn (string $provider, string $model): ChatDriver, through the gates.
 	 * @param Closure            $answer    fn (ChatDriver $driver): array{text: string, usage: array<string, mixed>}, a call without tools.
-	 * @param BudgetService|null $budget    The budget's hard cap, checked before each call; null checks none.
+	 * @param BudgetHardCapInterface|null $budget    The budget's hard cap, checked before each call; null checks none.
 	 *
 	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
 	 */
 	public function __construct(
 		private readonly Closure $driverFor,
 		private readonly Closure $answer,
-		private readonly ?BudgetService $budget = null,
+		private readonly ?BudgetHardCapInterface $budget = null,
 	) {
 	}//end __construct()
 
