@@ -49,7 +49,7 @@ interface AgentArtefactMarkerInterface {
 	 *
 	 * @throws \OCA\Hermiq\Service\NcNative\ArtefactMarkingFailedException When the tag cannot be resolved, created or assigned.
 	 *
-	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored-req-ailbl-001
+	 * @spec exclude Structural contract, no functional requirement.
 	 */
 	public function markFile(int $fileId): void;
 
