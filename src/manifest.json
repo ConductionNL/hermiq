@@ -276,8 +276,16 @@
 								"prompt",
 								"temperature",
 								"maxTokens",
-								"maxToolCalls"
-							]
+								"maxToolCalls",
+								"ensemble"
+							],
+							"overrides": {
+								"ensemble": {
+									"label": "Answer with several models",
+									"formatter": "agentEnsemble",
+									"editable": false
+								}
+							}
 						}
 					},
 					{

@@ -387,6 +387,88 @@ class AnalyticsServiceTest extends TestCase {
 	}//end testARunRowShowsTheDataUseTermInForce()
 
 	/**
+	 * A run that fell back shows both attempts in order and every provider that received the prompt.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+	 */
+	public function testARunRowShowsItsProviderAttempts(): void {
+		$schedules = [$this->schedule('s1', 'agentA')];
+		$recorded = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$recorded->setUuid('run-fell-back');
+		$recorded->setChanged(
+			[
+				'status' => 'ok',
+				'agentId' => 'agentA',
+				'providerDisclosure' => [
+					'provider' => 'ollama',
+					'model' => 'qwen2.5',
+					'receivedBy' => [['provider' => 'anthropic', 'model' => 'claude-opus-4-8'], ['provider' => 'ollama', 'model' => 'qwen2.5'], 'junk'],
+				],
+				'providerAttempts' => [
+					['provider' => 'anthropic', 'model' => 'claude-opus-4-8', 'outcome' => 'failed', 'reason' => 'rate_limit', 'durationMs' => 120, 'received' => true, 'extra' => ['x']],
+					['provider' => 'ollama', 'model' => 'qwen2.5', 'outcome' => 'answered', 'reason' => '', 'durationMs' => 900, 'received' => true],
+				],
+			]
+		);
+
+		$row = $this->service($schedules, [$recorded])->listRuns()['results'][0];
+
+		$this->assertSame(
+			[
+				['provider' => 'anthropic', 'model' => 'claude-opus-4-8', 'outcome' => 'failed', 'reason' => 'rate_limit', 'durationMs' => 120],
+				['provider' => 'ollama', 'model' => 'qwen2.5', 'outcome' => 'answered', 'reason' => '', 'durationMs' => 900],
+			],
+			$row['providerAttempts']
+		);
+		$this->assertSame([['provider' => 'anthropic', 'model' => 'claude-opus-4-8'], ['provider' => 'ollama', 'model' => 'qwen2.5']], $row['receivedBy']);
+		$this->assertArrayNotHasKey('receivedBy', $row['providerDisclosure']);
+	}//end testARunRowShowsItsProviderAttempts()
+
+	/**
+	 * Tools-browser-and-computer-use REQ-COMPUTER-004: a run row lists the computer
+	 * actions its steps recorded (machine, action, point, approval, screenshot hash
+	 * and size), never anything else of the step; a run without one has no such list.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-the-run-records-actions-and-never-stores-screenshots-req-computer-004
+	 */
+	public function testARunRowListsItsComputerActions(): void {
+		$schedules = [$this->schedule('s1', 'agentA')];
+		$used = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$used->setUuid('run-computer');
+		$used->setCreated(new \DateTime('2026-10-20 10:00:00'));
+		$used->setChanged(
+			[
+				'status' => 'ok',
+				'agentId' => 'agentA',
+				'steps' => [
+					['seq' => 1, 'type' => 'tool', 'name' => 'hermiq.computerScreenshot', 'computer' => ['target' => 'Werkplek 03', 'action' => 'screenshot', 'screenshot' => ['sha256' => 'abc', 'bytes' => 2048, 'image' => 'UE5H']]],
+					['seq' => 2, 'type' => 'llm', 'name' => 'answer'],
+					['seq' => 3, 'type' => 'tool', 'name' => 'hermiq.computerClick', 'arguments' => ['secret' => 'x'], 'computer' => ['target' => 'Werkplek 03', 'action' => 'click', 'x' => 412, 'y' => 230, 'approvalId' => 'ap-1', 'raw' => 'dropped']],
+				],
+			]
+		);
+		$plain = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$plain->setUuid('run-plain');
+		$plain->setCreated(new \DateTime('2026-10-19 10:00:00'));
+
+		$byId = array_column($this->service($schedules, [$used, $plain])->listRuns()['results'], null, 'id');
+
+		$this->assertSame(
+			[
+				['target' => 'Werkplek 03', 'action' => 'screenshot', 'screenshot' => ['sha256' => 'abc', 'bytes' => 2048]],
+				['target' => 'Werkplek 03', 'action' => 'click', 'x' => 412, 'y' => 230, 'approvalId' => 'ap-1'],
+			],
+			$byId['run-computer']['computerActions']
+		);
+		$this->assertArrayNotHasKey('computerActions', $byId['run-plain']);
+
+	}//end testARunRowListsItsComputerActions()
+
+	/**
 	 * The status filter narrows the rows, and `total` counts the filtered set.
 	 *
 	 * @return void
