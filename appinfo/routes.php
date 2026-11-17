@@ -533,6 +533,9 @@ $routes = [
         // cleanup job last enforced it and how much it removed.
         ['name' => 'Settings\RunRetentionSettings#get', 'url' => '/api/settings/run-retention', 'verb' => 'GET'],
         ['name' => 'Settings\RunRetentionSettings#update', 'url' => '/api/settings/run-retention', 'verb' => 'PUT'],
+        // How many scheduled runs go at once, for the instance and per organisation (operations-parallel-run-workers).
+        ['name' => 'Settings\RunConcurrencySettings#get', 'url' => '/api/settings/run-concurrency', 'verb' => 'GET'],
+        ['name' => 'Settings\RunConcurrencySettings#update', 'url' => '/api/settings/run-concurrency', 'verb' => 'PUT'],
         // observability-export-traces: trace export settings, admin only (REQ-TREX-001).
         ['name' => 'Settings\TraceExportSettings#get', 'url' => '/api/settings/trace-export', 'verb' => 'GET'],
         ['name' => 'Settings\TraceExportSettings#update', 'url' => '/api/settings/trace-export', 'verb' => 'PUT'],

@@ -3135,7 +3135,6 @@ OC.L10N.register(
         "No remote agent is registered. Agents cannot hand work to another server until an admin adds one.": "Er is geen externe agent geregistreerd. Agents kunnen geen werk aan een andere server overdragen tot een beheerder er een toevoegt.",
         "Remote agents": "Externe agents",
         "Saving fetches the agent card once through this source. The remote agent stays off until you switch it on.": "Bij opslaan wordt de agentkaart één keer via deze bron opgehaald. De externe agent blijft uit tot je hem aanzet.",
-        "The integriq sources could not be read.": "De integriq-bronnen konden niet worden gelezen.",
         "Used in a grant to name this remote agent. Empty makes one from the name.": "Wordt in een toekenning gebruikt om deze externe agent te noemen. Leeg maakt er een van de naam.",
         "Waiting for “{label}” (started {time})": "Wachten op ‘{label}’ (gestart om {time})",
         "What the remote agent does": "Wat de externe agent doet",
@@ -3260,7 +3259,18 @@ OC.L10N.register(
         "Rights for \"{action}\" saved.": "Rechten voor \"{action}\" opgeslagen.",
         "The rights for \"{action}\" could not be saved.": "De rechten voor \"{action}\" konden niet worden opgeslagen.",
         "Merge duplicate skills": "Dubbele skills samenvoegen",
-        "Archive a duplicate skill and move its agents to the skill that stays.": "Een dubbele skill archiveren en de agents ervan overzetten op de skill die blijft."
+        "Archive a duplicate skill and move its agents to the skill that stays.": "Een dubbele skill archiveren en de agents ervan overzetten op de skill die blijft.",
+        "Scheduled runs in parallel": "Geplande runs tegelijk",
+        "How many scheduled agent runs go at once. The schedule tick hands each due run to a background worker, and each run still runs once. The limit per organisation keeps one organisation's nightly agents from holding every worker.": "Hoeveel geplande agentruns tegelijk lopen. De planner geeft elke run die aan de beurt is aan een achtergrondworker, en elke run loopt nog steeds één keer. De limiet per organisatie voorkomt dat de nachtelijke agents van één organisatie alle workers bezet houden.",
+        "Run limits error": "Fout in de runlimieten",
+        "Scheduled runs at once on this instance": "Geplande runs tegelijk op deze instantie",
+        "Scheduled runs at once per organisation": "Geplande runs tegelijk per organisatie",
+        "Save run limits": "Runlimieten opslaan",
+        "Runs go at once only when the instance runs more than one background worker (occ background-job:worker). A run over a limit waits in the queue until a run finishes.": "Runs lopen alleen tegelijk als de instantie meer dan één achtergrondworker draait (occ background-job:worker). Een run boven een limiet wacht in de wachtrij tot een andere run klaar is.",
+        "Occurrence in flight": "Uitvoering onderweg",
+        "In flight since": "Onderweg sinds",
+        "Derived: the key of the occurrence the dispatcher queued for a background worker (operations-parallel-run-workers), the schedule uuid and the due time, with the attempt for a retry. Written when the occurrence is queued, cleared when its run is recorded. Empty means no occurrence is in flight.": "Afgeleid: de sleutel van de uitvoering die de planner voor een achtergrondworker in de wachtrij zette (operations-parallel-run-workers): de uuid van de planning en het geplande tijdstip, met de poging bij een herhaling. Geschreven bij het in de wachtrij zetten, gewist als de run is vastgelegd. Leeg betekent dat er geen uitvoering onderweg is.",
+        "Derived: when the occurrence in flight was queued or started running. The dispatcher records an occurrence still queued or running a time-to-live after this as failed.": "Afgeleid: wanneer de uitvoering onderweg in de wachtrij kwam of begon. De planner legt een uitvoering die een time-to-live hierna nog in de wachtrij staat of loopt vast als mislukt."
     },
     "nplurals=2; plural=(n != 1);"
 )

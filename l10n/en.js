@@ -3126,7 +3126,6 @@ OC.L10N.register(
         "No remote agent is registered. Agents cannot hand work to another server until an admin adds one.": "No remote agent is registered. Agents cannot hand work to another server until an admin adds one.",
         "Remote agents": "Remote agents",
         "Saving fetches the agent card once through this source. The remote agent stays off until you switch it on.": "Saving fetches the agent card once through this source. The remote agent stays off until you switch it on.",
-        "The integriq sources could not be read.": "The integriq sources could not be read.",
         "Used in a grant to name this remote agent. Empty makes one from the name.": "Used in a grant to name this remote agent. Empty makes one from the name.",
         "Waiting for “{label}” (started {time})": "Waiting for “{label}” (started {time})",
         "What the remote agent does": "What the remote agent does",
@@ -3235,7 +3234,18 @@ OC.L10N.register(
         "Rights for \"{action}\" saved.": "Rights for \"{action}\" saved.",
         "The rights for \"{action}\" could not be saved.": "The rights for \"{action}\" could not be saved.",
         "Merge duplicate skills": "Merge duplicate skills",
-        "Archive a duplicate skill and move its agents to the skill that stays.": "Archive a duplicate skill and move its agents to the skill that stays."
+        "Archive a duplicate skill and move its agents to the skill that stays.": "Archive a duplicate skill and move its agents to the skill that stays.",
+        "Scheduled runs in parallel": "Scheduled runs in parallel",
+        "How many scheduled agent runs go at once. The schedule tick hands each due run to a background worker, and each run still runs once. The limit per organisation keeps one organisation's nightly agents from holding every worker.": "How many scheduled agent runs go at once. The schedule tick hands each due run to a background worker, and each run still runs once. The limit per organisation keeps one organisation's nightly agents from holding every worker.",
+        "Run limits error": "Run limits error",
+        "Scheduled runs at once on this instance": "Scheduled runs at once on this instance",
+        "Scheduled runs at once per organisation": "Scheduled runs at once per organisation",
+        "Save run limits": "Save run limits",
+        "Runs go at once only when the instance runs more than one background worker (occ background-job:worker). A run over a limit waits in the queue until a run finishes.": "Runs go at once only when the instance runs more than one background worker (occ background-job:worker). A run over a limit waits in the queue until a run finishes.",
+        "Occurrence in flight": "Occurrence in flight",
+        "In flight since": "In flight since",
+        "Derived: the key of the occurrence the dispatcher queued for a background worker (operations-parallel-run-workers), the schedule uuid and the due time, with the attempt for a retry. Written when the occurrence is queued, cleared when its run is recorded. Empty means no occurrence is in flight.": "Derived: the key of the occurrence the dispatcher queued for a background worker (operations-parallel-run-workers), the schedule uuid and the due time, with the attempt for a retry. Written when the occurrence is queued, cleared when its run is recorded. Empty means no occurrence is in flight.",
+        "Derived: when the occurrence in flight was queued or started running. The dispatcher records an occurrence still queued or running a time-to-live after this as failed.": "Derived: when the occurrence in flight was queued or started running. The dispatcher records an occurrence still queued or running a time-to-live after this as failed."
     },
     "nplurals=2; plural=(n != 1);"
 )

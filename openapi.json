@@ -272,6 +272,10 @@
             "description": "The machines an agent may operate, reached only through an integriq source (admin-only)."
         },
         {
+            "name": "settings-run-concurrency-settings",
+            "description": "The settings run concurrency settings endpoints."
+        },
+        {
             "name": "settings-run-retention-settings",
             "description": "The settings run retention settings endpoints."
         },
@@ -9134,6 +9138,60 @@
                 "description": "Update (settings run retention settings). Needs a signed-in Nextcloud user.",
                 "tags": [
                     "settings-run-retention-settings"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/settings/run-concurrency": {
+            "get": {
+                "operationId": "settings-run-concurrency-settings-get",
+                "summary": "Get (settings run concurrency settings)",
+                "description": "Get (settings run concurrency settings). Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "settings-run-concurrency-settings"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            },
+            "put": {
+                "operationId": "settings-run-concurrency-settings-update",
+                "summary": "Update (settings run concurrency settings)",
+                "description": "Update (settings run concurrency settings). Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "settings-run-concurrency-settings"
                 ],
                 "responses": {
                     "200": {
