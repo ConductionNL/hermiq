@@ -28,6 +28,7 @@ namespace OCA\Hermiq\Service\KnowledgeBase;
 
 use OCA\Hermiq\Kernel\Contracts\KnowledgeBaseServiceInterface;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
+use OCA\Hermiq\Service\Files\FolderPath;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
@@ -283,22 +284,11 @@ class KnowledgeBaseService implements KnowledgeBaseServiceInterface {
 	 * @throws KnowledgeBaseException 400 when a file is in the way.
 	 */
 	private static function folderIn(Folder $parent, array $path): Folder {
-		$folder = $parent;
-		foreach ($path as $segment) {
-			if ($folder->nodeExists($segment) === false) {
-				$folder = $folder->newFolder($segment);
-				continue;
-			}
-
-			$node = $folder->get($segment);
-			if ($node instanceof Folder === false) {
-				throw new KnowledgeBaseException('A file is in the way of the knowledge base folder.', 400);
-			}
-
-			$folder = $node;
-		}
-
-		return $folder;
+		return FolderPath::ensure(
+			parent: $parent,
+			path: $path,
+			inTheWay: static fn (): Throwable => new KnowledgeBaseException('A file is in the way of the knowledge base folder.', 400)
+		);
 	}//end folderIn()
 
 	/**

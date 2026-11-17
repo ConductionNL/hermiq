@@ -20,6 +20,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\KnowledgeBase;
 
+use OCA\Hermiq\Service\Files\FolderPath;
 use OCA\Hermiq\Service\KnowledgeBase\KnowledgeBaseException;
 use OCA\Hermiq\Service\KnowledgeBase\KnowledgeBaseService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -39,6 +40,7 @@ use Psr\Log\LoggerInterface;
  */
 #[CoversClass(KnowledgeBaseService::class)]
 #[UsesClass(KnowledgeBaseException::class)]
+#[UsesClass(FolderPath::class)]
 class KnowledgeBaseServiceTest extends TestCase {
 
 	/**
