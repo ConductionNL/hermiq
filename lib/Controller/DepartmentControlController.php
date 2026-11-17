@@ -70,6 +70,8 @@ class DepartmentControlController extends Controller {
 	 *
 	 * @return JSONResponse The department as stored; 401, 403, 404 or 500 otherwise.
 	 *
+	 * @auth admin-only Switching a department's AI off or on is an administrator decision; the method also refuses non-administrators itself.
+	 *
 	 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
 	 */
 	public function toggle(string $group): JSONResponse {
@@ -103,6 +105,8 @@ class DepartmentControlController extends Controller {
 	 *
 	 * @return JSONResponse The rows; 401, 403 or 500 otherwise.
 	 *
+	 * @auth admin-only The department switches and who changed them are shown to administrators only.
+	 *
 	 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
 	 */
 	public function index(): JSONResponse {
@@ -126,6 +130,8 @@ class DepartmentControlController extends Controller {
 	 * @param string $group The department's group id.
 	 *
 	 * @return JSONResponse The evidence as an attachment; 401, 403, 404 or 500 otherwise.
+	 *
+	 * @auth admin-only The evidence file lists switch events and refused runs; administrators only.
 	 *
 	 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
 	 */

@@ -1511,6 +1511,7 @@
 			},
 			"DepartmentControl": {
 				"slug": "departmentcontrol",
+				"x-openregister-demo-data": "A department marks a real Nextcloud group the administrator chose, and its switch holds the runs of every agent that names that group; a sample department would mark a group nobody chose and could hold real agents.",
 				"icon": "AccountGroupOutline",
 				"version": "0.1.0",
 				"title": "Department control",
