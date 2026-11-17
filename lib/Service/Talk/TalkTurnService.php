@@ -72,6 +72,7 @@ class TalkTurnService implements TalkTurnServiceInterface {
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param LiteracyRequirement|null $literacy The course requirement (compliance-ai-literacy).
 	 * @param IAppConfig|null $appConfig Reads the edit throttle (instant-talk).
+	 * @param TalkAgentChain|null $agentChain Follows an answer to the agents it mentions (instant-talk).
 	 */
 	public function __construct(
 		private readonly Engine $engine,
@@ -82,6 +83,7 @@ class TalkTurnService implements TalkTurnServiceInterface {
 		private readonly LoggerInterface $logger,
 		private readonly ?LiteracyRequirement $literacy = null,
 		private readonly ?IAppConfig $appConfig = null,
+		private readonly ?TalkAgentChain $agentChain = null,
 	) {
 	}//end __construct()
 
@@ -263,7 +265,16 @@ class TalkTurnService implements TalkTurnServiceInterface {
 			return $this->reportFailure(roomToken: $turn->roomToken, reason: 'the agent returned an empty answer');
 		}
 
-		return $reply->finish(answer: $answer);
+		if ($reply->finish(answer: $answer) === false) {
+			return false;
+		}
+
+		// The answer is in the room; an agent it mentions takes the next turn,
+		// within the chain's limits. Still impersonating the speaker here, and
+		// the chained turn runs as the chain's rooting human, never as an agent.
+		$this->agentChain?->follow(turn: $turn, answer: $answer, messageId: $reply->postedMessageId());
+
+		return true;
 	}//end answerTurn()
 
 	/**

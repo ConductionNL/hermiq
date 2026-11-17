@@ -174,6 +174,18 @@ class TalkProgressiveReply {
 	}//end started()
 
 	/**
+	 * The Talk message id of the progressively edited answer, or '' when it was
+	 * posted in one message.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-agent-to-agent-turns-are-mention-only-bounded-and-human-rooted
+	 */
+	public function postedMessageId(): string {
+		return (string)$this->messageId;
+	}//end postedMessageId()
+
+	/**
 	 * Edit the posted message; a failure stops editing.
 	 *
 	 * @param string $text The new text.

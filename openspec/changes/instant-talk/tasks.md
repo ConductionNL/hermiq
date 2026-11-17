@@ -81,14 +81,33 @@
 
 ## 5. Agent-to-agent chains
 
-- [ ] 5.1 Chain descriptor on agent-triggered turns: originating human speaker uid,
+Spreed does not invoke bots for a bot's own message, so a chain is followed by
+Hermiq from the answer it just posted: `TalkTurnService::answerTurn()` hands the
+posted answer to `TalkAgentChain::follow()`.
+
+- [x] 5.1 Chain descriptor on agent-triggered turns: originating human speaker uid,
       hop count, chain id; carried through hand-off and persisted on the turn.
-- [ ] 5.2 Enforcement in the hand-off path: mention-only, no self-trigger, hop
+      `TalkAgentChain::nextHop()` gives `{chainId, hop, rootSpeakerUid}`; the chain id
+      is derived at the first hop and kept after. It rides the existing `chain`
+      argument through `TalkTurnDispatcher`, the queued `TalkTurnJob` argument and
+      `TalkTurnExecutor` onto `TalkTurn::$chain`.
+- [x] 5.2 Enforcement in the hand-off path: mention-only, no self-trigger, hop
       budget (`talk.agentChainMaxHops`, default 3), per-room rate cap on
       agent-triggered turns; exhausted budget posts a brief chain-ended notice.
-- [ ] 5.3 Identity: agent-triggered turns execute as the rooting human speaker
+      Mentions are matched by agent name among the room's agents
+      (`agentsForRoom()`), the answering agent excluded. The rate cap is
+      `talk.agentChainRoomRatePerMinute` (default 6), counted in the distributed
+      memcache; without one no agent-triggered turn is taken. Both an exhausted
+      hop budget and the rate cap post a one-line notice under the answering
+      agent's bot.
+- [x] 5.3 Identity: agent-triggered turns execute as the rooting human speaker
       (impersonate-and-restore), passing through the owner-or-participant check —
       a rooting user who left the roster fails closed.
+      The chained turn's speaker is `rootSpeakerUid`, so `runAsSpeaker()`
+      impersonates and restores that human. Before hand-off the target agent's
+      session (found, or opened for the rooting human) has its roster synced with
+      the room, and the rooting human must be in the room and pass
+      `ConversationParticipation::mayTakeTurn()`; otherwise no turn is taken.
 
 ## 6. Docs
 
