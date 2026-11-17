@@ -66,7 +66,6 @@ class RunNowController extends Controller {
 	 * @param ScheduleServiceInterface $scheduleService Runs the schedule via the shared dispatch path.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param LiteracyRequirementInterface|null $literacy The course requirement for a run by hand (compliance-ai-literacy).
-	 * @param OwnedSchedule|null $ownedSchedule The owner guard shared with the runAgentNow tool; built from the object service when null.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-1-2
 	 */
@@ -77,7 +76,6 @@ class RunNowController extends Controller {
 		private readonly ScheduleServiceInterface $scheduleService,
 		private readonly LoggerInterface $logger,
 		private readonly ?LiteracyRequirementInterface $literacy = null,
-		private readonly ?OwnedSchedule $ownedSchedule = null,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
@@ -220,7 +218,7 @@ class RunNowController extends Controller {
 	 */
 	private function loadOwnedSchedule(string $scheduleId, string $uid): ?ObjectEntity {
 		// The guard lives in OwnedSchedule so the `hermiq.runAgentNow` tool runs it too.
-		return ($this->ownedSchedule ?? new OwnedSchedule(objectService: $this->objectService, logger: $this->logger))
+		return (new OwnedSchedule(objectService: $this->objectService, logger: $this->logger))
 			->load(scheduleId: $scheduleId, uid: $uid);
 	}//end loadOwnedSchedule()
 }//end class

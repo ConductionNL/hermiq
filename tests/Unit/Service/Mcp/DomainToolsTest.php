@@ -27,7 +27,7 @@ use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
 use OCA\Hermiq\Mcp\DomainToolDescriptors;
 use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\Mcp\DomainTools;
-use OCA\Hermiq\Service\Schedule\OwnedSchedule;
+use OCA\Hermiq\Service\Mcp\RunNowTool;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -38,6 +38,7 @@ use RuntimeException;
 /**
  * @covers \OCA\Hermiq\Service\Mcp\DomainTools
  * @uses   \OCA\Hermiq\Service\Schedule\OwnedSchedule
+ * @uses   \OCA\Hermiq\Service\Mcp\RunNowTool
  */
 final class DomainToolsTest extends TestCase {
 
@@ -69,12 +70,10 @@ final class DomainToolsTest extends TestCase {
 		return new DomainTools(
 			$this->agents,
 			$this->approvals,
-			$this->schedules,
 			$this->skills,
-			new OwnedSchedule($this->objects, $logger),
+			new RunNowTool($this->schedules, $this->objects, $logger, $this->literacy),
 			$this->objects,
-			$logger,
-			$this->literacy
+			$logger
 		);
 	}
 

@@ -26,12 +26,9 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Mcp;
 
 use OCA\Hermiq\Kernel\Contracts\AgentCatalogInterface;
-use OCA\Hermiq\Kernel\Contracts\LiteracyRequirementInterface;
-use OCA\Hermiq\Kernel\Contracts\ScheduleServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
 use OCA\Hermiq\Mcp\DomainToolDescriptors;
 use OCA\Hermiq\Service\Approval\ApprovalInbox;
-use OCA\Hermiq\Service\Schedule\OwnedSchedule;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
@@ -48,8 +45,8 @@ use Throwable;
  *   agent the caller may not see is `not_found`, as the page's 404.
  * - `getAgentStatus` lists only the caller's OWN schedules for the agent.
  * - `listPendingApprovals` is `ApprovalController::index()`: the caller as reviewer.
- * - `runAgentNow` runs `OwnedSchedule`, the guard `RunNowController::run()` runs,
- *   then its course requirement, before `ScheduleServiceInterface::runNow()`.
+ * - `runAgentNow` is `RunNowTool`: the `OwnedSchedule` guard `RunNowController::run()`
+ *   runs, then its course requirement, before `ScheduleServiceInterface::runNow()`.
  * - `searchSkills` filters `SkillServiceInterface::listSkills()`, the tenant read
  *   the skills page uses.
  *
@@ -71,22 +68,18 @@ class DomainTools {
 	 *
 	 * @param AgentCatalogInterface             $agents      The agent read rule of the catalogue page.
 	 * @param ApprovalInbox                     $approvals   The approval inbox read.
-	 * @param ScheduleServiceInterface          $schedules   Runs a schedule now.
 	 * @param SkillServiceInterface             $skills      The tenant's skill catalogue.
-	 * @param OwnedSchedule                     $owned       The owner guard of a run by hand.
+	 * @param RunNowTool                        $runNow      Runs one of the caller's schedules now.
 	 * @param ObjectService                     $objects     Loads an agent and the caller's schedules for it.
 	 * @param LoggerInterface                   $logger      Logs a failed call.
-	 * @param LiteracyRequirementInterface|null $literacy    The course a run by hand may require.
 	 */
 	public function __construct(
 		private readonly AgentCatalogInterface $agents,
 		private readonly ApprovalInbox $approvals,
-		private readonly ScheduleServiceInterface $schedules,
 		private readonly SkillServiceInterface $skills,
-		private readonly OwnedSchedule $owned,
+		private readonly RunNowTool $runNow,
 		private readonly ObjectService $objects,
 		private readonly LoggerInterface $logger,
-		private readonly ?LiteracyRequirementInterface $literacy = null,
 	) {
 	}//end __construct()
 
@@ -107,7 +100,7 @@ class DomainTools {
 				DomainToolDescriptors::LIST_AGENTS => $this->listAgents(uid: $uid, arguments: $arguments),
 				DomainToolDescriptors::AGENT_STATUS => $this->agentStatus(uid: $uid, agentId: self::text(arguments: $arguments, name: 'agentId')),
 				DomainToolDescriptors::PENDING_APPROVALS => $this->pendingApprovals(uid: $uid),
-				DomainToolDescriptors::RUN_AGENT_NOW => $this->runNow(uid: $uid, scheduleId: self::text(arguments: $arguments, name: 'scheduleId')),
+				DomainToolDescriptors::RUN_AGENT_NOW => $this->runNow->run(uid: $uid, scheduleId: self::text(arguments: $arguments, name: 'scheduleId')),
 				DomainToolDescriptors::SEARCH_SKILLS => $this->searchSkills(query: self::text(arguments: $arguments, name: 'query')),
 				default => self::error(code: 'unknown_tool', message: "Unknown tool id '" . $toolId . "'."),
 			};
@@ -203,41 +196,6 @@ class DomainTools {
 	}//end pendingApprovals()
 
 	/**
-	 * Run one of the caller's own schedules now.
-	 *
-	 * @param string $uid        The caller.
-	 * @param string $scheduleId The schedule uuid.
-	 *
-	 * @return array<string, mixed>
-	 */
-	private function runNow(string $uid, string $scheduleId): array {
-		if ($scheduleId === '') {
-			return self::error(code: 'invalid_arguments', message: 'scheduleId is required.');
-		}
-
-		$schedule = $this->owned->load(scheduleId: $scheduleId, uid: $uid);
-		if ($schedule === null) {
-			// As the route: a schedule of somebody else reads as one that does not exist.
-			return self::error(code: 'not_found', message: 'Schedule not found.');
-		}
-
-		$refusal = $this->literacy?->refusal(uid: $uid);
-		if ($refusal !== null) {
-			return self::error(code: 'literacy_required', message: $refusal['message']);
-		}
-
-		$this->schedules->runNow(schedule: $schedule);
-		$data = ($this->owned->load(scheduleId: $scheduleId, uid: $uid)?->getObject() ?? []);
-
-		return [
-			'scheduleId' => $scheduleId,
-			'status' => ($data['lastStatus'] ?? null),
-			'error' => ($data['lastError'] ?? null),
-			'nextRun' => ($data['nextRun'] ?? null),
-		];
-	}//end runNow()
-
-	/**
 	 * The tenant's skills whose name or description holds every word of the query.
 	 *
 	 * @param string $query The words; empty lists every skill.
@@ -317,8 +275,10 @@ class DomainTools {
 	 * @param string $message The message.
 	 *
 	 * @return array{error: array{code: string, message: string}}
+	 *
+	 * @spec openspec/changes/hermiq-domain-mcp-tools/specs/hermiq-domain-mcp-tools/spec.md
 	 */
-	private static function error(string $code, string $message): array {
+	public static function error(string $code, string $message): array {
 		return ['error' => ['code' => $code, 'message' => $message]];
 	}//end error()
 }//end class
