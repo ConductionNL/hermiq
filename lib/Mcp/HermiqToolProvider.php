@@ -107,6 +107,8 @@ use OCA\Hermiq\Kernel\Contracts\TalkMessageToolInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\WebFetchServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\WebSearchClientInterface;
+use OCA\Hermiq\Service\CodeSandbox\CodeSandboxSettings;
+use OCA\Hermiq\Service\CodeSandbox\RunCodeTool;
 use OCA\Hermiq\Service\RemoteAgent\RemoteTasks;
 use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
 use OCA\Hermiq\Service\Workspace\WorkspaceWrites;
@@ -776,9 +778,33 @@ class HermiqToolProvider implements IMcpToolProvider {
 			GraphToolDescriptors::ALL,
 			$this->taskDescriptors(),
 			NcTalkToolDescriptors::ALL,
-			$this->imageDescriptors()
+			$this->imageDescriptors(),
+			$this->codeSandboxDescriptors()
 		);
 	}//end getTools()
+
+	/**
+	 * The runCode tool, with the reach of where code runs now (tools-code-sandbox
+	 * D3): `self` in the own sandbox, `external` at a hosted one. Listed whether
+	 * or not a sandbox is installed; a call then says none is.
+	 *
+	 * @return array<int, array<string, mixed>> The descriptors.
+	 *
+	 * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-an-agent-runs-code-only-with-a-grant-and-an-enabled-ai-feature-req-sandbox-002
+	 */
+	private function codeSandboxDescriptors(): array {
+		try {
+			$settings = $this->container->get(CodeSandboxSettings::class);
+		} catch (Throwable) {
+			$settings = null;
+		}
+
+		if ($settings instanceof CodeSandboxSettings) {
+			return CodeSandboxToolDescriptors::forReach(reach: $settings->reach());
+		}
+
+		return CodeSandboxToolDescriptors::forReach(reach: ToolReachResolver::REACH_SELF);
+	}//end codeSandboxDescriptors()
 
 	/**
 	 * The task tool descriptors this instance can honour: completeTask only when a
@@ -879,7 +905,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	}//end routed()
 
 	/**
-	 * The service that owns a graph, Nextcloud task or image tool, checked in that order.
+	 * The service that owns a graph, Nextcloud task, image or code tool, checked in that order.
 	 *
 	 * @param string $toolId The namespaced tool id.
 	 *
@@ -890,6 +916,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			in_array($toolId, GraphToolDescriptors::IDS, true) => GraphToolsInterface::class,
 			in_array($toolId, NcTaskToolDescriptors::IDS, true) => TaskWriteServiceInterface::class,
 			in_array($toolId, ImageToolDescriptors::IDS, true) => ImageGenerationServiceInterface::class,
+			in_array($toolId, CodeSandboxToolDescriptors::IDS, true) => RunCodeTool::class,
 			in_array($toolId, NcTalkToolDescriptors::IDS, true) => TalkMessageToolInterface::class,
 			default => null,
 		};
