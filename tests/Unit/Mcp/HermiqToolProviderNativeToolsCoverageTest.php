@@ -573,6 +573,6 @@ final class HermiqToolProviderNativeToolsCoverageTest extends TestCase {
 
 		$this->assertSame('unknown_tool', $result['error']['code']);
 		$this->assertStringStartsWith("Unknown tool id 'hermiq.nope'. Available: hermiq.listFiles, hermiq.readFile, ", $result['error']['message']);
-		$this->assertStringEndsWith('hermiq.delegateAgent, hermiq.delegateAgents.', $result['error']['message']);
+		$this->assertStringEndsWith('hermiq.delegateAgent, hermiq.delegateAgents, hermiq.askRemoteAgent.', $result['error']['message']);
 	}//end testAnUnknownToolNamesTheAvailableIds()
 }//end class

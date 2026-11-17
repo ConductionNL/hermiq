@@ -47,6 +47,9 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Engine;
 
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Files\File;
 use OCP\Files\Folder;
@@ -123,11 +126,14 @@ class ContextAssembler {
 	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
 	 * @param IRootFolder $rootFolder Files root (scoped per acting user).
 	 * @param LoggerInterface $logger Logger.
+	 * @param AnswerLanguage|null $answerLanguage The acting person's answer language
+	 *                                            (personal-preferences); null adds none.
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
 		private readonly IRootFolder $rootFolder,
 		private readonly LoggerInterface $logger,
+		private readonly ?AnswerLanguage $answerLanguage = null,
 	) {
 	}//end __construct()
 
@@ -173,10 +179,15 @@ class ContextAssembler {
 	 * @param string $actingUserId The acting user id, for reading `files` from
 	 *                             their Nextcloud folder.
 	 *
+	 * The acting person's answer language (personal-preferences), when they chose
+	 * one, closes the preamble.
+	 *
 	 * @return string The concatenated preamble (each bundle under a `Context: {name}`
-	 *                header), or `''` when the agent has no attached context.
+	 *                header, then the answer language), or `''` when the agent has no
+	 *                attached context and the person chose no answer language.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-context-system/tasks.md#2-contextassembler
+	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 	 */
 	public function assembleForAgent(?ObjectEntity $agent, string $actingUserId): string {
 		$blocks = [];
@@ -185,6 +196,15 @@ class ContextAssembler {
 			if ($text !== '') {
 				$blocks[] = $text;
 			}
+		}
+
+		$language = '';
+		if ($this->answerLanguage !== null) {
+			$language = $this->answerLanguage->instructionFor(userId: $actingUserId);
+		}
+
+		if ($language !== '') {
+			$blocks[] = $language;
 		}
 
 		return implode("\n\n", $blocks);
@@ -329,8 +349,7 @@ class ContextAssembler {
 		try {
 			$skill = $this->objectService->find(
 				id: $skillId,
-				register: self::REGISTER_SLUG,
-				schema: self::SKILL_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -410,8 +429,7 @@ class ContextAssembler {
 	public function assemble(string $contextId, string $actingUserId): array {
 		$context = $this->objectService->find(
 			id: $contextId,
-			register: self::REGISTER_SLUG,
-			schema: self::CONTEXT_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONTEXT_SCHEMA)
 		);
 		if ($context === null) {
 			return ['text' => '', 'needsConsolidation' => false];
@@ -879,9 +897,10 @@ class ContextAssembler {
 		try {
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::CONTEXT_SCHEMA,
-				uuid: (string)$context->getUuid()
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONTEXT_SCHEMA),
+					uuid: (string)$context->getUuid()
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(

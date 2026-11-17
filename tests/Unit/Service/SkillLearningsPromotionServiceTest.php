@@ -47,6 +47,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Random\Engine\Mt19937;
 use Random\Randomizer;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * SkillLearningsPromotionService behaviour tests (skill-learnings).
@@ -101,7 +102,11 @@ class SkillLearningsPromotionServiceTest extends TestCase {
 		$this->providerFactory->expects($this->never())->method('generateText');
 
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				unset($extend, $register);
 				$this->savedObjects[] = [
 					(string)$schema,

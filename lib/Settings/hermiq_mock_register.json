@@ -2536,6 +2536,45 @@
         },
         "nextTurnAt": "2026-10-01T12:00:00+00:00",
         "setBy": "fatima.elamrani"
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "remoteagent",
+          "slug": "remoteagent-voorbeeld-name-1-1"
+        },
+        "name": "Voorbeeld Name 1",
+        "slug": "Voorbeeld Slug 1",
+        "source": "Voorbeeld Source 1",
+        "enabled": false,
+        "description": "Voorbeeld Description 1",
+        "agentCard": {}
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "remoteagent",
+          "slug": "remoteagent-voorbeeld-name-2-2"
+        },
+        "name": "Voorbeeld Name 2",
+        "slug": "Voorbeeld Slug 2",
+        "source": "Voorbeeld Source 2",
+        "enabled": false,
+        "description": "Voorbeeld Description 2",
+        "agentCard": {}
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "remoteagent",
+          "slug": "remoteagent-voorbeeld-name-3-3"
+        },
+        "name": "Voorbeeld Name 3",
+        "slug": "Voorbeeld Slug 3",
+        "source": "Voorbeeld Source 3",
+        "enabled": false,
+        "description": "Voorbeeld Description 3",
+        "agentCard": {}
       }
     ]
   }

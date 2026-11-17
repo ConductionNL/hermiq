@@ -141,6 +141,20 @@
 					<p class="llm-provider-modal__hint">
 						{{ credentialHint(anthropicCredentialProviderIds) }}
 					</p>
+					<NcCheckboxRadioSwitch
+						v-model="form.anthropicConfig.promptCaching"
+						type="switch"
+						data-testid="llm-anthropic-prompt-caching">
+						{{ t('hermiq', 'Use the provider’s prompt cache') }}
+					</NcCheckboxRadioSwitch>
+					<p class="llm-provider-modal__hint">
+						{{
+							t(
+								'hermiq',
+								'Anthropic reads the unchanged start of each request from its cache, which makes repeat turns cheaper and faster. The answer stays the same.',
+							)
+						}}
+					</p>
 					<NcNoteCard
 						v-if="anthropicAuthModeValue === 'oauth'"
 						type="warning">
@@ -309,6 +323,7 @@ export default {
 					chatModel: '',
 					credentialId: '',
 					authMode: 'api_key',
+					promptCaching: true,
 				},
 			},
 		}
@@ -701,6 +716,7 @@ export default {
 				chatModel: this.form.anthropicConfig.chatModel,
 				credentialId: this.anthropicCredential.value,
 				authMode: this.anthropicAuthModeValue,
+				promptCaching: this.form.anthropicConfig.promptCaching !== false,
 				// Admin settings are always organisation scope.
 				scope: 'organisation',
 			}

@@ -29,6 +29,8 @@ use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for upsert, update, lookup and the allow-list validation.
@@ -73,7 +75,11 @@ class OrganisationModelPolicyWriteTest extends TestCase {
 		$this->objects->method('setSchema')->willReturnSelf();
 		$this->objects->method('findAll')->willReturn($stored);
 		$this->objects->method('saveObject')->willReturnCallback(
-			function (array|ObjectEntity $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null, bool $rbac = true, bool $multi = true): ObjectEntity {
+			function (array|ObjectEntity $object, ObjectSaveOptions $options = new ObjectSaveOptions(), bool $rbac = true, bool $multi = true): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$this->saved[] = [(array)$object, $uuid, $rbac, $multi];
 				$self = (array)($object['@self'] ?? []);
 				return $this->policy((string)($self['organisation'] ?? ''), (string)($uuid ?? 'new-uuid'), (array)$object);
@@ -118,7 +124,15 @@ class OrganisationModelPolicyWriteTest extends TestCase {
 		$service = $this->service([$entity, 'junk', $this->policy('', 'p-0')]);
 		$this->objects->expects($this->once())
 			->method('find')
-			->with('p-1', [], false, 'hermiq', 'modelpolicy', false, false)
+			->with(...LegacyObjectArgs::with(method: 'find', expected: [
+					'id' => 'p-1',
+					'_extend' => [],
+					'files' => false,
+					'register' => 'hermiq',
+					'schema' => 'modelpolicy',
+					'_rbac' => false,
+					'_multitenancy' => false,
+				]))
 			->willReturn($entity);
 
 		$this->assertNull($service->findById(''));

@@ -47,6 +47,8 @@ use Exception;
 use LLPhant\Chat\Message as LLPhantMessage;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -292,6 +294,7 @@ class ConversationManagementHandler {
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-2
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-engine-port/spec.md#REQ-SPCOV-009
 	 */
 	public function checkAndSummarize(ObjectEntity $conversation): void {
 		$data = $conversation->getObject();
@@ -337,9 +340,10 @@ class ConversationManagementHandler {
 
 			$this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $data),
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
-				uuid: $conversationUuid
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+					uuid: $conversationUuid
+				)
 			);
 
 			$this->logger->info(
