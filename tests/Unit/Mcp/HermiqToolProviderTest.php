@@ -277,7 +277,7 @@ class HermiqToolProviderTest extends TestCase {
 		$this->assertNotContains('hermiq.completeTask', $ids);
 		$this->assertContains('hermiq.listTasks', $ids);
 		$this->assertContains('hermiq.createTask', $ids);
-		$this->assertCount(52, $ids);
+		$this->assertCount(60, $ids);
 
 	}//end testCompleteTaskIsAbsentWithoutAReplacePath()
 
@@ -493,11 +493,13 @@ class HermiqToolProviderTest extends TestCase {
 		// + hermiq.listAgents/getAgentStatus/listPendingApprovals/runAgentNow/searchSkills
 		//   (hermiq-domain-mcp-tools),
 		// + hermiq.askRemoteAgent (flows-hand-off-and-wait),
+		// + hermiq.computerScreenshot/Click/Type/Key (tools-browser-and-computer-use),
+		// + hermiq.browserOpen/Read/Click/Fill (tools-browser-and-computer-use),
 		// + hermiq.createFile/moveFile (spec-coverage-built-rows),
 		// + hermiq.sendTalkMessage (tools-post-a-talk-message),
 		// + hermiq.runCode (tools-code-sandbox),
 		// all registered through this same provider.
-		$this->assertCount(53, $tools);
+		$this->assertCount(61, $tools);
 
 		$ids = array_column($tools, 'id');
 		$this->assertContains('hermiq.listFiles', $ids);
@@ -611,10 +613,20 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.sendTalkMessage' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
 			// tools-code-sandbox: write-classified so it is default-denied.
 			'hermiq.runCode' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
+			// tools-browser-and-computer-use: a screenshot only reads; every action changes the machine.
+			'hermiq.computerScreenshot' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.computerClick' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
+			'hermiq.computerType' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
+			'hermiq.computerKey' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
+			// tools-browser-and-computer-use: opening and reading only read; a click or a fill can submit a form.
+			'hermiq.browserOpen' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.browserRead' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.browserClick' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
+			'hermiq.browserFill' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
 		];
 
 		$tools = $this->provider('alice')->getTools();
-		$this->assertCount(53, $tools, 'This test must be updated if a tool is added or removed.');
+		$this->assertCount(61, $tools, 'This test must be updated if a tool is added or removed.');
 
 		$seen = [];
 		foreach ($tools as $tool) {
@@ -716,6 +728,16 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.sendTalkMessage' => ToolReachResolver::REACH_INSTANCE,
 			// tools-code-sandbox: the own sandbox when no setting can be read.
 			'hermiq.runCode' => ToolReachResolver::REACH_SELF,
+			// `external`: the screen's content goes to the model provider.
+			'hermiq.computerScreenshot' => ToolReachResolver::REACH_EXTERNAL,
+			'hermiq.computerClick' => ToolReachResolver::REACH_EXTERNAL,
+			'hermiq.computerType' => ToolReachResolver::REACH_EXTERNAL,
+			'hermiq.computerKey' => ToolReachResolver::REACH_EXTERNAL,
+			// `external`: the page comes from someone else's site.
+			'hermiq.browserOpen' => ToolReachResolver::REACH_EXTERNAL,
+			'hermiq.browserRead' => ToolReachResolver::REACH_EXTERNAL,
+			'hermiq.browserClick' => ToolReachResolver::REACH_EXTERNAL,
+			'hermiq.browserFill' => ToolReachResolver::REACH_EXTERNAL,
 		];
 
 		$tools = $this->provider('alice')->getTools();
@@ -828,6 +850,14 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.completeTask' => ['task', 'complete'],
 			'hermiq.sendTalkMessage' => ['talkMessage', 'create'],
 			'hermiq.runCode' => ['codeRun', 'create'],
+			'hermiq.computerScreenshot' => ['computer', 'get'],
+			'hermiq.computerClick' => ['computer', 'click'],
+			'hermiq.computerType' => ['computer', 'type'],
+			'hermiq.computerKey' => ['computer', 'key'],
+			'hermiq.browserOpen' => ['browser', 'open'],
+			'hermiq.browserRead' => ['browser', 'get'],
+			'hermiq.browserClick' => ['browser', 'click'],
+			'hermiq.browserFill' => ['browser', 'fill'],
 		];
 
 		$tools = $this->provider('alice')->getTools();

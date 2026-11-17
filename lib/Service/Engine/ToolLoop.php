@@ -511,6 +511,8 @@ class ToolLoop implements ToolLoopInterface {
 	 *                               agent queues can bring its result back there
 	 *                               (flows-hand-off-and-wait). '' (every pre-existing
 	 *                               caller) opens no handoff.
+	 * @param string $runId The run a computer action's approval is scoped to; '' offers no
+	 *                      run-scoped pre-authorisation (tools-browser-and-computer-use).
 	 *
 	 * @return array<int, FunctionInfo> FunctionInfo objects ready for `setTools()`.
 	 *
@@ -532,6 +534,7 @@ class ToolLoop implements ToolLoopInterface {
 		?string $organisation = null,
 		bool $dryRun = false,
 		string $conversationId = '',
+		string $runId = '',
 	): array {
 		$run = new ToolSurfaceRun();
 		$run->conversationId = $conversationId;
@@ -541,6 +544,7 @@ class ToolLoop implements ToolLoopInterface {
 		$run->agent = $agent;
 		$run->organisation = $organisation;
 		$run->dryRun = $dryRun;
+		$run->runId = $runId;
 
 		return (new FunctionInfoBuilder())->build(functions: $functions, invoker: $this->createInvoker(run: $run));
 	}//end buildFunctionInfos()
@@ -574,7 +578,8 @@ class ToolLoop implements ToolLoopInterface {
 			agentStillOn: $this->agentStillOn(agentId: $agentId),
 			askFirst: $this->askFirst(functions: $run->functions),
 			handoffs: $this->handoffs,
-			conversationId: $run->conversationId
+			conversationId: $run->conversationId,
+			runId: $run->runId
 		);
 	}//end createInvoker()
 
