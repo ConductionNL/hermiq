@@ -29,6 +29,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Chat;
 
 use OCA\Hermiq\Kernel\Contracts\AttachmentStoreInterface;
+use OCA\Hermiq\Service\Files\FolderPath;
 use OCP\Files\Folder;
 use OCP\Files\IMimeTypeDetector;
 use OCP\Files\IRootFolder;
@@ -182,22 +183,11 @@ class AttachmentStore implements AttachmentStoreInterface {
 	 * @throws RuntimeException When a segment exists as a file.
 	 */
 	private function folderIn(Folder $parent, array $path): Folder {
-		$folder = $parent;
-		foreach ($path as $segment) {
-			if ($folder->nodeExists($segment) === false) {
-				$folder = $folder->newFolder($segment);
-				continue;
-			}
-
-			$node = $folder->get($segment);
-			if ($node instanceof Folder === false) {
-				throw new RuntimeException('A file is in the way of the attachments folder.');
-			}
-
-			$folder = $node;
-		}
-
-		return $folder;
+		return FolderPath::ensure(
+			parent: $parent,
+			path: $path,
+			inTheWay: static fn (): \Throwable => new RuntimeException('A file is in the way of the attachments folder.')
+		);
 	}//end folderIn()
 
 	/**

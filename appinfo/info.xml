@@ -116,6 +116,8 @@
             <step>OCA\Hermiq\Repair\SeedAgentBuilder</step>
             <step>OCA\Hermiq\Repair\SeedMaturityExampleSkills</step>
             <step>OCA\Hermiq\Repair\SeedPairedEvalDataset</step>
+            <!-- @spec openspec/changes/memory-knowledge-bases/tasks.md#task-1-the-schema-and-the-agent-reference (dev mode only) -->
+            <step>OCA\Hermiq\Repair\SeedKnowledgeBases</step>
             <step>OCA\Hermiq\Repair\SeedSkillDraftExample</step>
             <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-7-seed-the-triage-agentflow -->
             <!-- Flow BEFORE agent: the agent step names the agent, so seeding the
@@ -206,6 +208,8 @@
             <step>OCA\Hermiq\Repair\SeedAgentBuilder</step>
             <step>OCA\Hermiq\Repair\SeedMaturityExampleSkills</step>
             <step>OCA\Hermiq\Repair\SeedPairedEvalDataset</step>
+            <!-- @spec openspec/changes/memory-knowledge-bases/tasks.md#task-1-the-schema-and-the-agent-reference (dev mode only) -->
+            <step>OCA\Hermiq\Repair\SeedKnowledgeBases</step>
             <step>OCA\Hermiq\Repair\SeedSkillDraftExample</step>
             <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-7-seed-the-triage-agentflow -->
             <!-- Flow BEFORE agent: the agent step names the agent, so seeding the
