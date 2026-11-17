@@ -104,8 +104,30 @@ class BrowserTool {
 			return $own;
 		}
 
+		$page = $this->perform(action: $action, uid: $uid, agentId: $agentId, conversationId: $conversationId, arguments: $own);
+		if (isset($page['error']) === true) {
+			return $page;
+		}
+
+		return $this->untrusted(page: $page['page'], organisation: $this->organisationOf(agentId: $agentId));
+	}//end invoke()
+
+	/**
+	 * Run one browser action, turning each failure into the tool's error shape.
+	 *
+	 * @param string               $action         The browser action.
+	 * @param string               $uid            The acting user.
+	 * @param string               $agentId        The agent UUID.
+	 * @param string               $conversationId The conversation id.
+	 * @param array<string, mixed> $arguments      The action's own arguments.
+	 *
+	 * @return array{page: array<string, mixed>}|array{error: array{code: string, message: string}}
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use
+	 */
+	private function perform(string $action, string $uid, string $agentId, string $conversationId, array $arguments): array {
 		try {
-			$page = $this->client->perform(action: $action, uid: $uid, agentId: $agentId, conversationId: $conversationId, arguments: $own);
+			return ['page' => $this->client->perform(action: $action, uid: $uid, agentId: $agentId, conversationId: $conversationId, arguments: $arguments)];
 		} catch (BrowserRefusedException $e) {
 			return self::err(code: $e->refusal, message: $e->getMessage());
 		} catch (CodeSandboxUnavailableException $e) {
@@ -114,9 +136,7 @@ class BrowserTool {
 			$this->logger->warning('[BrowserTool] the browser action failed', ['reason' => $e->getMessage()]);
 			return self::err(code: 'browser_failed', message: 'The browser could not complete the action.');
 		}
-
-		return $this->untrusted(page: $page, organisation: $this->organisationOf(agentId: $agentId));
-	}//end invoke()
+	}//end perform()
 
 	/**
 	 * The arguments one action sends, or an error envelope.

@@ -59,18 +59,7 @@ final class ComputerActionRecord {
 			'target' => self::scalar(value: ($arguments['target'] ?? '')),
 			'action' => self::action(toolId: $toolId, arguments: $arguments),
 		];
-		if ($toolId === ComputerToolDescriptors::CLICK) {
-			$record['x'] = self::coordinate(value: ($arguments['x'] ?? null));
-			$record['y'] = self::coordinate(value: ($arguments['y'] ?? null));
-		}
-
-		if ($toolId === ComputerToolDescriptors::TYPE) {
-			$record['text'] = $redact(self::scalar(value: ($arguments['text'] ?? '')));
-		}
-
-		if ($toolId === ComputerToolDescriptors::KEY) {
-			$record['keys'] = self::scalar(value: ($arguments['keys'] ?? ''));
-		}
+		$record = array_merge($record, self::actionFields(toolId: $toolId, arguments: $arguments, redact: $redact));
 
 		if ($approvalId !== null && $approvalId !== '') {
 			$record['approvalId'] = $approvalId;
@@ -83,6 +72,37 @@ final class ComputerActionRecord {
 
 		return ['computer' => $record];
 	}//end traceExtra()
+
+	/**
+	 * The fields one kind of computer action adds to its record: the point of a
+	 * click, the redacted text of a type action, the keys of a key action.
+	 *
+	 * @param string               $toolId    The computer tool id.
+	 * @param array<string, mixed> $arguments The call's arguments.
+	 * @param callable             $redact    Redacts typed text before it is stored.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use
+	 */
+	private static function actionFields(string $toolId, array $arguments, callable $redact): array {
+		if ($toolId === ComputerToolDescriptors::CLICK) {
+			return [
+				'x' => self::coordinate(value: ($arguments['x'] ?? null)),
+				'y' => self::coordinate(value: ($arguments['y'] ?? null)),
+			];
+		}
+
+		if ($toolId === ComputerToolDescriptors::TYPE) {
+			return ['text' => $redact(self::scalar(value: ($arguments['text'] ?? '')))];
+		}
+
+		if ($toolId === ComputerToolDescriptors::KEY) {
+			return ['keys' => self::scalar(value: ($arguments['keys'] ?? ''))];
+		}
+
+		return [];
+	}//end actionFields()
 
 	/**
 	 * A tool result with any screenshot replaced by its hash and size.

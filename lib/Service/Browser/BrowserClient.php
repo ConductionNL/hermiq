@@ -155,9 +155,7 @@ class BrowserClient {
 			throw new CodeSandboxUnavailableException(message: 'The browser service of the code sandbox app is not running.');
 		}
 
-		if ($status >= 400 && $status < 500 && is_string($decoded['code'] ?? null) === true) {
-			throw new BrowserRefusedException(refusal: $decoded['code'], message: (string)($decoded['error'] ?? 'The browser refused the action.'));
-		}
+		self::refuseOnClientError(status: $status, decoded: $decoded);
 
 		if ($status < 200 || $status > 299 || $decoded === []) {
 			throw new RuntimeException('The browser could not complete the action (HTTP ' . $status . ').');
@@ -165,6 +163,24 @@ class BrowserClient {
 
 		return $decoded;
 	}//end answerOf()
+
+	/**
+	 * Throw the browser's own refusal when a 4xx answer names its code.
+	 *
+	 * @param int                  $status  The HTTP status.
+	 * @param array<string, mixed> $decoded The decoded answer.
+	 *
+	 * @return void
+	 *
+	 * @throws BrowserRefusedException When the browser refused the action.
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/browser-use/spec.md#requirement-the-browser-reaches-only-what-the-egress-policy-allows-req-browse-001
+	 */
+	private static function refuseOnClientError(int $status, array $decoded): void {
+		if ($status >= 400 && $status < 500 && is_string($decoded['code'] ?? null) === true) {
+			throw new BrowserRefusedException(refusal: $decoded['code'], message: (string)($decoded['error'] ?? 'The browser refused the action.'));
+		}
+	}//end refuseOnClientError()
 
 	/**
 	 * AppAPI's public functions, or null when AppAPI is not installed.

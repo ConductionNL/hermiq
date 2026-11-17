@@ -242,13 +242,33 @@ class ComputerTargetService {
 			throw new ComputerTargetRefusal(message: 'The machine cannot be reached: its integriq source is not available.', status: 409);
 		}
 
+		$response = self::send(caller: $caller, source: $source, endpoint: $endpoint, body: $body);
+
+		return self::screenshotOf(answer: $this->answer(response: $response));
+	}//end post()
+
+	/**
+	 * POST a JSON body to the machine through integriq's call service.
+	 *
+	 * @param object               $caller   integriq's CallService.
+	 * @param mixed                $source   The machine's integriq source.
+	 * @param string               $endpoint The machine endpoint.
+	 * @param array<string, mixed> $body     The body to send; empty sends `{}`.
+	 *
+	 * @return mixed The call service's response.
+	 *
+	 * @throws ComputerTargetRefusal When the machine could not be reached.
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use
+	 */
+	private static function send(object $caller, mixed $source, string $endpoint, array $body): mixed {
 		$json = '{}';
 		if ($body !== []) {
 			$json = (string)json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 		}
 
 		try {
-			$response = $caller->call(
+			return $caller->call(
 				source: $source,
 				endpoint: $endpoint,
 				method: 'POST',
@@ -257,15 +277,27 @@ class ComputerTargetService {
 		} catch (Throwable $e) {
 			throw new ComputerTargetRefusal(message: 'The machine could not be reached: ' . $e->getMessage(), status: 502);
 		}
+	}//end send()
 
-		$answer = $this->answer(response: $response);
-		$image  = (string)($answer['image'] ?? '');
+	/**
+	 * The screenshot a machine answered with.
+	 *
+	 * @param array<string, mixed> $answer The decoded answer with its statusCode.
+	 *
+	 * @return array{image: string, mimeType: string, width: int, height: int}
+	 *
+	 * @throws ComputerTargetRefusal When the answer is an error or carries no valid screenshot.
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use
+	 */
+	private static function screenshotOf(array $answer): array {
+		$image = (string)($answer['image'] ?? '');
 		if ($answer['statusCode'] >= 400 || $image === '' || base64_decode($image, true) === false) {
 			throw new ComputerTargetRefusal(message: 'The machine did not answer with a screenshot.', status: 502);
 		}
 
 		return ['image' => $image, 'mimeType' => 'image/png', 'width' => (int)($answer['width'] ?? 0), 'height' => (int)($answer['height'] ?? 0)];
-	}//end post()
+	}//end screenshotOf()
 
 	/**
 	 * The integriq source with this id, or null when there is none.
@@ -305,15 +337,7 @@ class ComputerTargetService {
 	 * @return array<string, mixed> The body's fields, plus `statusCode`.
 	 */
 	private function answer(mixed $response): array {
-		$raw = [];
-		if (is_object($response) === true && method_exists($response, 'getResponse') === true) {
-			$raw = (array)$response->getResponse();
-		}
-
-		if ($raw === [] && is_object($response) === true && method_exists($response, 'getObject') === true) {
-			$raw = (array)(((array)$response->getObject())['response'] ?? []);
-		}
-
+		$raw  = self::rawOf(response: $response);
 		$body = json_decode((string)($raw['body'] ?? ''), true);
 		if (is_array($body) === false) {
 			$body = [];
@@ -321,6 +345,35 @@ class ComputerTargetService {
 
 		return $body + ['statusCode' => (int)($raw['statusCode'] ?? 200)];
 	}//end answer()
+
+	/**
+	 * The raw HTTP answer inside a call service response: its own response,
+	 * else the `response` of the call log object it returned.
+	 *
+	 * @param mixed $response The call service's response.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use
+	 */
+	private static function rawOf(mixed $response): array {
+		if (is_object($response) === false) {
+			return [];
+		}
+
+		if (method_exists($response, 'getResponse') === true) {
+			$raw = (array)$response->getResponse();
+			if ($raw !== []) {
+				return $raw;
+			}
+		}
+
+		if (method_exists($response, 'getObject') === true) {
+			return (array)(((array)$response->getObject())['response'] ?? []);
+		}
+
+		return [];
+	}//end rawOf()
 
 	/**
 	 * A stored row as an array with its id.

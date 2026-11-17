@@ -175,7 +175,7 @@ class ComputerUseService implements ComputerUseServiceInterface {
 		$name  = trim($name);
 		$found = null;
 		foreach ($this->targets->list() as $target) {
-			if ($name !== '' && ($target['id'] === $name || strcasecmp((string)($target['name'] ?? ''), $name) === 0)) {
+			if (self::isNamed(target: $target, name: $name) === true) {
 				$found = $target;
 				break;
 			}
@@ -191,6 +191,21 @@ class ComputerUseService implements ComputerUseServiceInterface {
 
 		return $found;
 	}//end target()
+
+	/**
+	 * Whether a registered machine carries the given name, by id or by its
+	 * name ignoring case. An empty name names no machine.
+	 *
+	 * @param array<string, mixed> $target The registered machine.
+	 * @param string               $name   The trimmed name asked for.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use
+	 */
+	private static function isNamed(array $target, string $name): bool {
+		return $name !== '' && ($target['id'] === $name || strcasecmp((string)($target['name'] ?? ''), $name) === 0);
+	}//end isNamed()
 
 	/**
 	 * Whether the AI feature is explicitly enabled; a failed lookup is not.

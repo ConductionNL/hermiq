@@ -306,10 +306,7 @@ final class AnthropicMessageFormat {
 
 		$image = ($decoded['image'] ?? null);
 		$mime  = ($decoded['mimeType'] ?? null);
-		if (is_string($image) === false || $image === '' || is_string($mime) === false
-			|| in_array($mime, ['image/png', 'image/jpeg', 'image/gif', 'image/webp'], true) === false
-			|| base64_decode($image, true) === false
-		) {
+		if (self::isAttachableImage(image: $image, mime: $mime) === false) {
 			return $content;
 		}
 
@@ -320,4 +317,24 @@ final class AnthropicMessageFormat {
 			['type' => 'text', 'text' => (string)json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)],
 		];
 	}//end toolResultContent()
+
+	/**
+	 * Whether a tool result's image can be attached as an image block: a
+	 * non-empty base64 string of a supported image type.
+	 *
+	 * @param mixed $image The result's `image` value.
+	 * @param mixed $mime  The result's `mimeType` value.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use
+	 */
+	private static function isAttachableImage(mixed $image, mixed $mime): bool {
+		if (is_string($image) === false || $image === '' || is_string($mime) === false) {
+			return false;
+		}
+
+		return in_array($mime, ['image/png', 'image/jpeg', 'image/gif', 'image/webp'], true) === true
+			&& base64_decode($image, true) !== false;
+	}//end isAttachableImage()
 }//end class

@@ -922,8 +922,7 @@ class ApprovalService implements ApprovalServiceInterface {
 		$key = $this->computerRunKey(agentId: $agentId, runId: $runId, target: $target);
 		foreach ($this->approvalsOfSource(correlationId: $key, sourceType: self::COMPUTER_RUN) as $object) {
 			$data = $object->getObject();
-			$ends = $this->moment(value: (string)($data['expiresAt'] ?? ''));
-			if (($data['status'] ?? '') !== 'approved' || (string)($data['decidedBy'] ?? '') === '' || $ends === null || $ends <= $now) {
+			if ($this->computerRunIsLive(data: $data, now: $now) === false) {
 				continue;
 			}
 
@@ -955,10 +954,8 @@ class ApprovalService implements ApprovalServiceInterface {
 		$runId  = (string)($data['runId'] ?? '');
 		$target = (string)($data['toolArguments']['target'] ?? '');
 		$agent  = (string)($data['agentId'] ?? '');
-		if (($data['status'] ?? '') !== 'approved'
-			|| ($data['sourceType'] ?? '') !== 'toolcall'
-			|| in_array((string)($data['toolId'] ?? ''), ComputerToolDescriptors::ACTION_IDS, true) === false
-			|| $runId === '' || $target === '' || $agent === '' || $deciderUid === ''
+		if ($this->isApprovedComputerAction(data: $data) === false
+			|| in_array('', [$runId, $target, $agent, $deciderUid], true) === true
 		) {
 			return null;
 		}
@@ -986,6 +983,41 @@ class ApprovalService implements ApprovalServiceInterface {
 
 		return ['uuid' => (string)$record->getUuid(), 'expiresAt' => $expiresAt];
 	}//end preauthoriseComputerRun()
+
+	/**
+	 * Whether a computer-run pre-authorisation is approved, names its decision
+	 * maker and has not yet ended at the given moment.
+	 *
+	 * @param array<string, mixed> $data The Approval's data.
+	 * @param DateTimeImmutable    $now  The moment of the call.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	private function computerRunIsLive(array $data, DateTimeImmutable $now): bool {
+		if (($data['status'] ?? '') !== 'approved' || (string)($data['decidedBy'] ?? '') === '') {
+			return false;
+		}
+
+		$ends = $this->moment(value: (string)($data['expiresAt'] ?? ''));
+		return $ends !== null && $ends > $now;
+	}//end computerRunIsLive()
+
+	/**
+	 * Whether an Approval is an approved `toolcall` approval of a computer action.
+	 *
+	 * @param array<string, mixed> $data The Approval's data.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	private function isApprovedComputerAction(array $data): bool {
+		return ($data['status'] ?? '') === 'approved'
+			&& ($data['sourceType'] ?? '') === 'toolcall'
+			&& in_array((string)($data['toolId'] ?? ''), ComputerToolDescriptors::ACTION_IDS, true) === true;
+	}//end isApprovedComputerAction()
 
 	/**
 	 * The correlation key of a machine's pre-authorisation in one run.
