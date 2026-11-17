@@ -30,6 +30,7 @@ use OCA\Hermiq\Service\Agent\AgentAvailabilityService;
 use OCA\Hermiq\Service\Agent\AgentCatalog;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Exception\NotAuthorizedException;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Http;
@@ -311,4 +312,37 @@ final class AgentsControllerFailuresTest extends TestCase {
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
 		$this->assertSame(['error' => 'Failed to update agent: locked'], $response->getData());
 	}//end testUpdateAnswers400WhenTheSaveFails()
+
+	/**
+	 * A save OpenRegister refuses for the caller is a 403, not a 400.
+	 *
+	 * @return void
+	 */
+	public function testCreateAnswers403WhenOpenRegisterRefusesTheCaller(): void {
+		$this->request->method('getParams')->willReturn(['name' => 'Not mine to make']);
+		$this->objectService->method('saveObject')->willThrowException(
+			new NotAuthorizedException("User 'colleague' does not have permission to 'create' objects in schema 'Agent'")
+		);
+		$this->expectErrorLogged('[AgentsController] Failed to create agent');
+
+		$response = $this->controller()->create();
+
+		$this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
+	}//end testCreateAnswers403WhenOpenRegisterRefusesTheCaller()
+
+	/**
+	 * An update OpenRegister refuses for the caller is a 403, not a 400.
+	 *
+	 * @return void
+	 */
+	public function testUpdateAnswers403WhenOpenRegisterRefusesTheCaller(): void {
+		$this->request->method('getParams')->willReturn(['name' => 'Renamed']);
+		$this->objectService->method('find')->willReturn($this->ownAgent(['name' => 'Mine']));
+		$this->objectService->method('saveObject')->willThrowException(new NotAuthorizedException());
+		$this->expectErrorLogged('[AgentsController] Failed to update agent');
+
+		$response = $this->controller()->patch('agent-own');
+
+		$this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
+	}//end testUpdateAnswers403WhenOpenRegisterRefusesTheCaller()
 }//end class

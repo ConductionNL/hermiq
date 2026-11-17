@@ -62,8 +62,6 @@ The system MUST provide a per-organisation kill-switch that, when activated, imm
 dispatch of all pending and new agent runs for that organisation until deactivated, including a
 delegated sub-agent run (`sub-agent-delegation`) attempted by an already-running agent in that
 organisation.
-<!-- Previous behavior: the kill-switch halted scheduled, Run-now, and flow/webhook-triggered runs;
-     delegated sub-agent runs did not exist. -->
 
 #### Scenario: An org admin activates the kill-switch
 - GIVEN organisation A has one or more agent runs in progress or scheduled
@@ -78,6 +76,11 @@ organisation.
 - **THEN** the system MUST refuse the delegation with a `delegation_killswitch` error before
   invoking the target agent
 - **AND** agent A's already-in-progress turn MUST be allowed to finish uninterrupted
+
+#### Scenario: An org admin checks that AI is off
+- **GIVEN** the org admin of organisation A engaged its kill-switch on 1 October at 09:00
+- **WHEN** an instance admin or the organisation's owner reads the switch of organisation A
+- **THEN** the answer says the switch is engaged, with who engaged it and when
 
 ### Requirement: Un-granted destructive tool invocation routes through the approval gate
 

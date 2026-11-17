@@ -377,7 +377,7 @@ class AgentsController extends Controller {
 
 			return new JSONResponse(
 				data: ['error' => 'Failed to create agent: ' . $e->getMessage()],
-				statusCode: Http::STATUS_BAD_REQUEST
+				statusCode: $this->failureStatus(exception: $e)
 			);
 		}//end try
 	}//end create()
@@ -475,7 +475,7 @@ class AgentsController extends Controller {
 
 			return new JSONResponse(
 				data: ['error' => 'Failed to update agent: ' . $e->getMessage()],
-				statusCode: Http::STATUS_BAD_REQUEST
+				statusCode: $this->failureStatus(exception: $e)
 			);
 		}//end try
 	}//end update()
@@ -693,6 +693,25 @@ class AgentsController extends Controller {
 			);
 		}//end try
 	}//end tools()
+
+	/**
+	 * The status for a failed save: 403 when OpenRegister refused the caller, 400 otherwise.
+	 *
+	 * OpenRegister's NotAuthorizedException carries 403 as its code.
+	 *
+	 * @param Exception $exception The exception the save threw.
+	 *
+	 * @return int The HTTP status.
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md
+	 */
+	private function failureStatus(Exception $exception): int {
+		if ((int)$exception->getCode() === Http::STATUS_FORBIDDEN) {
+			return Http::STATUS_FORBIDDEN;
+		}
+
+		return Http::STATUS_BAD_REQUEST;
+	}//end failureStatus()
 
 	/**
 	 * Strip routing internals, identity fields, and the owner/organisation
