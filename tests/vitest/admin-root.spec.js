@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('@conduction/nextcloud-vue', () => ({
 	CnCredentials: { name: 'CnCredentials', props: ['scope', 'appId', 'appName', 'appCredentials'], render: () => null },
 }))
+vi.mock('../../src/components/settings/CodeSandboxSettings.vue', () => ({ default: { name: 'CodeSandboxSettings', render: () => null } }))
 vi.mock('../../src/components/settings/AssistantPromptLibrary.vue', () => ({ default: { name: 'AssistantPromptLibrary', render: () => null } }))
 vi.mock('../../src/components/settings/IntakeSettings.vue', () => ({ default: { name: 'IntakeSettings', render: () => null } }))
 vi.mock('../../src/components/settings/RemoteAgents.vue', () => ({ default: { name: 'RemoteAgents', render: () => null } }))
@@ -44,6 +45,7 @@ const t = (app, text, vars = {}) => text.replace(/\{(\w+)\}/g, (m, k) => (k in v
 const CHILDREN = [
 	'AiFeatureRegister',
 	'AssistantPromptLibrary',
+	'CodeSandboxSettings',
 	'IntakeSettings',
 	'LlmProviderModal',
 	'RemoteAgents',
@@ -152,6 +154,7 @@ describe('AdminRoot', () => {
 			'Assistant prompts',
 			'Validated documents',
 			'AI run retention',
+			'Code sandbox',
 			'Trace export',
 			'Talk chat bridge',
 			'Remote agents',
