@@ -1053,6 +1053,134 @@
 					]
 				},
 				{
+					"name": "The recipient cannot delete it",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{shared_session}}",
+						"description": "REQ-SSHARE-002: a recipient reads and does nothing else; deleting (archiving) is the owner's.",
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The delete is refused', function () {",
+									"    pm.expect([200, 204]).to.not.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The recipient cannot send in it",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/chat/send",
+						"description": "REQ-SSHARE-002: a recipient cannot add a turn to someone else's session.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"conversation\": \"{{shared_session}}\", \"message\": \"Mag ik iets toevoegen?\"}"
+						},
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The send is refused', function () {",
+									"    pm.expect(pm.response.code).to.be.at.least(400);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The session is still the owner's",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{shared_session}}",
+						"description": "After the refused writes the owner reads the session unchanged."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Title and owner unchanged', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().title).to.eql('Offerte dakrenovatie Newman');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
 					"name": "The owner takes the share back",
 					"request": {
 						"method": "DELETE",
@@ -1123,6 +1251,449 @@
 								"exec": [
 									"pm.test('Access is gone at once', function () {",
 									"    pm.response.to.have.status(404);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Session fork",
+			"item": [
+				{
+					"name": "Start a session to fork",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions",
+						"description": "chat-fork-and-share-link task 2: the session the fork checks read.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"agentId\": \"{{share_agent}}\", \"title\": \"Bouwvergunning schuur Newman\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The session is created', function () {",
+									"    pm.response.to.have.status(201);",
+									"    pm.collectionVariables.set('fork_source', pm.response.json().uuid);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A question",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agentsessionturn",
+						"description": "Seed turn 1 (user) through the object API, so the check needs no model.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"sessionId\": \"{{fork_source}}\", \"agentId\": \"{{share_agent}}\", \"role\": \"user\", \"content\": \"Heb ik een vergunning nodig voor een schuur van 20 m2?\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"    const body = pm.response.json();",
+									"    pm.collectionVariables.set('fork_question', body.id || body.uuid || (body['@self'] || {}).id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "An answer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agentsessionturn",
+						"description": "Seed turn 2 (assistant).",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"sessionId\": \"{{fork_source}}\", \"agentId\": \"{{share_agent}}\", \"role\": \"assistant\", \"content\": \"Meestal niet, als de schuur in het achtererfgebied staat en lager is dan 3 meter.\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"    const body = pm.response.json();",
+									"    pm.collectionVariables.set('fork_answer', body.id || body.uuid || (body['@self'] || {}).id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A follow-up",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agentsessionturn",
+						"description": "Seed turn 3 (user), after the answer forked at: it must not be copied.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"sessionId\": \"{{fork_source}}\", \"agentId\": \"{{share_agent}}\", \"role\": \"user\", \"content\": \"En als hij aan de voorkant staat?\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"    const body = pm.response.json();",
+									"    pm.collectionVariables.set('fork_followup', body.id || body.uuid || (body['@self'] || {}).id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Forking at a question is refused",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{fork_source}}/fork",
+						"description": "REQ-SFORK-001: only an answer can be forked from; 400 and nothing created.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"turnUuid\": \"{{fork_question}}\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('A user turn gives 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Forking without a turn is refused",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{fork_source}}/fork",
+						"description": "REQ-SFORK-001: a fork names the answer it starts from.",
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('No turn gives 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Someone else cannot fork it",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{fork_source}}/fork",
+						"description": "REQ-SFORK-001: a foreign session answers 404, the same as one that does not exist.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"turnUuid\": \"{{fork_answer}}\"}"
+						},
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('A stranger gets 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The owner forks at the answer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{fork_source}}/fork",
+						"description": "REQ-SFORK-001: a new session with copies of the turns up to and including the answer, and forkedFrom naming the source.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"turnUuid\": \"{{fork_answer}}\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The fork is created', function () {",
+									"    pm.response.to.have.status(201);",
+									"    const body = pm.response.json();",
+									"    pm.expect(body.uuid).to.not.eql(pm.variables.get('fork_source'));",
+									"    pm.expect(body.messageCount).to.eql(2);",
+									"    pm.expect(body.forkedFrom.sessionId).to.eql(pm.variables.get('fork_source'));",
+									"    pm.expect(body.forkedFrom.turnId).to.eql(pm.variables.get('fork_answer'));",
+									"    pm.collectionVariables.set('fork_new', body.uuid);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The fork holds the two turns",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{fork_new}}/messages",
+						"description": "The copies, in order, without the follow-up."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Two turns, question then answer', function () {",
+									"    pm.response.to.have.status(200);",
+									"    const body = pm.response.json();",
+									"    const turns = body.results || body.messages || [];",
+									"    pm.expect(turns.map((t) => t.role)).to.eql(['user', 'assistant']);",
+									"    pm.expect(JSON.stringify(turns)).to.not.include('voorkant');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The source is untouched",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{fork_source}}/messages",
+						"description": "REQ-SFORK-001: the source keeps its three turns."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Three turns in the source', function () {",
+									"    pm.response.to.have.status(200);",
+									"    const body = pm.response.json();",
+									"    pm.expect((body.results || body.messages || []).length).to.eql(3);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Clean up the fork",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{fork_new}}",
+						"description": "Archive the fork again."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 204]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Clean up the source",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{fork_source}}",
+						"description": "Archive the source again."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 204]).to.include(pm.response.code);",
 									"});"
 								],
 								"type": "text/javascript"
