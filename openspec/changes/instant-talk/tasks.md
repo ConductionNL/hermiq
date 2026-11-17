@@ -122,7 +122,7 @@ posted answer to `TalkAgentChain::follow()`.
 
 ## 7. Verify
 
-- [ ] 7.1 Unit tests (php:8.3-cli, the CI way): claim atomicity + double-delivery
+- [x] 7.1 Unit tests (php:8.3-cli, the CI way): claim atomicity + double-delivery
       dedup + expired-claim recovery; dispatcher path selection (runner present /
       post-flush / neither); sender-request non-blocking; progressive sink (post →
       throttled edits → exact final; edit-failure fallback; no-edit-support
@@ -130,14 +130,23 @@ posted answer to `TalkAgentChain::follow()`.
       silence; per-(room, agent) session isolation and serial ordering; chain rules
       (mention-only, self-inert, hop exhaustion notice, rate cap, rooting-speaker
       identity, roster-left fail-closed).
-- [ ] 7.2 Fresh containerized PHPUnit run vs. the current baseline — report both
+- [x] 7.2 Fresh containerized PHPUnit run vs. the current baseline — report both
       counts.
+  - Build round 2, c3 (PHP 8.3 CLI, phpunit-unit.xml, openregister main beside):
+    PR head 06c2bb55 5785 tests, 0 failures; development 704bb923 5736 tests,
+    0 failures. 7.1's cases are in TalkTurnClaimsTest, TalkTurnDispatcherInstantTest,
+    TalkTurnHandOffTest, TalkProgressiveReplyTest, TalkBotInvokeListenerAgentsTest,
+    TalkRoomBindingPerAgentTest and TalkAgentChainTest.
 - [ ] 7.3 Live-verify on the dev instance (Talk installed): send an addressed
       message and measure ack time and answer time WITHOUT running cron manually —
       record both numbers; enable two agents in one room and verify addressing,
       a two-agent chain, and the hop-budget notice.
 - [ ] 7.4 `openspec validate instant-talk --strict`; phpcs/psalm/phpstan clean;
       hydra gates diff-scoped vs `origin/development` — report results.
+  - Build round 2, c3: phpcs, phpstan and psalm report no errors on the 23 changed
+    lib files. `openspec validate --strict` (latest CLI) has no errors, only four
+    warnings: text above the first section in both deltas, and two long requirement
+    texts. Open: those warnings and the diff-scoped hydra gates run.
 
 ## Acceptance criteria
 
