@@ -45,12 +45,16 @@ use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for MigrateConversationsToSessions::run().
  *
  * @covers \OCA\Hermiq\Repair\MigrateConversationsToSessions
  * @uses   \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity
+ * @uses   \OCA\Hermiq\Repair\Migration\FamilyMigration
+ * @uses   \OCA\Hermiq\Repair\Migration\MigratedConversation
+ * @uses   \OCA\Hermiq\Repair\Migration\ProvenanceTarget
  */
 class MigrateConversationsToSessionsRunTest extends TestCase {
 
@@ -177,21 +181,22 @@ class MigrateConversationsToSessionsRunTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				bool $failIfExists = false,
-				bool $_unowned = false,
-				bool $_dedupOverride = false,
-				?string $_owner = null,
+				bool $_multitenancy = true
 			): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
+				$silent = $options->policy->silent ?? false;
+				$_validation = $options->policy->validation ?? true;
+				$uploadedFiles = $options->uploadedFiles;
+				$currentUser = $options->actor->currentUser;
+				$failIfExists = $options->policy->failIfExists ?? false;
+				$_unowned = $options->actor->unowned ?? false;
+				$_dedupOverride = $options->policy->dedupOverride ?? false;
+				$_owner = $options->actor->owner;
 				if (in_array($uuid, $this->failUuids, true) === true) {
 					throw new RuntimeException('duplicate uuid');
 				}

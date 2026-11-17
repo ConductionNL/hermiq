@@ -54,6 +54,12 @@ use Psr\Log\LoggerInterface;
  *
  * @uses \OCA\Hermiq\Service\DeliveryResult
  * @uses \OCA\Hermiq\Service\RedactionService
+ * @uses   \OCA\Hermiq\Service\Redaction\AssignmentRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\CredentialRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\FormBodyRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\PhoneRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\VendorKeyRedactor
+ * @uses   \OCA\Hermiq\Service\ScheduleDelivery
  */
 class DeliveryServiceConnectionReportTest extends TestCase {
 

@@ -22,6 +22,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Schedule;
 
 use OCA\Hermiq\Service\Schedule\OwnedSchedule;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -34,7 +35,10 @@ final class OwnedScheduleTest extends TestCase {
 
 	private function owned(mixed $found): OwnedSchedule {
 		$objects = $this->createMock(ObjectService::class);
-		$call = $objects->method('find')->with('s-1', [], false, 'hermiq', 'schedule');
+		$call = $objects->method('find')->with(
+			's-1',
+			self::callback(static fn (ObjectFindOptions $options): bool => $options->register === 'hermiq' && $options->schema === 'schedule')
+		);
 		if ($found instanceof \Throwable) {
 			$call->willThrowException($found);
 		} else {

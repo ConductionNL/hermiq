@@ -58,7 +58,7 @@ class ConnectionsDeclarationTest extends TestCase {
 	 *
 	 * @var array<int, string>
 	 */
-	private const DECLARED_KEYS = ['llm', 'llm-runner', 'speech', 'web-search', 'webhook-delivery', 'github-templates'];
+	private const DECLARED_KEYS = ['llm', 'llm-runner', 'speech', 'web-search', 'webhook-delivery', 'github-templates', 'trace-export'];
 
 	/**
 	 * The repository root.
@@ -217,7 +217,7 @@ class ConnectionsDeclarationTest extends TestCase {
 			$linked[] = $connection['key'];
 		}
 
-		$this->assertSame(expected: ['llm', 'web-search', 'github-templates'], actual: $linked);
+		$this->assertSame(expected: ['llm', 'web-search', 'github-templates', 'trace-export'], actual: $linked);
 	}//end testEverySettingsLinkPointsAtAnExistingElement()
 
 	/**

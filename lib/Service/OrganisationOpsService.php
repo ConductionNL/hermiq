@@ -37,6 +37,9 @@ use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\OrganisationOpsServiceInterface;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use OCP\IUserManager;
@@ -258,7 +261,7 @@ class OrganisationOpsService implements OrganisationOpsServiceInterface {
 	 * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-reviewed-attestation-is-recorded-and-auditable
 	 */
 	public function attestAgentReviewed(string $uuid, string $reviewerUid): array {
-		$agent = $this->objectService->find(id: $uuid, register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA);
+		$agent = $this->objectService->find(id: $uuid, options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA));
 		if ($agent === null) {
 			throw new RuntimeException('Agent not found');
 		}
@@ -269,9 +272,10 @@ class OrganisationOpsService implements OrganisationOpsServiceInterface {
 
 		$saved = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
-			uuid: $uuid
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+				uuid: $uuid
+			)
 		);
 
 		return $this->shapeAgentForReview(agent: $saved, scheduleUuids: []);
@@ -294,7 +298,7 @@ class OrganisationOpsService implements OrganisationOpsServiceInterface {
 	 * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-org-admin-reassignment-flow-for-flagged-agents
 	 */
 	public function reassignAgent(string $uuid, string $newActingUser): array {
-		$agent = $this->objectService->find(id: $uuid, register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA);
+		$agent = $this->objectService->find(id: $uuid, options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA));
 		if ($agent === null) {
 			throw new RuntimeException('Agent not found');
 		}
@@ -310,9 +314,10 @@ class OrganisationOpsService implements OrganisationOpsServiceInterface {
 
 		$saved = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
-			uuid: $uuid
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+				uuid: $uuid
+			)
 		);
 
 		return $this->shapeAgentForReview(agent: $saved, scheduleUuids: []);
@@ -374,8 +379,7 @@ class OrganisationOpsService implements OrganisationOpsServiceInterface {
 
 		$saved = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::INCIDENT_SCHEMA
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::INCIDENT_SCHEMA))
 		);
 
 		return $this->shapeIncident(incident: $saved);
@@ -439,9 +443,10 @@ class OrganisationOpsService implements OrganisationOpsServiceInterface {
 
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::TENANT_CONTROL_SCHEMA,
-			uuid: $uuid
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::TENANT_CONTROL_SCHEMA),
+				uuid: $uuid
+			)
 		);
 
 		return $months;

@@ -32,8 +32,10 @@ use OCA\OpenRegister\Event\AgentRunRequestedEvent;
 use OCA\OpenRegister\Event\DraftCreatedEvent;
 use OCA\OpenRegister\Event\DraftUpdatedEvent;
 use OCA\OpenRegister\Event\ObjectCreatedEvent;
+use OCA\OpenRegister\Event\ObjectCreatingEvent;
 use OCA\OpenRegister\Event\ObjectDeletedEvent;
 use OCA\OpenRegister\Event\ObjectUpdatedEvent;
+use OCA\OpenRegister\Event\ObjectUpdatingEvent;
 use OCA\OpenRegister\Event\RegisterLeafProvidersEvent;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use OCP\User\Events\UserChangedEvent;
@@ -131,6 +133,11 @@ final class ListenerRegistrar {
 		$context->registerEventListener(event: ObjectUpdatedEvent::class, listener: AgentWaiverChangeListener::class);
 		$context->registerEventListener(event: DraftCreatedEvent::class, listener: AgentWaiverChangeListener::class);
 		$context->registerEventListener(event: DraftUpdatedEvent::class, listener: AgentWaiverChangeListener::class);
+
+		// Naming the account an agent works with is checked before the write,
+		// on every write path (agent-acting-identity-picker, REQ-AGID-002).
+		$context->registerEventListener(event: ObjectCreatingEvent::class, listener: AgentActingUserGuardListener::class);
+		$context->registerEventListener(event: ObjectUpdatingEvent::class, listener: AgentActingUserGuardListener::class);
 	}//end registerAgentObjectListeners()
 
 	/**
@@ -273,6 +280,14 @@ final class ListenerRegistrar {
 		$context->registerEventListener(
 			event: \OCA\Hermiq\Listener\TaskTerminalListener::EVENT_TASK_TERMINAL,
 			listener: \OCA\Hermiq\Listener\TaskTerminalListener::class
+		);
+
+		// Flows-hand-off-and-wait: a flow an agent started closes its handoff
+		// when OpenRegister persists the run in a terminal status. By event
+		// name for the same reason as the task listener above.
+		$context->registerEventListener(
+			event: \OCA\Hermiq\Service\Handoff\FlowHandoffs::EVENT_CLASS,
+			listener: \OCA\Hermiq\Listener\FlowRunTerminalListener::class
 		);
 
 		// Approvals decided by reaction (talk-approval-reactions): spreed

@@ -235,7 +235,7 @@ class HermiqToolProviderTest extends TestCase {
 		$this->assertNotContains('hermiq.completeTask', $ids);
 		$this->assertContains('hermiq.listTasks', $ids);
 		$this->assertContains('hermiq.createTask', $ids);
-		$this->assertCount(46, $ids);
+		$this->assertCount(51, $ids);
 
 	}//end testCompleteTaskIsAbsentWithoutAReplacePath()
 
@@ -272,6 +272,38 @@ class HermiqToolProviderTest extends TestCase {
 		);
 
 	}//end testTaskToolsRouteToTaskWriteService()
+
+	/**
+	 * The Talk message tool reaches TalkMessageTool with the session uid and the
+	 * run-injected agent id (tools-post-a-talk-message).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-post-a-talk-message/specs/nc-native-tools/spec.md#requirement-an-agent-can-post-a-message-in-a-talk-conversation-it-is-a-member-of-req-nctalk-001
+	 */
+	public function testTheTalkMessageToolRoutesToTalkMessageTool(): void {
+		$calls = [];
+		$talk = $this->createMock(\OCA\Hermiq\Kernel\Contracts\TalkMessageToolInterface::class);
+		$talk->method('invoke')->willReturnCallback(
+			function (string $uid, string $toolId, array $arguments) use (&$calls): array {
+				$calls[] = [$uid, $toolId, ($arguments['agentId'] ?? null), ($arguments['conversation'] ?? null)];
+				return ['posted' => true];
+			}
+		);
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturnCallback(
+			static fn (string $id): ?object => ($id === \OCA\Hermiq\Kernel\Contracts\TalkMessageToolInterface::class ? $talk : null)
+		);
+
+		$result = $this->provider(uid: 'alice', container: $container)->invokeTool(
+			'hermiq.sendTalkMessage',
+			['agentId' => 'agent-7', 'conversation' => 'servicedesk', 'message' => 'Hallo']
+		);
+
+		$this->assertSame(['posted' => true], $result);
+		$this->assertSame([['alice', 'hermiq.sendTalkMessage', 'agent-7', 'servicedesk']], $calls);
+
+	}//end testTheTalkMessageToolRoutesToTalkMessageTool()
 
 	/**
 	 * Each nc-native-write tool id dispatches to its own write-service method,
@@ -311,7 +343,7 @@ class HermiqToolProviderTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/nc-native-write-tools/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored-req-ailbl-001
 	 */
 	public function testRunInjectedAgentIdReachesTheMarkedWrites(): void {
 		$writeService = $this->createMock(NcNativeWriteService::class);
@@ -404,6 +436,7 @@ class HermiqToolProviderTest extends TestCase {
 		// + hermiq.rememberMemory/recallMemory/forgetMemory (agent-memory-tools)
 		// + hermiq.webSearch/webFetch (web-research-tool)
 		// + hermiq.delegateAgent (sub-agent-delegation)
+		// + hermiq.delegateAgents (delegation-runs-in-parallel)
 		// + hermiq.createCalendarEvent/upsertContact/listNotes/createNote/updateNote
 		//   (nc-native-write-tools)
 		// + hermiq.listMailAccounts/listMailMessages/readMailMessage
@@ -417,8 +450,11 @@ class HermiqToolProviderTest extends TestCase {
 		// + hermiq.listTasks/createTask/completeTask (tools-nextcloud-tasks),
 		// + hermiq.listAgents/getAgentStatus/listPendingApprovals/runAgentNow/searchSkills
 		//   (hermiq-domain-mcp-tools),
+		// + hermiq.askRemoteAgent (flows-hand-off-and-wait),
+		// + hermiq.createFile/moveFile (spec-coverage-built-rows),
+		// + hermiq.sendTalkMessage (tools-post-a-talk-message),
 		// all registered through this same provider.
-		$this->assertCount(47, $tools);
+		$this->assertCount(52, $tools);
 
 		$ids = array_column($tools, 'id');
 		$this->assertContains('hermiq.listFiles', $ids);
@@ -435,6 +471,8 @@ class HermiqToolProviderTest extends TestCase {
 		$this->assertContains('hermiq.webSearch', $ids);
 		$this->assertContains('hermiq.webFetch', $ids);
 		$this->assertContains('hermiq.delegateAgent', $ids);
+		$this->assertContains('hermiq.delegateAgents', $ids);
+		$this->assertContains('hermiq.askRemoteAgent', $ids);
 
 		foreach ($ids as $id) {
 			$this->assertStringStartsWith('hermiq.', $id);
@@ -481,6 +519,8 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.webSearch' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.webFetch' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.delegateAgent' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'create'],
+			'hermiq.delegateAgents' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'create'],
+			'hermiq.askRemoteAgent' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'create'],
 			// nc-native-write-tools, appended by getTools(). createCalendarEvent is
 			// destructive because attendees trigger iMIP invitations that cannot be
 			// recalled, and updateNote is destructive because Notes keeps no version
@@ -490,6 +530,9 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listNotes' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.createNote' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
 			'hermiq.updateNote' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
+			// Create-only and a move onto a free path: neither can lose content.
+			'hermiq.createFile' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
+			'hermiq.moveFile' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'update'],
 			// nc-mail-read-tools. Honestly read-only — which is exactly why the
 			// write default-deny does NOT protect them, and why MailReadService
 			// carries an AI-feature gate instead.
@@ -521,10 +564,12 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listTasks' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.createTask' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
 			'hermiq.completeTask' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'update'],
+			// tools-post-a-talk-message: a write, but nothing is lost by it.
+			'hermiq.sendTalkMessage' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
 		];
 
 		$tools = $this->provider('alice')->getTools();
-		$this->assertCount(47, $tools, 'This test must be updated if a tool is added or removed.');
+		$this->assertCount(52, $tools, 'This test must be updated if a tool is added or removed.');
 
 		$seen = [];
 		foreach ($tools as $tool) {
@@ -579,6 +624,8 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.webSearch' => ToolReachResolver::REACH_EXTERNAL,
 			'hermiq.webFetch' => ToolReachResolver::REACH_EXTERNAL,
 			'hermiq.delegateAgent' => ToolReachResolver::REACH_INSTANCE,
+			'hermiq.delegateAgents' => ToolReachResolver::REACH_INSTANCE,
+			'hermiq.askRemoteAgent' => ToolReachResolver::REACH_EXTERNAL,
 			// `external`, not `user`: an event with attendees dispatches iMIP
 			// invitations to third parties, so its blast radius leaves the instance.
 			'hermiq.createCalendarEvent' => ToolReachResolver::REACH_EXTERNAL,
@@ -586,6 +633,8 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listNotes' => ToolReachResolver::REACH_USER,
 			'hermiq.createNote' => ToolReachResolver::REACH_USER,
 			'hermiq.updateNote' => ToolReachResolver::REACH_USER,
+			'hermiq.createFile' => ToolReachResolver::REACH_USER,
+			'hermiq.moveFile' => ToolReachResolver::REACH_USER,
 			// `user`, honestly: reading changes nothing and sends nothing out. The
 			// new exposure is the INFERENCE path — the body reaches whatever engine
 			// the run uses — which the reach axis cannot express and the
@@ -618,6 +667,8 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listTasks' => ToolReachResolver::REACH_USER,
 			'hermiq.createTask' => ToolReachResolver::REACH_INSTANCE,
 			'hermiq.completeTask' => ToolReachResolver::REACH_INSTANCE,
+			// `instance` (medium risk): every member of the conversation reads the message.
+			'hermiq.sendTalkMessage' => ToolReachResolver::REACH_INSTANCE,
 		];
 
 		$tools = $this->provider('alice')->getTools();
@@ -691,6 +742,8 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.webFetch' => ['web', 'get'],
 			// `delegate`: hands this agent's authority to another one.
 			'hermiq.delegateAgent' => ['agent', 'delegate'],
+			'hermiq.delegateAgents' => ['agent', 'delegate'],
+			'hermiq.askRemoteAgent' => ['agent', 'delegate'],
 			'hermiq.createCalendarEvent' => ['calendarEvent', 'create'],
 			// `upsert`: it may create OR update, so declaring either one alone
 			// would let a grant reading "may update contacts" also create them.
@@ -698,6 +751,8 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listNotes' => ['note', 'list'],
 			'hermiq.createNote' => ['note', 'create'],
 			'hermiq.updateNote' => ['note', 'update'],
+			'hermiq.createFile' => ['file', 'create'],
+			'hermiq.moveFile' => ['file', 'move'],
 			'hermiq.listMailAccounts' => ['mailAccount', 'list'],
 			'hermiq.listMailMessages' => ['mailMessage', 'list'],
 			'hermiq.readMailMessage' => ['mailMessage', 'get'],
@@ -724,6 +779,7 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listTasks' => ['task', 'list'],
 			'hermiq.createTask' => ['task', 'create'],
 			'hermiq.completeTask' => ['task', 'complete'],
+			'hermiq.sendTalkMessage' => ['talkMessage', 'create'],
 		];
 
 		$tools = $this->provider('alice')->getTools();

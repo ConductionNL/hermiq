@@ -22,6 +22,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Flow;
 
+use OCA\Hermiq\Flow\OrganisationBudgetCheck;
 use OCA\Hermiq\Flow\OrganisationKillSwitchCheck;
 use OCA\Hermiq\Listener\FlowOversightRegistrationListener;
 use OCA\OpenRegister\Db\FlowRun;
@@ -252,7 +253,10 @@ class OrganisationKillSwitchCheckTest extends TestCase {
 		$registry = new FlowOversightRegistry($this->createMock(LoggerInterface::class));
 		$event = new RegisterFlowOversightEvent(registry: $registry);
 
-		$listener = new FlowOversightRegistrationListener(killSwitchCheck: $this->check());
+		$listener = new FlowOversightRegistrationListener(
+			killSwitchCheck: $this->check(),
+			budgetCheck: $this->createMock(OrganisationBudgetCheck::class),
+		);
 		$listener->handle(event: $event);
 
 		$this->assertArrayHasKey('hermiq.tenant-killswitch', $registry->all());

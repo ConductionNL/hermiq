@@ -29,6 +29,8 @@ namespace OCA\Hermiq\Service\Agent;
 
 use OCA\Hermiq\Kernel\Contracts\AppAssistantServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use RuntimeException;
 
@@ -106,9 +108,10 @@ class AppAssistantService implements AppAssistantServiceInterface
 
         return $this->objectService->saveObject(
             object: $data,
-            register: 'hermiq',
-            schema: 'agent',
-            uuid: (string) $agent->getUuid(),
+            options: new ObjectSaveOptions(
+            	target: new ObjectFindTarget(register: 'hermiq', schema: 'agent'),
+            	uuid: (string) $agent->getUuid()
+            ),
             _rbac: false,
             _multitenancy: false
         );

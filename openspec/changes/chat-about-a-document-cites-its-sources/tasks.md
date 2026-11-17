@@ -11,8 +11,8 @@ Kind: code. Size M. Rows `filinq:wk-ai-chat`, `ch-citations` (hermiq).
 - **files**: `lib/Controller/ChatController.php` (`extractMessageRequestParams()`), `lib/Controller/ChatStreamController.php`, `lib/Service/Engine/Engine.php`
 - **acceptance_criteria**:
   - GIVEN a turn with `scope: {type: "file", fileId}` WHEN it is parsed THEN the scope reaches `retrieveContext()` unchanged; any other shape is dropped with a 400
-- [ ] Implement
-- [ ] Test (PHPUnit on the controller parsing)
+- [x] Implement
+- [x] Test (PHPUnit on the controller parsing)
 
 ### Task 2: Retrieval honours a file or folder scope
 - **spec_ref**: `openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-a-collection-req-dchat-002`
@@ -20,8 +20,8 @@ Kind: code. Size M. Rows `filinq:wk-ai-chat`, `ch-citations` (hermiq).
 - **acceptance_criteria**:
   - GIVEN a folder scope WHEN results come back from inside and outside the folder THEN only the inside ones are kept
   - GIVEN a file the speaker cannot open WHEN the turn is scoped to it THEN 404 and no model call
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 3: The answer cites numbered sources, or says nothing matched
 - **spec_ref**: `openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003`
@@ -29,8 +29,8 @@ Kind: code. Size M. Rows `filinq:wk-ai-chat`, `ch-citations` (hermiq).
 - **acceptance_criteria**:
   - GIVEN two passages used WHEN the answer is stored THEN markers [1] and [2] match `sources[0]` and `sources[1]`
   - GIVEN no passage in scope WHEN the turn runs THEN the model is not asked to answer from general knowledge and the reply says the document does not answer it
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 4: The companion shows the scope chip and the sources (nextcloud-vue)
 - **spec_ref**: `openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-the-companion-shows-the-scope-and-the-sources-req-dchat-004`
@@ -53,8 +53,8 @@ Kind: code. Size M. Rows `filinq:wk-ai-chat`, `ch-citations` (hermiq).
 - **files**: `src/views/Chat.vue` (the `chat-page__sources` list: a link through `generateUrl('/f/{fileId}')` for `type === 'file'`, page when present), `tests/javascript/views/ChatSources.spec.js`
 - **acceptance_criteria**:
   - GIVEN an unscoped answer with two file sources WHEN it renders THEN each source is a link to its file; a non-file source shows its name only
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 7: End to end
 - **spec_ref**: `openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003`

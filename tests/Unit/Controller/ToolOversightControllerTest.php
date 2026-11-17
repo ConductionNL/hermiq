@@ -33,6 +33,7 @@ use OCA\Hermiq\Service\Agent\AgentObjectMatcher;
 use OCA\Hermiq\Service\Agent\GrantWaiverAudit;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
+use OCA\Hermiq\Service\ToolOversight\ToolCallMarks;
 use OCA\Hermiq\Service\ToolOversight\ToolCatalogView;
 use OCA\Hermiq\Service\ToolOversight\ToolGrantWrites;
 use OCA\Hermiq\Service\ToolOversight\ToolInvocationLog;
@@ -60,6 +61,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Tests for the tool-catalog / tool-grants / tool-invocations endpoints.
@@ -80,6 +82,7 @@ use RuntimeException;
  * @uses   \OCA\Hermiq\Service\Workspace\RepoEffectingGrants
  * @uses \OCA\Hermiq\Controller\ToolAccessResolution
  * @uses \OCA\Hermiq\Controller\ToolInvocationExport
+ * @uses \OCA\Hermiq\Controller\ToolGrantUpdate
  */
 class ToolOversightControllerTest extends TestCase {
 
@@ -183,6 +186,7 @@ class ToolOversightControllerTest extends TestCase {
 			catalog: new ToolCatalogView($this->toolRegistry, new ToolGrantResolver(), $this->appConfig),
 			invocations: new ToolInvocationLog($this->objectService, $this->auditTrailMapper),
 			grants: new ToolGrantWrites($this->objectService, $this->createMock(ToolAccessRequestService::class)),
+			marks: new ToolCallMarks($this->objectService),
 		);
 
 		return new class($this->request, $this->userSession, $this->createMock(LoggerInterface::class), $services, $richAvailable) extends ToolOversightController {
@@ -377,6 +381,90 @@ class ToolOversightControllerTest extends TestCase {
 		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
 
 	}//end testToolCatalogThrowingLookupIsNotFound()
+
+	/**
+	 * The owner marks a tool call as misuse: 201 with the mark, written on the
+	 * agent with the operator's uid (row ov-tool-oversight).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/verify-row-scenarios/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art-12-14
+	 */
+	public function testTheOwnerMarksAToolCallAsMisuse(): void {
+		$this->objectService->method('find')->willReturn($this->agent(['name' => 'Woo-triage', 'tools' => ['hermiq.sendMail']], 'alice'));
+		$this->request->method('getParam')->with('reason')->willReturn('Sending mail is not part of this agent\'s task');
+
+		$saved = [];
+		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
+			function (array $object) use (&$saved): ObjectEntity {
+				$saved[] = $object;
+				return new ObjectEntity();
+			}
+		);
+
+		$response = $this->controller()->markToolInvocation('agent-1', 'call-17');
+
+		$this->assertSame(Http::STATUS_CREATED, $response->getStatus());
+		$this->assertSame(['callId', 'label', 'reason', 'markedBy', 'markedAt'], array_keys($response->getData()));
+		$this->assertSame('misuse', $response->getData()['label']);
+		$this->assertSame('alice', $response->getData()['markedBy']);
+		$this->assertSame([$response->getData()], $saved[0]['toolCallMarks']);
+	}//end testTheOwnerMarksAToolCallAsMisuse()
+
+	/**
+	 * A mark without a reason is refused with 400 and nothing is written.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/verify-row-scenarios/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art-12-14
+	 */
+	public function testAMarkWithoutAReasonIsRefused(): void {
+		$this->objectService->method('find')->willReturn($this->agent(['tools' => []], 'alice'));
+		$this->request->method('getParam')->with('reason')->willReturn('  ');
+		$this->objectService->expects($this->never())->method('saveObject');
+
+		$response = $this->controller()->markToolInvocation('agent-1', 'call-17');
+
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
+		$this->assertSame(['error' => 'A mark needs a reason.'], $response->getData());
+	}//end testAMarkWithoutAReasonIsRefused()
+
+	/**
+	 * Somebody who may not modify the agent cannot mark its calls.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/verify-row-scenarios/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art-12-14
+	 */
+	public function testANonOwnerCannotMark(): void {
+		$this->objectService->method('find')->willReturn($this->agent(['tools' => []], 'bob'));
+		$this->request->method('getParam')->willReturn('a reason');
+		$this->objectService->expects($this->never())->method('saveObject');
+
+		$this->assertSame(Http::STATUS_FORBIDDEN, $this->controller()->markToolInvocation('agent-1', 'call-17')->getStatus());
+	}//end testANonOwnerCannotMark()
+
+	/**
+	 * The tool activity shows a marked call with its mark.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/verify-row-scenarios/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art-12-14
+	 */
+	public function testTheToolActivityShowsTheMark(): void {
+		$mark = ['callId' => 'entry-1', 'label' => 'misuse', 'reason' => 'r', 'markedBy' => 'alice', 'markedAt' => '2026-11-13T10:00:00+00:00'];
+		$this->objectService->method('find')->willReturn($this->agent(['tools' => [], 'toolCallMarks' => [$mark]], 'alice'));
+		$this->objectService->method('findAll')->willReturn([]);
+		$entry = $this->mcpEntry('alice', 'hermiq.sendMail', '2026-11-12T10:00:00+00:00');
+		$entry->setUuid('entry-1');
+		$this->auditTrailMapper->method('findAll')->willReturn([$entry]);
+
+		$rows = $this->controller(richAvailable: true)->toolInvocations('agent-1')->getData()['rows'];
+
+		$this->assertCount(1, $rows);
+		$this->assertSame('entry-1', $rows[0]['callId']);
+		$this->assertSame($mark, $rows[0]['mark']);
+	}//end testTheToolActivityShowsTheMark()
 
 	/**
 	 * updateToolGrants persists the new grant array via ObjectService::saveObject
@@ -820,6 +908,7 @@ class ToolOversightControllerTest extends TestCase {
 	private function serveAgentAndRequest(?ObjectEntity $agent, ?array $request): void {
 		$this->objectService->method('find')->willReturnCallback(
 			function (...$args) use ($agent, $request): ?ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'find', args: $args);
 				$id = (string)($args[0] ?? '');
 				if ($id === 'agent-1') {
 					return $agent;
@@ -955,6 +1044,7 @@ class ToolOversightControllerTest extends TestCase {
 		$written = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (...$args) use (&$written): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
 				// Positional for the same reason serveAgentAndRequest() is.
 				$written[] = $args[0];
 				return new ObjectEntity();
@@ -1026,6 +1116,7 @@ class ToolOversightControllerTest extends TestCase {
 		$written = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (...$args) use (&$written): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
 				$written[] = $args[0];
 				return new ObjectEntity();
 			}
@@ -1127,6 +1218,7 @@ class ToolOversightControllerTest extends TestCase {
 		$written = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (...$args) use (&$written): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
 				$written[] = $args[0];
 				return new ObjectEntity();
 			}
@@ -1156,11 +1248,12 @@ class ToolOversightControllerTest extends TestCase {
 
 		$names = array_map(
 			static fn ($parameter): string => $parameter->getName(),
-			(new \ReflectionMethod(ObjectService::class, 'saveObject'))->getParameters()
+			LegacyObjectArgs::parameters(ObjectService::class, 'saveObject')
 		);
 		$writes = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (...$args) use (&$writes, $names): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
 				$named = [];
 				foreach ($args as $position => $value) {
 					$named[is_int($position) === true ? $names[$position] : $position] = $value;
@@ -1189,7 +1282,7 @@ class ToolOversightControllerTest extends TestCase {
 	 */
 	private function namedArguments(string $method, array $args): array {
 		$named = [];
-		foreach ((new \ReflectionMethod(ObjectService::class, $method))->getParameters() as $index => $parameter) {
+		foreach (LegacyObjectArgs::parameters(ObjectService::class, $method) as $index => $parameter) {
 			$named[$parameter->getName()] = ($args[$index] ?? ($parameter->isDefaultValueAvailable() ? $parameter->getDefaultValue() : null));
 		}
 
@@ -1220,6 +1313,7 @@ class ToolOversightControllerTest extends TestCase {
 		$seen = [];
 		$this->objectService->method('find')->willReturnCallback(
 			function (...$args) use (&$seen): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'find', args: $args);
 				$seen[] = $this->namedArguments('find', $args);
 				return $this->agent(['tools' => []], 'alice');
 			}
@@ -1244,6 +1338,7 @@ class ToolOversightControllerTest extends TestCase {
 		$seen = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (...$args) use (&$seen): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
 				$seen[] = $this->namedArguments('saveObject', $args);
 				return new ObjectEntity();
 			}
@@ -1266,6 +1361,7 @@ class ToolOversightControllerTest extends TestCase {
 		$looked = [];
 		$this->objectService->method('find')->willReturnCallback(
 			function (...$args) use (&$looked): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'find', args: $args);
 				$looked[] = (string)$args[0];
 				return $this->agent(['tools' => [], 'agentId' => 'agent-1'], 'carol');
 			}
@@ -1338,6 +1434,7 @@ class ToolOversightControllerTest extends TestCase {
 		$saved = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (...$args) use (&$saved): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
 				$saved[] = $args[0];
 				return new ObjectEntity();
 			}

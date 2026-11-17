@@ -43,6 +43,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
 
+use OCA\Hermiq\Service\RetrievalScope\ValidatedMode;
 use Closure;
 use Exception;
 use LLPhant\Chat\Message as LLPhantMessage;
@@ -205,6 +206,7 @@ class ResponseGenerationHandler {
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
 	 */
 	public function generateResponse(
 		string $userMessage,
@@ -222,6 +224,15 @@ class ResponseGenerationHandler {
 		array $attachments = [],
 		string $speaker = '',
 	): string {
+		// Chat-about-a-document: a scoped turn with nothing in scope is answered
+		// with that fact, and the model is never asked to answer from general knowledge.
+		$noMatch = self::scopedNoMatchReply(context: $context);
+		if ($noMatch !== null) {
+			$this->attachmentNotices = [];
+			$this->lastUsage = [];
+			return $noMatch;
+		}
+
 		$run = $this->startTurn(run: new ResponseTurnRun(userMessage: $userMessage, context: $context), agent: $agent);
 		$run->selectedTools = $selectedTools;
 		$run->messageHistory = $messageHistory;
@@ -237,6 +248,24 @@ class ResponseGenerationHandler {
 
 		return $this->runTurn(run: $run);
 	}//end generateResponse()
+
+	/**
+	 * The reply of a scoped turn with nothing in scope, or null for any other turn.
+	 *
+	 * @param array<string, mixed> $context The turn's context.
+	 *
+	 * @return string|null The no-match sentence.
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
+	 */
+	private static function scopedNoMatchReply(array $context): ?string {
+		$reply = (string)($context['noMatch'] ?? '');
+		if (($context['scoped'] ?? false) === true && ($context['sources'] ?? []) === [] && $reply !== '') {
+			return $reply;
+		}
+
+		return null;
+	}//end scopedNoMatchReply()
 
 	/**
 	 * Start a turn: its clock, a clean set of attachment notices, and the agent.
@@ -312,6 +341,14 @@ class ResponseGenerationHandler {
 	 */
 	private function loadFunctions(ResponseTurnRun $run): void {
 		$toolsStartTime = microtime(true);
+		// Validated mode (memory-retrieval-scope D3): the turn resolves no tools,
+		// so the model cannot fetch anything beyond the validated passages.
+		if (ValidatedMode::isOn(agentData: ($run->agent?->getObject() ?? [])) === true) {
+			$run->progress->functions = [];
+			$run->progress->toolsTime = microtime(true) - $toolsStartTime;
+			return;
+		}
+
 		$run->progress->functions = $this->toolLoop->listAgentFunctions(agent: $run->agent, selectedTools: $run->selectedTools);
 		$run->progress->toolsTime = microtime(true) - $toolsStartTime;
 		if (empty($run->progress->functions) === true) {
@@ -338,6 +375,7 @@ class ResponseGenerationHandler {
 	 * @return void
 	 *
 	 * @throws ProviderUnavailableException When the driver serves background work only.
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
 	 */
 	private function resolveDriver(ResponseTurnRun $run): void {
 		$llmConfig = $this->providerFactory->getLlmConfig();
@@ -623,7 +661,8 @@ class ResponseGenerationHandler {
 			trace: $run->trace,
 			agent: $run->agent,
 			organisation: $run->progress->organisation,
-			dryRun: $run->dryRun
+			dryRun: $run->dryRun,
+			conversationId: $run->conversationId
 		);
 	}//end functionInfosFor()
 
