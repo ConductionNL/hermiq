@@ -121,20 +121,10 @@ class RestoreRunner {
 		}
 
 		$failures = [];
-		$written = 0;
-		foreach ($plan['writes'] as $write) {
-			if ($this->write(organisation: $organisation, write: $write, failures: $failures) === true) {
-				$written++;
-			}
-		}
-
+		$written = $this->writeAll(organisation: $organisation, writes: $plan['writes'], failures: $failures);
 		$removed = 0;
 		if ($point->removeCreatedAfter === true) {
-			foreach ($plan['createdAfter'] as $later) {
-				if ($this->remove(later: $later, failures: $failures) === true) {
-					$removed++;
-				}
-			}
+			$removed = $this->removeAll(later: $plan['createdAfter'], failures: $failures);
 		}
 
 		$released = false;
@@ -162,6 +152,45 @@ class RestoreRunner {
 
 		return $result;
 	}//end run()
+
+	/**
+	 * Write every planned object back.
+	 *
+	 * @param string                                                            $organisation The organisation.
+	 * @param list<array{schema: string, uuid: string, object: array<string, mixed>}> $writes       The writes.
+	 * @param list<string>                                                      $failures     Collects failures.
+	 *
+	 * @return int How many were written.
+	 */
+	private function writeAll(string $organisation, array $writes, array &$failures): int {
+		$written = 0;
+		foreach ($writes as $write) {
+			if ($this->write(organisation: $organisation, write: $write, failures: $failures) === true) {
+				$written++;
+			}
+		}
+
+		return $written;
+	}//end writeAll()
+
+	/**
+	 * Move every object created after the point to OpenRegister's deleted objects.
+	 *
+	 * @param list<array{schema: string, uuid: string}> $later    The objects.
+	 * @param list<string>                              $failures Collects failures.
+	 *
+	 * @return int How many were moved.
+	 */
+	private function removeAll(array $later, array &$failures): int {
+		$removed = 0;
+		foreach ($later as $object) {
+			if ($this->remove(later: $object, failures: $failures) === true) {
+				$removed++;
+			}
+		}
+
+		return $removed;
+	}//end removeAll()
 
 	/**
 	 * Whether the organisation's kill switch is engaged now.

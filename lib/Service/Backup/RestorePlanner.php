@@ -412,45 +412,87 @@ class RestorePlanner {
 			return null;
 		}
 
-		usort(
-			$entries,
-			static fn (AuditTrail $a, AuditTrail $b): int => (($b->getCreated()?->getTimestamp() ?? 0) <=> ($a->getCreated()?->getTimestamp() ?? 0))
-		);
-
 		$moment = $at->getTimestamp();
-		$reachesBack = false;
 		$state = self::content(row: $live);
-		foreach ($entries as $entry) {
-			$when = ($entry->getCreated()?->getTimestamp() ?? 0);
-			if ($when <= $moment) {
-				$reachesBack = true;
-				break;
+		foreach (self::newestFirst(entries: $entries) as $entry) {
+			if (self::timestampOf(entry: $entry) <= $moment) {
+				return $state;
 			}
 
 			if ($entry->getAction() === 'create') {
 				return 'createdAfter';
 			}
 
-			foreach (($entry->getChanged() ?? []) as $field => $change) {
-				if (is_string($field) === false || $field === '@self' || is_array($change) === false || array_key_exists('old', $change) === false) {
-					continue;
-				}
+			$state = self::undo(state: $state, changed: ($entry->getChanged() ?? []));
+		}
 
-				if ($change['old'] === null) {
-					unset($state[$field]);
-					continue;
-				}
+		// The history does not reach back to the moment.
+		return null;
+	}//end stateAt()
 
-				$state[$field] = $change['old'];
+	/**
+	 * The entries, newest first.
+	 *
+	 * @param list<AuditTrail> $entries The entries.
+	 *
+	 * @return list<AuditTrail>
+	 */
+	private static function newestFirst(array $entries): array {
+		usort(
+			$entries,
+			static fn (AuditTrail $a, AuditTrail $b): int => (self::timestampOf(entry: $b) <=> self::timestampOf(entry: $a))
+		);
+
+		return $entries;
+	}//end newestFirst()
+
+	/**
+	 * When an entry was written, as a timestamp (0 when unknown).
+	 *
+	 * @param AuditTrail $entry The entry.
+	 *
+	 * @return int
+	 */
+	private static function timestampOf(AuditTrail $entry): int {
+		return ($entry->getCreated()?->getTimestamp() ?? 0);
+	}//end timestampOf()
+
+	/**
+	 * Undo one update entry's recorded changes on a state.
+	 *
+	 * @param array<string, mixed> $state   The state.
+	 * @param array<mixed, mixed>  $changed The entry's recorded changes.
+	 *
+	 * @return array<string, mixed> The state before the update.
+	 */
+	private static function undo(array $state, array $changed): array {
+		foreach ($changed as $field => $change) {
+			if (self::isUndoable(field: $field, change: $change) === false) {
+				continue;
 			}
-		}//end foreach
 
-		if ($reachesBack === false) {
-			return null;
+			if ($change['old'] === null) {
+				unset($state[$field]);
+				continue;
+			}
+
+			$state[$field] = $change['old'];
 		}
 
 		return $state;
-	}//end stateAt()
+	}//end undo()
+
+	/**
+	 * Whether a recorded change is one of a property with its old value.
+	 *
+	 * @param mixed $field  The field.
+	 * @param mixed $change The recorded change.
+	 *
+	 * @return bool
+	 */
+	private static function isUndoable(mixed $field, mixed $change): bool {
+		return is_string($field) === true && $field !== '@self' && is_array($change) === true && array_key_exists('old', $change) === true;
+	}//end isUndoable()
 
 	/**
 	 * The create and update entries of one object.
