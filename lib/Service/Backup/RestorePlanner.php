@@ -178,81 +178,175 @@ class RestorePlanner {
 		$slugs = array_values(array_unique(array_merge($declared, array_map('strval', array_keys($backup['objects'])))));
 
 		foreach ($slugs as $slug) {
-			if (array_key_exists($slug, $properties) === false) {
-				// A schema the installed register no longer declares: nothing to write it to.
-				$plan['schemas'][$slug] = $this->emptyCounts();
-				$plan['schemas'][$slug]['notRestorable'] = ['(schema)'];
-				continue;
-			}
-
-			$counts = $this->emptyCounts();
-			$dropped = [];
-			$foreign = [];
-			$live = $this->liveObjects(slug: $slug, organisation: $point->organisation, foreign: $foreign);
-			if ($live === null) {
-				// The schema could not be read: comparing against nothing would write every row blind.
-				$counts['notRestorable'] = ['(unreadable)'];
-				$plan['schemas'][$slug] = $counts;
-				continue;
-			}
-
-			$inBackup = [];
-			foreach ((array)($backup['objects'][$slug] ?? []) as $row) {
-				if (is_array($row) === false) {
-					continue;
-				}
-
-				$uuid = self::uuidOf(row: $row);
-				if ($uuid === '') {
-					continue;
-				}
-
-				if (isset($foreign[$uuid]) === true) {
-					// The uuid belongs to another organisation now: a restore never writes across the boundary.
-					$dropped[] = '(other organisation)';
-					continue;
-				}
-
-				$inBackup[$uuid] = true;
-				$data = $this->restorable(data: self::content(row: $row), properties: $properties[$slug], dropped: $dropped);
-				if (isset($live[$uuid]) === false) {
-					$counts['putBack']++;
-					$plan['writes'][] = ['schema' => $slug, 'uuid' => $uuid, 'object' => $data];
-					continue;
-				}
-
-				$ignored = [];
-				$now = $this->restorable(data: $live[$uuid]->getObject(), properties: $properties[$slug], dropped: $ignored);
-				if (self::same(left: $data, right: $now) === true) {
-					$counts['unchanged']++;
-					continue;
-				}
-
-				$counts['changed']++;
-				$plan['writes'][] = ['schema' => $slug, 'uuid' => $uuid, 'object' => $data];
-			}//end foreach
-
-			foreach ($live as $uuid => $object) {
-				if (isset($inBackup[$uuid]) === true) {
-					continue;
-				}
-
-				$created = $object->getCreated();
-				if ($pointTime === null || $created === null || $created->getTimestamp() > $pointTime->getTimestamp()) {
-					$counts['createdAfter']++;
-					$plan['createdAfter'][] = ['schema' => $slug, 'uuid' => (string)$uuid];
-					continue;
-				}
-
-				$counts['missing']++;
-			}
-
-			$counts['notRestorable'] = array_values(array_unique($dropped));
-			$plan['schemas'][$slug] = $counts;
-		}//end foreach
+			$plan = $this->planBackupSchema(
+				plan: $plan,
+				point: $point,
+				slug: $slug,
+				rows: (array)($backup['objects'][$slug] ?? []),
+				properties: ($properties[$slug] ?? null),
+				pointTime: $pointTime
+			);
+		}
 
 		return $plan;
 	}//end planBackup()
+
+	/**
+	 * Compare one schema of a backup file with the organisation's objects of it now.
+	 *
+	 * @param array<string, mixed>   $plan       The plan so far.
+	 * @param RestorePoint           $point      The point.
+	 * @param string                 $slug       The schema slug.
+	 * @param array<int|string, mixed> $rows     The backed-up rows of the schema.
+	 * @param list<string>|null      $properties The schema's declared properties; null when the register no longer declares it.
+	 * @param DateTimeInterface|null $pointTime  When the backup was written.
+	 *
+	 * @return array<string, mixed> The plan.
+	 */
+	private function planBackupSchema(
+		array $plan,
+		RestorePoint $point,
+		string $slug,
+		array $rows,
+		?array $properties,
+		?DateTimeInterface $pointTime
+	): array {
+		$counts = $this->emptyCounts();
+		if ($properties === null) {
+			// A schema the installed register no longer declares: nothing to write it to.
+			$counts['notRestorable'] = ['(schema)'];
+			$plan['schemas'][$slug] = $counts;
+			return $plan;
+		}
+
+		$foreign = [];
+		$live = $this->liveObjects(slug: $slug, organisation: $point->organisation, foreign: $foreign);
+		if ($live === null) {
+			// The schema could not be read: comparing against nothing would write every row blind.
+			$counts['notRestorable'] = ['(unreadable)'];
+			$plan['schemas'][$slug] = $counts;
+			return $plan;
+		}
+
+		$dropped = [];
+		$inBackup = [];
+		foreach ($rows as $row) {
+			[$kind, $uuid, $data] = $this->classifyRow(row: $row, live: $live, foreign: $foreign, properties: $properties, dropped: $dropped);
+			$inBackup[$uuid] = true;
+			$plan = $this->tally(plan: $plan, counts: $counts, kind: $kind, entry: ['schema' => $slug, 'uuid' => $uuid, 'object' => $data]);
+		}
+
+		foreach (array_diff_key($live, $inBackup) as $uuid => $object) {
+			$kind = 'missing';
+			if ($this->createdAfter(object: $object, pointTime: $pointTime) === true) {
+				$kind = 'createdAfter';
+			}
+
+			$plan = $this->tally(plan: $plan, counts: $counts, kind: $kind, entry: ['schema' => $slug, 'uuid' => (string)$uuid]);
+		}
+
+		$counts['notRestorable'] = array_values(array_unique($dropped));
+		$plan['schemas'][$slug] = $counts;
+
+		return $plan;
+	}//end planBackupSchema()
+
+	/**
+	 * Count one outcome and add its entry to the plan: a write for an object put
+	 * back or changed, a listing for one created after the point.
+	 *
+	 * @param array<string, mixed> $plan   The plan so far.
+	 * @param array<string, mixed> $counts The schema's counts.
+	 * @param string               $kind   The outcome.
+	 * @param array<string, mixed> $entry  The write or listing.
+	 *
+	 * @return array<string, mixed> The plan.
+	 */
+	private function tally(array $plan, array &$counts, string $kind, array $entry): array {
+		if (isset($counts[$kind]) === true) {
+			$counts[$kind]++;
+		}
+
+		if (in_array($kind, ['putBack', 'changed'], true) === true) {
+			$plan['writes'][] = $entry;
+		}
+
+		if ($kind === 'createdAfter') {
+			$plan['createdAfter'][] = $entry;
+		}
+
+		return $plan;
+	}//end tally()
+
+	/**
+	 * What a restore does with one backed-up row.
+	 *
+	 * @param mixed                       $row        The row.
+	 * @param array<string, ObjectEntity> $live       The organisation's objects of the schema now, by uuid.
+	 * @param array<string, bool>         $foreign    The schema's uuids another organisation carries.
+	 * @param list<string>                $properties The schema's declared properties.
+	 * @param list<string>                $dropped    Collects what cannot be restored.
+	 *
+	 * @return array{0: string, 1: string, 2: array<string, mixed>} The kind (skip, foreign, putBack,
+	 *                                                              unchanged or changed), the uuid and the content to write.
+	 */
+	private function classifyRow(mixed $row, array $live, array $foreign, array $properties, array &$dropped): array {
+		$uuid = self::rowUuid(row: $row);
+		if ($uuid === '') {
+			return ['skip', '', []];
+		}
+
+		if (isset($foreign[$uuid]) === true) {
+			// The uuid belongs to another organisation now: a restore never writes across the boundary.
+			$dropped[] = '(other organisation)';
+			return ['foreign', $uuid, []];
+		}
+
+		$data = $this->restorable(data: self::content(row: $row), properties: $properties, dropped: $dropped);
+		if (isset($live[$uuid]) === false) {
+			return ['putBack', $uuid, $data];
+		}
+
+		$ignored = [];
+		$now = $this->restorable(data: $live[$uuid]->getObject(), properties: $properties, dropped: $ignored);
+		if (self::same(left: $data, right: $now) === true) {
+			return ['unchanged', $uuid, $data];
+		}
+
+		return ['changed', $uuid, $data];
+	}//end classifyRow()
+
+	/**
+	 * The uuid of a backed-up row, or '' for a row that is not an object.
+	 *
+	 * @param mixed $row The row.
+	 *
+	 * @return string The uuid.
+	 */
+	private static function rowUuid(mixed $row): string {
+		if (is_array($row) === false) {
+			return '';
+		}
+
+		return self::uuidOf(row: $row);
+	}//end rowUuid()
+
+	/**
+	 * Whether a live object was created after the backup (or when either time is unknown).
+	 *
+	 * @param ObjectEntity           $object    The object.
+	 * @param DateTimeInterface|null $pointTime When the backup was written.
+	 *
+	 * @return bool
+	 */
+	private function createdAfter(ObjectEntity $object, ?DateTimeInterface $pointTime): bool {
+		$created = $object->getCreated();
+		if ($pointTime === null || $created === null) {
+			return true;
+		}
+
+		return $created->getTimestamp() > $pointTime->getTimestamp();
+	}//end createdAfter()
 
 	/**
 	 * Rebuild every object of the organisation at a moment from its audit trail.
@@ -403,16 +497,7 @@ class RestorePlanner {
 					->setSchema($slug)
 					->findAll(config: ['limit' => self::PAGE_SIZE, 'offset' => ($page * self::PAGE_SIZE)], _rbac: false, _multitenancy: false);
 				foreach ($rows as $row) {
-					if (($row instanceof ObjectEntity) === false || (string)$row->getUuid() === '') {
-						continue;
-					}
-
-					if ((string)($row->getOrganisation() ?? '') === $organisation) {
-						$objects[(string)$row->getUuid()] = $row;
-						continue;
-					}
-
-					$foreign[(string)$row->getUuid()] = true;
+					self::sortRow(row: $row, organisation: $organisation, objects: $objects, foreign: $foreign);
 				}
 
 				if (count($rows) < self::PAGE_SIZE) {
@@ -429,6 +514,29 @@ class RestorePlanner {
 
 		return $objects;
 	}//end liveObjects()
+
+	/**
+	 * File one row of a schema under the organisation's objects or the foreign uuids.
+	 *
+	 * @param mixed                       $row          The row.
+	 * @param string                      $organisation The organisation.
+	 * @param array<string, ObjectEntity> $objects      The organisation's objects, by uuid.
+	 * @param array<string, bool>         $foreign      The uuids another organisation carries.
+	 *
+	 * @return void
+	 */
+	private static function sortRow(mixed $row, string $organisation, array &$objects, array &$foreign): void {
+		if (($row instanceof ObjectEntity) === false || (string)$row->getUuid() === '') {
+			return;
+		}
+
+		if ((string)($row->getOrganisation() ?? '') === $organisation) {
+			$objects[(string)$row->getUuid()] = $row;
+			return;
+		}
+
+		$foreign[(string)$row->getUuid()] = true;
+	}//end sortRow()
 
 	/**
 	 * The declared property names per schema slug.
