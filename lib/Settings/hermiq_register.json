@@ -5799,6 +5799,7 @@
 				"version": "0.1.0",
 				"title": "Agent build",
 				"description": "A published build of an agent: the agent version it was published from, an archive of the owner's workspace at that moment and the installed tools with their versions and hashes. Every new session workspace of the agent starts from its pinned build; nothing a run changes reaches the build. The prompt and model are not frozen here: agent versions record those. Only an admin reads or writes a build through the object API; agent owners and users read builds through GET /api/agents/{id}/builds, which checks access to the agent first.",
+				"x-openregister-demo-data": "Written by AgentBuildService when an owner publishes a build: it points at a stored workspace archive by content hash, so a sample build would have no archive to restore and an agent pinning it would start every conversation from a workspace that does not exist.",
 				"type": "object",
 				"required": ["agentId", "number"],
 				"authorization": {
