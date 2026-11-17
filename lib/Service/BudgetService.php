@@ -48,11 +48,15 @@ use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\BudgetHardCapInterface;
 use OCA\Hermiq\Kernel\Contracts\BudgetServiceInterface;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use Psr\Log\LoggerInterface;
@@ -74,7 +78,7 @@ use Throwable;
  *
  * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-2-budgetservice-status-hard-cap-check-soft-threshold-warn-estimate
  */
-class BudgetService implements BudgetServiceInterface {
+class BudgetService implements BudgetServiceInterface, BudgetHardCapInterface {
 
 	/**
 	 * OpenRegister schema slug for schedule objects.
@@ -129,13 +133,13 @@ class BudgetService implements BudgetServiceInterface {
 	/**
 	 * Constructor.
 	 *
-	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
-	 * @param AuditTrailMapper $auditTrailMapper OpenRegister audit read (run entries).
-	 * @param IAppConfig $appConfig Reads the EUR-per-1k-tokens conversion rate.
+	 * @param ObjectService      $objectService      OpenRegister object read/write (single write-path).
+	 * @param AuditTrailMapper   $auditTrailMapper   OpenRegister audit read (run entries).
+	 * @param IAppConfig         $appConfig          Reads the EUR-per-1k-tokens conversion rate.
 	 * @param OrganisationMapper $organisationMapper Resolves the organisation owner (warning recipient).
-	 * @param DeliveryService $deliveryService Delivers the soft-threshold warning (Talk/Notification).
-	 * @param AnalyticsService $analyticsService Supplies the per-agent aggregation the estimate reuses.
-	 * @param LoggerInterface $logger PSR-3 logger (fail-open diagnostics, non-fatal warnings).
+	 * @param DeliveryService    $deliveryService    Delivers the soft-threshold warning (Talk/Notification).
+	 * @param AnalyticsService   $analyticsService   Supplies the per-agent aggregation the estimate reuses.
+	 * @param LoggerInterface    $logger             PSR-3 logger (fail-open diagnostics, non-fatal warnings).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
 	 *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -271,9 +275,10 @@ class BudgetService implements BudgetServiceInterface {
 		try {
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::BUDGET_SCHEMA,
-				uuid: (string)$budget->getUuid(),
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::BUDGET_SCHEMA),
+					uuid: (string)$budget->getUuid()
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -496,8 +501,7 @@ class BudgetService implements BudgetServiceInterface {
 
 		return $this->objectService->find(
 			id: $budgetId,
-			register: self::REGISTER_SLUG,
-			schema: self::BUDGET_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::BUDGET_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -543,8 +547,7 @@ class BudgetService implements BudgetServiceInterface {
 
 		$budget = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::BUDGET_SCHEMA,
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::BUDGET_SCHEMA)),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -588,9 +591,10 @@ class BudgetService implements BudgetServiceInterface {
 
 		$budget = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::BUDGET_SCHEMA,
-			uuid: $budgetId,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::BUDGET_SCHEMA),
+				uuid: $budgetId
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -829,9 +833,10 @@ class BudgetService implements BudgetServiceInterface {
 			$data['lastHardBlockAt'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::BUDGET_SCHEMA,
-				uuid: (string)$budget->getUuid(),
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::BUDGET_SCHEMA),
+					uuid: (string)$budget->getUuid()
+				),
 				_rbac: false,
 				_multitenancy: false
 			);

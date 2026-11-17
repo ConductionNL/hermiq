@@ -45,6 +45,10 @@ use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\AgentCatalogInterface;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
@@ -232,8 +236,7 @@ class AgentsController extends Controller {
 			$userId = (string)$this->userSession->getUser()?->getUID();
 			$agent = $this->objectService->find(
 				id: $id,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 			);
 			if ($agent === null) {
 				return new JSONResponse(
@@ -325,8 +328,7 @@ class AgentsController extends Controller {
 			// assigned by ObjectService).
 			$agent = $this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $data),
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA))
 			);
 
 			$this->logger->info(
@@ -385,8 +387,7 @@ class AgentsController extends Controller {
 			$userId = (string)$this->userSession->getUser()?->getUID();
 			$agent = $this->objectService->find(
 				id: $id,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 			);
 			if ($agent === null) {
 				return new JSONResponse(
@@ -411,9 +412,10 @@ class AgentsController extends Controller {
 
 			$updatedAgent = $this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $payload),
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
-				uuid: $id
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+					uuid: $id
+				)
 			);
 
 			$this->logger->info(
@@ -493,8 +495,7 @@ class AgentsController extends Controller {
 
 			$agent = $this->objectService->find(
 				id: $id,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 			);
 			if ($agent === null) {
 				return new JSONResponse(
@@ -512,9 +513,10 @@ class AgentsController extends Controller {
 			}
 
 			$this->objectService->deleteObject(
-				uuid: $id,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				new ObjectDeletion(
+					uuid: $id,
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
+				)
 			);
 
 			$this->logger->info(
@@ -618,6 +620,7 @@ class AgentsController extends Controller {
 	 * check, not by hiding the catalogue.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-tool-governance/spec.md#REQ-SPCOV-007
 	 */
 	public function tools(): JSONResponse {
 		try {

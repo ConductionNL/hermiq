@@ -42,6 +42,7 @@ use OCP\TaskProcessing\Exception\ProcessingException;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Tests for ContextAgentInteractionService.
@@ -436,6 +437,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 		$args = null;
 		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$passed = LegacyObjectArgs::positional(method: 'saveObject', args: $passed);
 				$args = $passed;
 				return $this->conversation('conv-new', 'bob');
 			}
@@ -493,6 +495,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 		$args = null;
 		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$passed = LegacyObjectArgs::positional(method: 'saveObject', args: $passed);
 				$args = $passed;
 				return $this->conversation('conv-new', 'bob');
 			}

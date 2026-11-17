@@ -48,6 +48,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Room creation, recording and owned-only renaming.
@@ -332,19 +333,19 @@ class TalkSessionRoomTest extends TestCase {
 		$saved   = $this->session(['saved' => true]);
 
 		$this->objects->expects($this->once())->method('saveObject')
-			->with(
-				[
+			->with(...LegacyObjectArgs::with(method: 'saveObject', expected: [
+				'object' => [
 					'id'             => 'session-uuid',
 					'title'          => 'A session',
 					'agent'          => 'agent-1',
 					'talkRoomToken'  => 'room-token-1',
 					'talkRoomOrigin' => TalkRoomBinding::ORIGIN_CREATED,
 				],
-				$this->anything(),
-				'hermiq',
-				'agentsession',
-				'session-uuid'
-			)
+				'extend' => $this->anything(),
+				'register' => 'hermiq',
+				'schema' => 'agentsession',
+				'uuid' => 'session-uuid',
+			]))
 			->willReturn($saved);
 
 		$this->assertSame($saved, $this->service()->attachToSession($session, 'A session', 'alice', 'agent-1'));
@@ -381,7 +382,13 @@ class TalkSessionRoomTest extends TestCase {
 
 		$this->objects->method('saveObject')->willThrowException(new RuntimeException('a listener raised'));
 		$this->objects->expects($this->once())->method('find')
-			->with('session-uuid', $this->anything(), $this->anything(), 'hermiq', 'agentsession')
+			->with(...LegacyObjectArgs::with(method: 'find', expected: [
+				'id' => 'session-uuid',
+				'_extend' => $this->anything(),
+				'files' => $this->anything(),
+				'register' => 'hermiq',
+				'schema' => 'agentsession',
+			]))
 			->willReturn($stored);
 		$this->logger->expects($this->once())->method('warning')
 			->with($this->stringContains('Could not record the room on the session'));
