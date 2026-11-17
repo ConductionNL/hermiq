@@ -3679,7 +3679,8 @@
 							"enabled": {
 								"type": "boolean",
 								"default": false,
-								"title": "Enabled"
+								"title": "Enabled",
+								"description": "Whether the reference models answer each prompt before the agent's own model merges their answers."
 							},
 							"referenceModels": {
 								"type": "array",
@@ -3699,11 +3700,13 @@
 												"nextcloud",
 												"anthropic"
 											],
-											"title": "Provider"
+											"title": "Provider",
+											"description": "The provider that serves this reference model."
 										},
 										"model": {
 											"type": "string",
-											"title": "Model"
+											"title": "Model",
+											"description": "The model identifier as the provider names it."
 										}
 									}
 								}

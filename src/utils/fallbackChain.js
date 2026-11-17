@@ -18,6 +18,7 @@ export const MAX_FALLBACKS = 4
  *
  * @param {Array<object>|undefined} chain The policy's `fallbackChain`.
  * @return {Array<{provider: string, model: string}>} Fresh rows.
+ * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
  */
 export function fallbackRows(chain) {
 	if (!Array.isArray(chain)) {
@@ -34,6 +35,7 @@ export function fallbackRows(chain) {
  *
  * @param {Array<object>} rows The rows.
  * @return {Array<object>} New rows.
+ * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
  */
 export function addFallback(rows) {
 	if (rows.length >= MAX_FALLBACKS) {
@@ -48,6 +50,7 @@ export function addFallback(rows) {
  * @param {Array<object>} rows The rows.
  * @param {number} index The row to remove.
  * @return {Array<object>} New rows.
+ * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
  */
 export function removeFallback(rows, index) {
 	return rows.filter((row, at) => at !== index)
@@ -61,6 +64,7 @@ export function removeFallback(rows, index) {
  * @param {number} index The row to move.
  * @param {number} delta -1 for up, 1 for down.
  * @return {Array<object>} New rows.
+ * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
  */
 export function moveFallback(rows, index, delta) {
 	const target = index + delta
@@ -79,6 +83,7 @@ export function moveFallback(rows, index, delta) {
  *
  * @param {Array<object>} rows The rows.
  * @return {Array<{provider: string, model: string}>} The `fallbackChain` payload.
+ * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
  */
 export function fallbackPayload(rows) {
 	return rows
@@ -94,6 +99,7 @@ export function fallbackPayload(rows) {
  *
  * @param {Array<object>|undefined} chain The policy's `fallbackChain`.
  * @return {string} The summary, empty for no chain.
+ * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
  */
 export function fallbackSummary(chain) {
 	return fallbackRows(chain)
