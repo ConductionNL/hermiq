@@ -23,6 +23,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\ActionSeed;
+use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -74,4 +75,17 @@ final class ActionSeedTest extends TestCase {
 		$this->assertSame([], ActionSeed::fromFile($file)->actions());
 		unlink($file);
 	}//end testAMissingOrMalformedSeedListsNothing()
+
+	public function testTheDisplayLabelIsTranslatedAndAnEmptyDescriptionStaysEmpty(): void {
+		$file = tempnam(sys_get_temp_dir(), 'seed');
+		file_put_contents($file, '{"actions": {"a.b": ["admin"], "c.d": ["admin"]}, "labels": {"a.b": {"label": "Do A", "description": "Does A"}, "c.d": {"label": "Do C"}}}');
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->expects($this->exactly(3))->method('t')->willReturnCallback(static fn (string $text): string => 'nl:' . $text);
+
+		$seed = ActionSeed::fromFile($file, $l10n);
+		$this->assertSame(['label' => 'nl:Do A', 'description' => 'nl:Does A'], $seed->displayLabel('a.b'));
+		$this->assertSame(['label' => 'nl:Do C', 'description' => ''], $seed->displayLabel('c.d'));
+		$this->assertSame(['label' => 'Do A', 'description' => 'Does A'], ActionSeed::fromFile($file)->displayLabel('a.b'));
+		unlink($file);
+	}//end testTheDisplayLabelIsTranslatedAndAnEmptyDescriptionStaysEmpty()
 }//end class

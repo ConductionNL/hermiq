@@ -25,6 +25,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCP\IL10N;
+
 /**
  * The seeded actions and their labels.
  *
@@ -51,16 +53,29 @@ class ActionSeed {
 	private string $path = self::DEFAULT_PATH;
 
 	/**
+	 * Constructor.
+	 *
+	 * @param IL10N|null $l10n Translates the labels for the screen; null keeps them English.
+	 *
+	 * @return void
+	 */
+	public function __construct(
+		private readonly ?IL10N $l10n=null,
+	) {
+	}//end __construct()
+
+	/**
 	 * A reader over another seed file, for tests.
 	 *
-	 * @param string $path The seed file.
+	 * @param string     $path The seed file.
+	 * @param IL10N|null $l10n Translates the labels; null keeps them English.
 	 *
 	 * @return self
 	 *
 	 * @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md
 	 */
-	public static function fromFile(string $path): self {
-		$seed = new self();
+	public static function fromFile(string $path, ?IL10N $l10n=null): self {
+		$seed = new self(l10n: $l10n);
 		$seed->path = $path;
 
 		return $seed;
@@ -112,6 +127,30 @@ class ActionSeed {
 
 		return $result;
 	}//end label()
+
+	/**
+	 * The label and description of an action as the screen shows them: translated
+	 * when this reader has an IL10N, an empty description left empty.
+	 *
+	 * @param string $action The action.
+	 *
+	 * @return array{label: string, description: string}
+	 *
+	 * @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
+	 */
+	public function displayLabel(string $action): array {
+		$label = $this->label(action: $action);
+		if ($this->l10n === null) {
+			return $label;
+		}
+
+		$description = '';
+		if ($label['description'] !== '') {
+			$description = $this->l10n->t($label['description']);
+		}
+
+		return ['label' => $this->l10n->t($label['label']), 'description' => $description];
+	}//end displayLabel()
 
 	/**
 	 * The decoded seed file, or an empty array when it is missing or malformed.

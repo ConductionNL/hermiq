@@ -36,7 +36,6 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IGroup;
 use OCP\IGroupManager;
-use OCP\IL10N;
 use OCP\IRequest;
 
 /**
@@ -55,9 +54,8 @@ class ActionMatrixController extends Controller {
 	 *
 	 * @param IRequest              $request      The request.
 	 * @param ActionMatrixInterface $matrix       The stored matrix.
-	 * @param ActionSeed            $seed         The shipped defaults and labels.
+	 * @param ActionSeed            $seed         The shipped defaults and translated labels.
 	 * @param IGroupManager         $groupManager Which groups exist.
-	 * @param IL10N                 $l10n         Translates the labels.
 	 *
 	 * @return void
 	 */
@@ -66,7 +64,6 @@ class ActionMatrixController extends Controller {
 		private readonly ActionMatrixInterface $matrix,
 		private readonly ActionSeed $seed,
 		private readonly IGroupManager $groupManager,
-		private readonly IL10N $l10n,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
@@ -147,18 +144,14 @@ class ActionMatrixController extends Controller {
 	 * @return array{action: string, label: string, description: string, groups: list<string>, seeded: list<string>, changed: bool}
 	 */
 	private function row(string $action, array $stored, array $seeded): array {
-		$label = $this->seed->label(action: $action);
+		$label = $this->seed->displayLabel(action: $action);
 		$groups = array_values($stored[$action] ?? $seeded[$action] ?? [self::ADMIN]);
 		$defaults = array_values($seeded[$action] ?? [self::ADMIN]);
-		$description = '';
-		if ($label['description'] !== '') {
-			$description = $this->l10n->t($label['description']);
-		}
 
 		return [
 			'action' => $action,
-			'label' => $this->l10n->t($label['label']),
-			'description' => $description,
+			'label' => $label['label'],
+			'description' => $label['description'],
 			'groups' => $groups,
 			'seeded' => $defaults,
 			'changed' => self::sorted(groups: $groups) !== self::sorted(groups: $defaults),

@@ -90,7 +90,7 @@ final class ActionMatrixControllerTest extends TestCase {
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text): string => $text);
 
-		return new ActionMatrixController($request, $matrix, new ActionSeed(), $groupManager, $l10n);
+		return new ActionMatrixController($request, $matrix, new ActionSeed(l10n: $l10n), $groupManager);
 	}//end controller()
 
 	/**

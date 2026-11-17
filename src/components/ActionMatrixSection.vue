@@ -115,6 +115,8 @@ export default {
 		 * The groups an administrator can choose; `admin` is kept by the server whatever is chosen.
 		 *
 		 * @return {Array<string>} The group ids.
+		 *
+		 * @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
 		 */
 		groupOptions() {
 			return this.groups
@@ -130,6 +132,8 @@ export default {
 		 * Load the matrix and reset the drafts to what is stored.
 		 *
 		 * @return {Promise<void>}
+		 *
+		 * @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
 		 */
 		async load() {
 			this.loading = true
@@ -151,6 +155,8 @@ export default {
 		 *
 		 * @param {object} row The row.
 		 * @return {boolean} True when there is something to save.
+		 *
+		 * @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
 		 */
 		isDirty(row) {
 			return groupKey(this.drafts[row.action]) !== groupKey(row.groups)
@@ -162,6 +168,8 @@ export default {
 		 * @param {object} row The row.
 		 * @param {Array<string>} groups The groups to store.
 		 * @return {Promise<void>}
+		 *
+		 * @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
 		 */
 		async save(row, groups) {
 			this.busy = row.action
