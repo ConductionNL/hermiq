@@ -169,6 +169,19 @@
 								</span>
 							</template>
 							<span v-else>—</span>
+							<ol
+								v-if="run.providerAttempts && run.providerAttempts.length > 1"
+								class="hermiq-runs__attempts">
+								<li v-for="(attempt, index) in run.providerAttempts" :key="index">
+									{{ attempt.provider }} {{ attempt.model }}:
+									{{ attemptLabel(attempt) }}
+								</li>
+							</ol>
+							<span
+								v-if="run.receivedBy && run.receivedBy.length > 1"
+								class="hermiq-runs__data-use">
+								{{ t('hermiq', 'Received the prompt: {providers}', { providers: receivedByLabel(run.receivedBy) }) }}
+							</span>
 						</td>
 						<td class="hermiq-runs__summary">
 							{{ run.summary || '—' }}
@@ -215,6 +228,7 @@ import {
 import HistoryIcon from 'vue-material-design-icons/History.vue'
 import { listRuns } from '../api/analytics.js'
 import { useAgentStore } from '../store/store.js'
+import { attemptOutcome, receivedByList } from '../utils/providerAttempts.js'
 import { toggleSelection } from '../utils/runCompare.js'
 import { agentPickerOptions } from '../widgets/evalRunLabels.js'
 
@@ -585,6 +599,47 @@ export default {
 		},
 
 		/**
+		 * One attempt's outcome in words: "rate limited", "answered", "skipped: residency".
+		 *
+		 * @param {object} attempt The recorded attempt.
+		 * @return {string} The label.
+		 *
+		 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+		 */
+		attemptLabel(attempt) {
+			switch (attemptOutcome(attempt)) {
+				case 'answered':
+					return t('hermiq', 'answered')
+				case 'rate_limit':
+					return t('hermiq', 'rate limited')
+				case 'server':
+					return t('hermiq', 'server error')
+				case 'timeout':
+					return t('hermiq', 'timed out')
+				case 'connection':
+					return t('hermiq', 'could not be reached')
+				case 'cooling':
+					return t('hermiq', 'cooling down, skipped')
+				case 'skipped':
+					return t('hermiq', 'skipped: {step}', { step: attempt.reason || '' })
+				default:
+					return t('hermiq', 'failed')
+			}
+		},
+
+		/**
+		 * The providers and models that were sent the prompt, in words.
+		 *
+		 * @param {Array<object>} receivedBy The recorded list.
+		 * @return {string} "anthropic claude-opus-4-8, ollama qwen2.5"
+		 *
+		 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+		 */
+		receivedByLabel(receivedBy) {
+			return receivedByList(receivedBy)
+		},
+
+		/**
 		 * The plain label for the data-use term a run recorded, as it stood then.
 		 *
 		 * @param {string} dataUse The recorded term.
@@ -687,6 +742,12 @@ export default {
 
 .hermiq-runs__data-use {
 	display: block;
+	color: var(--color-text-maxcontrast);
+}
+
+.hermiq-runs__attempts {
+	margin: 4px 0 0;
+	padding-inline-start: 16px;
 	color: var(--color-text-maxcontrast);
 }
 

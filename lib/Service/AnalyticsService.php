@@ -567,9 +567,48 @@ class AnalyticsService implements AnalyticsServiceInterface
                 (array) ($context['providerDisclosure'] ?? []),
                 array_flip(self::DISCLOSURE_LABELS)
             ),
+            // Models-several-models-per-turn: each attempt at a provider, and every
+            // provider and model that was sent the prompt.
+            'providerAttempts'   => self::labelRows(
+                rows: ($context['providerAttempts'] ?? []),
+                keys: ['provider', 'model', 'outcome', 'reason', 'durationMs']
+            ),
+            'receivedBy'         => self::labelRows(rows: ($context['providerDisclosure']['receivedBy'] ?? []), keys: ['provider', 'model']),
         ] + self::computerFacts(steps: ($context['steps'] ?? []));
 
     }//end runFacts()
+
+    /**
+     * Rows of plain labels: each row keeps only the named scalar keys; anything else is dropped.
+     *
+     * @param mixed              $rows The recorded rows.
+     * @param array<int, string> $keys The keys to keep.
+     *
+     * @return array<int, array<string, scalar>>
+     *
+     * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+     */
+    private static function labelRows(mixed $rows, array $keys): array
+    {
+        if (is_array($rows) === false) {
+            return [];
+        }
+
+        $kept = [];
+        foreach ($rows as $row) {
+            if (is_array($row) === false) {
+                continue;
+            }
+
+            $kept[] = array_filter(
+                array_intersect_key($row, array_flip($keys)),
+                static fn ($value): bool => is_scalar($value)
+            );
+        }
+
+        return $kept;
+
+    }//end labelRows()
 
     /**
      * `computerActions` for a run that used a computer; nothing for any other run,
