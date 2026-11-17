@@ -27,6 +27,7 @@ import pinia from './pinia.js'
 // Both props coexist during the v1 → v2 transition.
 // Once fully migrated to v2, remove the customComponents import and prop.
 import registry from './registry.js'
+import { registerEnglishFallback } from './utils/englishFallback.js'
 
 // Must stay first: sets __webpack_public_path__ before any dynamic import()
 // (the CnIconPicker MDI catalogue, the toast-ui markdown editor) triggers
@@ -67,11 +68,10 @@ try {
 	console.warn('[hermiq] registerTranslations failed; falling back to English', e)
 }
 
-// Register English translations from the bundled en.json. loadTranslations()
-// short-circuits for the 'en' locale (it assumes the key IS the English text),
-// but this template uses slugged keys like 'app-availability.title', so we must
-// register en.json explicitly to get readable strings instead of raw slugs.
-register('hermiq', enTranslations.translations)
+// Register the bundled en.json as a fallback: slugged keys like
+// 'app-availability.title' need it to read as English, but it must not replace
+// the user's language that Nextcloud registered before this bundle ran.
+registerEnglishFallback(register, 'hermiq', enTranslations.translations)
 
 // Fire-and-forget translation load. Some Nextcloud installs (including
 // standard dev containers) only allow the JS/CSS allowlist through
