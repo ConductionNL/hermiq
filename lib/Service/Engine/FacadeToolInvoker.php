@@ -137,6 +137,8 @@ namespace OCA\Hermiq\Service\Engine;
 
 use Closure;
 use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Mcp\CodeSandboxToolDescriptors;
+use OCA\Hermiq\Service\CodeSandbox\CodeRunTrace;
 use OCA\Hermiq\Service\Handoff\FlowTurn;
 use OCA\Hermiq\Service\Handoff\TurnHandoffs;
 use OCA\Hermiq\Service\RedactionService;
@@ -1403,6 +1405,11 @@ class FacadeToolInvoker {
 		// scalars — the no-content rule is enforced by the shape, not by trusting
 		// each tool to omit content.
 		$artefact = $this->resolveArtefactDescriptor(result: $result);
+
+		// The tools-code-sandbox D6 record: the code, its limits and outcome, outputs capped and redacted.
+		if ($toolId === CodeSandboxToolDescriptors::RUN_CODE) {
+			return array_merge($artefact, CodeRunTrace::extra(arguments: $arguments, result: $result, redaction: $this->redactionService));
+		}
 
 		if (in_array($toolId, self::WEB_RESEARCH_TOOL_IDS, true) === false) {
 			return $artefact;
