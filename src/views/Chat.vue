@@ -1642,6 +1642,11 @@ export default {
 		this.loadImageAvailability()
 	},
 
+	/**
+	 * Stop a pending session search, and hand the shared page kind back.
+	 *
+	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+	 */
 	beforeUnmount() {
 		clearTimeout(this.searchTimer)
 		// The holder is shared across routes, so leaving it on 'chat' would
