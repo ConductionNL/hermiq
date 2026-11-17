@@ -19,9 +19,13 @@
  * Remote / non-Nextcloud systems are out of scope here and route through OpenConnector's
  * CallService — no provider opens a direct HTTP client.
  *
- * NOTE (OR#269): an OpenRegister agent turn cannot yet INVOKE a tool (Ollama tool-calling
- * returns HTTP 400). This provider registers + enumerates in OR's tool registry and each
- * tool is directly invocable; the LLM-selects-and-calls path is blocked on OR#269.
+ * An agent turn reaches these tools through Hermiq's own engine (`Engine\FacadeToolInvoker`),
+ * which applies the agent's grants before it dispatches here; each tool is also directly
+ * invocable through OpenRegister's tool registry.
+ * hermiq-domain-mcp-tools additionally registers five tools over Hermiq's own domain
+ * objects (`DomainToolDescriptors`): listAgents, getAgentStatus, listPendingApprovals,
+ * runAgentNow and searchSkills. They run in `Service\Mcp\DomainTools`, which delegates
+ * to the read or trigger path each page already uses, under the same guard.
  *
  * agent-tool-governance-and-disclosure additionally registers `hermiq.searchTools`
  * here (design.md §2) — Hermiq's progressive-disclosure meta-tool. It flows through
@@ -111,6 +115,7 @@ use OCA\Hermiq\Service\CustomTool\CustomToolInvoker;
 use OCA\Hermiq\Service\CustomTool\CustomToolService;
 use OCA\Hermiq\Service\CodeSandbox\CodeSandboxSettings;
 use OCA\Hermiq\Service\CodeSandbox\RunCodeTool;
+use OCA\Hermiq\Service\Mcp\DomainTools;
 use OCA\Hermiq\Service\RemoteAgent\RemoteTasks;
 use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
 use OCA\Hermiq\Service\Workspace\WorkspaceWrites;
@@ -748,6 +753,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			NcMailToolDescriptors::ALL,
 			WorkspaceToolDescriptors::ALL,
 			GraphToolDescriptors::ALL,
+			DomainToolDescriptors::ALL,
 			$this->taskDescriptors(),
 			NcTalkToolDescriptors::ALL,
 			$this->imageDescriptors(),
@@ -931,7 +937,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	}//end invokeCustomTool()
 
 	/**
-	 * The service that owns a graph, Nextcloud task, image or code tool, checked in that order.
+	 * The service that owns a graph, domain, Nextcloud task, image or code tool, checked in that order.
 	 *
 	 * @param string $toolId The namespaced tool id.
 	 *
@@ -940,6 +946,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	private function userScopedServiceFor(string $toolId): ?string {
 		return match (true) {
 			in_array($toolId, GraphToolDescriptors::IDS, true) => GraphToolsInterface::class,
+			in_array($toolId, DomainToolDescriptors::IDS, true) => DomainTools::class,
 			in_array($toolId, NcTaskToolDescriptors::IDS, true) => TaskWriteServiceInterface::class,
 			in_array($toolId, ImageToolDescriptors::IDS, true) => ImageGenerationServiceInterface::class,
 			in_array($toolId, CodeSandboxToolDescriptors::IDS, true) => RunCodeTool::class,
