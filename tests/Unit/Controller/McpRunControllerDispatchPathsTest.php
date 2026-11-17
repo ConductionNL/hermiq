@@ -506,7 +506,7 @@ final class McpRunControllerDispatchPathsTest extends TestCase {
 	public function testTheTokensProjectKeyReachesTheInvoker(): void {
 		$this->toolLoop->expects(self::once())
 			->method('buildFunctionInfos')
-			->with(self::anything(), self::anything(), self::anything(), self::anything(), self::anything(), self::anything(), 'omgevingsvisie-2040')
+			->with(self::anything(), self::anything(), self::anything(), self::anything(), self::anything(), self::anything(), self::anything(), self::anything(), 'omgevingsvisie-2040')
 			->willReturn([$this->functionInfo(self::TOOL, '{}')]);
 
 		$this->controller(body: $this->callBody(), binding: ['projectKey' => 'omgevingsvisie-2040'])->handle();

@@ -695,7 +695,7 @@ describe('starting in a project (memory-project-scopes)', () => {
 	})
 
 	it('starts a named new project directly, for an agent without projects too', async () => {
-		api.createSession.mockResolvedValueOnce({ uuid: 'new', projectKey: 'begroting-2027' })
+		api.createSession.mockResolvedValueOnce({ uuid: 'new', projectKey: 'begroting-wijk-oost' })
 		const w = await mountChat()
 		w.vm.newProjectName = '  Begroting 2027 '
 		await w.vm.startWithAgent({ uuid: 'a1' })

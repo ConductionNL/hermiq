@@ -603,6 +603,7 @@ class McpRunController extends Controller {
 			functions: $descriptors,
 			agent: $agent,
 			organisation: $this->organisationOf(agent: $agent),
+			runId: $this->runId,
 			projectKey: $call->projectKey
 		);
 

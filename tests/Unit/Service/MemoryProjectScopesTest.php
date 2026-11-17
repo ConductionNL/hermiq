@@ -167,11 +167,11 @@ class MemoryProjectScopesTest extends TestCase {
 	 * @return void
 	 */
 	public function testANewProjectGetsItsOwnMemory(): void {
-		$this->service()->getMemory(agentId: 'agent-1', projectKey: 'begroting-2027');
+		$this->service()->getMemory(agentId: 'agent-1', projectKey: 'begroting-wijk-oost');
 
 		$this->assertCount(1, $this->saved);
 		$this->assertSame('project', $this->saved[0]['scope']);
-		$this->assertSame('begroting-2027', $this->saved[0]['projectKey']);
+		$this->assertSame('begroting-wijk-oost', $this->saved[0]['projectKey']);
 		$this->assertSame('agent-1', $this->saved[0]['agentId']);
 		$this->assertSame([], $this->saved[0]['entries']);
 	}//end testANewProjectGetsItsOwnMemory()
@@ -331,10 +331,10 @@ class MemoryProjectScopesTest extends TestCase {
 	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 */
 	public function testEnsureProjectMemoryNamesTheProject(): void {
-		$this->service()->ensureProjectMemory(agentId: 'agent-1', projectKey: 'begroting-2027', projectName: ' Begroting 2027 ');
+		$this->service()->ensureProjectMemory(agentId: 'agent-1', projectKey: 'begroting-wijk-oost', projectName: ' Begroting 2027 ');
 
 		$this->assertCount(2, $this->saved);
-		$this->assertSame('begroting-2027', $this->saved[0]['projectKey']);
+		$this->assertSame('begroting-wijk-oost', $this->saved[0]['projectKey']);
 		$this->assertSame('Begroting 2027', $this->saved[1]['projectName']);
 
 		$this->saved = [];

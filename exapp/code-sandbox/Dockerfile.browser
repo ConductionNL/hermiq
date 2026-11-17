@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright (C) 2026 Conduction B.V.
+#
+# hermiq-code-sandbox-browser — headless Chromium and its controller
+# (tools-browser-and-computer-use D1). No profile is kept: each context is
+# created and disposed over the DevTools Protocol, and the only route out is the
+# browser egress proxy (deploy/docker-compose.yml).
+
+FROM node:22.12.0-bookworm-slim
+
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends chromium fonts-dejavu-core \
+	&& rm -rf /var/lib/apt/lists/*
+
+RUN groupadd --gid 10002 browser && useradd --uid 10002 --gid 10002 --home /app browser
+
+WORKDIR /app
+COPY src/ ./src/
+
+ENV BROWSER_CHROMIUM=/usr/bin/chromium \
+	HOME=/tmp
+
+USER browser
+EXPOSE 9100
+CMD ["node", "src/browserServer.js"]

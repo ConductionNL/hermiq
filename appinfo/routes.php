@@ -26,6 +26,10 @@ $routes = [
         ['name' => 'settings#create', 'url' => '/api/settings', 'verb' => 'POST'],
         ['name' => 'settings#load',  'url' => '/api/settings/load', 'verb' => 'POST'],
 
+        // The ADR-023 action matrix, administrators only (action-matrix-screen).
+        ['name' => 'actionMatrix#index',  'url' => '/api/actions', 'verb' => 'GET'],
+        ['name' => 'actionMatrix#update', 'url' => '/api/actions/{action}', 'verb' => 'PUT'],
+
         // Admin LLM provider selection (SPECTR-NEXTCLOUD-PLAN.md §8 move 1 — makes the
         // `nextcloud` TaskProcessing driver, and the pre-existing openai/ollama/fireworks
         // drivers, selectable from the admin panel instead of only via `occ`).
@@ -40,6 +44,13 @@ $routes = [
         ['name' => 'Settings\TalkBridgeSettings#bindRoom',  'url' => '/api/settings/talk-bridge/room', 'verb' => 'PUT'],
         ['name' => 'Settings\WebResearchSettings#get',    'url' => '/api/settings/web-research', 'verb' => 'GET'],
         ['name' => 'Settings\WebResearchSettings#update', 'url' => '/api/settings/web-research', 'verb' => 'PATCH'],
+        // Admin-only computer targets (tools-browser-and-computer-use REQ-COMPUTER-001):
+        // the machines an agent may operate, each reached only through an integriq source.
+        ['name' => 'Settings\ComputerTarget#index',      'url' => '/api/settings/computer-targets', 'verb' => 'GET'],
+        ['name' => 'Settings\ComputerTarget#create',     'url' => '/api/settings/computer-targets', 'verb' => 'POST'],
+        ['name' => 'Settings\ComputerTarget#update',     'url' => '/api/settings/computer-targets/{id}', 'verb' => 'PUT'],
+        ['name' => 'Settings\ComputerTarget#destroy',    'url' => '/api/settings/computer-targets/{id}', 'verb' => 'DELETE'],
+        ['name' => 'Settings\ComputerTarget#screenshot', 'url' => '/api/settings/computer-targets/{id}/screenshot', 'verb' => 'POST'],
         // Where code runs (tools-code-sandbox, Task 2): admin only.
         ['name' => 'Settings\CodeSandboxSettings#get',    'url' => '/api/settings/code-sandbox', 'verb' => 'GET'],
         ['name' => 'Settings\CodeSandboxSettings#update', 'url' => '/api/settings/code-sandbox', 'verb' => 'PATCH'],
@@ -212,6 +223,8 @@ $routes = [
         ['name' => 'approvalVerify#verify', 'url' => '/api/approvals/verify', 'verb' => 'POST'],
         ['name' => 'approval#index',   'url' => '/api/approvals', 'verb' => 'GET'],
         ['name' => 'approval#approve', 'url' => '/api/approvals/{approvalId}/approve', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
+        // tools-browser-and-computer-use: the machine's screen now, for the reviewer of a pending computer action.
+        ['name' => 'approval#screenshot', 'url' => '/api/approvals/{approvalId}/screenshot', 'verb' => 'GET', 'requirements' => ['approvalId' => '[^/]+']],
         ['name' => 'approval#deny',    'url' => '/api/approvals/{approvalId}/deny', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
         // One route for the chat's approval card: {decision: granted|refused}.
         ['name' => 'approval#resolve', 'url' => '/api/approvals/{approvalId}/resolve', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
