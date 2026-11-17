@@ -21,11 +21,11 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service\Mcp;
 
 use OCA\Hermiq\Kernel\Contracts\AgentCatalogInterface;
-use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\LiteracyRequirementInterface;
 use OCA\Hermiq\Kernel\Contracts\ScheduleServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
 use OCA\Hermiq\Mcp\DomainToolDescriptors;
+use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\Mcp\DomainTools;
 use OCA\Hermiq\Service\Schedule\OwnedSchedule;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -43,7 +43,7 @@ final class DomainToolsTest extends TestCase {
 
 	private AgentCatalogInterface&MockObject $agents;
 
-	private ApprovalServiceInterface&MockObject $approvals;
+	private ApprovalInbox&MockObject $approvals;
 
 	private ScheduleServiceInterface&MockObject $schedules;
 
@@ -55,7 +55,7 @@ final class DomainToolsTest extends TestCase {
 
 	protected function setUp(): void {
 		$this->agents = $this->createMock(AgentCatalogInterface::class);
-		$this->approvals = $this->createMock(ApprovalServiceInterface::class);
+		$this->approvals = $this->createMock(ApprovalInbox::class);
 		$this->schedules = $this->createMock(ScheduleServiceInterface::class);
 		$this->skills = $this->createMock(SkillServiceInterface::class);
 		$this->objects = $this->createMock(ObjectService::class);

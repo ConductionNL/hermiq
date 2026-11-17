@@ -26,13 +26,14 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Mcp;
 
 use OCA\Hermiq\Kernel\Contracts\AgentCatalogInterface;
-use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\LiteracyRequirementInterface;
 use OCA\Hermiq\Kernel\Contracts\ScheduleServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
 use OCA\Hermiq\Mcp\DomainToolDescriptors;
+use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\Schedule\OwnedSchedule;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -69,7 +70,7 @@ class DomainTools {
 	 * Constructor.
 	 *
 	 * @param AgentCatalogInterface             $agents      The agent read rule of the catalogue page.
-	 * @param ApprovalServiceInterface          $approvals   The approval inbox read.
+	 * @param ApprovalInbox                     $approvals   The approval inbox read.
 	 * @param ScheduleServiceInterface          $schedules   Runs a schedule now.
 	 * @param SkillServiceInterface             $skills      The tenant's skill catalogue.
 	 * @param OwnedSchedule                     $owned       The owner guard of a run by hand.
@@ -79,7 +80,7 @@ class DomainTools {
 	 */
 	public function __construct(
 		private readonly AgentCatalogInterface $agents,
-		private readonly ApprovalServiceInterface $approvals,
+		private readonly ApprovalInbox $approvals,
 		private readonly ScheduleServiceInterface $schedules,
 		private readonly SkillServiceInterface $skills,
 		private readonly OwnedSchedule $owned,
@@ -280,7 +281,7 @@ class DomainTools {
 	 */
 	private function findOrNull(string $id, string $schema): ?ObjectEntity {
 		try {
-			$found = $this->objects->find(id: $id, register: 'hermiq', schema: $schema);
+			$found = $this->objects->find(id: $id, options: new ObjectFindOptions(register: 'hermiq', schema: $schema));
 		} catch (Throwable) {
 			return null;
 		}
