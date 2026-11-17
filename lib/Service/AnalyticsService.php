@@ -121,6 +121,13 @@ class AnalyticsService implements AnalyticsServiceInterface
     private const DISCLOSURE_LABELS = ['provider', 'model', 'residency', 'location', 'dataUse', 'termsReference'];
 
     /**
+     * The fields of a recorded computer action a run row shows (REQ-COMPUTER-004).
+     *
+     * @var list<string>
+     */
+    private const COMPUTER_FIELDS = ['target', 'action', 'x', 'y', 'text', 'keys', 'approvalId', 'screenshot'];
+
+    /**
      * Page size for the visible-agent scan (paged to exhaustion, never a cap).
      *
      * @var integer
@@ -567,7 +574,7 @@ class AnalyticsService implements AnalyticsServiceInterface
                 keys: ['provider', 'model', 'outcome', 'reason', 'durationMs']
             ),
             'receivedBy'         => self::labelRows(rows: ($context['providerDisclosure']['receivedBy'] ?? []), keys: ['provider', 'model']),
-        ];
+        ] + self::computerFacts(steps: ($context['steps'] ?? []));
 
     }//end runFacts()
 
@@ -602,6 +609,66 @@ class AnalyticsService implements AnalyticsServiceInterface
         return $kept;
 
     }//end labelRows()
+
+    /**
+     * `computerActions` for a run that used a computer; nothing for any other run,
+     * so every other row reads as before.
+     *
+     * @param mixed $steps The run's recorded steps.
+     *
+     * @return array<string, array<int, array<string, mixed>>>
+     *
+     * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-the-run-records-actions-and-never-stores-screenshots-req-computer-004
+     */
+    private static function computerFacts(mixed $steps): array
+    {
+        $actions = self::computerActions(steps: $steps);
+        if ($actions === []) {
+            return [];
+        }
+
+        return ['computerActions' => $actions];
+
+    }//end computerFacts()
+
+    /**
+     * The computer actions a run recorded, as its steps traced them.
+     *
+     * Tools-browser-and-computer-use REQ-COMPUTER-004: the machine, the action,
+     * its point, the redacted text or keys, the approval and the screenshot's
+     * hash and size, never an image. Only those fields leave the record.
+     *
+     * @param mixed $steps The run's recorded steps.
+     *
+     * @return array<int, array<string, mixed>> One entry per computer step, in step order.
+     *
+     * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-the-run-records-actions-and-never-stores-screenshots-req-computer-004
+     */
+    private static function computerActions(mixed $steps): array
+    {
+        if (is_array($steps) === false) {
+            return [];
+        }
+
+        $actions = [];
+        foreach ($steps as $step) {
+            if (is_array($step) === false || is_array($step['computer'] ?? null) === false) {
+                continue;
+            }
+
+            $record = $step['computer'];
+
+            $action = array_intersect_key($record, array_flip(self::COMPUTER_FIELDS));
+            if (is_array($action['screenshot'] ?? null) === true) {
+                $action['screenshot'] = array_intersect_key($action['screenshot'], array_flip(['sha256', 'bytes']));
+            }
+
+            $actions[] = $action;
+        }
+
+        return $actions;
+
+    }//end computerActions()
 
     /**
      * Who wrote a run entry and when, with the epoch sort key the list orders on.

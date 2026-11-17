@@ -62,3 +62,11 @@ test('enabled needs auth; other routes are 404', async () => {
 	assert.equal((await fetch(base + '/enabled?enabled=1', { method: 'PUT', headers: authed })).status, 200)
 	assert.equal((await fetch(base + '/init', { method: 'POST', headers: authed })).status, 404)
 })
+
+test('browser routes need the shared secret and answer 503 without a browser service', async () => {
+	const body = JSON.stringify({ conversationId: 'c', url: 'https://example.org/' })
+	assert.equal((await fetch(base + '/browser/open', { method: 'POST', body })).status, 401)
+	const res = await fetch(base + '/browser/open', { method: 'POST', headers: authed, body })
+	assert.equal(res.status, 503)
+	assert.equal((await res.json()).code, 'browser_unavailable')
+})

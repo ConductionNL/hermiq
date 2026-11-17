@@ -185,6 +185,20 @@
 						</td>
 						<td class="hermiq-runs__summary">
 							{{ run.summary || '—' }}
+							<ul
+								v-if="run.computerActions && run.computerActions.length"
+								class="hermiq-runs__computer"
+								data-testid="run-computer-actions">
+								<li v-for="(action, index) in run.computerActions" :key="index">
+									{{ computerLine(action) }}
+									<span v-if="action.approvalId" class="hermiq-runs__computer-meta">
+										{{ t('hermiq', 'Approval {id}', { id: action.approvalId }) }}
+									</span>
+									<span v-if="action.screenshot" class="hermiq-runs__computer-meta">
+										{{ t('hermiq', 'Screen {hash}, {bytes} bytes, not kept', { hash: String(action.screenshot.sha256 || '').slice(0, 12), bytes: String(action.screenshot.bytes ?? 0) }) }}
+									</span>
+								</li>
+							</ul>
 						</td>
 					</tr>
 				</tbody>
@@ -380,6 +394,30 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * One recorded computer action in words: the action, the machine and its point,
+		 * text or keys (REQ-COMPUTER-004).
+		 *
+		 * @param {{target?: string, action?: string, x?: number, y?: number, text?: string, keys?: string}} action The recorded action.
+		 * @return {string} The line.
+		 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-the-run-records-actions-and-never-stores-screenshots-req-computer-004
+		 */
+		computerLine(action) {
+			const entry = action || {}
+			const target = String(entry.target || '')
+			const lines = {
+				__proto__: null,
+				screenshot: () => this.t('hermiq', 'Screenshot of {target}', { target }),
+				type: () => this.t('hermiq', 'Typed "{text}" on {target}', { text: String(entry.text || ''), target }),
+				key: () => this.t('hermiq', 'Pressed {keys} on {target}', { keys: String(entry.keys || ''), target }),
+			}
+			const line = lines[entry.action]
+			if (line !== undefined) {
+				return line()
+			}
+			return this.t('hermiq', 'Clicked at {x}, {y} on {target}', { x: String(entry.x ?? ''), y: String(entry.y ?? ''), target })
+		},
+
 		/**
 		 * Tick or untick a run for the comparison; a third tick is refused.
 		 *
@@ -740,5 +778,17 @@ export default {
 
 .hermiq-runs__range {
 	color: var(--color-text-maxcontrast);
+}
+
+.hermiq-runs__computer {
+	margin: 4px 0 0;
+	padding-inline-start: 16px;
+	list-style: disc;
+}
+
+.hermiq-runs__computer-meta {
+	display: block;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.9em;
 }
 </style>

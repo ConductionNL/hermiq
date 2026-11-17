@@ -49,6 +49,7 @@ use Exception;
 use LLPhant\Chat\Message as LLPhantMessage;
 use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
+use OCA\Hermiq\Mcp\ComputerToolDescriptors;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Kernel\Contracts\BudgetHardCapInterface;
 use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
@@ -307,6 +308,13 @@ class ResponseGenerationHandler {
 
 		try {
 			$this->resolveDriver(run: $run);
+			// Tools-browser-and-computer-use D4: a screenshot is an image, so a model
+			// path that cannot read one in a tool result is never offered them.
+			$run->progress->functions = ComputerToolDescriptors::forDriver(
+				functions: $run->progress->functions,
+				provider: $run->progress->driver->provider,
+				executionMode: $run->progress->driver->executionMode
+			);
 			$references = $this->askReferenceModels(run: $run);
 			$response = $this->answerTurn(run: $run);
 			$this->addReferenceUsage(usages: $references, run: $run);
@@ -586,6 +594,12 @@ class ResponseGenerationHandler {
 		$run->messageHistory = $history;
 		$this->recordProviderDisclosure(run: $run);
 		$this->assertChatProvider(provider: $driver->provider);
+		// A hop to a model path that cannot read a screenshot drops the computer tools too.
+		$run->progress->functions = ComputerToolDescriptors::forDriver(
+			functions: $run->progress->functions,
+			provider: $driver->provider,
+			executionMode: $driver->executionMode
+		);
 		$this->buildMessages(run: $run);
 		return $this->callProvider(run: $run);
 	}//end answerWith()
@@ -863,9 +877,32 @@ class ResponseGenerationHandler {
 			agent: $run->agent,
 			organisation: $run->progress->organisation,
 			dryRun: $run->dryRun,
-			conversationId: $run->conversationId
+			conversationId: $run->conversationId,
+			runId: self::approvalRunOf(run: $run)
 		);
 	}//end functionInfosFor()
+
+	/**
+	 * The run a chat turn's computer actions are approved for: its conversation.
+	 *
+	 * A chat turn has no run token; an action waiting for approval ends the turn
+	 * and the next turn of the same conversation retries it, so the conversation
+	 * is the run a reviewer's machine pre-authorisation covers, for at most its
+	 * fifteen minutes (tools-browser-and-computer-use REQ-COMPUTER-003).
+	 *
+	 * @param ResponseTurnRun $run The turn.
+	 *
+	 * @return string `conversation:<id>`, or '' without a conversation.
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	private static function approvalRunOf(ResponseTurnRun $run): string {
+		if ($run->conversationId === '') {
+			return '';
+		}
+
+		return 'conversation:' . $run->conversationId;
+	}//end approvalRunOf()
 
 	/**
 	 * OpenAI / Ollama: the LLPhant chat instance from the driver.

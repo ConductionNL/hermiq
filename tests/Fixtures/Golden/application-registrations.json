@@ -293,6 +293,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\ComputerUseServiceInterface",
+            "OCA\\Hermiq\\Service\\ComputerUse\\ComputerUseService"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\ConnectionReporterInterface",
             "OCA\\Hermiq\\Service\\Connection\\ConnectionReporter"
         ],
