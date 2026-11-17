@@ -33,6 +33,9 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Kernel\Contracts\GoalServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -99,7 +102,7 @@ class GoalService implements GoalServiceInterface {
 	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-a-person-can-give-an-agent-a-standing-goal-with-a-check-req-aggoal-001
 	 */
 	public function set(string $sessionId, string $uid, array $input): array {
-		$session = $this->objectService->find(id: $sessionId, register: self::REGISTER, schema: self::SESSION_SCHEMA);
+		$session = $this->objectService->find(id: $sessionId, options: new ObjectFindOptions(register: self::REGISTER, schema: self::SESSION_SCHEMA));
 		if ($uid === '' || $session === null || (string)($session->getObject()['userId'] ?? '') !== $uid) {
 			throw new RuntimeException('Session not found', 404);
 		}
@@ -131,8 +134,7 @@ class GoalService implements GoalServiceInterface {
 
 		$saved = $this->objectService->saveObject(
 			object: $goal,
-			register: self::REGISTER,
-			schema: self::GOAL_SCHEMA,
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER, schema: self::GOAL_SCHEMA)),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -153,7 +155,7 @@ class GoalService implements GoalServiceInterface {
 	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-a-person-can-give-an-agent-a-standing-goal-with-a-check-req-aggoal-001
 	 */
 	public function forSession(string $sessionId, string $uid): ?array {
-		$session = $this->objectService->find(id: $sessionId, register: self::REGISTER, schema: self::SESSION_SCHEMA);
+		$session = $this->objectService->find(id: $sessionId, options: new ObjectFindOptions(register: self::REGISTER, schema: self::SESSION_SCHEMA));
 		if ($uid === '' || $session === null || (string)($session->getObject()['userId'] ?? '') !== $uid) {
 			throw new RuntimeException('Session not found', 404);
 		}
@@ -187,7 +189,12 @@ class GoalService implements GoalServiceInterface {
 	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-a-goal-can-be-stopped-by-its-owner-or-the-agent-owner-req-aggoal-003
 	 */
 	public function stop(string $goalId, string $uid): array {
-		$goal = $this->objectService->find(id: $goalId, register: self::REGISTER, schema: self::GOAL_SCHEMA, _rbac: false, _multitenancy: false);
+		$goal = $this->objectService->find(
+			id: $goalId,
+			options: new ObjectFindOptions(register: self::REGISTER, schema: self::GOAL_SCHEMA),
+			_rbac: false,
+			_multitenancy: false
+		);
 		if ($goal === null || $uid === '' || $this->mayStop(goal: $goal, uid: $uid) === false) {
 			throw new RuntimeException('Goal not found', 404);
 		}
@@ -446,8 +453,7 @@ class GoalService implements GoalServiceInterface {
 
 		$agent = $this->objectService->find(
 			id: (string)($goal->getObject()['agentId'] ?? ''),
-			register: self::REGISTER,
-			schema: self::AGENT_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER, schema: self::AGENT_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -581,9 +587,10 @@ class GoalService implements GoalServiceInterface {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER,
-			schema: self::GOAL_SCHEMA,
-			uuid: (string)$goal->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER, schema: self::GOAL_SCHEMA),
+				uuid: (string)$goal->getUuid()
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

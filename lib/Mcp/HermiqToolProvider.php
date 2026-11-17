@@ -103,11 +103,13 @@ use OCA\Hermiq\Kernel\Contracts\MailReadServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\MemoryServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\NcNativeWriteServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\TaskWriteServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkMessageToolInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\WebFetchServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\WebSearchClientInterface;
 use OCA\Hermiq\Service\CodeSandbox\CodeSandboxSettings;
 use OCA\Hermiq\Service\CodeSandbox\RunCodeTool;
+use OCA\Hermiq\Service\RemoteAgent\RemoteTasks;
 use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
 use OCA\Hermiq\Service\Workspace\WorkspaceWrites;
 use OCA\OpenRegister\Mcp\IMcpToolProvider;
@@ -605,6 +607,39 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'idempotentHint' => false,
 			'scope' => 'create',
 		],
+		[
+			'id' => AppIdentity::APP_ID . '.askRemoteAgent',
+			// Flows-hand-off-and-wait (REQ-A2A-002): a task for an agent on another
+			// server, over A2A through the remote agent's integriq source. The task
+			// text leaves the instance, so `external`; each call is a new remote
+			// task, so never idempotent; default-denied like every write tool, and
+			// a grant may name one remote agent (`?remoteAgent=kvk-assistent`).
+			'subject' => 'agent',
+			'action' => 'delegate',
+			'reach' => ToolReachResolver::REACH_EXTERNAL,
+			'name' => 'Ask a remote agent',
+			'description' => 'Send a task to an agent on another server that an admin registered as a remote agent. '
+				. 'Returns its answer when it answers at once; when it keeps working, its answer arrives later in this '
+				. 'conversation. The task text leaves this Nextcloud.',
+			'inputSchema' => [
+				'type' => 'object',
+				'properties' => [
+					'remoteAgent' => [
+						'type' => 'string',
+						'description' => 'The handle of the remote agent, for example kvk-assistent.',
+					],
+					'task' => [
+						'type' => 'string',
+						'description' => 'What the remote agent should do.',
+					],
+				],
+				'required' => ['remoteAgent', 'task'],
+			],
+			'readOnlyHint' => false,
+			'destructiveHint' => true,
+			'idempotentHint' => false,
+			'scope' => 'create',
+		],
 	];
 
 	/**
@@ -652,6 +687,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *                                                 grants nothing; only the agent's owner
 	 *                                                 can write `Agent.tools`.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param RemoteTasks|null $remoteTasks Backs `askRemoteAgent` (flows-hand-off-and-wait); null answers it as unavailable.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) DI of thirteen distinct capabilities.
 	 */
@@ -678,6 +714,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 		private readonly MailReadServiceInterface $mailReadService,
 		private readonly ToolAccessRequestServiceInterface $accessRequests,
 		private readonly LoggerInterface $logger,
+		private readonly ?RemoteTasks $remoteTasks = null,
 	) {
 	}//end __construct()
 
@@ -710,6 +747,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			WorkspaceToolDescriptors::ALL,
 			GraphToolDescriptors::ALL,
 			$this->taskDescriptors(),
+			NcTalkToolDescriptors::ALL,
 			$this->imageDescriptors(),
 			$this->codeSandboxDescriptors()
 		);
@@ -849,6 +887,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			in_array($toolId, NcTaskToolDescriptors::IDS, true) => TaskWriteServiceInterface::class,
 			in_array($toolId, ImageToolDescriptors::IDS, true) => ImageGenerationServiceInterface::class,
 			in_array($toolId, CodeSandboxToolDescriptors::IDS, true) => RunCodeTool::class,
+			in_array($toolId, NcTalkToolDescriptors::IDS, true) => TalkMessageToolInterface::class,
 			default => null,
 		};
 
@@ -949,6 +988,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 			// carry per-agent data — attribution lives in the run trace.
 			AppIdentity::APP_ID . '.createNote' => $this->writeService->createNote(uid: $call->uid, arguments: $call->arguments),
 			AppIdentity::APP_ID . '.updateNote' => $this->writeService->updateNote(uid: $call->uid, arguments: $call->arguments),
+			AppIdentity::APP_ID . '.createFile' => $this->writeService->createFile(uid: $call->uid, arguments: $call->arguments),
+			AppIdentity::APP_ID . '.moveFile' => $this->writeService->moveFile(uid: $call->uid, arguments: $call->arguments),
 			AppIdentity::APP_ID . '.listMailAccounts' => $this->mailReadService->listAccounts(uid: $call->uid),
 			AppIdentity::APP_ID . '.listMailMessages' => $this->mailReadService->listMessages(uid: $call->uid, arguments: $call->arguments),
 			AppIdentity::APP_ID . '.readMailMessage' => $this->mailReadService->readMessage(uid: $call->uid, arguments: $call->arguments),
@@ -996,6 +1037,10 @@ class HermiqToolProvider implements IMcpToolProvider {
 			AppIdentity::APP_ID . '.webFetch' => $this->webFetch(url: $call->text(name: 'url')),
 			AppIdentity::APP_ID . '.delegateAgent' => $this->delegateAgent(arguments: $call->arguments),
 			AppIdentity::APP_ID . '.delegateAgents' => $this->delegateAgents(arguments: $call->arguments),
+			AppIdentity::APP_ID . '.askRemoteAgent' => $this->askRemoteAgent(
+				remoteAgent: $call->text(name: 'remoteAgent'),
+				task: $call->text(name: 'task')
+			),
 			AppIdentity::APP_ID . '.listAvailableTools' => $this->accessRequests->listAvailable(
 				uid: $call->uid,
 				agentId: $call->agentId,
@@ -1040,6 +1085,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @param string $path The folder path relative to the user root.
 	 *
 	 * @return array<string, mixed> The listing, or an error envelope.
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/nc-native-tools/spec.md#REQ-SPCOV-005
 	 */
 	private function listFiles(string $uid, string $path): array {
 		$target = $this->listingTarget(userFolder: $this->rootFolder->getUserFolder($uid), path: $path);
@@ -1115,6 +1161,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @param string $path The file path relative to the user root.
 	 *
 	 * @return array<string, mixed> The content, or an error envelope.
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/nc-native-tools/spec.md#REQ-SPCOV-005
 	 */
 	private function readFile(string $uid, string $path): array {
 		if (trim($path, '/') === '') {
@@ -1183,6 +1230,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @param int $days The look-ahead window in days.
 	 *
 	 * @return array<string, mixed> The events, or an error envelope.
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/nc-native-tools/spec.md#REQ-SPCOV-006
 	 */
 	private function listCalendarEvents(string $uid, int $days): array {
 		$window = max(1, min(90, $days));
@@ -1491,6 +1539,24 @@ class HermiqToolProvider implements IMcpToolProvider {
 
 		return $this->delegationService->delegateMany(callerAgentId: $callerAgentId, parts: $parts);
 	}//end delegateAgents()
+
+	/**
+	 * Ask a remote agent (flows-hand-off-and-wait); a task still working comes back as a handoff.
+	 *
+	 * @param string $remoteAgent The remote agent's handle.
+	 * @param string $task        The task.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-asking-a-remote-agent-is-a-default-denied-external-tool-req-a2a-002
+	 */
+	private function askRemoteAgent(string $remoteAgent, string $task): array {
+		if ($this->remoteTasks === null) {
+			return ['error' => 'remote_agent_unavailable', 'message' => 'Remote agents are not available on this instance.'];
+		}
+
+		return $this->remoteTasks->ask(remoteAgent: $remoteAgent, task: $task);
+	}//end askRemoteAgent()
 
 	/**
 	 * Build a structured error envelope (invokeTool never throws).

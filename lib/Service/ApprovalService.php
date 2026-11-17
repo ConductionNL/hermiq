@@ -94,6 +94,9 @@ use OCA\Hermiq\Service\Approval\ApprovalTaskBridge;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IGroupManager;
 use OCP\IUserManager;
@@ -289,13 +292,7 @@ class ApprovalService implements ApprovalServiceInterface {
 			}
 		}
 
-		$reviewer = $agentOwner;
-		$reviewerType = 'user';
-		if ($reviewer === '') {
-			$reviewer = 'admin';
-			$reviewerType = 'group';
-		}
-
+		$review = $this->reviewFor(owner: $agentOwner);
 		$payload = [
 			'status' => 'pending',
 			'sourceType' => 'flow',
@@ -303,9 +300,7 @@ class ApprovalService implements ApprovalServiceInterface {
 			'flowContext' => $context,
 			'agentId' => (string)($context['agent'] ?? ''),
 			'prompt' => (string)($context['prompt'] ?? ''),
-			'requestedAt' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
-			'reviewer' => $reviewer,
-			'reviewerType' => $reviewerType,
+			...$review,
 			'decidedAt' => null,
 			'decidedBy' => null,
 			'reason' => null,
@@ -317,7 +312,7 @@ class ApprovalService implements ApprovalServiceInterface {
 		try {
 			$this->deliveryService->deliverApprovalRequestForFlowRun(
 				approval: $approval,
-				reviewerUids: $this->reviewerUids(reviewer: $reviewer, reviewerType: $reviewerType)
+				reviewerUids: $this->reviewerUids(reviewer: $review['reviewer'], reviewerType: $review['reviewerType'])
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(
@@ -441,12 +436,6 @@ class ApprovalService implements ApprovalServiceInterface {
 		}
 
 		$owner = $this->resolveAgentOwner(agentId: $agentId);
-		$reviewer = $owner;
-		$reviewerType = 'user';
-		if ($reviewer === '') {
-			$reviewer = 'admin';
-			$reviewerType = 'group';
-		}
 
 		$payload = [
 			'status' => 'pending',
@@ -454,30 +443,13 @@ class ApprovalService implements ApprovalServiceInterface {
 			'agentId' => $agentId,
 			'toolId' => $toolId,
 			'prompt' => $this->summarizeArguments(arguments: $arguments),
-			'requestedAt' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
-			'reviewer' => $reviewer,
-			'reviewerType' => $reviewerType,
+			...$this->reviewFor(owner: $owner),
 			'decidedAt' => null,
 			'decidedBy' => null,
 			'reason' => null,
 		];
 
-		$approval = $this->persistApproval(data: $payload, target: new ApprovalTarget(uuid: null, owner: $owner));
-
-		try {
-			$this->deliveryService->deliverApprovalRequestForToolInvocation(
-				approval: $approval,
-				reviewerUids: $this->reviewerUids(reviewer: $reviewer, reviewerType: $reviewerType)
-			);
-		} catch (Throwable $e) {
-			$this->logger->warning(
-				'Hermiq could not notify reviewer for tool-invocation approval '
-				. ((string)$approval->getUuid()) . ': ' . $e->getMessage(),
-				['exception' => $e]
-			);
-		}
-
-		return $approval;
+		return $this->openToolApproval(payload: $payload, label: 'reviewer for tool-invocation approval');
 	}//end ensurePendingApprovalForToolInvocation()
 
 	/**
@@ -519,12 +491,6 @@ class ApprovalService implements ApprovalServiceInterface {
 		}
 
 		$owner = $this->resolveAgentOwner(agentId: $agentId);
-		$reviewer = $owner;
-		$reviewerType = 'user';
-		if ($reviewer === '') {
-			$reviewer = 'admin';
-			$reviewerType = 'group';
-		}
 
 		$payload = [
 			'status' => 'pending',
@@ -534,31 +500,14 @@ class ApprovalService implements ApprovalServiceInterface {
 			'toolId' => $toolId,
 			'toolArguments' => $this->redactedArguments(arguments: $arguments),
 			'prompt' => $this->summarizeArguments(arguments: $arguments),
-			'requestedAt' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
-			'reviewer' => $reviewer,
-			'reviewerType' => $reviewerType,
+			...$this->reviewFor(owner: $owner),
 			'decidedAt' => null,
 			'decidedBy' => null,
 			'reason' => null,
 			'consumedAt' => null,
 		];
 
-		$approval = $this->persistApproval(data: $payload, target: new ApprovalTarget(uuid: null, owner: $owner));
-
-		try {
-			$this->deliveryService->deliverApprovalRequestForToolInvocation(
-				approval: $approval,
-				reviewerUids: $this->reviewerUids(reviewer: $reviewer, reviewerType: $reviewerType)
-			);
-		} catch (Throwable $e) {
-			$this->logger->warning(
-				'Hermiq could not notify reviewer for toolcall approval '
-				. ((string)$approval->getUuid()) . ': ' . $e->getMessage(),
-				['exception' => $e]
-			);
-		}
-
-		return $approval;
+		return $this->openToolApproval(payload: $payload, label: 'reviewer for toolcall approval');
 	}//end ensurePendingApprovalForToolCall()
 
 	/**
@@ -595,12 +544,6 @@ class ApprovalService implements ApprovalServiceInterface {
 		}
 
 		$owner = $this->resolveAgentOwner(agentId: $agentId);
-		$reviewer = $owner;
-		$reviewerType = 'user';
-		if ($reviewer === '') {
-			$reviewer = 'admin';
-			$reviewerType = 'group';
-		}
 
 		$payload = [
 			'status' => 'pending',
@@ -611,26 +554,10 @@ class ApprovalService implements ApprovalServiceInterface {
 			'binding' => $binding,
 			'toolArguments' => ['proposalId' => $proposalId, 'targetIds' => array_values($targetIds)],
 			'prompt' => 'Run ' . $toolId . ' on ' . count($targetIds) . ' records (proposal ' . $proposalId . ').',
-			'requestedAt' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
-			'reviewer' => $reviewer,
-			'reviewerType' => $reviewerType,
+			...$this->reviewFor(owner: $owner),
 		];
 
-		$approval = $this->persistApproval(data: $payload, target: new ApprovalTarget(uuid: null, owner: $owner));
-
-		try {
-			$this->deliveryService->deliverApprovalRequestForToolInvocation(
-				approval: $approval,
-				reviewerUids: $this->reviewerUids(reviewer: $reviewer, reviewerType: $reviewerType)
-			);
-		} catch (Throwable $e) {
-			$this->logger->warning(
-				'Hermiq could not notify the reviewer of staged batch approval ' . ((string)$approval->getUuid()) . ': ' . $e->getMessage(),
-				['exception' => $e]
-			);
-		}
-
-		return $approval;
+		return $this->openToolApproval(payload: $payload, label: 'the reviewer of staged batch approval');
 	}//end ensurePendingApprovalForStagedBatch()
 
 	/**
@@ -670,12 +597,7 @@ class ApprovalService implements ApprovalServiceInterface {
 		}
 
 		$owner = (string)($skill->getOwner() ?? '');
-		$reviewer = $owner;
-		$reviewerType = 'user';
-		if ($reviewer === '') {
-			$reviewer = 'admin';
-			$reviewerType = 'group';
-		}
+		$review = $this->reviewFor(owner: $owner);
 
 		// NOTE: `agentId` is OMITTED — a skill-draft Approval gates a skill
 		// version, not an agent run, and OR validates `format: uuid` on any
@@ -688,9 +610,7 @@ class ApprovalService implements ApprovalServiceInterface {
 			'skillId' => (string)($draft->getObject()['skillId'] ?? ''),
 			'draftPayload' => $draftPayload,
 			'prompt' => (string)($draftPayload['learningsSummary'] ?? ''),
-			'requestedAt' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
-			'reviewer' => $reviewer,
-			'reviewerType' => $reviewerType,
+			...$review,
 			'decidedAt' => null,
 			'decidedBy' => null,
 			'reason' => null,
@@ -703,7 +623,7 @@ class ApprovalService implements ApprovalServiceInterface {
 		try {
 			$this->deliveryService->deliverApprovalRequestForSkillDraft(
 				approval: $approval,
-				reviewerUids: $this->reviewerUids(reviewer: $reviewer, reviewerType: $reviewerType),
+				reviewerUids: $this->reviewerUids(reviewer: $review['reviewer'], reviewerType: $review['reviewerType']),
 				skillName: (string)($skill->getObject()['name'] ?? '')
 			);
 		} catch (Throwable $e) {
@@ -895,12 +815,6 @@ class ApprovalService implements ApprovalServiceInterface {
 	 */
 	public function requestRunPreAuthorisation(string $agentId, string $runId, string $toolId, string $repository, string $ref): array {
 		$owner = $this->resolveAgentOwner(agentId: $agentId);
-		$reviewer = $owner;
-		$reviewerType = 'user';
-		if ($reviewer === '') {
-			$reviewer = 'admin';
-			$reviewerType = 'group';
-		}
 
 		$payload = [
 			'status' => 'pending',
@@ -910,27 +824,13 @@ class ApprovalService implements ApprovalServiceInterface {
 			'toolId' => $toolId,
 			'toolArguments' => ['runId' => $runId, 'repository' => $repository, 'ref' => $ref],
 			'prompt' => 'Let this agent change files and commit in ' . $repository . ' (from ' . $ref . ') for the rest of this run.',
-			'requestedAt' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
-			'reviewer' => $reviewer,
-			'reviewerType' => $reviewerType,
+			...$this->reviewFor(owner: $owner),
 		];
 
 		// The decision fields (decidedAt, decidedBy, reason) are OMITTED rather
 		// than null: the register types them string and date-time and refuses a
 		// null, and a pending record has none.
-		$approval = $this->persistApproval(data: $payload, target: new ApprovalTarget(uuid: null, owner: $owner));
-
-		try {
-			$this->deliveryService->deliverApprovalRequestForToolInvocation(
-				approval: $approval,
-				reviewerUids: $this->reviewerUids(reviewer: $reviewer, reviewerType: $reviewerType)
-			);
-		} catch (Throwable $e) {
-			$this->logger->warning(
-				'Hermiq could not notify the reviewer of workspace approval ' . ((string)$approval->getUuid()) . ': ' . $e->getMessage(),
-				['exception' => $e]
-			);
-		}
+		$approval = $this->openToolApproval(payload: $payload, label: 'the reviewer of workspace approval');
 
 		return ['uuid' => (string)$approval->getUuid(), 'status' => 'pending', 'decidedBy' => ''];
 	}//end requestRunPreAuthorisation()
@@ -1219,8 +1119,7 @@ class ApprovalService implements ApprovalServiceInterface {
 
 		$agent = $this->objectService->find(
 			id: $agentId,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1337,8 +1236,7 @@ class ApprovalService implements ApprovalServiceInterface {
 
 		$approval = $this->objectService->find(
 			id: $uuid,
-			register: self::REGISTER_SLUG,
-			schema: self::APPROVAL_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1691,8 +1589,7 @@ class ApprovalService implements ApprovalServiceInterface {
 
 		$schedule = $this->objectService->find(
 			id: $scheduleId,
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEDULE_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEDULE_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1805,9 +1702,10 @@ class ApprovalService implements ApprovalServiceInterface {
 		try {
 			$saved = $this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::APPROVAL_SCHEMA,
-				uuid: $uuid,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA),
+					uuid: $uuid
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -1858,9 +1756,10 @@ class ApprovalService implements ApprovalServiceInterface {
 
 			return $this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::APPROVAL_SCHEMA,
-				uuid: (string)$approval->getUuid(),
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA),
+					uuid: (string)$approval->getUuid()
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -1925,4 +1824,52 @@ class ApprovalService implements ApprovalServiceInterface {
 		}//end try
 
 	}//end writeDecisionAudit()
+	/**
+	 * The request time and the reviewer of a new approval: the owner, or the admin group when there is none.
+	 *
+	 * @param string $owner The owner who reviews, '' for none.
+	 *
+	 * @return array{requestedAt: string, reviewer: string, reviewerType: string}
+	 */
+	private function reviewFor(string $owner): array {
+		$requestedAt = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
+		if ($owner === '') {
+			return ['requestedAt' => $requestedAt, 'reviewer' => 'admin', 'reviewerType' => 'group'];
+		}
+
+		return ['requestedAt' => $requestedAt, 'reviewer' => $owner, 'reviewerType' => 'user'];
+	}//end reviewFor()
+
+	/**
+	 * Store a tool approval and ping its reviewer; a failed ping is logged, never fatal.
+	 *
+	 * The owner is the reviewing user, and none when the admin group reviews.
+	 *
+	 * @param array<string, mixed> $payload The approval, with its reviewer fields.
+	 * @param string               $label   Who could not be notified, for the log line.
+	 *
+	 * @return ObjectEntity The stored approval.
+	 */
+	private function openToolApproval(array $payload, string $label): ObjectEntity {
+		$owner = '';
+		if ($payload['reviewerType'] === 'user') {
+			$owner = (string)$payload['reviewer'];
+		}
+
+		$approval = $this->persistApproval(data: $payload, target: new ApprovalTarget(uuid: null, owner: $owner));
+
+		try {
+			$this->deliveryService->deliverApprovalRequestForToolInvocation(
+				approval: $approval,
+				reviewerUids: $this->reviewerUids(reviewer: (string)$payload['reviewer'], reviewerType: (string)$payload['reviewerType'])
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq could not notify ' . $label . ' ' . ((string)$approval->getUuid()) . ': ' . $e->getMessage(),
+				['exception' => $e]
+			);
+		}
+
+		return $approval;
+	}//end openToolApproval()
 }//end class

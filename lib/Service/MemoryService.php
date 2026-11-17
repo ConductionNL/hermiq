@@ -39,6 +39,8 @@ use DateTimeZone;
 use OCA\Hermiq\Kernel\Contracts\MemoryServiceInterface;
 use OCA\Hermiq\Service\Memory\MemoryEntryRef;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserSession;
 
@@ -157,8 +159,7 @@ class MemoryService implements MemoryServiceInterface {
 				'charBudget' => self::DEFAULT_MEMORY_BUDGET,
 				'needsConsolidation' => false,
 			],
-			register: self::REGISTER_SLUG,
-			schema: self::MEMORY_SCHEMA
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MEMORY_SCHEMA))
 		);
 
 	}//end getMemory()
@@ -193,8 +194,7 @@ class MemoryService implements MemoryServiceInterface {
 				'charBudget' => self::DEFAULT_PROFILE_BUDGET,
 				'needsConsolidation' => false,
 			],
-			register: self::REGISTER_SLUG,
-			schema: self::USER_PROFILE_SCHEMA
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::USER_PROFILE_SCHEMA))
 		);
 
 	}//end getUserProfile()
@@ -261,9 +261,10 @@ class MemoryService implements MemoryServiceInterface {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::MEMORY_SCHEMA,
-			uuid: (string)$memory->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MEMORY_SCHEMA),
+				uuid: (string)$memory->getUuid()
+			)
 		);
 
 	}//end consolidateMemory()
@@ -581,9 +582,10 @@ class MemoryService implements MemoryServiceInterface {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::MEMORY_SCHEMA,
-			uuid: (string)$memory->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MEMORY_SCHEMA),
+				uuid: (string)$memory->getUuid()
+			)
 		);
 
 	}//end correctMemoryEntry()
@@ -647,9 +649,10 @@ class MemoryService implements MemoryServiceInterface {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: $schema,
-			uuid: (string)$object->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: $schema),
+				uuid: (string)$object->getUuid()
+			)
 		);
 
 	}//end appendEntry()
@@ -697,9 +700,10 @@ class MemoryService implements MemoryServiceInterface {
 
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: $schema,
-			uuid: (string)$object->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: $schema),
+				uuid: (string)$object->getUuid()
+			)
 		);
 
 		return true;

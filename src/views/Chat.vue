@@ -36,7 +36,7 @@
 		<!-- Session list column -->
 		<aside class="chat-page__list">
 			<div class="chat-page__list-head">
-				<NcButton variant="primary" wide @click="newSession">
+				<NcButton variant="primary" wide @click="onNewSessionClick">
 					<template #icon>
 						<Plus :size="20" />
 					</template>
@@ -141,6 +141,15 @@
 								{{ t('hermiq', 'Invite colleagues') }}
 							</NcActionButton>
 							<NcActionButton
+								v-if="!showArchive && canShare(session)"
+								data-testid="chat-session-share"
+								@click="openShare(session)">
+								<template #icon>
+									<ShareVariant :size="20" />
+								</template>
+								{{ t('hermiq', 'Share') }}
+							</NcActionButton>
+							<NcActionButton
 								v-if="!showArchive && session.role !== 'participant'"
 								@click="archive(session)">
 								<template #icon>
@@ -165,6 +174,39 @@
 								{{ t('hermiq', 'Delete session') }}
 							</NcActionButton>
 						</NcActions>
+					</div>
+				</template>
+				<!--
+					Chat-fork-and-share-link: sessions shared with the reader,
+					read-only. Each opens its own read-only page.
+				-->
+				<template v-if="!showArchive && sharedSessions.length > 0">
+					<h3 class="chat-page__group" data-testid="chat-session-group-shared-with-you">
+						{{ t('hermiq', 'Shared with you') }}
+					</h3>
+					<div
+						v-for="session in sharedSessions"
+						:key="`shared-${session.uuid}`"
+						class="chat-page__row"
+						data-testid="chat-session-row-shared-with-you">
+						<div
+							class="chat-page__row-main"
+							role="button"
+							tabindex="0"
+							@click="openShared(session)"
+							@keydown.enter="openShared(session)">
+							<span class="chat-page__row-icon">
+								<ShareVariant :size="20" />
+							</span>
+							<span class="chat-page__row-text">
+								<strong>{{ session.title || t('hermiq', 'New session') }}</strong>
+								<span class="chat-page__row-meta">{{
+									session.share && session.share.sharedByDisplayName
+										? t('hermiq', 'Shared by {name}', { name: session.share.sharedByDisplayName })
+										: ''
+								}}</span>
+							</span>
+						</div>
 					</div>
 				</template>
 			</div>
@@ -403,6 +445,39 @@
 								</ul>
 							</details>
 
+							<!-- The scope the answer was given (memory-retrieval-scope D5). -->
+							<div
+								v-if="message.role === 'assistant' && scopeDisplay(message.retrievalScope)"
+								class="chat-page__scope"
+								data-testid="chat-retrieval-scope">
+								<p
+									v-if="scopeDisplay(message.retrievalScope).abstained"
+									class="chat-page__scope-abstained">
+									{{
+										t(
+											'hermiq',
+											'No validated document matched this question. The assistant did not answer from other knowledge.',
+										)
+									}}
+								</p>
+								<p class="chat-page__scope-detail">
+									<span v-if="scopeDisplay(message.retrievalScope).validated">{{
+										t(
+											'hermiq',
+											'Validated mode, floor {floor}. Passages at or above it: {passed}. Best match: {best}.',
+											{
+												passed: String(scopeDisplay(message.retrievalScope).passed),
+												floor: similarityText(scopeDisplay(message.retrievalScope).floor),
+												best: similarityText(scopeDisplay(message.retrievalScope).best),
+											},
+										)
+									}}</span>
+									<span v-if="scopeDisplay(message.retrievalScope).filtered">{{
+										t('hermiq', 'The agent’s file filters limited which files were searched.')
+									}}</span>
+								</p>
+							</div>
+
 							<!-- RAG sources -->
 							<div
 								v-if="message.sources && message.sources.length > 0"
@@ -560,6 +635,20 @@
 									{{ t('hermiq', 'Send feedback') }}
 								</NcButton>
 							</div>
+
+							<!-- Work this turn started and waits for (flows-hand-off-and-wait). -->
+							<ul
+								v-if="handoffGroups[message.id]"
+								class="chat-page__handoffs"
+								data-testid="chat-handoffs">
+								<li
+									v-for="handoff in handoffGroups[message.id]"
+									:key="handoff.id || handoff.uuid || handoff.requestedAt"
+									class="chat-page__handoff"
+									:class="`chat-page__handoff--${handoff.status}`">
+									{{ handoffLine(handoff, t, clockTime) }}
+								</li>
+							</ul>
 						</div>
 					</div>
 
@@ -739,6 +828,11 @@
 		</section>
 
 		<!-- Isolated modals (ADR-004) -->
+		<SessionShareModal
+			:show="shareTarget !== null"
+			:session="shareTarget"
+			@close="shareTarget = null"
+			@changed="onSharesChanged" />
 		<SessionParticipantsModal
 			:show="participantsTarget !== null"
 			:session="participantsTarget"
@@ -845,6 +939,7 @@ import PuzzlePlusOutline from 'vue-material-design-icons/PuzzlePlusOutline.vue'
 import Restore from 'vue-material-design-icons/Restore.vue'
 import RobotOutline from 'vue-material-design-icons/RobotOutline.vue'
 import Send from 'vue-material-design-icons/Send.vue'
+import ShareVariant from 'vue-material-design-icons/ShareVariant.vue'
 import SitemapOutline from 'vue-material-design-icons/SitemapOutline.vue'
 import SourceBranch from 'vue-material-design-icons/SourceBranch.vue'
 import StopCircleOutline from 'vue-material-design-icons/StopCircleOutline.vue'
@@ -863,6 +958,7 @@ import ScheduleFormModal from '../modals/ScheduleFormModal.vue'
 import SessionDeleteModal from '../modals/SessionDeleteModal.vue'
 import SessionParticipantsModal from '../modals/SessionParticipantsModal.vue'
 import SessionRenameModal from '../modals/SessionRenameModal.vue'
+import SessionShareModal from '../modals/SessionShareModal.vue'
 import SkillFormModal from '../modals/SkillFormModal.vue'
 import { checkAgentDraft } from '../api/agents.js'
 import {
@@ -874,8 +970,10 @@ import {
 	getImageAvailability,
 	getSession,
 	getSessionGoal,
+	listHandoffs,
 	listMessages,
 	listSessions,
+	listSharedSessions,
 	restoreSession,
 	sendChatMessage,
 	sendMessageFeedback,
@@ -884,6 +982,7 @@ import {
 	uploadChatAttachment,
 	warmChat,
 } from '../api/chat.js'
+import { getPreference, PREFERENCE_KEYS } from '../api/preferences.js'
 import { speechCapabilities } from '../api/speech.js'
 import { useAgentStore } from '../store/store.js'
 import {
@@ -893,6 +992,7 @@ import {
 	scheduleFromDraft,
 } from '../utils/agentDraft.js'
 import { sourceFileId, sourceName, sourcePage } from '../utils/chatSources.js'
+import { clockTime, handoffLine, handoffsByMessage } from '../utils/handoffLines.js'
 import {
 	initialAnswers,
 	missingRequired,
@@ -900,7 +1000,10 @@ import {
 	startFieldsOf,
 	startValueSummary,
 } from '../utils/instructionVariables.js'
+import { defaultAgentOf } from '../utils/personalPreferences.js'
+import { scopeDisplay, similarityText } from '../utils/retrievalScope.js'
 import { canForkSession, forkedSessionToOpen } from '../utils/sessionFork.js'
+import { canShareSession } from '../utils/sessionShare.js'
 import { sessionStartErrorMessage } from '../utils/sessionStartError.js'
 import { appendTranscript, speechControls } from '../utils/speech.js'
 import { goalLine as describeGoal } from './chatGoalLine.js'
@@ -938,6 +1041,8 @@ export default {
 		SessionDeleteModal,
 		SessionParticipantsModal,
 		SessionRenameModal,
+		SessionShareModal,
+		ShareVariant,
 		GenerateImageModal,
 		GoalFormModal,
 		ImageOutline,
@@ -1005,15 +1110,22 @@ export default {
 
 			// The session whose participants dialog is open (chat-work-together-in-one-session).
 			participantsTarget: null,
+			// Chat-fork-and-share-link: the session whose share dialog is open, and the sessions shared with the reader.
+			shareTarget: null,
+			sharedSessions: [],
 
 			// Active thread
 			activeSession: null,
 			messages: [],
+			// Flows-hand-off-and-wait: the work agents started in this session.
+			handoffs: [],
 			messagesLoading: false,
 			currentAgent: null,
 
 			// Agent selector
 			agents: [],
+			// personal-preferences: the agent a new session starts with, or ''.
+			defaultAgentId: '',
 			agentsLoading: true,
 			agentsError: '',
 			startingId: '',
@@ -1077,6 +1189,16 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * The session's handoffs under the message each one belongs to.
+		 *
+		 * @return {Object<string, Array<object>>} Message id → handoffs.
+		 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+		 */
+		handoffGroups() {
+			return handoffsByMessage(this.handoffs, this.messages)
+		},
+
 		/**
 		 * Whether "Fork from here" is offered: the owner of an open, unarchived session.
 		 *
@@ -1316,6 +1438,7 @@ export default {
 		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
 		this.loadSessions()
 		this.loadAgents()
+		this.loadDefaultAgent()
 		this.loadSpeechService()
 		this.loadImageAvailability()
 	},
@@ -1330,6 +1453,30 @@ export default {
 
 	methods: {
 		sourceFileId,
+		clockTime,
+		handoffLine,
+
+		/**
+		 * Read the session's handoffs; a failure leaves the lines out, never the thread.
+		 *
+		 * @param {string} uuid The session.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+		 */
+		async loadHandoffs(uuid) {
+			let handoffs
+			try {
+				handoffs = await listHandoffs(uuid)
+			} catch {
+				handoffs = []
+			}
+			if (this.activeSession?.uuid === uuid) {
+				this.handoffs = handoffs
+			}
+		},
+
+		scopeDisplay,
+		similarityText,
 		sourceName,
 		sourcePage,
 
@@ -1371,6 +1518,63 @@ export default {
 		 */
 		openParticipants(session) {
 			this.participantsTarget = session
+		},
+
+		/**
+		 * Whether the share dialog is offered for a session: to its owner.
+		 *
+		 * @param {object} session The session row.
+		 * @return {boolean}
+		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+		 */
+		canShare(session) {
+			return canShareSession(session)
+		},
+
+		/**
+		 * Open the share dialog for a session.
+		 *
+		 * @param {object} session The session row.
+		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+		 */
+		openShare(session) {
+			this.shareTarget = session
+		},
+
+		/**
+		 * Keep the row's share count in step after a share or a removal.
+		 *
+		 * @param {Array<object>} shares The shares now.
+		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+		 */
+		onSharesChanged(shares) {
+			if (this.shareTarget) {
+				this.shareTarget.shareCount = shares.length
+			}
+		},
+
+		/**
+		 * Open a session shared with the reader on its read-only page.
+		 *
+		 * @param {object} session The shared session row.
+		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+		 */
+		openShared(session) {
+			this.$router.push(`/chat/shared/${encodeURIComponent(session.uuid)}`)
+		},
+
+		/**
+		 * Load the sessions shared with the reader; a failure leaves the group out.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+		 */
+		async loadSharedSessions() {
+			try {
+				this.sharedSessions = await listSharedSessions()
+			} catch {
+				this.sharedSessions = []
+			}
 		},
 
 		/**
@@ -1534,6 +1738,7 @@ export default {
 			try {
 				const { results } = await listSessions({ archived: false })
 				this.sessions = results
+				this.loadSharedSessions()
 				if (this.showArchive) {
 					const archived = await listSessions({ archived: true })
 					this.archivedSessions = archived.results
@@ -1661,6 +1866,37 @@ export default {
 		},
 
 		/**
+		 * The "New session" button: with a default agent the person can still
+		 * pick (personal-preferences), start a session with it at once; else
+		 * clear the thread and show the agent picker.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+		 */
+		onNewSessionClick() {
+			const agent = defaultAgentOf(this.agents, this.defaultAgentId)
+			if (agent && !this.startingId) {
+				this.startWithAgent(agent)
+				return
+			}
+			this.newSession()
+		},
+
+		/**
+		 * Read the person's default agent for new sessions; none on failure.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+		 */
+		async loadDefaultAgent() {
+			try {
+				this.defaultAgentId = await getPreference(PREFERENCE_KEYS.defaultAgent)
+			} catch {
+				this.defaultAgentId = ''
+			}
+		},
+
+		/**
 		 * Return to the start-a-session surface.
 		 *
 		 * Clearing the thread is only visible when there was a thread. With none
@@ -1704,6 +1940,7 @@ export default {
 			this.activeSession = session
 			this.loadGoalFor(session)
 			this.messages = []
+			this.handoffs = []
 			// Files queued in another session do not follow the person here.
 			this.pendingAttachments = []
 			this.sendError = ''
@@ -1716,6 +1953,7 @@ export default {
 					this.loadAgentFor(session),
 				])
 				this.messages = results
+				this.loadHandoffs(session.uuid)
 				this.settings = this.defaultSettingsFor(this.currentAgent)
 				this.scrollToBottom()
 			} catch (e) {
@@ -2207,6 +2445,7 @@ export default {
 				if (this.activeSession?.uuid === uuid) {
 					this.messages = results
 					this.activeSession = session
+					this.loadHandoffs(uuid)
 				}
 				await this.loadSessions(true)
 			} catch (e) {
@@ -2891,6 +3130,42 @@ export default {
 	padding-left: 20px;
 	list-style: disc;
 	color: var(--color-main-text);
+}
+
+.chat-page__handoffs {
+	margin: 8px 0 0;
+	padding: 0;
+	list-style: none;
+	font-size: 13px;
+	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__handoff--waiting {
+	color: var(--color-main-text);
+}
+
+.chat-page__handoff--failed,
+.chat-page__handoff--expired {
+	color: var(--color-error-text);
+}
+
+.chat-page__scope {
+	margin-top: 10px;
+	font-size: 12px;
+	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__scope p {
+	margin: 0;
+}
+
+.chat-page__scope-abstained {
+	font-weight: 600;
+	color: var(--color-main-text);
+}
+
+.chat-page__scope-detail span + span::before {
+	content: ' ';
 }
 
 .chat-page__sources {

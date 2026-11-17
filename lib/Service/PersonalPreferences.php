@@ -43,6 +43,20 @@ class PersonalPreferences {
 	public const ASK_BEFORE_SEND = 'ask-before-send';
 
 	/**
+	 * "Taal van antwoorden": the language agents answer this person in.
+	 *
+	 * @var string
+	 */
+	public const ANSWER_LANGUAGE = 'answer-language';
+
+	/**
+	 * "Melding als een run klaar is".
+	 *
+	 * @var string
+	 */
+	public const NOTIFY_RUN_DONE = 'notify-run-done';
+
+	/**
 	 * The values that switch a preference on.
 	 *
 	 * @var list<string>
@@ -80,6 +94,24 @@ class PersonalPreferences {
 
 		return in_array(strtolower(trim((string)$value)), self::ON, true);
 	}//end isOn()
+
+	/**
+	 * A person's stored value of a preference, trimmed; '' when unset or unreadable.
+	 *
+	 * @param string $userId The person.
+	 * @param string $key    The preference key, as the settings dialog sends it.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 */
+	public function value(string $userId, string $key): string {
+		if ($userId === '') {
+			return '';
+		}
+
+		return trim((string)$this->config->getUserValue($userId, AppIdentity::APP_ID, self::storedKey(key: $key), ''));
+	}//end value()
 
 	/**
 	 * The stored key of a preference, as PreferencesController stores it.

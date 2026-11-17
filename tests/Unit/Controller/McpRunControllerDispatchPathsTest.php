@@ -51,6 +51,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * The governed tools/call dispatch of McpRunController.
@@ -113,6 +114,7 @@ final class McpRunControllerDispatchPathsTest extends TestCase {
 		$this->objects = $this->createMock(ObjectService::class);
 		$this->objects->method('find')->willReturnCallback(
 			function (mixed ...$args) use ($agent): mixed {
+				$args = LegacyObjectArgs::positional(method: 'find', args: $args);
 				if (in_array('agentsession', $args, true) === true) {
 					if ($this->conversation instanceof \Throwable) {
 						throw $this->conversation;

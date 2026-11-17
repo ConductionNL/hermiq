@@ -30,6 +30,8 @@
   @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-5-2
   @spec openspec/changes/archive/2026-09-06-agent-management-ui/specs/agent-management-ui/spec.md
   @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-delegation-allowlist-in-place-mvp
+  @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-owner-can-limit-file-retrieval-by-owner-file-name-and-modified-date-req-rscope-001
+  @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-agent-in-validated-mode-refuses-without-asking-the-model-when-nothing-validated-matches-req-rscope-003
 -->
 <template>
 	<NcModal :show="show" size="normal" :name="heading" @close="handleClose">
@@ -146,6 +148,60 @@
 							class="agent-form__finding"
 							data-testid="agent-form-finding-groups">
 							{{ findingText(finding) }}
+						</p>
+					</template>
+				</fieldset>
+
+				<!-- Whose rights the agent works with (agent-acting-identity-picker):
+			     two choices over the one field actingUser. Naming an account needs
+			     agent.set-acting-user; the server refuses the write without it, the
+			     page only says so up front. -->
+				<fieldset class="agent-form__field" data-testid="agent-form-acting">
+					<legend>{{ t('hermiq', 'On whose behalf the agent works') }}</legend>
+					<NcCheckboxRadioSwitch
+						v-model="form.actingChoice"
+						type="radio"
+						name="agent-acting"
+						value="person">
+						{{ t('hermiq', 'On behalf of the person who uses it') }}
+					</NcCheckboxRadioSwitch>
+					<p class="agent-form__hint">
+						{{ t('hermiq', 'Sees only what that person may see.') }}
+					</p>
+					<NcCheckboxRadioSwitch
+						v-model="form.actingChoice"
+						type="radio"
+						name="agent-acting"
+						value="service-account"
+						:disabled="!canSetActingUser">
+						{{ t('hermiq', 'As its own service account') }}
+					</NcCheckboxRadioSwitch>
+					<p class="agent-form__hint">
+						{{ t('hermiq', 'For schedules with nobody behind the screen.') }}
+					</p>
+					<p
+						v-if="!canSetActingUser"
+						class="agent-form__hint"
+						data-testid="agent-form-acting-admin-only">
+						{{ t('hermiq', 'An administrator sets the account an agent works with.') }}
+					</p>
+					<template v-if="form.actingChoice === 'service-account'">
+						<NcSelect
+							v-model="form.actingUser"
+							data-testid="agent-form-acting-user"
+							:inputLabel="t('hermiq', 'Service account')"
+							:options="actingUserOptions"
+							:filterable="false"
+							:disabled="!canSetActingUser"
+							label="label"
+							trackBy="value"
+							@search="onSearchActingUsers" />
+						<p
+							v-if="actingUserUnresolved"
+							class="agent-form__finding"
+							role="alert"
+							data-testid="agent-form-acting-unresolved">
+							{{ t('hermiq', 'The account {user} no longer exists or is disabled. Runs are refused until you choose another account or let the agent work on behalf of the person who uses it.', { user: actingUserStatus.actingUser }) }}
 						</p>
 					</template>
 				</fieldset>
@@ -413,6 +469,96 @@
 						type="number"
 						:label="t('hermiq', 'Number of RAG sources')"
 						placeholder="5" />
+
+					<!-- File filters (memory-retrieval-scope D1): resolved per turn
+					     through Nextcloud's file search as the person asking. -->
+					<fieldset
+						v-if="form.searchFiles"
+						class="agent-form__field"
+						data-testid="agent-form-file-filters">
+						<legend>{{ t('hermiq', 'Which files the agent searches') }}</legend>
+						<NcSelect
+							v-model="form.fileOwnerUsers"
+							data-testid="agent-form-file-owner-users"
+							:inputLabel="t('hermiq', 'Files owned by these people')"
+							:options="peopleOptions"
+							:multiple="true"
+							:filterable="false"
+							label="label"
+							trackBy="value"
+							@search="onSearchPeople" />
+						<NcSelect
+							v-model="form.fileOwnerGroups"
+							data-testid="agent-form-file-owner-groups"
+							:inputLabel="t('hermiq', 'Files owned by members of these groups')"
+							:options="groupOptions"
+							:multiple="true"
+							:filterable="false"
+							label="label"
+							trackBy="value"
+							@search="onSearchGroups" />
+						<NcTextField
+							v-model="form.fileNamePattern"
+							data-testid="agent-form-file-name-pattern"
+							:label="t('hermiq', 'File name contains')"
+							:helperText="t('hermiq', 'Use * for any text, for example besluit*.pdf.')" />
+						<div class="agent-form__row">
+							<NcTextField
+								v-model="form.fileModifiedAfter"
+								type="date"
+								data-testid="agent-form-file-modified-after"
+								:label="t('hermiq', 'Modified on or after')" />
+							<NcTextField
+								v-model="form.fileModifiedBefore"
+								type="date"
+								data-testid="agent-form-file-modified-before"
+								:label="t('hermiq', 'Modified before')" />
+						</div>
+						<p class="agent-form__hint">
+							{{
+								t(
+									'hermiq',
+									'Leave empty to search every file the person asking can read. Filters that match no file mean no file is searched.',
+								)
+							}}
+						</p>
+					</fieldset>
+
+					<!-- Validated mode (memory-retrieval-scope D3): enforced by the
+					     engine, not asked of the model. -->
+					<div class="agent-form__field">
+						<NcCheckboxRadioSwitch
+							v-model="form.answerOnlyFromValidated"
+							data-testid="agent-form-validated-mode">
+							{{ t('hermiq', 'Answer only from validated documents') }}
+						</NcCheckboxRadioSwitch>
+						<p class="agent-form__hint">
+							{{
+								t(
+									'hermiq',
+									'Searches only files carrying the validated tag, no objects and no tools. When no validated passage is close enough, the agent gives the message below and the model is not asked.',
+								)
+							}}
+						</p>
+					</div>
+					<template v-if="form.answerOnlyFromValidated">
+						<NcTextField
+							v-model="form.ragMinSimilarity"
+							type="number"
+							data-testid="agent-form-min-similarity"
+							:label="t('hermiq', 'Minimum similarity (0 to 1)')"
+							:placeholder="String(defaultMinSimilarity)" />
+						<NcTextArea
+							v-model="form.abstentionMessage"
+							data-testid="agent-form-abstention-message"
+							:label="t('hermiq', 'Answer when no validated document matches')"
+							:placeholder="
+								t(
+									'hermiq',
+									'I cannot answer this from the validated documents. Contact the Klantcontactcentrum for help.',
+								)
+							" />
+					</template>
 				</template>
 
 				<!--
@@ -503,6 +649,7 @@
 <script>
 import { CnIconPicker, fromOpenGemeenten } from '@conduction/nextcloud-vue'
 import axios from '@nextcloud/axios'
+import { loadState } from '@nextcloud/initial-state'
 import { generateUrl } from '@nextcloud/router'
 import {
 	NcButton,
@@ -516,6 +663,7 @@ import {
 } from '@nextcloud/vue'
 import PromptPlaceholderTools from '../components/PromptPlaceholderTools.vue'
 import StartFieldsEditor from '../components/StartFieldsEditor.vue'
+import { getActingUserStatus } from '../api/actingUser.js'
 import { listTools, setAppAssistant } from '../api/agents.js'
 import { searchGroups, searchUsers } from '../api/chat.js'
 import { getEffectiveModelPolicy } from '../api/modelPolicy.js'
@@ -524,6 +672,7 @@ import { flattenGrants } from '../api/toolTaxonomy.js'
 import { OPEN_GEMEENTEN_ICONS } from '../icons/openGemeentenIcons.js'
 import { KNOWN_MODELS, knownModelsFor } from '../llm/knownModels.js'
 import { useAgentStore } from '../store/store.js'
+import { actingChoiceOf, actingUserField, actingUserOf } from '../utils/agentActingUser.js'
 import { answersInItsApp, appOptions, appSlugOf } from '../utils/agentApp.js'
 import {
 	credentialOptions,
@@ -532,6 +681,11 @@ import {
 } from '../utils/agentCredentials.js'
 import { sharingFields, sharingOf } from '../utils/agentSharing.js'
 import { insertPlaceholder, startFieldsOf } from '../utils/instructionVariables.js'
+import {
+	DEFAULT_MIN_SIMILARITY,
+	retrievalScopeFields,
+	retrievalScopePayload,
+} from '../utils/retrievalScope.js'
 import { formDialogSlot } from './formDialogSlot.js'
 
 /**
@@ -650,13 +804,11 @@ function limitFields(form) {
  * @return {object} The fields.
  */
 function describingFields(source) {
+	const text = Object.fromEntries(
+		['name', 'description', 'icon', 'provider', 'model', 'prompt'].map((key) => [key, source[key] || '']),
+	)
 	return {
-		name: source.name || '',
-		description: source.description || '',
-		icon: source.icon || '',
-		provider: source.provider || '',
-		model: source.model || '',
-		prompt: source.prompt || '',
+		...text,
 		startFields: startFieldsOf(source),
 		temperature: source.temperature ?? '',
 		maxTokens: source.maxTokens ?? '',
@@ -688,6 +840,8 @@ function accessFields(source) {
 		sharing: sharingOf(source),
 		invitedUsers: idOptions(source.invitedUsers),
 		groups: idOptions(source.groups),
+		actingChoice: actingChoiceOf(source),
+		actingUser: idOptions(actingUserOf(source) ? [actingUserOf(source)] : [])[0] || null,
 	}
 }
 
@@ -822,6 +976,15 @@ export default {
 			// Agents-sharing-and-catalog-columns: search results for the pickers.
 			peopleOptions: [],
 			groupOptions: [],
+			// Memory-retrieval-scope: the floor shown when the agent sets none.
+			defaultMinSimilarity: DEFAULT_MIN_SIMILARITY,
+			// agent-acting-identity-picker: whether the viewer may name an
+			// account (initial state from the action matrix; the server guard
+			// decides either way), the account picker's search results, and the
+			// server's answer on whether the stored account still resolves.
+			canSetActingUser: loadState('hermiq', 'can_set_acting_user', false) === true,
+			actingUserOptions: [],
+			actingUserStatus: null,
 			saving: false,
 			error: '',
 			// Effective model policy (tenant-model-policy); null until loaded.
@@ -848,6 +1011,21 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * Whether the stored service account no longer resolves, while it is
+		 * still the one chosen: the server's answer, never a guess here.
+		 *
+		 * @return {boolean} True when the warning shows.
+		 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
+		 */
+		actingUserUnresolved() {
+			const status = this.actingUserStatus
+			if (!status || status.resolves !== false || this.form.actingChoice !== 'service-account') {
+				return false
+			}
+			return actingUserField(this.form.actingChoice, this.form.actingUser).actingUser === status.actingUser
+		},
+
 		/**
 		 * The dictation-engine picker's selection, as the option object NcSelect
 		 * wants, over the plain value the form stores.
@@ -1203,6 +1381,7 @@ export default {
 				} finally {
 					this.loadingAgent = false
 				}
+				this.loadActingUserStatus()
 				this.loadTools()
 				this.loadPolicy()
 				this.loadCredentials()
@@ -1337,6 +1516,8 @@ export default {
 				sharing: 'only-me',
 				invitedUsers: [],
 				groups: [],
+				actingChoice: 'person',
+				actingUser: null,
 				tools: [],
 				delegationAllowlist: [],
 				enableRag: false,
@@ -1348,6 +1529,7 @@ export default {
 				voiceSilenceTimeout: '',
 				voiceConversationEnabled: false,
 				credentialIds: {},
+				...retrievalScopeFields({}),
 			}
 		},
 
@@ -1383,6 +1565,50 @@ export default {
 			const options = this.voiceEngineOptions
 
 			return options.find((option) => option.value === value) || options[0]
+		},
+
+		/**
+		 * Offer the accounts matching the typed text for the service account
+		 * (agent-acting-identity-picker). Nextcloud's user search offers
+		 * enabled accounts only.
+		 *
+		 * @param {string} search The typed text.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-agent-edit-page-sets-whose-rights-the-agent-works-with-req-agid-001
+		 */
+		async onSearchActingUsers(search) {
+			if (!search) {
+				return
+			}
+			try {
+				this.actingUserOptions = (await searchUsers(search)).map((user) => ({
+					label: user.uid,
+					value: user.uid,
+				}))
+			} catch {
+				this.actingUserOptions = []
+			}
+		},
+
+		/**
+		 * Ask the server whether the stored service account still resolves, for
+		 * an agent that names one (agent-acting-identity-picker REQ-AGID-003). An
+		 * unanswered question shows no warning: the run's own refusal stays.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
+		 */
+		async loadActingUserStatus() {
+			this.actingUserStatus = null
+			const agent = this.effectiveAgent
+			if (!agent || !agent.id || actingUserOf(agent) === '') {
+				return
+			}
+			try {
+				this.actingUserStatus = await getActingUserStatus(agent.id)
+			} catch {
+				this.actingUserStatus = null
+			}
 		},
 
 		/**
@@ -1456,6 +1682,7 @@ export default {
 					this.mapDelegationAllowlistToOptions(delegationAllowlist),
 
 				...searchAndVoiceFields(source),
+				...retrievalScopeFields(source),
 			}
 		},
 
@@ -1740,6 +1967,11 @@ export default {
 				),
 			)
 			assignDefined(payload, limitFields(this.form))
+			assignDefined(
+				payload,
+				retrievalScopePayload(this.form, editableCopy(this.effectiveAgent)),
+			)
+			Object.assign(payload, actingUserField(this.form.actingChoice, this.form.actingUser))
 		},
 
 		appSlugOf,

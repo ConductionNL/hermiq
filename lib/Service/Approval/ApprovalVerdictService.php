@@ -33,6 +33,7 @@ use InvalidArgumentException;
 use OCA\Hermiq\Kernel\Contracts\ApprovalVerdictServiceInterface;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use Throwable;
@@ -305,8 +306,10 @@ class ApprovalVerdictService implements ApprovalVerdictServiceInterface
         try {
             $agent = $this->objectService->find(
                 id: $agentId,
-                register: 'hermiq',
-                schema: 'agent',
+                options: new ObjectFindOptions(
+                	register: 'hermiq',
+                	schema: 'agent'
+                ),
                 _rbac: false,
                 _multitenancy: false
             );
