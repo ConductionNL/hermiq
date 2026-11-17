@@ -26,6 +26,10 @@ $routes = [
         ['name' => 'settings#create', 'url' => '/api/settings', 'verb' => 'POST'],
         ['name' => 'settings#load',  'url' => '/api/settings/load', 'verb' => 'POST'],
 
+        // The ADR-023 action matrix, administrators only (action-matrix-screen).
+        ['name' => 'actionMatrix#index',  'url' => '/api/actions', 'verb' => 'GET'],
+        ['name' => 'actionMatrix#update', 'url' => '/api/actions/{action}', 'verb' => 'PUT'],
+
         // Admin LLM provider selection (SPECTR-NEXTCLOUD-PLAN.md §8 move 1 — makes the
         // `nextcloud` TaskProcessing driver, and the pre-existing openai/ollama/fireworks
         // drivers, selectable from the admin panel instead of only via `occ`).
