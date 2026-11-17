@@ -287,6 +287,20 @@ class RunTokenService implements RunTokenServiceInterface {
 			return null;
 		}
 
+		return self::bindingOf(record: $record);
+
+	}//end verify()
+
+	/**
+	 * The run binding a live token record carries; `projectKey` only when the run has a project.
+	 *
+	 * @param array<string, mixed> $record The token record.
+	 *
+	 * @return array{runId: string, agentId: string, userId: string, conversationId: string, projectKey?: string}
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	private static function bindingOf(array $record): array {
 		$binding = [
 			'runId' => (string)($record['runId'] ?? ''),
 			'agentId' => (string)($record['agentId'] ?? ''),
@@ -299,8 +313,7 @@ class RunTokenService implements RunTokenServiceInterface {
 		}
 
 		return $binding;
-
-	}//end verify()
+	}//end bindingOf()
 
 	/**
 	 * The stored record for a digest while it may authorise: found, not consumed,

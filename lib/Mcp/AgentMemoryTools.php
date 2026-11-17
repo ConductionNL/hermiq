@@ -118,8 +118,24 @@ final class AgentMemoryTools {
 			return $this->rememberedResult(scope: $scope, memory: $memory);
 		}
 
-		// In a project session `agent` writes to the project memory and `shared`
-		// to the shared one; outside a project both go to the shared memory.
+		return $this->rememberInMemory(agentId: $agentId, content: $content, scope: $scope, arguments: $arguments);
+	}//end rememberMemory()
+
+	/**
+	 * Remember an `agent` or `shared` entry in the agent's memory. In a project
+	 * session `agent` writes to the project memory and `shared` to the shared
+	 * one; outside a project both go to the shared memory.
+	 *
+	 * @param string               $agentId   The agent UUID.
+	 * @param string               $content   The entry text.
+	 * @param string               $scope     agent or shared.
+	 * @param array<string, mixed> $arguments The tool arguments, carrying the session's project.
+	 *
+	 * @return array<string, mixed> The remembered result with the layer written to.
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	private function rememberInMemory(string $agentId, string $content, string $scope, array $arguments): array {
 		$projectKey = null;
 		if ($scope === 'agent') {
 			$projectKey = self::projectKeyOf(arguments: $arguments);
@@ -133,7 +149,7 @@ final class AgentMemoryTools {
 		}
 
 		return $result;
-	}//end rememberMemory()
+	}//end rememberInMemory()
 
 	/**
 	 * The session's project key the invoker injected, or null outside a project.

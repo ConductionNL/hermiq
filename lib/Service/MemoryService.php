@@ -337,13 +337,7 @@ class MemoryService implements MemoryServiceInterface {
 		// STILL over budget (a no-op consolidation should not falsely clear it).
 		$data['needsConsolidation'] = ($this->countCharacters(entries: $normalised) > $budget);
 
-		return $this->objectService->saveObject(
-			object: $data,
-			options: new ObjectSaveOptions(
-				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MEMORY_SCHEMA),
-				uuid: (string)$memory->getUuid()
-			)
-		);
+		return $this->saveInPlace(data: $data, object: $memory, schema: self::MEMORY_SCHEMA);
 
 	}//end consolidateMemory()
 
@@ -510,12 +504,7 @@ class MemoryService implements MemoryServiceInterface {
 		$lookup->search = $query;
 
 		$memoryEntries = [];
-		$layers        = [self::SCOPE_SHARED => null];
-		if (trim((string)$projectKey) !== '') {
-			$layers = [self::SCOPE_PROJECT => $projectKey, self::SCOPE_SHARED => null];
-		}
-
-		foreach ($layers as $layer => $key) {
+		foreach (self::layersOf(projectKey: $projectKey) as $layer => $key) {
 			$layerLookup = new MemoryLookup(filters: self::layerFilters(agentId: $agentId, projectKey: $key), limit: $limit);
 			$layerLookup->search = $query;
 			foreach ($this->recalledEntries(schema: self::MEMORY_SCHEMA, lookup: $layerLookup) as $entry) {
@@ -599,12 +588,7 @@ class MemoryService implements MemoryServiceInterface {
 			return ['found' => false, 'scope' => null];
 		}
 
-		$layers = [null];
-		if (trim((string)$projectKey) !== '') {
-			$layers = [$projectKey, null];
-		}
-
-		foreach ($layers as $layerKey) {
+		foreach (self::layersOf(projectKey: $projectKey) as $layerKey) {
 			$memoryFound = $this->softDeleteEntry(
 				object: $this->getMemory(agentId: $agentId, projectKey: $layerKey),
 				entryRef: new MemoryEntryRef(
@@ -618,23 +602,56 @@ class MemoryService implements MemoryServiceInterface {
 			}
 		}
 
-		if ($subjectUid !== null && $subjectUid !== '') {
-			$profile = $this->getUserProfile(agentId: $agentId, subjectUid: $subjectUid);
-			$profileFound = $this->softDeleteEntry(
-				object: $profile,
-				entryRef: new MemoryEntryRef(
-					schema: self::USER_PROFILE_SCHEMA,
-					entryId: $entryId,
-					defaultBudget: self::DEFAULT_PROFILE_BUDGET
-				)
-			);
-			if ($profileFound === true) {
-				return ['found' => true, 'scope' => 'userProfile'];
-			}
+		if ($this->forgetProfileEntry(agentId: $agentId, subjectUid: $subjectUid, entryId: $entryId) === true) {
+			return ['found' => true, 'scope' => 'userProfile'];
 		}
 
 		return ['found' => false, 'scope' => null];
 	}//end forgetEntry()
+
+	/**
+	 * Soft-delete an entry in the acting user's own UserProfile for the agent.
+	 *
+	 * @param string      $agentId    The agent UUID.
+	 * @param string|null $subjectUid The acting user, or null: nothing is searched.
+	 * @param string      $entryId    The entry id.
+	 *
+	 * @return bool Whether the profile held the entry.
+	 *
+	 * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-3
+	 */
+	private function forgetProfileEntry(string $agentId, ?string $subjectUid, string $entryId): bool {
+		if ($subjectUid === null || $subjectUid === '') {
+			return false;
+		}
+
+		return $this->softDeleteEntry(
+			object: $this->getUserProfile(agentId: $agentId, subjectUid: $subjectUid),
+			entryRef: new MemoryEntryRef(
+				schema: self::USER_PROFILE_SCHEMA,
+				entryId: $entryId,
+				defaultBudget: self::DEFAULT_PROFILE_BUDGET
+			)
+		);
+	}//end forgetProfileEntry()
+
+	/**
+	 * The memory layers a session reads, project first: its project and the
+	 * shared memory, or the shared memory alone without a project.
+	 *
+	 * @param string|null $projectKey The session's project, or null.
+	 *
+	 * @return array<string, string|null> The project key of each layer, keyed by layer.
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
+	 */
+	private static function layersOf(?string $projectKey): array {
+		if (trim((string)$projectKey) === '') {
+			return [self::SCOPE_SHARED => null];
+		}
+
+		return [self::SCOPE_PROJECT => $projectKey, self::SCOPE_SHARED => null];
+	}//end layersOf()
 
 	/**
 	 * Correct one Memory entry: the old entry is soft-deleted and the new text is
@@ -686,13 +703,7 @@ class MemoryService implements MemoryServiceInterface {
 		$data['entries'] = $entries;
 		$data['needsConsolidation'] = ($this->countCharacters(entries: $entries) > $budget);
 
-		return $this->objectService->saveObject(
-			object: $data,
-			options: new ObjectSaveOptions(
-				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MEMORY_SCHEMA),
-				uuid: (string)$memory->getUuid()
-			)
-		);
+		return $this->saveInPlace(data: $data, object: $memory, schema: self::MEMORY_SCHEMA);
 
 	}//end correctMemoryEntry()
 
@@ -752,13 +763,7 @@ class MemoryService implements MemoryServiceInterface {
 
 		$data['projectName'] = $name;
 
-		return $this->objectService->saveObject(
-			object: $data,
-			options: new ObjectSaveOptions(
-				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MEMORY_SCHEMA),
-				uuid: (string)$memory->getUuid()
-			)
-		);
+		return $this->saveInPlace(data: $data, object: $memory, schema: self::MEMORY_SCHEMA);
 	}//end ensureProjectMemory()
 
 	/**
@@ -785,16 +790,8 @@ class MemoryService implements MemoryServiceInterface {
 			return null;
 		}
 
-		$source  = $this->getMemory(agentId: $agentId, projectKey: $fromKey);
-		$entries = $this->normaliseEntries(entries: ($source->getObject()['entries'] ?? []));
-		$text    = null;
-		foreach ($entries as $entry) {
-			if (($entry['id'] ?? '') === $entryId && $this->isDeleted(entry: $entry) === false) {
-				$text = (string)($entry['text'] ?? '');
-				break;
-			}
-		}
-
+		$source = $this->getMemory(agentId: $agentId, projectKey: $fromKey);
+		$text   = $this->liveEntryText(object: $source, entryId: $entryId);
 		if ($text === null) {
 			return null;
 		}
@@ -811,6 +808,26 @@ class MemoryService implements MemoryServiceInterface {
 			defaultBudget: self::DEFAULT_MEMORY_BUDGET
 		);
 	}//end moveMemoryEntry()
+
+	/**
+	 * The text of a live (not soft-deleted) entry, or null when the object holds none with that id.
+	 *
+	 * @param ObjectEntity $object  The Memory object.
+	 * @param string       $entryId The entry id.
+	 *
+	 * @return string|null
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 */
+	private function liveEntryText(ObjectEntity $object, string $entryId): ?string {
+		foreach ($this->normaliseEntries(entries: ($object->getObject()['entries'] ?? [])) as $entry) {
+			if (($entry['id'] ?? '') === $entryId && $this->isDeleted(entry: $entry) === false) {
+				return (string)($entry['text'] ?? '');
+			}
+		}
+
+		return null;
+	}//end liveEntryText()
 
 	/**
 	 * Give every entry that has no `id` a fresh one.
@@ -869,13 +886,7 @@ class MemoryService implements MemoryServiceInterface {
 		$data['entries'] = $entries;
 		$data['needsConsolidation'] = ($this->countCharacters(entries: $entries) > $budget);
 
-		return $this->objectService->saveObject(
-			object: $data,
-			options: new ObjectSaveOptions(
-				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: $schema),
-				uuid: (string)$object->getUuid()
-			)
-		);
+		return $this->saveInPlace(data: $data, object: $object, schema: $schema);
 
 	}//end appendEntry()
 
@@ -920,13 +931,7 @@ class MemoryService implements MemoryServiceInterface {
 		$data['entries'] = $entries;
 		$data['needsConsolidation'] = ($this->countCharacters(entries: $entries) > $budget);
 
-		$this->objectService->saveObject(
-			object: $data,
-			options: new ObjectSaveOptions(
-				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: $schema),
-				uuid: (string)$object->getUuid()
-			)
-		);
+		$this->saveInPlace(data: $data, object: $object, schema: $schema);
 
 		return true;
 	}//end softDeleteEntry()
@@ -1094,4 +1099,25 @@ class MemoryService implements MemoryServiceInterface {
 	private function now(): string {
 		return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
 	}//end now()
+
+	/**
+	 * Save an object's changed data over itself.
+	 *
+	 * @param array<string, mixed> $data   The object's new data.
+	 * @param ObjectEntity         $object The stored object.
+	 * @param string               $schema Its schema slug.
+	 *
+	 * @return ObjectEntity The saved object.
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 */
+	private function saveInPlace(array $data, ObjectEntity $object, string $schema): ObjectEntity {
+		return $this->objectService->saveObject(
+			object: $data,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: $schema),
+				uuid: (string)$object->getUuid()
+			)
+		);
+	}//end saveInPlace()
 }//end class

@@ -950,7 +950,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 *                              behaviour. On `cli`, a text-only turn runs
 	 *                              directly and a tool-requiring turn is served
 	 *                              over Hermiq's governed MCP endpoint —
-	 *                              {@see callAnthropicCli()}.
+	 *                              {@see answerCliTurn()}.
 	 * @param string|null $agentId The acting agent's UUID (cli-runner-governed-mcp-and-egress).
 	 *                             Required to govern a tool-requiring `cli` turn: it
 	 *                             binds the per-run token and lets the governed MCP
@@ -1026,22 +1026,57 @@ class ProviderFactory implements ProviderFactoryInterface {
 	}//end resetCallState()
 
 	/**
-	 * Hand the turn to the `cli` transport, {@see callAnthropicCli()}.
+	 * Run ONE Anthropic turn through the `hermiq-llm-runner` ExApp's `claude` CLI.
 	 *
-	 * @param AnthropicChatRun $run The turn.
+	 * The `cli` sibling of the `http` path above, under the same seam: the Engine, the
+	 * handlers and the SSE controller never learn which transport ran — this returns the
+	 * completion as a plain string exactly as `callAnthropicChat()` does.
+	 *
+	 * It exists because Anthropic categorically refuses a Claude Max/Pro subscription OAuth
+	 * token on the raw Messages API (HTTP 429 `rate_limit_error` carrying no rate-limit
+	 * counters — see the 429 handler below); the official CLI is the ToS-sanctioned path for
+	 * a subscription.
+	 *
+	 * **Text-only turns run directly; tool-requiring turns are GOVERNED, never refused.**
+	 * `claude -p` accepts no tool schema, so custom tools reach it only via MCP. When
+	 * `$functions` is non-empty this method mints a per-run token, assembles the governed
+	 * MCP server config (Hermiq's own `POST /api/mcp/run`, bearer-authenticated by that
+	 * token), and hands both to the runner in the `/run` payload — so every tool call the
+	 * CLI makes lands back in Hermiq's `FacadeToolInvoker`. It is the exact inverse of the
+	 * link-2 refusal: instead of failing a tool-using agent, it governs it.
+	 *
+	 * It still FAILS LOUD — `ProviderUnavailableException` (503), never a text-only
+	 * downgrade — when a tool-requiring turn cannot be governed: no agent identity to bind
+	 * the run to, no user context, the token cannot be minted, or the MCP endpoint URL
+	 * cannot be resolved (so the config cannot be written). This deliberately does NOT copy
+	 * the `http` path's fail-open (tools + no executor → warn → run text-only): a tool-less
+	 * agent looks completely healthy and simply never calls a tool.
+	 *
+	 * Order is load-bearing — availability and the run token are established BEFORE the
+	 * subscription credential is resolved, so a doomed turn pulls no secret from the vault
+	 * and spends no subscription quota. The run token is consumed in a `finally` so it never
+	 * outlives the turn.
+	 *
+	 * @param AnthropicChatRun $run The turn: credential, model, history, tools, agent, conversation and project.
 	 *
 	 * @return string The completion text.
+	 *
+	 * @throws ProviderUnavailableException When a tool-requiring turn cannot be governed (503),
+	 *                                      the runner or AppAPI is unavailable (503), the
+	 *                                      credential cannot be resolved or is organisation-scope
+	 *                                      (503), or the dispatch fails (503).
+	 *
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-cli-completion-is-mapped-back-into-the-driver-response-and-the-sse-envelope
 	 */
 	private function callAnthropicCliTurn(AnthropicChatRun $run): string {
-		return $this->callAnthropicCli(
-			credentialId: $run->credentialId,
-			model: $run->model,
-			messageHistory: $run->messageHistory,
-			functions: $run->functions,
-			agentId: $run->agentId,
-			conversationId: $run->conversationId,
-			projectKey: $run->projectKey
-		);
+		$turn = new CliTurn(model: $run->model, agentId: $run->agentId);
+		$turn->credentialId   = $run->credentialId;
+		$turn->messageHistory = $run->messageHistory;
+		$turn->functions      = $run->functions;
+		$turn->conversationId = $run->conversationId;
+		$turn->projectKey     = $run->projectKey;
+		return $this->answerCliTurn(turn: $turn);
 	}//end callAnthropicCliTurn()
 
 	/**
@@ -1290,76 +1325,6 @@ class ProviderFactory implements ProviderFactoryInterface {
 
 		return $this->cliRunner;
 	}//end cliRunner()
-
-	/**
-	 * Run ONE Anthropic turn through the `hermiq-llm-runner` ExApp's `claude` CLI.
-	 *
-	 * The `cli` sibling of the `http` path above, under the same seam: the Engine, the
-	 * handlers and the SSE controller never learn which transport ran — this returns the
-	 * completion as a plain string exactly as `callAnthropicChat()` does.
-	 *
-	 * It exists because Anthropic categorically refuses a Claude Max/Pro subscription OAuth
-	 * token on the raw Messages API (HTTP 429 `rate_limit_error` carrying no rate-limit
-	 * counters — see the 429 handler below); the official CLI is the ToS-sanctioned path for
-	 * a subscription.
-	 *
-	 * **Text-only turns run directly; tool-requiring turns are GOVERNED, never refused.**
-	 * `claude -p` accepts no tool schema, so custom tools reach it only via MCP. When
-	 * `$functions` is non-empty this method mints a per-run token, assembles the governed
-	 * MCP server config (Hermiq's own `POST /api/mcp/run`, bearer-authenticated by that
-	 * token), and hands both to the runner in the `/run` payload — so every tool call the
-	 * CLI makes lands back in Hermiq's `FacadeToolInvoker`. It is the exact inverse of the
-	 * link-2 refusal: instead of failing a tool-using agent, it governs it.
-	 *
-	 * It still FAILS LOUD — `ProviderUnavailableException` (503), never a text-only
-	 * downgrade — when a tool-requiring turn cannot be governed: no agent identity to bind
-	 * the run to, no user context, the token cannot be minted, or the MCP endpoint URL
-	 * cannot be resolved (so the config cannot be written). This deliberately does NOT copy
-	 * the `http` path's fail-open (tools + no executor → warn → run text-only): a tool-less
-	 * agent looks completely healthy and simply never calls a tool.
-	 *
-	 * Order is load-bearing — availability and the run token are established BEFORE the
-	 * subscription credential is resolved, so a doomed turn pulls no secret from the vault
-	 * and spends no subscription quota. The run token is consumed in a `finally` so it never
-	 * outlives the turn.
-	 *
-	 * @param string $credentialId Broker credential UUID — NOT a secret.
-	 * @param string $model Model identifier; empty ⇒ the CLI's own default.
-	 * @param array $messageHistory Array of LLPhant Message objects.
-	 * @param array $functions OpenAI-style tool definitions. Non-empty ⇒ governed MCP turn.
-	 * @param string|null $agentId The acting agent's UUID (binds the per-run token). Required
-	 *                             for a tool-requiring turn; unused for a text-only one.
-	 * @param string $conversationId The conversation this turn belongs to, so a tool step
-	 *                               published on the run-step bus reaches the right stream.
-	 * @param string $projectKey The session's project, bound into the run token; '' outside one.
-	 *
-	 * @return string The completion text.
-	 *
-	 * @throws ProviderUnavailableException When a tool-requiring turn cannot be governed (503),
-	 *                                      the runner or AppAPI is unavailable (503), the
-	 *                                      credential cannot be resolved or is organisation-scope
-	 *                                      (503), or the dispatch fails (503).
-	 *
-	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
-	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-cli-completion-is-mapped-back-into-the-driver-response-and-the-sse-envelope
-	 */
-	private function callAnthropicCli(
-		string $credentialId,
-		string $model,
-		array $messageHistory,
-		array $functions = [],
-		?string $agentId = null,
-		string $conversationId = '',
-		string $projectKey = '',
-	): string {
-		$turn = new CliTurn(model: $model, agentId: $agentId);
-		$turn->credentialId = $credentialId;
-		$turn->messageHistory = $messageHistory;
-		$turn->functions = $functions;
-		$turn->conversationId = $conversationId;
-		$turn->projectKey = $projectKey;
-		return $this->answerCliTurn(turn: $turn);
-	}//end callAnthropicCli()
 
 	/**
 	 * Serve one `cli` turn: the pool key, the runner check, the turn's run token

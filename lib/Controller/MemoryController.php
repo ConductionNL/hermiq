@@ -110,7 +110,7 @@ class MemoryController extends Controller {
 		try {
 			$project = $this->requestedProject(agentId: $agentId);
 			if ($project === false) {
-				return new JSONResponse(['error' => 'Project not found'], Http::STATUS_NOT_FOUND);
+				return self::projectNotFound();
 			}
 
 			$memory = $this->memoryService->getMemory(agentId: $agentId, projectKey: $project);
@@ -189,15 +189,12 @@ class MemoryController extends Controller {
 		try {
 			$project = $this->requestedProject(agentId: $agentId);
 			if ($project === false) {
-				return new JSONResponse(['error' => 'Project not found'], Http::STATUS_NOT_FOUND);
+				return self::projectNotFound();
 			}
 
-			$memory = $this->memoryService->correctMemoryEntry(agentId: $agentId, entryId: $entryId, text: $text, projectKey: $project);
-			if ($memory === null) {
-				return new JSONResponse(['error' => 'Memory entry not found'], Http::STATUS_NOT_FOUND);
-			}
-
-			return new JSONResponse($this->shape(object: $memory));
+			return $this->entryResponse(
+				memory: $this->memoryService->correctMemoryEntry(agentId: $agentId, entryId: $entryId, text: $text, projectKey: $project)
+			);
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq memory correction failed: ' . $e->getMessage(), ['exception' => $e]);
 			return new JSONResponse(['error' => 'Could not correct memory'], Http::STATUS_INTERNAL_SERVER_ERROR);
@@ -227,7 +224,7 @@ class MemoryController extends Controller {
 		try {
 			$project = $this->requestedProject(agentId: $agentId);
 			if ($project === false) {
-				return new JSONResponse(['error' => 'Project not found'], Http::STATUS_NOT_FOUND);
+				return self::projectNotFound();
 			}
 
 			$result = $this->memoryService->forgetEntry(agentId: $agentId, subjectUid: null, entryId: $entryId, projectKey: $project);
@@ -298,24 +295,67 @@ class MemoryController extends Controller {
 		}
 
 		try {
-			$known = array_column($this->memoryService->listProjects(agentId: $agentId), 'projectKey');
-			foreach ([$from, $to] as $key) {
-				if ($key !== '' && in_array($key, $known, true) === false) {
-					return new JSONResponse(['error' => 'Project not found'], Http::STATUS_NOT_FOUND);
-				}
+			if ($this->namesAnUnknownProject(agentId: $agentId, keys: [$from, $to]) === true) {
+				return self::projectNotFound();
 			}
 
-			$memory = $this->memoryService->moveMemoryEntry(agentId: $agentId, entryId: $entryId, from: $from, to: $to);
-			if ($memory === null) {
-				return new JSONResponse(['error' => 'Memory entry not found'], Http::STATUS_NOT_FOUND);
-			}
-
-			return new JSONResponse($this->shape(object: $memory));
+			return $this->entryResponse(
+				memory: $this->memoryService->moveMemoryEntry(agentId: $agentId, entryId: $entryId, from: $from, to: $to)
+			);
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq memory move failed: ' . $e->getMessage(), ['exception' => $e]);
 			return new JSONResponse(['error' => 'Could not move memory'], Http::STATUS_INTERNAL_SERVER_ERROR);
 		}
 	}//end moveEntry()
+
+	/**
+	 * Whether any of the given project keys names a project the agent does not have; '' is the shared memory.
+	 *
+	 * @param string             $agentId The agent UUID.
+	 * @param array<int, string> $keys    The project keys.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 */
+	private function namesAnUnknownProject(string $agentId, array $keys): bool {
+		$known = array_column($this->memoryService->listProjects(agentId: $agentId), 'projectKey');
+		foreach ($keys as $key) {
+			if ($key !== '' && in_array($key, $known, true) === false) {
+				return true;
+			}
+		}
+
+		return false;
+	}//end namesAnUnknownProject()
+
+	/**
+	 * The memory an entry change left, or 404 when there was no such live entry.
+	 *
+	 * @param ObjectEntity|null $memory The memory, or null.
+	 *
+	 * @return JSONResponse
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 */
+	private function entryResponse(?ObjectEntity $memory): JSONResponse {
+		if ($memory === null) {
+			return new JSONResponse(['error' => 'Memory entry not found'], Http::STATUS_NOT_FOUND);
+		}
+
+		return new JSONResponse($this->shape(object: $memory));
+	}//end entryResponse()
+
+	/**
+	 * The 404 answer to a project the agent does not have.
+	 *
+	 * @return JSONResponse
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 */
+	private static function projectNotFound(): JSONResponse {
+		return new JSONResponse(['error' => 'Project not found'], Http::STATUS_NOT_FOUND);
+	}//end projectNotFound()
 
 	/**
 	 * The project the request names in `project`: null for none (the shared

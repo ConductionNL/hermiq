@@ -580,13 +580,7 @@ class SessionController extends Controller {
 
 			$project = self::requestedProject(data: $data);
 			if ($project === false) {
-				return new JSONResponse(
-					data: [
-						'error' => 'Invalid project',
-						'message' => 'A project key is a short slug of lower-case letters, digits and hyphens.',
-					],
-					statusCode: 400
-				);
+				return self::invalidProjectResponse();
 			}
 
 			$start = [
@@ -594,16 +588,8 @@ class SessionController extends Controller {
 				'title' => ($data['title'] ?? null),
 				'metadata' => $this->subject->checkedMetadata(metadata: ($data['metadata'] ?? []), stored: null),
 			];
-			if ($project !== null) {
-				$start['projectKey'] = $project['projectKey'];
-				$this->memoryService?->ensureProjectMemory(
-					agentId: $start['agentId'],
-					projectKey: $project['projectKey'],
-					projectName: $project['projectName']
-				);
-			}
 
-			$conversation = $this->startSession(userId: $userId, start: $start);
+			$conversation = $this->startSession(userId: $userId, start: $this->inProject(start: $start, project: $project));
 
 			return $this->createdResponse(conversation: $conversation, userId: $userId);
 		} catch (Exception $e) {
@@ -682,6 +668,47 @@ class SessionController extends Controller {
 			agentId: $agentId
 		);
 	}//end startSession()
+
+	/**
+	 * The session start in its project, with the project's memory named; unchanged without a project.
+	 *
+	 * @param array{agentId: string, title: mixed, metadata: mixed}  $start   The session start.
+	 * @param array{projectKey: string, projectName: string}|null    $project The requested project, or null.
+	 *
+	 * @return array{agentId: string, title: mixed, metadata: mixed, projectKey?: string}
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 */
+	private function inProject(array $start, ?array $project): array {
+		if ($project === null) {
+			return $start;
+		}
+
+		$this->memoryService?->ensureProjectMemory(
+			agentId: $start['agentId'],
+			projectKey: $project['projectKey'],
+			projectName: $project['projectName']
+		);
+
+		return $start + ['projectKey' => $project['projectKey']];
+	}//end inProject()
+
+	/**
+	 * The 400 answer to a malformed project key.
+	 *
+	 * @return JSONResponse
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 */
+	private static function invalidProjectResponse(): JSONResponse {
+		return new JSONResponse(
+			data: [
+				'error' => 'Invalid project',
+				'message' => 'A project key is a short slug of lower-case letters, digits and hyphens.',
+			],
+			statusCode: 400
+		);
+	}//end invalidProjectResponse()
 
 	/**
 	 * The project a new session asks for: none (null), a key and name, or false

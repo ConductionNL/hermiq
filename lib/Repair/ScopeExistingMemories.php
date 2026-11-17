@@ -108,12 +108,7 @@ class ScopeExistingMemories implements IRepairStep {
 			return;
 		}
 
-		$this->withSystemIdentity(
-			objectService: $objectService,
-			work: function () use ($objectService, $output): void {
-				$this->runInner(objectService: $objectService, output: $output);
-			}
-		);
+		$this->withSystemIdentity(objectService: $objectService, work: fn () => $this->runInner(objectService: $objectService, output: $output));
 	}//end run()
 
 	/**
@@ -171,20 +166,26 @@ class ScopeExistingMemories implements IRepairStep {
 					_multitenancy: false
 				);
 
-			foreach ($page as $memory) {
-				$scope = '';
-				if ($memory instanceof ObjectEntity) {
-					$scope = trim((string)($memory->getObject()['scope'] ?? ''));
-				}
-
-				if ($memory instanceof ObjectEntity && $scope === '' && trim((string)$memory->getUuid()) !== '') {
-					$unscoped[] = $memory;
-				}
-			}
+			$unscoped = array_merge($unscoped, array_values(array_filter($page, self::isUnscoped(...))));
 
 			$offset += self::PAGE;
 		} while (count($page) === self::PAGE);
 
 		return $unscoped;
 	}//end unscoped()
+
+	/**
+	 * Whether a found object is a stored Memory without a scope.
+	 *
+	 * @param mixed $memory A found object.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 */
+	private static function isUnscoped(mixed $memory): bool {
+		return $memory instanceof ObjectEntity
+			&& trim((string)($memory->getObject()['scope'] ?? '')) === ''
+			&& trim((string)$memory->getUuid()) !== '';
+	}//end isUnscoped()
 }//end class
