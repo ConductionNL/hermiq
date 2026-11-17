@@ -33,7 +33,7 @@ final class WorkspaceRunScopeSessionTest extends TestCase {
 
 	private function keyFor(string $runId, string $agentId, string $userId, string $conversationId, string $mode): string {
 		$scope = new WorkspaceRunScope();
-		$scope->enter(runId: $runId, agentId: $agentId, userId: $userId, conversationId: $conversationId, workspaceMode: $mode);
+		$scope->enter(runId: $runId, agentId: $agentId, userId: $userId, context: ['conversationId' => $conversationId, 'workspaceMode' => $mode]);
 
 		return $scope->current()['workspaceKey'];
 	}//end keyFor()
@@ -65,7 +65,7 @@ final class WorkspaceRunScopeSessionTest extends TestCase {
 
 	public function testTheBindingStillCarriesTheRun(): void {
 		$scope = new WorkspaceRunScope();
-		$scope->enter(runId: 'run-1', agentId: 'agent-1', userId: 'alice', conversationId: 'conv-1', workspaceMode: 'session');
+		$scope->enter(runId: 'run-1', agentId: 'agent-1', userId: 'alice', context: ['conversationId' => 'conv-1', 'workspaceMode' => 'session']);
 
 		self::assertSame('run-1', $scope->current()['runId']);
 		self::assertSame('conv-1', $scope->current()['conversationId']);

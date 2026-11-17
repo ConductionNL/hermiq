@@ -153,52 +153,74 @@ class WorkspaceTransfer {
 				$file = [];
 			}
 
-			$name = (string)($file['name'] ?? '');
-			$bytes = self::decode(file: $file);
-			if ($name === '' || $bytes === null) {
-				$refused[] = ['path' => $name, 'reason' => 'The run returned a file without a name or readable content.'];
-				continue;
+			$change = $this->changeOf(root: $root, file: $file, before: $before);
+			if (isset($change['reason']) === true) {
+				$refused[] = $change;
+			} elseif ($change !== []) {
+				$changes[] = $change;
 			}
-
-			if (isset($before[$name]) === true && $before[$name] === hash('sha256', $bytes)) {
-				continue;
-			}
-
-			try {
-				$absolute = $this->guard->forWrite(root: $root, relativePath: $name);
-			} catch (WorkspaceException $e) {
-				$refused[] = ['path' => $name, 'reason' => $e->getMessage()];
-				continue;
-			}
-
-			if (is_dir($absolute) === true) {
-				$refused[] = ['path' => $name, 'reason' => 'That path is a folder, not a file.'];
-				continue;
-			}
-
-			$changes[] = ['path' => $name, 'absolute' => $absolute, 'bytes' => $bytes];
-		}//end foreach
+		}
 
 		$this->reserveFor(workspaceKey: $workspaceKey, changes: $changes);
 
-		$written = [];
-		foreach ($changes as $change) {
-			$action = 'modified';
-			if (is_file($change['absolute']) === false) {
-				$action = 'created';
-			}
+		return ['written' => array_map(self::write(...), $changes), 'refused' => $refused];
+	}//end writeBack()
 
-			$folder = dirname($change['absolute']);
-			if (is_dir($folder) === false) {
-				mkdir($folder, 0755, true);
-			}
-
-			file_put_contents($change['absolute'], $change['bytes']);
-			$written[] = ['path' => $change['path'], 'action' => $action, 'bytes' => strlen($change['bytes'])];
+	/**
+	 * One returned file as a change to write, `[]` when it is unchanged, or a refusal `{path, reason}`.
+	 *
+	 * @param string                $root   The workspace root.
+	 * @param array<string, mixed>  $file   The returned {name, content, encoding?}.
+	 * @param array<string, string> $before The sha256 of each file that went in, by name.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function changeOf(string $root, array $file, array $before): array {
+		$name = (string)($file['name'] ?? '');
+		$bytes = self::decode(file: $file);
+		if ($name === '' || $bytes === null) {
+			return ['path' => $name, 'reason' => 'The run returned a file without a name or readable content.'];
 		}
 
-		return ['written' => $written, 'refused' => $refused];
-	}//end writeBack()
+		if (isset($before[$name]) === true && $before[$name] === hash('sha256', $bytes)) {
+			return [];
+		}
+
+		try {
+			$absolute = $this->guard->forWrite(root: $root, relativePath: $name);
+		} catch (WorkspaceException $e) {
+			return ['path' => $name, 'reason' => $e->getMessage()];
+		}
+
+		if (is_dir($absolute) === true) {
+			return ['path' => $name, 'reason' => 'That path is a folder, not a file.'];
+		}
+
+		return ['path' => $name, 'absolute' => $absolute, 'bytes' => $bytes];
+	}//end changeOf()
+
+	/**
+	 * Write one change into the workspace.
+	 *
+	 * @param array{path: string, absolute: string, bytes: string} $change The change.
+	 *
+	 * @return array{path: string, action: string, bytes: int}
+	 */
+	private static function write(array $change): array {
+		$action = 'modified';
+		if (is_file($change['absolute']) === false) {
+			$action = 'created';
+		}
+
+		$folder = dirname($change['absolute']);
+		if (is_dir($folder) === false) {
+			mkdir($folder, 0755, true);
+		}
+
+		file_put_contents($change['absolute'], $change['bytes']);
+
+		return ['path' => $change['path'], 'action' => $action, 'bytes' => strlen($change['bytes'])];
+	}//end write()
 
 	/**
 	 * Reserve the budget for every change at once, so a run over budget writes nothing.
@@ -240,41 +262,66 @@ class WorkspaceTransfer {
 	 * @throws WorkspaceException When a named path is outside the workspace or not a file.
 	 */
 	private function selected(string $root, array $paths): array {
+		$selected = [];
 		if ($paths !== []) {
-			$selected = [];
 			foreach ($paths as $path) {
-				$absolute = $this->guard->forRead(root: $root, relativePath: (string)$path);
-				if (is_file($absolute) === false) {
-					throw new WorkspaceException(
-						errorCode: WorkspaceException::INVALID_ARGUMENT,
-						message: 'That file does not exist in the workspace: ' . (string)$path
-					);
-				}
-
+				$absolute = $this->existingFile(root: $root, path: (string)$path);
 				$selected[substr($absolute, strlen($root) + 1)] = $absolute;
 			}
-
-			ksort($selected, SORT_STRING);
-			return $selected;
-		}
-
-		$notMetadata = static fn (SplFileInfo $file): bool => $file->getPathname() !== $root . '/.git';
-		$iterator = new RecursiveIteratorIterator(
-			new RecursiveCallbackFilterIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS), $notMetadata)
-		);
-
-		$selected = [];
-		foreach ($iterator as $file) {
-			if ($file->isFile() === false || $file->isLink() === true) {
-				continue;
+		} else {
+			foreach (self::allFiles(root: $root) as $absolute) {
+				$selected[substr($absolute, strlen($root) + 1)] = $absolute;
 			}
-
-			$selected[substr((string)$file->getPathname(), strlen($root) + 1)] = (string)$file->getPathname();
 		}
 
 		ksort($selected, SORT_STRING);
 		return $selected;
 	}//end selected()
+
+	/**
+	 * The absolute path of a named workspace file that exists.
+	 *
+	 * @param string $root The workspace root.
+	 * @param string $path The relative path.
+	 *
+	 * @return string
+	 *
+	 * @throws WorkspaceException When the path leaves the workspace or is not a file.
+	 */
+	private function existingFile(string $root, string $path): string {
+		$absolute = $this->guard->forRead(root: $root, relativePath: $path);
+		if (is_file($absolute) === false) {
+			throw new WorkspaceException(
+				errorCode: WorkspaceException::INVALID_ARGUMENT,
+				message: 'That file does not exist in the workspace: ' . $path
+			);
+		}
+
+		return $absolute;
+	}//end existingFile()
+
+	/**
+	 * Every regular file under the root, outside `.git`, symlinks left out.
+	 *
+	 * @param string $root The workspace root.
+	 *
+	 * @return array<int, string> Absolute paths.
+	 */
+	private static function allFiles(string $root): array {
+		$notMetadata = static fn (SplFileInfo $file): bool => $file->getPathname() !== $root . '/.git';
+		$iterator = new RecursiveIteratorIterator(
+			new RecursiveCallbackFilterIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS), $notMetadata)
+		);
+
+		$files = [];
+		foreach ($iterator as $file) {
+			if ($file->isFile() === true && $file->isLink() === false) {
+				$files[] = (string)$file->getPathname();
+			}
+		}
+
+		return $files;
+	}//end allFiles()
 
 	/**
 	 * One run file: text when the bytes are UTF-8, base64 otherwise.

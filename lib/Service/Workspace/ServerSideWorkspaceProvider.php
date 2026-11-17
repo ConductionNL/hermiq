@@ -395,19 +395,34 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider, ServerSideWorksp
 		}
 
 		$dir = $this->dirFor(runKey: $runKey);
+		$this->extractArchive(archivePath: $archivePath, dir: $dir);
+
+		$this->assertWithinBudget(dir: $dir, runKey: $runKey);
+
+		$checkout = new CheckoutRequest(repository: (string)($origin['repository'] ?? ''), ref: (string)($origin['ref'] ?? ''));
+		$meta = $this->freshMeta(checkout: $checkout, runKey: $runKey);
+		$meta['buildId'] = (string)($origin['buildId'] ?? '');
+		$this->writeMeta(dir: $dir, meta: $meta);
+	}//end restore()
+
+	/**
+	 * Unpack a build archive into a fresh `<dir>/repo`, refusing a path outside it.
+	 *
+	 * @param string $archivePath The zip archive.
+	 * @param string $dir         The workspace directory.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException When the archive cannot be read or names a path outside the workspace.
+	 */
+	private function extractArchive(string $archivePath, string $dir): void {
 		$zip = new ZipArchive();
 		if (is_file($archivePath) === false || $zip->open($archivePath) !== true) {
 			throw new WorkspaceException(errorCode: WorkspaceException::INVALID_ARGUMENT, message: 'The build archive could not be read.');
 		}
 
 		try {
-			for ($index = 0; $index < $zip->numFiles; $index++) {
-				$name = (string)$zip->getNameIndex($index);
-				if ($name === '' || str_starts_with($name, '/') === true || in_array('..', explode('/', $name), true) === true) {
-					throw new WorkspaceException(errorCode: WorkspaceException::INVALID_ARGUMENT, message: 'The build archive names a path outside the workspace.');
-				}
-			}
-
+			self::assertArchivePaths(zip: $zip);
 			if (is_dir($dir) === true) {
 				$this->removeTree(path: $dir);
 			}
@@ -420,14 +435,25 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider, ServerSideWorksp
 		} finally {
 			$zip->close();
 		}
+	}//end extractArchive()
 
-		$this->assertWithinBudget(dir: $dir, runKey: $runKey);
-
-		$checkout = new CheckoutRequest(repository: (string)($origin['repository'] ?? ''), ref: (string)($origin['ref'] ?? ''));
-		$meta = $this->freshMeta(checkout: $checkout, runKey: $runKey);
-		$meta['buildId'] = (string)($origin['buildId'] ?? '');
-		$this->writeMeta(dir: $dir, meta: $meta);
-	}//end restore()
+	/**
+	 * Refuse an archive entry that is empty, absolute or climbs out with `..`.
+	 *
+	 * @param ZipArchive $zip The open archive.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException When an entry names a path outside the workspace.
+	 */
+	private static function assertArchivePaths(ZipArchive $zip): void {
+		for ($index = 0; $index < $zip->numFiles; $index++) {
+			$name = (string)$zip->getNameIndex($index);
+			if ($name === '' || str_starts_with($name, '/') === true || in_array('..', explode('/', $name), true) === true) {
+				throw new WorkspaceException(errorCode: WorkspaceException::INVALID_ARGUMENT, message: 'The build archive names a path outside the workspace.');
+			}
+		}
+	}//end assertArchivePaths()
 
 	/**
 	 * The build a workspace was started from, or null.

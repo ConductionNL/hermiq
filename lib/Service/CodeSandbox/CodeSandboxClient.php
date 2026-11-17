@@ -118,8 +118,6 @@ class CodeSandboxClient {
 	 * @param array<int, array{name: string, content: string}> $files    Input files.
 	 * @param array<string, mixed>                       $limits   `wallSeconds` and `memoryMb`; clamped to the ceilings.
 	 * @param string|null                                $uid      The acting user, passed to AppAPI.
-	 * @param bool                                       $workspace Whether the files are a workspace copy: relative paths,
-	 *                                                              and the run answers the files it created or changed.
 	 *
 	 * @return array{exitCode: int, stdout: string, stderr: string, durationMs: int, timedOut: bool,
 	 *   files: array<int, mixed>, limits: array{wallSeconds: int, memoryMb: int}} The run result and the limits it ran under.
@@ -137,22 +135,104 @@ class CodeSandboxClient {
 		array $files=[],
 		array $limits=[],
 		?string $uid=null,
-		bool $workspace=false,
 	): array {
+		$payload = self::payload(language: $language, code: $code, stdin: $stdin, files: $files, limits: $limits);
+
+		return $this->send(payload: $payload, uid: $uid);
+	}//end run()
+
+	/**
+	 * Run code over a workspace copy: the files carry relative paths, and the run
+	 * answers the files it created or changed.
+	 *
+	 * @param string                                           $language `python` or `node`.
+	 * @param string                                           $code     The code.
+	 * @param string                                           $stdin    What the code reads on stdin.
+	 * @param array<int, array{name: string, content: string}> $files    The workspace files.
+	 * @param array<string, mixed>                             $limits   `wallSeconds` and `memoryMb`; clamped to the ceilings.
+	 * @param string|null                                      $uid      The acting user, passed to AppAPI.
+	 *
+	 * @return array<string, mixed> The run result and the limits it ran under.
+	 *
+	 * @throws InvalidArgumentException       When the language is not one the sandbox carries.
+	 * @throws CodeSandboxUnavailableException When no sandbox can take the run; nothing was sent.
+	 * @throws RuntimeException               When the sandbox could not carry the run out or answered malformed.
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-sandbox-runs-work-on-the-workspace-and-write-back-what-they-change-req-wksp-002
+	 */
+	public function runOnWorkspace(
+		string $language,
+		string $code,
+		string $stdin,
+		array $files,
+		array $limits,
+		?string $uid,
+	): array {
+		$payload = self::payload(language: $language, code: $code, stdin: $stdin, files: $files, limits: $limits);
+		$payload['workspace'] = true;
+
+		return $this->send(payload: $payload, uid: $uid);
+	}//end runOnWorkspace()
+
+	/**
+	 * The run contract's request, its limits clamped.
+	 *
+	 * @param string                                           $language `python` or `node`.
+	 * @param string                                           $code     The code.
+	 * @param string                                           $stdin    What the code reads on stdin.
+	 * @param array<int, array{name: string, content: string}> $files    Input files.
+	 * @param array<string, mixed>                             $limits   The requested limits.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @throws InvalidArgumentException When the language is not one the sandbox carries.
+	 */
+	private static function payload(string $language, string $code, string $stdin, array $files, array $limits): array {
 		if (in_array($language, self::LANGUAGES, true) === false) {
 			throw new InvalidArgumentException('The sandbox runs python or node.');
 		}
 
-		$clamped = self::clampLimits(limits: $limits);
-		$payload = ['language' => $language, 'code' => $code, 'stdin' => $stdin, 'files' => array_values($files), 'limits' => $clamped];
-		if ($workspace === true) {
-			$payload['workspace'] = true;
-		}
+		return [
+			'language' => $language,
+			'code'     => $code,
+			'stdin'    => $stdin,
+			'files'    => array_values($files),
+			'limits'   => self::clampLimits(limits: $limits),
+		];
+	}//end payload()
 
+	/**
+	 * Send one run request to the chosen sandbox.
+	 *
+	 * @param array<string, mixed> $payload The run contract's request, its limits clamped.
+	 * @param string|null          $uid     The acting user, passed to AppAPI.
+	 *
+	 * @return array<string, mixed> The run result and the limits it ran under.
+	 *
+	 * @throws CodeSandboxUnavailableException When no sandbox can take the run; nothing was sent.
+	 * @throws RuntimeException               When the sandbox could not carry the run out or answered malformed.
+	 */
+	private function send(array $payload, ?string $uid): array {
 		if ($this->settings->backend() === CodeSandboxSettings::BACKEND_HOSTED) {
-			return $this->runHosted(payload: $payload, limits: $clamped);
+			return $this->runHosted(payload: $payload, limits: $payload['limits']);
 		}
 
+		return $this->runOnExApp(payload: $payload, uid: $uid);
+	}//end send()
+
+	/**
+	 * Run at the sandbox ExApp through AppAPI.
+	 *
+	 * @param array<string, mixed> $payload The run contract's request, its limits clamped.
+	 * @param string|null          $uid     The acting user, passed to AppAPI.
+	 *
+	 * @return array<string, mixed> The run result and the limits it ran under.
+	 *
+	 * @throws CodeSandboxUnavailableException When the ExApp is not there; nothing was sent.
+	 * @throws RuntimeException               When the sandbox refused the run or answered malformed.
+	 */
+	private function runOnExApp(array $payload, ?string $uid): array {
+		$clamped = $payload['limits'];
 		$appApi = $this->appApi();
 		if ($appApi === null) {
 			throw new CodeSandboxUnavailableException(CodeSandboxUnavailableException::NOT_INSTALLED);
@@ -183,7 +263,7 @@ class CodeSandboxClient {
 		}
 
 		return self::mapResult(body: (string)$result->getBody()) + ['limits' => $clamped];
-	}//end run()
+	}//end runOnExApp()
 
 	/**
 	 * Run at the hosted sandbox through integriq.

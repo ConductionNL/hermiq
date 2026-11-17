@@ -380,8 +380,10 @@ class McpRunController extends Controller {
 			runId: $binding['runId'],
 			agentId: $binding['agentId'],
 			userId: $binding['userId'],
-			conversationId: (string)($binding['conversationId'] ?? ''),
-			workspaceMode: (string)($agent?->getObject()['workspaceMode'] ?? '')
+			context: [
+				'conversationId' => (string)($binding['conversationId'] ?? ''),
+				'workspaceMode'  => (string)($agent?->getObject()['workspaceMode'] ?? ''),
+			]
 		);
 
 		// A new conversation of an agent with a pinned build starts its workspace

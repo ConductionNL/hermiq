@@ -57,23 +57,18 @@ class WorkspaceRunScope {
 	 * @param string $runId          The run id from the token.
 	 * @param string $agentId        The agent id from the token.
 	 * @param string $userId         The acting user (the run owner) from the token.
-	 * @param string $conversationId The conversation from the token, '' when none.
-	 * @param string $workspaceMode  The agent's `workspaceMode`.
+	 * @param array<string, string> $context `conversationId` (the conversation from the token, '' when none)
+	 *                                       and `workspaceMode` (the agent's `workspaceMode`).
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
 	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-can-keep-a-workspace-for-the-whole-conversation-req-wksp-001
 	 */
-	public function enter(
-		string $runId,
-		string $agentId,
-		string $userId,
-		string $conversationId='',
-		string $workspaceMode='',
-	): void {
+	public function enter(string $runId, string $agentId, string $userId, array $context=[]): void {
+		$conversationId = (string)($context['conversationId'] ?? '');
 		$workspaceKey = $runId;
-		if ($workspaceMode === SessionWorkspaceKey::MODE_SESSION) {
+		if (($context['workspaceMode'] ?? '') === SessionWorkspaceKey::MODE_SESSION) {
 			$workspaceKey = (SessionWorkspaceKey::compose(agentId: $agentId, conversationId: $conversationId, userId: $userId) ?? $runId);
 		}
 

@@ -104,18 +104,9 @@ class RunCodeTool {
 	 * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#scenario-the-ai-feature-is-off
 	 */
 	public function invoke(string $uid, string $toolId, array $arguments): array {
-		if ($toolId !== CodeSandboxToolDescriptors::RUN_CODE) {
-			return self::err(code: 'unknown_tool', message: "Unknown tool id '" . $toolId . "'.");
-		}
-
-		if ($this->featureEnabled() === false) {
-			return self::err(code: 'code_execution_not_enabled', message: self::NOT_ENABLED);
-		}
-
-		$language = (string)($arguments['language'] ?? '');
-		$code = ($arguments['code'] ?? null);
-		if (is_string($code) === false || trim($code) === '') {
-			return self::err(code: 'invalid_argument', message: 'The code to run is required.');
+		$refusal = $this->refusal(toolId: $toolId, code: ($arguments['code'] ?? null));
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
 		$files = $this->files(uid: $uid, requested: ($arguments['files'] ?? []));
@@ -133,55 +124,69 @@ class RunCodeTool {
 			$reach = CodeSandboxToolDescriptors::atLeastUser(reach: $reach);
 		}
 
+		$run = [
+			'uid'      => $uid,
+			'language' => (string)($arguments['language'] ?? ''),
+			'code'     => (string)$arguments['code'],
+			'stdin'    => (string)($arguments['stdin'] ?? ''),
+			'limits'   => ['wallSeconds' => ($arguments['timeoutSeconds'] ?? null), 'memoryMb' => ($arguments['memoryMb'] ?? null)],
+			'reach'    => $reach,
+		];
 		if ($workspace !== []) {
-			return $this->dispatchOnWorkspace(
-				uid: $uid,
-				language: $language,
-				code: $code,
-				stdin: (string)($arguments['stdin'] ?? ''),
-				workspace: $workspace,
-				limits: ['wallSeconds' => ($arguments['timeoutSeconds'] ?? null), 'memoryMb' => ($arguments['memoryMb'] ?? null)],
-				reach: $reach
-			);
+			return $this->dispatchOnWorkspace(run: $run, workspace: $workspace);
 		}
 
-		return $this->dispatch(
-			uid: $uid,
-			language: $language,
-			code: $code,
-			stdin: (string)($arguments['stdin'] ?? ''),
-			files: $files,
-			limits: ['wallSeconds' => ($arguments['timeoutSeconds'] ?? null), 'memoryMb' => ($arguments['memoryMb'] ?? null)],
-			reach: $reach
-		);
+		return $this->dispatch(run: $run, files: $files);
 	}//end invoke()
+
+	/**
+	 * Why the call cannot run: another tool, the AI feature off, or no code; null when it can.
+	 *
+	 * @param string $toolId The tool id.
+	 * @param mixed  $code   The `code` argument.
+	 *
+	 * @return array<string, mixed>|null An error envelope, or null.
+	 */
+	private function refusal(string $toolId, mixed $code): ?array {
+		if ($toolId !== CodeSandboxToolDescriptors::RUN_CODE) {
+			return self::err(code: 'unknown_tool', message: "Unknown tool id '" . $toolId . "'.");
+		}
+
+		if ($this->featureEnabled() === false) {
+			return self::err(code: 'code_execution_not_enabled', message: self::NOT_ENABLED);
+		}
+
+		if (is_string($code) === false || trim($code) === '') {
+			return self::err(code: 'invalid_argument', message: 'The code to run is required.');
+		}
+
+		return null;
+	}//end refusal()
 
 	/**
 	 * Send the run and shape its answer.
 	 *
-	 * @param string                                          $uid      The acting user.
-	 * @param string                                          $language The language.
-	 * @param string                                          $code     The code.
-	 * @param string                                          $stdin    The input.
-	 * @param array<int, array{name: string, content: string}> $files    The input files.
-	 * @param array<string, mixed>                            $limits   The requested limits.
-	 * @param string                                          $reach    The resolved reach.
+	 * @param array<string, mixed>                            $run         uid, language, code, stdin, limits and reach.
+	 * @param array<int, array{name: string, content: string}> $files       The input files.
 	 * @param bool                                            $onWorkspace Whether the files are a workspace copy (relative paths).
 	 *
 	 * @return array<string, mixed>
 	 */
-	private function dispatch(
-		string $uid,
-		string $language,
-		string $code,
-		string $stdin,
-		array $files,
-		array $limits,
-		string $reach,
-		bool $onWorkspace=false,
-	): array {
+	private function dispatch(array $run, array $files, bool $onWorkspace=false): array {
 		try {
-			$result = $this->client->run(language: $language, code: $code, stdin: $stdin, files: $files, limits: $limits, uid: $uid, workspace: $onWorkspace);
+			$request = [
+				'language' => $run['language'],
+				'code'     => $run['code'],
+				'stdin'    => $run['stdin'],
+				'files'    => $files,
+				'limits'   => $run['limits'],
+				'uid'      => $run['uid'],
+			];
+			if ($onWorkspace === true) {
+				$result = $this->client->runOnWorkspace(...$request);
+			} else {
+				$result = $this->client->run(...$request);
+			}
 		} catch (CodeSandboxUnavailableException $e) {
 			return self::err(code: 'code_sandbox_unavailable', message: $e->getMessage());
 		} catch (InvalidArgumentException $e) {
@@ -191,7 +196,7 @@ class RunCodeTool {
 			return self::err(code: 'code_run_failed', message: $e->getMessage());
 		}
 
-		return $result + ['language' => $language, 'reach' => $reach];
+		return $result + ['language' => $run['language'], 'reach' => $run['reach']];
 	}//end dispatch()
 
 	/**
@@ -211,13 +216,8 @@ class RunCodeTool {
 	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-sandbox-runs-work-on-the-workspace-and-write-back-what-they-change-req-wksp-002
 	 */
 	private function workspaceInput(array $arguments, array $namedFiles): array {
-		$asked = ($arguments['useWorkspace'] ?? null);
-		if ($asked === false || $asked === 'false' || $asked === 0) {
-			return [];
-		}
-
-		$explicit = ($asked === true || $asked === 'true' || $asked === 1);
-		if ($explicit === false && $namedFiles !== []) {
+		$explicit = self::askedForWorkspace(asked: ($arguments['useWorkspace'] ?? null));
+		if ($explicit === false || ($explicit === null && $namedFiles !== [])) {
 			return [];
 		}
 
@@ -226,17 +226,63 @@ class RunCodeTool {
 		}
 
 		$paths = ($arguments['paths'] ?? []);
+		$invalid = self::invalidPaths(paths: $paths);
+		if ($invalid !== null) {
+			return self::err(code: 'invalid_argument', message: $invalid);
+		}
+
+		return $this->packWorkspace(paths: $paths, asksForIt: ($explicit === true || $paths !== []));
+	}//end workspaceInput()
+
+	/**
+	 * What the call's `useWorkspace` says: true asked for, false declined, null not said.
+	 *
+	 * @param mixed $asked The `useWorkspace` argument.
+	 *
+	 * @return bool|null
+	 */
+	private static function askedForWorkspace(mixed $asked): ?bool {
+		if (in_array($asked, [false, 'false', 0], true) === true) {
+			return false;
+		}
+
+		if (in_array($asked, [true, 'true', 1], true) === true) {
+			return true;
+		}
+
+		return null;
+	}//end askedForWorkspace()
+
+	/**
+	 * Why the `paths` argument is not a list of workspace paths, or null when it is.
+	 *
+	 * @param mixed $paths The `paths` argument.
+	 *
+	 * @return string|null
+	 */
+	private static function invalidPaths(mixed $paths): ?string {
 		if (is_array($paths) === false || array_is_list($paths) === false) {
-			return self::err(code: 'invalid_argument', message: 'paths is a list of workspace paths.');
+			return 'paths is a list of workspace paths.';
 		}
 
 		foreach ($paths as $path) {
 			if (is_string($path) === false || trim($path, '/') === '') {
-				return self::err(code: 'invalid_argument', message: 'Every path is a workspace path.');
+				return 'Every path is a workspace path.';
 			}
 		}
 
-		$asksForIt = ($explicit === true || $paths !== []);
+		return null;
+	}//end invalidPaths()
+
+	/**
+	 * The open workspace's key and packed files, `[]` without one, or an error envelope.
+	 *
+	 * @param array<int, string> $paths     The workspace paths to send, all when empty.
+	 * @param bool               $asksForIt Whether the call asked for the workspace.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function packWorkspace(array $paths, bool $asksForIt): array {
 		if ($this->scope === null || $this->transfer === null) {
 			return $this->noWorkspace(explicit: $asksForIt);
 		}
@@ -275,37 +321,15 @@ class RunCodeTool {
 	 * The answer carries what was written and refused instead of the run's
 	 * file contents, which are now in the workspace.
 	 *
-	 * @param string               $uid       The acting user.
-	 * @param string               $language  The language.
-	 * @param string               $code      The code.
-	 * @param string               $stdin     The input.
+	 * @param array<string, mixed> $run       uid, language, code, stdin, limits and reach.
 	 * @param array<string, mixed> $workspace `{key, files}` from workspaceInput().
-	 * @param array<string, mixed> $limits    The requested limits.
-	 * @param string               $reach     The resolved reach.
 	 *
 	 * @return array<string, mixed>
 	 *
 	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#scenario-code-adds-a-column-to-a-file-in-the-workspace
 	 */
-	private function dispatchOnWorkspace(
-		string $uid,
-		string $language,
-		string $code,
-		string $stdin,
-		array $workspace,
-		array $limits,
-		string $reach,
-	): array {
-		$result = $this->dispatch(
-			uid: $uid,
-			language: $language,
-			code: $code,
-			stdin: $stdin,
-			files: $workspace['files'],
-			limits: $limits,
-			reach: $reach,
-			onWorkspace: true
-		);
+	private function dispatchOnWorkspace(array $run, array $workspace): array {
+		$result = $this->dispatch(run: $run, files: $workspace['files'], onWorkspace: true);
 		if (isset($result['error']) === true || $this->transfer === null) {
 			return $result;
 		}

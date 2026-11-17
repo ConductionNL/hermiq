@@ -100,9 +100,10 @@ final class RunCodeToolWorkspaceTest extends TestCase {
 	public function testARunOnTheWorkspaceWritesBackOnlyWhatItChanged(): void {
 		$this->scope->enter(runId: self::RUN, agentId: 'agent-1', userId: 'alice');
 		$sent = [];
-		$this->client->expects($this->once())->method('run')->willReturnCallback(
-			static function (string $language, string $code, string $stdin, array $files, array $limits, ?string $uid, bool $workspace) use (&$sent): array {
-				$sent = ['files' => $files, 'workspace' => $workspace, 'uid' => $uid];
+		$this->client->expects($this->never())->method('run');
+		$this->client->expects($this->once())->method('runOnWorkspace')->willReturnCallback(
+			static function (string $language, string $code, string $stdin, array $files, array $limits, ?string $uid) use (&$sent): array {
+				$sent = ['files' => $files, 'workspace' => true, 'uid' => $uid];
 				return [
 					'exitCode' => 0, 'stdout' => '', 'stderr' => '', 'durationMs' => 12, 'timedOut' => false,
 					'files' => [
@@ -144,7 +145,7 @@ final class RunCodeToolWorkspaceTest extends TestCase {
 		);
 
 		$names = null;
-		$this->client->expects($this->once())->method('run')->willReturnCallback(
+		$this->client->expects($this->once())->method('runOnWorkspace')->willReturnCallback(
 			static function (string $language, string $code, string $stdin, array $files) use (&$names): array {
 				$names = array_column($files, 'name');
 				return ['exitCode' => 0, 'stdout' => '', 'stderr' => '', 'durationMs' => 1, 'timedOut' => false, 'files' => [], 'limits' => []];
@@ -162,9 +163,10 @@ final class RunCodeToolWorkspaceTest extends TestCase {
 	 */
 	public function testARunWithoutAWorkspaceIsUnchanged(): void {
 		$calls = [];
+		$this->client->expects($this->never())->method('runOnWorkspace');
 		$this->client->method('run')->willReturnCallback(
-			static function (string $language, string $code, string $stdin, array $files, array $limits, ?string $uid, bool $workspace) use (&$calls): array {
-				$calls[] = [$files, $workspace];
+			static function (string $language, string $code, string $stdin, array $files) use (&$calls): array {
+				$calls[] = [$files, false];
 				return ['exitCode' => 0, 'stdout' => '', 'stderr' => '', 'durationMs' => 1, 'timedOut' => false, 'files' => [], 'limits' => []];
 			}
 		);
@@ -184,6 +186,7 @@ final class RunCodeToolWorkspaceTest extends TestCase {
 	 */
 	public function testAnExplicitWorkspaceRequestThatCannotBeMetIsRefused(): void {
 		$this->client->expects($this->never())->method('run');
+		$this->client->expects($this->never())->method('runOnWorkspace');
 
 		self::assertSame(
 			['error' => ['code' => 'workspace_absent', 'message' => 'This run has no workspace to run code on.']],
