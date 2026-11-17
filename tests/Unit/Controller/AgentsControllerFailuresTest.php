@@ -25,6 +25,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\AgentsController;
+use OCA\Hermiq\Service\Agent\ReferenceModelSettings;
 use OCA\Hermiq\Service\Agent\AgentAvailabilityService;
 use OCA\Hermiq\Service\Agent\AgentCatalog;
 use OCA\Hermiq\Service\AgentAccessService;
@@ -112,7 +113,8 @@ final class AgentsControllerFailuresTest extends TestCase {
 				agentAccess: $access,
 				availability: $availability,
 				userManager: $this->createMock(IUserManager::class),
-			)
+			),
+			$this->createMock(ReferenceModelSettings::class)
 		);
 	}//end controller()
 

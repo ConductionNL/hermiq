@@ -83,6 +83,22 @@ class RunTraceCollector {
 	private ?array $providerDisclosure = null;
 
 	/**
+	 * The attempts of the turn at a provider, in order.
+	 *
+	 * @var array<int, array<string, mixed>>
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+	 */
+	private array $providerAttempts = [];
+
+	/**
+	 * The answers of an ensemble turn's reference models, in order.
+	 *
+	 * @var array<int, array{provider: string, model: string, text: string}>
+	 */
+	private array $referenceAnswers = [];
+
+	/**
 	 * Monotonic token counter for `startStep()`.
 	 *
 	 * @var integer
@@ -233,14 +249,145 @@ class RunTraceCollector {
 	 * What this run recorded about the provider it used, or null when nothing was
 	 * recorded (a run that never reached a provider).
 	 *
-	 * @return array<string, string>|null
-	 *         The disclosure, or null.
+	 * @return array<string, mixed>|null
+	 *         The disclosure (with `receivedBy` once the turn has attempts), or null.
 	 *
 	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-every-run-must-record-the-feature-the-provider-and-the-residency-in-force
 	 */
 	public function providerDisclosure(): ?array {
-		return $this->providerDisclosure;
+		// Models-several-models-per-turn D6: once a turn has attempts, the
+		// disclosure also names every provider that was sent the prompt.
+		if ($this->providerDisclosure === null || $this->providerAttempts === []) {
+			return $this->providerDisclosure;
+		}
+
+		return array_merge($this->providerDisclosure, ['receivedBy' => $this->receivedBy()]);
 	}//end providerDisclosure()
+
+	/**
+	 * Record one attempt of the turn at a provider.
+	 *
+	 * @param string $provider   The provider.
+	 * @param string $model      The model.
+	 * @param string $outcome    answered, failed, skipped or cooling.
+	 * @param string $reason     Why, in words or a step name; empty when it answered.
+	 * @param int    $durationMs How long the attempt took.
+	 * @param bool   $received   Whether the provider was sent the prompt.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+	 */
+	public function recordProviderAttempt(string $provider, string $model, string $outcome, string $reason, int $durationMs, bool $received): void {
+		$this->providerAttempts[] = [
+			'provider' => $provider,
+			'model' => $model,
+			'outcome' => $outcome,
+			'reason' => $reason,
+			'durationMs' => $durationMs,
+			'received' => $received,
+		];
+	}//end recordProviderAttempt()
+
+	/**
+	 * The attempts of the turn, in order.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+	 */
+	public function providerAttempts(): array {
+		return $this->providerAttempts;
+	}//end providerAttempts()
+
+	/**
+	 * Every provider and model that was sent the prompt, in order and once each.
+	 *
+	 * @return array<int, array{provider: string, model: string}>
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+	 */
+	public function receivedBy(): array {
+		$seen = [];
+		foreach ($this->providerAttempts as $attempt) {
+			if ($attempt['received'] === true) {
+				$seen[$attempt['provider'].'/'.$attempt['model']] = ['provider' => $attempt['provider'], 'model' => $attempt['model']];
+			}
+		}
+
+		return array_values($seen);
+	}//end receivedBy()
+
+	/**
+	 * Record a line about the fallback on the run's steps.
+	 *
+	 * @param string $note    What happened.
+	 * @param string $outcome The step outcome.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	public function recordFallbackNote(string $note, string $outcome): void {
+		$this->endStep(token: $this->startStep(type: 'fallback', name: $note), outcome: $outcome);
+	}//end recordFallbackNote()
+
+	/**
+	 * Record a line about an ensemble turn on the run's steps ("Asked 2 models").
+	 *
+	 * @param string $note    What happened.
+	 * @param string $outcome The step outcome.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 */
+	public function recordEnsembleNote(string $note, string $outcome): void {
+		$this->endStep(token: $this->startStep(type: 'ensemble', name: $note), outcome: $outcome);
+	}//end recordEnsembleNote()
+
+	/**
+	 * Keep one reference model's answer on the run; it is never shown in the chat.
+	 *
+	 * @param string $provider The reference's provider.
+	 * @param string $model    The reference's model.
+	 * @param string $text     Its answer.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 */
+	public function recordReferenceAnswer(string $provider, string $model, string $text): void {
+		$this->referenceAnswers[] = ['provider' => $provider, 'model' => $model, 'text' => $text];
+	}//end recordReferenceAnswer()
+
+	/**
+	 * The reference answers of the turn, in order.
+	 *
+	 * @return array<int, array{provider: string, model: string, text: string}>
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 */
+	public function referenceAnswers(): array {
+		return $this->referenceAnswers;
+	}//end referenceAnswers()
+
+	/**
+	 * Whether a tool step was started in this run.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	public function hasToolStep(): bool {
+		foreach (array_merge($this->steps, array_values($this->pending)) as $step) {
+			if (($step['type'] ?? '') === 'tool') {
+				return true;
+			}
+		}
+
+		return false;
+	}//end hasToolStep()
 
 	/**
 	 * Return every recorded step, in completion order (see class docblock).

@@ -27,6 +27,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\AgentsController;
+use OCA\Hermiq\Service\Agent\ReferenceModelSettings;
 use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\AgentCatalogInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -115,7 +116,8 @@ final class AgentsControllerUncoveredPathsTest extends TestCase {
 			$this->session,
 			$this->logger,
 			$this->access,
-			$this->createMock(AgentCatalogInterface::class)
+			$this->createMock(AgentCatalogInterface::class),
+			$this->createMock(ReferenceModelSettings::class)
 		);
 	}//end controller()
 

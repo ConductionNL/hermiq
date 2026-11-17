@@ -387,6 +387,46 @@ class AnalyticsServiceTest extends TestCase {
 	}//end testARunRowShowsTheDataUseTermInForce()
 
 	/**
+	 * A run that fell back shows both attempts in order and every provider that received the prompt.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+	 */
+	public function testARunRowShowsItsProviderAttempts(): void {
+		$schedules = [$this->schedule('s1', 'agentA')];
+		$recorded = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$recorded->setUuid('run-fell-back');
+		$recorded->setChanged(
+			[
+				'status' => 'ok',
+				'agentId' => 'agentA',
+				'providerDisclosure' => [
+					'provider' => 'ollama',
+					'model' => 'qwen2.5',
+					'receivedBy' => [['provider' => 'anthropic', 'model' => 'claude-opus-4-8'], ['provider' => 'ollama', 'model' => 'qwen2.5'], 'junk'],
+				],
+				'providerAttempts' => [
+					['provider' => 'anthropic', 'model' => 'claude-opus-4-8', 'outcome' => 'failed', 'reason' => 'rate_limit', 'durationMs' => 120, 'received' => true, 'extra' => ['x']],
+					['provider' => 'ollama', 'model' => 'qwen2.5', 'outcome' => 'answered', 'reason' => '', 'durationMs' => 900, 'received' => true],
+				],
+			]
+		);
+
+		$row = $this->service($schedules, [$recorded])->listRuns()['results'][0];
+
+		$this->assertSame(
+			[
+				['provider' => 'anthropic', 'model' => 'claude-opus-4-8', 'outcome' => 'failed', 'reason' => 'rate_limit', 'durationMs' => 120],
+				['provider' => 'ollama', 'model' => 'qwen2.5', 'outcome' => 'answered', 'reason' => '', 'durationMs' => 900],
+			],
+			$row['providerAttempts']
+		);
+		$this->assertSame([['provider' => 'anthropic', 'model' => 'claude-opus-4-8'], ['provider' => 'ollama', 'model' => 'qwen2.5']], $row['receivedBy']);
+		$this->assertArrayNotHasKey('receivedBy', $row['providerDisclosure']);
+	}//end testARunRowShowsItsProviderAttempts()
+
+	/**
 	 * Tools-browser-and-computer-use REQ-COMPUTER-004: a run row lists the computer
 	 * actions its steps recorded (machine, action, point, approval, screenshot hash
 	 * and size), never anything else of the step; a run without one has no such list.

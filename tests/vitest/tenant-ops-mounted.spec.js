@@ -170,7 +170,7 @@ describe('TenantOps mounted', () => {
 
 		const editPolicy = () => wrapper.findAll('button').filter((b) => b.text() === 'Edit').at(-1)
 		await editPolicy().trigger('click')
-		expect(wrapper.vm.policyDraft).toEqual({ allowedText: 'openai: gpt', defaultModel: 'gpt', requireNoTraining: false })
+		expect(wrapper.vm.policyDraft).toEqual({ allowedText: 'openai: gpt', defaultModel: 'gpt', requireNoTraining: false, fallbacks: [] })
 		wrapper.findComponent({ name: 'NcTextArea' }).vm.$emit('update:modelValue', 'openai: gpt, gpt-mini\nmistral')
 		wrapper.findAllComponents({ name: 'NcTextField' })[0].vm.$emit('update:modelValue', '')
 		wrapper.findComponent({ name: 'NcCheckboxRadioSwitch' }).vm.$emit('update:modelValue', true)
@@ -185,6 +185,7 @@ describe('TenantOps mounted', () => {
 			allowed: [{ provider: 'openai', models: ['gpt', 'gpt-mini'] }, { provider: 'mistral', models: [] }],
 			defaultModel: null,
 			requireNoTraining: true,
+			fallbackChain: [],
 		})
 		expect(toasts).toContainEqual(['success', 'Model policy saved.'])
 		expect(wrapper.vm.editingPolicyId).toBeNull()
