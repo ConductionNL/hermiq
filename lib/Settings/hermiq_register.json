@@ -4747,6 +4747,7 @@
 			},
 			"DelegatedRun": {
 				"slug": "delegatedrun",
+				"x-openregister-demo-data": "Written by DelegatedRunStore as one part of a running delegation; a sample part in a queued state would be claimed by DelegatedRunJob and run against an agent and parent run that do not exist.",
 				"icon": "CallSplit",
 				"version": "0.1.1",
 				"title": "Delegated run",
