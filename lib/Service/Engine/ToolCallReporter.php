@@ -24,6 +24,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
 
+use OCA\Hermiq\Service\ComputerUse\ComputerActionRecord;
+
 /**
  * Reports one tool call to the streaming channel and the run trace.
  *
@@ -81,7 +83,8 @@ final class ToolCallReporter {
 		$this->channel?->emitToolResult(
 			payload: [
 				'toolId' => $dispatch->name,
-				'result' => $dispatch->envelope['result'],
+				// A screenshot goes to the model only; the stream shows its hash and size.
+				'result' => ComputerActionRecord::withoutImage(result: $dispatch->envelope['result']),
 				'isError' => $dispatch->envelope['isError'],
 			]
 		);

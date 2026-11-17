@@ -238,11 +238,11 @@ class SeedAiFeaturesTest extends TestCase {
 
 		$this->step(objectService: $objectService)->run(output: $this->createMock(IOutput::class));
 
-		$this->assertCount(7, $objectService->saved);
+		$this->assertCount(8, $objectService->saved);
 
 		$slugs = array_map(static fn (array $row): string => (string)$row['object']['slug'], $objectService->saved);
 		$this->assertSame(
-			['autonomous-agent-run', 'skill-code-execution', 'agent-code-execution', 'chat-companion', 'conversational-intake', 'image-generation', 'speech-translation'],
+			['autonomous-agent-run', 'skill-code-execution', 'agent-code-execution', 'chat-companion', 'conversational-intake', 'image-generation', 'speech-translation', 'computer-use'],
 			$slugs
 		);
 
@@ -303,11 +303,12 @@ class SeedAiFeaturesTest extends TestCase {
 
 		$this->step(objectService: $objectService)->run(output: $this->createMock(IOutput::class));
 
-		$this->assertCount(4, $objectService->saved);
+		$this->assertCount(5, $objectService->saved);
 		$this->assertSame('skill-code-execution', $objectService->saved[0]['object']['slug']);
 		$this->assertSame('agent-code-execution', $objectService->saved[1]['object']['slug']);
 		$this->assertSame('image-generation', $objectService->saved[2]['object']['slug']);
 		$this->assertSame('speech-translation', $objectService->saved[3]['object']['slug']);
+		$this->assertSame('computer-use', $objectService->saved[4]['object']['slug']);
 
 	}//end testReRunSeedsOnlyTheMissingFeatures()
 
@@ -327,6 +328,7 @@ class SeedAiFeaturesTest extends TestCase {
 					$this->object('existing-5', ['slug' => 'image-generation']),
 					$this->object('existing-6', ['slug' => 'agent-code-execution']),
 					$this->object('existing-7', ['slug' => 'speech-translation']),
+					$this->object('existing-8', ['slug' => 'computer-use']),
 				],
 			]
 		);
@@ -351,7 +353,7 @@ class SeedAiFeaturesTest extends TestCase {
 
 		$this->step(objectService: $objectService)->run(output: $this->createMock(IOutput::class));
 
-		$this->assertCount(7, $objectService->saved);
+		$this->assertCount(8, $objectService->saved);
 
 	}//end testNonEntityRowsAreNotTreatedAsExisting()
 
@@ -428,12 +430,12 @@ class SeedAiFeaturesTest extends TestCase {
 		};
 
 		$output = $this->createMock(IOutput::class);
-		$output->expects($this->exactly(7))->method('warning');
+		$output->expects($this->exactly(8))->method('warning');
 
 		$this->step(objectService: $objectService)->run(output: $output);
 
 		$this->assertSame(
-			['autonomous-agent-run', 'skill-code-execution', 'agent-code-execution', 'chat-companion', 'conversational-intake', 'image-generation', 'speech-translation'],
+			['autonomous-agent-run', 'skill-code-execution', 'agent-code-execution', 'chat-companion', 'conversational-intake', 'image-generation', 'speech-translation', 'computer-use'],
 			$objectService->attempted,
 			'One failed write must not stop the seeds that follow it.'
 		);

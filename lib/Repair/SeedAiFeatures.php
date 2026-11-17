@@ -229,6 +229,17 @@ class SeedAiFeatures implements IRepairStep {
 				'lifecycle' => 'disabled',
 				'tenantId' => '',
 			],
+			[
+				// Tools-browser-and-computer-use D4: a screen can show anything, and
+				// it goes to the model provider, so high-risk and off until the DPO
+				// acknowledges it. A tool grant alone never unlocks it.
+				'slug' => 'computer-use',
+				'name' => 'Computer use',
+				'description' => 'An agent operates a desktop application on a registered machine by looking at its screen and clicking.',
+				'riskCategory' => 'high',
+				'lifecycle' => 'disabled',
+				'tenantId' => '',
+			],
 		];
 
 	}//end seedFeatures()
