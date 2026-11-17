@@ -338,6 +338,10 @@
         {
             "name": "workspace-files",
             "description": "The files of a conversation's session workspace."
+        },
+        {
+            "name": "knowledge-base",
+            "description": "Knowledge bases: uploads into their Files folder and the state of their sources."
         }
     ],
     "paths": {
@@ -11748,6 +11752,84 @@
                     },
                     "500": {
                         "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
+        },
+        "/knowledge-bases/{id}/documents": {
+            "post": {
+                "operationId": "knowledge-base-upload",
+                "summary": "Upload documents into a knowledge base the caller owns (multipart: files[] or file)",
+                "description": "Writes each uploaded document into the knowledge base's folder in the owner's Files and adds it as a file source; answers the sources. At most 20 documents of up to 100 MB each. Anyone but the owner gets 404. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "knowledge-base"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The knowledge base uuid.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/knowledge-bases/{id}/sources": {
+            "get": {
+                "operationId": "knowledge-base-sources",
+                "summary": "The sources of a knowledge base the caller owns, with their state",
+                "description": "Each source with its indexing state, whether only the owner can read it (onlyYou) and whether it is gone (missing), and whether search is available on this server. Anyone else gets 404. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "knowledge-base"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The knowledge base uuid.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
                     }
                 }
             }

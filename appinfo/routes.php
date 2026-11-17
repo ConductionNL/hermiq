@@ -723,6 +723,11 @@ $routes = [
             'requirements' => ['uuid' => '[^/]+', 'type' => 'user|group', 'id' => '[^/]+'],
         ],
 
+        // memory-knowledge-bases: the owner uploads documents into a knowledge base's folder in
+        // Files, and the detail page reads each source's indexing state and the only-you notice.
+        ['name' => 'knowledgeBase#upload', 'url' => '/api/knowledge-bases/{id}/documents', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'knowledgeBase#sources', 'url' => '/api/knowledge-bases/{id}/sources', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
+
         // DEPRECATED aliases. Same controller, same methods, same auth. Retire them on
         // traffic data (SessionController logs at info level when one is hit), not on
         // optimism.

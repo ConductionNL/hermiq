@@ -81,6 +81,8 @@ import AnalyticsBreakdownWidget from './widgets/AnalyticsBreakdownWidget.vue'
 import ChatHealthBlock from './widgets/ChatHealthBlock.vue'
 import ComplianceOperations from './widgets/ComplianceOperations.vue'
 import EvalRunPanelWidget from './widgets/EvalRunPanelWidget.vue'
+// memory-knowledge-bases: the KnowledgeBaseDetail page's sources section.
+import KnowledgeBaseSources from './widgets/KnowledgeBaseSources.vue'
 // skill-self-improvement: the SkillDetail draft review surface (side-by-side
 // diff, provenance, verdicts, Accept/Edit/Reject) and the version history +
 // rollback + republish widget.
@@ -616,6 +618,18 @@ export default {
 		allowedSlots: ['body'],
 		propsSchema: { type: 'object', properties: {} },
 		_note: 'Running a dataset against an agent is a governed, non-delivering Hermiq action (EvalRunController) with no OpenRegister object-trigger equivalent — object-list/object-op cannot express it (ADR-049).',
+	},
+
+	'knowledge-base-sources': {
+		// @custom-widget-ratchet exclude uploads into Files, the Nextcloud file picker and per-source state from a Hermiq route (indexing state, only-you notice) — no built-in widget writes to Files or reads a computed per-row state, so this stays a custom widget.
+		kind: 'widget',
+		component: KnowledgeBaseSources,
+		defaultSize: { w: 12, h: 6 },
+		minSize: { w: 6, h: 4 },
+		maxSize: { w: 12, h: 12 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'memory-knowledge-bases: sources of a KnowledgeBase with upload, add from Files, add a folder and remove; the list scrolls inside its cell.',
 	},
 
 	/**
