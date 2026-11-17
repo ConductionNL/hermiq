@@ -30,7 +30,7 @@ namespace OCA\OpenRegister\Service\Credential;
  * The defaults are those of {@see CredentialBrokerService::mint()}: no allowed apps,
  * no secret (metadata only), personal scope, no organisation.
  *
- * @spec openspec/specs/credential-broker/spec.md
+ * @spec exclude Test stub of an OpenRegister credential value object, no hermiq requirement of its own.
  */
 final class CredentialMintOptions {
 	/**

@@ -2,7 +2,7 @@
 	"openapi": "3.0.0",
 	"info": {
 		"title": "Hermiq Register",
-		"description": "Hermiq register v0.62.0, joining models-provider-connections (its v0.61.0) and development (its v0.61.0). THE VERSION BUMP IS THE POINT: the import is gated on info.version, so both sides' schemas are imported only when the joined register carries a version above each of them.",
+		"description": "Hermiq register v0.62.0, joining models-provider-connections (its v0.62.0) and development (its v0.61.1, Approval 0.8.1 without the `_note` key in its authorization block). The version bump makes both lines' schemas import on an existing instance.",
 		"version": "0.62.0"
 	},
 	"x-openregister": {
@@ -642,16 +642,15 @@
 			"Approval": {
 				"slug": "approval",
 				"icon": "CheckDecagramOutline",
-				"version": "0.8.0",
+				"version": "0.8.1",
 				"title": "Approval",
-				"description": "A human-oversight approval request for a gated agent run or tool invocation (EU AI Act Art. 14); its status is the audited pending→approved/denied decision. Gates a scheduled run (sourceType=schedule, the original shape), a flow-triggered run (sourceType=flow, from OpenRegister's AgentRunRequestedEvent), a webhook-triggered run (sourceType=webhook, from an external system calling the agent's inbound webhook), an un-granted destructive tool invocation attempted mid-run (sourceType=tool, agent-tool-governance-and-disclosure), or a guardrail-policy confirm-classified tool call (sourceType=toolcall, agent-guardrails — distinct from sourceType=tool: keyed by agentId+toolId+arguments and single-use/TTL-bounded rather than a permanent per-(agentId,toolId) decision).",
+				"description": "A human-oversight approval request for a gated agent run or tool invocation (EU AI Act Art. 14); its status is the audited pending→approved/denied decision. Gates a scheduled run (sourceType=schedule, the original shape), a flow-triggered run (sourceType=flow, from OpenRegister's AgentRunRequestedEvent), a webhook-triggered run (sourceType=webhook, from an external system calling the agent's inbound webhook), an un-granted destructive tool invocation attempted mid-run (sourceType=tool, agent-tool-governance-and-disclosure), or a guardrail-policy confirm-classified tool call (sourceType=toolcall, agent-guardrails — distinct from sourceType=tool: keyed by agentId+toolId+arguments and single-use/TTL-bounded rather than a permanent per-(agentId,toolId) decision). Read access: Advisory rows (sourceType advisory) are evidence about another app's record. Through this schema only the ai-oversight group and admins read them; everyone else reads them through GET /api/ai-oversight/subject, which first asks OpenRegister whether the reader may open the subject. Gating rows stay readable by every signed-in user, as before; the null rule keeps legacy rows without a sourceType readable.",
 				"type": "object",
 				"required": [
 					"status",
 					"requestedAt"
 				],
 				"authorization": {
-					"_note": "Advisory rows (sourceType advisory) are evidence about another app's record. Through this schema only the ai-oversight group and admins read them; everyone else reads them through GET /api/ai-oversight/subject, which first asks OpenRegister whether the reader may open the subject. Gating rows stay readable by every signed-in user, as before; the null rule keeps legacy rows without a sourceType readable.",
 					"read": [
 						{
 							"group": "authenticated",

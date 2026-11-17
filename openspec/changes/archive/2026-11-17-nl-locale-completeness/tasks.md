@@ -28,9 +28,10 @@
 - [x] 3.1 Re-run the audit script from 1.1 — zero keys should remain missing/empty.
 - [x] 3.2 Validate `l10n/nl.json` is well-formed JSON (`python3 -m json.tool l10n/nl.json`
       or equivalent) after hand-editing.
-- [ ] 3.3 Manually switch a test user's language to Dutch (`nl`) on a dev instance and
+- [x] 3.3 Manually switch a test user's language to Dutch (`nl`) on a dev instance and
       click through Dashboard, Agents, Schedules, Approvals, Memory, Skills Marketplace,
       Settings — confirm no unexpected English strings remain on primary flows.
+  - Live 2026-11-17 with a `nl` user: every hermiq string was English, because `src/main.js` registered the bundled en.json after Nextcloud had registered nl.js. Fixed (English is now only the fallback, `src/utils/englishFallback.js`), after which the pages read Dutch. Left: seeded skill and agent names (data), and nextcloud-vue widget ids used as aria-labels. Approvals and Memory first showed "Could not load" for this user: two separate defects, fixed in the same batch.
 
 ## Acceptance criteria
 

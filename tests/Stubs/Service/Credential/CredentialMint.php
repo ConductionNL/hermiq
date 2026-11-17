@@ -27,7 +27,7 @@ namespace OCA\OpenRegister\Service\Credential;
 /**
  * The required half of a mint (ADR-011 Rule 2); {@see CredentialMintOptions} carries the optional half.
  *
- * @spec openspec/specs/credential-broker/spec.md
+ * @spec exclude Test stub of an OpenRegister credential value object, no hermiq requirement of its own.
  */
 final class CredentialMint {
 	/**
