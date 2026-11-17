@@ -15,9 +15,74 @@ const compose = fs.readFileSync(path.join(__dirname, '..', 'deploy', 'docker-com
 const lines = compose.split('\n').filter((line) => !line.trim().startsWith('#'))
 const body = lines.join('\n')
 
-test('the only network is internal', () => {
-	assert.match(body, /networks:\n\s+sandbox-internal:\n\s+internal: true/)
-	assert.doesNotMatch(body, /network_mode|ports:|egress/)
+/**
+ * The block of one service, up to the next top-level key.
+ *
+ * @param {string} name The service.
+ * @return {string}
+ */
+function service(name) {
+	const all = body.split('\n')
+	const start = all.indexOf(`  ${name}:`)
+	assert.notEqual(start, -1, `service ${name} is declared`)
+	const block = []
+	for (const line of all.slice(start + 1)) {
+		if (/^ {0,2}\S/.test(line)) {
+			break
+		}
+		block.push(line)
+	}
+	return block.join('\n') + '\n'
+}
+
+/**
+ * The networks a service joins.
+ *
+ * @param {string} block The service block.
+ * @return {string[]}
+ */
+function networksOf(block) {
+	const match = block.match(/networks:\n((?:\s+- [\w-]+\n?)+)/)
+	return match === null ? [] : match[1].split('\n').map((line) => line.replace(/^\s*-\s*/, '').trim()).filter(Boolean).sort()
+}
+
+/**
+ * Whether a declared network is internal.
+ *
+ * @param {string} name The network.
+ * @return {boolean}
+ */
+function isInternal(name) {
+	const networks = body.slice(body.lastIndexOf('\nnetworks:\n'))
+	return new RegExp(`\\n  ${name}:\\n\\s+internal: true`).test(networks)
+}
+
+test('the sandbox joins internal networks only, and none with an egress route', () => {
+	const sandbox = service('hermiq-code-sandbox')
+	assert.deepEqual(networksOf(sandbox), ['browser-control', 'sandbox-internal'])
+	assert.ok(isInternal('sandbox-internal') && isInternal('browser-control'))
+	assert.doesNotMatch(sandbox, /egress|proxy/i)
+	assert.doesNotMatch(body, /network_mode|ports:/)
+})
+
+test('the browser shares no network with the code runs except the control network, and leaves only through its proxy', () => {
+	const browser = service('hermiq-code-sandbox-browser')
+	assert.deepEqual(networksOf(browser), ['browser-control', 'browser-jail'])
+	assert.ok(isInternal('browser-jail'))
+	assert.match(browser, /BROWSER_EGRESS_PROXY: "http:\/\/browser-egress-proxy:3128"/)
+	assert.match(browser, /read_only: true/)
+	assert.match(browser, /cap_drop:\n\s+- ALL/)
+	assert.doesNotMatch(browser, /cap_add/)
+})
+
+test('only the egress proxy reaches a network with a route out', () => {
+	const proxy = service('browser-egress-proxy')
+	assert.deepEqual(networksOf(proxy), ['browser-jail', 'browser-out'])
+	assert.equal(isInternal('browser-out'), false)
+	for (const name of ['hermiq-code-sandbox', 'hermiq-code-sandbox-browser']) {
+		assert.ok(!networksOf(service(name)).includes('browser-out'), `${name} has no route out`)
+	}
+	assert.match(proxy, /EGRESS_PDP_URL/)
 })
 
 test('no volume is mounted', () => {
