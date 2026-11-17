@@ -84,8 +84,33 @@ once. There is no separate Hermiq list of who is in which room.
 
 In a room with several agents, **only the agent you address answers**: `@`-mention it by name, or
 reply to one of its messages. Mention two agents and each takes its own turn. A message that
-mentions nobody is answered by nobody. Rooms bound to a single agent before per-agent bots keep
-working through the shared bot.
+mentions nobody is answered by nobody. That holds in a room Hermiq created for a session too: such
+a room answers every message while it holds one agent, and needs addressing once a moderator adds a
+second. Rooms bound to a single agent before per-agent bots keep working through the shared bot.
+
+**Each agent keeps its own session of the room**, so its history holds what *it* was asked and
+said, not the other agents' turns. A room's session from before this keeps going: the agent that
+takes the next turn there adopts it.
+
+Each agent's bot is refreshed on every install and upgrade of Hermiq, so a bot is never stale until
+somebody saves its agent.
+
+### Agents asking each other
+
+When an agent's answer `@`-mentions another agent in the room, that agent takes a turn on the
+answer. Hard limits keep this bounded:
+
+- **Mention-only.** An answer that mentions no other agent starts nothing, and an agent mentioning
+  itself starts nothing.
+- **Hop budget.** A chain starts at a human's message and takes at most `talk.agentChainMaxHops`
+  agent-triggered turns (default 3). The answer that would go over it posts a one-line notice that
+  the conversation between agents has ended.
+- **Rate cap.** At most `talk.agentChainRoomRatePerMinute` agent-triggered turns per room per minute
+  (default 6), with the same kind of notice. The cap is counted in the distributed memcache; without
+  one, agents do not hand turns to each other at all.
+- **The human's access, never more.** Every turn in a chain runs as the person whose message started
+  it, with their files and credentials. If that person has left the room, or may not take a turn on
+  the mentioned agent's session, the chain stops there.
 
 ## Sharing a session with colleagues
 
@@ -127,9 +152,8 @@ Setting `talkEnabled` to false on the agent has the same effect for that agent.
 ## What it does not do
 
 - **No token-by-token streaming.** Answers grow by throttled edits (see above), not per token.
-- **Agents do not yet ask each other.** An agent's answer that mentions another agent does not
-  start that agent's turn yet.
-- **Threads are not sessions.** One room maps to one session; Talk threads are not yet used.
+- **Threads are not sessions.** One room maps to one session per agent; Talk threads are not yet
+  used.
 - **Approvals are not resolved from Talk.** Approving a gated run still happens in Hermiq.
 - **No non-Nextcloud chat platforms.** Bridging Slack/Telegram/Teams is OpenConnector's job
   (ADR-005), reached through the outbound webhook channel.

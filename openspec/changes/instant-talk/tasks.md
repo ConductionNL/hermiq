@@ -111,10 +111,14 @@ posted answer to `TalkAgentChain::follow()`.
 
 ## 6. Docs
 
-- [ ] 6.1 Rewrite `docs/talk-chat-bridge.md`: "Why the answer is not instant"
+- [x] 6.1 Rewrite `docs/talk-chat-bridge.md`: "Why the answer is not instant"
       becomes the instant-execution + fallback story; "No streaming" becomes the
       progressive-replies story with the edit-throttle note; add multi-agent rooms
       (moderator bot management as membership, addressing rules, chain bounds).
+      "How the answer arrives so fast", "Answers grow while the agent writes" and
+      "Several agents in one room" (addressing in created rooms, a session per
+      agent, the upgrade refresh, and "Agents asking each other" with its four
+      limits); "What it does not do" no longer says agents cannot ask each other.
 
 ## 7. Verify
 
