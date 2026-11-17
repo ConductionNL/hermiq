@@ -151,6 +151,10 @@
                  and activates nothing on its own: a Talk moderator must still
                  enable it per conversation AND the agent must be Talk-enabled. -->
             <step>OCA\Hermiq\Repair\InstallTalkBot</step>
+            <!-- @spec openspec/changes/instant-talk/tasks.md#4-multi-agent-rooms -->
+            <!-- Re-registers each Talk-enabled agent's own bot, so a bot is not
+                 stale until somebody saves its agent. An upsert in spreed. -->
+            <step>OCA\Hermiq\Repair\RefreshAgentTalkBots</step>
             <!--
                 Must run AFTER the register sync that adds the English columns.
                 Covers every renamed property together: a register-scoped step
@@ -224,6 +228,8 @@
             <step>OCA\Hermiq\Repair\SeedHydraTriageAgent</step>
             <!-- @spec openspec/changes/talk-chat-bridge/tasks.md#1-bot-registration-and-lifecycle -->
             <step>OCA\Hermiq\Repair\InstallTalkBot</step>
+            <!-- @spec openspec/changes/instant-talk/tasks.md#4-multi-agent-rooms -->
+            <step>OCA\Hermiq\Repair\RefreshAgentTalkBots</step>
         </install>
     </repair-steps>
 

@@ -49,9 +49,13 @@ are installed per agent on agent save and removed on opt-out or deletion);
 4.2 still answers every message in a Hermiq-created room for each enabled agent
 instead of requiring addressing there once a second agent joins; 4.4 is not started.
 
-- [ ] 4.1 `TalkBotInstaller`: register one bot per Talk-enabled agent (name = agent
+- [x] 4.1 `TalkBotInstaller`: register one bot per Talk-enabled agent (name = agent
       name, actor via `botActorId($agentId)`); install/refresh on app upgrade and
       agent save; uninstall on `talkEnabled` false / agent deletion.
+      The upgrade refresh is the `RefreshAgentTalkBots` repair step (install and
+      post-migration, after `InstallTalkBot`): it re-installs the bot of every
+      Talk-enabled, not trashed agent through `installForAgent()`, an upsert in
+      spreed; one failing agent is logged and the others still refresh.
 - [ ] 4.2 `TalkAgentBinding`: resolve the set of enabled agents for a room from
       Talk's bot state; keep `talk_room_agents`/`talk_default_agent` working for
       single-agent rooms; with >1 enabled agent, explicit addressing only.
