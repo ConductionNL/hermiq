@@ -27,6 +27,7 @@ import {
 	dismissTour,
 	harvestToken,
 	jsonHeaders,
+	openAgentForm,
 	seedAgent,
 	TEST_PREFIX,
 } from './_fixtures.ts'
@@ -77,18 +78,28 @@ test.describe('agents-sharing-and-catalog-columns: the AgentCatalog and the shar
 		const root = await appRoot(page)
 		await page.goto(`${root}/agents/${agent.id}`)
 		await dismissTour(page)
-		await page.getByRole('button', { name: 'Edit agent' }).click()
+		await openAgentForm(page)
 		await page
 			.getByTestId('agent-form-sharing')
 			.getByText('People and groups I choose')
 			.click()
 		const groups = page.getByTestId('agent-form-sharing-groups')
 		await groups.locator('input').fill(GROUP)
-		await page.getByRole('option', { name: GROUP }).click()
-		await page.getByRole('button', { name: 'Save' }).click()
+		// NcSelect appends its listbox to <body>, outside the aria-modal dialog,
+		// so the option is not in the accessibility tree a role query reads.
+		await page.locator('.vs__dropdown-option', { hasText: GROUP }).click()
+		await page
+			.getByRole('dialog', { name: 'Edit agent' })
+			.getByRole('button', { name: 'Save', exact: true })
+			.click()
 
 		const context = await browser.newContext({
-			httpCredentials: { username: member.uid, password: member.password },
+			storageState: { cookies: [], origins: [] },
+			httpCredentials: {
+				username: member.uid,
+				password: member.password,
+				send: 'always',
+			},
 		})
 		const shown = await context.request.get(`${API}/agents/${agent.id}`, {
 			headers: { 'OCS-APIRequest': 'true' },
@@ -107,7 +118,12 @@ test.describe('agents-sharing-and-catalog-columns: the AgentCatalog and the shar
 		})
 		const outsider = await createSecondUser(page.request, token, 'outsider')
 		const context = await browser.newContext({
-			httpCredentials: { username: outsider.uid, password: outsider.password },
+			storageState: { cookies: [], origins: [] },
+			httpCredentials: {
+				username: outsider.uid,
+				password: outsider.password,
+				send: 'always',
+			},
 		})
 		const shown = await context.request.get(`${API}/agents/${agent.id}`, {
 			headers: { 'OCS-APIRequest': 'true' },
@@ -153,9 +169,11 @@ test.describe('agents-sharing-and-catalog-columns: the AgentCatalog and the shar
 	}) => {
 		const colleague = await createSecondUser(page.request, token, 'colleague')
 		const context = await browser.newContext({
+			storageState: { cookies: [], origins: [] },
 			httpCredentials: {
 				username: colleague.uid,
 				password: colleague.password,
+				send: 'always',
 			},
 		})
 		const created = await context.request.post(

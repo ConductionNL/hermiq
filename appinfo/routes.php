@@ -673,6 +673,8 @@ $routes = [
         ['name' => 'workspaceFiles#index', 'url' => '/api/sessions/{sessionId}/workspace/files', 'verb' => 'GET', 'requirements' => ['sessionId' => '[^/]+']],
         ['name' => 'workspaceFiles#download', 'url' => '/api/sessions/{sessionId}/workspace/download', 'verb' => 'GET', 'requirements' => ['sessionId' => '[^/]+']],
         ['name' => 'workspaceFiles#save', 'url' => '/api/sessions/{sessionId}/workspace/save', 'verb' => 'POST', 'requirements' => ['sessionId' => '[^/]+']],
+        // Archive, restore or delete several sessions at once (chat-session-search-and-bulk-delete, REQ-SSRCH-002).
+        ['name' => 'session#bulk', 'url' => '/api/sessions/bulk', 'verb' => 'POST'],
         ['name' => 'session#show', 'url' => '/api/sessions/{uuid}', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
         [
             'name'         => 'session#messages',
