@@ -124,9 +124,7 @@ function checkSlug(c) {
 		errors.push(`${at}: missing string "slug"`)
 	else {
 		if (slugSeen.has(s.slug))
-			errors.push(
-				`${at}: slug "${s.slug}" duplicates ${slugSeen.get(s.slug)}`,
-			)
+			errors.push(`${at}: slug "${s.slug}" duplicates ${slugSeen.get(s.slug)}`)
 		slugSeen.set(s.slug, name)
 	}
 }
@@ -230,6 +228,40 @@ function checkLifecycleTargets(c) {
 	}
 }
 
+// OpenRegister refuses a schema whose authorization names anything but an
+// action, and the import then drops the schema in silence.
+const AUTHORIZATION_ACTIONS = new Set([
+	'read',
+	'create',
+	'update',
+	'delete',
+	'destroy',
+	'list',
+	'export',
+	'manage',
+	'assign',
+	'readFiles',
+	'addFiles',
+	'deleteFiles',
+	'readGrants',
+])
+
+function checkAuthorizationActions(c) {
+	const { at, s, errors } = c
+	if (
+		!s.authorization
+		|| typeof s.authorization !== 'object'
+		|| Array.isArray(s.authorization)
+	)
+		return
+	for (const key of Object.keys(s.authorization)) {
+		if (!AUTHORIZATION_ACTIONS.has(key))
+			errors.push(
+				`${at}: authorization key "${key}" is not an action; OpenRegister refuses the schema`,
+			)
+	}
+}
+
 const SCHEMA_CHECKS = [
 	checkSlug,
 	checkShape,
@@ -237,6 +269,7 @@ const SCHEMA_CHECKS = [
 	checkAppendOnlyPlacement,
 	checkLifecycleRequires,
 	checkLifecycleTargets,
+	checkAuthorizationActions,
 ]
 
 // Parse a register file and return its schemas, or null when there is

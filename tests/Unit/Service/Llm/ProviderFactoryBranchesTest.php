@@ -85,6 +85,8 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 			'resolveCliToken' => ['cliRunner', 'resolveToken'],
 			'mapHistoryToCliMessages' => ['cliRunner', 'mapHistoryToCliMessages'],
 			'mintEgressRunToken' => ['cliRunTokens', 'mintEgressRunToken'],
+			'resolveFeatureBinding' => ['driverGates', 'resolveFeatureBinding'],
+			'enforceModelPolicy' => ['driverGates', 'enforceModelPolicy'],
 		];
 
 		/**
