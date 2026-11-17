@@ -47,6 +47,9 @@ use OCA\Hermiq\Kernel\Contracts\OrganisationControlServiceInterface;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Notification\IManager as INotificationManager;
 use Psr\Log\LoggerInterface;
@@ -191,9 +194,10 @@ class RestoreRunner {
 		try {
 			$this->objectService->saveObject(
 				object: $object,
-				register: BackupWriter::REGISTER_SLUG,
-				schema: $write['schema'],
-				uuid: $write['uuid'],
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: BackupWriter::REGISTER_SLUG, schema: $write['schema']),
+					uuid: $write['uuid']
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -215,9 +219,10 @@ class RestoreRunner {
 	private function remove(array $later, array &$failures): bool {
 		try {
 			$deleted = $this->objectService->deleteObject(
-				uuid: $later['uuid'],
-				register: BackupWriter::REGISTER_SLUG,
-				schema: $later['schema'],
+				deletion: new ObjectDeletion(
+					uuid: $later['uuid'],
+					target: new ObjectFindTarget(register: BackupWriter::REGISTER_SLUG, schema: $later['schema'])
+				),
 				_rbac: false,
 				_multitenancy: false
 			);

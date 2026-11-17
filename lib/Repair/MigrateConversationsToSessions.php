@@ -58,6 +58,8 @@ use OCA\Hermiq\Repair\Migration\MigratedConversation;
 use OCA\Hermiq\Repair\Migration\ProvenanceTarget;
 use OCA\Hermiq\Repair\Support\RegisterScopedSchema;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -540,9 +542,10 @@ class MigrateConversationsToSessions implements IRepairStep {
 		try {
 			$objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: $targetSchema,
-				uuid: $uuid,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: $targetSchema),
+					uuid: $uuid
+				),
 				_rbac: false,
 				_multitenancy: false
 			);

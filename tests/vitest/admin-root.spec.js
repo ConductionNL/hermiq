@@ -15,9 +15,11 @@ vi.mock('@conduction/nextcloud-vue', () => ({
 }))
 vi.mock('../../src/components/settings/AssistantPromptLibrary.vue', () => ({ default: { name: 'AssistantPromptLibrary', render: () => null } }))
 vi.mock('../../src/components/settings/IntakeSettings.vue', () => ({ default: { name: 'IntakeSettings', render: () => null } }))
+vi.mock('../../src/components/settings/RemoteAgents.vue', () => ({ default: { name: 'RemoteAgents', render: () => null } }))
 vi.mock('../../src/components/settings/ReportGroupingSettings.vue', () => ({ default: { name: 'ReportGroupingSettings', render: () => null } }))
 vi.mock('../../src/components/settings/RunRetentionSettings.vue', () => ({ default: { name: 'RunRetentionSettings', render: () => null } }))
 vi.mock('../../src/components/settings/TalkBridgeSettings.vue', () => ({ default: { name: 'TalkBridgeSettings', render: () => null } }))
+vi.mock('../../src/components/settings/ValidatedTagSettings.vue', () => ({ default: { name: 'ValidatedTagSettings', render: () => null } }))
 vi.mock('../../src/modals/LlmProviderModal.vue', () => ({ default: { name: 'LlmProviderModal', props: ['show'], emits: ['close', 'saved'], render: () => null } }))
 vi.mock('../../src/modals/BackupSettingsModal.vue', () => ({ default: { name: 'BackupSettingsModal', props: ['show', 'settings'], emits: ['close', 'saved'], render: () => null } }))
 vi.mock('../../src/modals/RestoreDialog.vue', () => ({ default: { name: 'RestoreDialog', props: ['show'], emits: ['close'], render: () => null } }))
@@ -49,10 +51,12 @@ const CHILDREN = [
 	'BackupSettingsModal',
 	'IntakeSettings',
 	'LlmProviderModal',
+	'RemoteAgents',
 	'ReportGroupingSettings',
 	'RestoreDialog',
 	'RunRetentionSettings',
 	'TalkBridgeSettings',
+	'ValidatedTagSettings',
 	'WebResearchSettingsModal',
 ]
 
@@ -153,9 +157,12 @@ describe('AdminRoot', () => {
 			'Conversational intake',
 			'Report grouping',
 			'Assistant prompts',
+			'Validated documents',
 			'AI run retention',
 			'Backups',
+			'Trace export',
 			'Talk chat bridge',
+			'Remote agents',
 			'Organisation credentials',
 		])
 		for (const name of CHILDREN) {

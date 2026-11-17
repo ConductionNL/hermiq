@@ -31,6 +31,8 @@ use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Notification\IManager as INotificationManager;
 use OCP\Notification\INotification;
@@ -128,9 +130,12 @@ final class RestoreRunnerTest extends TestCase {
 
 		$objects = $this->createMock(ObjectService::class);
 		$objects->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend=[], mixed $register=null, mixed $schema=null, ?string $uuid=null, bool $_rbac=true, bool $_multitenancy=true) use ($failing): ObjectEntity {
-				$this->assertSame('hermiq', $register);
-				$this->assertSame('agent', $schema);
+			function (array $object, ObjectSaveOptions $options, bool $_rbac=true, bool $_multitenancy=true) use ($failing): ObjectEntity {
+				$this->assertSame('hermiq', $options->target->register);
+				$this->assertSame('agent', $options->target->schema);
+				$this->assertFalse(condition: $_rbac);
+				$this->assertFalse(condition: $_multitenancy);
+				$uuid = $options->uuid;
 				$this->calls[] = 'save ' . $uuid;
 				if (in_array($uuid, $failing, true) === true) {
 					throw new RuntimeException('validation failed');
@@ -141,8 +146,10 @@ final class RestoreRunnerTest extends TestCase {
 			}
 		);
 		$objects->method('deleteObject')->willReturnCallback(
-			function (string $uuid): bool {
-				$this->calls[] = 'delete ' . $uuid;
+			function (ObjectDeletion $deletion, bool $_rbac=true, bool $_multitenancy=true): bool {
+				$this->assertSame(expected: 'hermiq', actual: $deletion->target->register);
+				$this->assertFalse(condition: $_rbac);
+				$this->calls[] = 'delete ' . $deletion->uuid;
 				return true;
 			}
 		);

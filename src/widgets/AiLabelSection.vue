@@ -4,7 +4,8 @@
 <!--
   AiLabelSection — the "AI label" section of the AI oversight page (board
   hermiq/HmToezicht): how many files and notes an agent wrote that the viewer can
-  read, the share a person has marked as reviewed, and a link that opens Files
+  read, the share a person has marked as reviewed, how many of the viewer's
+  contacts and calendar items an agent wrote, and a link that opens Files
   filtered on the label.
 
   The label is shown as "Made with AI" (nl: "Gemaakt met AI"), never as the stored
@@ -36,9 +37,24 @@
 						{{ stats.reviewedShare }}%
 					</dd>
 				</div>
+				<div class="ai-label-section__count">
+					<dt>{{ t('hermiq', 'Contacts') }}</dt>
+					<dd data-testid="ai-label-contacts">
+						{{ stats.contacts }}
+					</dd>
+				</div>
+				<div class="ai-label-section__count">
+					<dt>{{ t('hermiq', 'Calendar items') }}</dt>
+					<dd data-testid="ai-label-calendar-items">
+						{{ stats.calendarItems }}
+					</dd>
+				</div>
 			</dl>
 			<p v-if="stats.truncated" class="ai-label-section__note">
 				{{ t('hermiq', 'Counted over the first {count} labelled files.', { count: stats.files }) }}
+			</p>
+			<p v-if="stats.objectsTruncated" class="ai-label-section__note" data-testid="ai-label-objects-truncated">
+				{{ t('hermiq', 'More contacts or calendar items exist than were counted.') }}
 			</p>
 			<a
 				v-if="filesUrl"
@@ -65,7 +81,7 @@ export default {
 
 	data() {
 		return {
-			stats: { files: 0, reviewed: 0, reviewedShare: 0, tagId: null, truncated: false },
+			stats: { files: 0, reviewed: 0, reviewedShare: 0, tagId: null, truncated: false, contacts: 0, calendarItems: 0, objectsTruncated: false },
 			loading: true,
 			error: '',
 		}
