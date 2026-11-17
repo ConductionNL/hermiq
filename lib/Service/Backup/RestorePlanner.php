@@ -187,7 +187,15 @@ class RestorePlanner {
 
 			$counts = $this->emptyCounts();
 			$dropped = [];
-			$live = $this->liveObjects(slug: $slug, organisation: $point->organisation);
+			$foreign = [];
+			$live = $this->liveObjects(slug: $slug, organisation: $point->organisation, foreign: $foreign);
+			if ($live === null) {
+				// The schema could not be read: comparing against nothing would write every row blind.
+				$counts['notRestorable'] = ['(unreadable)'];
+				$plan['schemas'][$slug] = $counts;
+				continue;
+			}
+
 			$inBackup = [];
 			foreach ((array)($backup['objects'][$slug] ?? []) as $row) {
 				if (is_array($row) === false) {
@@ -196,6 +204,12 @@ class RestorePlanner {
 
 				$uuid = self::uuidOf(row: $row);
 				if ($uuid === '') {
+					continue;
+				}
+
+				if (isset($foreign[$uuid]) === true) {
+					// The uuid belongs to another organisation now: a restore never writes across the boundary.
+					$dropped[] = '(other organisation)';
 					continue;
 				}
 
@@ -255,7 +269,7 @@ class RestorePlanner {
 		foreach ($slugs as $slug) {
 			$counts = $this->emptyCounts();
 			$declared = ($properties[$slug] ?? []);
-			foreach ($this->liveObjects(slug: $slug, organisation: $point->organisation) as $uuid => $object) {
+			foreach (($this->liveObjects(slug: $slug, organisation: $point->organisation) ?? []) as $uuid => $object) {
 				$ignored = [];
 				$now = $this->restorable(data: $object->getObject(), properties: $declared, dropped: $ignored);
 				$entries = $this->changeEntries(uuid: (string)$uuid);
@@ -374,12 +388,13 @@ class RestorePlanner {
 	 * The organisation's objects of one schema now, by uuid. Read system-wide, as
 	 * the backup is, and kept to the organisation they carry.
 	 *
-	 * @param string $slug         The schema slug.
-	 * @param string $organisation The organisation.
+	 * @param string              $slug         The schema slug.
+	 * @param string              $organisation The organisation.
+	 * @param array<string, bool> $foreign      Collects the uuids of the schema that another organisation carries.
 	 *
-	 * @return array<string, ObjectEntity> The objects.
+	 * @return array<string, ObjectEntity>|null The objects, or null when the schema could not be read.
 	 */
-	private function liveObjects(string $slug, string $organisation): array {
+	private function liveObjects(string $slug, string $organisation, array &$foreign=[]): ?array {
 		$objects = [];
 		try {
 			for ($page = 0; $page < self::MAX_PAGES; $page++) {
@@ -388,9 +403,16 @@ class RestorePlanner {
 					->setSchema($slug)
 					->findAll(config: ['limit' => self::PAGE_SIZE, 'offset' => ($page * self::PAGE_SIZE)], _rbac: false, _multitenancy: false);
 				foreach ($rows as $row) {
-					if ($row instanceof ObjectEntity && (string)($row->getOrganisation() ?? '') === $organisation && (string)$row->getUuid() !== '') {
-						$objects[(string)$row->getUuid()] = $row;
+					if (($row instanceof ObjectEntity) === false || (string)$row->getUuid() === '') {
+						continue;
 					}
+
+					if ((string)($row->getOrganisation() ?? '') === $organisation) {
+						$objects[(string)$row->getUuid()] = $row;
+						continue;
+					}
+
+					$foreign[(string)$row->getUuid()] = true;
 				}
 
 				if (count($rows) < self::PAGE_SIZE) {
@@ -402,6 +424,7 @@ class RestorePlanner {
 				'[RestorePlanner] A schema could not be read for the restore',
 				['schema' => $slug, 'exception' => $e->getMessage(), 'app' => AppIdentity::APP_ID]
 			);
+			return null;
 		}
 
 		return $objects;

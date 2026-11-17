@@ -279,6 +279,54 @@ final class RestorePlannerTest extends TestCase {
 	}//end testThePlanWritesTheBackedUpContentAndDropsWhatTheSchemaNoLongerHas()
 
 	/**
+	 * A backed-up uuid that another organisation carries now is never written.
+	 *
+	 * @return void
+	 */
+	public function testAUuidOfAnotherOrganisationIsNotWritten(): void {
+		$backup = $this->backup(
+			[
+				'agent' => [
+					['name' => 'Intake', 'prompt' => 'Be kind', '@self' => ['id' => 'a-1']],
+					['name' => 'Taken', 'prompt' => 'Mine', '@self' => ['id' => 'b-1']],
+				],
+			]
+		);
+		$live = [
+			'agent' => [
+				$this->object('a-1', 'tilburg', ['name' => 'Intake', 'prompt' => 'Be rude']),
+				$this->object('b-1', 'breda', ['name' => 'Elsewhere', 'prompt' => 'z']),
+			],
+		];
+
+		$plan = $this->planner(live: $live, backup: $backup)->plan(point: $this->backupPoint(), settings: new BackupSettings(ownerUid: 'admin'));
+
+		$this->assertSame([['schema' => 'agent', 'uuid' => 'a-1', 'object' => ['name' => 'Intake', 'prompt' => 'Be kind']]], $plan['writes']);
+		$this->assertSame(0, $plan['schemas']['agent']['putBack']);
+		$this->assertSame(['(other organisation)'], $plan['schemas']['agent']['notRestorable']);
+	}//end testAUuidOfAnotherOrganisationIsNotWritten()
+
+	/**
+	 * A schema that cannot be read is not compared against nothing: no row of it is written.
+	 *
+	 * @return void
+	 */
+	public function testAnUnreadableSchemaWritesNothing(): void {
+		$objects = $this->createMock(ObjectService::class);
+		$objects->expects($this->never())->method('saveObject');
+		$objects->method('setRegister')->willReturnSelf();
+		$objects->method('setSchema')->willReturnSelf();
+		$objects->method('findAll')->willThrowException(new \RuntimeException('database gone'));
+		$backup = $this->backup(['agent' => [['name' => 'Intake', 'prompt' => 'Be kind', '@self' => ['id' => 'a-1']]]]);
+
+		$plan = $this->planner(live: [], backup: $backup, objects: $objects)->plan(point: $this->backupPoint(), settings: new BackupSettings(ownerUid: 'admin'));
+
+		$this->assertSame([], $plan['writes']);
+		$this->assertSame(0, $plan['schemas']['agent']['putBack']);
+		$this->assertSame(['(unreadable)'], $plan['schemas']['agent']['notRestorable']);
+	}//end testAnUnreadableSchemaWritesNothing()
+
+	/**
 	 * A backup from a newer register version is refused, before anything is read.
 	 *
 	 * @return void
