@@ -35,8 +35,11 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use DateTimeImmutable;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\ComputerUseServiceInterface;
+use OCA\Hermiq\Mcp\ComputerToolDescriptors;
 use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
@@ -53,6 +56,14 @@ use Throwable;
  * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
  */
 class ApprovalController extends Controller {
+
+	/**
+	 * The approve scope that widens a computer action to its machine for its run.
+	 *
+	 * @var string
+	 */
+	public const SCOPE_MACHINE_RUN = 'machine-run';
+
 	/**
 	 * Constructor.
 	 *
@@ -61,6 +72,7 @@ class ApprovalController extends Controller {
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param ApprovalInbox $approvalInbox The reviewer inbox + reviewer guard.
+	 * @param ComputerUseServiceInterface|null $computerUse Takes the live screenshot a reviewer sees on a computer action.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-4-1
 	 */
@@ -70,6 +82,7 @@ class ApprovalController extends Controller {
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 		private readonly ApprovalInbox $approvalInbox,
+		private readonly ?ComputerUseServiceInterface $computerUse = null,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
@@ -103,22 +116,130 @@ class ApprovalController extends Controller {
 	/**
 	 * Approve a pending approval and execute the gated run.
 	 *
+	 * A computer action may be approved with `scope: machine-run`: the reviewer
+	 * then also approves the actions on that machine for that run for fifteen
+	 * minutes (tools-browser-and-computer-use REQ-COMPUTER-003), answered as
+	 * `preauthorisedUntil`. Any other scope approves this one action.
+	 *
 	 * @param string $approvalId The Approval object UUID.
+	 * @param string $scope      `machine-run` to widen a computer action; empty for one action.
 	 *
 	 * @return JSONResponse The decision outcome, or an error status.
 	 *
 	 * @NoAdminRequired
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-4-2
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
 	 */
-	public function approve(string $approvalId): JSONResponse {
+	public function approve(string $approvalId, string $scope = ''): JSONResponse {
 		$guard = $this->ensureDecidableApproval(approvalId: $approvalId);
 		if (($guard instanceof ObjectEntity) === false) {
 			return $guard;
 		}
 
-		return $this->approved(approval: $guard, approvalId: $approvalId);
+		$response = $this->approved(approval: $guard, approvalId: $approvalId);
+		if ($scope !== self::SCOPE_MACHINE_RUN || $response->getStatus() !== Http::STATUS_OK) {
+			return $response;
+		}
+
+		return $this->withMachineRun(response: $response, approval: $guard);
 	}//end approve()
+
+	/**
+	 * The machine's screen now, for a reviewer deciding a pending computer
+	 * action, with the action's point; shown and never stored.
+	 *
+	 * Only the approval's reviewer gets it, only while it is pending, and only
+	 * when computer use is enabled: the screenshot goes through the same gate
+	 * an agent's screenshot does (tools-browser-and-computer-use REQ-COMPUTER-003).
+	 *
+	 * @param string $approvalId The Approval object UUID.
+	 *
+	 * @return JSONResponse `{image, mimeType, width, height, x, y}`, 404/409 as the guard answers, 409 when the machine cannot be read.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	public function screenshot(string $approvalId): JSONResponse {
+		$guard = $this->ensureDecidableApproval(approvalId: $approvalId);
+		if (($guard instanceof ObjectEntity) === false) {
+			return $guard;
+		}
+
+		$data = $guard->getObject();
+		$args = (array)($data['toolArguments'] ?? []);
+		if ($this->computerUse === null || in_array((string)($data['toolId'] ?? ''), ComputerToolDescriptors::ACTION_IDS, true) === false) {
+			return new JSONResponse(['error' => 'No screen for this approval'], Http::STATUS_NOT_FOUND);
+		}
+
+		$shot = $this->computerUse->invoke(
+			uid: (string)$this->userSession->getUser()?->getUID(),
+			toolId: ComputerToolDescriptors::SCREENSHOT,
+			arguments: ['target' => (string)($args['target'] ?? '')]
+		);
+		if (isset($shot['error']) === true) {
+			return new JSONResponse(['error' => (string)($shot['error']['message'] ?? 'The machine could not be read')], Http::STATUS_CONFLICT);
+		}
+
+		return new JSONResponse(
+			[
+				'image' => (string)($shot['image'] ?? ''),
+				'mimeType' => (string)($shot['mimeType'] ?? 'image/png'),
+				'width' => (int)($shot['width'] ?? 0),
+				'height' => (int)($shot['height'] ?? 0),
+				'x' => self::coordinate(value: ($args['x'] ?? null)),
+				'y' => self::coordinate(value: ($args['y'] ?? null)),
+			]
+		);
+	}//end screenshot()
+
+	/**
+	 * A stored coordinate as a number, or null when the action has none.
+	 *
+	 * @param mixed $value The stored value.
+	 *
+	 * @return int|null
+	 */
+	private static function coordinate(mixed $value): ?int {
+		if (is_int($value) === true || (is_string($value) === true && ctype_digit($value) === true)) {
+			return (int)$value;
+		}
+
+		return null;
+	}//end coordinate()
+
+	/**
+	 * Add the machine-and-run pre-authorisation to an approved computer action.
+	 *
+	 * @param JSONResponse $response The approval's answer.
+	 * @param ObjectEntity $approval The approval, as loaded before the decision.
+	 *
+	 * @return JSONResponse The answer with `preauthorisedUntil` ('' when this approval cannot carry one).
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	private function withMachineRun(JSONResponse $response, ObjectEntity $approval): JSONResponse {
+		$data = $response->getData();
+		$data['preauthorisedUntil'] = '';
+		if (($data['status'] ?? '') !== 'approved') {
+			return new JSONResponse($data);
+		}
+
+		$decided = $this->approvalService->loadApproval(uuid: (string)$approval->getUuid()) ?? $approval;
+		try {
+			$widened = $this->approvalService->preauthoriseComputerRun(
+				approval: $decided,
+				deciderUid: (string)$this->userSession->getUser()?->getUID(),
+				now: new DateTimeImmutable()
+			);
+			$data['preauthorisedUntil'] = (string)($widened['expiresAt'] ?? '');
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq machine-run pre-authorisation failed: ' . $e->getMessage(), ['exception' => $e]);
+		}
+
+		return new JSONResponse($data);
+	}//end withMachineRun()
 
 	/**
 	 * Decide a pending approval from one route: `decision` is `granted`

@@ -49,6 +49,18 @@
         ],
         [
             "registerEventListener",
+            "OCA\\OpenRegister\\Event\\ObjectCreatingEvent",
+            "OCA\\Hermiq\\Listener\\AgentEnsembleGuardListener",
+            0
+        ],
+        [
+            "registerEventListener",
+            "OCA\\OpenRegister\\Event\\ObjectUpdatingEvent",
+            "OCA\\Hermiq\\Listener\\AgentEnsembleGuardListener",
+            0
+        ],
+        [
+            "registerEventListener",
             "OCA\\OpenRegister\\Service\\Flow\\RegisterFlowNodesEvent",
             "OCA\\Hermiq\\Flow\\HermiqFlowNodeListener",
             0
@@ -278,6 +290,11 @@
             "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\ComplianceServiceInterface",
             "OCA\\Hermiq\\Service\\ComplianceService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\ComputerUseServiceInterface",
+            "OCA\\Hermiq\\Service\\ComputerUse\\ComputerUseService"
         ],
         [
             "registerServiceAlias",

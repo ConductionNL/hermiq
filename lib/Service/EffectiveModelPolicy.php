@@ -110,7 +110,7 @@ class EffectiveModelPolicy implements EffectiveModelPolicyInterface {
 	 *
 	 * @param string $organisation The organisation identifier (may be '').
 	 *
-	 * @return array{source:string,allowed:list<array{provider:string,models:list<string>}>,defaultModel:array{provider:string,model:string}|null}
+	 * @return array{source:string,allowed:list<array{provider:string,models:list<string>}>,defaultModel:array{provider:string,model:string}|null,fallbackChain?:list<array{provider:string,model:string}>}
 	 *                                                                                                                                             The effective, shaped policy.
 	 *
 	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
@@ -154,6 +154,7 @@ class EffectiveModelPolicy implements EffectiveModelPolicyInterface {
 			'allowed' => $allowed,
 			'defaultModel' => null,
 			'requireNoTraining' => false,
+			'fallbackChain' => [],
 		];
 
 	}//end fallbackPolicy()
@@ -243,6 +244,8 @@ class EffectiveModelPolicy implements EffectiveModelPolicyInterface {
 			'allowed' => $data['allowed'] ?? [],
 			'defaultModel' => $data['defaultModel'] ?? null,
 			'requireNoTraining' => (($data['requireNoTraining'] ?? false) === true),
+			// The providers a turn moves to when its own fails (models-several-models-per-turn).
+			'fallbackChain' => array_values((array)($data['fallbackChain'] ?? [])),
 		];
 
 	}//end shape()

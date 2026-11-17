@@ -216,6 +216,17 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			:name="t('hermiq', 'Computer targets')"
+			:description="
+				t(
+					'hermiq',
+					'The machines an agent may operate, each reached only through an integriq source whose key stays in the credential broker. A machine is off until you switch it on, and every action on it still needs a person\'s approval.',
+				)
+			">
+			<ComputerTargets />
+		</NcSettingsSection>
+
+		<NcSettingsSection
 			id="section-trace-export"
 			:name="t('hermiq', 'Trace export')"
 			:description="
@@ -274,6 +285,7 @@ import { NcButton, NcSettingsSection } from '@nextcloud/vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
 import AssistantPromptLibrary from '../components/settings/AssistantPromptLibrary.vue'
 import CodeSandboxSettings from '../components/settings/CodeSandboxSettings.vue'
+import ComputerTargets from '../components/settings/ComputerTargets.vue'
 import IntakeSettings from '../components/settings/IntakeSettings.vue'
 import RemoteAgents from '../components/settings/RemoteAgents.vue'
 import ReportGroupingSettings from '../components/settings/ReportGroupingSettings.vue'
@@ -320,6 +332,7 @@ export default {
 		RemoteAgents,
 		ReportGroupingSettings,
 		RunRetentionSettings,
+		ComputerTargets,
 		TalkBridgeSettings,
 		TraceExportSettings,
 		ValidatedTagSettings,

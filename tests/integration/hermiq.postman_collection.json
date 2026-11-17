@@ -1133,6 +1133,135 @@
 			]
 		},
 		{
+			"name": "Chat attachments read as the speaker",
+			"description": "REQ-CATT-003: an attachment is read as the person who sent the turn. Runs after Session sharing, which creates the second user and the admin's session.",
+			"item": [
+				{
+					"name": "The second user uploads a file of their own",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/chat/attachments",
+						"description": "A file only the second user can read; its id is named in the admin's turn below.",
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "fixtures/offerte-newman.pdf"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The second user\\'s file is kept', function () {",
+									"    pm.response.to.have.status(200);",
+									"    const body = pm.response.json();",
+									"    pm.expect(body.fileId).to.be.a('number');",
+									"    pm.collectionVariables.set('foreign_file_id', body.fileId);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The admin names that file in a turn and is refused",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/chat/send",
+						"description": "The file id belongs to another person, so the turn is refused with 400 before anything is stored or any model is called.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"conversation\": \"{{shared_session}}\", \"message\": \"Vat dit document samen.\", \"attachments\": [{\"fileId\": {{foreign_file_id}}}]}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The turn is refused', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"pm.test('The answer says the file is not available', function () {",
+									"    const body = pm.response.json();",
+									"    pm.expect(body.errorCode).to.eql('attachment_refused');",
+									"    pm.expect(body.error).to.be.a('string').and.not.empty;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The refused turn stored nothing",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/chat/history?conversationId={{shared_session}}",
+						"description": "No turn naming the foreign file was written to the session."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('No stored turn names the foreign file', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.text()).to.not.include('Vat dit document samen.');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
 			"name": "Backup and restore",
 			"item": [
 				{

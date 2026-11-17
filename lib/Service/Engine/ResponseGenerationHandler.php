@@ -49,10 +49,13 @@ use Exception;
 use LLPhant\Chat\Message as LLPhantMessage;
 use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
+use OCA\Hermiq\Mcp\ComputerToolDescriptors;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
+use OCA\Hermiq\Kernel\Contracts\BudgetHardCapInterface;
 use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\Llm\AttachmentPartBuilder;
 use OCA\Hermiq\Service\Llm\ChatDriver;
+use OCA\Hermiq\Service\Llm\ProviderCooldown;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -124,6 +127,11 @@ class ResponseGenerationHandler {
 	 *                                                    a model declared to read them
 	 *                                                    (chat-attachments-and-images). Null
 	 *                                                    sends the text turn as before.
+	 * @param ProviderCooldown|null $cooldown Skips a provider cooling down for the organisation
+	 *                                       (models-several-models-per-turn). Null keeps none.
+	 * @param BudgetHardCapInterface|null $budget The budget's hard cap, checked before each reference
+	 *                                   call of an ensemble turn (models-several-models-per-turn).
+	 *                                   Null checks none.
 	 *
 	 * @return void
 	 *
@@ -135,6 +143,8 @@ class ResponseGenerationHandler {
 		private readonly LoggerInterface $logger,
 		private readonly ?FeatureProviderResolver $featureResolver = null,
 		private readonly ?AttachmentPartBuilder $attachmentParts = null,
+		private readonly ?ProviderCooldown $cooldown = null,
+		private readonly ?BudgetHardCapInterface $budget = null,
 	) {
 	}//end __construct()
 
@@ -298,8 +308,16 @@ class ResponseGenerationHandler {
 
 		try {
 			$this->resolveDriver(run: $run);
-			$this->buildMessages(run: $run);
-			$response = $this->callProvider(run: $run);
+			// Tools-browser-and-computer-use D4: a screenshot is an image, so a model
+			// path that cannot read one in a tool result is never offered them.
+			$run->progress->functions = ComputerToolDescriptors::forDriver(
+				functions: $run->progress->functions,
+				provider: $run->progress->driver->provider,
+				executionMode: $run->progress->driver->executionMode
+			);
+			$references = $this->askReferenceModels(run: $run);
+			$response = $this->answerTurn(run: $run);
+			$this->addReferenceUsage(usages: $references, run: $run);
 			(new TurnPerformanceLog(logger: $this->logger))->record(run: $run, response: $response);
 			return $response;
 		} catch (TurnStoppedException $e) {
@@ -388,6 +406,203 @@ class ResponseGenerationHandler {
 		$this->assertChatProvider(provider: $run->progress->driver->provider);
 		$this->logProvider(run: $run);
 	}//end resolveDriver()
+
+	/**
+	 * The first half of an ensemble turn: ask each reference model the prompt
+	 * without tools, and hand their answers to the agent's own model as labelled
+	 * context (models-several-models-per-turn D7). Nothing happens for an agent
+	 * without an enabled ensemble.
+	 *
+	 * @param ResponseTurnRun $run The turn, with its own driver resolved.
+	 *
+	 * @return array<int, array{provider: string, model: string, usage: array<string, mixed>}> What each reference call cost.
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 */
+	private function askReferenceModels(ResponseTurnRun $run): array {
+		$references = ReferenceAnswerRound::referencesOf(agentData: $run->agentData());
+		if ($references === []) {
+			return [];
+		}
+
+		$round = new ReferenceAnswerRound(
+			driverFor: fn (string $provider, string $model): ChatDriver => $this->hopDriver(run: $run, provider: $provider, model: $model),
+			answer: fn (ChatDriver $driver): array => $this->answerAsReference(run: $run, driver: $driver),
+			budget: $this->budget
+		);
+		$collected = $round->collect(run: $run, references: $references);
+		$run->referenceAnswers = $collected['answers'];
+
+		return $collected['usages'];
+	}//end askReferenceModels()
+
+	/**
+	 * One reference call: the turn's prompt and history, no tools, no stream,
+	 * no trace steps of its own.
+	 *
+	 * @param ResponseTurnRun $run    The turn.
+	 * @param ChatDriver      $driver The reference model's driver.
+	 *
+	 * @return array{text: string, usage: array<string, mixed>} Its answer and what it cost.
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 */
+	private function answerAsReference(ResponseTurnRun $run, ChatDriver $driver): array {
+		$reference = new ResponseTurnRun(userMessage: $run->userMessage, context: $run->context);
+		$reference->agent = $run->agent;
+		$reference->cnAiContext = $run->cnAiContext;
+		$reference->contextPreamble = $run->contextPreamble;
+		$reference->dryRun = $run->dryRun;
+		$reference->conversationId = $run->conversationId;
+		$reference->promptVariables = $run->promptVariables;
+		$reference->attachments = $run->attachments;
+		$reference->speaker = $run->speaker;
+		$reference->progress->organisation = $run->progress->organisation;
+		$reference->progress->aiFeature = $run->progress->aiFeature;
+		$reference->progress->functions = [];
+
+		$this->lastUsage = [];
+		$text = $this->answerWith(run: $reference, driver: $driver, history: $run->messageHistory);
+
+		return ['text' => $text, 'usage' => $this->lastUsage];
+	}//end answerAsReference()
+
+	/**
+	 * Add the reference calls to the turn's usage: `usage` becomes the sum of every
+	 * call, and `usageByModel` holds each call's own (models-several-models-per-turn D8).
+	 *
+	 * @param array<int, array{provider: string, model: string, usage: array<string, mixed>}> $usages The reference calls.
+	 * @param ResponseTurnRun                                                                   $run    The turn, whose own driver answered last.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-ensemble-counts-every-call-against-the-budget-req-mens-004
+	 */
+	private function addReferenceUsage(array $usages, ResponseTurnRun $run): void {
+		if ($usages === []) {
+			return;
+		}
+
+		$own = $this->lastUsage;
+		$calls = array_merge($usages, [['provider' => $run->progress->driver->provider, 'model' => $run->progress->driver->model, 'usage' => $own]]);
+		$this->lastUsage = EnsembleUsage::sum(calls: $calls);
+	}//end addReferenceUsage()
+
+	/**
+	 * Answer the turn from the first provider, or from the fallback chain when it
+	 * fails with a temporary error or is cooling down (models-several-models-per-turn).
+	 *
+	 * @param ResponseTurnRun $run The turn, with its first driver resolved.
+	 *
+	 * @return string The answer.
+	 *
+	 * @throws Exception The first provider's failure when the turn may not move.
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	private function answerTurn(ResponseTurnRun $run): string {
+		$history = $run->messageHistory;
+		$driverFor = fn (string $provider, string $model): ChatDriver => $this->hopDriver(run: $run, provider: $provider, model: $model);
+		$answer = fn (ChatDriver $driver): string => $this->answerWith(run: $run, driver: $driver, history: $history);
+
+		if ($this->cooldown?->isCooling(organisation: (string)$run->progress->organisation, provider: $run->progress->driver->provider) === true) {
+			$loop = $this->fallbackLoop(run: $run);
+			if ($loop->firstIsCooling(run: $run) === true) {
+				return $loop->skipCoolingFirst(run: $run, driverFor: $driverFor, answer: $answer);
+			}
+		}
+
+		$startedAt = microtime(true);
+		try {
+			$this->buildMessages(run: $run);
+			$text = $this->callProvider(run: $run);
+		} catch (TurnStoppedException $e) {
+			throw $e;
+		} catch (Exception $e) {
+			return $this->fallbackLoop(run: $run)->recover(run: $run, failure: $e, startedAt: $startedAt, driverFor: $driverFor, answer: $answer);
+		}
+
+		$run->trace?->recordProviderAttempt(
+			provider: $run->progress->driver->provider,
+			model: $run->progress->driver->model,
+			outcome: 'answered',
+			reason: '',
+			durationMs: (int)round((microtime(true) - $startedAt) * 1000),
+			received: true
+		);
+
+		return $text;
+	}//end answerTurn()
+
+	/**
+	 * The fallback loop over the organisation's effective chain.
+	 *
+	 * @param ResponseTurnRun $run The turn.
+	 *
+	 * @return ProviderFallbackLoop
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	private function fallbackLoop(ResponseTurnRun $run): ProviderFallbackLoop {
+		return new ProviderFallbackLoop(
+			hops: $this->providerFactory->fallbackChainFor(organisation: $run->progress->organisation),
+			cooldown: $this->cooldown
+		);
+	}//end fallbackLoop()
+
+	/**
+	 * A hop's driver, through the same driver path and gates as the first provider.
+	 *
+	 * @param ResponseTurnRun $run      The turn.
+	 * @param string          $provider The hop's provider.
+	 * @param string          $model    The hop's model.
+	 *
+	 * @return ChatDriver
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	private function hopDriver(ResponseTurnRun $run, string $provider, string $model): ChatDriver {
+		$inputs = new ChatDriverInputs(run: $run);
+		return $this->providerFactory->createChatDriver(
+			llmConfig: $this->providerFactory->getLlmConfig(),
+			agentModel: $inputs->model(),
+			agentTemperature: $inputs->temperature(),
+			organisation: $inputs->organisation(),
+			agentMaxTokens: $inputs->maxTokens(),
+			aiFeature: $inputs->aiFeature(),
+			documentReference: $inputs->documentReference(),
+			agentCredentialIds: $inputs->credentialIds(),
+			attachmentReferences: $inputs->attachmentReferences(),
+			providerOverride: $provider,
+			modelOverride: $model
+		);
+	}//end hopDriver()
+
+	/**
+	 * Run the turn on a hop's driver, from the history as it was before the first try.
+	 *
+	 * @param ResponseTurnRun     $run     The turn.
+	 * @param ChatDriver          $driver  The hop's driver.
+	 * @param array<int, mixed>   $history The message history before the first try.
+	 *
+	 * @return string The answer.
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	private function answerWith(ResponseTurnRun $run, ChatDriver $driver, array $history): string {
+		$run->progress->driver = $driver;
+		$run->messageHistory = $history;
+		$this->recordProviderDisclosure(run: $run);
+		$this->assertChatProvider(provider: $driver->provider);
+		// A hop to a model path that cannot read a screenshot drops the computer tools too.
+		$run->progress->functions = ComputerToolDescriptors::forDriver(
+			functions: $run->progress->functions,
+			provider: $driver->provider,
+			executionMode: $driver->executionMode
+		);
+		$this->buildMessages(run: $run);
+		return $this->callProvider(run: $run);
+	}//end answerWith()
 
 	/**
 	 * Ask the provider factory for the turn's chat driver.
@@ -662,9 +877,32 @@ class ResponseGenerationHandler {
 			agent: $run->agent,
 			organisation: $run->progress->organisation,
 			dryRun: $run->dryRun,
-			conversationId: $run->conversationId
+			conversationId: $run->conversationId,
+			runId: self::approvalRunOf(run: $run)
 		);
 	}//end functionInfosFor()
+
+	/**
+	 * The run a chat turn's computer actions are approved for: its conversation.
+	 *
+	 * A chat turn has no run token; an action waiting for approval ends the turn
+	 * and the next turn of the same conversation retries it, so the conversation
+	 * is the run a reviewer's machine pre-authorisation covers, for at most its
+	 * fifteen minutes (tools-browser-and-computer-use REQ-COMPUTER-003).
+	 *
+	 * @param ResponseTurnRun $run The turn.
+	 *
+	 * @return string `conversation:<id>`, or '' without a conversation.
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	private static function approvalRunOf(ResponseTurnRun $run): string {
+		if ($run->conversationId === '') {
+			return '';
+		}
+
+		return 'conversation:' . $run->conversationId;
+	}//end approvalRunOf()
 
 	/**
 	 * OpenAI / Ollama: the LLPhant chat instance from the driver.
