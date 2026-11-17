@@ -44,10 +44,7 @@
 
 ## 4. Multi-agent rooms
 
-Open in the first build: 4.1 still lacks the per-agent refresh on app upgrade (bots
-are installed per agent on agent save and removed on opt-out or deletion);
-4.2 still answers every message in a Hermiq-created room for each enabled agent
-instead of requiring addressing there once a second agent joins; 4.4 is not started.
+Open after the second build pass: 4.4 is not started.
 
 - [x] 4.1 `TalkBotInstaller`: register one bot per Talk-enabled agent (name = agent
       name, actor via `botActorId($agentId)`); install/refresh on app upgrade and
@@ -56,9 +53,14 @@ instead of requiring addressing there once a second agent joins; 4.4 is not star
       post-migration, after `InstallTalkBot`): it re-installs the bot of every
       Talk-enabled, not trashed agent through `installForAgent()`, an upsert in
       spreed; one failing agent is logged and the others still refresh.
-- [ ] 4.2 `TalkAgentBinding`: resolve the set of enabled agents for a room from
+- [x] 4.2 `TalkAgentBinding`: resolve the set of enabled agents for a room from
       Talk's bot state; keep `talk_room_agents`/`talk_default_agent` working for
       single-agent rooms; with >1 enabled agent, explicit addressing only.
+      `TalkAgentBinding::agentsForRoom()` reads the enabled per-agent bots from
+      spreed (`TalkBotInstaller::enabledAgentIds()`, enabled rows only), keeps the
+      opted-in agents, and falls back to the single-agent binding when none is
+      enabled. `TalkBotInvokeListener::isAddressed()` treats a Hermiq-created room
+      with more than one agent like any group room: mention or reply only.
 - [x] 4.3 `TalkMentionMatcher`: per-agent matching — `@agent-name` mention or
       reply-to-that-agent's-message; multi-mention yields one hand-off per
       addressed agent (each with its own turn id); unaddressed group messages yield

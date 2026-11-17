@@ -66,11 +66,17 @@ final class TalkBotInvokeListenerAgentsTest extends TestCase {
 	/**
 	 * The listener over a group room holding the agents Ada and Bram.
 	 *
-	 * @param array<string, bool> $enabled Talk opt-in per agent uuid.
+	 * @param array<string, bool> $enabled     Talk opt-in per agent uuid.
+	 * @param bool                $createdRoom Whether Hermiq created the room for a session.
+	 * @param array<int, string>  $roomAgents  The agents whose bot is enabled in the room.
 	 *
 	 * @return TalkBotInvokeListener
 	 */
-	private function listener(array $enabled = ['agent-ada' => true, 'agent-bram' => true]): TalkBotInvokeListener {
+	private function listener(
+		array $enabled = ['agent-ada' => true, 'agent-bram' => true],
+		bool $createdRoom = false,
+		array $roomAgents = ['agent-ada', 'agent-bram'],
+	): TalkBotInvokeListener {
 		$bridge = $this->createMock(TalkBridge::class);
 		$bridge->method('isAvailable')->willReturn(true);
 		$bridge->method('isOneToOne')->willReturn(false);
@@ -82,9 +88,10 @@ final class TalkBotInvokeListenerAgentsTest extends TestCase {
 		$roomBinding = $this->createMock(TalkRoomBinding::class);
 		$roomBinding->method('findByRoomToken')->willReturn($conversation);
 		$roomBinding->method('syncParticipants')->willReturnArgument(0);
-		$roomBinding->method('isCreatedRoom')->willReturn(false);
+		$roomBinding->method('isCreatedRoom')->willReturn($createdRoom);
 
 		$agentBinding = $this->createMock(TalkAgentBinding::class);
+		$agentBinding->method('agentsForRoom')->willReturn($roomAgents);
 		$agentBinding->method('isAgentTalkEnabled')->willReturnCallback(static fn (string $agentId): bool => ($enabled[$agentId] ?? false));
 		$agentBinding->method('agentName')->willReturnCallback(
 			static fn (string $agentId): string => ['agent-ada' => 'Ada', 'agent-bram' => 'Bram'][$agentId] ?? ''
@@ -219,4 +226,35 @@ final class TalkBotInvokeListenerAgentsTest extends TestCase {
 
 		$this->assertSame([], $this->handOffs);
 	}//end testAnAgentThatLeftTalkStaysSilent()
+
+	/**
+	 * A Hermiq-created room with one agent keeps every message as a turn.
+	 *
+	 * @return void
+	 */
+	public function testACreatedRoomWithOneAgentTakesEveryMessage(): void {
+		$this->listener(createdRoom: true, roomAgents: ['agent-ada'])
+			->handle($this->invoke(agentId: 'agent-ada', content: 'Lunch at noon?'));
+
+		$this->assertSame(['agent-ada'], array_column($this->handOffs, 0));
+	}//end testACreatedRoomWithOneAgentTakesEveryMessage()
+
+	/**
+	 * Once a second agent is enabled in a Hermiq-created room, only the
+	 * addressed agent takes a turn there, and an unaddressed message none.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-a-room-may-host-several-agents-managed-by-talk-moderators
+	 */
+	public function testACreatedRoomWithTwoAgentsNeedsAddressing(): void {
+		$listener = $this->listener(createdRoom: true);
+		$listener->handle($this->invoke(agentId: 'agent-ada', content: 'Lunch at noon?'));
+		$listener->handle($this->invoke(agentId: 'agent-bram', content: 'Lunch at noon?'));
+		$this->assertSame([], $this->handOffs);
+
+		$listener->handle($this->invoke(agentId: 'agent-ada', content: '@Ada summarise the case'));
+		$listener->handle($this->invoke(agentId: 'agent-bram', content: '@Ada summarise the case'));
+		$this->assertSame(['agent-ada'], array_column($this->handOffs, 0));
+	}//end testACreatedRoomWithTwoAgentsNeedsAddressing()
 }//end class

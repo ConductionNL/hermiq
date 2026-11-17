@@ -454,14 +454,21 @@ class TalkBotInvokeListener implements IEventListener {
 	 * current shape — inferring it (say, "owner plus one bot") would silently
 	 * flip this behaviour the moment somebody invites a second person.
 	 *
+	 * Once a Talk moderator enables a second agent's bot in a Hermiq-created
+	 * room, every-message-is-a-turn would have every agent answer every
+	 * message, so that room takes the mention-or-reply rule too.
+	 *
 	 * @param TalkInvocation $invocation The invocation, with the agent bound to its room.
 	 *
 	 * @return bool True when the agent should take the turn.
 	 *
 	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-group-room
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-a-room-may-host-several-agents-managed-by-talk-moderators
 	 */
 	private function isAddressed(TalkInvocation $invocation): bool {
-		if ($this->roomBinding->isCreatedRoom(roomToken: $invocation->roomToken()) === true) {
+		if ($this->roomBinding->isCreatedRoom(roomToken: $invocation->roomToken()) === true
+			&& count($this->agentBinding->agentsForRoom(roomToken: $invocation->roomToken())) <= 1
+		) {
 			return true;
 		}
 
