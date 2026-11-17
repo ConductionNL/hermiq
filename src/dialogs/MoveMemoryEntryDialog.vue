@@ -86,6 +86,7 @@ export default {
 		 * The projects as NcSelect options.
 		 *
 		 * @return {Array<{label: string, value: string}>} The options.
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
 		 */
 		options() {
 			return this.projects.map((project) => ({

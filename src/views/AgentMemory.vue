@@ -154,6 +154,11 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * Back to the shared layer and reload the projects when another agent is chosen.
+		 *
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+		 */
 		selectedAgent() {
 			this.layer = ''
 			this.projects = []

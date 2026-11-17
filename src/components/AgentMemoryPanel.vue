@@ -384,6 +384,11 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * Reload the entries when the shown layer (shared or a project) changes.
+		 *
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+		 */
 		project() {
 			this.load()
 		},

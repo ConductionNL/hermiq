@@ -2314,6 +2314,7 @@ export default {
 		 *
 		 * @param {string} agentUuid The agent.
 		 * @return {Promise<Array<object>>}
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 		 */
 		async projectsOf(agentUuid) {
 			try {

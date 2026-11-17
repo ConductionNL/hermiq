@@ -115,6 +115,7 @@ export default {
 		 * Whether the choice is complete: a new project needs a name.
 		 *
 		 * @return {boolean} True when the session can start.
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 		 */
 		canStart() {
 			return this.choice !== NEW || this.newName.trim() !== ''
