@@ -26,6 +26,7 @@ use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -72,7 +73,7 @@ class DepartmentSwitchTest extends TestCase {
 		$this->objectService->method('find')->willReturnCallback(
 			function ($id) {
 				if (isset($this->agents[$id]) === false) {
-					throw new RuntimeException('not found');
+					throw new DoesNotExistException('not found');
 				}
 
 				$agent = new ObjectEntity();
@@ -189,6 +190,49 @@ class DepartmentSwitchTest extends TestCase {
 
 		$this->assertSame([], (new DepartmentSwitch(objectService: $objectService, logger: $this->logger))->offDepartments());
 	}//end testAnUnreadableDepartmentListIsLogged()
+
+	/**
+	 * An agent that cannot be read (not a missing agent) holds the run.
+	 *
+	 * @return void
+	 */
+	public function testAnAgentReadFailureHoldsTheRun(): void {
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('find')->willThrowException(new RuntimeException('db down'));
+		$objectService->expects($this->never())->method('findAll');
+		$this->logger->expects($this->once())->method('error')->with($this->stringContains('db down'));
+
+		$switch = new DepartmentSwitch(objectService: $objectService, logger: $this->logger);
+
+		$this->assertSame(DepartmentSwitch::UNREADABLE, $switch->offDepartmentOf(agentId: 'agent-bz'));
+	}//end testAnAgentReadFailureHoldsTheRun()
+
+	/**
+	 * An unreadable department list holds an agent that names a department,
+	 * and not an agent that names none.
+	 *
+	 * @return void
+	 */
+	public function testAnUnreadableDepartmentListHoldsAgentsWithADepartment(): void {
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('setRegister')->willReturnSelf();
+		$objectService->method('setSchema')->willReturnSelf();
+		$objectService->method('findAll')->willThrowException(new RuntimeException('db down'));
+		$objectService->method('find')->willReturnCallback(
+			function ($id) {
+				$agent = new ObjectEntity();
+				$agent->setUuid($id);
+				$agent->setObject($this->agents[$id]);
+				return $agent;
+			}
+		);
+		$this->logger->expects($this->once())->method('error')->with($this->stringContains('db down'));
+
+		$switch = new DepartmentSwitch(objectService: $objectService, logger: $this->logger);
+
+		$this->assertSame('burgerzaken', $switch->offDepartmentOf(agentId: 'agent-bz'));
+		$this->assertNull($switch->offDepartmentOf(agentId: 'agent-none'));
+	}//end testAnUnreadableDepartmentListHoldsAgentsWithADepartment()
 
 	/**
 	 * Switching a department off stores who, when and why, on that department's object.

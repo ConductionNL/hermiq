@@ -37,6 +37,7 @@ use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -83,6 +84,13 @@ final class DepartmentSwitch {
 	public const SWITCH_ACTION = 'department-switch';
 
 	/**
+	 * What offDepartmentOf() answers when the agent cannot be read: the run is held.
+	 *
+	 * @var string
+	 */
+	public const UNREADABLE = '(unreadable)';
+
+	/**
 	 * Constructor.
 	 *
 	 * @param ObjectService         $objectService    Reads departments and agents, writes a switch.
@@ -100,16 +108,28 @@ final class DepartmentSwitch {
 	/**
 	 * The group ids of the departments whose AI is switched off.
 	 *
-	 * A department list that cannot be read is logged as an error and reads as
-	 * none off, the same rule TenantKillSwitch applies to the organisation switch.
+	 * A department list that cannot be read is logged as an error and lists none
+	 * off here, for the screens; the run gate offDepartmentOf() holds the run
+	 * instead.
 	 *
 	 * @return array<int,string>
 	 *
 	 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
 	 */
 	public function offDepartments(): array {
+		return self::offGroups(departments: $this->departments());
+	}//end offDepartments()
+
+	/**
+	 * The group ids of the given departments whose AI is switched off.
+	 *
+	 * @param array<int,ObjectEntity> $departments The departments.
+	 *
+	 * @return array<int,string>
+	 */
+	private static function offGroups(array $departments): array {
 		$off = [];
-		foreach ($this->departments() as $department) {
+		foreach ($departments as $department) {
 			$data = $department->getObject();
 			$group = (string)($data['group'] ?? '');
 			if ($group !== '' && ($data['aiOff'] ?? false) === true) {
@@ -118,17 +138,21 @@ final class DepartmentSwitch {
 		}
 
 		return array_values(array_unique($off));
-	}//end offDepartments()
+	}//end offGroups()
 
 	/**
 	 * The department of an agent when its AI is switched off, else null.
 	 *
-	 * An agent that names no department, or a group nobody marked as a
-	 * department, is never held by this switch.
+	 * An agent that names no department, a group nobody marked as a
+	 * department, or an agent that does not exist, is never held by this switch.
+	 * A read that fails holds the run (fail closed): an agent that cannot be read
+	 * answers UNREADABLE, and an agent whose department switches cannot be read
+	 * answers its own department, so a switched-off department never runs during
+	 * a register outage.
 	 *
 	 * @param string $agentId The agent's uuid.
 	 *
-	 * @return string|null The department's group id, or null when the agent may run.
+	 * @return string|null The department's group id (or UNREADABLE), or null when the agent may run.
 	 *
 	 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
 	 */
@@ -144,8 +168,15 @@ final class DepartmentSwitch {
 				_rbac: false,
 				_multitenancy: false
 			);
-		} catch (Throwable $e) {
+		} catch (DoesNotExistException $e) {
+			// An agent that does not exist is not held by a department switch.
 			return null;
+		} catch (Throwable $e) {
+			$this->logger->error(
+				'Hermiq could not read the agent for the department switch, run held: ' . $e->getMessage(),
+				['exception' => $e]
+			);
+			return self::UNREADABLE;
 		}
 
 		// An agent that cannot be found is not held by a department switch.
@@ -154,7 +185,21 @@ final class DepartmentSwitch {
 		}
 
 		$department = trim((string)($agent->getObject()['department'] ?? ''));
-		if ($department === '' || in_array($department, $this->offDepartments(), true) === false) {
+		if ($department === '') {
+			return null;
+		}
+
+		try {
+			$departments = $this->readDepartments();
+		} catch (Throwable $e) {
+			$this->logger->error(
+				'Hermiq could not load the department switches, run held: ' . $e->getMessage(),
+				['exception' => $e]
+			);
+			return $department;
+		}
+
+		if (in_array($department, self::offGroups(departments: $departments), true) === false) {
 			return null;
 		}
 
@@ -294,10 +339,7 @@ final class DepartmentSwitch {
 	 */
 	private function departments(): array {
 		try {
-			$found = $this->objectService
-				->setRegister(self::REGISTER_SLUG)
-				->setSchema(self::SCHEMA)
-				->findAll(config: [], _rbac: false, _multitenancy: false);
+			return $this->readDepartments();
 		} catch (Throwable $e) {
 			$this->logger->error(
 				'Hermiq could not load the department switches: ' . $e->getMessage(),
@@ -305,7 +347,21 @@ final class DepartmentSwitch {
 			);
 			return [];
 		}
+	}//end departments()
+
+	/**
+	 * Every marked department; a read that fails throws.
+	 *
+	 * @return array<int,ObjectEntity>
+	 *
+	 * @throws Throwable When the department list cannot be read.
+	 */
+	private function readDepartments(): array {
+		$found = $this->objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::SCHEMA)
+			->findAll(config: [], _rbac: false, _multitenancy: false);
 
 		return array_values(array_filter((array)$found, static fn (mixed $object): bool => $object instanceof ObjectEntity));
-	}//end departments()
+	}//end readDepartments()
 }//end class
