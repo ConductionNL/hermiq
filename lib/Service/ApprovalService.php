@@ -88,10 +88,10 @@ use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
-use OCA\Hermiq\Mcp\ComputerToolDescriptors;
 use OCA\Hermiq\Service\Approval\ApprovalDecision;
 use OCA\Hermiq\Service\Approval\ApprovalTarget;
 use OCA\Hermiq\Service\Approval\ApprovalTaskBridge;
+use OCA\Hermiq\Service\ComputerUse\ComputerRunGrant;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -147,14 +147,14 @@ class ApprovalService implements ApprovalServiceInterface {
 	 *
 	 * @var string
 	 */
-	public const COMPUTER_RUN = 'computer-run';
+	public const COMPUTER_RUN = ComputerRunGrant::SOURCE_TYPE;
 
 	/**
 	 * How long such a pre-authorisation lasts, at most (REQ-COMPUTER-003).
 	 *
 	 * @var int
 	 */
-	public const COMPUTER_RUN_MINUTES = 15;
+	public const COMPUTER_RUN_MINUTES = ComputerRunGrant::MINUTES;
 
 	/**
 	 * OpenRegister schema slug for schedule objects.
@@ -919,10 +919,10 @@ class ApprovalService implements ApprovalServiceInterface {
 			return null;
 		}
 
-		$key = $this->computerRunKey(agentId: $agentId, runId: $runId, target: $target);
+		$key = ComputerRunGrant::key(agentId: $agentId, runId: $runId, target: $target);
 		foreach ($this->approvalsOfSource(correlationId: $key, sourceType: self::COMPUTER_RUN) as $object) {
 			$data = $object->getObject();
-			if ($this->computerRunIsLive(data: $data, now: $now) === false) {
+			if (ComputerRunGrant::isLive(data: $data, now: $now) === false) {
 				continue;
 			}
 
@@ -950,87 +950,18 @@ class ApprovalService implements ApprovalServiceInterface {
 	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
 	 */
 	public function preauthoriseComputerRun(ObjectEntity $approval, string $deciderUid, DateTimeImmutable $now): ?array {
-		$data   = $approval->getObject();
-		$runId  = (string)($data['runId'] ?? '');
-		$target = (string)($data['toolArguments']['target'] ?? '');
-		$agent  = (string)($data['agentId'] ?? '');
-		if ($this->isApprovedComputerAction(data: $data) === false
-			|| in_array('', [$runId, $target, $agent, $deciderUid], true) === true
-		) {
+		$data = ComputerRunGrant::recordFor(data: $approval->getObject(), deciderUid: $deciderUid, now: $now);
+		if ($data === null) {
 			return null;
 		}
 
-		$expiresAt = $now->setTimezone(new DateTimeZone('UTC'))->modify('+' . self::COMPUTER_RUN_MINUTES . ' minutes')->format('c');
-		$record    = $this->persistApproval(
-			data: [
-				'status' => 'approved',
-				'sourceType' => self::COMPUTER_RUN,
-				'correlationId' => $this->computerRunKey(agentId: $agent, runId: $runId, target: $target),
-				'agentId' => $agent,
-				'toolId' => (string)$data['toolId'],
-				'toolArguments' => ['target' => $target],
-				'runId' => $runId,
-				'prompt' => 'Actions on this machine for the rest of this run, for at most ' . self::COMPUTER_RUN_MINUTES . ' minutes.',
-				'requestedAt' => $now->setTimezone(new DateTimeZone('UTC'))->format('c'),
-				'reviewer' => (string)($data['reviewer'] ?? ''),
-				'reviewerType' => (string)($data['reviewerType'] ?? 'user'),
-				'decidedAt' => $now->setTimezone(new DateTimeZone('UTC'))->format('c'),
-				'decidedBy' => $deciderUid,
-				'expiresAt' => $expiresAt,
-			],
-			target: new ApprovalTarget(uuid: null, owner: $this->resolveAgentOwner(agentId: $agent))
+		$record = $this->persistApproval(
+			data: $data,
+			target: new ApprovalTarget(uuid: null, owner: $this->resolveAgentOwner(agentId: $data['agentId']))
 		);
 
-		return ['uuid' => (string)$record->getUuid(), 'expiresAt' => $expiresAt];
+		return ['uuid' => (string)$record->getUuid(), 'expiresAt' => $data['expiresAt']];
 	}//end preauthoriseComputerRun()
-
-	/**
-	 * Whether a computer-run pre-authorisation is approved, names its decision
-	 * maker and has not yet ended at the given moment.
-	 *
-	 * @param array<string, mixed> $data The Approval's data.
-	 * @param DateTimeImmutable    $now  The moment of the call.
-	 *
-	 * @return bool
-	 *
-	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
-	 */
-	private function computerRunIsLive(array $data, DateTimeImmutable $now): bool {
-		if (($data['status'] ?? '') !== 'approved' || (string)($data['decidedBy'] ?? '') === '') {
-			return false;
-		}
-
-		$ends = $this->moment(value: (string)($data['expiresAt'] ?? ''));
-		return $ends !== null && $ends > $now;
-	}//end computerRunIsLive()
-
-	/**
-	 * Whether an Approval is an approved `toolcall` approval of a computer action.
-	 *
-	 * @param array<string, mixed> $data The Approval's data.
-	 *
-	 * @return bool
-	 *
-	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
-	 */
-	private function isApprovedComputerAction(array $data): bool {
-		return ($data['status'] ?? '') === 'approved'
-			&& ($data['sourceType'] ?? '') === 'toolcall'
-			&& in_array((string)($data['toolId'] ?? ''), ComputerToolDescriptors::ACTION_IDS, true) === true;
-	}//end isApprovedComputerAction()
-
-	/**
-	 * The correlation key of a machine's pre-authorisation in one run.
-	 *
-	 * @param string $agentId The agent UUID.
-	 * @param string $runId   The run id.
-	 * @param string $target  The machine.
-	 *
-	 * @return string
-	 */
-	private function computerRunKey(string $agentId, string $runId, string $target): string {
-		return hash('sha256', self::COMPUTER_RUN . '|' . $agentId . '|' . $runId . '|' . $target);
-	}//end computerRunKey()
 
 	/**
 	 * Every Approval of one source type with the given correlation key.
@@ -1059,25 +990,6 @@ class ApprovalService implements ApprovalServiceInterface {
 			)
 		);
 	}//end approvalsOfSource()
-
-	/**
-	 * A stored moment, or null when it does not read.
-	 *
-	 * @param string $value An ISO 8601 moment.
-	 *
-	 * @return DateTimeImmutable|null
-	 */
-	private function moment(string $value): ?DateTimeImmutable {
-		if ($value === '') {
-			return null;
-		}
-
-		try {
-			return new DateTimeImmutable($value);
-		} catch (Throwable $e) {
-			return null;
-		}
-	}//end moment()
 
 	/**
 	 * Mark an approved `toolcall` Approval as consumed (`consumedAt` set) so it
