@@ -5777,6 +5777,7 @@
 				"version": "0.1.0",
 				"title": "Report subscription",
 				"description": "A person's request to receive a report weekly or monthly as a notification (reports-on-a-schedule).",
+				"x-openregister-demo-data": "A person's own subscription: the scheduled job sends the report to its person, so sample rows would send notifications to sample users.",
 				"type": "object",
 				"required": [
 					"person",
