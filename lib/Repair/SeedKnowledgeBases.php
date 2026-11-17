@@ -28,7 +28,6 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
@@ -45,6 +44,8 @@ use Throwable;
  * @spec openspec/changes/memory-knowledge-bases/specs/knowledge-bases/spec.md#requirement-an-owner-can-create-a-knowledge-base-and-fill-it-from-files-req-kb-001
  */
 class SeedKnowledgeBases implements IRepairStep {
+
+	use FindsSeedObjectByName;
 	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
 
 	private const REGISTER_SLUG = 'hermiq';
@@ -210,32 +211,4 @@ class SeedKnowledgeBases implements IRepairStep {
 			],
 		];
 	}//end knowledgeBase()
-
-	/**
-	 * The first object of a schema with exactly this name, or null.
-	 *
-	 * @param ObjectService $objectService OpenRegister's objects.
-	 * @param string        $schema        The schema slug.
-	 * @param string        $name          The name.
-	 *
-	 * @return ObjectEntity|null
-	 */
-	private function findByName(ObjectService $objectService, string $schema, string $name): ?ObjectEntity {
-		$objects = $objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema($schema)
-			->findAll(
-				config: ['filters' => ['name' => $name], 'limit' => 50],
-				_rbac: false,
-				_multitenancy: false
-			);
-
-		foreach ($objects as $object) {
-			if ($object instanceof ObjectEntity && (string)($object->getObject()['name'] ?? '') === $name) {
-				return $object;
-			}
-		}
-
-		return null;
-	}//end findByName()
 }//end class
