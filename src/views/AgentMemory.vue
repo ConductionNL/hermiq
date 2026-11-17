@@ -38,6 +38,10 @@
 					label="label"
 					trackBy="value" />
 			</div>
+			<!-- memory-knowledge-bases: knowledge bases are reached from here, not from the menu (design.md D6). -->
+			<router-link :to="{ name: 'KnowledgeBases' }" class="agent-memory__knowledge-bases">
+				{{ t('hermiq', 'Knowledge bases') }}
+			</router-link>
 		</div>
 
 		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Memory error')">
@@ -225,6 +229,12 @@ export default {
 	padding: 20px;
 	max-width: 900px;
 	margin: 0 auto;
+}
+
+.agent-memory__knowledge-bases {
+	align-self: center;
+	color: var(--color-primary-element);
+	text-decoration: underline;
 }
 
 .agent-memory__header {
