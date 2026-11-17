@@ -1883,8 +1883,7 @@ class ApprovalService implements ApprovalServiceInterface {
 
 		$schedule = $this->objectService->find(
 			id: $scheduleId,
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEDULE_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEDULE_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
