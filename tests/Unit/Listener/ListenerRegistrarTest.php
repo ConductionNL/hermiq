@@ -21,6 +21,7 @@ namespace OCA\Hermiq\Tests\Unit\Listener;
 use OCA\Hermiq\Event\AiOversightRecordedEvent;
 use OCA\Hermiq\Flow\HermiqFlowNodeListener;
 use OCA\Hermiq\Listener\AgentActingUserGuardListener;
+use OCA\Hermiq\Listener\AgentDepartmentGuardListener;
 use OCA\Hermiq\Listener\AgentBotLifecycleListener;
 use OCA\Hermiq\Listener\AgentRunRequestedListener;
 use OCA\Hermiq\Listener\AgentWaiverChangeListener;
@@ -96,6 +97,8 @@ class ListenerRegistrarTest extends TestCase {
 				[DraftUpdatedEvent::class, AgentWaiverChangeListener::class],
 				[ObjectCreatingEvent::class, AgentActingUserGuardListener::class],
 				[ObjectUpdatingEvent::class, AgentActingUserGuardListener::class],
+				[ObjectCreatingEvent::class, AgentDepartmentGuardListener::class],
+				[ObjectUpdatingEvent::class, AgentDepartmentGuardListener::class],
 				[RegisterFlowNodesEvent::class, HermiqFlowNodeListener::class],
 				[RegisterFlowOversightEvent::class, FlowOversightRegistrationListener::class],
 				[RegisterLeafProvidersEvent::class, RegisterAgentLeafListener::class],
