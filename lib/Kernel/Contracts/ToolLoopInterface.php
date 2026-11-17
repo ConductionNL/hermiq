@@ -79,6 +79,10 @@ interface ToolLoopInterface {
 	 *                     set, informs the side-effect classification).
 	 *                     False (every pre-existing caller) is
 	 *                     byte-for-byte unchanged behavior.
+	 * @param string $conversationId The conversation the turn belongs to, so a flow an
+	 *                               agent queues can bring its result back there
+	 *                               (flows-hand-off-and-wait). '' (every pre-existing
+	 *                               caller) opens no handoff.
 	 * @param string $runId The run a computer action's approval is scoped to; '' offers no
 	 *                      run-scoped pre-authorisation (tools-browser-and-computer-use).
 	 *
@@ -101,6 +105,7 @@ interface ToolLoopInterface {
 		?ObjectEntity $agent = null,
 		?string $organisation = null,
 		bool $dryRun = false,
+		string $conversationId = '',
 		string $runId = '',
 	): array;
 }//end interface
