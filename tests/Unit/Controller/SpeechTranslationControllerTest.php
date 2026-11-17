@@ -59,6 +59,13 @@ final class SpeechTranslationControllerTest extends TestCase {
 	private array $translated = [];
 
 	/**
+	 * The size limit readRecording() was given.
+	 *
+	 * @var int|null
+	 */
+	private ?int $readLimit = null;
+
+	/**
 	 * Whether keep() was called.
 	 *
 	 * @var bool
@@ -83,7 +90,10 @@ final class SpeechTranslationControllerTest extends TestCase {
 
 		$chain = $this->createMock(TranslationChain::class);
 		$chain->method('readRecording')->willReturnCallback(
-			static fn (string $uid, int $fileId): ?array => ($fileId === 41 && $uid === 'anne' ? ['bytes' => 'm4a', 'name' => 'terugbelverzoek.m4a', 'size' => 3] : null)
+			function (string $uid, int $fileId, int $maxBytes = PHP_INT_MAX): ?array {
+				$this->readLimit = $maxBytes;
+				return ($fileId === 41 && $uid === 'anne' ? ['bytes' => 'm4a', 'name' => 'terugbelverzoek.m4a', 'size' => 3] : null);
+			}
 		);
 		$chain->method('translate')->willReturnCallback(
 			function (string $audio, string $targetLanguage, string $sourceLanguage = '', ?string $uid = null) use ($spoken, $refusal): array {
@@ -100,6 +110,9 @@ final class SpeechTranslationControllerTest extends TestCase {
 					'record' => ['sourceLanguage' => '', 'detectedLanguage' => 'ar', 'targetLanguage' => 'nl', 'ttsVoice' => 'nf_dutch'],
 				];
 			}
+		);
+		$chain->method('whereTranslationRuns')->willReturnCallback(
+			static fn (string $uid): array => ['enabled' => true, 'provider' => 'ollama', 'model' => 'llama3', 'residency' => 'on-premise', 'location' => '', 'refusal' => '', 'voices' => ['nl'], 'asked' => $uid]
 		);
 		$chain->method('keep')->willReturnCallback(
 			function (): array {
@@ -174,6 +187,7 @@ final class SpeechTranslationControllerTest extends TestCase {
 		$response = $this->controller()->translate(targetLanguage: 'nl', fileId: 41, sessionId: 'sess-1');
 
 		$this->assertSame(200, $response->getStatus());
+		$this->assertSame(SpeechTranslationController::MAX_AUDIO_BYTES, $this->readLimit, 'A file above the cap is not loaded.');
 		$this->assertSame(['audio' => 'm4a', 'targetLanguage' => 'nl', 'sourceLanguage' => '', 'uid' => 'anne'], $this->translated);
 		$this->assertTrue($this->kept);
 		$this->assertCount(2, $this->stored);
@@ -256,6 +270,55 @@ final class SpeechTranslationControllerTest extends TestCase {
 		$this->assertSame('provider_refused', $response->getData()['code']);
 		$this->assertSame([], $this->stored);
 	}//end testARefusalAnswersWithItsCodeAndStatus()
+
+	/**
+	 * The modal asks where the translation runs: the chain answers for the
+	 * signed-in person, and the controller passes that answer on unchanged.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-the-translation-step-follows-the-features-provider-rules-req-strn-003
+	 */
+	public function testWhereAnswersTheChainsBindingForTheCaller(): void {
+		$response = $this->controller(uid: 'anne')->where();
+
+		$this->assertSame(200, $response->getStatus());
+		$this->assertSame(
+			['enabled' => true, 'provider' => 'ollama', 'model' => 'llama3', 'residency' => 'on-premise', 'location' => '', 'refusal' => '', 'voices' => ['nl'], 'asked' => 'anne'],
+			$response->getData()
+		);
+	}//end testWhereAnswersTheChainsBindingForTheCaller()
+
+	/**
+	 * Without a signed-in person, where() is a 401 and the chain is not asked.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-the-translation-step-follows-the-features-provider-rules-req-strn-003
+	 */
+	public function testWhereWithoutASignedInPersonIsA401(): void {
+		$session = $this->createMock(IUserSession::class);
+		$session->method('getUser')->willReturn(null);
+		$chain = $this->createMock(TranslationChain::class);
+		$chain->expects($this->never())->method('whereTranslationRuns');
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnArgument(0);
+
+		$controller = new SpeechTranslationController(
+			request: $this->createMock(IRequest::class),
+			userSession: $session,
+			chain: $chain,
+			objectService: $this->createMock(ObjectService::class),
+			history: $this->createMock(MessageHistoryHandlerInterface::class),
+			participation: new ConversationParticipation(),
+			l10n: $l10n,
+			logger: new NullLogger()
+		);
+		$response = $controller->where();
+
+		$this->assertSame(401, $response->getStatus());
+		$this->assertSame('not_signed_in', $response->getData()['code']);
+	}//end testWhereWithoutASignedInPersonIsA401()
 
 	/**
 	 * No file id and no upload is a 400.

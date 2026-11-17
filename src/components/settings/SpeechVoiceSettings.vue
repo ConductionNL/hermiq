@@ -67,12 +67,19 @@ export default {
 		 * The map as sorted entries.
 		 *
 		 * @return {Array<[string, string]>} The entries.
+		 * @spec openspec/changes/chat-translate-a-recording/tasks.md#task-4-the-voice-map-in-admin-settings
 		 */
 		entries() {
 			return Object.entries(this.voices).sort(([a], [b]) => a.localeCompare(b))
 		},
 	},
 
+	/**
+	 * Load the stored voice map; a failure shows the load error.
+	 *
+	 * @return {Promise<void>}
+	 * @spec openspec/changes/chat-translate-a-recording/tasks.md#task-4-the-voice-map-in-admin-settings
+	 */
 	async mounted() {
 		try {
 			this.voices = await getSpeechVoices()

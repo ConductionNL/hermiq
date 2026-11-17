@@ -58,16 +58,19 @@ class TranslatedAudioFiles {
 	 * A recording in the person's own Files, read as them.
 	 *
 	 * Resolved in the person's user folder only, so a file id they cannot open
-	 * reads as absent, exactly like a file id that does not exist.
+	 * reads as absent, exactly like a file id that does not exist. A file larger
+	 * than `$maxBytes` is not loaded: its bytes read as '' and its size tells the
+	 * caller why.
 	 *
-	 * @param string $uid    The person.
-	 * @param int    $fileId The file id.
+	 * @param string $uid      The person.
+	 * @param int    $fileId   The file id.
+	 * @param int    $maxBytes The largest file whose content is loaded.
 	 *
 	 * @return array{bytes: string, name: string, size: int}|null The recording, or null when they cannot read it.
 	 *
 	 * @spec openspec/changes/chat-translate-a-recording/tasks.md#task-3-the-route-the-saved-file-and-its-mark
 	 */
-	public function readRecording(string $uid, int $fileId): ?array {
+	public function readRecording(string $uid, int $fileId, int $maxBytes = PHP_INT_MAX): ?array {
 		if ($uid === '' || $fileId < 1) {
 			return null;
 		}
@@ -78,7 +81,12 @@ class TranslatedAudioFiles {
 				return null;
 			}
 
-			return ['bytes' => $node->getContent(), 'name' => $node->getName(), 'size' => (int)$node->getSize()];
+			$size = (int)$node->getSize();
+			if ($size > $maxBytes) {
+				return ['bytes' => '', 'name' => $node->getName(), 'size' => $size];
+			}
+
+			return ['bytes' => $node->getContent(), 'name' => $node->getName(), 'size' => $size];
 		} catch (Throwable $e) {
 			return null;
 		}

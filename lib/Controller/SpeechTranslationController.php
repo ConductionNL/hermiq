@@ -198,7 +198,7 @@ class SpeechTranslationController extends Controller {
 	 */
 	private function recording(string $uid, int $fileId): array|JSONResponse {
 		if ($fileId > 0) {
-			$file = $this->chain->readRecording(uid: $uid, fileId: $fileId);
+			$file = $this->chain->readRecording(uid: $uid, fileId: $fileId, maxBytes: self::MAX_AUDIO_BYTES);
 			if ($file === null) {
 				return $this->refusal(message: $this->l10n->t('This recording does not exist.'), code: 'not_found', status: 404);
 			}

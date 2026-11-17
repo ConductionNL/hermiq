@@ -221,16 +221,18 @@ class TranslationChain {
 
 	/**
 	 * A recording in the person's own Files, read as them; null when they cannot read it.
+	 * A file larger than `$maxBytes` is not loaded (its bytes read as '').
 	 *
-	 * @param string $uid    The person.
-	 * @param int    $fileId The file id.
+	 * @param string $uid      The person.
+	 * @param int    $fileId   The file id.
+	 * @param int    $maxBytes The largest file whose content is loaded.
 	 *
 	 * @return array{bytes: string, name: string, size: int}|null The recording.
 	 *
 	 * @spec openspec/changes/chat-translate-a-recording/tasks.md#task-3-the-route-the-saved-file-and-its-mark
 	 */
-	public function readRecording(string $uid, int $fileId): ?array {
-		return $this->files->readRecording(uid: $uid, fileId: $fileId);
+	public function readRecording(string $uid, int $fileId, int $maxBytes = PHP_INT_MAX): ?array {
+		return $this->files->readRecording(uid: $uid, fileId: $fileId, maxBytes: $maxBytes);
 	}//end readRecording()
 
 	/**

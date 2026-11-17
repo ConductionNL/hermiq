@@ -172,6 +172,7 @@ export default {
 		 * The reader's language.
 		 *
 		 * @return {string} The language code.
+		 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-a-person-can-translate-a-recording-and-hear-the-result-req-strn-001
 		 */
 		locale() {
 			try {
@@ -185,6 +186,7 @@ export default {
 		 * The target options, "text only" where no voice is mapped.
 		 *
 		 * @return {Array<{id: string, label: string, spoken: boolean}>} The options.
+		 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#scenario-a-language-without-a-voice-gets-text
 		 */
 		targetOptions() {
 			return targetLanguageOptions(this.where.voices, this.locale)
@@ -194,6 +196,7 @@ export default {
 		 * The source options: detect, then every language by name.
 		 *
 		 * @return {Array<{id: string, label: string}>} The options.
+		 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-a-person-can-translate-a-recording-and-hear-the-result-req-strn-001
 		 */
 		sourceOptions() {
 			const named = TRANSLATION_LANGUAGES
@@ -206,6 +209,7 @@ export default {
 		 * What the person will translate, as a label.
 		 *
 		 * @return {string} The label, or ''.
+		 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-a-person-can-translate-a-recording-and-hear-the-result-req-strn-001
 		 */
 		recordingLabel() {
 			if (this.recording) {
@@ -253,6 +257,7 @@ export default {
 		 * Whether the translation can start.
 		 *
 		 * @return {boolean} True with a recording, a target and an enabled feature.
+		 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-a-person-can-translate-a-recording-and-hear-the-result-req-strn-001
 		 */
 		canStart() {
 			return !this.busy
@@ -365,6 +370,7 @@ export default {
 		 * Stop a running recording without keeping it.
 		 *
 		 * @return {void}
+		 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-a-person-can-translate-a-recording-and-hear-the-result-req-strn-001
 		 */
 		stopRecorder() {
 			if (this.recorder && this.recording) {

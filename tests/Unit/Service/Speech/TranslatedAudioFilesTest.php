@@ -84,4 +84,43 @@ final class TranslatedAudioFilesTest extends TestCase {
 		$this->assertNull($this->files()->readRecording(uid: 'anne', fileId: 0));
 		$this->assertNull($this->files()->readRecording(uid: '', fileId: 41));
 	}//end testARecordingIsReadOnlyFromTheCallersOwnFiles()
+
+	/**
+	 * A recording above the limit is not loaded: its name and size come back,
+	 * its bytes as '', and its content is never read.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-translate-a-recording/tasks.md#task-3-the-route-the-saved-file-and-its-mark
+	 */
+	public function testARecordingAboveTheLimitIsNotLoaded(): void {
+		$file = $this->createMock(File::class);
+		$file->method('isReadable')->willReturn(true);
+		$file->expects($this->never())->method('getContent');
+		$file->method('getName')->willReturn('lang.m4a');
+		$file->method('getSize')->willReturn(10);
+		$folder = $this->createMock(Folder::class);
+		$folder->method('getFirstNodeById')->willReturn($file);
+		$root = $this->createMock(IRootFolder::class);
+		$root->method('getUserFolder')->willReturn($folder);
+
+		$this->assertSame(
+			['bytes' => '', 'name' => 'lang.m4a', 'size' => 10],
+			(new TranslatedAudioFiles(rootFolder: $root))->readRecording(uid: 'anne', fileId: 41, maxBytes: 9)
+		);
+	}//end testARecordingAboveTheLimitIsNotLoaded()
+
+	/**
+	 * A recording exactly at the limit is still loaded.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-translate-a-recording/tasks.md#task-3-the-route-the-saved-file-and-its-mark
+	 */
+	public function testARecordingAtTheLimitIsLoaded(): void {
+		$this->assertSame(
+			['bytes' => 'm4a-bytes', 'name' => 'terugbelverzoek.m4a', 'size' => 9],
+			$this->files()->readRecording(uid: 'anne', fileId: 41, maxBytes: 9)
+		);
+	}//end testARecordingAtTheLimitIsLoaded()
 }//end class
