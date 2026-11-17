@@ -367,6 +367,11 @@ export default {
 		},
 	},
 
+	/**
+	 * Load the form from the edited tool when the modal opens.
+	 *
+	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+	 */
 	mounted() {
 		if (this.show) {
 			this.loadFlows()
