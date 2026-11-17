@@ -1,0 +1,16 @@
+{
+  "name": "hermiq-code-sandbox",
+  "version": "0.1.0",
+  "description": "Optional Nextcloud AppAPI ExApp that runs short Python and JavaScript programs for Hermiq with no network, no data mounts and caps on time, memory, processes and output (tools-code-sandbox).",
+  "license": "EUPL-1.2",
+  "author": "Conduction B.V. <info@conduction.nl>",
+  "private": true,
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
