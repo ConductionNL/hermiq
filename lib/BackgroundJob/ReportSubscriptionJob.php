@@ -29,6 +29,8 @@ use DateTimeImmutable;
 use DateTimeInterface;
 use OCA\Hermiq\Service\ReportSubscriptionSchedule;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\TimedJob;
@@ -144,9 +146,10 @@ class ReportSubscriptionJob extends TimedJob {
 		unset($data['@self'], $data['id']);
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER,
-			schema: self::SCHEMA,
-			uuid: (string)$subscription->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER, schema: self::SCHEMA),
+				uuid: (string)$subscription->getUuid()
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

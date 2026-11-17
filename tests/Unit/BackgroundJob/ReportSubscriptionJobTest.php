@@ -25,6 +25,7 @@ use DateTimeImmutable;
 use OCA\Hermiq\BackgroundJob\ReportSubscriptionJob;
 use OCA\Hermiq\Service\ReportSubscriptionSchedule;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IURLGenerator;
@@ -67,8 +68,8 @@ class ReportSubscriptionJobTest extends TestCase {
 	private function job(): ReportSubscriptionJob {
 		$objects = $this->createMock(ObjectService::class);
 		$objects->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null): ObjectEntity {
-				$this->saved[] = [$object, (string)$uuid];
+			function (array $object, ObjectSaveOptions $options): ObjectEntity {
+				$this->saved[] = [$object, (string)$options->uuid];
 				return new ObjectEntity();
 			}
 		);
