@@ -49,6 +49,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service;
 
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\ContextAgentInteractionServiceInterface;
 use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\ContextAgent\ConfirmationActor;
@@ -115,7 +116,7 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 	 *
 	 * @param ObjectService $objectService OR object read/write.
 	 * @param Engine $engine Hermiq agent engine (runs the turn).
-	 * @param ApprovalService $approvalService Approval-gate decisions (confirmation mapping).
+	 * @param ApprovalServiceInterface $approvalService Approval-gate decisions (confirmation mapping).
 	 * @param TenantKillSwitch $tenantKillSwitch Kill-switch source (isOrganisationEngaged).
 	 * @param AuditTrailMapper $auditTrailMapper Redacted per-interaction audit write-path.
 	 * @param RedactionService $redactionService Masks secrets/PII before the audit write.
@@ -135,7 +136,7 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 	public function __construct(
 		private readonly ObjectService $objectService,
 		private readonly Engine $engine,
-		private readonly ApprovalService $approvalService,
+		private readonly ApprovalServiceInterface $approvalService,
 		private readonly TenantKillSwitch $tenantKillSwitch,
 		private readonly AuditTrailMapper $auditTrailMapper,
 		private readonly RedactionService $redactionService,

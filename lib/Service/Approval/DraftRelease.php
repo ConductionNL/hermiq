@@ -139,6 +139,31 @@ final class DraftRelease {
 			$arguments = [];
 		}
 
+		$released = $this->releasedArguments(arguments: $arguments, edits: $edits);
+
+		$draft = $this->draft;
+		$draft['arguments'] = $released;
+		$original = self::messageText(arguments: $arguments);
+		$sent = self::messageText(arguments: $released);
+
+		return ['draft' => $draft, 'original' => $original, 'sent' => $sent, 'edited' => ($sent !== $original)];
+	}//end releasedTool()
+
+	/**
+	 * The tool arguments with the reviewer's edits applied to the editable ones.
+	 *
+	 * An edit of a fixed argument is refused unless it repeats the value it has.
+	 *
+	 * @param array<string, mixed> $arguments The arguments as the agent wrote them.
+	 * @param array<string, mixed> $edits The edited arguments.
+	 *
+	 * @return array<string, mixed> The arguments to send.
+	 *
+	 * @throws DraftEditRefused When a fixed argument is changed.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	private function releasedArguments(array $arguments, array $edits): array {
 		$editable = $this->editable();
 		$released = $arguments;
 		foreach ($edits as $field => $value) {
@@ -148,20 +173,13 @@ final class DraftRelease {
 				continue;
 			}
 
-			if (array_key_exists($field, $arguments) === true && $value === $arguments[$field]) {
-				continue;
+			if (array_key_exists($field, $arguments) === false || $value !== $arguments[$field]) {
+				throw new DraftEditRefused('The field "' . $field . '" of this draft cannot be changed.');
 			}
-
-			throw new DraftEditRefused('The field "' . $field . '" of this draft cannot be changed.');
 		}
 
-		$draft = $this->draft;
-		$draft['arguments'] = $released;
-		$original = self::messageText(arguments: $arguments);
-		$sent = self::messageText(arguments: $released);
-
-		return ['draft' => $draft, 'original' => $original, 'sent' => $sent, 'edited' => ($sent !== $original)];
-	}//end releasedTool()
+		return $released;
+	}//end releasedArguments()
 
 	/**
 	 * An edited value, which must be text.

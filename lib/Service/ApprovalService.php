@@ -1475,21 +1475,35 @@ class ApprovalService implements ApprovalServiceInterface {
 		$payload = $this->heldPayload(
 			schedule: $schedule,
 			sourceType: 'question',
-			draftPayload: [
-				'question' => [
-					'text' => (string)($question['text'] ?? ''),
-					'options' => array_values(array_map('strval', (array)($question['options'] ?? []))),
-					'allowOther' => (($question['allowOther'] ?? false) === true),
-				],
-				'runId' => $runId,
-				'answer' => null,
-				'answeredRunId' => null,
-			]
+			draftPayload: self::questionDraft(question: $question, runId: $runId)
 		);
 		$payload['prompt'] = (string)($data['prompt'] ?? '');
 
 		return $this->persistAndNotify(schedule: $schedule, payload: $payload);
 	}//end ensurePendingQuestion()
+
+	/**
+	 * The draftPayload of a new question: the question, the asking run, no answer yet.
+	 *
+	 * @param array<string, mixed> $question The question: `{text, options, allowOther}`.
+	 * @param string $runId The run that asked.
+	 *
+	 * @return array<string, mixed> The draftPayload.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 */
+	private static function questionDraft(array $question, string $runId): array {
+		return [
+			'question' => [
+				'text' => (string)($question['text'] ?? ''),
+				'options' => array_values(array_map('strval', (array)($question['options'] ?? []))),
+				'allowOther' => (($question['allowOther'] ?? false) === true),
+			],
+			'runId' => $runId,
+			'answer' => null,
+			'answeredRunId' => null,
+		];
+	}//end questionDraft()
 
 	/**
 	 * Answer a pending question: record the answer and dispatch the run again
@@ -1507,33 +1521,18 @@ class ApprovalService implements ApprovalServiceInterface {
 	 */
 	public function answerQuestion(ObjectEntity $approval, string $deciderUid, string $answer): array {
 		$data = $approval->getObject();
-		if ((string)($data['sourceType'] ?? '') !== 'question' || (string)($data['status'] ?? '') !== 'pending') {
+		if (self::matches(data: $data, expected: ['sourceType' => 'question', 'status' => 'pending']) === false) {
 			throw new InvalidArgumentException('This approval is not a question waiting for an answer.');
 		}
 
 		$draft = (array)($data['draftPayload'] ?? []);
-		$question = (array)($draft['question'] ?? []);
-		$answer = QuestionAnswer::validated(question: $question, answer: $answer);
-
-		$draft['answer'] = $answer;
+		$draft['answer'] = QuestionAnswer::validated(question: (array)($draft['question'] ?? []), answer: $answer);
 		$data['draftPayload'] = $draft;
-		$data['status'] = 'approved';
-		$data['decidedBy'] = $deciderUid;
-		$data['decidedAt'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
-		$this->saveDecision(approval: $approval, data: $data, decision: new ApprovalDecision(action: 'approve', reason: ''), deciderUid: $deciderUid);
+		$data = $this->recordAnswer(approval: $approval, data: $data, deciderUid: $deciderUid);
 
-		$ran = $this->runAnsweredSchedule(
-			scheduleId: (string)($data['scheduleId'] ?? ''),
-			prompt: QuestionAnswer::promptWithAnswer(
-				prompt: (string)($data['prompt'] ?? ''),
-				question: (string)($question['text'] ?? ''),
-				answer: $answer
-			)
-		);
-
+		$ran = $this->runAnsweredSchedule(scheduleId: (string)($data['scheduleId'] ?? ''), prompt: self::answeredPrompt(data: $data));
 		if ($ran['runId'] !== '') {
-			$draft['answeredRunId'] = $ran['runId'];
-			$data['draftPayload'] = $draft;
+			$data['draftPayload']['answeredRunId'] = $ran['runId'];
 			$this->persistApproval(
 				data: $data,
 				target: new ApprovalTarget(uuid: (string)$approval->getUuid(), owner: (string)($approval->getOwner() ?? ''))
@@ -1542,6 +1541,45 @@ class ApprovalService implements ApprovalServiceInterface {
 
 		return ['status' => 'approved', 'ran' => $ran['ran']];
 	}//end answerQuestion()
+
+	/**
+	 * Mark an answered question approved by the reviewer and save the decision.
+	 *
+	 * @param ObjectEntity $approval The question Approval.
+	 * @param array<string, mixed> $data Its data, with the answer in its draftPayload.
+	 * @param string $deciderUid The reviewer answering.
+	 *
+	 * @return array<string, mixed> The data as saved.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 */
+	private function recordAnswer(ObjectEntity $approval, array $data, string $deciderUid): array {
+		$data['status'] = 'approved';
+		$data['decidedBy'] = $deciderUid;
+		$data['decidedAt'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
+		$this->saveDecision(approval: $approval, data: $data, decision: new ApprovalDecision(action: 'approve', reason: ''), deciderUid: $deciderUid);
+
+		return $data;
+	}//end recordAnswer()
+
+	/**
+	 * The run's prompt followed by the question and the reviewer's answer.
+	 *
+	 * @param array<string, mixed> $data The answered question Approval's data.
+	 *
+	 * @return string The prompt to run again with.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 */
+	private static function answeredPrompt(array $data): string {
+		$draft = (array)($data['draftPayload'] ?? []);
+
+		return QuestionAnswer::promptWithAnswer(
+			prompt: (string)($data['prompt'] ?? ''),
+			question: (string)(((array)($draft['question'] ?? []))['text'] ?? ''),
+			answer: (string)($draft['answer'] ?? '')
+		);
+	}//end answeredPrompt()
 
 	/**
 	 * Deny every pending question that has waited longer than seven days.
@@ -1554,24 +1592,11 @@ class ApprovalService implements ApprovalServiceInterface {
 	 */
 	public function expireUnansweredQuestions(?DateTimeImmutable $now = null): int {
 		$now ??= new DateTimeImmutable('now', new DateTimeZone('UTC'));
-		$objects = $this->objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema(self::APPROVAL_SCHEMA)
-			->findAll(
-				config: ['filters' => ['sourceType' => 'question', 'status' => 'pending']],
-				_rbac: false,
-				_multitenancy: false
-			);
-
+		$filters = ['sourceType' => 'question', 'status' => 'pending'];
 		$expired = 0;
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
+		foreach ($this->pendingApprovals(filters: $filters) as $object) {
 			$data = $object->getObject();
-			if ((string)($data['sourceType'] ?? '') !== 'question'
-				|| (string)($data['status'] ?? '') !== 'pending'
+			if (self::matches(data: $data, expected: $filters) === false
 				|| QuestionAnswer::isExpired(requestedAt: (string)($data['requestedAt'] ?? ''), now: $now) === false
 			) {
 				continue;
@@ -1653,6 +1678,22 @@ class ApprovalService implements ApprovalServiceInterface {
 		];
 
 		$approval = $this->persistApproval(data: $payload, target: new ApprovalTarget(uuid: null, owner: $owner));
+		$this->notifyDraftReviewer(approval: $approval, owner: $owner);
+
+		return $approval;
+	}//end ensurePendingToolDraft()
+
+	/**
+	 * Tell the owner a tool draft waits for review; a failed notice is logged, never thrown.
+	 *
+	 * @param ObjectEntity $approval The pending draft Approval.
+	 * @param string $owner The reviewer.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	private function notifyDraftReviewer(ObjectEntity $approval, string $owner): void {
 		try {
 			$this->deliveryService->deliverApprovalRequestForToolInvocation(
 				approval: $approval,
@@ -1664,9 +1705,7 @@ class ApprovalService implements ApprovalServiceInterface {
 				['exception' => $e]
 			);
 		}
-
-		return $approval;
-	}//end ensurePendingToolDraft()
+	}//end notifyDraftReviewer()
 
 	/**
 	 * Release a held draft: send it as the agent wrote it, or with the
@@ -1908,31 +1947,53 @@ class ApprovalService implements ApprovalServiceInterface {
 			return null;
 		}
 
-		$objects = $this->objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema(self::APPROVAL_SCHEMA)
-			->findAll(
-				config: ['filters' => ['scheduleId' => $scheduleId, 'status' => 'pending', 'sourceType' => $sourceType]],
-				_rbac: false,
-				_multitenancy: false
-			);
-
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			$data = $object->getObject();
-			if ((string)($data['scheduleId'] ?? '') === $scheduleId
-				&& (string)($data['status'] ?? '') === 'pending'
-				&& (string)($data['sourceType'] ?? '') === $sourceType
-			) {
+		$filters = ['scheduleId' => $scheduleId, 'status' => 'pending', 'sourceType' => $sourceType];
+		foreach ($this->pendingApprovals(filters: $filters) as $object) {
+			if (self::matches(data: $object->getObject(), expected: $filters) === true) {
 				return $object;
 			}
 		}
 
 		return null;
 	}//end findPendingOfSourceType()
+
+	/**
+	 * The Approvals the register returns for the filters, ObjectEntity objects only.
+	 *
+	 * @param array<string, string> $filters The register filters.
+	 *
+	 * @return list<ObjectEntity> The approvals found.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 */
+	private function pendingApprovals(array $filters): array {
+		$objects = $this->objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::APPROVAL_SCHEMA)
+			->findAll(config: ['filters' => $filters], _rbac: false, _multitenancy: false);
+
+		return array_values(array_filter($objects, static fn (mixed $object): bool => $object instanceof ObjectEntity));
+	}//end pendingApprovals()
+
+	/**
+	 * Whether every expected field of an Approval's data holds the expected value.
+	 *
+	 * @param array<string, mixed> $data The Approval's data.
+	 * @param array<string, string> $expected Field => value.
+	 *
+	 * @return bool True when all match.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 */
+	private static function matches(array $data, array $expected): bool {
+		foreach ($expected as $field => $value) {
+			if ((string)($data[$field] ?? '') !== $value) {
+				return false;
+			}
+		}
+
+		return true;
+	}//end matches()
 
 	/**
 	 * Find the open pending Approval for a schedule, if one exists.
@@ -1944,27 +2005,13 @@ class ApprovalService implements ApprovalServiceInterface {
 	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
 	 */
 	private function findPendingApprovalForSchedule(string $scheduleId): ?ObjectEntity {
-		$objects = $this->objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema(self::APPROVAL_SCHEMA)
-			->findAll(
-				config: ['filters' => ['scheduleId' => $scheduleId, 'status' => 'pending']],
-				_rbac: false,
-				_multitenancy: false
-			);
-
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
+		$filters = ['scheduleId' => $scheduleId, 'status' => 'pending'];
+		foreach ($this->pendingApprovals(filters: $filters) as $object) {
 			$data = $object->getObject();
 			// A question or draft held for the schedule's run is not its gate
 			// approval (oversight-ask-and-hold): it must not stand in for one.
-			if ((string)($data['scheduleId'] ?? '') === $scheduleId
-				&& (string)($data['status'] ?? '') === 'pending'
-				&& in_array((string)($data['sourceType'] ?? 'schedule'), ['question', 'draft'], true) === false
-			) {
+			$held = in_array((string)($data['sourceType'] ?? 'schedule'), ['question', 'draft'], true);
+			if ($held === false && self::matches(data: $data, expected: $filters) === true) {
 				return $object;
 			}
 		}

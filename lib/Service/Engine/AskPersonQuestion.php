@@ -115,15 +115,30 @@ final class AskPersonQuestion {
 			throw new InvalidArgumentException(sprintf('Offer at most %d suggested answers.', self::MAX_OPTIONS));
 		}
 
-		$options = [];
-		foreach ($raw as $option) {
-			if (is_string($option) === false || trim($option) === '' || mb_strlen(trim($option)) > self::MAX_OPTION) {
-				throw new InvalidArgumentException(sprintf('Each suggested answer is text of 1 to %d characters.', self::MAX_OPTION));
-			}
+		return array_values(array_map(static fn (mixed $option): string => self::option(raw: $option), $raw));
+	}//end options()
 
-			$options[] = trim($option);
+	/**
+	 * One suggested answer, checked and trimmed.
+	 *
+	 * @param mixed $raw The suggested answer.
+	 *
+	 * @return string The answer.
+	 *
+	 * @throws InvalidArgumentException For an empty, too long or non-text answer.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 */
+	private static function option(mixed $raw): string {
+		$option = '';
+		if (is_string($raw) === true) {
+			$option = trim($raw);
 		}
 
-		return $options;
-	}//end options()
+		if ($option === '' || mb_strlen($option) > self::MAX_OPTION) {
+			throw new InvalidArgumentException(sprintf('Each suggested answer is text of 1 to %d characters.', self::MAX_OPTION));
+		}
+
+		return $option;
+	}//end option()
 }//end class

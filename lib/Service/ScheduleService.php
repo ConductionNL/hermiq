@@ -3008,11 +3008,8 @@ class ScheduleService implements ScheduleServiceInterface {
 	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 	 */
 	private function holdInsteadOfDelivering(string $channel, string $output, ObjectEntity $schedule, ?string $conversationUuid): ?DeliveryResult {
-		$data = $schedule->getObject();
 		$question = $this->lastRunQuestion;
-		$holds = ($question === null && $channel !== 'none' && trim($output) !== ''
-			&& OutputHold::holds(schedule: $data, agent: $this->agentData(agentId: (string)($data['agentId'] ?? ''))) === true);
-		if ($question === null && $holds === false) {
+		if ($question === null && $this->holdsOutput(channel: $channel, output: $output, schedule: $schedule->getObject()) === false) {
 			return null;
 		}
 
@@ -3023,20 +3020,55 @@ class ScheduleService implements ScheduleServiceInterface {
 				$this->approvalService->ensurePendingDraft(schedule: $schedule, channel: $channel, output: $output, conversationUuid: $conversationUuid);
 			}
 		} catch (Throwable $e) {
-			$this->logger->warning(
-				sprintf('Hermiq could not hold the output of schedule %s for review: %s', (string)$schedule->getUuid(), $e->getMessage()),
-				['exception' => $e]
-			);
-			return new DeliveryResult(
-				delivered: false,
-				channel: 'none',
-				fellBack: false,
-				warning: 'The output could not be held for review, so nothing was sent.'
-			);
+			return $this->holdFailed(schedule: $schedule, error: $e);
 		}
 
 		return new DeliveryResult(delivered: false, channel: 'none', fellBack: false, warning: null);
 	}//end holdInsteadOfDelivering()
+
+	/**
+	 * Whether a run's output is held for review: a real output on a real channel,
+	 * with `holdOutput` on for the schedule or its agent.
+	 *
+	 * @param string $channel The delivery channel.
+	 * @param string $output The run's output.
+	 * @param array<string, mixed> $schedule The schedule's data.
+	 *
+	 * @return bool True when the output is held.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	private function holdsOutput(string $channel, string $output, array $schedule): bool {
+		if ($channel === 'none' || trim($output) === '') {
+			return false;
+		}
+
+		return OutputHold::holds(schedule: $schedule, agent: $this->agentData(agentId: (string)($schedule['agentId'] ?? ''))) === true;
+	}//end holdsOutput()
+
+	/**
+	 * The fail-closed outcome when output could not be held: log it, deliver nothing.
+	 *
+	 * @param ObjectEntity $schedule The schedule.
+	 * @param Throwable $error Why holding failed.
+	 *
+	 * @return DeliveryResult The no-delivery outcome with its warning.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	private function holdFailed(ObjectEntity $schedule, Throwable $error): DeliveryResult {
+		$this->logger->warning(
+			sprintf('Hermiq could not hold the output of schedule %s for review: %s', (string)$schedule->getUuid(), $error->getMessage()),
+			['exception' => $error]
+		);
+
+		return new DeliveryResult(
+			delivered: false,
+			channel: 'none',
+			fellBack: false,
+			warning: 'The output could not be held for review, so nothing was sent.'
+		);
+	}//end holdFailed()
 
 	/**
 	 * An agent's data, or null when it cannot be read.

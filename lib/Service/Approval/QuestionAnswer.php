@@ -69,15 +69,7 @@ final class QuestionAnswer {
 	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
 	 */
 	public static function validated(array $question, string $answer): string {
-		$answer = trim($answer);
-		if ($answer === '') {
-			throw new InvalidArgumentException('An answer is required.');
-		}
-
-		if (mb_strlen($answer) > self::MAX_ANSWER_LENGTH) {
-			throw new InvalidArgumentException('The answer is longer than ' . self::MAX_ANSWER_LENGTH . ' characters.');
-		}
-
+		$answer = self::trimmed(answer: $answer);
 		$options = self::options(question: $question);
 		if ($options === [] || in_array($answer, $options, true) === true) {
 			return $answer;
@@ -89,6 +81,30 @@ final class QuestionAnswer {
 
 		throw new InvalidArgumentException('Choose one of the suggested answers.');
 	}//end validated()
+
+	/**
+	 * The answer trimmed, refused when empty or too long.
+	 *
+	 * @param string $answer The answer as given.
+	 *
+	 * @return string The trimmed answer.
+	 *
+	 * @throws InvalidArgumentException When the answer is empty or too long.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 */
+	private static function trimmed(string $answer): string {
+		$answer = trim($answer);
+		if ($answer === '') {
+			throw new InvalidArgumentException('An answer is required.');
+		}
+
+		if (mb_strlen($answer) > self::MAX_ANSWER_LENGTH) {
+			throw new InvalidArgumentException('The answer is longer than ' . self::MAX_ANSWER_LENGTH . ' characters.');
+		}
+
+		return $answer;
+	}//end trimmed()
 
 	/**
 	 * The prompt the run is dispatched again with: its own prompt, the question and the answer.

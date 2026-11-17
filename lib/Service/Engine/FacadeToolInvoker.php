@@ -626,27 +626,53 @@ class FacadeToolInvoker {
 			return $this->refusals()->unavailable(call: $call);
 		}
 
+		$approval = $this->approvalService->ensurePendingToolDraft(
+			agentId: $this->agentId,
+			toolId: $call->toolId,
+			arguments: $arguments,
+			editable: $this->editableArguments(name: $name)
+		);
+
+		return $this->refusals()->confirm(call: $call, confirm: self::heldDraft(approvalId: (string)$approval->getUuid()));
+	}//end holdMessageDraft()
+
+	/**
+	 * The arguments of a message tool a reviewer may edit, from its descriptor.
+	 *
+	 * @param string $name The tool function name the LLM called.
+	 *
+	 * @return list<string> The editable argument names.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	private function editableArguments(string $name): array {
 		$editable = $this->descriptorFor(name: $name)['editable'] ?? DraftRelease::DEFAULT_EDITABLE;
 		if (is_array($editable) === false) {
 			$editable = DraftRelease::DEFAULT_EDITABLE;
 		}
 
-		$approval = $this->approvalService->ensurePendingToolDraft(
-			agentId: $this->agentId,
-			toolId: $call->toolId,
-			arguments: $arguments,
-			editable: array_values(array_filter($editable, 'is_string'))
-		);
+		return array_values(array_filter($editable, 'is_string'));
+	}//end editableArguments()
 
+	/**
+	 * The `held` outcome the model reads after its message was held as a draft.
+	 *
+	 * @param string $approvalId The draft Approval.
+	 *
+	 * @return ConfirmRefusal The outcome.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	private static function heldDraft(string $approvalId): ConfirmRefusal {
 		$held = new ConfirmRefusal(
 			status: 'held',
 			message: 'Draft held for review. A reviewer reads it before it is sent; do not send it again.'
 		);
-		$held->approvalId = (string)$approval->getUuid();
+		$held->approvalId = $approvalId;
 		$held->outcome = 'held';
 
-		return $this->refusals()->confirm(call: $call, confirm: $held);
-	}//end holdMessageDraft()
+		return $held;
+	}//end heldDraft()
 
 	/**
 	 * Whether a call is the tool-search tool and tool search is available.
