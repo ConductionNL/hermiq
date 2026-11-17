@@ -37,7 +37,7 @@ namespace OCA\Hermiq\Flow;
 use OCA\Hermiq\Service\CodeSandbox\CodeSandboxClient;
 use OCA\Hermiq\Service\CodeSandbox\RunCodeTool;
 use OCA\OpenRegister\Service\Flow\FlowNodeCall;
-use OCA\OpenRegister\Service\Flow\IFlowNode;
+use OCA\OpenRegister\Service\Flow\ICallFlowNode;
 use OCP\IL10N;
 use OCP\IURLGenerator;
 use OCP\WorkflowEngine\IManager;
@@ -49,7 +49,7 @@ use UnexpectedValueException;
  *
  * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-a-flow-can-run-a-code-step-over-each-item-req-sandbox-003
  */
-class HermiqCodeStepNode implements IFlowNode {
+class HermiqCodeStepNode implements ICallFlowNode {
 
 	/**
 	 * The step's time limit, in seconds.

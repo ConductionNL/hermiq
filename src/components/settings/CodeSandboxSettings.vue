@@ -117,6 +117,7 @@ export default {
 		 * Whether the form differs from the stored choice.
 		 *
 		 * @return {boolean} True when there is something to save.
+		 * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-the-admin-chooses-where-code-runs-req-sandbox-004
 		 */
 		changed() {
 			if (this.backend !== this.stored.backend) {
@@ -132,6 +133,7 @@ export default {
 		 *
 		 * @param {object} data { backend, hostedSource, available }.
 		 * @return {void}
+		 * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-the-admin-chooses-where-code-runs-req-sandbox-004
 		 */
 		apply(data) {
 			this.stored = { backend: data.backend, hostedSource: data.hostedSource ?? null }
