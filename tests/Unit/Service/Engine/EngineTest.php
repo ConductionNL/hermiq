@@ -795,7 +795,7 @@ class EngineTest extends TestCase {
 			$historyHandler = $this->createMock(MessageHistoryHandler::class);
 			$recorded = [];
 			$historyHandler->method('storeMessage')->willReturnCallback(
-				function (string $conversationId, string $role, string $content, ?array $sources = null, ?array $context = null, ?string $authorId = null, ?string $authorDisplayName = null, array $attachments = [], ?array $provenance = null, ?array $answerCache = null) use (&$recorded): ObjectEntity {
+				function (string $conversationId, string $role, string $content, ?array $sources = null, ?array $context = null, ?string $authorId = null, ?string $authorDisplayName = null, array $attachments = [], ?array $provenance = null, ?array $retrievalScope = null, ?array $answerCache = null) use (&$recorded): ObjectEntity {
 					$recorded[$role] = $answerCache;
 					return $this->entity('msg-' . $role, ['role' => $role, 'content' => $content]);
 				}

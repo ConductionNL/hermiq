@@ -107,6 +107,9 @@ use OCA\Hermiq\Kernel\Contracts\TalkMessageToolInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\WebFetchServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\WebSearchClientInterface;
+use OCA\Hermiq\Service\CodeSandbox\CodeSandboxSettings;
+use OCA\Hermiq\Service\CodeSandbox\RunCodeTool;
+use OCA\Hermiq\Service\RemoteAgent\RemoteTasks;
 use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
 use OCA\Hermiq\Service\Workspace\WorkspaceWrites;
 use OCA\OpenRegister\Mcp\IMcpToolProvider;
@@ -604,6 +607,39 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'idempotentHint' => false,
 			'scope' => 'create',
 		],
+		[
+			'id' => AppIdentity::APP_ID . '.askRemoteAgent',
+			// Flows-hand-off-and-wait (REQ-A2A-002): a task for an agent on another
+			// server, over A2A through the remote agent's integriq source. The task
+			// text leaves the instance, so `external`; each call is a new remote
+			// task, so never idempotent; default-denied like every write tool, and
+			// a grant may name one remote agent (`?remoteAgent=kvk-assistent`).
+			'subject' => 'agent',
+			'action' => 'delegate',
+			'reach' => ToolReachResolver::REACH_EXTERNAL,
+			'name' => 'Ask a remote agent',
+			'description' => 'Send a task to an agent on another server that an admin registered as a remote agent. '
+				. 'Returns its answer when it answers at once; when it keeps working, its answer arrives later in this '
+				. 'conversation. The task text leaves this Nextcloud.',
+			'inputSchema' => [
+				'type' => 'object',
+				'properties' => [
+					'remoteAgent' => [
+						'type' => 'string',
+						'description' => 'The handle of the remote agent, for example kvk-assistent.',
+					],
+					'task' => [
+						'type' => 'string',
+						'description' => 'What the remote agent should do.',
+					],
+				],
+				'required' => ['remoteAgent', 'task'],
+			],
+			'readOnlyHint' => false,
+			'destructiveHint' => true,
+			'idempotentHint' => false,
+			'scope' => 'create',
+		],
 	];
 
 	/**
@@ -651,6 +687,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *                                                 grants nothing; only the agent's owner
 	 *                                                 can write `Agent.tools`.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param RemoteTasks|null $remoteTasks Backs `askRemoteAgent` (flows-hand-off-and-wait); null answers it as unavailable.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) DI of thirteen distinct capabilities.
 	 */
@@ -677,6 +714,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 		private readonly MailReadServiceInterface $mailReadService,
 		private readonly ToolAccessRequestServiceInterface $accessRequests,
 		private readonly LoggerInterface $logger,
+		private readonly ?RemoteTasks $remoteTasks = null,
 	) {
 	}//end __construct()
 
@@ -710,9 +748,33 @@ class HermiqToolProvider implements IMcpToolProvider {
 			GraphToolDescriptors::ALL,
 			$this->taskDescriptors(),
 			NcTalkToolDescriptors::ALL,
-			$this->imageDescriptors()
+			$this->imageDescriptors(),
+			$this->codeSandboxDescriptors()
 		);
 	}//end getTools()
+
+	/**
+	 * The runCode tool, with the reach of where code runs now (tools-code-sandbox
+	 * D3): `self` in the own sandbox, `external` at a hosted one. Listed whether
+	 * or not a sandbox is installed; a call then says none is.
+	 *
+	 * @return array<int, array<string, mixed>> The descriptors.
+	 *
+	 * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-an-agent-runs-code-only-with-a-grant-and-an-enabled-ai-feature-req-sandbox-002
+	 */
+	private function codeSandboxDescriptors(): array {
+		try {
+			$settings = $this->container->get(CodeSandboxSettings::class);
+		} catch (Throwable) {
+			$settings = null;
+		}
+
+		if ($settings instanceof CodeSandboxSettings) {
+			return CodeSandboxToolDescriptors::forReach(reach: $settings->reach());
+		}
+
+		return CodeSandboxToolDescriptors::forReach(reach: ToolReachResolver::REACH_SELF);
+	}//end codeSandboxDescriptors()
 
 	/**
 	 * The task tool descriptors this instance can honour: completeTask only when a
@@ -813,7 +875,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	}//end routed()
 
 	/**
-	 * The service that owns a graph, Nextcloud task or image tool, checked in that order.
+	 * The service that owns a graph, Nextcloud task, image or code tool, checked in that order.
 	 *
 	 * @param string $toolId The namespaced tool id.
 	 *
@@ -824,6 +886,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			in_array($toolId, GraphToolDescriptors::IDS, true) => GraphToolsInterface::class,
 			in_array($toolId, NcTaskToolDescriptors::IDS, true) => TaskWriteServiceInterface::class,
 			in_array($toolId, ImageToolDescriptors::IDS, true) => ImageGenerationServiceInterface::class,
+			in_array($toolId, CodeSandboxToolDescriptors::IDS, true) => RunCodeTool::class,
 			in_array($toolId, NcTalkToolDescriptors::IDS, true) => TalkMessageToolInterface::class,
 			default => null,
 		};
@@ -974,6 +1037,10 @@ class HermiqToolProvider implements IMcpToolProvider {
 			AppIdentity::APP_ID . '.webFetch' => $this->webFetch(url: $call->text(name: 'url')),
 			AppIdentity::APP_ID . '.delegateAgent' => $this->delegateAgent(arguments: $call->arguments),
 			AppIdentity::APP_ID . '.delegateAgents' => $this->delegateAgents(arguments: $call->arguments),
+			AppIdentity::APP_ID . '.askRemoteAgent' => $this->askRemoteAgent(
+				remoteAgent: $call->text(name: 'remoteAgent'),
+				task: $call->text(name: 'task')
+			),
 			AppIdentity::APP_ID . '.listAvailableTools' => $this->accessRequests->listAvailable(
 				uid: $call->uid,
 				agentId: $call->agentId,
@@ -1472,6 +1539,24 @@ class HermiqToolProvider implements IMcpToolProvider {
 
 		return $this->delegationService->delegateMany(callerAgentId: $callerAgentId, parts: $parts);
 	}//end delegateAgents()
+
+	/**
+	 * Ask a remote agent (flows-hand-off-and-wait); a task still working comes back as a handoff.
+	 *
+	 * @param string $remoteAgent The remote agent's handle.
+	 * @param string $task        The task.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-asking-a-remote-agent-is-a-default-denied-external-tool-req-a2a-002
+	 */
+	private function askRemoteAgent(string $remoteAgent, string $task): array {
+		if ($this->remoteTasks === null) {
+			return ['error' => 'remote_agent_unavailable', 'message' => 'Remote agents are not available on this instance.'];
+		}
+
+		return $this->remoteTasks->ask(remoteAgent: $remoteAgent, task: $task);
+	}//end askRemoteAgent()
 
 	/**
 	 * Build a structured error envelope (invokeTool never throws).

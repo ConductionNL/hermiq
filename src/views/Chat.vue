@@ -445,6 +445,39 @@
 								</ul>
 							</details>
 
+							<!-- The scope the answer was given (memory-retrieval-scope D5). -->
+							<div
+								v-if="message.role === 'assistant' && scopeDisplay(message.retrievalScope)"
+								class="chat-page__scope"
+								data-testid="chat-retrieval-scope">
+								<p
+									v-if="scopeDisplay(message.retrievalScope).abstained"
+									class="chat-page__scope-abstained">
+									{{
+										t(
+											'hermiq',
+											'No validated document matched this question. The assistant did not answer from other knowledge.',
+										)
+									}}
+								</p>
+								<p class="chat-page__scope-detail">
+									<span v-if="scopeDisplay(message.retrievalScope).validated">{{
+										t(
+											'hermiq',
+											'Validated mode, floor {floor}. Passages at or above it: {passed}. Best match: {best}.',
+											{
+												passed: String(scopeDisplay(message.retrievalScope).passed),
+												floor: similarityText(scopeDisplay(message.retrievalScope).floor),
+												best: similarityText(scopeDisplay(message.retrievalScope).best),
+											},
+										)
+									}}</span>
+									<span v-if="scopeDisplay(message.retrievalScope).filtered">{{
+										t('hermiq', 'The agent’s file filters limited which files were searched.')
+									}}</span>
+								</p>
+							</div>
+
 							<!-- RAG sources -->
 							<div
 								v-if="message.sources && message.sources.length > 0"
@@ -617,6 +650,20 @@
 									{{ t('hermiq', 'Send feedback') }}
 								</NcButton>
 							</div>
+
+							<!-- Work this turn started and waits for (flows-hand-off-and-wait). -->
+							<ul
+								v-if="handoffGroups[message.id]"
+								class="chat-page__handoffs"
+								data-testid="chat-handoffs">
+								<li
+									v-for="handoff in handoffGroups[message.id]"
+									:key="handoff.id || handoff.uuid || handoff.requestedAt"
+									class="chat-page__handoff"
+									:class="`chat-page__handoff--${handoff.status}`">
+									{{ handoffLine(handoff, t, clockTime) }}
+								</li>
+							</ul>
 						</div>
 					</div>
 
@@ -634,21 +681,17 @@
 								}}</span>
 							</div>
 							<div
-								v-if="streamingTools.length > 0"
+								v-if="streamingSteps.length > 0"
 								class="chat-page__stream-tools">
 								<span
-									v-for="(tool, toolIndex) in streamingTools"
-									:key="toolIndex"
-									class="chat-page__stream-tool">
-									{{
-										tool.done
-											? t('hermiq', 'Used tool: {tool}', {
-													tool: tool.toolId,
-												})
-											: t('hermiq', 'Using tool: {tool}…', {
-													tool: tool.toolId,
-												})
-									}}
+									v-for="step in streamingSteps"
+									:key="step.key"
+									class="chat-page__stream-tool"
+									:class="[
+										`chat-page__stream-tool--${step.kind}`,
+										`chat-page__stream-tool--${step.state}`,
+									]">
+									{{ step.label }}
 								</span>
 							</div>
 							<!-- Streamed markdown is sanitised via DOMPurify with the shared safe config. -->
@@ -938,6 +981,7 @@ import {
 	getImageAvailability,
 	getSession,
 	getSessionGoal,
+	listHandoffs,
 	listMessages,
 	listSessions,
 	listSharedSessions,
@@ -960,6 +1004,7 @@ import {
 } from '../utils/agentDraft.js'
 import { questionBefore } from '../utils/answerCache.js'
 import { sourceFileId, sourceName, sourcePage } from '../utils/chatSources.js'
+import { clockTime, handoffLine, handoffsByMessage } from '../utils/handoffLines.js'
 import {
 	initialAnswers,
 	missingRequired,
@@ -968,12 +1013,14 @@ import {
 	startValueSummary,
 } from '../utils/instructionVariables.js'
 import { defaultAgentOf } from '../utils/personalPreferences.js'
+import { scopeDisplay, similarityText } from '../utils/retrievalScope.js'
 import { canForkSession, forkedSessionToOpen } from '../utils/sessionFork.js'
 import { canShareSession } from '../utils/sessionShare.js'
 import { sessionStartErrorMessage } from '../utils/sessionStartError.js'
 import { appendTranscript, speechControls } from '../utils/speech.js'
 import { goalLine as describeGoal } from './chatGoalLine.js'
 import { headedSessionGroups, partitionSessions } from './chatSessionGroups.js'
+import { chatToolSteps } from './chatToolSteps.js'
 
 /**
  * The trigger origins that mean "no person started this".
@@ -1083,6 +1130,8 @@ export default {
 			// Active thread
 			activeSession: null,
 			messages: [],
+			// Flows-hand-off-and-wait: the work agents started in this session.
+			handoffs: [],
 			messagesLoading: false,
 			currentAgent: null,
 
@@ -1154,6 +1203,16 @@ export default {
 
 	computed: {
 		/**
+		 * The session's handoffs under the message each one belongs to.
+		 *
+		 * @return {Object<string, Array<object>>} Message id → handoffs.
+		 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+		 */
+		handoffGroups() {
+			return handoffsByMessage(this.handoffs, this.messages)
+		},
+
+		/**
 		 * Whether "Fork from here" is offered: the owner of an open, unarchived session.
 		 *
 		 * @return {boolean}
@@ -1185,6 +1244,23 @@ export default {
 		 */
 		goalLine() {
 			return describeGoal(this.sessionGoal)
+		},
+
+		/**
+		 * The tool steps drawn under the streaming answer: one per tool call,
+		 * and one per part of a parallel delegation, with its target agent
+		 * and state.
+		 *
+		 * @return {Array<object>} The steps.
+		 * @spec openspec/changes/delegation-runs-in-parallel/tasks.md#task-2-1
+		 */
+		streamingSteps() {
+			return chatToolSteps(this.streamingTools, (id) => {
+				const agent = this.agents.find(
+					(entry) => entry.id === id || entry.uuid === id,
+				)
+				return agent?.name || ''
+			})
 		},
 
 		/**
@@ -1407,6 +1483,30 @@ export default {
 
 	methods: {
 		sourceFileId,
+		clockTime,
+		handoffLine,
+
+		/**
+		 * Read the session's handoffs; a failure leaves the lines out, never the thread.
+		 *
+		 * @param {string} uuid The session.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+		 */
+		async loadHandoffs(uuid) {
+			let handoffs
+			try {
+				handoffs = await listHandoffs(uuid)
+			} catch {
+				handoffs = []
+			}
+			if (this.activeSession?.uuid === uuid) {
+				this.handoffs = handoffs
+			}
+		},
+
+		scopeDisplay,
+		similarityText,
 		sourceName,
 		sourcePage,
 
@@ -1870,6 +1970,7 @@ export default {
 			this.activeSession = session
 			this.loadGoalFor(session)
 			this.messages = []
+			this.handoffs = []
 			// Files queued in another session do not follow the person here.
 			this.pendingAttachments = []
 			this.sendError = ''
@@ -1882,6 +1983,7 @@ export default {
 					this.loadAgentFor(session),
 				])
 				this.messages = results
+				this.loadHandoffs(session.uuid)
 				this.settings = this.defaultSettingsFor(this.currentAgent)
 				this.scrollToBottom()
 			} catch (e) {
@@ -2222,6 +2324,8 @@ export default {
 						onToolCall: (payload) => {
 							this.streamingTools.push({
 								toolId: payload.toolId || this.t('hermiq', 'tool'),
+								arguments: payload.arguments || {},
+								result: null,
 								done: false,
 							})
 						},
@@ -2231,6 +2335,7 @@ export default {
 									tool.toolId === payload.toolId && !tool.done,
 							)
 							if (entry) {
+								entry.result = payload.result ?? null
 								entry.done = true
 							}
 						},
@@ -2406,6 +2511,7 @@ export default {
 				if (this.activeSession?.uuid === uuid) {
 					this.messages = results
 					this.activeSession = session
+					this.loadHandoffs(uuid)
 				}
 				await this.loadSessions(true)
 			} catch (e) {
@@ -3092,6 +3198,42 @@ export default {
 	color: var(--color-main-text);
 }
 
+.chat-page__handoffs {
+	margin: 8px 0 0;
+	padding: 0;
+	list-style: none;
+	font-size: 13px;
+	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__handoff--waiting {
+	color: var(--color-main-text);
+}
+
+.chat-page__handoff--failed,
+.chat-page__handoff--expired {
+	color: var(--color-error-text);
+}
+
+.chat-page__scope {
+	margin-top: 10px;
+	font-size: 12px;
+	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__scope p {
+	margin: 0;
+}
+
+.chat-page__scope-abstained {
+	font-weight: 600;
+	color: var(--color-main-text);
+}
+
+.chat-page__scope-detail span + span::before {
+	content: ' ';
+}
+
 .chat-page__sources {
 	margin-top: 10px;
 	padding-top: 10px;
@@ -3208,6 +3350,16 @@ a.chat-page__source-name {
 	font-size: 12px;
 	color: var(--color-text-maxcontrast);
 	font-style: italic;
+}
+
+.chat-page__stream-tool--part {
+	font-style: normal;
+}
+
+.chat-page__stream-tool--refused,
+.chat-page__stream-tool--failed,
+.chat-page__stream-tool--timeout {
+	color: var(--color-error-text);
 }
 
 .chat-page__typing {

@@ -892,3 +892,20 @@ export async function warmChat(agentUuid, sessionUuid) {
 		return false
 	}
 }
+
+/**
+ * The handoffs of one session: the work an agent started there and waits for
+ * (flows-hand-off-and-wait). Read from OpenRegister with the person's own session,
+ * whose read rule shows each person only the handoffs they requested.
+ *
+ * @param {string} sessionUuid The session.
+ * @return {Promise<Array<object>>} The handoffs, in any order.
+ * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+ */
+export async function listHandoffs(sessionUuid) {
+	const response = await axios.get(generateUrl('/apps/openregister/api/objects/hermiq/agenthandoff'), {
+		params: { conversationId: sessionUuid, _limit: 100 },
+	})
+	const rows = Array.isArray(response.data?.results) ? response.data.results : []
+	return rows.filter((row) => row && row.conversationId === sessionUuid)
+}

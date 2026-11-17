@@ -40,6 +40,10 @@ $routes = [
         ['name' => 'Settings\TalkBridgeSettings#bindRoom',  'url' => '/api/settings/talk-bridge/room', 'verb' => 'PUT'],
         ['name' => 'Settings\WebResearchSettings#get',    'url' => '/api/settings/web-research', 'verb' => 'GET'],
         ['name' => 'Settings\WebResearchSettings#update', 'url' => '/api/settings/web-research', 'verb' => 'PATCH'],
+        // Where code runs (tools-code-sandbox, Task 2): admin only.
+        ['name' => 'Settings\CodeSandboxSettings#get',    'url' => '/api/settings/code-sandbox', 'verb' => 'GET'],
+        ['name' => 'Settings\CodeSandboxSettings#update', 'url' => '/api/settings/code-sandbox', 'verb' => 'PATCH'],
+        ['name' => 'Settings\CodeSandboxSettings#test',   'url' => '/api/settings/code-sandbox/test', 'verb' => 'POST'],
 
         // Generic per-user preferences (used by shared nextcloud-vue widgets, e.g. CnSupportDialog).
         ['name' => 'preferences#getPreference', 'url' => '/api/preferences/{key}', 'verb' => 'GET'],
@@ -163,6 +167,19 @@ $routes = [
         [
             'name'         => 'webhookTrigger#trigger',
             'url'          => '/api/agents/{id}/webhook',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        // flows-hand-off-and-wait (REQ-A2A-001): Admin settings, Remote agents.
+        ['name' => 'remoteAgent#index',   'url' => '/api/remote-agents',      'verb' => 'GET'],
+        ['name' => 'remoteAgent#create',  'url' => '/api/remote-agents',      'verb' => 'POST'],
+        ['name' => 'remoteAgent#update',  'url' => '/api/remote-agents/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'remoteAgent#destroy', 'url' => '/api/remote-agents/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '[^/]+']],
+        // flows-hand-off-and-wait (REQ-HANDOFF-004): the one-time address a webhook workflow
+        // posts its late result to. Public on purpose; the handoff's single-use token is the check.
+        [
+            'name'         => 'handoffResult#post',
+            'url'          => '/api/handoffs/{id}/result',
             'verb'         => 'POST',
             'requirements' => ['id' => '[^/]+'],
         ],
@@ -802,6 +819,10 @@ $routes = [
         ],
         ['name' => 'Settings\ReportSimilaritySettings#get',    'url' => '/api/settings/report-similarity', 'verb' => 'GET'],
         ['name' => 'Settings\ReportSimilaritySettings#update', 'url' => '/api/settings/report-similarity', 'verb' => 'PUT'],
+        // memory-retrieval-scope (REQ-RSCOPE-002): the Nextcloud tag that marks a document as validated.
+        ['name' => 'Settings\ValidatedTagSettings#get',    'url' => '/api/settings/validated-tag', 'verb' => 'GET'],
+        ['name' => 'Settings\ValidatedTagSettings#update', 'url' => '/api/settings/validated-tag', 'verb' => 'PUT'],
+        ['name' => 'Settings\ValidatedTagSettings#create', 'url' => '/api/settings/validated-tag', 'verb' => 'POST'],
 
         // A conversational intake that files for the citizen
         // (a-conversational-intake-that-files-for-the-citizen): one conversation per
