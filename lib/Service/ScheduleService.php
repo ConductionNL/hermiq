@@ -2070,6 +2070,8 @@ class ScheduleService implements ScheduleServiceInterface {
 	 * @return DateTimeImmutable|null The next run (UTC), or null for one-shots.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-schedule/spec.md#REQ-SPCOV-003
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-schedule/spec.md#REQ-SPCOV-004
 	 */
 	private function computeNextRun(string $kind, array $data, string $owner, DateTimeImmutable $now): ?DateTimeImmutable {
 		$timezone = $this->resolveTimezone(owner: $owner);

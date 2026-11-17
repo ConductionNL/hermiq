@@ -25,6 +25,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 use OCA\Hermiq\Service\Chat\ScopedPassageSource;
 use OCA\Hermiq\Service\Chat\TurnScope;
 use OCA\Hermiq\Service\Engine\ContextRetrievalHandler;
+use OCA\Hermiq\Service\RetrievalScope\ValidatedMode;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -38,6 +39,7 @@ use RuntimeException;
  */
 #[CoversClass(ContextRetrievalHandler::class)]
 #[UsesClass(TurnScope::class)]
+#[UsesClass(ValidatedMode::class)]
 class ContextRetrievalFailureTest extends TestCase {
 
 	/**
@@ -65,7 +67,21 @@ class ContextRetrievalFailureTest extends TestCase {
 		$handler = new ContextRetrievalHandler(objectService: $objects, logger: $logger);
 		$context = $handler->retrieveContext(query: 'parking fine', agent: $agent);
 
-		$this->assertSame(['text' => '', 'sources' => []], $context);
+		$this->assertSame(
+			[
+				'text' => '',
+				'sources' => [],
+				'retrievalScope' => [
+					'fileFilters' => null,
+					'validated' => false,
+					'floor' => null,
+					'passed' => 0,
+					'bestSimilarity' => null,
+					'abstained' => false,
+				],
+			],
+			$context
+		);
 
 	}//end testAFailingSearchDegradesToNoContext()
 

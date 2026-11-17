@@ -104,6 +104,40 @@ final class RepoEffectingGrantsTest extends TestCase {
 	}//end testReadEditAndPushAreSeparatelyGrantable()
 
 	/**
+	 * A descriptor that is not an array is kept as is, and a name stands in for a
+	 * missing mcpId: a bare push named only by name is still dropped.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
+	 */
+	public function testANonArrayDescriptorIsKeptAndANameStandsInForTheId(): void {
+		$kept = RepoEffectingGrants::filterDescriptors(
+			descriptors: ['opaque', ['name' => WorkspaceToolDescriptors::PUSH], ['name' => WorkspaceToolDescriptors::OPEN], []],
+			constraints: []
+		);
+
+		self::assertSame(['opaque', ['name' => WorkspaceToolDescriptors::OPEN], []], $kept);
+	}//end testANonArrayDescriptorIsKeptAndANameStandsInForTheId()
+
+	/**
+	 * A push grant whose branch constraint holds no values does not resolve.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
+	 */
+	public function testAnEmptyBranchConstraintDoesNotResolve(): void {
+		$constraints = [WorkspaceToolDescriptors::PUSH => [[
+			'repository' => ['mode' => 'pin', 'values' => ['example-org/example-app']],
+			'branch' => ['mode' => 'in', 'values' => []],
+		]]];
+
+		self::assertFalse(RepoEffectingGrants::resolves(toolId: WorkspaceToolDescriptors::PUSH, constraints: $constraints));
+		self::assertSame([WorkspaceToolDescriptors::OPEN], RepoEffectingGrants::filterIds(resolvedIds: [WorkspaceToolDescriptors::PUSH, WorkspaceToolDescriptors::OPEN], constraints: $constraints));
+	}//end testAnEmptyBranchConstraintDoesNotResolve()
+
+	/**
 	 * The tool ids the agent is offered for these grants, through the real resolver and the rule.
 	 *
 	 * @param array<int, string> $grants The Agent.tools entries.
