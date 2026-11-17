@@ -21,7 +21,8 @@
 ## 4. Tests
 
 - [x] 4.1 Unit tests for the service: each humanAction mapping, verbatim subject, every required-key refusal, unknown action, storage failure, missing timestamp.
-- [ ] 4.2 e2e: the oversight surface renders and shows only advisory records.
+- [x] 4.2 e2e: the oversight surface renders and shows only advisory records.
+  - `tests/e2e/spec-coverage/ai-oversight-advisory.spec.ts`: seeds an advisory and a blocking approval, the log lists the first and not the second, the three counts show. Written, not run here.
 
 ## 5. Verify
 
