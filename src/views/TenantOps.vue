@@ -325,6 +325,10 @@
 			</section>
 		</template>
 
+		<!-- Rechten per actie (action-matrix-screen): Nextcloud administrators only;
+			the matrix is instance-wide, so it sits outside the organisation sections. -->
+		<ActionMatrixSection v-if="isAdmin" class="tenant-ops__section" />
+
 		<BudgetFormModal
 			:show="showBudgetForm"
 			:organisation="selectedOrg"
@@ -349,6 +353,7 @@ import {
 	NcTextField,
 } from '@nextcloud/vue'
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
+import ActionMatrixSection from '../components/ActionMatrixSection.vue'
 import BudgetFormModal from '../modals/BudgetFormModal.vue'
 import { deleteBudget, getBudgetStatus, listBudgets } from '../api/budgets.js'
 import {
@@ -364,6 +369,7 @@ export default {
 	name: 'TenantOps',
 
 	components: {
+		ActionMatrixSection,
 		BudgetFormModal,
 		CnDataTable,
 		NcButton,
@@ -385,6 +391,9 @@ export default {
 		const organisations = loadState('hermiq', 'managed_organisations', [])
 		return {
 			canManage: loadState('hermiq', 'can_manage_killswitch', false) === true,
+			// Nextcloud administrators edit the action matrix (action-matrix-screen);
+			// the endpoints refuse anyone else, this only hides the section.
+			isAdmin: loadState('hermiq', 'is_admin', false) === true,
 			// Cost-guardrails (cost-guardrails): budgets are org-scoped, so admins who
 			// manage more than one organisation need an org picker (mirrors KillSwitchToggle).
 			organisations: Array.isArray(organisations) ? organisations : [],
