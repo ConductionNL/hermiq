@@ -15,6 +15,7 @@ vi.mock('@conduction/nextcloud-vue', () => ({
 }))
 vi.mock('../../src/components/settings/AssistantPromptLibrary.vue', () => ({ default: { name: 'AssistantPromptLibrary', render: () => null } }))
 vi.mock('../../src/components/settings/IntakeSettings.vue', () => ({ default: { name: 'IntakeSettings', render: () => null } }))
+vi.mock('../../src/components/settings/RemoteAgents.vue', () => ({ default: { name: 'RemoteAgents', render: () => null } }))
 vi.mock('../../src/components/settings/ReportGroupingSettings.vue', () => ({ default: { name: 'ReportGroupingSettings', render: () => null } }))
 vi.mock('../../src/components/settings/RunRetentionSettings.vue', () => ({ default: { name: 'RunRetentionSettings', render: () => null } }))
 vi.mock('../../src/components/settings/TalkBridgeSettings.vue', () => ({ default: { name: 'TalkBridgeSettings', render: () => null } }))
@@ -45,6 +46,7 @@ const CHILDREN = [
 	'AssistantPromptLibrary',
 	'IntakeSettings',
 	'LlmProviderModal',
+	'RemoteAgents',
 	'ReportGroupingSettings',
 	'RunRetentionSettings',
 	'TalkBridgeSettings',
@@ -152,6 +154,7 @@ describe('AdminRoot', () => {
 			'AI run retention',
 			'Trace export',
 			'Talk chat bridge',
+			'Remote agents',
 			'Organisation credentials',
 		])
 		for (const name of CHILDREN) {

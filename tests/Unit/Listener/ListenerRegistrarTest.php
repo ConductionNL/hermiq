@@ -27,6 +27,7 @@ use OCA\Hermiq\Listener\AgentRunRequestedListener;
 use OCA\Hermiq\Listener\AgentWaiverChangeListener;
 use OCA\Hermiq\Listener\AiOversightRecordedListener;
 use OCA\Hermiq\Listener\FlowOversightRegistrationListener;
+use OCA\Hermiq\Listener\FlowRunTerminalListener;
 use OCA\Hermiq\Listener\ListenerRegistrar;
 use OCA\Hermiq\Listener\RegisterAgentLeafListener;
 use OCA\Hermiq\Listener\ShareableConfigTypeListener;
@@ -106,6 +107,7 @@ class ListenerRegistrarTest extends TestCase {
 				[UserChangedEvent::class, UserLifecycleListener::class],
 				['OCA\\Talk\\Events\\BotInvokeEvent', TalkBotInvokeListener::class],
 				['OCA\\OpenRegister\\Event\\TaskTerminalEvent', TaskTerminalListener::class],
+				['OCA\\OpenRegister\\Event\\FlowRunTerminalEvent', FlowRunTerminalListener::class],
 				['OCA\\Talk\\Events\\BotInvokeEvent', TalkApprovalReactionListener::class],
 			],
 			$registered
