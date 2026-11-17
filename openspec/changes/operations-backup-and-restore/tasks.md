@@ -13,7 +13,7 @@ Kind: code. Size L. Row `hermiq:dm-backup-restore`.
 - [x] Implement
 - [ ] Test (PHPUnit on auth; Newman as admin and non-admin)
   - [x] PHPUnit: `BackupSettingsControllerTest` (every action carries `AuthorizedAdminSetting` and nothing opens it), `BackupSettingsTest`; vitest on the admin section.
-  - [ ] Newman as admin and non-admin: needs a running instance.
+  - [ ] Newman as admin and non-admin: written 17 Nov as the "Backup and restore" folder of `tests/integration/hermiq.postman_collection.json` (admin saves and reads, out of range is 422, a regular user gets 403 on every backup and restore route and nothing changes); not run, needs a running instance.
 
 ### Task 2: The backup writer and the nightly job
 - **spec_ref**: `openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001`
@@ -56,6 +56,7 @@ Kind: code. Size L. Row `hermiq:dm-backup-restore`.
 - [x] Implement
   - "Restore" in the admin Backups section opens `src/modals/RestoreDialog.vue`: a backup from the folder or a moment for an organisation, the preview per schema (put back, changed back, created after, missing, no history, not restorable), and only after a preview that is not refused the restore, with the switch for objects created after the point. vitest: `tests/vitest/restore-dialog.spec.js`, `tests/vitest/admin-root.spec.js`.
 - [ ] Test (Playwright under `tests/e2e/spec-coverage/backup-restore.spec.ts`)
+  - Written 17 Nov: the administrator picks a backup, previews, reads 12 agents changed back and 1 created after, and the spec fails if the preview sent a restore. The backup list and preview are fixed through page.route in the pinned shapes. Not run: needs a live instance.
   - Open: needs a running instance with a backup in the folder.
 
 ## Verification
