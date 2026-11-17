@@ -117,6 +117,8 @@ class NotifierTest extends TestCase {
 			'rollback named' => ['skill_rollback_suggested', ['name' => 'Samenvatten'], '“Samenvatten” regressed after its last accepted version', 'The first eval run after acceptance failed the regression gate. Review the versions and roll back if you agree.'],
 			'participant' => ['session_participant_added', ['name' => 'Sessie'], 'You were invited to a chat session', 'Open Chat and find it under Shared with me. You can ask the agent questions in it.'],
 			'participant full' => ['session_participant_added', ['owner' => 'Alice', 'name' => 'Sessie'], 'Alice invited you to the session Sessie', 'Open Chat and find it under Shared with me. You can ask the agent questions in it.'],
+			'shared' => ['session_shared', ['name' => 'Offerte'], 'A chat session was shared with you', 'You can read it in Chat under Shared with you. You cannot add to it.'],
+			'shared full' => ['session_shared', ['owner' => 'Anne de Vries', 'name' => 'Offerte dakrenovatie'], "Anne de Vries shared the session 'Offerte dakrenovatie' with you", 'You can read it in Chat under Shared with you. You cannot add to it.'],
 		];
 	}//end subjects()
 
@@ -178,4 +180,41 @@ class NotifierTest extends TestCase {
 		$this->assertSame('hermiq', $this->notifier()->getID());
 		$this->assertSame('Hermiq', $this->notifier()->getName());
 	}//end testIdAndName()
+
+	/**
+	 * A shared session's notification links to its read-only page; other subjects set no link.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+	 */
+	public function testASharedSessionLinksToItsReadOnlyPage(): void {
+		$links = [];
+		foreach (['session_shared', 'session_participant_added'] as $subject) {
+			$l = $this->createMock(IL10N::class);
+			$l->method('t')->willReturnCallback(static fn (string $text, array $params = []): string => vsprintf($text, $params));
+			$factory = $this->createMock(IFactory::class);
+			$factory->method('get')->willReturn($l);
+			$urls = $this->createMock(IURLGenerator::class);
+			$urls->method('imagePath')->willReturn('/apps/hermiq/img/app-dark.svg');
+			$urls->method('linkToRoute')->with('hermiq.dashboard.page')->willReturn('/index.php/apps/hermiq/');
+			$urls->method('getAbsoluteURL')->willReturnCallback(static fn (string $path): string => 'https://cloud.example' . $path);
+
+			$notification = $this->createMock(INotification::class);
+			$notification->method('getApp')->willReturn('hermiq');
+			$notification->method('getSubject')->willReturn($subject);
+			$notification->method('getSubjectParameters')->willReturn(['owner' => 'Anne de Vries', 'name' => 'Offerte']);
+			$notification->method('getObjectId')->willReturn('sess-1');
+			$notification->method('setLink')->willReturnCallback(
+				function (string $link) use (&$links, $subject, $notification): INotification {
+					$links[$subject] = $link;
+					return $notification;
+				}
+			);
+
+			(new Notifier($factory, $urls))->prepare($notification, 'nl');
+		}
+
+		$this->assertSame(['session_shared' => 'https://cloud.example/index.php/apps/hermiq/chat/shared/sess-1'], $links);
+	}//end testASharedSessionLinksToItsReadOnlyPage()
 }//end class

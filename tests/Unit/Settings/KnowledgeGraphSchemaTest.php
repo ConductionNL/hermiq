@@ -32,6 +32,7 @@ use Opis\JsonSchema\Validator;
 use OCP\IAppConfig;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Validates graph payloads against the register.
@@ -101,7 +102,10 @@ class KnowledgeGraphSchemaTest extends TestCase {
 		$objects->method('setSchema')->willReturnSelf();
 		$objects->method('findAll')->willReturn([]);
 		$objects->method('saveObject')->willReturnCallback(
-			static function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null) use (&$saved): ObjectEntity {
+			static function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$saved): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
 				$saved[] = ['schema' => $schema, 'object' => $object];
 				$entity = new ObjectEntity();
 				$entity->setUuid('00000000-0000-4000-8000-00000000000' . count($saved));

@@ -34,6 +34,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Repair;
 
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectPatch;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -128,10 +130,11 @@ class ScopeExistingMemories implements IRepairStep {
 		$before = $this->unscoped(objectService: $objectService);
 		foreach ($before as $memory) {
 			$objectService->patchObject(
-				objectId: (string)$memory->getUuid(),
-				data: ['scope' => 'shared'],
-				register: self::REGISTER_SLUG,
-				schema: self::MEMORY_SCHEMA,
+				new ObjectPatch(
+					objectId: (string)$memory->getUuid(),
+					data: ['scope' => 'shared'],
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MEMORY_SCHEMA)
+				),
 				_rbac: false,
 				_multitenancy: false
 			);

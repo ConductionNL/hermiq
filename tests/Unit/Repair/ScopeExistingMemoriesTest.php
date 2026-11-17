@@ -24,6 +24,7 @@ namespace OCA\Hermiq\Tests\Unit\Repair;
 
 use OCA\Hermiq\Repair\ScopeExistingMemories;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectPatch;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -87,7 +88,10 @@ class ScopeExistingMemoriesTest extends TestCase {
 			}
 		);
 		$objects->method('patchObject')->willReturnCallback(
-			function (string $objectId, array $data, mixed $register = null, mixed $schema = null, bool $_rbac = true, bool $_multitenancy = true): ObjectEntity {
+			function (ObjectPatch $patch, bool $_rbac = true, bool $_multitenancy = true): ObjectEntity {
+				$this->assertSame(['hermiq', 'memory'], [$patch->target->register, $patch->target->schema]);
+				$objectId = $patch->objectId;
+				$data     = $patch->data;
 				$this->patches[] = [$objectId, $data, $_rbac, $_multitenancy];
 				if ($this->patchesAreLost === false) {
 					$this->stored[$objectId] = $data + $this->stored[$objectId];
