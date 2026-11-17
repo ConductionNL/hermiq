@@ -30,6 +30,8 @@ use OCA\Hermiq\Service\Chat\SessionSubject;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Talk\TalkSessionRoom;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IRequest;
 use OCP\IUser;
@@ -102,15 +104,15 @@ class SessionSearchAndBulkTest extends TestCase {
 			fn (mixed $id, mixed ...$rest): ?ObjectEntity => ($this->stored[(string)$id] ?? null)
 		);
 		$this->objectService->method('deleteObject')->willReturnCallback(
-			function (string $uuid, mixed $register = null, mixed $schema = null): bool {
-				$this->deleted[] = [$uuid, (string)$schema];
+			function (ObjectDeletion $deletion): bool {
+				$this->deleted[] = [$deletion->uuid, (string)$deletion->target->schema];
 				return true;
 			}
 		);
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null): ObjectEntity {
-				$this->saved[] = [(string)$uuid, ($object['metadata'] ?? null)];
-				return $this->session(uuid: (string)$uuid, payload: $object);
+			function (array $object, ObjectSaveOptions $options): ObjectEntity {
+				$this->saved[] = [(string)$options->uuid, ($object['metadata'] ?? null)];
+				return $this->session(uuid: (string)$options->uuid, payload: $object);
 			}
 		);
 	}//end setUp()
