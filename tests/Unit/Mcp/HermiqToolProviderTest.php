@@ -44,6 +44,9 @@ namespace OCA\Hermiq\Tests\Unit\Mcp;
 use OCA\Hermiq\Kernel\Contracts\ImageGenerationServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\TaskWriteServiceInterface;
 use OCA\Hermiq\Service\Chat\ImageGenerationService;
+use OCA\Hermiq\Service\CodeSandbox\CodeSandboxSettings;
+use OCA\Hermiq\Service\CodeSandbox\RunCodeTool;
+use OCP\IAppConfig;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\DelegationService;
@@ -222,6 +225,45 @@ class HermiqToolProviderTest extends TestCase {
 	}//end testTheImageToolIsListedAndRoutedAsTheSessionUser()
 
 	/**
+	 * runCode is listed with the reach of the stored choice and routed to the
+	 * runCode tool as the session user (tools-code-sandbox).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-an-agent-runs-code-only-with-a-grant-and-an-enabled-ai-feature-req-sandbox-002
+	 */
+	public function testRunCodeFollowsTheChoiceAndIsRoutedAsTheSessionUser(): void {
+		$config = $this->createMock(IAppConfig::class);
+		$config->method('getValueString')->willReturn('{"backend":"hosted","hostedSource":"hosted-sandbox"}');
+		$settings = new CodeSandboxSettings(appConfig: $config);
+		$calls = [];
+		$runCode = $this->createMock(RunCodeTool::class);
+		$runCode->method('invoke')->willReturnCallback(
+			function (string $uid, string $toolId, array $arguments) use (&$calls): array {
+				$calls[] = [$uid, $toolId, $arguments['code']];
+				return ['exitCode' => 0];
+			}
+		);
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturnCallback(
+			static fn (string $id): ?object => match ($id) {
+				CodeSandboxSettings::class => $settings,
+				RunCodeTool::class => $runCode,
+				default => null,
+			}
+		);
+		$provider = $this->provider(uid: 'alice', container: $container);
+
+		$tool = array_values(array_filter($provider->getTools(), static fn (array $t): bool => $t['id'] === 'hermiq.runCode'));
+		$this->assertCount(1, $tool);
+		$this->assertSame(ToolReachResolver::REACH_EXTERNAL, $tool[0]['reach']);
+
+		$this->assertSame(['exitCode' => 0], $provider->invokeTool('hermiq.runCode', ['language' => 'python', 'code' => 'print(1 + 1)']));
+		$this->assertSame([['alice', 'hermiq.runCode', 'print(1 + 1)']], $calls);
+
+	}//end testRunCodeFollowsTheChoiceAndIsRoutedAsTheSessionUser()
+
+	/**
 	 * With no way to write a task back, completeTask is left out of the catalogue;
 	 * listing and creating stay.
 	 *
@@ -235,7 +277,7 @@ class HermiqToolProviderTest extends TestCase {
 		$this->assertNotContains('hermiq.completeTask', $ids);
 		$this->assertContains('hermiq.listTasks', $ids);
 		$this->assertContains('hermiq.createTask', $ids);
-		$this->assertCount(46, $ids);
+		$this->assertCount(52, $ids);
 
 	}//end testCompleteTaskIsAbsentWithoutAReplacePath()
 
@@ -448,11 +490,14 @@ class HermiqToolProviderTest extends TestCase {
 		//   (hermiq-runner-git-capability),
 		// + hermiq.graphNeighbors/graphPath (knowledge-graph),
 		// + hermiq.listTasks/createTask/completeTask (tools-nextcloud-tasks),
+		// + hermiq.listAgents/getAgentStatus/listPendingApprovals/runAgentNow/searchSkills
+		//   (hermiq-domain-mcp-tools),
 		// + hermiq.askRemoteAgent (flows-hand-off-and-wait),
 		// + hermiq.createFile/moveFile (spec-coverage-built-rows),
 		// + hermiq.sendTalkMessage (tools-post-a-talk-message),
+		// + hermiq.runCode (tools-code-sandbox),
 		// all registered through this same provider.
-		$this->assertCount(47, $tools);
+		$this->assertCount(53, $tools);
 
 		$ids = array_column($tools, 'id');
 		$this->assertContains('hermiq.listFiles', $ids);
@@ -552,16 +597,24 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.workspacePush' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
 			'hermiq.graphNeighbors' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.graphPath' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			// hermiq-domain-mcp-tools: four reads, and a run that does whatever the agent's tools do.
+			'hermiq.listAgents' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.getAgentStatus' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.listPendingApprovals' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.runAgentNow' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'create'],
+			'hermiq.searchSkills' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			// tools-nextcloud-tasks: completing is not destructive (one click reopens it).
 			'hermiq.listTasks' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.createTask' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
 			'hermiq.completeTask' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'update'],
 			// tools-post-a-talk-message: a write, but nothing is lost by it.
 			'hermiq.sendTalkMessage' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
+			// tools-code-sandbox: write-classified so it is default-denied.
+			'hermiq.runCode' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
 		];
 
 		$tools = $this->provider('alice')->getTools();
-		$this->assertCount(47, $tools, 'This test must be updated if a tool is added or removed.');
+		$this->assertCount(53, $tools, 'This test must be updated if a tool is added or removed.');
 
 		$seen = [];
 		foreach ($tools as $tool) {
@@ -650,12 +703,19 @@ class HermiqToolProviderTest extends TestCase {
 			// `user`: reads the graph as the acting user and returns pointers only.
 			'hermiq.graphNeighbors' => ToolReachResolver::REACH_USER,
 			'hermiq.graphPath' => ToolReachResolver::REACH_USER,
+			'hermiq.listAgents' => ToolReachResolver::REACH_USER,
+			'hermiq.getAgentStatus' => ToolReachResolver::REACH_USER,
+			'hermiq.listPendingApprovals' => ToolReachResolver::REACH_USER,
+			'hermiq.runAgentNow' => ToolReachResolver::REACH_USER,
+			'hermiq.searchSkills' => ToolReachResolver::REACH_USER,
 			// `instance`: a list the user owns can be shared with colleagues, who see the change.
 			'hermiq.listTasks' => ToolReachResolver::REACH_USER,
 			'hermiq.createTask' => ToolReachResolver::REACH_INSTANCE,
 			'hermiq.completeTask' => ToolReachResolver::REACH_INSTANCE,
 			// `instance` (medium risk): every member of the conversation reads the message.
 			'hermiq.sendTalkMessage' => ToolReachResolver::REACH_INSTANCE,
+			// tools-code-sandbox: the own sandbox when no setting can be read.
+			'hermiq.runCode' => ToolReachResolver::REACH_SELF,
 		];
 
 		$tools = $this->provider('alice')->getTools();
@@ -758,10 +818,16 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.workspacePush' => ['workspace', 'push'],
 			'hermiq.graphNeighbors' => ['graphEntity', 'list'],
 			'hermiq.graphPath' => ['graphEntity', 'get'],
+			'hermiq.listAgents' => ['agent', 'list'],
+			'hermiq.getAgentStatus' => ['agent', 'get'],
+			'hermiq.listPendingApprovals' => ['approval', 'list'],
+			'hermiq.runAgentNow' => ['schedule', 'run'],
+			'hermiq.searchSkills' => ['skill', 'search'],
 			'hermiq.listTasks' => ['task', 'list'],
 			'hermiq.createTask' => ['task', 'create'],
 			'hermiq.completeTask' => ['task', 'complete'],
 			'hermiq.sendTalkMessage' => ['talkMessage', 'create'],
+			'hermiq.runCode' => ['codeRun', 'create'],
 		];
 
 		$tools = $this->provider('alice')->getTools();

@@ -176,6 +176,14 @@ class SeedAiFeatures implements IRepairStep {
 				'tenantId' => '',
 			],
 			[
+				'slug' => 'agent-code-execution',
+				'name' => 'Agent code execution',
+				'description' => 'An agent runs code it wrote in an isolated sandbox.',
+				'riskCategory' => 'high',
+				'lifecycle' => 'disabled',
+				'tenantId' => '',
+			],
+			[
 				'slug' => 'chat-companion',
 				'name' => 'Chat companion',
 				'description' => 'A conversational assistant that answers user questions with limited autonomy.',
