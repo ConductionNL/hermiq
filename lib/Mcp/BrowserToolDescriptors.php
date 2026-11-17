@@ -101,10 +101,7 @@ final class BrowserToolDescriptors {
 				'properties' => ['url' => ['type' => 'string', 'description' => 'The http or https address.']],
 				'required' => ['url'],
 			],
-			'readOnlyHint' => true,
-			'destructiveHint' => false,
-			'idempotentHint' => true,
-			'scope' => 'read',
+			...ToolHints::READ,
 		],
 		[
 			'id' => self::READ,
@@ -114,10 +111,7 @@ final class BrowserToolDescriptors {
 			'name' => 'Read the web page',
 			'description' => 'Return the snapshot of the page open in this conversation\'s browser, with fresh element references.',
 			'inputSchema' => ['type' => 'object', 'properties' => []],
-			'readOnlyHint' => true,
-			'destructiveHint' => false,
-			'idempotentHint' => true,
-			'scope' => 'read',
+			...ToolHints::READ,
 		],
 		[
 			'id' => self::CLICK,
@@ -132,10 +126,7 @@ final class BrowserToolDescriptors {
 				'properties' => ['ref' => self::REF],
 				'required' => ['ref'],
 			],
-			'readOnlyHint' => false,
-			'destructiveHint' => true,
-			'idempotentHint' => false,
-			'scope' => 'update',
+			...ToolHints::DESTRUCTIVE_UPDATE,
 		],
 		[
 			'id' => self::FILL,
@@ -150,10 +141,7 @@ final class BrowserToolDescriptors {
 				'properties' => ['ref' => self::REF, 'text' => ['type' => 'string', 'description' => 'The text to type.']],
 				'required' => ['ref', 'text'],
 			],
-			'readOnlyHint' => false,
-			'destructiveHint' => true,
-			'idempotentHint' => false,
-			'scope' => 'update',
+			...ToolHints::DESTRUCTIVE_UPDATE,
 		],
 	];
 }//end class

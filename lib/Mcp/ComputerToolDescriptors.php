@@ -114,10 +114,7 @@ final class ComputerToolDescriptors {
 				'properties' => ['target' => self::TARGET],
 				'required' => ['target'],
 			],
-			'readOnlyHint' => true,
-			'destructiveHint' => false,
-			'idempotentHint' => true,
-			'scope' => 'read',
+			...ToolHints::READ,
 		],
 		[
 			'id' => self::CLICK,
@@ -138,10 +135,7 @@ final class ComputerToolDescriptors {
 				],
 				'required' => ['target', 'x', 'y'],
 			],
-			'readOnlyHint' => false,
-			'destructiveHint' => true,
-			'idempotentHint' => false,
-			'scope' => 'update',
+			...ToolHints::DESTRUCTIVE_UPDATE,
 		],
 		[
 			'id' => self::TYPE,
@@ -159,10 +153,7 @@ final class ComputerToolDescriptors {
 				],
 				'required' => ['target', 'text'],
 			],
-			'readOnlyHint' => false,
-			'destructiveHint' => true,
-			'idempotentHint' => false,
-			'scope' => 'update',
+			...ToolHints::DESTRUCTIVE_UPDATE,
 		],
 		[
 			'id' => self::KEY,
@@ -180,10 +171,7 @@ final class ComputerToolDescriptors {
 				],
 				'required' => ['target', 'keys'],
 			],
-			'readOnlyHint' => false,
-			'destructiveHint' => true,
-			'idempotentHint' => false,
-			'scope' => 'update',
+			...ToolHints::DESTRUCTIVE_UPDATE,
 		],
 	];
 
