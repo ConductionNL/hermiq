@@ -689,6 +689,8 @@ $routes = [
             'requirements' => ['uuid' => '[^/]+'],
         ],
         ['name' => 'session#update', 'url' => '/api/sessions/{uuid}', 'verb' => 'PATCH', 'requirements' => ['uuid' => '[^/]+']],
+        // Session-entity-links: the owner removes a link a sent turn recorded.
+        ['name' => 'session#removeLink', 'url' => '/api/sessions/{uuid}/links', 'verb' => 'DELETE', 'requirements' => ['uuid' => '[^/]+']],
         // Agents-instruction-variables: a person's answers to the agent's start fields, once per session.
         ['name' => 'instructionVariables#answer', 'url' => '/api/sessions/{uuid}/start-values', 'verb' => 'PUT', 'requirements' => ['uuid' => '[^/]+']],
         // Agents-standing-goal: read, set and stop a session's standing goal.

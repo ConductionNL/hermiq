@@ -38,6 +38,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Service\Chat\SessionLinks;
 use Exception;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\EngineInterface;
@@ -153,6 +154,7 @@ class ChatController extends Controller {
 	 *                                                 existing caller constructs unchanged.
 	 * @param LiteracyRequirementInterface|null $literacy The course requirement (compliance-ai-literacy).
 	 * @param AppAssistantResolver|null $assistants The agent for an app when a chat names none (agents-bound-to-their-app).
+	 * @param SessionLinks|null $sessionLinks Records what the session is about when a turn is sent (session-entity-links).
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
@@ -169,6 +171,7 @@ class ChatController extends Controller {
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
 		private readonly ?LiteracyRequirementInterface $literacy = null,
 		private readonly ?AppAssistantResolver $assistants = null,
+		private readonly ?SessionLinks $sessionLinks = null,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
@@ -348,6 +351,14 @@ class ChatController extends Controller {
 
 			// Add conversation UUID to result for frontend.
 			$result['conversation'] = $conversation->getUuid();
+
+			// Session-entity-links D2: a SENT turn records what the page it came
+			// from shows; opening the panel records nothing.
+			$this->sessionLinks?->recordTurn(
+				sessionUuid: (string)$conversation->getUuid(),
+				context: (array)$params['context'],
+				userId: $userId
+			);
 
 			// The tool calls this turn made over the governed MCP transport.
 			// `CnAiMessageList` already renders `message.toolCalls` with
