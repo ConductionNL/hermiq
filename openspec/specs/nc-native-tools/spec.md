@@ -32,6 +32,17 @@ The system MUST register Files (`IRootFolder`), Contacts (addressbook `IManager`
 - THEN the Files, Contacts, Calendar, Deck, and email tools MUST appear in the returned tool list
 - AND they MUST be indistinguishable in registration mechanism from OR's own MCP tools
 
+#### Scenario: An agent looks up a contact
+- **GIVEN** an agent granted `hermiq.searchContacts`, acting for a case handler whose address book holds "Jansen Bouw BV"
+- **WHEN** the case handler asks "What is the email address of Jansen Bouw?"
+- **THEN** the agent searches the address books the case handler can read and answers with the contact's email address
+
+#### Scenario: An agent sends an email
+- **GIVEN** an agent granted `hermiq.sendMail`, acting for a case handler
+- **WHEN** the case handler asks it to mail "Uw aanvraag is compleet" to the applicant
+- **THEN** the mail goes out through the instance's mail server with that text
+- **AND** the sender is the case handler's own address
+
 ### Requirement: Per-object IDOR guard on every provider
 Every NC-native tool provider MUST enforce a per-object authorization guard before acting on a
 specific Files/Contacts/Calendar/Deck object, so an agent acting on behalf of one user cannot access
@@ -135,6 +146,40 @@ Hermiq MUST expose `hermiq.completeTask`, which sets the task completed, keeps e
 - WHEN an auditor opens the run
 - THEN the tool step shows the list and the task uid, and not the task's summary
 - @e2e exclude reading the trace payload has no browser surface; covered by FacadeToolInvokerTest::testTaskWritesGetTheAgentIdAndRecordListAndUidOnly
+
+### Requirement: An agent can post a message in a Talk conversation it is a member of (REQ-NCTALK-001)
+
+The system SHALL offer a Nextcloud-native tool `talk.message.send` that posts a message in a Talk
+conversation. The tool SHALL be classified medium risk and SHALL be default-denied until an agent
+is granted it. It SHALL post only in a conversation where the agent's Talk identity is a member,
+and SHALL refuse any other conversation without posting. The tool SHALL be offered to outside
+agents over MCP under the same grants. When Talk is not installed, the tool SHALL answer with an
+error the agent can read, and the turn SHALL carry on.
+
+Rows: `tl-talk` (hermiq matrix).
+
+#### Scenario: A granted agent posts in its own conversation
+- **GIVEN** an agent granted `talk.message.send` and a member of the conversation "Servicedesk"
+- **WHEN** the agent calls the tool with that conversation and a message
+- **THEN** the message appears in "Servicedesk", posted by the agent's Talk identity
+- @e2e exclude {needs Talk with a per-agent bot enabled in a room and a live model run; covered by tests/Unit/Mcp/TalkMessageToolTest.php}
+
+#### Scenario: A conversation the agent is not in is refused
+- **GIVEN** an agent granted `talk.message.send` that is not a member of the conversation "Directie"
+- **WHEN** the agent calls the tool for "Directie"
+- **THEN** nothing is posted and the agent receives a refusal naming the reason
+- @e2e exclude {needs Talk with a per-agent bot and a live model run; covered by tests/Unit/Mcp/TalkMessageToolTest.php}
+
+#### Scenario: An agent without the grant cannot post
+- **GIVEN** an agent that was not granted `talk.message.send`
+- **WHEN** the agent calls the tool
+- **THEN** nothing is posted and the call goes through the approval gate like any other ungranted write
+- @e2e exclude {the approval gate is the shared FacadeToolInvoker path; the tool is a non-read-only write, asserted in tests/Unit/Mcp/TalkMessageToolTest.php}
+
+#### Scenario: Talk is not installed
+- **WHEN** an agent calls the tool on an instance without Talk
+- **THEN** the agent receives an error result and its turn continues
+- @e2e exclude {needs an instance without Talk; covered by tests/Unit/Mcp/TalkMessageToolTest.php}
 
 ## User Stories
 
