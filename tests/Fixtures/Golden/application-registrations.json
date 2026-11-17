@@ -166,6 +166,16 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\KnowledgeBaseServiceInterface",
+            "OCA\\Hermiq\\Service\\KnowledgeBase\\KnowledgeBaseService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\SourceSharingInspectorInterface",
+            "OCA\\Hermiq\\Service\\KnowledgeBase\\SourceSharingInspector"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\AgentGitServiceInterface",
             "OCA\\Hermiq\\Service\\Agent\\AgentGitService"
         ],
