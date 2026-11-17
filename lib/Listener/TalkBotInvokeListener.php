@@ -380,7 +380,11 @@ class TalkBotInvokeListener implements IEventListener {
 	}//end readTurn()
 
 	/**
-	 * Resolve the conversation bound to the room, opening one on first contact.
+	 * Resolve this agent's conversation in the room, opening one on first contact.
+	 *
+	 * Sessions are per (room, agent): each agent in a room keeps its own thread,
+	 * and a room's session from before that is adopted by the agent that takes
+	 * the next turn there.
 	 *
 	 * @param TalkInvocation $invocation The invocation, with its agent: the room, and the uid
 	 *                                   opening the session when it is new.
@@ -388,10 +392,11 @@ class TalkBotInvokeListener implements IEventListener {
 	 * @return bool True when the room is bound to a conversation, now on the invocation.
 	 *
 	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-sessions-are-per-room-per-agent-and-ordered
 	 */
 	private function bindConversation(TalkInvocation $invocation): bool {
 		$roomToken = $invocation->roomToken();
-		$conversation = $this->roomBinding->findByRoomToken(roomToken: $roomToken);
+		$conversation = $this->roomBinding->findByRoomAndAgent(roomToken: $roomToken, agentId: $invocation->agentId);
 		if ($conversation !== null) {
 			// A late joiner needs their own Hermiq tag too — tags are PER USER
 			// (the row carries a user_id and the room joins through the

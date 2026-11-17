@@ -44,8 +44,6 @@
 
 ## 4. Multi-agent rooms
 
-Open after the second build pass: 4.4 is not started.
-
 - [x] 4.1 `TalkBotInstaller`: register one bot per Talk-enabled agent (name = agent
       name, actor via `botActorId($agentId)`); install/refresh on app upgrade and
       agent save; uninstall on `talkEnabled` false / agent deletion.
@@ -68,9 +66,18 @@ Open after the second build pass: 4.4 is not started.
       Done in `TalkBotInvokeListener`: spreed invokes each enabled bot on its own, so a
       per-agent bot matches its own agent's name and replies (`TalkMentionMatcher` is
       unchanged), and each agent's hand-off gets its own turn id.
-- [ ] 4.4 Sessions become per (room, agent): extend `TalkSessionRoom` mapping;
+- [x] 4.4 Sessions become per (room, agent): extend `TalkSessionRoom` mapping;
       migration for existing single-agent room sessions (they keep their session,
       now keyed with the bound agent).
+      The mapping is `TalkRoomBinding::findByRoomAndAgent()`, which the listener
+      binds a turn with: the newest session on the room for that agent, never
+      another agent's. The migration is lazy and in place: a room session that
+      carries no agent is adopted by the agent taking the next turn there (its
+      `agentId` written, every other field carried forward), so a single-agent room
+      keeps its session. Sessions already carrying their agent need nothing. A
+      second agent's new session copies the room's `talkRoomOrigin`, so a room
+      Hermiq created stays created. Serial order within one session is the
+      existing claim and queue order; no ordering change was made here.
 
 ## 5. Agent-to-agent chains
 

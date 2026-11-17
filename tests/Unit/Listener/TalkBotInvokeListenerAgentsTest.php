@@ -64,6 +64,13 @@ final class TalkBotInvokeListenerAgentsTest extends TestCase {
 	private array $handOffs = [];
 
 	/**
+	 * Session lookups the listener made: [roomToken, agentId].
+	 *
+	 * @var array<int, array{0: string, 1: string}>
+	 */
+	private array $sessionLookups = [];
+
+	/**
 	 * The listener over a group room holding the agents Ada and Bram.
 	 *
 	 * @param array<string, bool> $enabled     Talk opt-in per agent uuid.
@@ -86,7 +93,12 @@ final class TalkBotInvokeListenerAgentsTest extends TestCase {
 		$conversation->setUuid('conv-1');
 		$conversation->setObject(['userId' => 'alice', 'participants' => []]);
 		$roomBinding = $this->createMock(TalkRoomBinding::class);
-		$roomBinding->method('findByRoomToken')->willReturn($conversation);
+		$roomBinding->method('findByRoomAndAgent')->willReturnCallback(
+			function (string $roomToken, string $agentId) use ($conversation): ObjectEntity {
+				$this->sessionLookups[] = [$roomToken, $agentId];
+				return $conversation;
+			}
+		);
 		$roomBinding->method('syncParticipants')->willReturnArgument(0);
 		$roomBinding->method('isCreatedRoom')->willReturn($createdRoom);
 
@@ -201,6 +213,8 @@ final class TalkBotInvokeListenerAgentsTest extends TestCase {
 
 		$this->assertSame(['agent-ada', 'agent-bram'], array_column($this->handOffs, 0));
 		$this->assertNotSame($this->handOffs[0][1], $this->handOffs[1][1]);
+		// Sessions are per (room, agent): each agent's turn binds its own session.
+		$this->assertSame([['room-1', 'agent-ada'], ['room-1', 'agent-bram']], $this->sessionLookups);
 	}//end testTwoMentionedAgentsTakeTwoTurns()
 
 	/**
