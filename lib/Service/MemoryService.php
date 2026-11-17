@@ -43,6 +43,7 @@ use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserSession;
+use Throwable;
 
 /**
  * Reads and writes agent memory (Memory/UserProfile/Session/SessionTurn) via OpenRegister.
@@ -158,10 +159,15 @@ class MemoryService implements MemoryServiceInterface {
 	 * explicit `scope: shared`; with one it is that project's memory. Never the
 	 * first Memory that happens to carry the agent id.
 	 *
+	 * A caller OpenRegister will not let create one (a reader of a shared agent) gets
+	 * an empty, unsaved Memory instead, so reading never needs a write right.
+	 *
 	 * @param string      $agentId    The agent UUID.
 	 * @param string|null $projectKey The project, or null for the shared memory.
 	 *
 	 * @return ObjectEntity The agent's Memory object.
+	 *
+	 * @throws Throwable When the create fails for any other reason.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-1
 	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
@@ -173,14 +179,27 @@ class MemoryService implements MemoryServiceInterface {
 			return $existing;
 		}
 
-		return $this->objectService->saveObject(
-			object: $layer + [
-				'entries' => [],
-				'charBudget' => self::DEFAULT_MEMORY_BUDGET,
-				'needsConsolidation' => false,
-			],
-			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MEMORY_SCHEMA))
-		);
+		$memory = $layer + [
+			'entries' => [],
+			'charBudget' => self::DEFAULT_MEMORY_BUDGET,
+			'needsConsolidation' => false,
+		];
+
+		try {
+			return $this->objectService->saveObject(
+				object: $memory,
+				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MEMORY_SCHEMA))
+			);
+		} catch (Throwable $e) {
+			// OpenRegister's NotAuthorizedException carries 403 as its code.
+			if ((int)$e->getCode() !== 403) {
+				throw $e;
+			}
+
+			$unsaved = new ObjectEntity();
+			$unsaved->setObject($memory);
+			return $unsaved;
+		}//end try
 
 	}//end getMemory()
 
