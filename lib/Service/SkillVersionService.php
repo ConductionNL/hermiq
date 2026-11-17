@@ -38,6 +38,9 @@ use OCA\Hermiq\Kernel\Contracts\SkillVersionServiceInterface;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use RuntimeException;
 use Throwable;
@@ -188,8 +191,7 @@ class SkillVersionService implements SkillVersionServiceInterface {
 
 		$skill = $this->objectService->find(
 			id: $skillUuid,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA)
 		);
 		if (($skill instanceof ObjectEntity) === false) {
 			throw new RuntimeException('Skill not found.');
@@ -205,9 +207,10 @@ class SkillVersionService implements SkillVersionServiceInterface {
 
 		return $this->objectService->saveObject(
 			object: $payload,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: $skillUuid
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: $skillUuid
+			)
 		);
 
 	}//end rollback()
@@ -349,8 +352,7 @@ class SkillVersionService implements SkillVersionServiceInterface {
 	private function liveSkillData(string $skillUuid): array {
 		$skill = $this->objectService->find(
 			id: $skillUuid,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA)
 		);
 		if (($skill instanceof ObjectEntity) === false) {
 			throw new RuntimeException('Skill not found.');

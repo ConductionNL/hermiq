@@ -29,6 +29,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
 
+use OCA\Hermiq\Kernel\Contracts\AnswerProvenanceWriterInterface;
 use OCP\IL10N;
 
 /**
@@ -36,7 +37,7 @@ use OCP\IL10N;
  *
  * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-can-read-how-an-answer-came-about-in-plain-language-req-atrn-002
  */
-class AnswerProvenanceWriter {
+class AnswerProvenanceWriter implements AnswerProvenanceWriterInterface {
 
 	/**
 	 * The outcomes of a call that was not carried out because something refused it.

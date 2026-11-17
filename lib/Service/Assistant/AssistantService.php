@@ -44,6 +44,10 @@ use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\SaveActor;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\App\IAppManager;
@@ -207,8 +211,7 @@ class AssistantService implements AssistantServiceInterface {
 		// caller's own; tenancy still applies.
 		$agent = $this->objectService->find(
 			id: (string)$conversation->getObject()['agentId'],
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 			_rbac: false
 		);
 
@@ -539,8 +542,7 @@ class AssistantService implements AssistantServiceInterface {
 		if ($sessionId !== null && $sessionId !== '') {
 			$conversation = $this->objectService->find(
 				id: $sessionId,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 			if ($conversation === null) {
 				throw new Exception('The session with id ' . $sessionId . ' does not exist', 404);
@@ -575,8 +577,7 @@ class AssistantService implements AssistantServiceInterface {
 					'metadata' => ['surface' => self::SURFACE_MARKER],
 				]
 			),
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)),
 			_rbac: false
 		);
 	}//end resolveConversation()
@@ -669,10 +670,11 @@ class AssistantService implements AssistantServiceInterface {
 					'active' => true,
 				]
 			),
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
-			_rbac: false,
-			_unowned: true
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+				actor: new SaveActor(unowned: true)
+			),
+			_rbac: false
 		);
 	}//end provisionAgent()
 

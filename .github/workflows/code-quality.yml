@@ -188,7 +188,7 @@ jobs:
       # before ignoreErrors applies, so phpstan.neon's existing
       # `#implements unknown interface OCA\OpenRegister\#` pattern cannot suppress
       # it and only a matching OR ref makes the build correct.
-      additional-apps: '[{"repo":"ConductionNL/openregister","app":"openregister","ref":"development"}]'
+      additional-apps: '[{"repo":"ConductionNL/openregister","app":"openregister","ref":"main"}]'
       # enable-playwright is ON, scoped to `tests/e2e/spec-coverage`.
       #
       # Blocker 1 of the 2026-07-30 trial is fixed above: that trial ran against

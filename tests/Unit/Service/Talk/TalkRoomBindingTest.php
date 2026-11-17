@@ -36,6 +36,8 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Binding, opening and origin reads.
@@ -84,7 +86,11 @@ class TalkRoomBindingTest extends TestCase {
 	 */
 	private function recordSaves(): void {
 		$this->objects->method('saveObject')->willReturnCallback(
-			function (array|ObjectEntity $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null): ObjectEntity {
+			function (array|ObjectEntity $object, ObjectSaveOptions $options = new ObjectSaveOptions()): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$this->saves[] = [$object, $register, $schema, $uuid];
 
 				return $this->session((array)$object, $uuid ?? 'new-uuid');
@@ -152,7 +158,13 @@ class TalkRoomBindingTest extends TestCase {
 	 */
 	public function testBindingByUuidLoadsTheSessionThenBindsIt(): void {
 		$this->objects->expects($this->once())->method('find')
-			->with('conv-1', $this->anything(), $this->anything(), 'hermiq', 'agentsession')
+			->with(...LegacyObjectArgs::with(method: 'find', expected: [
+				'id' => 'conv-1',
+				'_extend' => $this->anything(),
+				'files' => $this->anything(),
+				'register' => 'hermiq',
+				'schema' => 'agentsession',
+			]))
 			->willReturn($this->session(['title' => 'Report']));
 		$this->recordSaves();
 

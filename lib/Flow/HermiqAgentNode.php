@@ -34,7 +34,7 @@ namespace OCA\Hermiq\Flow;
 
 use OCA\Hermiq\Kernel\Contracts\ScheduleServiceInterface;
 use OCA\OpenRegister\Service\Flow\FlowNodeCall;
-use OCA\OpenRegister\Service\Flow\IFlowNode;
+use OCA\OpenRegister\Service\Flow\ICallFlowNode;
 use OCA\OpenRegister\Service\Flow\IFlowNodeLogActions;
 use OCP\IL10N;
 use OCP\IURLGenerator;
@@ -68,7 +68,7 @@ use UnexpectedValueException;
  *
  * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
  */
-class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
+class HermiqAgentNode implements ICallFlowNode, IFlowNodeLogActions {
 
 	/**
 	 * Appended to the prompt when the node declares `expectJson`.

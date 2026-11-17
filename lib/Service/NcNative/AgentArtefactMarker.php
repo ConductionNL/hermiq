@@ -46,6 +46,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\NcNative;
 
+use OCA\Hermiq\Kernel\Contracts\AgentArtefactMarkerInterface;
 use OCP\SystemTag\ISystemTagManager;
 use OCP\SystemTag\ISystemTagObjectMapper;
 use OCP\SystemTag\TagNotFoundException;
@@ -60,7 +61,7 @@ use Throwable;
  *
  * @spec openspec/specs/nc-native-tools/spec.md#requirement-per-object-idor-guard-on-every-provider
  */
-class AgentArtefactMarker {
+class AgentArtefactMarker implements AgentArtefactMarkerInterface {
 
 	/**
 	 * The system tag applied to agent-authored files.
@@ -101,9 +102,9 @@ class AgentArtefactMarker {
 	/**
 	 * Constructor.
 	 *
-	 * @param ISystemTagManager $tagManager System tag resolution/creation.
-	 * @param ISystemTagObjectMapper $tagMapper Assigns tags to objects.
-	 * @param LoggerInterface $logger Diagnostics.
+	 * @param ISystemTagManager      $tagManager System tag resolution/creation.
+	 * @param ISystemTagObjectMapper $tagMapper  Assigns tags to objects.
+	 * @param LoggerInterface        $logger     Diagnostics.
 	 */
 	public function __construct(
 		private readonly ISystemTagManager $tagManager,

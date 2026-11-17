@@ -61,6 +61,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Tests for the tool-catalog / tool-grants / tool-invocations endpoints.
@@ -907,6 +908,7 @@ class ToolOversightControllerTest extends TestCase {
 	private function serveAgentAndRequest(?ObjectEntity $agent, ?array $request): void {
 		$this->objectService->method('find')->willReturnCallback(
 			function (...$args) use ($agent, $request): ?ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'find', args: $args);
 				$id = (string)($args[0] ?? '');
 				if ($id === 'agent-1') {
 					return $agent;
@@ -1042,6 +1044,7 @@ class ToolOversightControllerTest extends TestCase {
 		$written = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (...$args) use (&$written): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
 				// Positional for the same reason serveAgentAndRequest() is.
 				$written[] = $args[0];
 				return new ObjectEntity();
@@ -1113,6 +1116,7 @@ class ToolOversightControllerTest extends TestCase {
 		$written = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (...$args) use (&$written): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
 				$written[] = $args[0];
 				return new ObjectEntity();
 			}
@@ -1214,6 +1218,7 @@ class ToolOversightControllerTest extends TestCase {
 		$written = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (...$args) use (&$written): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
 				$written[] = $args[0];
 				return new ObjectEntity();
 			}
@@ -1243,11 +1248,12 @@ class ToolOversightControllerTest extends TestCase {
 
 		$names = array_map(
 			static fn ($parameter): string => $parameter->getName(),
-			(new \ReflectionMethod(ObjectService::class, 'saveObject'))->getParameters()
+			LegacyObjectArgs::parameters(ObjectService::class, 'saveObject')
 		);
 		$writes = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (...$args) use (&$writes, $names): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
 				$named = [];
 				foreach ($args as $position => $value) {
 					$named[is_int($position) === true ? $names[$position] : $position] = $value;
@@ -1276,7 +1282,7 @@ class ToolOversightControllerTest extends TestCase {
 	 */
 	private function namedArguments(string $method, array $args): array {
 		$named = [];
-		foreach ((new \ReflectionMethod(ObjectService::class, $method))->getParameters() as $index => $parameter) {
+		foreach (LegacyObjectArgs::parameters(ObjectService::class, $method) as $index => $parameter) {
 			$named[$parameter->getName()] = ($args[$index] ?? ($parameter->isDefaultValueAvailable() ? $parameter->getDefaultValue() : null));
 		}
 
@@ -1307,6 +1313,7 @@ class ToolOversightControllerTest extends TestCase {
 		$seen = [];
 		$this->objectService->method('find')->willReturnCallback(
 			function (...$args) use (&$seen): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'find', args: $args);
 				$seen[] = $this->namedArguments('find', $args);
 				return $this->agent(['tools' => []], 'alice');
 			}
@@ -1331,6 +1338,7 @@ class ToolOversightControllerTest extends TestCase {
 		$seen = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (...$args) use (&$seen): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
 				$seen[] = $this->namedArguments('saveObject', $args);
 				return new ObjectEntity();
 			}
@@ -1353,6 +1361,7 @@ class ToolOversightControllerTest extends TestCase {
 		$looked = [];
 		$this->objectService->method('find')->willReturnCallback(
 			function (...$args) use (&$looked): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'find', args: $args);
 				$looked[] = (string)$args[0];
 				return $this->agent(['tools' => [], 'agentId' => 'agent-1'], 'carol');
 			}
@@ -1425,6 +1434,7 @@ class ToolOversightControllerTest extends TestCase {
 		$saved = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (...$args) use (&$saved): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
 				$saved[] = $args[0];
 				return new ObjectEntity();
 			}
