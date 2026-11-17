@@ -22,7 +22,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Flow;
 
-use OCA\Hermiq\Service\BudgetService;
+use OCA\Hermiq\Kernel\Contracts\BudgetHardCapInterface;
 use OCA\OpenRegister\Db\FlowRunMapper;
 use OCA\OpenRegister\Service\Flow\IFlowOversightCheck;
 use Psr\Container\ContainerInterface;
@@ -53,14 +53,14 @@ class OrganisationBudgetCheck implements IFlowOversightCheck {
 	/**
 	 * Constructor.
 	 *
-	 * @param BudgetService      $budgetService The hard-cap gate.
-	 * @param ContainerInterface $container     Lazy FlowRunMapper resolution for the
-	 *                                          run's organisation; lazy so the check
-	 *                                          stays constructible on an OpenRegister
-	 *                                          without the flow store.
+	 * @param BudgetHardCapInterface $budgetService The hard-cap gate.
+	 * @param ContainerInterface     $container     Lazy FlowRunMapper resolution for the
+	 *                                              run's organisation; lazy so the check
+	 *                                              stays constructible on an OpenRegister
+	 *                                              without the flow store.
 	 */
 	public function __construct(
-		private readonly BudgetService $budgetService,
+		private readonly BudgetHardCapInterface $budgetService,
 		private readonly ContainerInterface $container,
 	) {
 
