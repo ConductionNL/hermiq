@@ -30,6 +30,7 @@ namespace OCA\Hermiq\Service\AiFeature;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
+use OCA\Hermiq\Kernel\Contracts\ProviderDataUseRegistryInterface;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCP\IAppConfig;
 
@@ -38,34 +39,7 @@ use OCP\IAppConfig;
  *
  * @spec openspec/specs/provider-data-use/spec.md#requirement-a-configured-provider-states-what-it-does-with-data-req-notrain-001
  */
-class ProviderDataUseRegistry {
-
-	/**
-	 * The provider keeps nothing it is sent, and therefore trains on nothing.
-	 */
-	public const ZERO_RETENTION = 'zero-retention';
-
-	/**
-	 * The provider never trains on what it is sent.
-	 */
-	public const NO_TRAINING = 'no-training';
-
-	/**
-	 * The provider may train on what it is sent.
-	 */
-	public const MAY_TRAIN = 'may-train';
-
-	/**
-	 * No administrator has stated anything. Never a default that reads as safe.
-	 */
-	public const UNDECLARED = 'undeclared';
-
-	/**
-	 * The values an administrator may state.
-	 *
-	 * @var array<int, string>
-	 */
-	public const DECLARABLE = [self::ZERO_RETENTION, self::NO_TRAINING, self::MAY_TRAIN];
+class ProviderDataUseRegistry implements ProviderDataUseRegistryInterface {
 
 	/**
 	 * The values that satisfy an organisation's no-training requirement.

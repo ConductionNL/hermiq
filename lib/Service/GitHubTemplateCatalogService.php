@@ -49,6 +49,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\GitHubTemplateCatalogServiceInterface;
 use OCA\Hermiq\Service\Connection\ConnectionReporter;
 use OCP\Http\Client\IClientService;
 use OCP\ICache;
@@ -71,27 +72,13 @@ use Throwable;
  *
  * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
  */
-class GitHubTemplateCatalogService {
+class GitHubTemplateCatalogService implements GitHubTemplateCatalogServiceInterface {
 	/**
 	 * The fixed GitHub API host — compile-time constant, no SSRF surface.
 	 *
 	 * @var string
 	 */
 	private const API_BASE = 'https://api.github.com';
-
-	/**
-	 * The `AgentTemplate` kind — the original (and default) discovery kind.
-	 *
-	 * @var string
-	 */
-	public const KIND_AGENT_TEMPLATE = 'agent-template';
-
-	/**
-	 * The `Skill` kind (hermiq-github-store) — agentskills.io packages.
-	 *
-	 * @var string
-	 */
-	public const KIND_SKILL = 'skill';
 
 	/**
 	 * Per-kind discovery topic (hermiq-github-store: generalised from the single
@@ -249,13 +236,6 @@ class GitHubTemplateCatalogService {
 	 * @var string
 	 */
 	public const OUTCOME_RATE_LIMITED = 'github_rate_limited';
-
-	/**
-	 * Outcome: transport failure / non-2xx that is not a rate limit.
-	 *
-	 * @var string
-	 */
-	public const OUTCOME_UNREACHABLE = 'github_unreachable';
 
 	/**
 	 * The distributed cache, or null when no cache backend is available.
@@ -548,8 +528,40 @@ class GitHubTemplateCatalogService {
 		$fetch->actingUserId = $actingUserId;
 		$fetch->credentialId = $credentialId;
 
-		return $this->fetchFileContents(fetch: $fetch, path: $this->packageFileFor(kind: $kind));
+		$contents = $this->fetchFileContents(fetch: $fetch, path: $this->packageFileFor(kind: $kind));
+		if ($contents !== null) {
+			return (EnginePackageEnvelope::packageOf(kind: $kind, contents: $contents) ?? $contents);
+		}
+
+		return $this->enginePackageFile(kind: $kind, fetch: $fetch);
 	}//end fetchPackageFile()
+
+	/**
+	 * The package of a skill repository the engine published: its
+	 * `hermiq-skill.json` envelope, read when `hermiq-skill.md` is absent.
+	 *
+	 * An agent-template repository carries no second file name, since the
+	 * engine and the store both write `hermiq-agent-template.json`.
+	 *
+	 * @param string       $kind  The store kind (KIND_SKILL|KIND_AGENT_TEMPLATE).
+	 * @param CatalogFetch $fetch The read: repository, ref and caller.
+	 *
+	 * @return string|null The package text, or null when there is none.
+	 *
+	 * @spec openspec/changes/store-through-federated-config/tasks.md#task-3-1
+	 */
+	private function enginePackageFile(string $kind, CatalogFetch $fetch): ?string {
+		if ($kind !== self::KIND_SKILL) {
+			return null;
+		}
+
+		$contents = $this->fetchFileContents(fetch: $fetch, path: EnginePackageEnvelope::SKILL_FILE);
+		if ($contents === null) {
+			return null;
+		}
+
+		return EnginePackageEnvelope::packageOf(kind: $kind, contents: $contents);
+	}//end enginePackageFile()
 
 	/**
 	 * Fetch a published skill repo's AUXILIARY files — every blob in the repo tree
@@ -597,8 +609,8 @@ class GitHubTemplateCatalogService {
 		$fetch->maxBytes = self::MAX_AUX_BYTES;
 		$this->collectTreeBlobs(
 			fetch: $fetch,
-			accept: static function (string $path) use ($packageFile): bool {
-				return ($path !== $packageFile);
+			accept: static function (string $path) use ($packageFile, $kind): bool {
+				return ($path !== $packageFile && self::isEngineFile(kind: $kind, path: $path) === false);
 			}
 		);
 
@@ -1199,6 +1211,21 @@ class GitHubTemplateCatalogService {
 	private function topicFor(string $kind): string {
 		return self::DISCOVERY_TOPICS[$kind] ?? self::DISCOVERY_TOPICS[self::KIND_AGENT_TEMPLATE];
 	}//end topicFor()
+
+	/**
+	 * Whether a repository path is the engine-format package file of a skill,
+	 * which is the package and never one of its auxiliary files.
+	 *
+	 * @param string $kind The discovery kind.
+	 * @param string $path The repo-relative path.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/store-through-federated-config/tasks.md#task-3-1
+	 */
+	private static function isEngineFile(string $kind, string $path): bool {
+		return ($kind === self::KIND_SKILL && $path === EnginePackageEnvelope::SKILL_FILE);
+	}//end isEngineFile()
 
 	/**
 	 * Resolve a kind's repo-root package file name (hermiq-github-store),

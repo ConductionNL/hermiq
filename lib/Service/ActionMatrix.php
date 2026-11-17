@@ -25,7 +25,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ActionMatrixInterface;
 use OCP\IAppConfig;
 
 /**
@@ -33,7 +34,7 @@ use OCP\IAppConfig;
  *
  * @spec openspec/architecture/adr-023-action-authorization.md
  */
-class ActionMatrix {
+class ActionMatrix implements ActionMatrixInterface {
 	private const CONFIG_KEY = 'actions';
 
 	/**
@@ -92,7 +93,7 @@ class ActionMatrix {
 	 * @return array<array-key, mixed>
 	 */
 	private function storedMatrix(): array {
-		$json = $this->appConfig->getValueString(Application::APP_ID, self::CONFIG_KEY, '{}');
+		$json = $this->appConfig->getValueString(AppIdentity::APP_ID, self::CONFIG_KEY, '{}');
 
 		try {
 			$decoded = json_decode($json, associative: true, depth: 512, flags: JSON_THROW_ON_ERROR);
@@ -154,7 +155,7 @@ class ActionMatrix {
 		}
 
 		$json = json_encode($normalized, flags: JSON_THROW_ON_ERROR);
-		$this->appConfig->setValueString(Application::APP_ID, self::CONFIG_KEY, $json);
+		$this->appConfig->setValueString(AppIdentity::APP_ID, self::CONFIG_KEY, $json);
 
 	}//end setMatrix()
 

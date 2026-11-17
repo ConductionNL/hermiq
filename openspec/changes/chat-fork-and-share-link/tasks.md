@@ -9,7 +9,7 @@ Kind: code. Size M. Rows `hermiq:dm-fork-chat`, `ch-share-link`.
 - **files**: `tests/integration/hermiq.postman_collection.json`
 - **acceptance_criteria**:
   - GIVEN a session owned by user A WHEN user B of the same organisation reads it through `/apps/openregister/api/objects/hermiq/agentsession/<uuid>` THEN the result is recorded; a 200 stops this change until the schema grant is narrowed
-- [ ] Implement
+- [x] Implement
 - [ ] Test (Newman, two users, result written into the PR body)
 
 ### Task 2: Fork a session at an answer
@@ -18,7 +18,7 @@ Kind: code. Size M. Rows `hermiq:dm-fork-chat`, `ch-share-link`.
 - **acceptance_criteria**:
   - GIVEN an owner and an assistant turn WHEN they fork THEN a new session holds copies up to that turn with `forkedFrom`, and the source is untouched
   - GIVEN a user turn or a foreign session WHEN a fork is requested THEN the answer is 400 or 404 and nothing is created
-- [ ] Implement
+- [x] Implement
 - [ ] Test (PHPUnit on the service including full-payload saves; Newman for the three outcomes)
 
 ### Task 3: "Fork from here" on the Chat page
@@ -26,7 +26,7 @@ Kind: code. Size M. Rows `hermiq:dm-fork-chat`, `ch-share-link`.
 - **files**: `src/views/Chat.vue`, `src/api/chat.js`, `l10n/en.json`, `l10n/nl.json`
 - **acceptance_criteria**:
   - GIVEN a ten-turn session WHEN the owner forks at the fourth answer THEN the new session opens with four turns and the list shows both
-- [ ] Implement
+- [x] Implement
 - [ ] Test (Playwright under `tests/e2e/spec-coverage/session-fork-and-share.spec.ts`)
 
 ### Task 4: The share list and its routes
@@ -36,7 +36,7 @@ Kind: code. Size M. Rows `hermiq:dm-fork-chat`, `ch-share-link`.
   - GIVEN the owner WHEN they add a user and a group THEN `sharedWith` holds both and the audit trail shows the save
   - GIVEN "share only with group members" WHEN the owner adds an outsider THEN the share is refused
   - GIVEN a non-owner WHEN they call any share route THEN the answer is 404
-- [ ] Implement
+- [x] Implement
 - [ ] Test (PHPUnit with a fake `IManager`; Newman for owner and non-owner)
 
 ### Task 5: Read access for recipients, nothing more
@@ -44,7 +44,7 @@ Kind: code. Size M. Rows `hermiq:dm-fork-chat`, `ch-share-link`.
 - **files**: `lib/Controller/SessionController.php`, `lib/Service/SessionShareService.php`
 - **acceptance_criteria**:
   - GIVEN a user in a shared group WHEN they read the session and its turns THEN both answer 200, and rename, archive, delete, fork and send are refused
-- [ ] Implement
+- [x] Implement
 - [ ] Test (PHPUnit per method; Newman as a recipient)
 
 ### Task 6: Share dialog, notification and the shared view
@@ -53,7 +53,7 @@ Kind: code. Size M. Rows `hermiq:dm-fork-chat`, `ch-share-link`.
 - **acceptance_criteria**:
   - GIVEN a new share WHEN it is saved THEN the recipient gets the `session_shared` notification linking to `/chat/shared/<uuid>`
   - GIVEN a revoked share WHEN the former recipient opens the link THEN they see "This session is not available"
-- [ ] Implement
+- [x] Implement
 - [ ] Test (Playwright under `tests/e2e/spec-coverage/session-fork-and-share.spec.ts` with two users)
 
 ### Task 7: "Copy link" in the share dialog
@@ -61,7 +61,7 @@ Kind: code. Size M. Rows `hermiq:dm-fork-chat`, `ch-share-link`.
 - **files**: `src/modals/SessionShareModal.vue`, `l10n/en.json`, `l10n/nl.json`
 - **acceptance_criteria**:
   - GIVEN a shared session WHEN the owner chooses "Copy link" THEN the clipboard holds `/apps/hermiq/chat/shared/<uuid>`, which opens the session for a recipient and shows "This session is not available" to anyone else
-- [ ] Implement
+- [x] Implement
 - [ ] Test (Playwright under `tests/e2e/spec-coverage/session-fork-and-share.spec.ts` with two users)
 
 ## Verification

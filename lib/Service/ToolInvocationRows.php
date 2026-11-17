@@ -50,6 +50,7 @@ final class ToolInvocationRows {
 	 */
 	public function richRow(AuditTrail $log, ?string $occurredAt): array {
 		return [
+			'callId' => (string)($log->getUuid() ?? ''),
 			'at' => $occurredAt,
 			'toolId' => $log->getToolId(),
 			'actingUser' => (string)($log->getUser() ?? ''),

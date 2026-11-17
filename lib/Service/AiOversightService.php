@@ -18,7 +18,10 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeInterface;
+use OCA\Hermiq\Kernel\Contracts\AiOversightServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 
@@ -39,7 +42,7 @@ use Psr\Log\LoggerInterface;
  *
  * @spec openspec/changes/ai-oversight-advisory-approvals/specs/ai-oversight/spec.md
  */
-class AiOversightService {
+class AiOversightService implements AiOversightServiceInterface {
 
     /**
      * OpenRegister register slug the Approval schema lives in.
@@ -97,7 +100,6 @@ class AiOversightService {
      */
     private const REQUIRED = ['originApp', 'subjectType', 'subjectId', 'humanAction'];
 
-
     /**
      * Constructor.
      *
@@ -114,7 +116,6 @@ class AiOversightService {
     ) {
 
     }//end __construct()
-
 
     /**
      * Record one advisory decision.
@@ -138,8 +139,10 @@ class AiOversightService {
         try {
             $saved = $this->objectService->saveObject(
                 object: $this->toApproval(record: $record, decidedAt: $decidedAt),
-                register: self::REGISTER_SLUG,
-                schema: self::APPROVAL_SCHEMA,
+                options: new ObjectSaveOptions(target: new ObjectFindTarget(
+                		register: self::REGISTER_SLUG,
+                		schema: self::APPROVAL_SCHEMA
+                	)),
                 _rbac: false,
                 _multitenancy: false
             );
@@ -158,7 +161,6 @@ class AiOversightService {
         return $saved->getUuid();
 
     }//end record()
-
 
     /**
      * List the advisory Approvals about one subject, newest decision first.
@@ -232,7 +234,6 @@ class AiOversightService {
 
     }//end listForSubject()
 
-
     /**
      * Read the first rows about a subject under one origin app id, newest first.
      *
@@ -270,7 +271,6 @@ class AiOversightService {
 
     }//end searchSubject()
 
-
     /**
      * Normalise one search row to an array.
      *
@@ -290,7 +290,6 @@ class AiOversightService {
         return [];
 
     }//end toArray()
-
 
     /**
      * Whether a row is an advisory Approval about exactly the requested subject.
@@ -315,7 +314,6 @@ class AiOversightService {
         return $subjectType === null || $subjectType === '' || ($context['subjectType'] ?? null) === $subjectType;
 
     }//end isAbout()
-
 
     /**
      * Whether this record can be stored as evidence at all.
@@ -367,7 +365,6 @@ class AiOversightService {
         return true;
 
     }//end accepts()
-
 
     /**
      * Build the advisory Approval object from an accepted record.
@@ -422,6 +419,5 @@ class AiOversightService {
         ];
 
     }//end toApproval()
-
 
 }//end class

@@ -46,12 +46,12 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\Llm\GovernedMcpEndpoint;
-use OCA\Hermiq\Service\Llm\RunTokenService;
-use OCA\Hermiq\Service\WebResearch\WebResearchEgressGuard;
-use OCA\Hermiq\Service\WebResearch\WebResearchSettingsHandler;
-use OCA\Hermiq\Service\Workspace\ForgeEgressPolicy;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ForgeEgressPolicyInterface;
+use OCA\Hermiq\Kernel\Contracts\GovernedMcpEndpointInterface;
+use OCA\Hermiq\Kernel\Contracts\RunTokenServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\WebResearchEgressGuardInterface;
+use OCA\Hermiq\Kernel\Contracts\WebResearchSettingsHandlerInterface;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\AnonRateLimit;
@@ -81,32 +81,32 @@ class EgressAuthorizeController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param RunTokenService $runTokenService Verifies the per-run bearer token
+	 * @param RunTokenServiceInterface $runTokenService Verifies the per-run bearer token
 	 *                                         (the SAME token Endpoint 1 uses).
-	 * @param WebResearchEgressGuard $guard THE shared egress policy source (public,
+	 * @param WebResearchEgressGuardInterface $guard THE shared egress policy source (public,
 	 *                                      dependency-free — no second allowlist).
-	 * @param WebResearchSettingsHandler $settingsHandler Reads the same allowlist/denylist/insecure
+	 * @param WebResearchSettingsHandlerInterface $settingsHandler Reads the same allowlist/denylist/insecure
 	 *                                                    knobs `hermiq.webFetch` reads.
 	 * @param IThrottler $throttler Brute-force protection for rejected per-run tokens.
-	 * @param GovernedMcpEndpoint $mcpEndpoint Recognises Hermiq's OWN governed MCP
+	 * @param GovernedMcpEndpointInterface $mcpEndpoint Recognises Hermiq's OWN governed MCP
 	 *                                         origin — the one destination the
 	 *                                         web-research SSRF policy cannot judge,
 	 *                                         because it is the control plane rather
 	 *                                         than an internet host.
-	 * @param ForgeEgressPolicy   $forgePolicy The per-run rule for the forge host: reachable
+	 * @param ForgeEgressPolicyInterface   $forgePolicy The per-run rule for the forge host: reachable
 	 *                                         only for a run whose agent holds a resolving
 	 *                                         grant for a workspace tool that needs it.
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly RunTokenService $runTokenService,
-		private readonly WebResearchEgressGuard $guard,
-		private readonly WebResearchSettingsHandler $settingsHandler,
+		private readonly RunTokenServiceInterface $runTokenService,
+		private readonly WebResearchEgressGuardInterface $guard,
+		private readonly WebResearchSettingsHandlerInterface $settingsHandler,
 		private readonly IThrottler $throttler,
-		private readonly GovernedMcpEndpoint $mcpEndpoint,
-		private readonly ForgeEgressPolicy $forgePolicy,
+		private readonly GovernedMcpEndpointInterface $mcpEndpoint,
+		private readonly ForgeEgressPolicyInterface $forgePolicy,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 

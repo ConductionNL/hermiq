@@ -49,7 +49,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Listener;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\OpenRegister\Event\RegisterLeafProvidersEvent;
 use OCA\OpenRegister\Service\Integration\LeafAvailability;
 use OCA\OpenRegister\Service\Integration\LeafDescriptor;
@@ -144,7 +144,7 @@ class RegisterAgentLeafListener implements IEventListener {
 					LeafDescriptor::KIND_RENDER_SURFACE,
 					LeafDescriptor::KIND_AGENT_RUNNER,
 				],
-				availability: new LeafAvailability(requiredApp: Application::APP_ID),
+				availability: new LeafAvailability(requiredApp: AppIdentity::APP_ID),
 				// Declared EXPLICITLY and identically on both halves of the
 				// registration (hydra-console-agent-leaves). The JS half shipped a
 				// dashboard-sized `widget` (CnAgentRunsWidget, defaultSize 4x4)
@@ -163,8 +163,10 @@ class RegisterAgentLeafListener implements IEventListener {
 					surfaces: self::SURFACES,
 					referenceType: self::LEAF_ID,
 					renderMode: LeafDescriptor::RENDER_MODE_MOUNT,
+					loadStrategy: LeafDescriptor::LOADS_VIA_OWN_SCRIPT,
 				),
 				// 🔴 SAID OUT LOUD BECAUSE IT WAS NEARLY INFERRED WRONGLY.
+				// (The `loadStrategy` on the rendering above is this declaration.)
 				// hermiq ships no `hermiq-leaves.js` and does not need one: it
 				// loads `hermiq-agent-leaf.js` itself, on EVERY Nextcloud page,
 				// via `Util::addInitScript` in `Application::boot()`, so this
@@ -174,18 +176,10 @@ class RegisterAgentLeafListener implements IEventListener {
 				// openregister#3954 read the missing `hermiq-leaves.js` as proof
 				// the surface was dark and refused the registration; #3955
 				// reverted that, and #3956 replaced the inference with this
-				// declaration. Declaring it is what stops the next reader
-				// re-deriving the wrong answer from the filesystem.
-				//
-				// 🔴 IT IS SAID HERE AND NOWHERE ELSE, BECAUSE OPENREGISTER HAS
-				// NO WAY TO CARRY IT. `LeafDescriptor` ships no `loadStrategy`
-				// parameter and no `LOADS_VIA_OWN_SCRIPT` constant: its
-				// constructor ends at `renderMode`. Passing them threw
-				// `Undefined constant …LeafDescriptor::LOADS_VIA_OWN_SCRIPT` on
-				// every single page load, the catch below turned that into a
-				// warning, and THE AGENT LEAF NEVER REGISTERED AT ALL — measured
-				// on a live instance, seven occurrences in nextcloud.log.
-				// Restore the argument only once OpenRegister accepts it.
+				// declaration. The leaf only declares that Hermiq loads its own
+				// script; whether the registry reports a leaf without a shared
+				// bundle is the registry's decision, and it needs this
+				// declaration to make it.
 			);
 
 			// Render-only leaf: no IntegrationProvider (null). The chat reads via

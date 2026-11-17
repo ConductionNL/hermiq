@@ -83,7 +83,7 @@ class TaskReader {
 		$tasks = [];
 		foreach ($list->search('', [], ['types' => ['VTODO']], self::SEARCH_LIMIT) as $row) {
 			$object = ($row['objects'][0] ?? []);
-			$task = $this->taskFromObject(row: $row, object: $object, list: $list);
+			$task = $this->taskFromObject(row: $row, source: new TaskSource(object: $object, list: $list));
 			if ($this->matches(task: $task, due: $this->property(object: $object, name: 'DUE'), status: $status, before: $before) === true) {
 				$tasks[] = $task;
 			}
@@ -121,12 +121,13 @@ class TaskReader {
 	 * Shape one search object as a task.
 	 *
 	 * @param array<string, mixed> $row A CalDavBackend::search() row.
-	 * @param mixed $object The row's VTODO.
-	 * @param ICalendar $list The list it came from.
+	 * @param TaskSource $source The calendar object and list a task is read from.
 	 *
 	 * @return array<string, mixed> uid, summary, due, status, priority, list, listName.
 	 */
-	private function taskFromObject(array $row, mixed $object, ICalendar $list): array {
+	private function taskFromObject(array $row, TaskSource $source): array {
+		$object = $source->object;
+		$list = $source->list;
 		$status = strtoupper((string)$this->property(object: $object, name: 'STATUS'));
 		if ($status === '' && $this->property(object: $object, name: 'COMPLETED') !== null) {
 			$status = 'COMPLETED';

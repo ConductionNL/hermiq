@@ -204,6 +204,50 @@ final class ServerSideWorkspaceProviderTest extends TestCase {
 		self::assertSame('1', self::git($provider->root(runKey: 'run-a'), 'rev-list', '--count', 'HEAD'));
 	}//end testTheCloneDepthIsClampedToAtLeastOne()
 
+	public function testDiscardRemovesTheRunsWorkspaceAndIsANoOpWithoutOne(): void {
+		$provider = $this->provider();
+		$provider->open(runKey: 'run-a', cloneUrl: 'file://' . $this->forge, repository: 'example-org/example-app', ref: 'development', depth: 5);
+		$provider->open(runKey: 'run-b', cloneUrl: 'file://' . $this->forge, repository: 'example-org/example-app', ref: 'development', depth: 5);
+		$dir = dirname($provider->root(runKey: 'run-a'));
+
+		$provider->discard(runKey: 'run-a');
+		$provider->discard(runKey: 'run-never-opened');
+
+		self::assertDirectoryDoesNotExist($dir);
+		$this->assertAbsent(provider: $provider, runKey: 'run-a');
+		self::assertFileExists($provider->root(runKey: 'run-b') . '/README.md');
+	}//end testDiscardRemovesTheRunsWorkspaceAndIsANoOpWithoutOne()
+
+	public function testUnreadableMetadataReadsAsNoWorkspace(): void {
+		$provider = $this->provider();
+		$provider->open(runKey: 'run-a', cloneUrl: 'file://' . $this->forge, repository: 'example-org/example-app', ref: 'development', depth: 5);
+		file_put_contents(dirname($provider->root(runKey: 'run-a')) . '/meta.json', 'not json');
+
+		$this->assertAbsent(provider: $provider, runKey: 'run-a');
+	}//end testUnreadableMetadataReadsAsNoWorkspace()
+
+	public function testWithoutABaseDirWorkspacesLiveInTheInstancesAppData(): void {
+		$config = $this->createMock(IConfig::class);
+		$config->method('getSystemValueString')->willReturnCallback(
+			fn (string $key, string $default = ''): string => [
+				'secret' => 'test-secret',
+				'datadirectory' => $this->base . '/data/',
+				'instanceid' => 'oc123',
+			][$key] ?? $default
+		);
+		$appConfig = $this->createMock(IAppConfig::class);
+		$appConfig->method('getValueInt')->willReturnCallback(static fn (string $app, string $key, int $default = 0): int => $default);
+		$time = $this->createMock(ITimeFactory::class);
+		$time->method('getTime')->willReturnCallback(fn (): int => $this->now);
+		$provider = new ServerSideWorkspaceProvider(config: $config, appConfig: $appConfig, git: new GitRunner(), time: $time);
+
+		self::assertSame(0, $provider->reap());
+
+		$provider->open(runKey: 'run-a', cloneUrl: 'file://' . $this->forge, repository: 'example-org/example-app', ref: 'development', depth: 5);
+
+		self::assertStringStartsWith($this->base . '/data/appdata_oc123/hermiq/workspaces/', $provider->root(runKey: 'run-a'));
+	}//end testWithoutABaseDirWorkspacesLiveInTheInstancesAppData()
+
 	/**
 	 * The provider under test.
 	 */

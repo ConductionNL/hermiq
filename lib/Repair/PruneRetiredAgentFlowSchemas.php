@@ -19,7 +19,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\OpenRegister\Db\RegisterMapper;
 use OCA\OpenRegister\Db\Schema;
 use OCA\OpenRegister\Db\SchemaMapper;
@@ -166,7 +166,7 @@ class PruneRetiredAgentFlowSchemas implements IRepairStep {
 	 * @return void
 	 */
 	private function prune(SchemaPruneRun $run, string $slug): void {
-		$schema = $run->schemaMapper->findByApplicationAndSlug(slug: $slug, application: Application::APP_ID);
+		$schema = $run->schemaMapper->findByApplicationAndSlug(slug: $slug, application: AppIdentity::APP_ID);
 		if ($schema === null) {
 			// Already pruned, or never imported. This is the idempotent path.
 			$run->output->info('Retired schema "' . $slug . '" is not present — nothing to prune.');

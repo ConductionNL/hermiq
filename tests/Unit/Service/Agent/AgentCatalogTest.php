@@ -55,15 +55,23 @@ class AgentCatalogTest extends TestCase {
 	private array $searches = [];
 
 	/**
+	 * Availability double (the organisation admin check).
+	 *
+	 * @var AgentAvailabilityService&MockObject
+	 */
+	private $availability;
+
+	/**
 	 * Build the catalog over the given page of agents.
 	 *
 	 * @param array<int, ObjectEntity> $page       The rows the search returns.
 	 * @param int                      $total      The total it reports.
 	 * @param bool                     $orgAdmin   Whether alice administers org-1.
+	 * @param string                   $activeOrg  The organisation active for the user.
 	 *
 	 * @return AgentCatalog
 	 */
-	private function catalog(array $page, int $total, bool $orgAdmin = false): AgentCatalog {
+	private function catalog(array $page, int $total, bool $orgAdmin = false, string $activeOrg = 'org-1'): AgentCatalog {
 		$this->objects = $this->createMock(ObjectService::class);
 		$this->objects->method('setRegister')->willReturnSelf();
 		$this->objects->method('setSchema')->willReturnSelf();
@@ -77,9 +85,10 @@ class AgentCatalogTest extends TestCase {
 		$groups = $this->createMock(IGroupManager::class);
 		$groups->method('isInGroup')->willReturnCallback(static fn (string $uid, string $gid): bool => $gid === 'planning-desk');
 
-		$availability = $this->createMock(AgentAvailabilityService::class);
-		$availability->method('activeOrganisation')->willReturn('org-1');
-		$availability->method('mayAdministerOrganisation')->willReturn($orgAdmin);
+		$this->availability = $this->createMock(AgentAvailabilityService::class);
+		$this->availability->method('activeOrganisation')->willReturn($activeOrg);
+		$this->availability->method('mayAdministerOrganisation')->willReturn($orgAdmin);
+		$availability = $this->availability;
 
 		$users = $this->createMock(IUserManager::class);
 		$users->method('getDisplayName')->willReturnCallback(static fn (string $uid): ?string => ['bob' => 'Bob de Vries', 'alice' => 'Alice'][$uid] ?? null);
@@ -176,6 +185,32 @@ class AgentCatalogTest extends TestCase {
 		$this->assertArrayNotHasKey('visibleBecause', $page['results'][1]);
 
 	}//end testAnOrganisationAdminSeesEveryAgentWithTheReason()
+
+	/**
+	 * A user with no active organisation administers nothing: the page reads
+	 * through the rule, and the admin check is never asked about an empty
+	 * organisation.
+	 *
+	 * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-sees-every-agent-of-the-organisation-req-agshare-004
+	 *
+	 * @return void
+	 */
+	public function testNoActiveOrganisationMeansNoAdminView(): void {
+		$catalog = $this->catalog(
+			[$this->agent('a-6', ['name' => 'Salary helper', 'isPrivate' => true, 'prompt' => 'secret'], 'bob')],
+			1,
+			true,
+			''
+		);
+		$this->availability->expects($this->never())->method('mayAdministerOrganisation');
+
+		$page = $catalog->page(uid: 'alice', limit: 20, offset: 0);
+
+		$this->assertTrue($this->searches[0]['rbac'], 'Without an active organisation the read rule applies.');
+		$this->assertSame([], $page['results'], 'A private agent of someone else is not shown.');
+		$this->assertSame(1, $page['total']);
+
+	}//end testNoActiveOrganisationMeansNoAdminView()
 
 	/**
 	 * One agent: the full row for someone who may use it, the reduced row for an

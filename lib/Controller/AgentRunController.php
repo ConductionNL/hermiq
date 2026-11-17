@@ -54,13 +54,14 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\Agent\AgentContextBuilder;
-use OCA\OpenRegister\Mcp\Db\Agent;
-use OCA\OpenRegister\Mcp\Db\AgentMapper;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AgentContextBuilderInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\SchemaMapper;
 use OCA\OpenRegister\Event\AgentRunRequestedEvent;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Mcp\Db\Agent;
+use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -100,7 +101,7 @@ class AgentRunController extends Controller {
 	 * @param AgentMapper $agentMapper Resolves + validates the named agent (mirrors
 	 *                                 FlowAgentRunService::resolveAgent()).
 	 * @param SchemaMapper $schemaMapper Resolves the target schema to read its context allowlist.
-	 * @param AgentContextBuilder $contextBuilder Builds the bounded, fail-closed prompt context.
+	 * @param AgentContextBuilderInterface $contextBuilder Builds the bounded, fail-closed prompt context.
 	 * @param IEventDispatcher $eventDispatcher Dispatches the governed AgentRunRequestedEvent recipe.
 	 * @param IUserSession $userSession The requesting user (authentication).
 	 * @param IL10N $l10n Localisation.
@@ -114,13 +115,13 @@ class AgentRunController extends Controller {
 		private readonly ObjectService $objectService,
 		private readonly AgentMapper $agentMapper,
 		private readonly SchemaMapper $schemaMapper,
-		private readonly AgentContextBuilder $contextBuilder,
+		private readonly AgentContextBuilderInterface $contextBuilder,
 		private readonly IEventDispatcher $eventDispatcher,
 		private readonly IUserSession $userSession,
 		private readonly IL10N $l10n,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -255,8 +256,7 @@ class AgentRunController extends Controller {
 		try {
 			$object = $this->objectService->find(
 				id: $objectId,
-				register: $register,
-				schema: $schema,
+				options: new ObjectFindOptions(register: $register, schema: $schema),
 				_rbac: true,
 				_multitenancy: true
 			);

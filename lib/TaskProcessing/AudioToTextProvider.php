@@ -24,7 +24,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\TaskProcessing;
 
-use OCA\Hermiq\Service\Speech\SpeechClient;
+use OCA\Hermiq\Kernel\Contracts\SpeechClientInterface;
 use OCP\Files\File;
 use OCP\Files\SimpleFS\ISimpleFile;
 use OCP\TaskProcessing\EShapeType;
@@ -48,11 +48,11 @@ class AudioToTextProvider implements ISynchronousProvider {
 	/**
 	 * Constructor.
 	 *
-	 * @param SpeechClient $speech The sidecar transport.
+	 * @param SpeechClientInterface $speech The sidecar transport.
 	 * @param LoggerInterface $logger Diagnostics.
 	 */
 	public function __construct(
-		private readonly SpeechClient $speech,
+		private readonly SpeechClientInterface $speech,
 		private readonly LoggerInterface $logger,
 	) {
 

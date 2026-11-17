@@ -10,15 +10,15 @@ Kind: code. Size M. Rows `hermiq:td-explain`, `dm-show-reasoning`, `dm-context-m
 - **acceptance_criteria**:
   - GIVEN a turn with a source and a tool step WHEN it is stored THEN `provenance` holds model, sources and `{type, name, outcome}` steps and no arguments or results
   - GIVEN the stream path WHEN a turn completes THEN a trace collector was passed and the record matches the send path
-- [ ] Implement
-- [ ] Test (PHPUnit on the record builder, including a refused step whose argument must not be copied)
+- [x] Implement
+- [x] Test (PHPUnit on the record builder, including a refused step whose argument must not be copied)
 
 ### Task 2: "How this answer came about" on the Chat page
 - **spec_ref**: `openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-can-read-how-an-answer-came-about-in-plain-language-req-atrn-002`
 - **files**: `lib/Service/Engine/AnswerProvenanceWriter.php`, `lib/Controller/SessionController.php`, `src/views/Chat.vue`, `l10n/en.json`, `l10n/nl.json`
 - **acceptance_criteria**:
   - GIVEN a turn with provenance WHEN a Dutch reader opens the section THEN the sentences are in Dutch and end with the final-say line
-- [ ] Implement
+- [x] Implement
 - [ ] Test (PHPUnit on the writer per sentence; Playwright under `tests/e2e/spec-coverage/answer-transparency.spec.ts`)
 
 ### Task 3: Reasoning requested, filtered and stored

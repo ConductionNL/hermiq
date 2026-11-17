@@ -33,6 +33,7 @@ use OCA\Hermiq\Service\AgentVersionService;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\BudgetService;
 use OCA\Hermiq\Service\FlowAgentRunService;
+use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\Hermiq\Service\SkillVersionService;
@@ -258,6 +259,50 @@ class FlowAgentRunServiceTest extends TestCase {
 		$this->assertSame('version-1', $this->auditCalls[0]['context']['agentVersion'], 'agent-versioning: the executing agent version must be pinned.');
 
 	}//end testHappyPathWritesResultAndAudits()
+
+	/**
+	 * A finished flow run is handed to trace export once, with the audited context, and the run's result is unchanged.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/trace-export/spec.md#requirement-export-never-slows-or-changes-a-run-req-trex-003
+	 */
+	public function testAFinishedFlowRunIsEnqueuedForTraceExport(): void {
+		$this->objectService->method('find')->willReturn($this->object(['name' => 'Rex']));
+		$this->agentMapper->method('findByUuid')->willReturn($this->agent('dave'));
+		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->scheduleService->method('runAgentAsOwner')->willReturn('Kennel');
+		$this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+		$enqueued = [];
+		$queue    = $this->createMock(TraceExportQueue::class);
+		$queue->expects($this->once())->method('enqueueRun')->willReturnCallback(
+			function (array $context, string $trigger, string $organisation = '') use (&$enqueued): bool {
+				$enqueued[] = [$context, $trigger, $organisation];
+				return true;
+			}
+		);
+
+		$service = new FlowAgentRunService(
+			objectService: $this->objectService,
+			agentMapper: $this->agentMapper,
+			logger: $this->createMock(LoggerInterface::class),
+			auditTrailMapper: $this->auditTrailMapper,
+			redactionService: new RedactionService($this->createMock(IConfig::class)),
+			scheduleService: $this->scheduleService,
+			approvalService: $this->approvalService,
+			budgetService: $this->budgetService,
+			agentVersionService: $this->agentVersionService,
+			skillVersionService: $this->createMock(SkillVersionService::class),
+			traceExportQueue: $queue,
+		);
+
+		$this->assertTrue($service->run($this->payload()));
+		$this->assertSame('flow', $enqueued[0][1]);
+		$this->assertSame($this->auditCalls[0]['context'], $enqueued[0][0]);
+		$this->assertSame('ok', $enqueued[0][0]['status']);
+
+	}//end testAFinishedFlowRunIsEnqueuedForTraceExport()
 
 	/**
 	 * A skill reference is prefixed onto the prompt as a directive (v1 — skills
@@ -578,4 +623,29 @@ class FlowAgentRunServiceTest extends TestCase {
 		$this->assertFalse($ran);
 
 	}//end testAgentWithNoOwnerIsSkipped()
+
+	/**
+	 * A gated run whose agent cannot be resolved asks for the approval with no
+	 * owner, and a failing approval setup is logged and still leaves the run
+	 * awaiting approval without running the agent.
+	 *
+	 * @return void
+	 */
+	public function testApprovalGateWithoutAgentAndFailingSetupStillAwaitsApproval(): void {
+		$this->objectService->method('find')->willReturn($this->object());
+		$this->agentMapper->method('findByUuid')->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('gone'));
+		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->scheduleService->expects($this->never())->method('runAgentAsOwner');
+		$this->approvalService->expects($this->once())
+			->method('ensurePendingApprovalForFlowRun')
+			->with($this->anything(), '')
+			->willThrowException(new \RuntimeException('approvals register missing'));
+
+		$ran = $this->service->run($this->payload(['requiresApproval' => true]));
+
+		$this->assertFalse($ran);
+		$this->assertCount(1, $this->auditCalls);
+		$this->assertSame('awaiting_approval', $this->auditCalls[0]['context']['status']);
+
+	}//end testApprovalGateWithoutAgentAndFailingSetupStillAwaitsApproval()
 }//end class

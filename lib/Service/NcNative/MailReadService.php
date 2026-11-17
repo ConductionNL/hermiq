@@ -50,6 +50,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\NcNative;
 
+use OCA\Hermiq\Kernel\Contracts\MailReadServiceInterface;
 use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -63,7 +64,7 @@ use Throwable;
  *
  * @spec openspec/specs/nc-native-tools/spec.md#requirement-per-object-idor-guard-on-every-provider
  */
-class MailReadService {
+class MailReadService implements MailReadServiceInterface {
 
 	use ErrorEnvelopeTrait;
 
@@ -77,16 +78,6 @@ class MailReadService {
 	 * @var string
 	 */
 	public const FEATURE_SLUG = 'mail-reading';
-
-	/**
-	 * The hard server-side maximum envelopes one call may return.
-	 *
-	 * Not a token-cost bound. An unbounded listing is the difference between an
-	 * assistant reading a thread and an assistant enumerating an inbox.
-	 *
-	 * @var int
-	 */
-	public const MAX_PAGE_SIZE = 50;
 
 	/**
 	 * Mail's internal classes, resolved lazily and only if present.

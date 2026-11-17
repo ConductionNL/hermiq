@@ -29,7 +29,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Command;
 
 use OCA\Hermiq\BackgroundJob\GraphExtractionJob;
-use OCA\Hermiq\Service\Graph\ActingUserScope;
+use OCA\Hermiq\Kernel\Contracts\ActingUserScopeInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\BackgroundJob\IJobList;
@@ -53,13 +53,13 @@ class GraphExtract extends Command {
 	 * @param ObjectService $objectService OpenRegister's object service.
 	 * @param IJobList $jobs The job list.
 	 * @param IUserManager $users The user manager.
-	 * @param ActingUserScope $actingUser Impersonate-and-restore.
+	 * @param ActingUserScopeInterface $actingUser Impersonate-and-restore.
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
 		private readonly IJobList $jobs,
 		private readonly IUserManager $users,
-		private readonly ActingUserScope $actingUser,
+		private readonly ActingUserScopeInterface $actingUser,
 	) {
 		parent::__construct();
 	}//end __construct()

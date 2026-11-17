@@ -29,7 +29,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Mcp;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 
 /**
@@ -39,31 +39,31 @@ use OCA\OpenRegister\Service\Capability\ToolReachResolver;
  */
 final class WorkspaceToolDescriptors {
 
-	public const OPEN = Application::APP_ID . '.workspaceOpen';
+	public const OPEN = AppIdentity::APP_ID . '.workspaceOpen';
 
-	public const STATUS = Application::APP_ID . '.workspaceStatus';
+	public const STATUS = AppIdentity::APP_ID . '.workspaceStatus';
 
-	public const DIFF = Application::APP_ID . '.workspaceDiff';
+	public const DIFF = AppIdentity::APP_ID . '.workspaceDiff';
 
-	public const LOG = Application::APP_ID . '.workspaceLog';
+	public const LOG = AppIdentity::APP_ID . '.workspaceLog';
 
-	public const LIST_FILES = Application::APP_ID . '.workspaceListFiles';
+	public const LIST_FILES = AppIdentity::APP_ID . '.workspaceListFiles';
 
-	public const READ_FILE = Application::APP_ID . '.workspaceReadFile';
+	public const READ_FILE = AppIdentity::APP_ID . '.workspaceReadFile';
 
-	public const WRITE_FILE = Application::APP_ID . '.workspaceWriteFile';
+	public const WRITE_FILE = AppIdentity::APP_ID . '.workspaceWriteFile';
 
-	public const DELETE_FILE = Application::APP_ID . '.workspaceDeleteFile';
+	public const DELETE_FILE = AppIdentity::APP_ID . '.workspaceDeleteFile';
 
-	public const APPLY_PATCH = Application::APP_ID . '.workspaceApplyPatch';
+	public const APPLY_PATCH = AppIdentity::APP_ID . '.workspaceApplyPatch';
 
-	public const CREATE_BRANCH = Application::APP_ID . '.workspaceCreateBranch';
+	public const CREATE_BRANCH = AppIdentity::APP_ID . '.workspaceCreateBranch';
 
-	public const CHECKOUT_BRANCH = Application::APP_ID . '.workspaceCheckoutBranch';
+	public const CHECKOUT_BRANCH = AppIdentity::APP_ID . '.workspaceCheckoutBranch';
 
-	public const COMMIT = Application::APP_ID . '.workspaceCommit';
+	public const COMMIT = AppIdentity::APP_ID . '.workspaceCommit';
 
-	public const PUSH = Application::APP_ID . '.workspacePush';
+	public const PUSH = AppIdentity::APP_ID . '.workspacePush';
 
 	/**
 	 * Every workspace tool id.

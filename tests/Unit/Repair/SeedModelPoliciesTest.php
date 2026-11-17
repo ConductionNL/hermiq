@@ -27,6 +27,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Repair;
 
+use OCA\Hermiq\Kernel\Contracts\OrganisationModelPolicyServiceInterface;
 use OCA\Hermiq\Repair\SeedModelPolicies;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -70,7 +71,7 @@ class SeedModelPoliciesTest extends TestCase {
 		$container->method('get')->willReturnCallback(
 			callback: function (string $class) use ($policyService, $orgMapper) {
 				return match ($class) {
-					OrganisationModelPolicyService::class => $policyService,
+					OrganisationModelPolicyServiceInterface::class => $policyService,
 					OrganisationMapper::class => $orgMapper,
 					default => throw new \RuntimeException("Unexpected service: {$class}"),
 				};

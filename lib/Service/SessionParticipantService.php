@@ -35,10 +35,14 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service;
 
 use DateTime;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\SessionParticipantServiceInterface;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserManager;
 use OCP\Notification\IManager as INotificationManager;
@@ -50,7 +54,7 @@ use Throwable;
  *
  * @spec openspec/specs/session-participants/spec.md#requirement-the-owner-invites-colleagues-into-a-session-req-spart-001
  */
-class SessionParticipantService {
+class SessionParticipantService implements SessionParticipantServiceInterface {
 	use SanitizesForSaveTrait;
 
 	/**
@@ -186,7 +190,7 @@ class SessionParticipantService {
 	 * @throws SessionParticipantException 404.
 	 */
 	private function ownedSession(string $uuid, string $callerUid): ObjectEntity {
-		$session = $this->objectService->find(id: $uuid, register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA);
+		$session = $this->objectService->find(id: $uuid, options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA));
 		if ($session === null || $callerUid === '' || ($session->getObject()['userId'] ?? null) !== $callerUid) {
 			throw new SessionParticipantException('Session not found.', 404);
 		}
@@ -227,9 +231,10 @@ class SessionParticipantService {
 		$payload['participants'] = array_values($roster);
 		$this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $payload),
-			register: self::REGISTER_SLUG,
-			schema: self::SESSION_SCHEMA,
-			uuid: $uuid
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA),
+				uuid: $uuid
+			)
 		);
 	}//end saveRoster()
 
@@ -264,7 +269,7 @@ class SessionParticipantService {
 		try {
 			$owner = $this->userManager->get($callerUid);
 			$notification = $this->notifications->createNotification();
-			$notification->setApp(Application::APP_ID)
+			$notification->setApp(AppIdentity::APP_ID)
 				->setUser($uid)
 				->setDateTime(new DateTime())
 				->setObject('session', $uuid)

@@ -19,23 +19,25 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\AppInfo;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Listener\AgentActingUserGuardListener;
 use OCA\Hermiq\Listener\AgentBotLifecycleListener;
 use OCA\Hermiq\Listener\AgentWaiverChangeListener;
+use OCA\Hermiq\Listener\ListenerRegistrar;
 use OCA\OpenRegister\Event\DraftCreatedEvent;
 use OCA\OpenRegister\Event\DraftUpdatedEvent;
 use OCA\OpenRegister\Event\ObjectCreatedEvent;
+use OCA\OpenRegister\Event\ObjectCreatingEvent;
 use OCA\OpenRegister\Event\ObjectDeletedEvent;
 use OCA\OpenRegister\Event\ObjectUpdatedEvent;
+use OCA\OpenRegister\Event\ObjectUpdatingEvent;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use PHPUnit\Framework\TestCase;
-use ReflectionClass;
 
 /**
  * Nextcloud delivers an event only to the listeners registered on its own
  * class, so the draft events need their own registration.
  *
- * @covers \OCA\Hermiq\AppInfo\Application
+ * @covers \OCA\Hermiq\Listener\ListenerRegistrar
  */
 class AgentObjectListenersTest extends TestCase {
 
@@ -53,8 +55,8 @@ class AgentObjectListenersTest extends TestCase {
 			}
 		);
 
-		$application = (new ReflectionClass(Application::class))->newInstanceWithoutConstructor();
-		$register = new \ReflectionMethod(Application::class, 'registerAgentObjectListeners');
+		$application = new ListenerRegistrar();
+		$register = new \ReflectionMethod(ListenerRegistrar::class, 'registerAgentObjectListeners');
 		$register->invoke($application, $context);
 
 		$this->assertSame(
@@ -65,6 +67,11 @@ class AgentObjectListenersTest extends TestCase {
 			[ObjectCreatedEvent::class, ObjectUpdatedEvent::class, ObjectDeletedEvent::class],
 			$registered[AgentBotLifecycleListener::class],
 			'A draft agent gets no Talk bot until it leaves draft.'
+		);
+		$this->assertSame(
+			[ObjectCreatingEvent::class, ObjectUpdatingEvent::class],
+			$registered[AgentActingUserGuardListener::class],
+			'The acting-user guard runs before every create and update (REQ-AGID-002).'
 		);
 	}//end testTheWaiverAuditListensToDraftAndObjectWrites()
 }//end class

@@ -73,6 +73,8 @@ namespace OCA\Hermiq\Tests\Unit\Service\Talk {
 
 		public bool $createConflicts = false;
 
+		public bool $listFails = false;
+
 		/**
 		 * A tag double.
 		 *
@@ -265,6 +267,10 @@ namespace OCA\Hermiq\Tests\Unit\Service\Talk {
 				 * @return array<int, object>
 				 */
 				public function getTags(string $uid): array {
+					if ($this->test->listFails === true) {
+						throw new RuntimeException('cannot list ' . $uid);
+					}
+
 					return ($this->test->tags[$uid] ?? []);
 				}
 
@@ -424,5 +430,24 @@ namespace OCA\Hermiq\Tests\Unit\Service\Talk {
 			self::assertSame(['file', 'line', 'uid', 'error'], array_keys($this->logged[0][1]));
 			self::assertSame([], $this->assigned);
 		}//end testAFailedCreateWithoutARaceIsLogged()
+		/**
+		 * A tag list that cannot be read is logged with the user and the
+		 * error, and treated as "no tag yet": the tag is created and the room
+		 * filed under it.
+		 *
+		 * @return void
+		 */
+		public function testAnUnreadableTagListIsLoggedAndTheTagCreated(): void {
+			$this->participants = ['alice'];
+			$this->listFails = true;
+
+			self::assertSame(1, $this->grouping()->groupRoom(roomToken: 'room-1'));
+			self::assertSame([['alice', 'Hermiq']], $this->created);
+			self::assertSame([['alice', ['new-alice']]], $this->assigned);
+			self::assertSame(["[TalkRoomGrouping] Could not list the user's conversation tags"], array_column($this->logged, 0));
+			self::assertSame(['file', 'line', 'uid', 'error'], array_keys($this->logged[0][1]));
+			self::assertSame(['alice', 'cannot list alice'], [$this->logged[0][1]['uid'], $this->logged[0][1]['error']]);
+		}//end testAnUnreadableTagListIsLoggedAndTheTagCreated()
+
 	}//end class
 }

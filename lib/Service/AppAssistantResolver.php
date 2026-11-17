@@ -29,6 +29,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service;
 
 use Generator;
+use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -46,16 +47,16 @@ class AppAssistantResolver
     /**
      * Constructor.
      *
-     * @param ObjectService      $objectService Reads the agents.
-     * @param AgentAccessService $agentAccess   Who may use an agent.
-     * @param LoggerInterface    $logger        Logs a failed lookup.
-     * @param int                $pageSize      Agents per page (paged to exhaustion, never a cap).
+     * @param ObjectService               $objectService Reads the agents.
+     * @param AgentAccessServiceInterface $agentAccess   Who may use an agent.
+     * @param LoggerInterface             $logger        Logs a failed lookup.
+     * @param int                         $pageSize      Agents per page (paged to exhaustion, never a cap).
      *
      * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
      */
     public function __construct(
         private readonly ObjectService $objectService,
-        private readonly AgentAccessService $agentAccess,
+        private readonly AgentAccessServiceInterface $agentAccess,
         private readonly LoggerInterface $logger,
         private readonly int $pageSize = 100,
     ) {

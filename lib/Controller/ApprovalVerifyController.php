@@ -30,8 +30,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\Approval\ApprovalVerdictService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ApprovalVerdictServiceInterface;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\BruteForceProtection;
@@ -53,17 +53,17 @@ class ApprovalVerifyController extends Controller
      * Constructor.
      *
      * @param IRequest               $request  The request.
-     * @param ApprovalVerdictService $verdicts Builds and signs the verdict.
+     * @param ApprovalVerdictServiceInterface $verdicts Builds and signs the verdict.
      * @param LoggerInterface        $logger   Logs a malformed request.
      *
      * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
      */
     public function __construct(
         IRequest $request,
-        private readonly ApprovalVerdictService $verdicts,
+        private readonly ApprovalVerdictServiceInterface $verdicts,
         private readonly LoggerInterface $logger,
     ) {
-        parent::__construct(appName: Application::APP_ID, request: $request);
+        parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
     }//end __construct()
 
@@ -80,7 +80,7 @@ class ApprovalVerifyController extends Controller
     public function verify(): JSONResponse
     {
         $params  = $this->request->getParams();
-        $request = array_intersect_key($params, array_flip(ApprovalVerdictService::REQUEST_FIELDS));
+        $request = array_intersect_key($params, array_flip(ApprovalVerdictServiceInterface::REQUEST_FIELDS));
 
         try {
             $answer = $this->verdicts->verify(request: $request);

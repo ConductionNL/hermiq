@@ -33,7 +33,10 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
+use OCA\Hermiq\Repair\Seed\IncidentSeed;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -122,7 +125,7 @@ class SeedIncidents implements IRepairStep {
 				$seeded = 0;
 
 				foreach ($this->seedRows() as $row) {
-					$seeded += $this->seedIfMissing(objectService: $objectService, output: $output, row: $row);
+					$seeded += $this->seedIfMissing(objectService: $objectService, seed: new IncidentSeed(output: $output, row: $row));
 				}
 
 				$output->info('Incident seed complete (' . $seeded . ' new).');
@@ -168,13 +171,14 @@ class SeedIncidents implements IRepairStep {
 	 * description) and its named agent already exists.
 	 *
 	 * @param ObjectService $objectService The OpenRegister object service.
-	 * @param IOutput $output Repair output channel.
-	 * @param array<string,string> $row The seed row (see seedRows() for its shape).
+	 * @param IncidentSeed $seed One incident row to seed, and where progress is reported.
 	 *
 	 * @return int 1 when a new incident was created, 0 when skipped (already exists,
 	 *             prerequisite missing, or failed).
 	 */
-	private function seedIfMissing(ObjectService $objectService, IOutput $output, array $row): int {
+	private function seedIfMissing(ObjectService $objectService, IncidentSeed $seed): int {
+		$output = $seed->output;
+		$row = $seed->row;
 		try {
 			if ($this->alreadySeeded(objectService: $objectService, description: $row['description']) === true) {
 				return 0;
@@ -196,8 +200,7 @@ class SeedIncidents implements IRepairStep {
 					'createdAt' => gmdate('c'),
 					'createdBy' => $row['createdBy'],
 				],
-				register: self::REGISTER_SLUG,
-				schema: self::INCIDENT_SCHEMA,
+				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::INCIDENT_SCHEMA)),
 				_rbac: false,
 				_multitenancy: false
 			);

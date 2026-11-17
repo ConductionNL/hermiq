@@ -23,7 +23,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Agent;
 
 use OCA\Hermiq\Service\Agent\AgentDraftService;
 use OCA\Hermiq\Service\Agent\AgentDraftUnreadableException;
-use OCA\Hermiq\Service\OrganisationModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCP\IGroupManager;
@@ -55,7 +55,7 @@ class AgentDraftServiceTest extends TestCase {
 			]
 		);
 
-		$policies = $this->createMock(OrganisationModelPolicyService::class);
+		$policies = $this->createMock(EffectiveModelPolicy::class);
 		$policies->method('isAllowed')->willReturnCallback(
 			static fn (string $organisation, string $provider, string $model): bool => $organisation === 'org-1' && $provider === 'ollama' && $model === 'qwen2.5'
 		);

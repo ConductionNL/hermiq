@@ -41,6 +41,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\SkillBundleInstallerInterface;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use Psr\Log\LoggerInterface;
@@ -52,7 +55,7 @@ use Throwable;
  *
  * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
  */
-class SkillBundleInstaller {
+class SkillBundleInstaller implements SkillBundleInstallerInterface {
 	/**
 	 * Register slug for Agent objects — matches AgentsController::REGISTER_SLUG.
 	 *
@@ -192,8 +195,7 @@ class SkillBundleInstaller {
 
 				$this->objectService->saveObject(
 					object: $payload,
-					register: self::AGENT_REGISTER_SLUG,
-					schema: self::AGENT_SCHEMA
+					options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::AGENT_REGISTER_SLUG, schema: self::AGENT_SCHEMA))
 				);
 
 				$outcomes[] = ['name' => $name, 'outcome' => 'installed'];

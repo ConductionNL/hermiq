@@ -39,8 +39,10 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\Hermiq\Service\SeedFreshnessService;
+use OCA\Hermiq\Kernel\Contracts\SeedFreshnessServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -83,12 +85,12 @@ class SeedSkillCreator implements IRepairStep {
 	 * @param ContainerInterface $container Server container for lazy ObjectService resolution
 	 *                                      (OpenRegister may not be installed yet).
 	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param SeedFreshnessService $freshness Seed lifecycle freshness rules.
+	 * @param SeedFreshnessServiceInterface $freshness Seed lifecycle freshness rules.
 	 */
 	public function __construct(
 		private readonly ContainerInterface $container,
 		private readonly LoggerInterface $logger,
-		private readonly SeedFreshnessService $freshness,
+		private readonly SeedFreshnessServiceInterface $freshness,
 	) {
 	}//end __construct()
 
@@ -158,9 +160,10 @@ class SeedSkillCreator implements IRepairStep {
 
 				$objectService->saveObject(
 					object: $refreshed,
-					register: self::REGISTER_SLUG,
-					schema: self::SKILL_SCHEMA,
-					uuid: (string)$existing->getUuid(),
+					options: new ObjectSaveOptions(
+						target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+						uuid: (string)$existing->getUuid()
+					),
 					_rbac: false,
 					_multitenancy: false
 				);
@@ -190,8 +193,7 @@ class SeedSkillCreator implements IRepairStep {
 						'installedOn' => [],
 					]
 				),
-				register: self::REGISTER_SLUG,
-				schema: self::SKILL_SCHEMA,
+				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA)),
 				_rbac: false,
 				_multitenancy: false
 			);

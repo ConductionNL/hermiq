@@ -43,8 +43,15 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
 
+use OCA\Hermiq\Service\RetrievalScope\FileScopeResolver;
+use OCA\Hermiq\Service\RetrievalScope\ValidatedFileSet;
+use OCA\Hermiq\Service\RetrievalScope\ValidatedMode;
 use Exception;
+use OCA\Hermiq\Service\Chat\ScopedPassageSource;
+use OCA\Hermiq\Service\Chat\TurnScope;
+use OCA\Hermiq\Service\Chat\TurnScopeException;
 use OCA\Hermiq\Service\Graph\GraphContextRetriever;
+use OCA\Hermiq\Service\KnowledgeBase\KnowledgeBaseRetrieval;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -66,6 +73,10 @@ class ContextRetrievalHandler {
 	 * @param LoggerInterface $logger Logger.
 	 * @param GraphContextRetriever|null $graphRetriever The graph mode (knowledge-graph); null keeps graph mode on the keyword path.
 	 * @param AppRegisterScope|null $appScope The registers of an agent's app (agents-bound-to-their-app).
+	 * @param FileScopeResolver|null $fileScope The agent's file filters as a file set (memory-retrieval-scope).
+	 * @param ScopedPassageSource|null $scopedSource The passages of a turn scoped to a file or folder; null refuses such a turn.
+	 * @param ValidatedFileSet|null $validatedFiles The files carrying the validated tag (memory-retrieval-scope); null is no file.
+	 * @param KnowledgeBaseRetrieval|null $knowledgeBases The agent's knowledge bases (memory-knowledge-bases); null searches none.
 	 *
 	 * @return void
 	 *
@@ -76,6 +87,10 @@ class ContextRetrievalHandler {
 		private readonly LoggerInterface $logger,
 		private readonly ?GraphContextRetriever $graphRetriever = null,
 		private readonly ?AppRegisterScope $appScope = null,
+		private readonly ?FileScopeResolver $fileScope = null,
+		private readonly ?ScopedPassageSource $scopedSource = null,
+		private readonly ?ValidatedFileSet $validatedFiles = null,
+		private readonly ?KnowledgeBaseRetrieval $knowledgeBases = null,
 	) {
 	}//end __construct()
 
@@ -91,21 +106,77 @@ class ContextRetrievalHandler {
 	 * @param string $query User query text.
 	 * @param ObjectEntity|null $agent Agent object (optional).
 	 * @param array $selectedViews View filters for multitenancy (optional).
-	 * @param array $ragSettings RAG configuration overrides (optional).
+	 * @param array $ragSettings RAG configuration overrides (optional); a `scope`
+	 *                           limits the turn to one file or folder.
+	 * @param string $speaker The uid a scoped turn's files are read as.
 	 *
 	 * @return array Retrieved context: `text` (concatenated excerpt block) and
-	 *               `sources` (list of source descriptors).
+	 *               `sources` (list of source descriptors); a scoped turn adds
+	 *               `scoped` and `noMatch` (the reply when nothing matched).
 	 *
-	 * @psalm-return array{text: string, sources: list<array>}
+	 * @psalm-return array{text: string, sources: list<array>, scoped?: true, noMatch?: string}
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-a-collection-req-dchat-002
 	 */
 	public function retrieveContext(
 		string $query,
 		?ObjectEntity $agent,
 		array $selectedViews = [],
 		array $ragSettings = [],
+		string $speaker = '',
 	): array {
+		// Validated mode (memory-retrieval-scope D3/D4): the session cannot widen
+		// the scope, so its object search, views and file or folder scope are dropped.
+		$validated = ValidatedMode::isOn(agentData: ($agent?->getObject() ?? []));
+		if ($validated === true) {
+			$ragSettings = ValidatedMode::narrowed(ragSettings: $ragSettings);
+			$selectedViews = [];
+		}
+
+		$scope = (new TurnScope())->fromRagSettings(ragSettings: $ragSettings);
+		if ($scope !== null) {
+			return $this->scopedContext(
+				scope: $scope,
+				query: $query,
+				speaker: $speaker,
+				limit: (int)($ragSettings['numSourcesFiles'] ?? ($agent?->getObject()['ragNumSources'] ?? 5))
+			);
+		}
+
+		return $this->searchContext(
+			turn: [
+				'query' => $query,
+				'agent' => $agent,
+				'selectedViews' => $selectedViews,
+				'ragSettings' => $ragSettings,
+				'speaker' => $speaker,
+			],
+			validated: $validated
+		);
+	}//end retrieveContext()
+
+	/**
+	 * Search the agent's sources for an unscoped turn and format them as context.
+	 * Never throws: a retrieval failure returns an empty context.
+	 *
+	 * @param array $turn      The turn: `query` (user query text), `agent` (ObjectEntity or null),
+	 *                         `selectedViews` (view filters for multitenancy), `ragSettings`
+	 *                         (RAG configuration overrides) and `speaker` (the uid its files are read as).
+	 * @param bool  $validated Whether the agent is in validated mode.
+	 *
+	 * @return array `text`, `sources` and `retrievalScope`.
+	 *
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-owner-can-limit-file-retrieval-by-owner-file-name-and-modified-date-req-rscope-001
+	 */
+	private function searchContext(array $turn, bool $validated): array {
+		$query         = (string)$turn['query'];
+		$agent         = $turn['agent'];
+		$selectedViews = $turn['selectedViews'];
+		$ragSettings   = $turn['ragSettings'];
+		$speaker       = (string)$turn['speaker'];
+
 		$agentData = [];
 		if ($agent !== null) {
 			$agentData = $agent->getObject();
@@ -124,6 +195,7 @@ class ContextRetrievalHandler {
 
 		$run = [
 			'query' => $query,
+			'speaker' => $speaker,
 			'agentData' => $agentData,
 			'settings' => $this->retrievalSettings(agentData: $agentData, ragSettings: $ragSettings),
 			'viewFilters' => $this->resolveViewFilters(
@@ -132,14 +204,27 @@ class ContextRetrievalHandler {
 			),
 		];
 
+		$run         = $this->withFileScope(run: $run, validated: $validated);
+		$fileFilters = ($agentData['ragFileFilters'] ?? null);
+
 		try {
-			$found = $this->candidateResults(run: $run);
+			$floor = self::validatedFloor(agentData: $agentData, validated: $validated);
+			$found = $this->scopedCandidates(run: $run, validated: $validated);
+			$passing = ValidatedMode::aboveFloor(rows: $found['results'], floor: ($floor ?? 0.0));
+			$found['results'] = $passing['rows'];
 			$collected = (new RetrievalSourceCollector(settings: $run['settings']))->collect(found: $found);
 			$this->logRetrieved(run: $run, collected: $collected + ['rawResultsCount' => count($found['results'])]);
 
 			return [
 				'text' => $collected['text'],
 				'sources' => $collected['sources'],
+				'retrievalScope' => ValidatedMode::record(
+					fileFilters: $fileFilters,
+					validated: $validated,
+					floor: $floor,
+					passed: count($collected['sources']),
+					best: $passing['best']
+				),
 			];
 		} catch (Exception $e) {
 			$this->logger->error(
@@ -154,9 +239,224 @@ class ContextRetrievalHandler {
 			return [
 				'text' => '',
 				'sources' => [],
+				'retrievalScope' => ValidatedMode::record(
+					fileFilters: $fileFilters,
+					validated: $validated,
+					floor: null,
+					passed: 0,
+					best: null
+				),
 			];
 		}//end try
-	}//end retrieveContext()
+	}//end searchContext()
+
+	/**
+	 * The relevance floor of a validated turn; null when the agent is not in validated mode.
+	 *
+	 * @param array $agentData The agent's data.
+	 * @param bool  $validated Whether the agent is in validated mode.
+	 *
+	 * @return float|null
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-agent-in-validated-mode-refuses-without-asking-the-model-when-nothing-validated-matches-req-rscope-003
+	 */
+	private static function validatedFloor(array $agentData, bool $validated): ?float {
+		if ($validated === false) {
+			return null;
+		}
+
+		return ValidatedMode::floor(agentData: $agentData);
+	}//end validatedFloor()
+
+	/**
+	 * Narrow a turn's run to the agent's file set (memory-retrieval-scope D1), and in
+	 * validated mode to the validated files only, with object search and views off.
+	 * An empty set switches file search off; it never falls back to an unscoped search.
+	 *
+	 * @param array<string, mixed> $run       The turn's run.
+	 * @param bool                 $validated Whether the agent is in validated mode.
+	 *
+	 * @return array<string, mixed> The run with `fileIds` set.
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-owner-can-limit-file-retrieval-by-owner-file-name-and-modified-date-req-rscope-001
+	 */
+	private function withFileScope(array $run, bool $validated): array {
+		$run['fileIds'] = $this->fileScope?->resolve(filters: ($run['agentData']['ragFileFilters'] ?? null));
+		if ($validated === true) {
+			$run['settings']['include']['object'] = false;
+			$run['viewFilters'] = [];
+			$run['fileIds'] = ValidatedMode::fileSet(fileIds: $run['fileIds'], tagged: ($this->validatedFiles?->fileIds() ?? []));
+		}
+
+		if ($run['fileIds'] === []) {
+			$run['settings']['include']['file'] = false;
+		}
+
+		return $run;
+	}//end withFileScope()
+
+	/**
+	 * The turn's candidate rows within its file scope, the agent's knowledge bases
+	 * first; a validated turn keeps file rows only and drops the search text.
+	 *
+	 * @param array<string, mixed> $run       The turn's run, with `fileIds`.
+	 * @param bool                 $validated Whether the agent is in validated mode.
+	 *
+	 * @return array<string, mixed> The found shape with `results` narrowed.
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-agent-in-validated-mode-refuses-without-asking-the-model-when-nothing-validated-matches-req-rscope-003
+	 */
+	private function scopedCandidates(array $run, bool $validated): array {
+		$found = $this->candidateResults(run: $run);
+		$found['results'] = self::withinFileScope(results: $found['results'], fileIds: $run['fileIds']);
+		// The agent's knowledge bases are their own scope (memory-knowledge-bases); a
+		// validated turn still answers from validated files only (memory-retrieval-scope).
+		$knowledge = $this->knowledgeBaseRows(run: $run);
+		if ($validated === false) {
+			$found['results'] = array_merge($knowledge, (array)$found['results']);
+			return $found;
+		}
+
+		$knowledge = self::withinFileScope(results: $knowledge, fileIds: ($run['fileIds'] ?? []));
+		$found['results'] = self::validatedRows(
+			results: array_merge($knowledge, (array)$found['results']),
+			include: $run['settings']['include']
+		);
+		$found['text'] = '';
+
+		return $found;
+	}//end scopedCandidates()
+
+	/**
+	 * The rows a validated turn may use: file rows only, and none when file
+	 * search is off (no validated file, or none within the agent's filters).
+	 *
+	 * @param mixed                $results The candidate rows.
+	 * @param array<string, mixed> $include Which kinds the turn searches.
+	 *
+	 * @return list<mixed>
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-agent-in-validated-mode-refuses-without-asking-the-model-when-nothing-validated-matches-req-rscope-003
+	 */
+	private static function validatedRows(mixed $results, array $include): array {
+		if (($include['file'] ?? false) === false || is_array($results) === false) {
+			return [];
+		}
+
+		return array_values(
+			array_filter(
+				$results,
+				static fn (mixed $row): bool => is_array($row) === true && ($row['entity_type'] ?? null) === 'file'
+			)
+		);
+	}//end validatedRows()
+
+	/**
+	 * Drop file rows outside the agent's file set; object rows pass. Without a
+	 * file set (null) every row passes.
+	 *
+	 * @param mixed          $results The candidate rows.
+	 * @param list<int>|null $fileIds The file set, or null when unscoped.
+	 *
+	 * @return mixed The rows within the scope.
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-owner-can-limit-file-retrieval-by-owner-file-name-and-modified-date-req-rscope-001
+	 */
+	private static function withinFileScope(mixed $results, ?array $fileIds): mixed {
+		if ($fileIds === null || is_array($results) === false) {
+			return $results;
+		}
+
+		return array_values(
+			array_filter(
+				$results,
+				static fn (mixed $row): bool => is_array($row) === false
+					|| ($row['entity_type'] ?? null) !== 'file'
+					|| in_array((int)($row['entity_id'] ?? 0), $fileIds, true) === true
+			)
+		);
+	}//end withinFileScope()
+
+	/**
+	 * Refuse a scoped turn whose file or folder the speaker cannot open, before
+	 * anything of the turn is stored or any model is called. An unscoped turn passes.
+	 *
+	 * @param array<string, mixed> $ragSettings The turn's RAG settings.
+	 * @param string               $speaker     The uid the turn is read as.
+	 *
+	 * @return void
+	 *
+	 * @throws TurnScopeException 400 for a malformed scope, 404 for one the speaker cannot open.
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 */
+	public function assertScopeReadable(array $ragSettings, string $speaker): void {
+		$scope = (new TurnScope())->fromRagSettings(ragSettings: $ragSettings);
+		if ($scope === null) {
+			return;
+		}
+
+		if ($this->scopedSource === null) {
+			throw new TurnScopeException(status: 404);
+		}
+
+		$this->scopedSource->assertReadable(scope: $scope, speaker: $speaker);
+	}//end assertScopeReadable()
+
+	/**
+	 * The context of a scoped turn: only the passages of its file or folder, each
+	 * numbered so the answer can cite it, with the sources in that same order.
+	 * Nothing matching leaves the sources empty, and `noMatch` carries the reply.
+	 *
+	 * @param array{type: string, fileId: int} $scope   The turn's scope.
+	 * @param string                           $query   The question.
+	 * @param string                           $speaker The uid the files are read as.
+	 * @param int                              $limit   The most passages kept.
+	 *
+	 * @return array{text: string, sources: list<array<string, mixed>>, scoped: true, noMatch: string}
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-a-collection-req-dchat-002
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
+	 */
+	private function scopedContext(array $scope, string $query, string $speaker, int $limit): array {
+		$context = ['text' => '', 'sources' => [], 'scoped' => true, 'noMatch' => ''];
+		if ($this->scopedSource === null) {
+			return $context;
+		}
+
+		$context['noMatch'] = $this->scopedSource->noMatchReply(scope: $scope);
+		try {
+			$passages = $this->scopedSource->matching(scope: $scope, query: $query, speaker: $speaker, limit: max(1, $limit));
+		} catch (Throwable $e) {
+			$this->logger->error(
+				message: '[ContextRetrievalHandler] Failed to read the scope of the turn',
+				context: ['file' => __FILE__, 'line' => __LINE__, 'error' => $e->getMessage()]
+			);
+			return $context;
+		}
+
+		foreach ($passages as $passage) {
+			$where = $passage['name'];
+			if ($passage['page'] !== null) {
+				$where .= ', page ' . $passage['page'];
+			}
+
+			$context['text'] .= '[' . $passage['number'] . '] Source: ' . $where . "\n" . $passage['text'] . "\n\n";
+			$context['sources'][] = [
+				'id' => $passage['file_id'],
+				'type' => 'file',
+				'name' => $passage['name'],
+				'similarity' => $passage['score'],
+				'text' => $passage['text'],
+				'file_id' => $passage['file_id'],
+				'file_path' => $passage['file_path'],
+				'page' => $passage['page'],
+				'passage' => $passage['number'],
+			];
+		}
+
+		return $context;
+	}//end scopedContext()
 
 	/**
 	 * The turn's search mode and, per source type, its include flag and limit:
@@ -239,6 +539,31 @@ class ContextRetrievalHandler {
 			'text' => ($graph['relations'] ?? ''),
 		];
 	}//end candidateResults()
+
+	/**
+	 * The file rows of the agent's knowledge bases, first in the source list.
+	 *
+	 * Searched as the person in the session through the vector facade's file
+	 * scope; none without the knowledge base retrieval, the facade or its scope.
+	 *
+	 * @param array<string, mixed> $run The query, speaker, agent payload and settings.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 *
+	 * @spec openspec/changes/memory-knowledge-bases/specs/knowledge-bases/spec.md#requirement-an-agent-answers-from-its-attached-knowledge-bases-req-kb-002
+	 */
+	private function knowledgeBaseRows(array $run): array {
+		if ($this->knowledgeBases === null) {
+			return [];
+		}
+
+		return $this->knowledgeBases->rows(
+			agentData: $run['agentData'],
+			query: $run['query'],
+			speaker: (string)$run['speaker'],
+			limit: (int)$run['settings']['limit']['file']
+		);
+	}//end knowledgeBaseRows()
 
 	/**
 	 * Log what one retrieval run collected.

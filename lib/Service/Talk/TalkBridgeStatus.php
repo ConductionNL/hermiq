@@ -31,7 +31,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Talk;
 
+use OCA\Hermiq\Kernel\Contracts\TalkBridgeStatusInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -44,7 +46,7 @@ use Throwable;
  *
  * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
  */
-class TalkBridgeStatus {
+class TalkBridgeStatus implements TalkBridgeStatusInterface {
 
 	/**
 	 * OpenRegister register slug.
@@ -270,8 +272,7 @@ class TalkBridgeStatus {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 			);
 
 			if (($agent instanceof ObjectEntity) === false) {

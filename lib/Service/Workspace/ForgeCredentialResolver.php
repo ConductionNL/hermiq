@@ -34,7 +34,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Workspace;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
 use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -211,7 +211,7 @@ class ForgeCredentialResolver {
 			if (class_exists(self::BROKER_CLASS) === true) {
 				$secret = $this->container->get(self::BROKER_CLASS)->resolveInjectable(
 					credentialId: $credentialId,
-					appId: Application::APP_ID,
+					appId: AppIdentity::APP_ID,
 					actingUserId: $ownerUid
 				);
 			}
@@ -232,7 +232,7 @@ class ForgeCredentialResolver {
 	 * @return string
 	 */
 	private function forgeProvider(): string {
-		$provider = trim($this->appConfig->getValueString(Application::APP_ID, 'workspace_forge_provider', self::DEFAULT_PROVIDER));
+		$provider = trim($this->appConfig->getValueString(AppIdentity::APP_ID, 'workspace_forge_provider', self::DEFAULT_PROVIDER));
 		if ($provider === '') {
 			return self::DEFAULT_PROVIDER;
 		}

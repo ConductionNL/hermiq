@@ -47,11 +47,16 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\BudgetHardCapInterface;
+use OCA\Hermiq\Kernel\Contracts\BudgetServiceInterface;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use Psr\Log\LoggerInterface;
@@ -73,31 +78,7 @@ use Throwable;
  *
  * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-2-budgetservice-status-hard-cap-check-soft-threshold-warn-estimate
  */
-class BudgetService {
-
-	/**
-	 * OpenRegister register slug that holds Hermiq objects.
-	 *
-	 * Public because `BudgetController::destroy()` addresses the same register when
-	 * it deletes a Budget through OpenRegister directly (ADR-022: no app-local CRUD
-	 * wrapper) — the slug is declared once, here.
-	 *
-	 * @var string
-	 */
-	public const REGISTER_SLUG = 'hermiq';
-
-	/**
-	 * OpenRegister schema slug for Budget objects. Namespaced (`agentbudget`, not
-	 * `budget`) because OpenRegister resolves schema slugs GLOBALLY across all
-	 * registers — the generic `budget` slug collided with another app's Budget
-	 * schema, making every write fail validation against foreign required
-	 * properties (same fix as `agentsession`/`agentskill`).
-	 *
-	 * Public for the same reason as REGISTER_SLUG above.
-	 *
-	 * @var string
-	 */
-	public const BUDGET_SCHEMA = 'agentbudget';
+class BudgetService implements BudgetServiceInterface, BudgetHardCapInterface {
 
 	/**
 	 * OpenRegister schema slug for schedule objects.
@@ -152,13 +133,13 @@ class BudgetService {
 	/**
 	 * Constructor.
 	 *
-	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
-	 * @param AuditTrailMapper $auditTrailMapper OpenRegister audit read (run entries).
-	 * @param IAppConfig $appConfig Reads the EUR-per-1k-tokens conversion rate.
+	 * @param ObjectService      $objectService      OpenRegister object read/write (single write-path).
+	 * @param AuditTrailMapper   $auditTrailMapper   OpenRegister audit read (run entries).
+	 * @param IAppConfig         $appConfig          Reads the EUR-per-1k-tokens conversion rate.
 	 * @param OrganisationMapper $organisationMapper Resolves the organisation owner (warning recipient).
-	 * @param DeliveryService $deliveryService Delivers the soft-threshold warning (Talk/Notification).
-	 * @param AnalyticsService $analyticsService Supplies the per-agent aggregation the estimate reuses.
-	 * @param LoggerInterface $logger PSR-3 logger (fail-open diagnostics, non-fatal warnings).
+	 * @param DeliveryService    $deliveryService    Delivers the soft-threshold warning (Talk/Notification).
+	 * @param AnalyticsService   $analyticsService   Supplies the per-agent aggregation the estimate reuses.
+	 * @param LoggerInterface    $logger             PSR-3 logger (fail-open diagnostics, non-fatal warnings).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
 	 *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -294,9 +275,10 @@ class BudgetService {
 		try {
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::BUDGET_SCHEMA,
-				uuid: (string)$budget->getUuid(),
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::BUDGET_SCHEMA),
+					uuid: (string)$budget->getUuid()
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -379,7 +361,6 @@ class BudgetService {
 		];
 
 	}//end usageFields()
-
 
 	/**
 	 * Pre-run rough cost estimate for one agent — the trailing average tokens per run,
@@ -520,8 +501,7 @@ class BudgetService {
 
 		return $this->objectService->find(
 			id: $budgetId,
-			register: self::REGISTER_SLUG,
-			schema: self::BUDGET_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::BUDGET_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -567,8 +547,7 @@ class BudgetService {
 
 		$budget = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::BUDGET_SCHEMA,
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::BUDGET_SCHEMA)),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -612,9 +591,10 @@ class BudgetService {
 
 		$budget = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::BUDGET_SCHEMA,
-			uuid: $budgetId,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::BUDGET_SCHEMA),
+				uuid: $budgetId
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -853,9 +833,10 @@ class BudgetService {
 			$data['lastHardBlockAt'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::BUDGET_SCHEMA,
-				uuid: (string)$budget->getUuid(),
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::BUDGET_SCHEMA),
+					uuid: (string)$budget->getUuid()
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -1073,7 +1054,7 @@ class BudgetService {
 	 * @return float|null
 	 */
 	private function eurRate(): ?float {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, self::EUR_RATE_KEY, '');
+		$raw = $this->appConfig->getValueString(AppIdentity::APP_ID, self::EUR_RATE_KEY, '');
 		if ($raw === '' || is_numeric($raw) === false) {
 			return null;
 		}

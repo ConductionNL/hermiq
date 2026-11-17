@@ -39,7 +39,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCP\IAppConfig;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -127,7 +127,7 @@ class RemoveLegacyLlmKeys implements IRepairStep {
 	 * @return array|null
 	 */
 	private function storedConfig(IOutput $output): ?array {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, self::LLM_CONFIG_KEY, '');
+		$raw = $this->appConfig->getValueString(AppIdentity::APP_ID, self::LLM_CONFIG_KEY, '');
 		if ($raw === '') {
 			$output->info('No Hermiq LLM config stored; nothing to remove.');
 			return null;
@@ -206,7 +206,7 @@ class RemoveLegacyLlmKeys implements IRepairStep {
 	private function rewrite(array $config, IOutput $output): bool {
 		try {
 			$this->appConfig->setValueString(
-				Application::APP_ID,
+				AppIdentity::APP_ID,
 				self::LLM_CONFIG_KEY,
 				(string)json_encode($config)
 			);

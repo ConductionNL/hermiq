@@ -25,8 +25,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\Agent\AppAssistantService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AppAssistantServiceInterface;
 use OCA\Hermiq\Service\Agent\AppAssistantChoice;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -48,17 +48,17 @@ class AgentAppAssistantController extends Controller
      * Constructor.
      *
      * @param IRequest            $request     The request.
-     * @param AppAssistantService $assistants  Marks the assistant, guards who and how many.
+     * @param AppAssistantServiceInterface $assistants  Marks the assistant, guards who and how many.
      * @param IUserSession        $userSession The caller.
      *
      * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
      */
     public function __construct(
         IRequest $request,
-        private readonly AppAssistantService $assistants,
+        private readonly AppAssistantServiceInterface $assistants,
         private readonly IUserSession $userSession,
     ) {
-        parent::__construct(appName: Application::APP_ID, request: $request);
+        parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
     }//end __construct()
 

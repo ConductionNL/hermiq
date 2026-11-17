@@ -31,7 +31,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\BackgroundJob;
 
-use OCA\Hermiq\Service\Talk\TalkTurnService;
+use OCA\Hermiq\Kernel\Contracts\TalkTurnServiceInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\QueuedJob;
 
@@ -54,11 +54,11 @@ class TalkTurnJob extends QueuedJob {
 	 * Constructor.
 	 *
 	 * @param ITimeFactory $time Core time factory required by QueuedJob.
-	 * @param TalkTurnService $talkTurnService The service holding all turn logic.
+	 * @param TalkTurnServiceInterface $talkTurnService The service holding all turn logic.
 	 */
 	public function __construct(
 		ITimeFactory $time,
-		private readonly TalkTurnService $talkTurnService,
+		private readonly TalkTurnServiceInterface $talkTurnService,
 	) {
 		parent::__construct(time: $time);
 	}//end __construct()

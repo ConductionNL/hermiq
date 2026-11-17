@@ -219,6 +219,7 @@ class NotesWriteService {
 	 * @param string $verb Either 'created' or 'updated'.
 	 *
 	 * @return array<string, mixed> The result, or an error envelope when marking failed.
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored-req-ailbl-001
 	 */
 	private function markedResult(object $note, string $verb): array {
 		$fileId = 0;

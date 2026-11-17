@@ -28,8 +28,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use Exception;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\Assistant\AssistantService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AssistantServiceInterface;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
@@ -48,7 +48,7 @@ class AssistantController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param AssistantService $assistantService Turn orchestration (case-assistant-surface).
+	 * @param AssistantServiceInterface $assistantService Turn orchestration (case-assistant-surface).
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IL10N $l10n Localization service for translations.
 	 * @param LoggerInterface $logger PSR-3 logger.
@@ -57,12 +57,12 @@ class AssistantController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly AssistantService $assistantService,
+		private readonly AssistantServiceInterface $assistantService,
 		private readonly IUserSession $userSession,
 		private readonly IL10N $l10n,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**

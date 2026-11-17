@@ -28,8 +28,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Kernel\Contracts\AttachmentStoreInterface;
 use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
-use OCA\Hermiq\Service\Chat\AttachmentStore;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\UserRateLimit;
@@ -53,7 +53,7 @@ class ChatAttachmentController extends Controller {
 	 * @param string          $appName     The app name.
 	 * @param IRequest        $request     The request.
 	 * @param IUserSession    $userSession The caller.
-	 * @param AttachmentStore $store       Keeps the file in the caller's Files.
+	 * @param AttachmentStoreInterface $store       Keeps the file in the caller's Files.
 	 * @param IL10N           $l10n        Errors in the caller's language.
 	 * @param LoggerInterface $logger      A write failure, never the file.
 	 */
@@ -61,7 +61,7 @@ class ChatAttachmentController extends Controller {
 		string $appName,
 		IRequest $request,
 		private readonly IUserSession $userSession,
-		private readonly AttachmentStore $store,
+		private readonly AttachmentStoreInterface $store,
 		private readonly IL10N $l10n,
 		private readonly LoggerInterface $logger,
 	) {

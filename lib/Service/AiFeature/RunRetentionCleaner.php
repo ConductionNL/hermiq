@@ -36,6 +36,7 @@ namespace OCA\Hermiq\Service\AiFeature;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\RunRetentionCleanerInterface;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use Psr\Log\LoggerInterface;
@@ -46,7 +47,7 @@ use Throwable;
  *
  * @spec openspec/specs/run-audit-log/spec.md#requirement-a-scheduled-job-must-enforce-retention-and-must-report-that-it-did
  */
-class RunRetentionCleaner {
+class RunRetentionCleaner implements RunRetentionCleanerInterface {
 
 	/**
 	 * The audit actions hermiq writes a run under.

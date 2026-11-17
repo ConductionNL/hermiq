@@ -21,6 +21,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Mcp;
 
+use OCA\Hermiq\Kernel\Contracts\GraphToolsInterface;
 use OCA\Hermiq\Mcp\GraphToolDescriptors;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Mcp\WorkspaceToolDescriptors;
@@ -117,7 +118,7 @@ final class HermiqToolProviderWorkspaceRoutingTest extends TestCase {
 		);
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->willReturnCallback(
-			static fn (string $id): object => ($id === GraphTools::class ? $graph : new \stdClass())
+			static fn (string $id): object => ($id === GraphToolsInterface::class ? $graph : new \stdClass())
 		);
 
 		$provider = $this->provider(container: $container);

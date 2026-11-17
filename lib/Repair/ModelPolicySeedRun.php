@@ -25,7 +25,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\Hermiq\Service\OrganisationModelPolicyService;
+use OCA\Hermiq\Kernel\Contracts\OrganisationModelPolicyServiceInterface;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\Migration\IOutput;
 
@@ -39,9 +39,9 @@ final class ModelPolicySeedRun {
 	/**
 	 * The policy write-path.
 	 *
-	 * @var OrganisationModelPolicyService
+	 * @var OrganisationModelPolicyServiceInterface
 	 */
-	public OrganisationModelPolicyService $policyService;
+	public OrganisationModelPolicyServiceInterface $policyService;
 
 	/**
 	 * The organisation lookup.

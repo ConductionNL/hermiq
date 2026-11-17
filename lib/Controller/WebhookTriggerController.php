@@ -48,9 +48,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\BackgroundJob\WebhookAgentRunJob;
-use OCA\Hermiq\Service\WebhookSecretService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\WebhookSecretServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -90,7 +90,7 @@ class WebhookTriggerController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param WebhookSecretService $webhookSecretService The enumeration-safe secret verifier.
+	 * @param WebhookSecretServiceInterface $webhookSecretService The enumeration-safe secret verifier.
 	 * @param IJobList $jobList Enqueues the one-shot WebhookAgentRunJob.
 	 * @param LoggerInterface $logger PSR-3 logger (enqueue failures only — never
 	 *                                auth-failure diagnostics, which must stay silent
@@ -98,11 +98,11 @@ class WebhookTriggerController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly WebhookSecretService $webhookSecretService,
+		private readonly WebhookSecretServiceInterface $webhookSecretService,
 		private readonly IJobList $jobList,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**

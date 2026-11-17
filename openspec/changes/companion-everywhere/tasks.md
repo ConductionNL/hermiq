@@ -11,8 +11,8 @@ Acceptance criteria:
 
 ## 2. Context
 
-- [ ] Confirm the open document's id reaches the companion from both URL shapes
-- [ ] Confirm a page with no file mounts silently
+- [x] Confirm the open document's id reaches the companion from both URL shapes
+- [x] Confirm a page with no file mounts silently
 
 Acceptance criteria:
 - `/apps/eurooffice/24753` and `?fileId=24753` both yield `24753`.
@@ -28,7 +28,7 @@ Acceptance criteria:
 
 ## 4. Guard the suite-independence property
 
-- [ ] Confirm the mounting logic branches on no office suite
+- [x] Confirm the mounting logic branches on no office suite
 - [ ] Confirm `SuiteIndependenceTest` still passes
 
 Acceptance criteria:

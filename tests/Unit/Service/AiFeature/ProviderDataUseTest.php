@@ -30,7 +30,7 @@ use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
 use OCA\Hermiq\Service\AiFeature\ProviderDataUseRegistry;
 use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
-use OCA\Hermiq\Service\OrganisationModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
@@ -99,9 +99,9 @@ final class ProviderDataUseTest extends TestCase {
 	 *
 	 * @param array<int, ObjectEntity> $policies The policies.
 	 *
-	 * @return OrganisationModelPolicyService
+	 * @return EffectiveModelPolicy
 	 */
-	private function policies(array $policies): OrganisationModelPolicyService {
+	private function policies(array $policies): EffectiveModelPolicy {
 		$objects = new class($policies) extends ObjectService {
 			/**
 			 * @param array<int, ObjectEntity> $policies The policies.
@@ -122,7 +122,7 @@ final class ProviderDataUseTest extends TestCase {
 			}
 		};
 
-		return new OrganisationModelPolicyService(objectService: $objects, settingsHandler: $this->createMock(LlmSettingsHandler::class));
+		return new EffectiveModelPolicy(objectService: $objects, settingsHandler: $this->createMock(LlmSettingsHandler::class));
 
 	}//end policies()
 

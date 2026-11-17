@@ -44,8 +44,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Listener;
 
-use OCA\Hermiq\Service\Agent\AgentObjectMatcher;
-use OCA\Hermiq\Service\Talk\TalkBotInstaller;
+use OCA\Hermiq\Kernel\Contracts\AgentObjectMatcherInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkBotInstallerInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Event\ObjectCreatedEvent;
 use OCA\OpenRegister\Event\ObjectDeletedEvent;
@@ -70,13 +70,13 @@ class AgentBotLifecycleListener implements IEventListener {
 	/**
 	 * Constructor.
 	 *
-	 * @param TalkBotInstaller $installer Installs/renames/removes the per-agent bot.
-	 * @param AgentObjectMatcher $agents Tells a Hermiq agent from other objects.
+	 * @param TalkBotInstallerInterface $installer Installs/renames/removes the per-agent bot.
+	 * @param AgentObjectMatcherInterface $agents Tells a Hermiq agent from other objects.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
-		private readonly TalkBotInstaller $installer,
-		private readonly AgentObjectMatcher $agents,
+		private readonly TalkBotInstallerInterface $installer,
+		private readonly AgentObjectMatcherInterface $agents,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()

@@ -1,9 +1,12 @@
 ## 1. Parallel delegation
 
-- [ ] 1.1 Add `DelegationService::delegateMany(string $callerAgentId, array $parts): array` that runs
+- [x] 1.1 Add `DelegationService::delegateMany(string $callerAgentId, array $parts): array` that runs
       the existing gates per part in order, counts passing parts toward fan-out, and returns one slot
       per part in call order (REQ-DLGPAR-001, design D1, D4). Verify: unit tests for all allowed, one
       refused, and fan-out reached part way.
+      Built: every part is gated (pending parts counted toward fan-out) before any runs, with one
+      slot per part in call order (`DelegationPart`, `DelegationSlots`). Until 1.2 and 1.3 land, the
+      passing parts run inline one after another, which is REQ-DLGPAR-002's no-worker behaviour.
 - [ ] 1.2 Add `lib/BackgroundJob/DelegatedRunJob.php` (`QueuedJob`) that claims its child run with a
       compare-and-set on the run state, then calls `ScheduleService::runAgentAsOwner(forceOwner: true)`
       with the parent's acting user, organisation and anchor, and writes the delegation audit entry
@@ -12,7 +15,7 @@
       timeout of REQ-DLGPAR-002, reading `delegation.maxParallel`, `delegation.parallelGraceSeconds`
       and `delegation.parallelTimeoutSeconds` from app config with the defaults of design D2 and D3.
       Verify: unit tests with a fake clock for no worker, a worker that claims, and a timeout.
-- [ ] 1.4 Register the tool `hermiq.delegateAgents` next to `hermiq.delegateAgent` in
+- [x] 1.4 Register the tool `hermiq.delegateAgents` next to `hermiq.delegateAgent` in
       `lib/Mcp/HermiqToolProvider.php` and `lib/Service/Engine/FacadeToolInvoker.php`, with a
       description that tells the model to use it for independent parts. Verify: the tool list test
       includes it with its parameter schema.

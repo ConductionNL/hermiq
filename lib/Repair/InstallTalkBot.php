@@ -31,7 +31,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\Hermiq\Service\Talk\TalkBotInstaller;
+use OCA\Hermiq\Kernel\Contracts\TalkBotInstallerInterface;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
 use Psr\Log\LoggerInterface;
@@ -48,11 +48,11 @@ class InstallTalkBot implements IRepairStep {
 	/**
 	 * Constructor.
 	 *
-	 * @param TalkBotInstaller $installer Installs the bot through spreed's lifecycle.
+	 * @param TalkBotInstallerInterface $installer Installs the bot through spreed's lifecycle.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
-		private readonly TalkBotInstaller $installer,
+		private readonly TalkBotInstallerInterface $installer,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()

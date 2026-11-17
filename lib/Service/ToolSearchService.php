@@ -50,13 +50,15 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\ToolSearchServiceInterface;
+
 /**
  * Holds one run's resolved tool descriptor set and ranks `searchTools` queries
  * against it.
  *
  * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-3
  */
-class ToolSearchService {
+class ToolSearchService implements ToolSearchServiceInterface {
 
 	/**
 	 * Matches returned per `search()` call are capped so a broad query cannot

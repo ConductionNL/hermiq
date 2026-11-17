@@ -33,9 +33,13 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\OrganisationOpsServiceInterface;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use OCP\IUserManager;
@@ -53,7 +57,7 @@ use RuntimeException;
  *
  * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#1-tenantopsservice
  */
-class OrganisationOpsService {
+class OrganisationOpsService implements OrganisationOpsServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -155,8 +159,8 @@ class OrganisationOpsService {
 			}
 		}
 
-		$scheduleLimit = $this->appConfig->getValueInt(Application::APP_ID, 'scheduleQuota', self::DEFAULT_SCHEDULE_QUOTA);
-		$agentLimit = $this->appConfig->getValueInt(Application::APP_ID, 'agentQuota', self::DEFAULT_AGENT_QUOTA);
+		$scheduleLimit = $this->appConfig->getValueInt(AppIdentity::APP_ID, 'scheduleQuota', self::DEFAULT_SCHEDULE_QUOTA);
+		$agentLimit = $this->appConfig->getValueInt(AppIdentity::APP_ID, 'agentQuota', self::DEFAULT_AGENT_QUOTA);
 		$agentCount = count($agentIds);
 
 		return [
@@ -257,7 +261,7 @@ class OrganisationOpsService {
 	 * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-reviewed-attestation-is-recorded-and-auditable
 	 */
 	public function attestAgentReviewed(string $uuid, string $reviewerUid): array {
-		$agent = $this->objectService->find(id: $uuid, register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA);
+		$agent = $this->objectService->find(id: $uuid, options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA));
 		if ($agent === null) {
 			throw new RuntimeException('Agent not found');
 		}
@@ -268,9 +272,10 @@ class OrganisationOpsService {
 
 		$saved = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
-			uuid: $uuid
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+				uuid: $uuid
+			)
 		);
 
 		return $this->shapeAgentForReview(agent: $saved, scheduleUuids: []);
@@ -293,7 +298,7 @@ class OrganisationOpsService {
 	 * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-org-admin-reassignment-flow-for-flagged-agents
 	 */
 	public function reassignAgent(string $uuid, string $newActingUser): array {
-		$agent = $this->objectService->find(id: $uuid, register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA);
+		$agent = $this->objectService->find(id: $uuid, options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA));
 		if ($agent === null) {
 			throw new RuntimeException('Agent not found');
 		}
@@ -309,9 +314,10 @@ class OrganisationOpsService {
 
 		$saved = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
-			uuid: $uuid
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+				uuid: $uuid
+			)
 		);
 
 		return $this->shapeAgentForReview(agent: $saved, scheduleUuids: []);
@@ -373,8 +379,7 @@ class OrganisationOpsService {
 
 		$saved = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::INCIDENT_SCHEMA
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::INCIDENT_SCHEMA))
 		);
 
 		return $this->shapeIncident(incident: $saved);
@@ -438,9 +443,10 @@ class OrganisationOpsService {
 
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::TENANT_CONTROL_SCHEMA,
-			uuid: $uuid
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::TENANT_CONTROL_SCHEMA),
+				uuid: $uuid
+			)
 		);
 
 		return $months;

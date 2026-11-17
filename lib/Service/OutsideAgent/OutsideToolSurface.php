@@ -32,8 +32,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\OutsideAgent;
 
-use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
+use OCA\Hermiq\Kernel\Contracts\OutsideToolSurfaceInterface;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -42,7 +43,7 @@ use Throwable;
  *
  * @spec openspec/specs/agent-tool-governance/spec.md#scenario-the-owning-app-declares-hermiq-publishes
  */
-class OutsideToolSurface {
+class OutsideToolSurface implements OutsideToolSurfaceInterface {
 
 	/**
 	 * The annotation an owning app sets on its own tool descriptor to declare that

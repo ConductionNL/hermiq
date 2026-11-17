@@ -5,8 +5,8 @@
  *
  * One AttachmentMessage, four providers, four wire shapes. OpenAI goes through
  * LLPhant's real OpenAIChat over openai-php's ClientFake; Ollama through LLPhant's
- * real OllamaChat over a Guzzle mock handler; Anthropic and Fireworks through
- * ProviderFactory's own history mappers, which build the messages their direct
+ * real OllamaChat over a Guzzle mock handler; Anthropic through AnthropicMessageFormat
+ * and Fireworks through ProviderFactory's own history mapper, which build the messages their direct
  * HTTP calls send (chat-attachments-and-images task 5).
  *
  * @category Test
@@ -38,6 +38,7 @@ use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use LLPhant\OllamaConfig;
 use LLPhant\OpenAIConfig;
+use OCA\Hermiq\Service\Llm\AnthropicMessageFormat;
 use OCA\Hermiq\Service\Llm\AttachmentMessage;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
@@ -184,7 +185,7 @@ class NativeAttachmentPartsBodyTest extends TestCase {
 	 * @return void
 	 */
 	public function testAnthropicMessagesCarryImageAndDocumentBlocks(): void {
-		$mapped = $this->factory()->mapHistoryToAnthropicMessages(
+		$mapped = (new AnthropicMessageFormat())->mapHistoryToAnthropicMessages(
 			[Message::system('Je bent een inspecteur.'), Message::assistant('Vorige beurt.'), $this->turn(withPdf: true)]
 		);
 

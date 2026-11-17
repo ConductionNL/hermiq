@@ -35,7 +35,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Listener;
 
-use OCA\Hermiq\Service\ScheduleService;
+use OCA\Hermiq\Kernel\Contracts\ScheduleServiceInterface;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use OCP\User\Events\UserChangedEvent;
@@ -54,11 +54,11 @@ class UserLifecycleListener implements IEventListener {
 	/**
 	 * Constructor.
 	 *
-	 * @param ScheduleService $scheduleService The offboarding pause mechanic.
+	 * @param ScheduleServiceInterface $scheduleService The offboarding pause mechanic.
 	 * @param LoggerInterface $logger Logs the outcome / any failure.
 	 */
 	public function __construct(
-		private readonly ScheduleService $scheduleService,
+		private readonly ScheduleServiceInterface $scheduleService,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()

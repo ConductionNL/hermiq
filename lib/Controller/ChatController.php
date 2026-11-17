@@ -38,25 +38,30 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\Service\AppAssistantResolver;
 use Exception;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\EngineInterface;
+use OCA\Hermiq\Kernel\Contracts\LiteracyRequirementInterface;
+use OCA\Hermiq\Kernel\Contracts\ProviderFactoryInterface;
+use OCA\Hermiq\Kernel\Contracts\RunStepBusInterface;
+use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
+use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
 use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
+use OCA\Hermiq\Service\AppAssistantResolver;
 use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
 use OCA\Hermiq\Service\Chat\SessionSubject;
+use OCA\Hermiq\Service\Chat\TurnScope;
+use OCA\Hermiq\Service\Chat\TurnScopeException;
 use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
-use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
-use OCA\Hermiq\Service\Literacy\LiteracyRequiredException;
-use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
-use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
-use OCA\Hermiq\Service\Llm\ProviderFactory;
-use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\GuardrailBlockedException;
+use OCA\Hermiq\Service\Literacy\LiteracyRequiredException;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
@@ -134,38 +139,38 @@ class ChatController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param Engine $engine In-app agent engine facade (ported ChatService).
+	 * @param EngineInterface $engine In-app agent engine facade (ported ChatService).
 	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IL10N $l10n Localization service for translations.
-	 * @param RunStepBus $runStepBus Publishes run steps to whichever surface is watching.
-	 * @param ProviderFactory $providerFactory Pre-warms an agent's pooled CLI process.
-	 * @param ToolAccessRequestService $accessRequests Raises and resolves an agent's
+	 * @param RunStepBusInterface $runStepBus Publishes run steps to whichever surface is watching.
+	 * @param ProviderFactoryInterface $providerFactory Pre-warms an agent's pooled CLI process.
+	 * @param ToolAccessRequestServiceInterface $accessRequests Raises and resolves an agent's
 	 *                                                 requests for tools it lacks.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param ConversationParticipation $participation Owner-or-listed-participant guard
 	 *                                                 (talk-shared-sessions). Defaulted so every
 	 *                                                 existing caller constructs unchanged.
-	 * @param LiteracyRequirement|null $literacy The course requirement (compliance-ai-literacy).
+	 * @param LiteracyRequirementInterface|null $literacy The course requirement (compliance-ai-literacy).
 	 * @param AppAssistantResolver|null $assistants The agent for an app when a chat names none (agents-bound-to-their-app).
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly Engine $engine,
+		private readonly EngineInterface $engine,
 		private readonly ObjectService $objectService,
 		private readonly IUserSession $userSession,
 		private readonly IL10N $l10n,
-		private readonly RunStepBus $runStepBus,
-		private readonly ProviderFactory $providerFactory,
-		private readonly ToolAccessRequestService $accessRequests,
+		private readonly RunStepBusInterface $runStepBus,
+		private readonly ProviderFactoryInterface $providerFactory,
+		private readonly ToolAccessRequestServiceInterface $accessRequests,
 		private readonly LoggerInterface $logger,
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
-		private readonly ?LiteracyRequirement $literacy = null,
+		private readonly ?LiteracyRequirementInterface $literacy = null,
 		private readonly ?AppAssistantResolver $assistants = null,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -209,8 +214,7 @@ class ChatController extends Controller {
 
 			$agent = $this->objectService->find(
 				id: $agentUuid,
-				register: self::REGISTER_SLUG,
-				schema: 'agent'
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: 'agent')
 			);
 			if ($agent === null) {
 				return new JSONResponse(data: ['warmed' => false], statusCode: 200);
@@ -780,7 +784,7 @@ class ChatController extends Controller {
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength)
 	 *
-	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port/spec.md#requirement-a-person-rates-an-answer-up-or-down-with-an-optional-comment-req-chfb-001
 	 */
 	public function sendFeedback(string $conversationUuid, string $messageId): JSONResponse {
 		try {
@@ -819,8 +823,7 @@ class ChatController extends Controller {
 			// above and the sessionId check below scope it to this conversation.
 			$message = $this->objectService->find(
 				id: $messageId,
-				register: self::REGISTER_SLUG,
-				schema: self::MESSAGE_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::MESSAGE_SCHEMA),
 				_rbac: false
 			);
 			if ($message === null
@@ -859,9 +862,10 @@ class ChatController extends Controller {
 			// sessionId check above are the guard, and `userId` is the caller.
 			$feedback = $this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $payload),
-				register: self::REGISTER_SLUG,
-				schema: self::FEEDBACK_SCHEMA,
-				uuid: $feedbackUuid,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::FEEDBACK_SCHEMA),
+					uuid: $feedbackUuid
+				),
 				_rbac: false
 			);
 
@@ -1006,17 +1010,29 @@ class ChatController extends Controller {
 	}//end arrayParam()
 
 	/**
-	 * The turn's RAG configuration, each setting defaulted when absent.
+	 * The turn's RAG configuration, each setting defaulted when absent, plus the
+	 * turn's `scope` (one file or folder) when it carries one.
 	 *
 	 * @return array<string, mixed> The RAG settings.
+	 *
+	 * @throws TurnScopeException With code 400 when the scope has any other shape.
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
 	 */
 	private function ragSettingsParam(): array {
-		return [
+		$settings = [
 			'includeObjects' => ($this->request->getParam('includeObjects') ?? true),
 			'includeFiles' => ($this->request->getParam('includeFiles') ?? true),
 			'numSourcesFiles' => ($this->request->getParam('numSourcesFiles') ?? 5),
 			'numSourcesObjects' => ($this->request->getParam('numSourcesObjects') ?? 5),
 		];
+
+		$scope = (new TurnScope())->parse(value: $this->request->getParam('scope'));
+		if ($scope !== null) {
+			$settings['scope'] = $scope;
+		}
+
+		return $settings;
 
 	}//end ragSettingsParam()
 
@@ -1103,8 +1119,7 @@ class ChatController extends Controller {
 	private function findConversation(string $uuid): ObjectEntity {
 		$conversation = $this->objectService->find(
 			id: $uuid,
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 		);
 		if ($conversation === null) {
 			throw new Exception('The conversation with UUID ' . $uuid . ' does not exist', 404);
@@ -1136,8 +1151,7 @@ class ChatController extends Controller {
 		// Look up agent by UUID.
 		$agent = $this->objectService->find(
 			id: $agentUuid,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 		);
 		if ($agent === null) {
 			throw new Exception('The agent with UUID ' . $agentUuid . ' does not exist', 404);
@@ -1168,8 +1182,7 @@ class ChatController extends Controller {
 					context: $turn['context']
 				)
 			),
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)),
 			_rbac: false
 		);
 
@@ -1245,9 +1258,10 @@ class ChatController extends Controller {
 
 		$this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $data),
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
-			uuid: (string)$conversation->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+				uuid: (string)$conversation->getUuid()
+			)
 		);
 	}//end archiveConversation()
 

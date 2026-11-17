@@ -35,13 +35,13 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Listener;
 
+use OCA\Hermiq\Kernel\Contracts\TalkAgentBindingInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkMentionMatcherInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkRoomBindingInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkRoomGroupingInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkTurnDispatcherInterface;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
-use OCA\Hermiq\Service\Talk\TalkAgentBinding;
 use OCA\Hermiq\Service\Talk\TalkBridge;
-use OCA\Hermiq\Service\Talk\TalkMentionMatcher;
-use OCA\Hermiq\Service\Talk\TalkRoomBinding;
-use OCA\Hermiq\Service\Talk\TalkRoomGrouping;
-use OCA\Hermiq\Service\Talk\TalkTurnDispatcher;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use Psr\Log\LoggerInterface;
@@ -73,22 +73,22 @@ class TalkBotInvokeListener implements IEventListener {
 	 * Constructor.
 	 *
 	 * @param TalkBridge $bridge Talk availability, room type and room I/O.
-	 * @param TalkRoomBinding $roomBinding Resolves/creates the bound conversation.
-	 * @param TalkAgentBinding $agentBinding Resolves the room's opted-in agent.
-	 * @param TalkTurnDispatcher $dispatcher Hands the turn off out of request.
-	 * @param TalkRoomGrouping $grouping Files a newly bound room under each participant's tag.
+	 * @param TalkRoomBindingInterface $roomBinding Resolves/creates the bound conversation.
+	 * @param TalkAgentBindingInterface $agentBinding Resolves the room's opted-in agent.
+	 * @param TalkTurnDispatcherInterface $dispatcher Hands the turn off out of request.
+	 * @param TalkRoomGroupingInterface $grouping Files a newly bound room under each participant's tag.
 	 * @param ConversationParticipation $participation Owner-or-participant guard.
-	 * @param TalkMentionMatcher $mentionMatcher Decides whether a message addresses the agent by name.
+	 * @param TalkMentionMatcherInterface $mentionMatcher Decides whether a message addresses the agent by name.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
 		private readonly TalkBridge $bridge,
-		private readonly TalkRoomBinding $roomBinding,
-		private readonly TalkAgentBinding $agentBinding,
-		private readonly TalkTurnDispatcher $dispatcher,
-		private readonly TalkRoomGrouping $grouping,
+		private readonly TalkRoomBindingInterface $roomBinding,
+		private readonly TalkAgentBindingInterface $agentBinding,
+		private readonly TalkTurnDispatcherInterface $dispatcher,
+		private readonly TalkRoomGroupingInterface $grouping,
 		private readonly ConversationParticipation $participation,
-		private readonly TalkMentionMatcher $mentionMatcher,
+		private readonly TalkMentionMatcherInterface $mentionMatcher,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()

@@ -350,4 +350,60 @@ class CredentialScopeResolverTest extends TestCase {
 		);
 
 	}//end testAnUnpinnedProviderResolvesAsBefore()
+
+	/**
+	 * The scope and owner of a stored credential are read by its uuid; an
+	 * unknown uuid answers null for both, and any scope other than
+	 * organisation reads as personal.
+	 *
+	 * @return void
+	 */
+	public function testScopeAndOwnerOfACredentialAreReadByUuid(): void {
+		$unscoped = new ObjectEntity();
+		$unscoped->setUuid('cred-legacy');
+		$unscoped->setObject(['provider' => 'openai', 'scope' => 'team', 'allowedApps' => ['hermiq']]);
+		$resolver = $this->resolver(
+			[
+				$this->credential('cred-personal', 'openai', 'alice', 'personal', '', ['hermiq']),
+				$this->credential('cred-org', 'openai', 'admin-uid', 'organisation', 'org-a', ['hermiq']),
+				$unscoped,
+			]
+		);
+
+		$this->assertSame('personal', $resolver->scopeOfCredential(credentialId: 'cred-personal'));
+		$this->assertSame('organisation', $resolver->scopeOfCredential(credentialId: 'cred-org'));
+		$this->assertSame('personal', $resolver->scopeOfCredential(credentialId: 'cred-legacy'));
+		$this->assertNull($resolver->scopeOfCredential(credentialId: 'cred-gone'));
+
+		$this->assertSame('alice', $resolver->ownerOfCredential(credentialId: 'cred-personal'));
+		$this->assertSame('admin-uid', $resolver->ownerOfCredential(credentialId: 'cred-org'));
+		$this->assertSame('', $resolver->ownerOfCredential(credentialId: 'cred-legacy'));
+		$this->assertNull($resolver->ownerOfCredential(credentialId: 'cred-gone'));
+
+	}//end testScopeAndOwnerOfACredentialAreReadByUuid()
+
+	/**
+	 * A credential whose allowed apps are not a list never allows hermiq, so
+	 * it is neither resolved nor admitted as a pin.
+	 *
+	 * @return void
+	 */
+	public function testMalformedAllowedAppsNeverAllowHermiq(): void {
+		$malformed = new ObjectEntity();
+		$malformed->setUuid('cred-malformed');
+		$malformed->setOwner('alice');
+		$malformed->setObject(['provider' => 'openai', 'scope' => 'personal', 'allowedApps' => 'hermiq']);
+		$resolver = $this->resolver([$malformed]);
+
+		$this->assertNull($resolver->resolve(provider: 'openai', actingUserId: 'alice', organisation: null));
+
+		try {
+			$resolver->resolve(provider: 'openai', actingUserId: 'alice', organisation: null, pinned: ['openai' => 'cred-malformed']);
+			$this->fail('A pin that does not allow hermiq must be refused.');
+		} catch (PinnedCredentialRefusedException $e) {
+			$this->assertSame('openai', $e->getProvider());
+			$this->assertSame(403, $e->getCode());
+		}
+
+	}//end testMalformedAllowedAppsNeverAllowHermiq()
 }//end class

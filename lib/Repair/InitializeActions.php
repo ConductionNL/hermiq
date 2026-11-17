@@ -23,7 +23,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\Hermiq\Service\ActionMatrix;
+use OCA\Hermiq\Kernel\Contracts\ActionMatrixInterface;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
 use Psr\Log\LoggerInterface;
@@ -39,11 +39,11 @@ class InitializeActions implements IRepairStep {
 	/**
 	 * Constructor.
 	 *
-	 * @param ActionMatrix $actionMatrix The stored action matrix.
+	 * @param ActionMatrixInterface $actionMatrix The stored action matrix.
 	 * @param LoggerInterface $logger Logger.
 	 */
 	public function __construct(
-		private ActionMatrix $actionMatrix,
+		private ActionMatrixInterface $actionMatrix,
 		private LoggerInterface $logger,
 	) {
 	}//end __construct()

@@ -56,9 +56,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Flow;
 
-use OCA\Hermiq\Service\AsyncStageDispatchService;
+use OCA\Hermiq\Kernel\Contracts\AsyncStageDispatchServiceInterface;
 use OCA\OpenRegister\Service\Flow\FlowNodeCall;
-use OCA\OpenRegister\Service\Flow\IFlowNode;
+use OCA\OpenRegister\Service\Flow\ICallFlowNode;
 use OCP\IL10N;
 use OCP\IURLGenerator;
 use OCP\WorkflowEngine\IManager;
@@ -67,17 +67,17 @@ use UnexpectedValueException;
 /**
  * Reads the outcome of a stage started asynchronously.
  */
-class HermiqWorkloadCollectNode implements IFlowNode {
+class HermiqWorkloadCollectNode implements ICallFlowNode {
 
 	/**
 	 * Constructor.
 	 *
-	 * @param AsyncStageDispatchService $stages The transport.
+	 * @param AsyncStageDispatchServiceInterface $stages The transport.
 	 * @param IL10N $l10n For palette strings.
 	 * @param IURLGenerator $urls For the palette icon.
 	 */
 	public function __construct(
-		private readonly AsyncStageDispatchService $stages,
+		private readonly AsyncStageDispatchServiceInterface $stages,
 		private readonly IL10N $l10n,
 		private readonly IURLGenerator $urls,
 	) {

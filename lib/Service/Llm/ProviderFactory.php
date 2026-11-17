@@ -62,10 +62,11 @@ use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use LLPhant\OllamaConfig;
 use LLPhant\OpenAIConfig;
+use OCA\Hermiq\Kernel\Contracts\ProviderFactoryInterface;
+use OCA\Hermiq\Service\AiFeature\DataUseGate;
+use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
 use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
-use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
-use OCA\Hermiq\Service\AiFeature\DataUseGate;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCP\App\IAppManager;
 use OCP\Http\Client\IResponse;
@@ -79,7 +80,6 @@ use OpenAI;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
-use stdClass;
 use Throwable;
 
 /**
@@ -106,59 +106,7 @@ use Throwable;
  *
  * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
  */
-class ProviderFactory {
-
-	/**
-	 * App id of the AppAPI app — required for any ExApp (`cli` execution mode) detection.
-	 *
-	 * @var string
-	 */
-	private const APP_API_ID = 'app_api';
-
-	/**
-	 * App id of the `hermiq-llm-runner` ExApp (the `cli` execution-mode backend).
-	 *
-	 * @var string
-	 */
-	private const RUNNER_EXAPP_ID = 'hermiq-llm-runner';
-
-	/**
-	 * The runner ExApp's single work route (`POST /run`).
-	 *
-	 * @var string
-	 */
-	private const RUNNER_ROUTE = '/run';
-
-	/**
-	 * AppAPI's public interface — resolved LAZILY by class-name string so Hermiq still boots
-	 * and still serves `executionMode: http` on an instance without AppAPI. Mirrors
-	 * {@see BrokerHttpClient::BROKER_CLASS}.
-	 *
-	 * @var string
-	 */
-	private const APP_API_PUBLIC_FUNCTIONS = 'OCA\\AppAPI\\PublicFunctions';
-
-	/**
-	 * The runner's own CLI timeout (SECONDS), mirrored from `runner.js`'s `RUNNER_TIMEOUT_MS`
-	 * default (120000ms), after which the runner SIGKILLs the CLI and reports why.
-	 *
-	 * Known limit, recorded not solved: `RUNNER_TIMEOUT_MS` is a container env var Hermiq
-	 * cannot read, so this tracks the runner's DEFAULT rather than its live value.
-	 *
-	 * ⚠️ Raised 120 -> 300 on 2026-08-17 for AGENTIC turns. A turn that answers one
-	 * question by making several tool calls spends roughly 5-10s per round trip, and
-	 * a realistic composite ("quote this client for 5 hours of dev work" — find the
-	 * client, find or create the lead, read the template, price it, write the file)
-	 * needs six or more. Measured: such a turn was cut off at 152s having already
-	 * started its pooled process, and the user saw "could not reach the ExApp",
-	 * which names the wrong cause entirely.
-	 *
-	 * The data is not the constraint — the OpenRegister lookups behind those calls
-	 * measured 176-364ms each. It is the model's own round trips.
-	 *
-	 * @var int
-	 */
-	private const RUNNER_CLI_TIMEOUT_SECONDS = 300;
+class ProviderFactory implements ProviderFactoryInterface {
 
 	/**
 	 * Slack (SECONDS) added to the runner's own timeout to form Hermiq's.
@@ -192,68 +140,6 @@ class ProviderFactory {
 	private const POOL_PROCESS_LIFETIME_SECONDS = 600;
 
 	/**
-	 * How long to wait on a warm-up dispatch, in seconds.
-	 *
-	 * Short on purpose. The runner answers a warm-up as soon as it has SPAWNED
-	 * the process — it does not wait for the CLI to finish initialising — so
-	 * this only bounds the HTTP hop. A warm-up that cannot be dispatched
-	 * promptly is not worth making the caller wait for: the turn behind it works
-	 * either way.
-	 *
-	 * @var int
-	 */
-	private const WARM_TIMEOUT_SECONDS = 10;
-
-	/**
-	 * Why a `cli` turn is refused, by reason: each names what is missing, because an
-	 * operator cannot act on a generic "cli unavailable". All are 503s.
-	 *
-	 * @var array<string, string>
-	 */
-	private const CLI_REFUSALS = [
-		'no_app_manager' => 'Anthropic executionMode "cli" is unavailable: the Nextcloud app manager could not be '
-			. 'resolved, so the runner ExApp cannot be detected. Use executionMode "http".',
-		'no_app_api' => 'Anthropic executionMode "cli" is unavailable: the AppAPI app ("' . self::APP_API_ID . '") is '
-			. 'not enabled. Enable it, or use executionMode "http".',
-		'no_app_api_interface' => 'Anthropic executionMode "cli" is unavailable: the AppAPI public interface could not be '
-			. 'loaded. Use executionMode "http".',
-		'no_runner' => 'Anthropic executionMode "cli" is unavailable: the "' . self::RUNNER_EXAPP_ID . '" ExApp is not '
-			. 'installed. Install it, or use executionMode "http".',
-		'runner_disabled' => 'Anthropic executionMode "cli" is unavailable: the "' . self::RUNNER_EXAPP_ID . '" ExApp is '
-			. 'installed but disabled. Enable it, or use executionMode "http".',
-		'no_token_service' => 'Anthropic executionMode "cli" cannot serve a tool-requiring turn: the governed run-token '
-			. 'service is unavailable, so the turn cannot be governed. It was refused rather than run '
-			. 'without its tools.',
-		'no_agent' => 'Anthropic executionMode "cli" cannot govern a tool-requiring turn without an agent '
-			. 'identity to bind the run to. It was refused rather than run without its tools.',
-		'no_user' => 'Anthropic executionMode "cli" cannot govern a tool-requiring turn without a user context '
-			. 'to bind the run token to. It was refused rather than run without its tools.',
-		'token_not_minted' => 'Anthropic executionMode "cli" cannot serve a tool-requiring turn: the per-run token could '
-			. 'not be minted. It was refused rather than run without its tools.',
-		'no_url_generator' => 'Anthropic executionMode "cli" cannot serve a tool-requiring turn: the governed MCP '
-			. 'endpoint URL could not be resolved, so the MCP config could not be written. It was '
-			. 'refused rather than run without its tools.',
-		'empty_mcp_url' => 'Anthropic executionMode "cli" cannot serve a tool-requiring turn: the governed MCP '
-			. 'endpoint URL resolved empty. It was refused rather than run without its tools.',
-		'no_broker' => 'Anthropic executionMode "cli" is unavailable: the OpenRegister credential broker is not '
-			. 'available, so the subscription token cannot be resolved.',
-		'broker_refused' => 'Anthropic executionMode "cli" cannot use this credential: the credential broker refused to '
-			. 'resolve it. Check that the credential is owned by the acting user and allows the "hermiq" '
-			. 'app.',
-		'not_injectable' => 'Anthropic executionMode "cli" cannot use this credential: it is not an inject-only '
-			. 'credential, so its secret cannot be placed in the CLI\'s environment. Select an '
-			. '"anthropic-cli" (Claude Max subscription) credential, or use executionMode "http".',
-	];
-
-	/**
-	 * The personal credential scope — the ONLY scope an `anthropic-cli` (Claude Max/Pro
-	 * subscription) credential may carry, per the Anthropic Terms of Service.
-	 *
-	 * @var string
-	 */
-	private const CREDENTIAL_SCOPE_PERSONAL = 'personal';
-
-	/**
 	 * The gates a resolved chat driver passes, built on first use.
 	 *
 	 * @var ChatDriverGates|null
@@ -268,6 +154,13 @@ class ProviderFactory {
 	 * @var int
 	 */
 	private const MAX_TOOL_ITERATIONS = 10;
+
+	/**
+	 * The runner ExApp link of `cli` turns, built on first use.
+	 *
+	 * @var AnthropicCliRunner|null
+	 */
+	private ?AnthropicCliRunner $cliRunner = null;
 
 	/**
 	 * Tokens the most recent callFireworksChat()/callAnthropicChat() reported, as
@@ -287,6 +180,20 @@ class ProviderFactory {
 	 * @var boolean
 	 */
 	private bool $lastCallHitToolCap = false;
+
+	/**
+	 * The run tokens of `cli` turns, built on first use.
+	 *
+	 * @var CliRunTokens|null
+	 */
+	private ?CliRunTokens $cliRunTokens = null;
+
+	/**
+	 * The Anthropic Messages API wire shapes, built on first use.
+	 *
+	 * @var AnthropicMessageFormat|null
+	 */
+	private ?AnthropicMessageFormat $anthropicFormat = null;
 
 	/**
 	 * Constructor.
@@ -421,33 +328,37 @@ class ProviderFactory {
 	}//end __construct()
 
 	/**
-	 * The container AppAPI and the OpenRegister credential broker are resolved from.
+	/**
+	 * The run tokens of `cli` turns and warm-ups.
 	 *
-	 * Both are other apps' classes, named by class-string and probed with class_exists,
-	 * so neither can be a constructor type: hermiq has to stay constructible, and stay
-	 * able to serve `http`, on an instance that has neither. They used to come from
-	 * `\OCP\Server::get()`, which outside a booted Nextcloud autowires from scratch and
-	 * can recurse through a constructor cycle until memory runs out. The container is
-	 * nullable and trailing because eight unit tests build this factory positionally
-	 * with its first four collaborators and never reach a cross-app call.
-	 *
-	 * @return ContainerInterface The injected container.
-	 *
-	 * @throws ProviderUnavailableException When the factory was built without one, which
-	 *                                      is the same dead end as the sibling app being
-	 *                                      absent.
+	 * @return CliRunTokens
 	 */
-	private function serviceContainer(): ContainerInterface {
-		if ($this->container === null) {
-			throw new ProviderUnavailableException(
-				'This provider is unavailable: the factory was constructed without a container, so '
-				. 'AppAPI and the OpenRegister credential broker cannot be resolved.',
-				503
+	private function cliRunTokens(): CliRunTokens {
+		if ($this->cliRunTokens === null) {
+			$this->cliRunTokens = new CliRunTokens(
+				runTokenService: $this->runTokenService,
+				urlGenerator: $this->urlGenerator,
+				appConfig: $this->appConfig,
+				logger: $this->logger,
+				pooledTokenTtl: (self::POOL_PROCESS_LIFETIME_SECONDS + self::CLI_DISPATCH_TIMEOUT_SLACK_SECONDS)
 			);
 		}
 
-		return $this->container;
-	}//end serviceContainer()
+		return $this->cliRunTokens;
+	}//end cliRunTokens()
+
+	/**
+	 * The Anthropic Messages API wire shapes.
+	 *
+	 * @return AnthropicMessageFormat
+	 */
+	private function anthropicFormat(): AnthropicMessageFormat {
+		if ($this->anthropicFormat === null) {
+			$this->anthropicFormat = new AnthropicMessageFormat();
+		}
+
+		return $this->anthropicFormat;
+	}//end anthropicFormat()
 
 	/**
 	 * The tokens the most recent hosted chat call reported.
@@ -487,11 +398,34 @@ class ProviderFactory {
 		$prompt = ((int)($total['promptTokens'] ?? 0) + (int)$promptTokens);
 		$completion = ((int)($total['completionTokens'] ?? 0) + (int)$completionTokens);
 		if (($prompt + $completion) === 0) {
-			return [];
+			return $total;
 		}
 
-		return ['promptTokens' => $prompt, 'completionTokens' => $completion];
+		// Other counts already on the total (the prompt-cache counts) are kept.
+		return array_merge($total, ['promptTokens' => $prompt, 'completionTokens' => $completion]);
 	}//end addUsage()
+
+	/**
+	 * Add one request's prompt-cache counts to a running total. A count the
+	 * provider did not report is not added, so a total only carries
+	 * `cacheReadTokens` / `cacheWriteTokens` once some request reported them.
+	 *
+	 * @param array<string, int>   $total The running total.
+	 * @param array<string, mixed> $usage This request's parsed usage.
+	 *
+	 * @return array<string, int>
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/provider-prompt-caching/spec.md#requirement-the-run-reports-cache-tokens-req-pcache-003
+	 */
+	private function addCacheUsage(array $total, array $usage): array {
+		foreach (['cacheReadTokens', 'cacheWriteTokens'] as $key) {
+			if (array_key_exists($key, $usage) === true) {
+				$total[$key] = ((int)($total[$key] ?? 0) + (int)$usage[$key]);
+			}
+		}
+
+		return $total;
+	}//end addCacheUsage()
 
 	/**
 	 * Read the current `hermiq.llm` configuration.
@@ -776,6 +710,7 @@ class ProviderFactory {
 	 * @throws \Exception If the HTTP call fails or the response is malformed.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
+	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-2
 	 */
 	public function callFireworksChat(
 		string $credentialId,
@@ -800,8 +735,13 @@ class ProviderFactory {
 		$httpCode = $psrResponse->getStatusCode();
 		$response = (string)$psrResponse->getBody();
 		if ($httpCode !== 200) {
-			throw ($this->fireworksStatusError(httpCode: $httpCode, model: $model)
+			$error = ($this->fireworksStatusError(httpCode: $httpCode, model: $model)
 				?? new Exception("Fireworks API error (HTTP {$httpCode}): " . $this->fireworksErrorMessage(response: $response)));
+			throw ProviderCallFailedException::fromHttpStatus(
+				status: $httpCode,
+				message: $error->getMessage(),
+				retryAfter: $psrResponse->getHeaderLine('retry-after')
+			);
 		}
 
 		return $this->fireworksAnswer(response: $response);
@@ -853,7 +793,7 @@ class ProviderFactory {
 		try {
 			return $client->sendRequest($request);
 		} catch (Throwable $e) {
-			throw new Exception('Fireworks API request failed: ' . $e->getMessage());
+			throw self::transportFailure(prefix: 'Fireworks API request failed: ', failure: $e);
 		}
 	}//end sendToFireworks()
 
@@ -1113,11 +1053,12 @@ class ProviderFactory {
 	 */
 	private function callAnthropicHttp(AnthropicChatRun $run): string {
 		$loop = new AnthropicToolLoop(run: $run, defaultCap: self::MAX_TOOL_ITERATIONS);
-		$mapped = $this->mapHistoryToAnthropicMessages(messageHistory: $run->messageHistory);
+		$mapped = $this->anthropicFormat()->mapHistoryToAnthropicMessages(messageHistory: $run->messageHistory);
 		$loop->system = $mapped['system'];
 		$loop->messages = $mapped['messages'];
 		$loop->tools = $this->offeredAnthropicTools(run: $run);
 		$loop->headers = $this->buildAnthropicHeaders(authMode: $run->authMode);
+		$loop->breakpoints = $this->anthropicCacheBreakpoints();
 
 		for ($iteration = 0; $iteration <= $loop->cap; $iteration++) {
 			if ($this->anthropicRound(loop: $loop) === false) {
@@ -1147,7 +1088,7 @@ class ProviderFactory {
 		}
 
 		if ($run->toolExecutor !== null) {
-			return $this->buildAnthropicTools(functions: $run->functions);
+			return $this->anthropicFormat()->buildAnthropicTools(functions: $run->functions);
 		}
 
 		$this->logger->warning(
@@ -1169,7 +1110,7 @@ class ProviderFactory {
 	 * @return bool True when the loop needs another request.
 	 */
 	private function anthropicRound(AnthropicToolLoop $loop): bool {
-		$parsed = $this->parseAnthropicResponse(
+		$parsed = $this->anthropicFormat()->parseAnthropicResponse(
 			data: $this->postToAnthropic(loop: $loop, payload: $this->anthropicPayload(loop: $loop))
 		);
 		$loop->text = $parsed['text'];
@@ -1180,6 +1121,7 @@ class ProviderFactory {
 			promptTokens: ($parsed['usage']['promptTokens'] ?? 0),
 			completionTokens: ($parsed['usage']['completionTokens'] ?? 0)
 		);
+		$this->lastCallUsage = $this->addCacheUsage(total: $this->lastCallUsage, usage: ($parsed['usage'] ?? []));
 
 		if ($this->anthropicTurnComplete(loop: $loop, parsed: $parsed) === true) {
 			return false;
@@ -1234,8 +1176,35 @@ class ProviderFactory {
 			$payload['tools'] = $loop->tools;
 		}
 
+		if ($loop->breakpoints !== null) {
+			$payload = $loop->breakpoints->apply(payload: $payload);
+		}
+
 		return $payload;
 	}//end anthropicPayload()
+
+	/**
+	 * The prompt-cache breakpoints the admin's Anthropic settings ask for: on
+	 * unless `promptCaching` is switched off. Settings that cannot be read leave
+	 * caching on, the default; caching changes cost and speed, not the answer.
+	 *
+	 * @return AnthropicCacheBreakpoints|null
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/provider-prompt-caching/spec.md#requirement-anthropic-requests-carry-cache-breakpoints-by-default-req-pcache-001
+	 */
+	private function anthropicCacheBreakpoints(): ?AnthropicCacheBreakpoints {
+		try {
+			$anthropicConfig = ($this->getLlmConfig()['anthropicConfig'] ?? []);
+		} catch (\Throwable $e) {
+			$anthropicConfig = [];
+		}
+
+		if (is_array($anthropicConfig) === false) {
+			$anthropicConfig = [];
+		}
+
+		return AnthropicCacheBreakpoints::fromConfig(anthropicConfig: $anthropicConfig);
+	}//end anthropicCacheBreakpoints()
 
 	/**
 	 * Echo the assistant's tool_use turn back verbatim, run each requested tool
@@ -1261,7 +1230,7 @@ class ProviderFactory {
 
 		$loop->messages[] = [
 			'role' => 'user',
-			'content' => $this->buildAnthropicToolResultBlocks(toolResults: $toolResults),
+			'content' => $this->anthropicFormat()->buildAnthropicToolResultBlocks(toolResults: $toolResults),
 		];
 	}//end runAnthropicToolCalls()
 
@@ -1282,6 +1251,39 @@ class ProviderFactory {
 		$loop->executed++;
 		return $result;
 	}//end anthropicToolResult()
+
+	/**
+	 * Assert that the `cli` transport's components are installed and enabled.
+	 *
+	 * @return void
+	 *
+	 * @throws ProviderUnavailableException When any component is unavailable (503).
+	 *
+	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
+	 */
+	public function assertCliRunnerAvailable(): void {
+		$this->cliRunner()->assertAvailable();
+	}//end assertCliRunnerAvailable()
+
+	/**
+	 * The runner ExApp checks, the subscription credential and the runner requests.
+	 *
+	 * @return AnthropicCliRunner
+	 */
+	private function cliRunner(): AnthropicCliRunner {
+		if ($this->cliRunner === null) {
+			$this->cliRunner = new AnthropicCliRunner(
+				appManager: $this->appManager,
+				credentialResolver: $this->credentialResolver,
+				container: $this->container,
+				logger: $this->logger,
+				poolLifetimeSeconds: self::POOL_PROCESS_LIFETIME_SECONDS,
+				dispatchSlackSeconds: self::CLI_DISPATCH_TIMEOUT_SLACK_SECONDS
+			);
+		}
+
+		return $this->cliRunner;
+	}//end cliRunner()
 
 	/**
 	 * Run ONE Anthropic turn through the `hermiq-llm-runner` ExApp's `claude` CLI.
@@ -1369,100 +1371,25 @@ class ProviderFactory {
 		$turn->poolKey = $this->poolKeyFor(conversationId: $turn->conversationId, agentId: $turn->agentId, model: $turn->model);
 
 		// 1. Availability — each component named separately, before any secret is touched.
-		$this->assertCliRunnerAvailable();
+		$this->cliRunner()->assertAvailable();
 
 		$turn->uid = $this->currentUid();
 
 		try {
 			// 2. The turn's run token (and, for a governed turn, its MCP config).
-			$this->mintTurnTokens(turn: $turn);
+			$this->cliRunTokens()->mintTurnTokens(turn: $turn);
 
 			// 3. Credential (subscription token). Local variable only: never stored on the
 			// ChatDriver (handlers hold that object), never logged, never in an exception
 			// message, never in a trace.
-			$token = $this->resolveCliToken(credentialId: $turn->credentialId, uid: $turn->uid);
+			$token = $this->cliRunner()->resolveToken(credentialId: $turn->credentialId, uid: $turn->uid);
 
 			// 4+5. Dispatch and map.
 			return $this->dispatchCliTurn(turn: $turn, token: $token);
 		} finally {
-			$this->consumeColdRunToken(turn: $turn);
+			$this->cliRunTokens()->consumeColdRunToken(turn: $turn);
 		}
 	}//end answerCliTurn()
-
-	/**
-	 * Mint the turn's run token: governed (with its MCP config) for a tool-requiring
-	 * turn, egress-only for a text-only one. Exactly one token is minted.
-	 *
-	 * A tool-requiring turn is GOVERNED, not refused: mint a run token and
-	 * assemble the MCP server config the runner hands to the CLI. Done BEFORE the
-	 * subscription credential is resolved, so a turn that cannot be governed pulls
-	 * no secret from the vault. Fails LOUD when governance is impossible — never a
-	 * silent text-only downgrade.
-	 *
-	 * An EMPTY $functions here means the agent is legitimately tool-less: an agent
-	 * whose grants were configured but matched nothing never reaches this point,
-	 * because `ToolLoop::listAgentFunctions()` raises ToolGrantResolutionException
-	 * at the resolution site. That distinction cannot be recovered here — both
-	 * cases arrive as an empty array — which is exactly why it is enforced there.
-	 * EVERY cli turn needs a run token, not only a tool-requiring one: it is also
-	 * the identity the egress proxy presents to the PDP, and the runner container
-	 * has no default route — a turn without one cannot reach api.anthropic.com at
-	 * all. The two mints differ in STRICTNESS, deliberately:
-	 *
-	 * - a GOVERNED turn must have an agent (its grants are what the token
-	 * resolves) and fails LOUD without one;
-	 * - a text-only turn may legitimately have NO agent — conversation-title
-	 * generation calls this path with `agentId: null` — so it gets a tolerant
-	 * egress-only identity instead. Minting strictly here would 503 every
-	 * title generation the moment `executionMode: cli` is switched on.
-	 *
-	 * @param CliTurn $turn The turn; its run token and MCP config are set.
-	 *
-	 * @return void
-	 *
-	 * @throws ProviderUnavailableException When a tool-requiring turn cannot be governed (503).
-	 *
-	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
-	 */
-	private function mintTurnTokens(CliTurn $turn): void {
-		if (empty($turn->functions) === false) {
-			$turn->runToken = $this->mintGovernedRunToken(turn: $turn);
-			$turn->mcpConfig = $this->buildGovernedMcpConfig(runToken: $turn->runToken);
-		}
-
-		if (empty($turn->functions) === true) {
-			$turn->runToken = $this->mintEgressRunToken(agentId: $turn->agentId, uid: $turn->uid);
-		}
-	}//end mintTurnTokens()
-
-	/**
-	 * Consume the turn's run token once the turn is over, unless the turn is pooled.
-	 *
-	 * The run token dies with the turn (success, error, or timeout), so a token
-	 * outliving its run has no legitimate caller.
-	 *
-	 * EXCEPT on a poolable turn. The CLI reads `--mcp-config` ONCE at startup
-	 * and never re-reads it (measured 2026-08-17, `REREAD=false`), so a pooled
-	 * process cannot be handed a fresh token: consuming here would kill the
-	 * token its own next turn must present, and the failure is silent — the
-	 * model simply reports it has no tools.
-	 *
-	 * This is design D0.1 option 1, adopted deliberately: the token's lifetime
-	 * follows the pooled process instead of the turn. The window is bounded by
-	 * the pool's idle/hard cap, which is therefore a SECURITY parameter and not
-	 * merely a performance one. The token still expires on its own TTL if the
-	 * runner never reaps.
-	 *
-	 * @param CliTurn $turn The finished turn.
-	 *
-	 * @return void
-	 */
-	private function consumeColdRunToken(CliTurn $turn): void {
-		$consume = ($turn->runToken !== null && $this->runTokenService !== null);
-		if ($consume === true && $turn->poolKey === '') {
-			$this->runTokenService->consume(token: $turn->runToken);
-		}
-	}//end consumeColdRunToken()
 
 	/**
 	 * Derive the key a pooled CLI process is reused under, or '' for the cold path.
@@ -1496,447 +1423,6 @@ class ProviderFactory {
 		// Hashed so the key carries no identifier into the runner's logs.
 		return hash('sha256', $conversationId . '|' . $agentId . '|' . $model);
 	}//end poolKeyFor()
-
-	/**
-	 * Mint the per-run token that authenticates the governed MCP + egress endpoints for a
-	 * tool-requiring `cli` turn. Fails LOUD (503) when the turn cannot be governed: no agent
-	 * identity to bind it to, no user context, or the token service is unavailable.
-	 *
-	 * @param CliTurn $turn The turn: its agent, user and conversation, and its pool key (a pooled
-	 *                      process needs a token that outlives the turn, D0.1 option 1).
-	 *
-	 * @return string The minted run token (never logged, never on argv).
-	 *
-	 * @throws ProviderUnavailableException When the turn cannot be governed (503).
-	 *
-	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
-	 *
-	 */
-	private function mintGovernedRunToken(CliTurn $turn): string {
-		$service = $this->governedTokenService(turn: $turn);
-
-		try {
-			return $service->mint(
-				runId: bin2hex(random_bytes(16)),
-				agentId: (string)$turn->agentId,
-				userId: (string)$turn->uid,
-				conversationId: $turn->conversationId,
-				ttlSeconds: $this->governedTokenTtl(turn: $turn)
-			);
-		} catch (Throwable $e) {
-			$this->logger->error(
-				'[ProviderFactory] Anthropic cli run token could not be minted',
-				['reason' => $e->getMessage()]
-			);
-
-			throw new ProviderUnavailableException(self::CLI_REFUSALS['token_not_minted'], 503);
-		}//end try
-	}//end mintGovernedRunToken()
-
-	/**
-	 * The run-token service a governed turn mints with, or the refusal naming what
-	 * the turn lacks: the service, an agent identity, or a user context.
-	 *
-	 * @param CliTurn $turn The turn.
-	 *
-	 * @return RunTokenService The service.
-	 *
-	 * @throws ProviderUnavailableException When the turn cannot be governed (503).
-	 */
-	private function governedTokenService(CliTurn $turn): RunTokenService {
-		$gap = $this->governanceGap(turn: $turn);
-		if ($gap !== null || $this->runTokenService === null) {
-			throw new ProviderUnavailableException(self::CLI_REFUSALS[($gap ?? 'no_token_service')], 503);
-		}
-
-		return $this->runTokenService;
-	}//end governedTokenService()
-
-	/**
-	 * What a governed turn lacks, first missing first: the token service, the agent, the user.
-	 *
-	 * @param CliTurn $turn The turn.
-	 *
-	 * @return string|null The refusal reason, or null when the turn can be governed.
-	 */
-	private function governanceGap(CliTurn $turn): ?string {
-		if ($this->runTokenService === null) {
-			return 'no_token_service';
-		}
-
-		if ((string)$turn->agentId === '') {
-			return 'no_agent';
-		}
-
-		if ((string)$turn->uid === '') {
-			return 'no_user';
-		}
-
-		return null;
-	}//end governanceGap()
-
-	/**
-	 * The governed token's lifetime override.
-	 *
-	 * A poolable turn's token must stay valid for as long as the process that
-	 * holds it can be reused, because the CLI never re-reads the config it was
-	 * given at startup. Otherwise the default per-run TTL applies and the token
-	 * still dies with the turn.
-	 *
-	 * @param CliTurn $turn The turn.
-	 *
-	 * @return int|null The lifetime in seconds, or null for the default.
-	 */
-	private function governedTokenTtl(CliTurn $turn): ?int {
-		if ($turn->poolKey === '') {
-			return null;
-		}
-
-		return self::POOL_PROCESS_LIFETIME_SECONDS + self::CLI_DISPATCH_TIMEOUT_SLACK_SECONDS;
-	}//end governedTokenTtl()
-
-	/**
-	 * The token and MCP config a warm-up must be built with.
-	 *
-	 * ⚠️ Exactly ONE token is minted per call, and which one depends on the
-	 * posture. An earlier attempt at removing the `else` this replaced hoisted
-	 * the egress mint above the branch so both paths could share it — which
-	 * quietly minted a second, unused token on every governed warm-up. Minting
-	 * is a side effect, not a default value, and it does not belong in the slot
-	 * where a default would go.
-	 *
-	 * @param CliTurn $turn The warm-up (its posture, agent, user, conversation and pool key);
-	 *                      its run token and MCP config are set.
-	 *
-	 * @return void
-	 */
-	private function mintWarmupToken(CliTurn $turn): void {
-		if ($turn->governed === false) {
-			$turn->runToken = $this->mintEgressRunToken(agentId: $turn->agentId, uid: $turn->uid);
-			return;
-		}
-
-		$turn->runToken = $this->mintGovernedRunToken(turn: $turn);
-		$turn->mcpConfig = $this->buildGovernedMcpConfig(runToken: $turn->runToken);
-	}//end mintWarmupToken()
-
-	/**
-	 * Mint the egress-only run identity for a TEXT-ONLY cli turn.
-	 *
-	 * Deliberately tolerant where `mintGovernedRunToken()` is strict. A text-only
-	 * turn may legitimately have no agent at all — conversation-title generation
-	 * reaches this path with `agentId: null` — and it has no tools to lose, so
-	 * there is nothing to fail loud about. It still needs an identity to get out
-	 * of the container, because the proxy is the only route and it denies an
-	 * identity-less connection.
-	 *
-	 * Returns '' (rather than throwing) whenever a token cannot be minted, so the
-	 * turn is never blocked by the absence of a capability it does not need:
-	 *   - no `RunTokenService` (an older DI wiring) — nothing to mint with;
-	 *   - no acting user — nothing to bind to.
-	 * With an empty token the runner injects no proxy env. Under the governed
-	 * posture the CLI then has no way out and the turn fails as a provider error
-	 * (correct: fail-closed); under the legacy jail posture it is a no-op.
-	 *
-	 * The token binds `agentId: ''` when there is no agent. That is safe: the MCP
-	 * endpoint resolves the granted tool set FROM the bound agent, so a token with
-	 * no agent resolves to no tools — it can open connections policy allows, and
-	 * nothing else. A text-only turn is never handed the MCP endpoint's address
-	 * anyway (it carries no `mcpConfig`).
-	 *
-	 * @param string|null $agentId The acting agent's UUID, when there is one.
-	 * @param string|null $uid The acting user's UID.
-	 *
-	 * @return string The token, or '' when one could not be minted.
-	 *
-	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
-	 */
-	private function mintEgressRunToken(?string $agentId, ?string $uid): string {
-		if ($this->runTokenService === null || $uid === null || $uid === '') {
-			return '';
-		}
-
-		try {
-			return $this->runTokenService->mint(
-				runId: bin2hex(random_bytes(16)),
-				agentId: ($agentId ?? ''),
-				userId: $uid
-			);
-		} catch (Throwable $e) {
-			// Never fatal: a text-only turn has no tools to protect, and the
-			// network layer already denies anything this token would have allowed.
-			$this->logger->warning(
-				'[ProviderFactory] Anthropic cli egress run token could not be minted',
-				['reason' => $e->getMessage()]
-			);
-
-			return '';
-		}//end try
-
-	}//end mintEgressRunToken()
-
-	/**
-	 * Assemble the governed MCP server config the runner writes to a 0600 file and hands to
-	 * the CLI. The bearer token rides in the `headers`, never on argv. Fails LOUD (503) when
-	 * the endpoint URL cannot be resolved (so the config cannot be written).
-	 *
-	 * @param string $runToken The minted per-run token.
-	 *
-	 * @return array<string, mixed> The `{mcpServers: {...}}` config.
-	 *
-	 * @throws ProviderUnavailableException When the MCP endpoint URL cannot be resolved (503).
-	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) `GovernedMcpEndpoint::applyContainerOrigin()`
-	 *   is a pure function of its two arguments, and it is static precisely so this
-	 *   caller can share it. Injecting the service instead would mean a third nullable
-	 *   collaborator on a constructor that already carries several for its test call
-	 *   sites, to reach a method that reads no state. The alternative to the static call
-	 *   is a second copy of the rewrite rule, and a second copy is what puts the egress
-	 *   PDP and this config into disagreement about where the endpoint is.
-	 *
-	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
-	 */
-	private function buildGovernedMcpConfig(string $runToken): array {
-		return [
-			'mcpServers' => [
-				'hermiq' => [
-					'type' => 'http',
-					'url' => $this->governedMcpUrl(),
-					'headers' => [
-						'Authorization' => 'Bearer ' . $runToken,
-						'OCS-APIRequest' => 'true',
-					],
-				],
-			],
-		];
-
-	}//end buildGovernedMcpConfig()
-
-	/**
-	 * The governed MCP endpoint's URL as the runner container must dial it.
-	 *
-	 * @return string The URL.
-	 *
-	 * @throws ProviderUnavailableException When the URL cannot be resolved or resolves empty (503).
-	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) GovernedMcpEndpoint::applyContainerOrigin() is the one
-	 *   shared, pure rewrite rule the egress PDP also applies.
-	 */
-	private function governedMcpUrl(): string {
-		if ($this->urlGenerator === null) {
-			throw new ProviderUnavailableException(self::CLI_REFUSALS['no_url_generator'], 503);
-		}
-
-		$mcpUrl = $this->urlGenerator->linkToRouteAbsolute('hermiq.mcpRun.handle');
-
-		// The linkToRouteAbsolute() call returns the URL Nextcloud publishes to BROWSERS
-		// (overwrite.cli.url / the trusted domain). The CLI dials this endpoint from
-		// INSIDE the runner container, where that host frequently does not resolve to
-		// Nextcloud — a stock dev instance publishes `http://localhost`, which inside
-		// the container is the container itself, so every tool call would fail with a
-		// connection error that looks like a broken endpoint. AppAPI already records
-		// the container-facing origin (its daemon's `nextcloud_url`, e.g.
-		// `http://nextcloud`); `mcp_run_base_url` lets the operator pin the same value
-		// here. Unset → the published URL is used unchanged (correct whenever
-		// Nextcloud's public origin IS reachable from the container).
-		// The rewrite rule itself lives in GovernedMcpEndpoint, because the egress
-		// PDP has to recognise the very same origin. Two copies would be two
-		// policies; the PDP would then deny the endpoint this config points at.
-		$mcpUrl = GovernedMcpEndpoint::applyContainerOrigin(
-			publishedUrl: $mcpUrl,
-			baseOverride: (string)($this->appConfig?->getValueString('hermiq', 'mcp_run_base_url', '') ?? '')
-		);
-
-		if ($mcpUrl === '') {
-			throw new ProviderUnavailableException(self::CLI_REFUSALS['empty_mcp_url'], 503);
-		}
-
-		return $mcpUrl;
-	}//end governedMcpUrl()
-
-	/**
-	 * Assert that the `cli` transport's components are installed and enabled.
-	 *
-	 * Each failure names WHICH component is missing — an operator cannot act on a generic
-	 * "cli unavailable". Runs before the credential is resolved.
-	 *
-	 * Note the asymmetry: `app_api` is a normal Nextcloud app and `IAppManager` can see it,
-	 * but an ExApp is NOT — ExApps live in AppAPI's own `ex_apps` table and are invisible to
-	 * `IAppManager` (`occ app:list` shows only `app_api`). The ExApp is therefore checked
-	 * through AppAPI's own public seam, `PublicFunctions::getExApp()`, which reports
-	 * `enabled`. Asking `IAppManager` about the runner would report it missing even when it
-	 * is deployed and healthy.
-	 *
-	 * @return void
-	 *
-	 * @throws ProviderUnavailableException When any component is unavailable (503).
-	 *
-	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
-	 */
-	public function assertCliRunnerAvailable(): void {
-		$gap = ($this->appApiGap() ?? $this->runnerGap());
-		if ($gap !== null) {
-			throw new ProviderUnavailableException(self::CLI_REFUSALS[$gap], 503);
-		}
-
-	}//end assertCliRunnerAvailable()
-
-	/**
-	 * What AppAPI lacks, first missing first: the app manager, the AppAPI app, its public interface.
-	 *
-	 * @return string|null The refusal reason, or null when AppAPI is there.
-	 */
-	private function appApiGap(): ?string {
-		if ($this->appManager === null) {
-			return 'no_app_manager';
-		}
-
-		if ($this->appManager->isInstalled(self::APP_API_ID) === false) {
-			return 'no_app_api';
-		}
-
-		if (class_exists(self::APP_API_PUBLIC_FUNCTIONS) === false) {
-			return 'no_app_api_interface';
-		}
-
-		return null;
-	}//end appApiGap()
-
-	/**
-	 * What the runner ExApp lacks: being installed, or being enabled.
-	 *
-	 * @return string|null The refusal reason, or null when the runner is installed and enabled.
-	 */
-	private function runnerGap(): ?string {
-		$exApp = $this->appApiPublicFunctions()->getExApp(self::RUNNER_EXAPP_ID);
-		if ($exApp === null) {
-			return 'no_runner';
-		}
-
-		if (($exApp['enabled'] ?? false) === false) {
-			return 'runner_disabled';
-		}
-
-		return null;
-	}//end runnerGap()
-
-	/**
-	 * Resolve the subscription token for the CLI, failing closed.
-	 *
-	 * Hermiq's first `resolveInjectable()` caller. The broker keeps custody of the secret and
-	 * still runs its own guards (owner/IDOR and `allowedApps`) — neither is reimplemented
-	 * here. The plaintext token crossing into Hermiq's process is a conscious, bounded
-	 * weakening of the broker's "the app never sees the secret" posture: it is forced, because
-	 * a CLI needs its token in the process environment, so there is no request to proxy and no
-	 * header to substitute.
-	 *
-	 * The organisation-scope refusal is Hermiq's own: a Claude Max/Pro subscription is
-	 * PERSONAL-SCOPE ONLY per the Anthropic Terms of Service. The broker does NOT enforce
-	 * this — its Guard 1 deliberately admits any organisation MEMBER for an
-	 * organisation-scope credential — so this is the only enforcement point.
-	 *
-	 * @param string $credentialId The broker credential UUID.
-	 * @param string|null $uid The acting user's UID, or null when there is no session.
-	 *
-	 * @return string The resolved token. Never logged, never returned in an exception.
-	 *
-	 * @throws ProviderUnavailableException When the scope cannot be verified, the credential is
-	 *                                      organisation-scope, or no token can be resolved (503).
-	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) The optional OpenRegister broker is named by
-	 *   class-string and resolved through the injected container (guarded by class_exists
-	 *   above) so this class stays constructible when the broker is absent.
-	 *
-	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-subscription-token-is-resolved-through-the-broker-and-never-persisted-by-hermiq
-	 */
-	private function resolveCliToken(string $credentialId, ?string $uid): string {
-		$this->assertPersonalScopeCredential(credentialId: $credentialId);
-
-		if (class_exists(BrokerHttpClient::BROKER_CLASS) === false) {
-			throw new ProviderUnavailableException(self::CLI_REFUSALS['no_broker'], 503);
-		}
-
-		$token = $this->brokerToken(credentialId: $credentialId, uid: $uid);
-		if ($token === null || $token === '') {
-			throw new ProviderUnavailableException(self::CLI_REFUSALS['not_injectable'], 503);
-		}
-
-		return $token;
-	}//end resolveCliToken()
-
-	/**
-	 * The subscription token as the broker resolves it, through the broker's own guards.
-	 *
-	 * @param string      $credentialId The broker credential UUID.
-	 * @param string|null $uid          The acting user's UID, or null when there is no session.
-	 *
-	 * @return string|null The token, or null/'' when the credential is not inject-only.
-	 *
-	 * @throws ProviderUnavailableException When the broker refuses to resolve it (503).
-	 */
-	private function brokerToken(string $credentialId, ?string $uid): ?string {
-		try {
-			$broker = $this->serviceContainer()->get(BrokerHttpClient::BROKER_CLASS);
-			return $broker->resolveInjectable($credentialId, BrokerHttpClient::APP_ID, $uid);
-		} catch (Throwable $e) {
-			$this->logger->warning(
-				'[ProviderFactory] Anthropic cli credential could not be resolved through the broker',
-				[
-					'credentialId' => $credentialId,
-					'reason' => $e->getMessage(),
-				]
-			);
-
-			throw new ProviderUnavailableException(self::CLI_REFUSALS['broker_refused'], 503);
-		}//end try
-	}//end brokerToken()
-
-	/**
-	 * Assert the credential is personal-scope — an Anthropic Terms of Service constraint.
-	 *
-	 * A Claude Max/Pro subscription serves only its owner and MUST be refused at organisation
-	 * scope. This cannot be delegated to the broker: `resolveInjectable()` returns a bare
-	 * `string|null`, its `scopeOf()` is private, and its Guard 1 ADMITS any organisation
-	 * member for an organisation-scope credential. Fails CLOSED when the scope cannot be
-	 * established at all.
-	 *
-	 * @param string $credentialId The broker credential UUID.
-	 *
-	 * @return void
-	 *
-	 * @throws ProviderUnavailableException When the scope is organisation, unknown, or unverifiable (503).
-	 *
-	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-subscription-token-is-resolved-through-the-broker-and-never-persisted-by-hermiq
-	 */
-	private function assertPersonalScopeCredential(string $credentialId): void {
-		if ($this->credentialResolver === null) {
-			throw new ProviderUnavailableException(
-				'Anthropic executionMode "cli" is unavailable: the credential scope could not be verified, '
-				. 'and a Claude Max/Pro subscription may only be used at personal scope.',
-				503
-			);
-		}
-
-		$scope = $this->credentialResolver->scopeOfCredential($credentialId);
-		if ($scope === null) {
-			throw new ProviderUnavailableException(
-				'Anthropic executionMode "cli" cannot use this credential: it could not be found in the '
-				. 'credential broker, so its scope cannot be verified.',
-				503
-			);
-		}
-
-		if ($scope !== self::CREDENTIAL_SCOPE_PERSONAL) {
-			throw new ProviderUnavailableException(
-				'Anthropic executionMode "cli" refuses this credential: it is organisation-scope, and a '
-				. 'Claude Max/Pro subscription is PERSONAL-SCOPE ONLY under the Anthropic Terms of Service — '
-				. 'it may serve only its owner. Use a personal credential, or an Anthropic API key over '
-				. 'executionMode "http".',
-				503
-			);
-		}
-
-	}//end assertPersonalScopeCredential()
 
 	/**
 	 * Start the pooled CLI process for a conversation WITHOUT running a turn.
@@ -2001,24 +1487,17 @@ class ProviderFactory {
 		}
 
 		try {
-			$this->assertCliRunnerAvailable();
+			$this->cliRunner()->assertAvailable();
 			$turn->uid = $this->currentUid();
 
 			// The warmed process must be built EXACTLY as the first turn will
 			// build it — same governed argv, same token, same mcp config — or it
 			// is a process that turn cannot use and the warm-up is worse than
 			// useless: it occupies a pool slot and saves nothing.
-			$this->mintWarmupToken(turn: $turn);
-			$token = $this->resolveCliToken(credentialId: $turn->credentialId, uid: $turn->uid);
+			$this->cliRunTokens()->mintWarmupToken(turn: $turn);
+			$token = $this->cliRunner()->resolveToken(credentialId: $turn->credentialId, uid: $turn->uid);
 
-			$this->appApiPublicFunctions()->exAppRequest(
-				self::RUNNER_EXAPP_ID,
-				self::RUNNER_ROUTE,
-				$turn->uid,
-				'POST',
-				$this->warmupParams(turn: $turn, token: $token),
-				['timeout' => self::WARM_TIMEOUT_SECONDS]
-			);
+			$this->cliRunner()->warm(turn: $turn, token: $token);
 
 			return true;
 		} catch (Throwable $e) {
@@ -2032,29 +1511,6 @@ class ProviderFactory {
 			return false;
 		}//end try
 	}//end warmCliProcess()
-
-	/**
-	 * The runner request of a warm-up: no messages, the same token, MCP config and
-	 * pool key the first turn will present, and the warm-only flag.
-	 *
-	 * @param CliTurn $turn  The warm-up.
-	 * @param string  $token The subscription token.
-	 *
-	 * @return array<string, mixed> The request parameters.
-	 */
-	private function warmupParams(CliTurn $turn, string $token): array {
-		return [
-			'provider' => 'anthropic',
-			'model' => $turn->model,
-			'messages' => [],
-			'credentialEnv' => ['CLAUDE_CODE_OAUTH_TOKEN' => $token],
-			'mcpConfig' => $turn->mcpConfig,
-			'runToken' => $turn->runToken,
-			'poolKey' => $turn->poolKey,
-			'poolLifetimeSeconds' => self::POOL_PROCESS_LIFETIME_SECONDS,
-			'warmOnly' => true,
-		];
-	}//end warmupParams()
 
 	/**
 	 * POST one turn to the `hermiq-llm-runner` ExApp and return its completion.
@@ -2075,7 +1531,7 @@ class ProviderFactory {
 	 *    by `if (!isset($options['timeout']))`) while the runner allows the CLI 120s. Omitting
 	 *    it makes the feature 0% functional: every turn fails at 3s while the container runs to
 	 *    completion and bills the user's real subscription. An explicit timeout is passed
-	 *    instead ({@see cliDispatchOptions()}) — the runner's own 120s plus slack, so it is
+	 *    instead ({@see AnthropicCliRunner::send()}) — the runner's own 120s plus slack, so it is
 	 *    GREATER than the runner's kill by construction and the runner's kill-and-report wins
 	 *    the race, giving the operator the real reason instead of a generic timeout.
 	 * 2. **AppAPI NEVER throws** — failure is the RETURN VALUE, in three shapes: a caught
@@ -2094,130 +1550,11 @@ class ProviderFactory {
 	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
 	 */
 	private function dispatchCliTurn(CliTurn $turn, string $token): string {
-		$result = $this->appApiPublicFunctions()->exAppRequest(
-			self::RUNNER_EXAPP_ID,
-			self::RUNNER_ROUTE,
-			$turn->uid,
-			'POST',
-			$this->dispatchParams(turn: $turn, token: $token),
-			$this->cliDispatchOptions()
-		);
-
-		$this->assertRunnerAnswered(result: $result);
+		$body = $this->cliRunner()->send(turn: $turn, token: $token);
 
 		// Check 3 — only now is the body the model's answer.
-		return $this->mapCliCompletion(body: (string)$result->getBody());
+		return $this->mapCliCompletion(body: $body);
 	}//end dispatchCliTurn()
-
-	/**
-	 * The runner request of a turn: the mapped history and subscription token, and the
-	 * MCP config, run token and pool key when the turn has them.
-	 *
-	 * @param CliTurn $turn  The turn.
-	 * @param string  $token The subscription token.
-	 *
-	 * @return array<string, mixed> The request parameters.
-	 */
-	private function dispatchParams(CliTurn $turn, string $token): array {
-		// `credentialEnv`'s key is EXACTLY the one the runner's anthropic adapter allowlists.
-		// A key outside the allowlist is dropped WITHOUT an error, which would yield an
-		// unauthenticated CLI rather than a 400 — so this string has to be exactly right.
-		$params = [
-			'provider' => 'anthropic',
-			'model' => $turn->model,
-			'messages' => $this->mapHistoryToCliMessages(messageHistory: $turn->messageHistory),
-			'credentialEnv' => ['CLAUDE_CODE_OAUTH_TOKEN' => $token],
-		];
-
-		// A tool-requiring turn carries the governed MCP config; the runner writes it to a
-		// 0600 scratch file and locks the CLI down with `--tools "" --strict-mcp-config
-		// --mcp-config <path>`. A text-only turn omits it entirely (unchanged link-2 path).
-		if ($turn->mcpConfig !== null) {
-			$params['mcpConfig'] = $turn->mcpConfig;
-		}
-
-		// The run identity for the egress PEP. The runner turns this into
-		// `HTTPS_PROXY=http://run:<token>@<proxy>` in the CLI's ENVIRONMENT — never on
-		// argv, where the process table would expose it. Sent on every turn: the proxy
-		// is the container's only route out.
-		if ((string)$turn->runToken !== '') {
-			$params['runToken'] = $turn->runToken;
-		}
-
-		// The pool key is the CONVERSATION, never the agent or the user. A
-		// stream-json process REMEMBERS its turns (measured: a second turn recalled
-		// a canary with no history re-sent), so any key wider than one conversation
-		// carries one conversation's context into another's turn. Absent key = the
-		// runner takes the cold path, which is always correct and never pooled.
-		if ($turn->poolKey !== '') {
-			$params['poolKey'] = $turn->poolKey;
-			// Sent rather than configured separately in the runner: this bounds BOTH
-			// the process's reusable life and its token's validity, and the two
-			// drifting apart is precisely the failure that ends in a live process
-			// holding a dead token.
-			$params['poolLifetimeSeconds'] = self::POOL_PROCESS_LIFETIME_SECONDS;
-		}
-
-		return $params;
-	}//end dispatchParams()
-
-	/**
-	 * Refuse a dispatch the runner did not answer: AppAPI's never-throws error array,
-	 * or a non-success status. The order is load-bearing.
-	 *
-	 * @param mixed $result What exAppRequest() returned.
-	 *
-	 * @return void
-	 *
-	 * @throws ProviderUnavailableException When the runner was not reached or failed (503).
-	 *
-	 * @psalm-assert \OCP\Http\Client\IResponse $result
-	 */
-	private function assertRunnerAnswered(mixed $result): void {
-		// Check 1 — the never-throws failure channel. MUST precede any body read.
-		if (is_array($result) === true) {
-			$this->logger->warning(
-				'[ProviderFactory] Anthropic cli dispatch failed at the AppAPI transport',
-				['reason' => (string)($result['error'] ?? 'unknown')]
-			);
-
-			throw new ProviderUnavailableException(
-				'Anthropic executionMode "cli" could not reach the "' . self::RUNNER_EXAPP_ID . '" ExApp. '
-				. 'Check that the ExApp is running.',
-				503
-			);
-		}
-
-		// Check 2 — http_errors => false, so a 4xx/5xx is an ordinary response.
-		$status = $result->getStatusCode();
-		if ($status < 200 || $status > 299) {
-			$this->logger->warning(
-				'[ProviderFactory] Anthropic cli runner returned a non-success status',
-				['status' => $status]
-			);
-
-			throw new ProviderUnavailableException(
-				'Anthropic executionMode "cli" failed: the runner returned an error while executing the '
-				. 'turn. Check the ExApp\'s logs.',
-				503
-			);
-		}
-	}//end assertRunnerAnswered()
-
-	/**
-	 * Build the AppAPI request options for a `cli` dispatch.
-	 *
-	 * A named seam purely so the 3s-default trap is directly assertable: a test can pin that
-	 * `timeout` is PRESENT and EXCEEDS the runner's own CLI timeout, so it cannot silently
-	 * regress to AppAPI's default and take the feature to 0% functional.
-	 *
-	 * @return array{timeout: int} AppAPI request options.
-	 *
-	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
-	 */
-	private function cliDispatchOptions(): array {
-		return ['timeout' => (self::RUNNER_CLI_TIMEOUT_SECONDS + self::CLI_DISPATCH_TIMEOUT_SLACK_SECONDS)];
-	}//end cliDispatchOptions()
 
 	/**
 	 * Map the runner's 200 body into the turn's answer.
@@ -2270,110 +1607,6 @@ class ProviderFactory {
 	}//end mapCliCompletion()
 
 	/**
-	 * Flatten an LLPhant message history into the runner's `messages` shape.
-	 *
-	 * Deliberately NOT {@see mapHistoryToAnthropicMessages()}: that hoists system turns into a
-	 * separate top-level `system` field, which the Messages API requires but the runner has NO
-	 * field for. Reusing it here would SILENTLY DROP the system prompt — the agent's entire
-	 * persona and instructions — on every `cli` turn. The runner's `buildPrompt()` renders each
-	 * message as `ROLE: content`, so the system turn is carried in-band instead, exactly as the
-	 * runner's contract specifies (`messages: [{role: "system|user|assistant", content}]`).
-	 *
-	 * @param array $messageHistory Array of LLPhant Message objects.
-	 *
-	 * @return array<int, array<string, string>> The runner's `messages` array.
-	 *
-	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-cli-completion-is-mapped-back-into-the-driver-response-and-the-sse-envelope
-	 */
-	private function mapHistoryToCliMessages(array $messageHistory): array {
-		$messages = [];
-		foreach ($messageHistory as $msg) {
-			$content = (string)$msg->content;
-			if ($content === '') {
-				continue;
-			}
-
-			$messages[] = [
-				'role' => $msg->role->value,
-				'content' => $content,
-			];
-		}
-
-		return $messages;
-	}//end mapHistoryToCliMessages()
-
-	/**
-	 * Resolve AppAPI's public interface lazily, by class-name string.
-	 *
-	 * Never a hard `use` or a constructor type — Hermiq MUST still boot and still serve `http`
-	 * on an instance with no AppAPI installed. Resolved by class-name string through the
-	 * injected container, mirroring `BrokerHttpClient`'s pattern for the credential broker.
-	 * Callers assert {@see APP_API_PUBLIC_FUNCTIONS} exists first.
-	 *
-	 * `AppAPIService` internals were read as EVIDENCE for this dispatch's traps; they are not
-	 * an API to call. `PublicFunctions` is the supported seam.
-	 *
-	 * @return object AppAPI's `PublicFunctions`.
-	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) The optional AppAPI interface is named by
-	 *   class-string and resolved through the injected container, so Hermiq still boots
-	 *   and serves `http` on an instance without AppAPI installed.
-	 *
-	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
-	 */
-	private function appApiPublicFunctions(): object {
-		return $this->serviceContainer()->get(self::APP_API_PUBLIC_FUNCTIONS);
-	}//end appApiPublicFunctions()
-
-	/**
-	 * Split an LLPhant message history into Anthropic's `{system, messages}` shape.
-	 *
-	 * System turns are concatenated into the top-level `system` string (Anthropic keeps
-	 * the system prompt out of `messages`); user/assistant turns become
-	 * `{role, content}` entries.
-	 *
-	 * @param array $messageHistory Array of LLPhant Message objects.
-	 *
-	 * @return array{system: string, messages: array<int, array<string, mixed>>}
-	 *
-	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
-	 */
-	public function mapHistoryToAnthropicMessages(array $messageHistory): array {
-		$systemParts = [];
-		$messages = [];
-		foreach ($messageHistory as $msg) {
-			$role = $msg->role->value;
-			if ($role === 'system') {
-				$systemParts[] = (string)$msg->content;
-				continue;
-			}
-
-			// @todo llm-cli-runner-exapp / anthropic-agent-provider — Hermiq's engine never
-			// stores prior tool_use/tool_result turns as LLPhant messages today (tool turns
-			// live only inside this call's Anthropic loop). If a future history carries them
-			// (e.g. LLPhant Message::toolCalls), map them to tool_use/tool_result content
-			// blocks here. Until then, pass text turns through — the common path.
-			// Chat-attachments-and-images: a turn with native parts carries its image
-			// and document blocks ahead of the text.
-			if ($msg instanceof AttachmentMessage) {
-				$messages[] = ['role' => $role, 'content' => $msg->anthropicContent()];
-				continue;
-			}
-
-			$messages[] = [
-				'role' => $role,
-				'content' => (string)$msg->content,
-			];
-		}
-
-		return [
-			'system' => implode("\n\n", $systemParts),
-			'messages' => $messages,
-		];
-
-	}//end mapHistoryToAnthropicMessages()
-
-	/**
 	 * Map LLPhant history onto Fireworks' OpenAI-compatible `messages`.
 	 *
 	 * Text turns become `{role, content}`. A turn with native parts carries the
@@ -2403,192 +1636,6 @@ class ProviderFactory {
 	}//end mapHistoryToFireworksMessages()
 
 	/**
-	 * Map OpenAI-style function definitions to Anthropic `tools`.
-	 *
-	 * OpenAI's `{name, description, parameters}` becomes Anthropic's `{name, description,
-	 * input_schema}` (the ONLY structural difference is `parameters` → `input_schema`).
-	 * Entries without a name are skipped; a missing schema defaults to an empty object
-	 * schema so the model still sees a valid, argument-less tool.
-	 *
-	 * @param array $functions OpenAI-style function definitions.
-	 *
-	 * @return array<int, array<string, mixed>> Anthropic tool definitions.
-	 *
-	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
-	 */
-	public function buildAnthropicTools(array $functions): array {
-		$tools = [];
-		foreach ($functions as $function) {
-			if (is_array($function) === false || isset($function['name']) === false) {
-				continue;
-			}
-
-			$schema = $function['parameters'] ?? null;
-			if (is_array($schema) === false) {
-				$schema = ['type' => 'object'];
-			}
-
-			if (isset($schema['type']) === false) {
-				$schema['type'] = 'object';
-			}
-
-			// Anthropic requires `input_schema.properties` to be a JSON object.
-			// An argument-less tool has an empty properties map, and PHP's
-			// json_encode emits an empty PHP array as `[]` (a JSON array), which
-			// Anthropic rejects with "Input should be an object". Force an empty
-			// stdClass so it serialises as `{}`.
-			// `isset()` is already false for a null properties, so an explicit
-			// `=== null` here would be unreachable.
-			if (isset($schema['properties']) === false || $schema['properties'] === []) {
-				$schema['properties'] = new stdClass();
-			}
-
-			$tools[] = [
-				'name' => (string)$function['name'],
-				'description' => (string)($function['description'] ?? ''),
-				'input_schema' => $schema,
-			];
-		}//end foreach
-
-		return $tools;
-	}//end buildAnthropicTools()
-
-	/**
-	 * Parse an Anthropic Messages API response into the engine-facing shape.
-	 *
-	 * Concatenates every `type: "text"` content block into `text`, extracts every
-	 * `type: "tool_use"` block into `toolCalls` (`{id, name, input}` — the same
-	 * descriptor shape the runner path normalises into), and carries the `stop_reason`,
-	 * the raw `content` array (echoed back verbatim as the assistant tool_use turn on the
-	 * next loop pass), and token `usage`.
-	 *
-	 * @param array $data Decoded Anthropic Messages API response.
-	 *
-	 * @return array{text: string, toolCalls: array<int, array<string, mixed>>,
-	 *     stopReason: string, content: array<int, mixed>, usage: array<string, int>}
-	 *
-	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
-	 */
-	public function parseAnthropicResponse(array $data): array {
-		$content = [];
-		if (is_array($data['content'] ?? null) === true) {
-			$content = $data['content'];
-		}
-
-		return [
-			'text' => $this->anthropicText(content: $content),
-			'toolCalls' => $this->anthropicToolCalls(content: $content),
-			'stopReason' => (string)($data['stop_reason'] ?? ''),
-			'content' => $content,
-			'usage' => $this->anthropicUsage(data: $data),
-		];
-
-	}//end parseAnthropicResponse()
-
-	/**
-	 * The concatenated text of every `text` block.
-	 *
-	 * @param array<int, mixed> $content The response's content blocks.
-	 *
-	 * @return string
-	 */
-	private function anthropicText(array $content): string {
-		$text = '';
-		foreach ($content as $block) {
-			if (is_array($block) === true && ($block['type'] ?? '') === 'text') {
-				$text .= (string)($block['text'] ?? '');
-			}
-		}
-
-		return $text;
-	}//end anthropicText()
-
-	/**
-	 * Every `tool_use` block as `{id, name, input}`, with a non-array input as `[]`.
-	 *
-	 * @param array<int, mixed> $content The response's content blocks.
-	 *
-	 * @return array<int, array<string, mixed>>
-	 */
-	private function anthropicToolCalls(array $content): array {
-		$toolCalls = [];
-		foreach ($content as $block) {
-			if (is_array($block) === false || ($block['type'] ?? '') !== 'tool_use') {
-				continue;
-			}
-
-			$input = ($block['input'] ?? []);
-			if (is_array($input) === false) {
-				$input = [];
-			}
-
-			$toolCalls[] = [
-				'id' => (string)($block['id'] ?? ''),
-				'name' => (string)($block['name'] ?? ''),
-				'input' => $input,
-			];
-		}
-
-		return $toolCalls;
-	}//end anthropicToolCalls()
-
-	/**
-	 * The response's token usage, or `[]` when it reports none.
-	 *
-	 * @param array<string, mixed> $data Decoded Anthropic Messages API response.
-	 *
-	 * @return array<string, int>
-	 */
-	private function anthropicUsage(array $data): array {
-		$rawUsage = ($data['usage'] ?? []);
-		if (is_array($rawUsage) === false) {
-			return [];
-		}
-
-		return [
-			'promptTokens' => (int)($rawUsage['input_tokens'] ?? 0),
-			'completionTokens' => (int)($rawUsage['output_tokens'] ?? 0),
-		];
-	}//end anthropicUsage()
-
-	/**
-	 * Build the Anthropic `tool_result` content blocks for one user turn.
-	 *
-	 * Each `{tool_use_id, content, is_error?}` becomes a `{type: "tool_result",
-	 * tool_use_id, content}` block (with `is_error` passed through when set). This is the
-	 * inverse of `parseAnthropicResponse()`'s tool_use extraction — a governed tool
-	 * result round-trips back into an Anthropic content block.
-	 *
-	 * @param array $toolResults `[{tool_use_id: string, content: string, is_error?: bool}, ...]`.
-	 *
-	 * @return array<int, array<string, mixed>> Anthropic tool_result content blocks.
-	 *
-	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
-	 */
-	public function buildAnthropicToolResultBlocks(array $toolResults): array {
-		$blocks = [];
-		foreach ($toolResults as $toolResult) {
-			if (is_array($toolResult) === false) {
-				continue;
-			}
-
-			$block = [
-				'type' => 'tool_result',
-				'tool_use_id' => (string)($toolResult['tool_use_id'] ?? ''),
-				'content' => (string)($toolResult['content'] ?? ''),
-			];
-
-			if (($toolResult['is_error'] ?? false) === true) {
-				$block['is_error'] = true;
-			}
-
-			$blocks[] = $block;
-		}
-
-		return $blocks;
-	}//end buildAnthropicToolResultBlocks()
-
-	/**
 	 * POST one Anthropic Messages request through the broker and return the decoded body.
 	 *
 	 * Extracted so the tool loop can issue multiple round-trips without duplicating the
@@ -2602,6 +1649,7 @@ class ProviderFactory {
 	 * @throws \Exception If the HTTP call fails or the response is malformed.
 	 *
 	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
+	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-2
 	 */
 	private function postToAnthropic(AnthropicToolLoop $loop, array $payload): array {
 		$psrResponse = $this->sendToAnthropic(loop: $loop, payload: $payload);
@@ -2609,9 +1657,15 @@ class ProviderFactory {
 		$response = (string)$psrResponse->getBody();
 
 		if ($httpCode !== 200) {
-			throw ($this->anthropicStatusError(httpCode: $httpCode, model: $loop->run->model)
+			$error = ($this->anthropicStatusError(httpCode: $httpCode, model: $loop->run->model)
 				?? $this->anthropicRateLimitError(psrResponse: $psrResponse)
 				?? new Exception("Anthropic API error (HTTP {$httpCode}): " . $this->anthropicErrorMessage(response: $response)));
+			throw ProviderCallFailedException::fromHttpStatus(
+				status: $httpCode,
+				message: $error->getMessage(),
+				retryAfter: $psrResponse->getHeaderLine('retry-after'),
+				kind: self::anthropicRefusedCredential(psrResponse: $psrResponse)
+			);
 		}
 
 		$data = json_decode($response, true);
@@ -2652,9 +1706,52 @@ class ProviderFactory {
 				)
 			);
 		} catch (Throwable $e) {
-			throw new Exception('Anthropic API request failed: ' . $e->getMessage());
+			throw self::transportFailure(prefix: 'Anthropic API request failed: ', failure: $e);
 		}
 	}//end sendToAnthropic()
+
+	/**
+	 * A request that did not get an answer, typed by what went wrong, with the message it always had.
+	 *
+	 * @param string    $prefix  The provider's message prefix.
+	 * @param Throwable $failure The client's failure.
+	 *
+	 * @return ProviderCallFailedException
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-2
+	 */
+	private static function transportFailure(string $prefix, Throwable $failure): ProviderCallFailedException {
+		$typed = ProviderCallFailedException::fromThrowable(failure: $failure);
+
+		return new ProviderCallFailedException(
+			message: $prefix . $failure->getMessage(),
+			kind: $typed->kind,
+			httpStatus: $typed->httpStatus,
+			previous: $failure
+		);
+	}//end transportFailure()
+
+	/**
+	 * An Anthropic 429 without retry-after or rate-limit counters is a credential the Messages API refuses:
+	 * a configuration error (auth), never a rate limit a fallback should hide.
+	 *
+	 * @param ResponseInterface $psrResponse The answer.
+	 *
+	 * @return string|null The auth kind for that case, else null (the status decides).
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-refusal-or-a-configuration-error-never-triggers-a-fallback-req-mfail-003
+	 */
+	private static function anthropicRefusedCredential(ResponseInterface $psrResponse): ?string {
+		if ($psrResponse->getStatusCode() !== 429
+			|| trim($psrResponse->getHeaderLine('retry-after')) !== ''
+			|| $psrResponse->hasHeader('anthropic-ratelimit-requests-remaining') === true
+			|| $psrResponse->hasHeader('anthropic-ratelimit-tokens-remaining') === true
+		) {
+			return null;
+		}
+
+		return ProviderCallFailedException::AUTH;
+	}//end anthropicRefusedCredential()
 
 	/**
 	 * The failure of a refused credential or an unknown model, or null for any

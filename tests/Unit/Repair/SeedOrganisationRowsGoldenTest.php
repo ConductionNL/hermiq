@@ -25,6 +25,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Repair;
 
+use OCA\Hermiq\Kernel\Contracts\OrganisationModelPolicyServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\BudgetServiceInterface;
 use OCA\Hermiq\Repair\SeedBudgets;
 use OCA\Hermiq\Repair\SeedModelPolicies;
 use OCA\Hermiq\Service\BudgetService;
@@ -205,7 +207,7 @@ class SeedOrganisationRowsGoldenTest extends TestCase {
 				'warning: OpenRegister not available — skipping budget seed.',
 				'log.warning: [hermiq] Budget seed skipped: no ' . ObjectService::class,
 				'warning: OpenRegister not available — skipping model-policy seed.',
-				'log.warning: [hermiq] Model-policy seed skipped: no ' . OrganisationModelPolicyService::class,
+				'log.warning: [hermiq] Model-policy seed skipped: no ' . OrganisationModelPolicyServiceInterface::class,
 			],
 			$this->log
 		);
@@ -251,7 +253,7 @@ class SeedOrganisationRowsGoldenTest extends TestCase {
 				[
 					ObjectService::class => $objectService,
 					OrganisationMapper::class => $this->organisationMapper(['org-a']),
-					BudgetService::class => $budgetService,
+					BudgetServiceInterface::class => $budgetService,
 				]
 			),
 			logger: $this->logger(),
@@ -302,7 +304,7 @@ class SeedOrganisationRowsGoldenTest extends TestCase {
 				[
 					ObjectService::class => $this->objectService([]),
 					OrganisationMapper::class => $this->organisationMapper(null),
-					BudgetService::class => $budgetService,
+					BudgetServiceInterface::class => $budgetService,
 				]
 			),
 			logger: $this->logger(),
@@ -343,7 +345,7 @@ class SeedOrganisationRowsGoldenTest extends TestCase {
 		$step = new SeedModelPolicies(
 			container: $this->container(
 				[
-					OrganisationModelPolicyService::class => $policyService,
+					OrganisationModelPolicyServiceInterface::class => $policyService,
 					OrganisationMapper::class => $this->organisationMapper(['org-a']),
 				]
 			),
@@ -375,7 +377,7 @@ class SeedOrganisationRowsGoldenTest extends TestCase {
 		$step = new SeedModelPolicies(
 			container: $this->container(
 				[
-					OrganisationModelPolicyService::class => $policyService,
+					OrganisationModelPolicyServiceInterface::class => $policyService,
 					OrganisationMapper::class => $this->organisationMapper(null),
 				]
 			),

@@ -35,7 +35,7 @@ use OCA\Hermiq\Service\AiFeature\RedactionRequiredException;
 use OCA\Hermiq\Service\AiFeature\ResidencyViolationException;
 use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
-use OCA\Hermiq\Service\OrganisationModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\IAppConfig;
 use PHPUnit\Framework\TestCase;
@@ -74,7 +74,7 @@ class FeatureProviderResolverGateGoldenTest extends TestCase {
 			}
 		);
 
-		$policy = $this->createMock(OrganisationModelPolicyService::class);
+		$policy = $this->createMock(EffectiveModelPolicy::class);
 		$policy->method('isAllowed')->willReturn($allowed);
 		$policy->method('effectivePolicyFor')->willReturn(['defaultModel' => $defaultModel]);
 

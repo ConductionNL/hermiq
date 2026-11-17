@@ -39,7 +39,10 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillMaturityServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 
 /**
@@ -51,7 +54,7 @@ use OCA\OpenRegister\Service\ObjectService;
  *
  * @spec openspec/specs/skill-maturity/spec.md#requirement-skillmaturityservice-computes-l1-l3-mechanically-from-skill-content
  */
-class SkillMaturityService {
+class SkillMaturityService implements SkillMaturityServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -367,9 +370,10 @@ class SkillMaturityService {
 
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: (string)$skill->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: (string)$skill->getUuid()
+			)
 		);
 
 		$targetLevel = null;

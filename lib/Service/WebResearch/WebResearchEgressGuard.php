@@ -63,6 +63,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\WebResearch;
 
+use OCA\Hermiq\Kernel\Contracts\WebResearchEgressGuardInterface;
+
 /**
  * SSRF/allowlist/denylist validation for every web-research outbound destination.
  *
@@ -72,7 +74,7 @@ namespace OCA\Hermiq\Service\WebResearch;
  *
  * @spec openspec/changes/archive/2026-07-14-web-research-tool/tasks.md#task-3-webresearchegressguard-ssrf--allowlistdenylist
  */
-class WebResearchEgressGuard {
+class WebResearchEgressGuard implements WebResearchEgressGuardInterface {
 
 	/**
 	 * Cloud-metadata addresses. Blocked UNCONDITIONALLY — even for the

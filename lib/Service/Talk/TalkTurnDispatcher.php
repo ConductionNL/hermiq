@@ -44,6 +44,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Talk;
 
 use OCA\Hermiq\BackgroundJob\TalkTurnJob;
+use OCA\Hermiq\Kernel\Contracts\TalkTurnDispatcherInterface;
 use OCP\BackgroundJob\IJobList;
 use OCP\TaskProcessing\IManager as ITaskProcessingManager;
 use Psr\Log\LoggerInterface;
@@ -56,7 +57,7 @@ use Throwable;
  *
  * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
  */
-class TalkTurnDispatcher {
+class TalkTurnDispatcher implements TalkTurnDispatcherInterface {
 
 	/**
 	 * Core's triggerable-provider interface, referenced BY NAME.

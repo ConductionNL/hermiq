@@ -53,8 +53,13 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
+use OCA\Hermiq\Repair\Migration\FamilyMigration;
+use OCA\Hermiq\Repair\Migration\MigratedConversation;
+use OCA\Hermiq\Repair\Migration\ProvenanceTarget;
 use OCA\Hermiq\Repair\Support\RegisterScopedSchema;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -218,16 +223,20 @@ class MigrateConversationsToSessions implements IRepairStep {
 	private function runInner(ObjectService $objectService, IOutput $output): void {
 		$sessions = $this->migrateFamily(
 			objectService: $objectService,
-			output: $output,
-			sourceSchema: self::CONVERSATION_SCHEMA,
-			targetSchema: self::SESSION_SCHEMA
+			family: new FamilyMigration(
+				output: $output,
+				sourceSchema: self::CONVERSATION_SCHEMA,
+				targetSchema: self::SESSION_SCHEMA
+			)
 		);
 
 		$turns = $this->migrateFamily(
 			objectService: $objectService,
-			output: $output,
-			sourceSchema: self::MESSAGE_SCHEMA,
-			targetSchema: self::SESSION_TURN_SCHEMA
+			family: new FamilyMigration(
+				output: $output,
+				sourceSchema: self::MESSAGE_SCHEMA,
+				targetSchema: self::SESSION_TURN_SCHEMA
+			)
 		);
 
 		$detail = sprintf(
@@ -255,20 +264,16 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 * Copy one source schema onto its target, live rows and archived rows alike.
 	 *
 	 * @param ObjectService $objectService OpenRegister's object read/write path.
-	 * @param IOutput       $output        Repair output channel.
-	 * @param string        $sourceSchema  Schema slug to read from.
-	 * @param string        $targetSchema  Schema slug to write to.
+	 * @param FamilyMigration $family One schema family being moved, and where progress is reported.
 	 *
 	 * @return array{copied: int, present: int, failed: int} The per-family counts.
 	 *
 	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
-	private function migrateFamily(
-		ObjectService $objectService,
-		IOutput $output,
-		string $sourceSchema,
-		string $targetSchema
-	): array {
+	private function migrateFamily(ObjectService $objectService, FamilyMigration $family): array {
+		$output = $family->output;
+		$sourceSchema = $family->sourceSchema;
+		$targetSchema = $family->targetSchema;
 		$counts = [
 			'copied' => 0,
 			'present' => 0,
@@ -292,10 +297,12 @@ class MigrateConversationsToSessions implements IRepairStep {
 
 			$written = $this->persist(
 				objectService: $objectService,
-				sourceSchema: $sourceSchema,
-				targetSchema: $targetSchema,
-				uuid: $uuid,
-				source: $source
+				migrated: new MigratedConversation(
+					sourceSchema: $sourceSchema,
+					targetSchema: $targetSchema,
+					uuid: $uuid,
+					source: $source
+				)
 			);
 
 			$bucket = 'failed';
@@ -498,22 +505,17 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 * out of the payload is written away rather than left alone.
 	 *
 	 * @param ObjectService $objectService OpenRegister's object write path.
-	 * @param string        $sourceSchema  Source schema slug, for the archive-marker copy.
-	 * @param string        $targetSchema  Target schema slug.
-	 * @param string        $uuid          The uuid to preserve.
-	 * @param ObjectEntity  $source        The source object.
+	 * @param MigratedConversation $migrated One conversation being moved to a session, and its source and target schemas.
 	 *
 	 * @return bool True when the write succeeded.
 	 *
 	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
-	private function persist(
-		ObjectService $objectService,
-		string $sourceSchema,
-		string $targetSchema,
-		string $uuid,
-		ObjectEntity $source
-	): bool {
+	private function persist(ObjectService $objectService, MigratedConversation $migrated): bool {
+		$sourceSchema = $migrated->sourceSchema;
+		$targetSchema = $migrated->targetSchema;
+		$uuid = $migrated->uuid;
+		$source = $migrated->source;
 		// `getObject()` is declared `: array`, so no shape guard is needed here.
 		$data = $source->getObject();
 
@@ -540,17 +542,20 @@ class MigrateConversationsToSessions implements IRepairStep {
 		try {
 			$objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: $targetSchema,
-				uuid: $uuid,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: $targetSchema),
+					uuid: $uuid
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
 
 			$this->carryProvenance(
 				sourceSchema: $sourceSchema,
-				targetSchema: $targetSchema,
-				uuid: $uuid
+				target: new ProvenanceTarget(
+					targetSchema: $targetSchema,
+					uuid: $uuid
+				)
 			);
 			return true;
 		} catch (Throwable $e) {
@@ -576,14 +581,15 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 * three were measured on this step before this method existed.
 	 *
 	 * @param string $sourceSchema Source schema slug, read for the original values.
-	 * @param string $targetSchema Target schema slug, written to.
-	 * @param string $uuid         The uuid on both sides.
+	 * @param ProvenanceTarget $target The object whose provenance is carried to its new schema.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
-	private function carryProvenance(string $sourceSchema, string $targetSchema, string $uuid): void {
+	private function carryProvenance(string $sourceSchema, ProvenanceTarget $target): void {
+		$targetSchema = $target->targetSchema;
+		$uuid = $target->uuid;
 		try {
 			$sourceTable = $this->magicTableFor(schemaSlug: $sourceSchema);
 			$targetTable = $this->magicTableFor(schemaSlug: $targetSchema);
@@ -753,9 +759,9 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 */
 	private function recordOutcome(string $outcome, string $detail = ''): void {
 		try {
-			$this->appConfig->setValueString(\OCA\Hermiq\AppInfo\Application::APP_ID, self::OUTCOME_KEY, $outcome);
+			$this->appConfig->setValueString(\OCA\Hermiq\Kernel\AppIdentity::APP_ID, self::OUTCOME_KEY, $outcome);
 			$this->appConfig->setValueString(
-				\OCA\Hermiq\AppInfo\Application::APP_ID,
+				\OCA\Hermiq\Kernel\AppIdentity::APP_ID,
 				self::OUTCOME_DETAIL_KEY,
 				$detail
 			);
