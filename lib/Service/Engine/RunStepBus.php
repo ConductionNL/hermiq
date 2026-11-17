@@ -50,6 +50,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
 
+use OCA\Hermiq\Kernel\Contracts\RunStepBusInterface;
 use OCP\ICache;
 use OCP\ICacheFactory;
 use Throwable;
@@ -63,7 +64,7 @@ use Throwable;
  * @license  EUPL-1.2 https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
  * @link     https://conduction.nl
  */
-class RunStepBus {
+class RunStepBus implements RunStepBusInterface {
 
 	/**
 	 * How long a bucket survives unread, in seconds.
@@ -97,20 +98,6 @@ class RunStepBus {
 	private const MAX_RESULT_CHARS = 600;
 
 	/**
-	 * A tool call that completed.
-	 *
-	 * @var string
-	 */
-	public const OUTCOME_OK = 'ok';
-
-	/**
-	 * A tool call that did not complete.
-	 *
-	 * @var string
-	 */
-	public const OUTCOME_ERROR = 'error';
-
-	/**
 	 * The distributed cache, or null when none is configured.
 	 *
 	 * @var ICache|null
@@ -137,12 +124,13 @@ class RunStepBus {
 	/**
 	 * Record one completed tool call against its conversation.
 	 *
-	 * @param string $conversationId The conversation the run belongs to.
-	 * @param string $toolName       The tool that ran.
-	 * @param array  $arguments      The arguments it ran with.
-	 * @param string $result         The raw result payload.
-	 * @param int    $durationMs     How long it took.
-	 * @param string $outcome        `ok` or `error`, stored verbatim.
+	 * @param string       $conversationId The conversation the run belongs to.
+	 * @param string       $toolName       The tool that ran.
+	 * @param array|string $arguments      The arguments as the chat may show them; a
+	 *                                     string when the output filter withheld them.
+	 * @param string       $result         The result payload as the chat may show it.
+	 * @param int          $durationMs     How long it took.
+	 * @param string       $outcome        `ok` or `error`, stored verbatim.
 	 *
 	 * ⚠️ `$outcome` is the STORED VALUE, not a boolean the method converts. It
 	 * was a `bool $ok` that was mapped to exactly these two strings one line
@@ -157,11 +145,29 @@ class RunStepBus {
 	public function record(
 		string $conversationId,
 		string $toolName,
-		array $arguments,
+		array|string $arguments,
 		string $result,
 		int $durationMs,
 		string $outcome = self::OUTCOME_OK,
 	): void {
+		$step = new ToolStep(name: $toolName, arguments: $arguments);
+		$step->result = $result;
+		$step->durationMs = $durationMs;
+		$step->outcome = $outcome;
+		$this->recordStep(conversationId: $conversationId, step: $step);
+	}//end record()
+
+	/**
+	 * Append one step to the conversation's bucket, unless the bucket is full.
+	 *
+	 * @param string   $conversationId The conversation the run belongs to.
+	 * @param ToolStep $step           The step.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/warm-start-and-cli-step-visibility/specs/warm-start-and-cli-step-visibility/spec.md#requirement-a-cli-turns-tool-calls-are-visible-in-the-chat
+	 */
+	public function recordStep(string $conversationId, ToolStep $step): void {
 		if ($this->cache === null || $conversationId === '') {
 			return;
 		}
@@ -172,27 +178,41 @@ class RunStepBus {
 				return;
 			}
 
-			// `agentId` is stamped in by the transport, not asked for by the
-			// model, so showing it back would be noise in the UI.
-			unset($arguments['agentId']);
-
-			$steps[] = [
-				'toolId' => $toolName . '-' . count($steps),
-				'name' => $toolName,
-				'arguments' => $arguments,
-				'result' => mb_substr($result, 0, self::MAX_RESULT_CHARS),
-				'truncated' => (mb_strlen($result) > self::MAX_RESULT_CHARS),
-				'durationMs' => $durationMs,
-				'outcome' => $outcome,
-			];
+			$steps[] = $this->entry(step: $step, index: count($steps));
 
 			$this->cache->set($this->key(conversationId: $conversationId), json_encode($steps), self::TTL_SECONDS);
 		} catch (Throwable $e) {
 			// Display material only — never let this break the tool call.
 			return;
 		}
+	}//end recordStep()
 
-	}//end record()
+	/**
+	 * The stored entry of a step: its id, name, arguments, capped result and outcome.
+	 *
+	 * @param ToolStep $step  The step.
+	 * @param int      $index Its position in the bucket.
+	 *
+	 * @return array<string, mixed> The entry.
+	 */
+	private function entry(ToolStep $step, int $index): array {
+		// `agentId` is stamped in by the transport, not asked for by the
+		// model, so showing it back would be noise in the UI.
+		$arguments = $step->arguments;
+		if (is_array($arguments) === true) {
+			unset($arguments['agentId']);
+		}
+
+		return [
+			'toolId' => $step->name . '-' . $index,
+			'name' => $step->name,
+			'arguments' => $arguments,
+			'result' => mb_substr($step->result, 0, self::MAX_RESULT_CHARS),
+			'truncated' => (mb_strlen($step->result) > self::MAX_RESULT_CHARS),
+			'durationMs' => $step->durationMs,
+			'outcome' => $step->outcome,
+		];
+	}//end entry()
 
 	/**
 	 * Read the steps recorded for a conversation, without clearing them.

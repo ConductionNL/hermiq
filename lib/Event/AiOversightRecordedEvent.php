@@ -46,7 +46,7 @@ use OCP\EventDispatcher\Event;
  *   originApp       string  REQUIRED  app id whose surface produced the suggestion
  *   subjectType     string  REQUIRED  origin app's object type ('case', 'document')
  *   subjectId       string  REQUIRED  that object's id in the origin app
- *   humanAction     string  REQUIRED  'accepted' | 'rejected' | 'overridden'
+ *   humanAction     string  REQUIRED  'accepted' | 'rejected' | 'overridden' | 'ignored'
  *   userId          string            NC uid of the human who decided
  *   decidedAt       string            RFC3339 timestamp of the decision
  *   suggestionType  string            classification | extraction | summarisation | routing | answer
@@ -59,6 +59,7 @@ use OCP\EventDispatcher\Event;
  *   reason          string            why, when the human gave one
  *   responseTimeMs  int               how long the model took
  *   externalRef     string            consumer's own reference, for idempotency
+ *   unusedBecause   string            with 'ignored': 'closed' | 'expired' | 'superseded'
  *
  * @spec openspec/changes/ai-oversight-advisory-approvals/specs/ai-oversight/spec.md
  */

@@ -1,0 +1,3883 @@
+{
+    "{\"type\":\"vraag\",\"confidence\":0.2,\"refused\":false}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "vraag",
+                "confidence": 0.2,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the classification was less certain than the threshold this instance requires",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "vraag",
+                    "confidence": 0.2,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the classification was less certain than the threshold this instance requires",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "vraag",
+                        "confidence": 0.2,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"vraag\",\"confidence\":0.2,\"refused\":true}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "vraag",
+                "confidence": 0.2,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the classification was less certain than the threshold this instance requires",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "vraag",
+                    "confidence": 0.2,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the classification was less certain than the threshold this instance requires",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "vraag",
+                        "confidence": 0.2,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"vraag\",\"confidence\":0.5,\"refused\":false}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "filed",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "vraag",
+                "confidence": 0.5,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "filed": {
+                "tool": "dossiq.melding.create",
+                "type": "vraag",
+                "record": {
+                    "id": "ZAAK-1"
+                },
+                "at": "2026-11-11T10:00:00+00:00"
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "filed",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "vraag",
+                    "confidence": 0.5,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "filed": {
+                    "tool": "dossiq.melding.create",
+                    "type": "vraag",
+                    "record": {
+                        "id": "ZAAK-1"
+                    },
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            }
+        },
+        "calls": [
+            {
+                "tool": "dossiq.melding.create",
+                "arguments": {
+                    "type": "vraag",
+                    "subject": "iets",
+                    "person": "burger-1",
+                    "messages": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        ],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "filed",
+                    "classification": {
+                        "type": "vraag",
+                        "confidence": 0.5,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"vraag\",\"confidence\":0.5,\"refused\":true}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "vraag",
+                "confidence": 0.5,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the owning app did not create a record for this request",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "vraag",
+                    "confidence": 0.5,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the owning app did not create a record for this request",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [
+            {
+                "tool": "dossiq.melding.create",
+                "arguments": {
+                    "type": "vraag",
+                    "subject": "iets",
+                    "person": "burger-1",
+                    "messages": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        ],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "vraag",
+                        "confidence": 0.5,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"vraag\",\"confidence\":0.99,\"refused\":false}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "filed",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "vraag",
+                "confidence": 0.99,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "filed": {
+                "tool": "dossiq.melding.create",
+                "type": "vraag",
+                "record": {
+                    "id": "ZAAK-1"
+                },
+                "at": "2026-11-11T10:00:00+00:00"
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "filed",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "vraag",
+                    "confidence": 0.99,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "filed": {
+                    "tool": "dossiq.melding.create",
+                    "type": "vraag",
+                    "record": {
+                        "id": "ZAAK-1"
+                    },
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            }
+        },
+        "calls": [
+            {
+                "tool": "dossiq.melding.create",
+                "arguments": {
+                    "type": "vraag",
+                    "subject": "iets",
+                    "person": "burger-1",
+                    "messages": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        ],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "filed",
+                    "classification": {
+                        "type": "vraag",
+                        "confidence": 0.99,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"vraag\",\"confidence\":0.99,\"refused\":true}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "vraag",
+                "confidence": 0.99,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the owning app did not create a record for this request",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "vraag",
+                    "confidence": 0.99,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the owning app did not create a record for this request",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [
+            {
+                "tool": "dossiq.melding.create",
+                "arguments": {
+                    "type": "vraag",
+                    "subject": "iets",
+                    "person": "burger-1",
+                    "messages": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        ],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "vraag",
+                        "confidence": 0.99,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"vraag\",\"confidence\":null,\"refused\":false}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "vraag",
+                "confidence": 0.0,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the classification was less certain than the threshold this instance requires",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "vraag",
+                    "confidence": 0.0,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the classification was less certain than the threshold this instance requires",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "vraag",
+                        "confidence": 0.0,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"vraag\",\"confidence\":null,\"refused\":true}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "vraag",
+                "confidence": 0.0,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the classification was less certain than the threshold this instance requires",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "vraag",
+                    "confidence": 0.0,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the classification was less certain than the threshold this instance requires",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "vraag",
+                        "confidence": 0.0,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"onbekend\",\"confidence\":0.2,\"refused\":false}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "onbekend",
+                "confidence": 0.2,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the proposed request type is not in the catalogue this municipality declares",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "onbekend",
+                    "confidence": 0.2,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the proposed request type is not in the catalogue this municipality declares",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "onbekend",
+                        "confidence": 0.2,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"onbekend\",\"confidence\":0.2,\"refused\":true}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "onbekend",
+                "confidence": 0.2,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the proposed request type is not in the catalogue this municipality declares",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "onbekend",
+                    "confidence": 0.2,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the proposed request type is not in the catalogue this municipality declares",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "onbekend",
+                        "confidence": 0.2,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"onbekend\",\"confidence\":0.5,\"refused\":false}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "onbekend",
+                "confidence": 0.5,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the proposed request type is not in the catalogue this municipality declares",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "onbekend",
+                    "confidence": 0.5,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the proposed request type is not in the catalogue this municipality declares",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "onbekend",
+                        "confidence": 0.5,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"onbekend\",\"confidence\":0.5,\"refused\":true}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "onbekend",
+                "confidence": 0.5,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the proposed request type is not in the catalogue this municipality declares",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "onbekend",
+                    "confidence": 0.5,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the proposed request type is not in the catalogue this municipality declares",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "onbekend",
+                        "confidence": 0.5,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"onbekend\",\"confidence\":0.99,\"refused\":false}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "onbekend",
+                "confidence": 0.99,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the proposed request type is not in the catalogue this municipality declares",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "onbekend",
+                    "confidence": 0.99,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the proposed request type is not in the catalogue this municipality declares",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "onbekend",
+                        "confidence": 0.99,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"onbekend\",\"confidence\":0.99,\"refused\":true}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "onbekend",
+                "confidence": 0.99,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the proposed request type is not in the catalogue this municipality declares",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "onbekend",
+                    "confidence": 0.99,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the proposed request type is not in the catalogue this municipality declares",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "onbekend",
+                        "confidence": 0.99,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"onbekend\",\"confidence\":null,\"refused\":false}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "onbekend",
+                "confidence": 0.0,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the proposed request type is not in the catalogue this municipality declares",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "onbekend",
+                    "confidence": 0.0,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the proposed request type is not in the catalogue this municipality declares",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "onbekend",
+                        "confidence": 0.0,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"onbekend\",\"confidence\":null,\"refused\":true}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "onbekend",
+                "confidence": 0.0,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the proposed request type is not in the catalogue this municipality declares",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "onbekend",
+                    "confidence": 0.0,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the proposed request type is not in the catalogue this municipality declares",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "onbekend",
+                        "confidence": 0.0,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"\",\"confidence\":0.2,\"refused\":false}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "",
+                "confidence": 0.2,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the proposed request type is not in the catalogue this municipality declares",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "",
+                    "confidence": 0.2,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the proposed request type is not in the catalogue this municipality declares",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "",
+                        "confidence": 0.2,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"\",\"confidence\":0.2,\"refused\":true}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "",
+                "confidence": 0.2,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the proposed request type is not in the catalogue this municipality declares",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "",
+                    "confidence": 0.2,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the proposed request type is not in the catalogue this municipality declares",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "",
+                        "confidence": 0.2,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"\",\"confidence\":0.5,\"refused\":false}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "",
+                "confidence": 0.5,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the proposed request type is not in the catalogue this municipality declares",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "",
+                    "confidence": 0.5,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the proposed request type is not in the catalogue this municipality declares",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "",
+                        "confidence": 0.5,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"\",\"confidence\":0.5,\"refused\":true}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "",
+                "confidence": 0.5,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the proposed request type is not in the catalogue this municipality declares",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "",
+                    "confidence": 0.5,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the proposed request type is not in the catalogue this municipality declares",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "",
+                        "confidence": 0.5,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"\",\"confidence\":0.99,\"refused\":false}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "",
+                "confidence": 0.99,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the proposed request type is not in the catalogue this municipality declares",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "",
+                    "confidence": 0.99,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the proposed request type is not in the catalogue this municipality declares",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "",
+                        "confidence": 0.99,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"\",\"confidence\":0.99,\"refused\":true}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "",
+                "confidence": 0.99,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the proposed request type is not in the catalogue this municipality declares",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "",
+                    "confidence": 0.99,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the proposed request type is not in the catalogue this municipality declares",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "",
+                        "confidence": 0.99,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"\",\"confidence\":null,\"refused\":false}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "",
+                "confidence": 0.0,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the proposed request type is not in the catalogue this municipality declares",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "",
+                    "confidence": 0.0,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the proposed request type is not in the catalogue this municipality declares",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "",
+                        "confidence": 0.0,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\"\",\"confidence\":null,\"refused\":true}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "",
+                "confidence": 0.0,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the proposed request type is not in the catalogue this municipality declares",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "",
+                    "confidence": 0.0,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the proposed request type is not in the catalogue this municipality declares",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "",
+                        "confidence": 0.0,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\" vraag \",\"confidence\":0.2,\"refused\":false}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "vraag",
+                "confidence": 0.2,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the classification was less certain than the threshold this instance requires",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "vraag",
+                    "confidence": 0.2,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the classification was less certain than the threshold this instance requires",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "vraag",
+                        "confidence": 0.2,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\" vraag \",\"confidence\":0.2,\"refused\":true}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "vraag",
+                "confidence": 0.2,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the classification was less certain than the threshold this instance requires",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "vraag",
+                    "confidence": 0.2,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the classification was less certain than the threshold this instance requires",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "vraag",
+                        "confidence": 0.2,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\" vraag \",\"confidence\":0.5,\"refused\":false}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "filed",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "vraag",
+                "confidence": 0.5,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "filed": {
+                "tool": "dossiq.melding.create",
+                "type": "vraag",
+                "record": {
+                    "id": "ZAAK-1"
+                },
+                "at": "2026-11-11T10:00:00+00:00"
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "filed",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "vraag",
+                    "confidence": 0.5,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "filed": {
+                    "tool": "dossiq.melding.create",
+                    "type": "vraag",
+                    "record": {
+                        "id": "ZAAK-1"
+                    },
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            }
+        },
+        "calls": [
+            {
+                "tool": "dossiq.melding.create",
+                "arguments": {
+                    "type": "vraag",
+                    "subject": "iets",
+                    "person": "burger-1",
+                    "messages": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        ],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "filed",
+                    "classification": {
+                        "type": "vraag",
+                        "confidence": 0.5,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\" vraag \",\"confidence\":0.5,\"refused\":true}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "vraag",
+                "confidence": 0.5,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the owning app did not create a record for this request",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "vraag",
+                    "confidence": 0.5,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the owning app did not create a record for this request",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [
+            {
+                "tool": "dossiq.melding.create",
+                "arguments": {
+                    "type": "vraag",
+                    "subject": "iets",
+                    "person": "burger-1",
+                    "messages": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        ],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "vraag",
+                        "confidence": 0.5,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\" vraag \",\"confidence\":0.99,\"refused\":false}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "filed",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "vraag",
+                "confidence": 0.99,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "filed": {
+                "tool": "dossiq.melding.create",
+                "type": "vraag",
+                "record": {
+                    "id": "ZAAK-1"
+                },
+                "at": "2026-11-11T10:00:00+00:00"
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "filed",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "vraag",
+                    "confidence": 0.99,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "filed": {
+                    "tool": "dossiq.melding.create",
+                    "type": "vraag",
+                    "record": {
+                        "id": "ZAAK-1"
+                    },
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            }
+        },
+        "calls": [
+            {
+                "tool": "dossiq.melding.create",
+                "arguments": {
+                    "type": "vraag",
+                    "subject": "iets",
+                    "person": "burger-1",
+                    "messages": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        ],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "filed",
+                    "classification": {
+                        "type": "vraag",
+                        "confidence": 0.99,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\" vraag \",\"confidence\":0.99,\"refused\":true}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "vraag",
+                "confidence": 0.99,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the owning app did not create a record for this request",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "vraag",
+                    "confidence": 0.99,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the owning app did not create a record for this request",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [
+            {
+                "tool": "dossiq.melding.create",
+                "arguments": {
+                    "type": "vraag",
+                    "subject": "iets",
+                    "person": "burger-1",
+                    "messages": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        ],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "vraag",
+                        "confidence": 0.99,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\" vraag \",\"confidence\":null,\"refused\":false}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "vraag",
+                "confidence": 0.0,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the classification was less certain than the threshold this instance requires",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "vraag",
+                    "confidence": 0.0,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the classification was less certain than the threshold this instance requires",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "vraag",
+                        "confidence": 0.0,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "{\"type\":\" vraag \",\"confidence\":null,\"refused\":true}": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "iets",
+            "state": "handover",
+            "messages": [
+                {
+                    "channel": "email",
+                    "text": "Eerste",
+                    "at": "2026-11-11T10:00:00+00:00"
+                },
+                {
+                    "channel": "portal",
+                    "text": "Tweede",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "classification": {
+                "type": "vraag",
+                "confidence": 0.0,
+                "threshold": 0.5,
+                "catalogue": [
+                    "melding-openbare-ruimte",
+                    "bezwaar",
+                    "vraag"
+                ]
+            },
+            "handover": {
+                "reason": "the classification was less certain than the threshold this instance requires",
+                "at": "2026-11-11T10:00:00+00:00",
+                "transcript": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            },
+            "terminal": true
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "iets",
+                "state": "handover",
+                "messages": [
+                    {
+                        "channel": "email",
+                        "text": "Eerste",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    },
+                    {
+                        "channel": "portal",
+                        "text": "Tweede",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "classification": {
+                    "type": "vraag",
+                    "confidence": 0.0,
+                    "threshold": 0.5,
+                    "catalogue": [
+                        "melding-openbare-ruimte",
+                        "bezwaar",
+                        "vraag"
+                    ]
+                },
+                "handover": {
+                    "reason": "the classification was less certain than the threshold this instance requires",
+                    "at": "2026-11-11T10:00:00+00:00",
+                    "transcript": [
+                        {
+                            "channel": "email",
+                            "text": "Eerste",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        },
+                        {
+                            "channel": "portal",
+                            "text": "Tweede",
+                            "at": "2026-11-11T10:00:00+00:00"
+                        }
+                    ]
+                }
+            }
+        },
+        "calls": [],
+        "audits": [
+            {
+                "action": "intake",
+                "context": {
+                    "feature": "conversational-intake",
+                    "conversation": "conversation-1",
+                    "state": "handover",
+                    "classification": {
+                        "type": "vraag",
+                        "confidence": 0.0,
+                        "threshold": 0.5,
+                        "catalogue": [
+                            "melding-openbare-ruimte",
+                            "bezwaar",
+                            "vraag"
+                        ]
+                    },
+                    "escalation": [],
+                    "reviews": []
+                }
+            }
+        ]
+    },
+    "review": {
+        "result": {
+            "id": "conversation-1",
+            "person": "burger-1",
+            "subject": "bouwplan",
+            "state": "open",
+            "messages": [
+                {
+                    "channel": "portal",
+                    "text": "Aanbouw",
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "reviews": [
+                {
+                    "tool": "buildiq.planreview.run",
+                    "reviewer": "buildiq.planreview.run",
+                    "verdict": {
+                        "id": "ZAAK-1"
+                    },
+                    "failed": false,
+                    "at": "2026-11-11T10:00:00+00:00"
+                }
+            ],
+            "terminal": false
+        },
+        "store": {
+            "conversation-1": {
+                "id": "conversation-1",
+                "person": "burger-1",
+                "subject": "bouwplan",
+                "state": "open",
+                "messages": [
+                    {
+                        "channel": "portal",
+                        "text": "Aanbouw",
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ],
+                "reviews": [
+                    {
+                        "tool": "buildiq.planreview.run",
+                        "reviewer": "buildiq.planreview.run",
+                        "verdict": {
+                            "id": "ZAAK-1"
+                        },
+                        "failed": false,
+                        "at": "2026-11-11T10:00:00+00:00"
+                    }
+                ]
+            }
+        },
+        "calls": [
+            {
+                "tool": "buildiq.planreview.run",
+                "arguments": {
+                    "plan": "x"
+                }
+            }
+        ]
+    },
+    "missing": {
+        "conclude": null,
+        "review": null
+    }
+}

@@ -31,27 +31,29 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
- * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-paid-search-api-credentials-come-from-the-credential-broker
- * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-the-admin-configured-search-endpoint-is-exempt-from-the-private-address-block
+ * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
+ * @spec openspec/specs/web-research-tool/spec.md#requirement-paid-search-api-credentials-come-from-the-credential-broker
+ * @spec openspec/specs/web-research-tool/spec.md#requirement-the-admin-configured-search-endpoint-is-exempt-from-the-private-address-block
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\WebResearch;
 
+use OCA\Hermiq\Kernel\Contracts\WebSearchClientInterface;
 use OCP\Http\Client\IClientService;
-use OCP\Server;
+use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 use Throwable;
 
 /**
  * `hermiq.webSearch`'s implementation: guarded call to the configured search backend,
  * parsed via the provider's native shape or an admin-supplied field mapping.
  *
- * @spec openspec/changes/web-research-tool/tasks.md#task-4-websearchclient-searxng--generic-json
+ * @spec openspec/changes/archive/2026-07-14-web-research-tool/tasks.md#task-4-websearchclient-searxng--generic-json
  */
-class WebSearchClient {
+class WebSearchClient implements WebSearchClientInterface {
 
 	/**
 	 * OpenRegister's credential broker. Resolved lazily so Hermiq still boots without
@@ -75,14 +77,45 @@ class WebSearchClient {
 	 * @param WebResearchSettingsHandler $settingsHandler Reads `hermiq.webResearch`.
 	 * @param WebResearchEgressGuard $guard SSRF/allowlist/denylist gate.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param ContainerInterface|null $container The app container the optional cross-app
+	 *                                           classes are resolved from; null when the
+	 *                                           class is built by hand in a test.
 	 */
 	public function __construct(
 		private readonly IClientService $clientService,
 		private readonly WebResearchSettingsHandler $settingsHandler,
 		private readonly WebResearchEgressGuard $guard,
 		private readonly LoggerInterface $logger,
+		private readonly ?ContainerInterface $container = null,
 	) {
 	}//end __construct()
+
+	/**
+	 * The container the optional OpenRegister credential broker is resolved from.
+	 *
+	 * The broker is another app's class, probed by class-string, so it can never be a
+	 * constructor type here: that would hard-couple hermiq to an OpenRegister version
+	 * that ships it. It used to come from the global server, which outside a booted
+	 * Nextcloud autowires from scratch and can recurse through a constructor cycle
+	 * until memory runs out. The container is nullable because the unit tests build
+	 * this client with its four real collaborators; `fetchBody()` treats a null as it
+	 * treats an absent broker and takes the direct path, so this only ever throws for
+	 * a caller that reached the brokered path some other way.
+	 *
+	 * @return ContainerInterface The injected container.
+	 *
+	 * @throws RuntimeException When the client was built without one.
+	 */
+	private function serviceContainer(): ContainerInterface {
+		if ($this->container === null) {
+			throw new RuntimeException(
+				'Hermiq web research: this client was constructed without a container, so the '
+				. 'OpenRegister credential broker cannot be resolved.'
+			);
+		}
+
+		return $this->container;
+	}//end serviceContainer()
 
 	/**
 	 * Search the configured backend. Never throws.
@@ -95,103 +128,118 @@ class WebSearchClient {
 	 *
 	 * @return array<string, mixed> `{query, results}` on success, or `{error: {code, message}}`.
 	 *
-	 * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#scenario-an-admin-configures-a-self-hosted-searxng-instance
+	 * @spec openspec/specs/web-research-tool/spec.md#scenario-an-admin-configures-a-self-hosted-searxng-instance
 	 */
 	public function search(string $query, ?string $actingUserId = null): array {
-		$config = $this->settingsHandler->getWebResearchSettingsOnly();
-		$provider = (string)$config['searchProvider'];
-		$endpoint = trim((string)$config['searchEndpoint']);
+		$run = new WebSearchRun(query: $query, config: $this->settingsHandler->getWebResearchSettingsOnly());
+		$run->actingUserId = $actingUserId;
 
-		if ($provider === '' || $endpoint === '') {
+		if ($run->provider === '' || $run->endpoint === '') {
 			return $this->error(code: 'search_unavailable', message: 'No web search provider is configured.');
 		}
 
-		$requestUrl = $this->buildRequestUrl(endpoint: $endpoint, provider: $provider, query: $query);
-
-		$safety = $this->guard->assertSafe(
-			url: $requestUrl,
-			isAdminConfiguredEndpoint: true,
-			allowlist: [],
-			denylist: [],
-			allowInsecureHttp: (bool)$config['allowInsecureHttp']
-		);
-		if ($safety['allowed'] === false) {
-			return $this->error(code: (string)$safety['code'], message: (string)$safety['message']);
+		$run->requestUrl = $this->buildRequestUrl(run: $run);
+		$refusal = $this->guardRefusal(run: $run);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
-		$credentialId = trim((string)$config['searchCredentialId']);
-
 		try {
-			$body = $this->fetchBody(
-				requestUrl: $requestUrl,
-				credentialId: $credentialId,
-				actingUserId: $actingUserId,
-				timeout: (int)$config['timeoutSeconds']
-			);
+			$body = $this->fetchBody(run: $run);
 		} catch (Throwable $e) {
 			$this->logger->warning('[Hermiq] web.search request failed', ['error' => $e->getMessage()]);
 			return $this->error(code: 'search_failed', message: 'The search request failed.');
 		}
 
+		return $this->resultsOf(run: $run, body: $body);
+	}//end search()
+
+	/**
+	 * The egress guard's refusal of the admin-configured request URL, or null
+	 * when it may be called.
+	 *
+	 * @param WebSearchRun $run The search.
+	 *
+	 * @return array<string, mixed>|null The error envelope, or null.
+	 */
+	private function guardRefusal(WebSearchRun $run): ?array {
+		$safety = $this->guard->assertSafe(
+			url: $run->requestUrl,
+			isAdminConfiguredEndpoint: true,
+			allowlist: [],
+			denylist: [],
+			allowInsecureHttp: (bool)$run->config['allowInsecureHttp']
+		);
+		if ($safety['allowed'] === false) {
+			return $this->error(code: (string)$safety['code'], message: (string)$safety['message']);
+		}
+
+		return null;
+	}//end guardRefusal()
+
+	/**
+	 * The search results of a response body, or the error of an unparsable one.
+	 *
+	 * @param WebSearchRun $run  The search.
+	 * @param string       $body The raw response body.
+	 *
+	 * @return array<string, mixed> `{query, results}`, or an error envelope.
+	 */
+	private function resultsOf(WebSearchRun $run, string $body): array {
 		$decoded = json_decode($body, true);
 		if (is_array($decoded) === false) {
 			return $this->error(code: 'search_failed', message: 'The search provider returned an unparsable response.');
 		}
 
-		$results = $this->parseResults(provider: $provider, decoded: $decoded, mapping: (array)$config['searchFieldMapping']);
-
-		return ['query' => $query, 'results' => $results];
-	}//end search()
+		return ['query' => $run->query, 'results' => $this->parseResults(run: $run, decoded: $decoded)];
+	}//end resultsOf()
 
 	/**
 	 * Fetch the raw response body — via the credential broker when a credential is
 	 * configured, direct otherwise.
 	 *
-	 * @param string $requestUrl The request URL.
-	 * @param string $credentialId The broker credential UUID (empty = no broker).
-	 * @param string|null $actingUserId The acting user id (broker sessionless-caller path).
-	 * @param int $timeout The configured timeout, in seconds.
+	 * The broker credential UUID comes from the settings (empty = no broker).
+	 *
+	 * @param WebSearchRun $run The search: its request URL, settings and acting user.
 	 *
 	 * @return string The raw response body.
 	 */
-	private function fetchBody(string $requestUrl, string $credentialId, ?string $actingUserId, int $timeout): string {
-		if ($credentialId !== '' && class_exists(self::BROKER_CLASS) === true) {
-			return $this->requestViaBroker(url: $requestUrl, credentialId: $credentialId, actingUserId: $actingUserId);
+	private function fetchBody(WebSearchRun $run): string {
+		$credentialId = trim((string)$run->config['searchCredentialId']);
+		if ($credentialId !== '' && $this->container !== null && class_exists(self::BROKER_CLASS) === true) {
+			return $this->requestViaBroker(run: $run, credentialId: $credentialId);
 		}
 
-		return $this->requestDirect(url: $requestUrl, timeout: $timeout);
+		return $this->requestDirect(url: $run->requestUrl, timeout: (int)$run->config['timeoutSeconds']);
 	}//end fetchBody()
 
 	/**
 	 * Parse the decoded JSON response per the configured provider shape.
 	 *
-	 * @param string $provider `searxng` or `generic-json`.
+	 * @param WebSearchRun         $run     The search: its provider and `generic-json` field mapping.
 	 * @param array<string, mixed> $decoded The decoded JSON response.
-	 * @param array<string, mixed> $mapping The `generic-json` field mapping.
 	 *
 	 * @return array<int, array{title: string, url: string, snippet: string}>
 	 */
-	private function parseResults(string $provider, array $decoded, array $mapping): array {
-		if ($provider === 'searxng') {
+	private function parseResults(WebSearchRun $run, array $decoded): array {
+		if ($run->provider === 'searxng') {
 			return $this->parseSearxng(decoded: $decoded);
 		}
 
-		return $this->parseGenericJson(decoded: $decoded, mapping: $mapping);
+		return $this->parseGenericJson(decoded: $decoded, mapping: (array)$run->config['searchFieldMapping']);
 	}//end parseResults()
 
 	/**
 	 * Build the request URL for the configured provider shape.
 	 *
-	 * @param string $endpoint The admin-configured base endpoint.
-	 * @param string $provider `searxng` or `generic-json`.
-	 * @param string $query The search query.
+	 * @param WebSearchRun $run The search: its endpoint, provider and query.
 	 *
 	 * @return string
 	 */
-	private function buildRequestUrl(string $endpoint, string $provider, string $query): string {
-		$base = rtrim($endpoint, '/');
-		if ($provider === 'searxng') {
-			return $base . '/search?' . http_build_query(['q' => $query, 'format' => 'json']);
+	private function buildRequestUrl(WebSearchRun $run): string {
+		$base = rtrim($run->endpoint, '/');
+		if ($run->provider === 'searxng') {
+			return $base . '/search?' . http_build_query(['q' => $run->query, 'format' => 'json']);
 		}
 
 		$separator = '?';
@@ -199,7 +247,7 @@ class WebSearchClient {
 			$separator = '&';
 		}
 
-		return $base . $separator . http_build_query(['q' => $query]);
+		return $base . $separator . http_build_query(['q' => $run->query]);
 	}//end buildRequestUrl()
 
 	/**
@@ -234,27 +282,27 @@ class WebSearchClient {
 	 * provider record supplies the real (host-locked) base URL — only a path (+ query
 	 * string) is ever passed, exactly like `BrokerHttpClient::sendRequest()`.
 	 *
-	 * @param string $url The request URL Hermiq WOULD have called
-	 *                    directly (its path/query is what is actually sent).
-	 * @param string $credentialId The broker credential UUID.
-	 * @param string|null $actingUserId The acting user id (sessionless-caller path).
+	 * @param WebSearchRun $run          The search: the request URL Hermiq WOULD have called
+	 *                                   directly (its path/query is what is actually sent)
+	 *                                   and the acting user id (sessionless-caller path).
+	 * @param string       $credentialId The broker credential UUID.
 	 *
 	 * @return string The raw response body.
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) The broker is OpenRegister's optional
-	 *   cross-app service, resolved by class-name string via `Server::get()` only
-	 *   after a `class_exists()` probe — constructor injection would hard-couple
+	 *   cross-app service, resolved by class-name string through the injected container
+	 *   and only after a `class_exists()` probe. Constructor injection would hard-couple
 	 *   Hermiq to an OpenRegister version that ships it.
 	 */
-	private function requestViaBroker(string $url, string $credentialId, ?string $actingUserId): string {
-		$parts = parse_url($url);
+	private function requestViaBroker(WebSearchRun $run, string $credentialId): string {
+		$parts = parse_url($run->requestUrl);
 		$path = (string)($parts['path'] ?? '/');
 		if (isset($parts['query']) === true && $parts['query'] !== '') {
 			$path .= '?' . $parts['query'];
 		}
 
-		$broker = Server::get(self::BROKER_CLASS);
-		$response = $broker->request($credentialId, self::APP_ID, 'GET', $path, [], null, $actingUserId);
+		$broker = $this->serviceContainer()->get(self::BROKER_CLASS);
+		$response = $broker->request($credentialId, self::APP_ID, 'GET', $path, [], null, $run->actingUserId);
 
 		return (string)($response['body'] ?? '');
 	}//end requestViaBroker()

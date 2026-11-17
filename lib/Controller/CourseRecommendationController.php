@@ -23,15 +23,15 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/ai-course-recommendations/tasks.md#3-controller-routes-self-scoped-no-action-matrix-gate-needed
+ * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#3-controller-routes-self-scoped-no-action-matrix-gate-needed
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\CourseRecommendationEngine;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\CourseRecommendationEngineInterface;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -43,7 +43,7 @@ use Throwable;
 /**
  * Self-scoped course-recommendation read endpoint.
  *
- * @spec openspec/changes/ai-course-recommendations/tasks.md#task-3-1
+ * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-3-1
  */
 class CourseRecommendationController extends Controller {
 	/**
@@ -51,16 +51,16 @@ class CourseRecommendationController extends Controller {
 	 *
 	 * @param IRequest $request The request object.
 	 * @param IUserSession $userSession Resolves the requesting user (self-scope).
-	 * @param CourseRecommendationEngine $engine The gated ranking/explanation pipeline.
+	 * @param CourseRecommendationEngineInterface $engine The gated ranking/explanation pipeline.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
 		IRequest $request,
 		private readonly IUserSession $userSession,
-		private readonly CourseRecommendationEngine $engine,
+		private readonly CourseRecommendationEngineInterface $engine,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -73,8 +73,8 @@ class CourseRecommendationController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-3-1
-	 * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md#requirement-recommendation-access-is-self-scoped-to-the-callers-own-learner-identity
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-3-1
+	 * @spec openspec/specs/course-recommendations/spec.md#requirement-recommendation-access-is-self-scoped-to-the-callers-own-learner-identity
 	 */
 	public function index(): JSONResponse {
 		$user = $this->userSession->getUser();

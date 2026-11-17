@@ -26,6 +26,7 @@
 			:pageTypes="pageTypes"
 			:registry="registry"
 			:cellWidgets="cellWidgets"
+			:formatters="formatters"
 			appId="hermiq"
 			:translate="translateForApp"
 			:permissions="permissions"
@@ -91,6 +92,11 @@
 					</ul>
 				</NcAppSettingsSection>
 				<NcAppSettingsSection
+					id="preferences"
+					:name="t('hermiq', 'Preferences')">
+					<PersonalPreferences />
+				</NcAppSettingsSection>
+				<NcAppSettingsSection
 					id="talk-delivery"
 					:name="t('hermiq', 'Talk delivery')">
 					<TalkDeliverySettings />
@@ -107,7 +113,7 @@
 							)
 						}}
 					</p>
-					<NcButton type="secondary" @click="showSetup = true">
+					<NcButton variant="secondary" @click="showSetup = true">
 						{{ t('hermiq', 'Run setup wizard') }}
 					</NcButton>
 				</NcAppSettingsSection>
@@ -143,6 +149,7 @@ import {
 import { translate as ncT } from '@nextcloud/l10n'
 import { NcAppSettingsSection, NcButton } from '@nextcloud/vue'
 import { reactive } from 'vue'
+import PersonalPreferences from './components/PersonalPreferences.vue'
 import TalkDeliverySettings from './components/TalkDeliverySettings.vue'
 // skill-maturity: the SkillsCatalog maturityLevel column's dots badge, resolved
 // via CnAppRoot's cellWidgets registry (manifest column `widget: "maturity-dots"`).
@@ -151,6 +158,7 @@ import SkillMaturityDots from './widgets/SkillMaturityDots.vue'
 // Lives beside the manifest (not inside it): the app-manifest v2 schema has no
 // root `credentials` block, and the declaration is consumed only by this shell.
 import credentialDeclarations from './credentials.json'
+import { agentCatalogFormatters } from './utils/agentSharing.js'
 
 export default {
 	name: 'App',
@@ -162,6 +170,7 @@ export default {
 		CnCredentials,
 		NcAppSettingsSection,
 		NcButton,
+		PersonalPreferences,
 		TalkDeliverySettings,
 	},
 
@@ -257,6 +266,17 @@ export default {
 			return {
 				'maturity-dots': SkillMaturityDots,
 			}
+		},
+
+		/**
+		 * Cell formatters for manifest columns: the agent catalog's sharing and
+		 * status (agents-sharing-and-catalog-columns).
+		 *
+		 * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-the-agent-catalog-shows-owner-sharing-and-status-req-agshare-003
+		 * @return {object} Map of formatter id to function.
+		 */
+		formatters() {
+			return agentCatalogFormatters(ncT)
 		},
 
 		/**

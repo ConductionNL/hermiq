@@ -12,7 +12,7 @@
  * authenticated user can call it, so the decision endpoints MUST NOT trust the
  * {approvalId} path blindly. Because the Approval is owned by the schedule owner but
  * decided by a DIFFERENT party (the reviewer), the object is loaded RBAC-off and the
- * caller is authorised via ApprovalService::isReviewer() — the resolved reviewer user,
+ * caller is authorised via ApprovalInbox::isReviewer() — the resolved reviewer user,
  * a member of the reviewer group, or an instance admin. The schedule owner is refused
  * (404) unless owner == reviewer (separation of duties).
  *
@@ -28,15 +28,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
+use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -49,26 +50,28 @@ use Throwable;
 /**
  * Reviewer/admin-guarded approve/deny + pending-inbox endpoints.
  *
- * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
  */
 class ApprovalController extends Controller {
 	/**
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param ApprovalService $approvalService The approval gate write-path + reviewer guard.
+	 * @param ApprovalServiceInterface $approvalService The approval gate write-path.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param ApprovalInbox $approvalInbox The reviewer inbox + reviewer guard.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-4-1
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly ApprovalService $approvalService,
+		private readonly ApprovalServiceInterface $approvalService,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
+		private readonly ApprovalInbox $approvalInbox,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -79,7 +82,7 @@ class ApprovalController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-4-1
 	 */
 	public function index(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -88,7 +91,7 @@ class ApprovalController extends Controller {
 		}
 
 		try {
-			$records = $this->approvalService->listPendingForReviewer(uid: $user->getUID());
+			$records = $this->approvalInbox->listPendingForReviewer(uid: $user->getUID());
 			return new JSONResponse(['results' => $records, 'total' => count($records)]);
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq approval inbox read failed: ' . $e->getMessage(), ['exception' => $e]);
@@ -105,9 +108,8 @@ class ApprovalController extends Controller {
 	 * @return JSONResponse The decision outcome, or an error status.
 	 *
 	 * @NoAdminRequired
-	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-4-2
 	 */
 	public function approve(string $approvalId): JSONResponse {
 		$guard = $this->ensureDecidableApproval(approvalId: $approvalId);
@@ -115,9 +117,55 @@ class ApprovalController extends Controller {
 			return $guard;
 		}
 
+		return $this->approved(approval: $guard, approvalId: $approvalId);
+	}//end approve()
+
+	/**
+	 * Decide a pending approval from one route: `decision` is `granted`
+	 * (approve) or `refused` (deny), so a chat posts to the approval's
+	 * `resolveUrl` as it does for a tool-access request.
+	 *
+	 * The reviewer guard runs first, so a non-reviewer gets the same 404 for
+	 * any decision and cannot learn whether the approval exists.
+	 *
+	 * @param string $approvalId The Approval object UUID.
+	 *
+	 * @return JSONResponse The decision outcome, or an error status.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/specs/session-surface/spec.md#requirement-a-sessions-messages-come-with-the-approvals-waiting-on-its-owner
+	 */
+	public function resolve(string $approvalId): JSONResponse {
+		$guard = $this->ensureDecidableApproval(approvalId: $approvalId);
+		if (($guard instanceof ObjectEntity) === false) {
+			return $guard;
+		}
+
+		$decision = $this->request->getParam('decision');
+		if ($decision === 'granted') {
+			return $this->approved(approval: $guard, approvalId: $approvalId);
+		}
+
+		if ($decision === 'refused') {
+			return $this->denied(approval: $guard, approvalId: $approvalId);
+		}
+
+		return new JSONResponse(['error' => "decision must be 'granted' or 'refused'"], Http::STATUS_BAD_REQUEST);
+	}//end resolve()
+
+	/**
+	 * Approve a guarded approval and answer with the outcome.
+	 *
+	 * @param ObjectEntity $approval   The approval the caller may decide.
+	 * @param string       $approvalId The Approval object UUID as requested.
+	 *
+	 * @return JSONResponse The decision outcome, or an error status.
+	 */
+	private function approved(ObjectEntity $approval, string $approvalId): JSONResponse {
 		try {
 			$result = $this->approvalService->approve(
-				approval: $guard,
+				approval: $approval,
 				deciderUid: (string)$this->userSession->getUser()?->getUID()
 			);
 			return new JSONResponse(
@@ -131,8 +179,7 @@ class ApprovalController extends Controller {
 			$this->logger->error('Hermiq approval approve failed: ' . $e->getMessage(), ['exception' => $e]);
 			return new JSONResponse(['error' => 'Approve failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
 		}
-
-	}//end approve()
+	}//end approved()
 
 	/**
 	 * Deny a pending approval — the gated run never executes.
@@ -142,9 +189,8 @@ class ApprovalController extends Controller {
 	 * @return JSONResponse The decision outcome, or an error status.
 	 *
 	 * @NoAdminRequired
-	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-3
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-4-3
 	 */
 	public function deny(string $approvalId): JSONResponse {
 		$guard = $this->ensureDecidableApproval(approvalId: $approvalId);
@@ -152,6 +198,18 @@ class ApprovalController extends Controller {
 			return $guard;
 		}
 
+		return $this->denied(approval: $guard, approvalId: $approvalId);
+	}//end deny()
+
+	/**
+	 * Deny a guarded approval, with the request's optional `reason`.
+	 *
+	 * @param ObjectEntity $approval   The approval the caller may decide.
+	 * @param string       $approvalId The Approval object UUID as requested.
+	 *
+	 * @return JSONResponse The decision outcome, or an error status.
+	 */
+	private function denied(ObjectEntity $approval, string $approvalId): JSONResponse {
 		$reason = $this->request->getParam('reason');
 		$reasonStr = null;
 		if ($reason !== null) {
@@ -160,7 +218,7 @@ class ApprovalController extends Controller {
 
 		try {
 			$this->approvalService->deny(
-				approval: $guard,
+				approval: $approval,
 				deciderUid: (string)$this->userSession->getUser()?->getUID(),
 				reason: $reasonStr
 			);
@@ -169,8 +227,7 @@ class ApprovalController extends Controller {
 			$this->logger->error('Hermiq approval deny failed: ' . $e->getMessage(), ['exception' => $e]);
 			return new JSONResponse(['error' => 'Deny failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
 		}
-
-	}//end deny()
+	}//end denied()
 
 	/**
 	 * Load a pending approval the caller is authorised to decide (shared IDOR guard).
@@ -184,7 +241,7 @@ class ApprovalController extends Controller {
 	 *
 	 * @return ObjectEntity|JSONResponse The guarded approval, or an error response.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-4-1
 	 */
 	private function ensureDecidableApproval(string $approvalId): ObjectEntity|JSONResponse {
 		$user = $this->userSession->getUser();
@@ -197,7 +254,7 @@ class ApprovalController extends Controller {
 			return new JSONResponse(['error' => 'Approval not found'], Http::STATUS_NOT_FOUND);
 		}
 
-		if ($this->approvalService->isReviewer(approval: $approval, uid: $user->getUID()) === false) {
+		if ($this->approvalInbox->isReviewer(approval: $approval, uid: $user->getUID()) === false) {
 			// 404 (not 403) so a non-reviewer cannot even confirm the approval exists.
 			return new JSONResponse(['error' => 'Approval not found'], Http::STATUS_NOT_FOUND);
 		}

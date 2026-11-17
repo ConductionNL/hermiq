@@ -77,7 +77,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
  */
 
 declare(strict_types=1);
@@ -87,9 +87,16 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
+use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
+use OCA\Hermiq\Service\Approval\ApprovalDecision;
+use OCA\Hermiq\Service\Approval\ApprovalTarget;
 use OCA\Hermiq\Service\Approval\ApprovalTaskBridge;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IGroupManager;
 use OCP\IUserManager;
@@ -116,9 +123,9 @@ use Throwable;
  * @SuppressWarnings(PHPMD.TooManyPublicMethods)     Each sourceType exposes its own public
  *   ensure/find/decide entry points consumed by distinct callers.
  *
- * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
  */
-class ApprovalService {
+class ApprovalService implements ApprovalServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -157,7 +164,7 @@ class ApprovalService {
 	 *
 	 * @var int
 	 */
-	private const TOOLCALL_APPROVAL_TTL_SECONDS = 3600;
+	public const TOOLCALL_APPROVAL_TTL_SECONDS = 3600;
 
 	/**
 	 * Constructor.
@@ -203,8 +210,8 @@ class ApprovalService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
 	 */
 	public function ensurePendingApproval(ObjectEntity $schedule): void {
 		$scheduleId = (string)$schedule->getUuid();
@@ -236,7 +243,7 @@ class ApprovalService {
 			'reason' => null,
 		];
 
-		$approval = $this->persistApproval(data: $payload, uuid: null, owner: $owner);
+		$approval = $this->persistApproval(data: $payload, target: new ApprovalTarget(uuid: null, owner: $owner));
 
 		// Notify the resolved reviewer(s). Never fatal to the dispatch tick.
 		try {
@@ -273,7 +280,7 @@ class ApprovalService {
 	 *
 	 * @return ObjectEntity The pending (or already-pending) Approval.
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#3-approvalservice-generalisation-sourcetype-flow
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#3-approvalservice-generalisation-sourcetype-flow
 	 */
 	public function ensurePendingApprovalForFlowRun(array $context, string $agentOwner): ObjectEntity {
 		$correlationId = (string)($context['correlationId'] ?? '');
@@ -285,13 +292,7 @@ class ApprovalService {
 			}
 		}
 
-		$reviewer = $agentOwner;
-		$reviewerType = 'user';
-		if ($reviewer === '') {
-			$reviewer = 'admin';
-			$reviewerType = 'group';
-		}
-
+		$review = $this->reviewFor(owner: $agentOwner);
 		$payload = [
 			'status' => 'pending',
 			'sourceType' => 'flow',
@@ -299,21 +300,19 @@ class ApprovalService {
 			'flowContext' => $context,
 			'agentId' => (string)($context['agent'] ?? ''),
 			'prompt' => (string)($context['prompt'] ?? ''),
-			'requestedAt' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
-			'reviewer' => $reviewer,
-			'reviewerType' => $reviewerType,
+			...$review,
 			'decidedAt' => null,
 			'decidedBy' => null,
 			'reason' => null,
 		];
 
-		$approval = $this->persistApproval(data: $payload, uuid: null, owner: $agentOwner);
+		$approval = $this->persistApproval(data: $payload, target: new ApprovalTarget(uuid: null, owner: $agentOwner));
 
 		// Notify the resolved reviewer(s). Never fatal to the run.
 		try {
 			$this->deliveryService->deliverApprovalRequestForFlowRun(
 				approval: $approval,
-				reviewerUids: $this->reviewerUids(reviewer: $reviewer, reviewerType: $reviewerType)
+				reviewerUids: $this->reviewerUids(reviewer: $review['reviewer'], reviewerType: $review['reviewerType'])
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(
@@ -388,7 +387,7 @@ class ApprovalService {
 			'reason' => null,
 		];
 
-		$approval = $this->persistApproval(data: $payload, uuid: null, owner: $agentOwner);
+		$approval = $this->persistApproval(data: $payload, target: new ApprovalTarget(uuid: null, owner: $agentOwner));
 
 		// Notify the resolved reviewer(s). Never fatal to the run.
 		try {
@@ -437,12 +436,6 @@ class ApprovalService {
 		}
 
 		$owner = $this->resolveAgentOwner(agentId: $agentId);
-		$reviewer = $owner;
-		$reviewerType = 'user';
-		if ($reviewer === '') {
-			$reviewer = 'admin';
-			$reviewerType = 'group';
-		}
 
 		$payload = [
 			'status' => 'pending',
@@ -450,30 +443,13 @@ class ApprovalService {
 			'agentId' => $agentId,
 			'toolId' => $toolId,
 			'prompt' => $this->summarizeArguments(arguments: $arguments),
-			'requestedAt' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
-			'reviewer' => $reviewer,
-			'reviewerType' => $reviewerType,
+			...$this->reviewFor(owner: $owner),
 			'decidedAt' => null,
 			'decidedBy' => null,
 			'reason' => null,
 		];
 
-		$approval = $this->persistApproval(data: $payload, uuid: null, owner: $owner);
-
-		try {
-			$this->deliveryService->deliverApprovalRequestForToolInvocation(
-				approval: $approval,
-				reviewerUids: $this->reviewerUids(reviewer: $reviewer, reviewerType: $reviewerType)
-			);
-		} catch (Throwable $e) {
-			$this->logger->warning(
-				'Hermiq could not notify reviewer for tool-invocation approval '
-				. ((string)$approval->getUuid()) . ': ' . $e->getMessage(),
-				['exception' => $e]
-			);
-		}
-
-		return $approval;
+		return $this->openToolApproval(payload: $payload, label: 'reviewer for tool-invocation approval');
 	}//end ensurePendingApprovalForToolInvocation()
 
 	/**
@@ -515,12 +491,6 @@ class ApprovalService {
 		}
 
 		$owner = $this->resolveAgentOwner(agentId: $agentId);
-		$reviewer = $owner;
-		$reviewerType = 'user';
-		if ($reviewer === '') {
-			$reviewer = 'admin';
-			$reviewerType = 'group';
-		}
 
 		$payload = [
 			'status' => 'pending',
@@ -530,32 +500,65 @@ class ApprovalService {
 			'toolId' => $toolId,
 			'toolArguments' => $this->redactedArguments(arguments: $arguments),
 			'prompt' => $this->summarizeArguments(arguments: $arguments),
-			'requestedAt' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
-			'reviewer' => $reviewer,
-			'reviewerType' => $reviewerType,
+			...$this->reviewFor(owner: $owner),
 			'decidedAt' => null,
 			'decidedBy' => null,
 			'reason' => null,
 			'consumedAt' => null,
 		];
 
-		$approval = $this->persistApproval(data: $payload, uuid: null, owner: $owner);
+		return $this->openToolApproval(payload: $payload, label: 'reviewer for toolcall approval');
+	}//end ensurePendingApprovalForToolCall()
 
-		try {
-			$this->deliveryService->deliverApprovalRequestForToolInvocation(
-				approval: $approval,
-				reviewerUids: $this->reviewerUids(reviewer: $reviewer, reviewerType: $reviewerType)
-			);
-		} catch (Throwable $e) {
-			$this->logger->warning(
-				'Hermiq could not notify reviewer for toolcall approval '
-				. ((string)$approval->getUuid()) . ': ' . $e->getMessage(),
-				['exception' => $e]
-			);
+	/**
+	 * Idempotently raise one pending `toolcall` Approval for a batch another app
+	 * staged (integriq's agent tools answer `status: staged` with a binding).
+	 *
+	 * The approval stores the binding as given: Hermiq never recomputes it, it
+	 * only compares it when the staging app asks for a verdict. The key is
+	 * sha256 over agent, tool and binding, so the same batch is raised once and
+	 * another batch, tool or agent gets its own approval. The decision fields are
+	 * omitted rather than null: the register types them and refuses a null.
+	 *
+	 * @param string            $agentId    The agent that staged the batch.
+	 * @param string            $toolId     The staging tool id.
+	 * @param string            $proposalId The staging app's proposal id.
+	 * @param string            $binding    The staging app's sha256 batch binding.
+	 * @param array<int,string> $targetIds  The ids the batch would act on.
+	 *
+	 * @return ObjectEntity The pending (or already pending) Approval.
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
+	 */
+	public function ensurePendingApprovalForStagedBatch(
+		string $agentId,
+		string $toolId,
+		string $proposalId,
+		string $binding,
+		array $targetIds,
+	): ObjectEntity {
+		$correlationId = hash('sha256', (string)json_encode([$agentId, $toolId, 'batch', $binding]));
+		$existing = $this->findPendingApprovalForToolCall(correlationId: $correlationId);
+		if ($existing !== null) {
+			return $existing;
 		}
 
-		return $approval;
-	}//end ensurePendingApprovalForToolCall()
+		$owner = $this->resolveAgentOwner(agentId: $agentId);
+
+		$payload = [
+			'status' => 'pending',
+			'sourceType' => 'toolcall',
+			'correlationId' => $correlationId,
+			'agentId' => $agentId,
+			'toolId' => $toolId,
+			'binding' => $binding,
+			'toolArguments' => ['proposalId' => $proposalId, 'targetIds' => array_values($targetIds)],
+			'prompt' => 'Run ' . $toolId . ' on ' . count($targetIds) . ' records (proposal ' . $proposalId . ').',
+			...$this->reviewFor(owner: $owner),
+		];
+
+		return $this->openToolApproval(payload: $payload, label: 'the reviewer of staged batch approval');
+	}//end ensurePendingApprovalForStagedBatch()
 
 	/**
 	 * Idempotently ensure a single pending Approval exists for a pre-qualified
@@ -594,12 +597,7 @@ class ApprovalService {
 		}
 
 		$owner = (string)($skill->getOwner() ?? '');
-		$reviewer = $owner;
-		$reviewerType = 'user';
-		if ($reviewer === '') {
-			$reviewer = 'admin';
-			$reviewerType = 'group';
-		}
+		$review = $this->reviewFor(owner: $owner);
 
 		// NOTE: `agentId` is OMITTED — a skill-draft Approval gates a skill
 		// version, not an agent run, and OR validates `format: uuid` on any
@@ -612,22 +610,20 @@ class ApprovalService {
 			'skillId' => (string)($draft->getObject()['skillId'] ?? ''),
 			'draftPayload' => $draftPayload,
 			'prompt' => (string)($draftPayload['learningsSummary'] ?? ''),
-			'requestedAt' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
-			'reviewer' => $reviewer,
-			'reviewerType' => $reviewerType,
+			...$review,
 			'decidedAt' => null,
 			'decidedBy' => null,
 			'reason' => null,
 		];
 
-		$approval = $this->persistApproval(data: $payload, uuid: null, owner: $owner);
+		$approval = $this->persistApproval(data: $payload, target: new ApprovalTarget(uuid: null, owner: $owner));
 
 		// Notify the resolved reviewer(s) — the existing pending-approval ping.
 		// Never fatal to the pipeline.
 		try {
 			$this->deliveryService->deliverApprovalRequestForSkillDraft(
 				approval: $approval,
-				reviewerUids: $this->reviewerUids(reviewer: $reviewer, reviewerType: $reviewerType),
+				reviewerUids: $this->reviewerUids(reviewer: $review['reviewer'], reviewerType: $review['reviewerType']),
 				skillName: (string)($skill->getObject()['name'] ?? '')
 			);
 		} catch (Throwable $e) {
@@ -771,6 +767,114 @@ class ApprovalService {
 	}//end findApprovedUnconsumedToolCallApproval()
 
 	/**
+	 * The run-scoped pre-authorisation for a governed workspace, if one was
+	 * requested for this agent and run (hermiq-runner-git-capability).
+	 *
+	 * An approved one wins over a pending or denied one, so a re-request after a
+	 * decision cannot shadow it; a denied one wins over a pending one.
+	 *
+	 * @param string $agentId The agent UUID, from the verified run token.
+	 * @param string $runId   The run id, from the verified run token.
+	 *
+	 * @return array{uuid: string, status: string, decidedBy: string}|null
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-run-scoped-pre-authorisation-covers-the-run-and-nothing-else
+	 */
+	public function runPreAuthorisation(string $agentId, string $runId): ?array {
+		$found = null;
+		$rank = ['pending' => 1, 'denied' => 2, 'approved' => 3];
+		foreach ($this->runPreAuthorisations(correlationId: $this->runPreAuthorisationKey(agentId: $agentId, runId: $runId)) as $object) {
+			$data = $object->getObject();
+			$status = (string)($data['status'] ?? '');
+			if (isset($rank[$status]) === false) {
+				continue;
+			}
+
+			if ($found === null || $rank[$status] > $rank[$found['status']]) {
+				$found = ['uuid' => (string)$object->getUuid(), 'status' => $status, 'decidedBy' => (string)($data['decidedBy'] ?? '')];
+			}
+		}
+
+		return $found;
+	}//end runPreAuthorisation()
+
+	/**
+	 * Request a run-scoped pre-authorisation: one pending Approval naming the
+	 * agent, the run, the repository and the ref, routed to the agent's owner
+	 * (or the `admin` group for an agent without one).
+	 *
+	 * @param string $agentId    The agent UUID.
+	 * @param string $runId      The run id.
+	 * @param string $toolId     The write-shaped tool that asked first.
+	 * @param string $repository The workspace's repository slug.
+	 * @param string $ref        The workspace's starting ref.
+	 *
+	 * @return array{uuid: string, status: string, decidedBy: string}
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
+	 */
+	public function requestRunPreAuthorisation(string $agentId, string $runId, string $toolId, string $repository, string $ref): array {
+		$owner = $this->resolveAgentOwner(agentId: $agentId);
+
+		$payload = [
+			'status' => 'pending',
+			'sourceType' => 'workspace-run',
+			'correlationId' => $this->runPreAuthorisationKey(agentId: $agentId, runId: $runId),
+			'agentId' => $agentId,
+			'toolId' => $toolId,
+			'toolArguments' => ['runId' => $runId, 'repository' => $repository, 'ref' => $ref],
+			'prompt' => 'Let this agent change files and commit in ' . $repository . ' (from ' . $ref . ') for the rest of this run.',
+			...$this->reviewFor(owner: $owner),
+		];
+
+		// The decision fields (decidedAt, decidedBy, reason) are OMITTED rather
+		// than null: the register types them string and date-time and refuses a
+		// null, and a pending record has none.
+		$approval = $this->openToolApproval(payload: $payload, label: 'the reviewer of workspace approval');
+
+		return ['uuid' => (string)$approval->getUuid(), 'status' => 'pending', 'decidedBy' => ''];
+	}//end requestRunPreAuthorisation()
+
+	/**
+	 * The correlation key of a run's pre-authorisation.
+	 *
+	 * @param string $agentId The agent UUID.
+	 * @param string $runId   The run id.
+	 *
+	 * @return string
+	 */
+	private function runPreAuthorisationKey(string $agentId, string $runId): string {
+		return hash('sha256', 'workspace-run|' . $agentId . '|' . $runId);
+	}//end runPreAuthorisationKey()
+
+	/**
+	 * Every `workspace-run` Approval with the given correlation key.
+	 *
+	 * @param string $correlationId The key.
+	 *
+	 * @return array<int, ObjectEntity>
+	 */
+	private function runPreAuthorisations(string $correlationId): array {
+		$objects = $this->objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::APPROVAL_SCHEMA)
+			->findAll(
+				config: ['filters' => ['correlationId' => $correlationId, 'sourceType' => 'workspace-run']],
+				_rbac: false,
+				_multitenancy: false
+			);
+
+		return array_values(
+			array_filter(
+				$objects,
+				static fn ($object): bool => $object instanceof ObjectEntity
+					&& (string)($object->getObject()['correlationId'] ?? '') === $correlationId
+					&& (string)($object->getObject()['sourceType'] ?? '') === 'workspace-run'
+			)
+		);
+	}//end runPreAuthorisations()
+
+	/**
 	 * Mark an approved `toolcall` Approval as consumed (`consumedAt` set) so it
 	 * can never authorise a second invocation (design.md Decision 4 —
 	 * single-use). Idempotent: consuming an already-consumed Approval simply
@@ -788,8 +892,10 @@ class ApprovalService {
 
 		$this->persistApproval(
 			data: $data,
-			uuid: (string)$approval->getUuid(),
-			owner: (string)($approval->getOwner() ?? '')
+			target: new ApprovalTarget(
+				uuid: (string)$approval->getUuid(),
+				owner: (string)($approval->getOwner() ?? '')
+			)
 		);
 
 	}//end markToolCallApprovalConsumed()
@@ -1013,8 +1119,7 @@ class ApprovalService {
 
 		$agent = $this->objectService->find(
 			id: $agentId,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1044,65 +1149,8 @@ class ApprovalService {
 	}//end summarizeArguments()
 
 	/**
-	 * List the pending Approvals routed to the given user as reviewer.
-	 *
-	 * Returns approvals where the user is the reviewer user, or a member of the
-	 * reviewer group. Instance-admin visibility is deliberately NOT included — this
-	 * is the "routed to me" inbox, not a global queue.
-	 *
-	 * @param string $uid The requesting user's UID.
-	 *
-	 * @return array<int, array<string, mixed>> Compact pending-approval records.
-	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
-	 */
-	public function listPendingForReviewer(string $uid): array {
-		if ($uid === '') {
-			return [];
-		}
-
-		$objects = $this->objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema(self::APPROVAL_SCHEMA)
-			->findAll(
-				config: ['filters' => ['status' => 'pending']],
-				_rbac: false,
-				_multitenancy: false
-			);
-
-		$records = [];
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			$data = $object->getObject();
-			if ((string)($data['status'] ?? '') !== 'pending') {
-				continue;
-			}
-
-			if ($this->userMatchesReviewer(data: $data, uid: $uid) === false) {
-				continue;
-			}
-
-			$records[] = [
-				'id' => (string)$object->getUuid(),
-				'scheduleId' => (string)($data['scheduleId'] ?? ''),
-				'agentId' => (string)($data['agentId'] ?? ''),
-				'prompt' => (string)($data['prompt'] ?? ''),
-				'requestedAt' => ($data['requestedAt'] ?? null),
-				'reviewer' => (string)($data['reviewer'] ?? ''),
-				'reviewerType' => (string)($data['reviewerType'] ?? 'user'),
-				'status' => 'pending',
-			];
-		}//end foreach
-
-		return $records;
-	}//end listPendingForReviewer()
-
-	/**
 	 * List every Approval visible in the caller's own tenant (RBAC + tenancy
-	 * scoped, mirrors `TenantOpsService::loadObjects()`'s tenant-scoped read) —
+	 * scoped, mirrors `OrganisationOpsService::loadObjects()`'s tenant-scoped read) —
 	 * the org-scoped decision-history seam `ComplianceService` reads for the
 	 * `approval-gate-oversight` control (compliance-control-packs). Purely
 	 * additive: does not change any existing call site's behaviour.
@@ -1179,7 +1227,7 @@ class ApprovalService {
 	 *
 	 * @return ObjectEntity|null The approval, or null when absent.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
 	 */
 	public function loadApproval(string $uuid): ?ObjectEntity {
 		if ($uuid === '') {
@@ -1188,8 +1236,7 @@ class ApprovalService {
 
 		$approval = $this->objectService->find(
 			id: $uuid,
-			register: self::REGISTER_SLUG,
-			schema: self::APPROVAL_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1200,33 +1247,6 @@ class ApprovalService {
 
 		return $approval;
 	}//end loadApproval()
-
-	/**
-	 * Whether the given user may decide the given Approval (separation of duties).
-	 *
-	 * Admits the resolved reviewer user, a member of the reviewer group, or a
-	 * Nextcloud instance admin. The schedule owner is admitted only when they are
-	 * themselves the reviewer (Art. 14 separation of duties).
-	 *
-	 * @param ObjectEntity $approval The approval object.
-	 * @param string $uid The requesting user's UID.
-	 *
-	 * @return bool
-	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
-	 */
-	public function isReviewer(ObjectEntity $approval, string $uid): bool {
-		if ($uid === '') {
-			return false;
-		}
-
-		// Instance admins may always decide.
-		if ($this->groupManager->isAdmin($uid) === true) {
-			return true;
-		}
-
-		return $this->userMatchesReviewer(data: $approval->getObject(), uid: $uid);
-	}//end isReviewer()
 
 	/**
 	 * Approve a pending Approval and execute the gated run.
@@ -1244,8 +1264,8 @@ class ApprovalService {
 	 *
 	 * @return array{status:string, ran:bool} The resulting status and whether a run fired.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#3-approvalservice-generalisation-sourcetype-flow
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#3-approvalservice-generalisation-sourcetype-flow
 	 * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-5-approvalservice-sourcetype-webhook-generalisation
 	 */
 	public function approve(ObjectEntity $approval, string $deciderUid): array {
@@ -1276,10 +1296,12 @@ class ApprovalService {
 
 		$this->persistApproval(
 			data: $data,
-			uuid: (string)$approval->getUuid(),
-			owner: (string)($approval->getOwner() ?? '')
+			target: new ApprovalTarget(
+				uuid: (string)$approval->getUuid(),
+				owner: (string)($approval->getOwner() ?? '')
+			)
 		);
-		$this->writeDecisionAudit(approval: $approval, action: 'approve', reason: '');
+		$this->writeDecisionAudit(approval: $approval, decision: new ApprovalDecision(action: 'approve', reason: ''));
 
 		// Release the OpenRegister mirror BEFORE resuming: a resume crash must
 		// not leave a decided approval dangling in anyone's task inbox. When
@@ -1322,12 +1344,14 @@ class ApprovalService {
 			return ($versionId !== null);
 		}
 
-		if ($sourceType === 'toolcall' || $sourceType === 'tool') {
+		if ($sourceType === 'toolcall' || $sourceType === 'tool' || $sourceType === 'workspace-run') {
 			// Design.md Decision 5: approving authorises exactly one future
 			// matching retry (toolcall) or flips a permanent per-(agentId,toolId)
-			// decision (tool) — neither has a paused run to resume here. There
+			// decision (tool), or covers the rest of one run's workspace writes
+			// (workspace-run) — none has a paused run to resume here. There
 			// is deliberately no re-execution: `FacadeToolInvoker` is the ONLY
-			// place either decision is ever acted on.
+			// place the first two are acted on, `WorkspaceWriteAuthoriser` the
+			// only place the third is.
 			return false;
 		}
 
@@ -1365,7 +1389,7 @@ class ApprovalService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
 	 */
 	public function deny(ObjectEntity $approval, string $deciderUid, ?string $reason): void {
 		$data = $approval->getObject();
@@ -1387,10 +1411,12 @@ class ApprovalService {
 
 		$this->persistApproval(
 			data: $data,
-			uuid: (string)$approval->getUuid(),
-			owner: (string)($approval->getOwner() ?? '')
+			target: new ApprovalTarget(
+				uuid: (string)$approval->getUuid(),
+				owner: (string)($approval->getOwner() ?? '')
+			)
 		);
-		$this->writeDecisionAudit(approval: $approval, action: 'deny', reason: $cleanReason);
+		$this->writeDecisionAudit(approval: $approval, decision: new ApprovalDecision(action: 'deny', reason: $cleanReason));
 
 		// Release the OpenRegister mirror: idempotent when the denial came
 		// from the task itself (design.md Decision 1).
@@ -1416,7 +1442,7 @@ class ApprovalService {
 	 *
 	 * @return ObjectEntity|null The pending approval, or null.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
 	 */
 	private function findPendingApprovalForSchedule(string $scheduleId): ?ObjectEntity {
 		$objects = $this->objectService
@@ -1452,7 +1478,7 @@ class ApprovalService {
 	 *
 	 * @return ObjectEntity|null The pending approval, or null.
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#3-approvalservice-generalisation-sourcetype-flow
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#3-approvalservice-generalisation-sourcetype-flow
 	 */
 	private function findPendingApprovalForCorrelation(string $correlationId): ?ObjectEntity {
 		$objects = $this->objectService
@@ -1491,7 +1517,7 @@ class ApprovalService {
 	 *
 	 * @return array{0:string, 1:string} The [reviewer, reviewerType] pair.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
 	 */
 	private function resolveReviewer(ObjectEntity $schedule): array {
 		$data = $schedule->getObject();
@@ -1518,7 +1544,7 @@ class ApprovalService {
 	 *
 	 * @return array<int, string> The reviewer user ids.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
 	 */
 	private function reviewerUids(string $reviewer, string $reviewerType): array {
 		if ($reviewerType === 'group') {
@@ -1543,29 +1569,6 @@ class ApprovalService {
 	}//end reviewerUids()
 
 	/**
-	 * Whether a user matches an approval's stored reviewer designation.
-	 *
-	 * @param array<string,mixed> $data The approval payload.
-	 * @param string $uid The user UID.
-	 *
-	 * @return bool
-	 */
-	private function userMatchesReviewer(array $data, string $uid): bool {
-		$reviewer = (string)($data['reviewer'] ?? '');
-		$type = (string)($data['reviewerType'] ?? 'user');
-
-		if ($reviewer === '') {
-			return false;
-		}
-
-		if ($type === 'group') {
-			return $this->groupManager->isInGroup($uid, $reviewer);
-		}
-
-		return $reviewer === $uid;
-	}//end userMatchesReviewer()
-
-	/**
 	 * Run an approved schedule via the shared dispatch path, bypassing the gate.
 	 *
 	 * ScheduleService is resolved lazily from the server container so the two
@@ -1577,7 +1580,7 @@ class ApprovalService {
 	 *
 	 * @return bool Whether a run was dispatched.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
 	 */
 	private function runApprovedSchedule(string $scheduleId): bool {
 		if ($scheduleId === '') {
@@ -1586,8 +1589,7 @@ class ApprovalService {
 
 		$schedule = $this->objectService->find(
 			id: $scheduleId,
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEDULE_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEDULE_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1621,7 +1623,7 @@ class ApprovalService {
 	 *
 	 * @return bool Whether the agent run actually executed.
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#3-approvalservice-generalisation-sourcetype-flow
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#3-approvalservice-generalisation-sourcetype-flow
 	 */
 	private function runApprovedFlowRun(array $flowContext): bool {
 		if ($flowContext === []) {
@@ -1677,14 +1679,15 @@ class ApprovalService {
 	 * owner around the agent turn. The prior session user is always restored.
 	 *
 	 * @param array<string,mixed> $data The approval payload.
-	 * @param string|null $uuid The target UUID (null to create).
-	 * @param string $owner The schedule owner UID to impersonate.
+	 * @param ApprovalTarget $target Which approval is stored, and for whom.
 	 *
 	 * @return ObjectEntity The persisted approval.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
 	 */
-	private function persistApproval(array $data, ?string $uuid, string $owner): ObjectEntity {
+	private function persistApproval(array $data, ApprovalTarget $target): ObjectEntity {
+		$uuid = $target->uuid;
+		$owner = $target->owner;
 		$priorUser = $this->userSession->getUser();
 
 		$user = null;
@@ -1699,9 +1702,10 @@ class ApprovalService {
 		try {
 			$saved = $this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::APPROVAL_SCHEMA,
-				uuid: $uuid,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA),
+					uuid: $uuid
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -1752,9 +1756,10 @@ class ApprovalService {
 
 			return $this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::APPROVAL_SCHEMA,
-				uuid: (string)$approval->getUuid(),
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA),
+					uuid: (string)$approval->getUuid()
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -1778,14 +1783,15 @@ class ApprovalService {
 	 * raised, so it never fails a decision.
 	 *
 	 * @param ObjectEntity $approval The approval the decision is about.
-	 * @param string $action The audit action (`approve`|`deny`).
-	 * @param string $reason The raw reason (redacted here).
+	 * @param ApprovalDecision $decision What was decided on an approval, and why.
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
 	 */
-	private function writeDecisionAudit(ObjectEntity $approval, string $action, string $reason): void {
+	private function writeDecisionAudit(ObjectEntity $approval, ApprovalDecision $decision): void {
+		$action = $decision->action;
+		$reason = $decision->reason;
 		try {
 			$status = 'denied';
 			if ($action === 'approve') {
@@ -1802,10 +1808,12 @@ class ApprovalService {
 				$context['reason'] = $this->redactionService->redact($reason);
 			}
 
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $approval,
-				action: $action,
-				context: $context
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $approval,
+					action: $action,
+					context: $context
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(
@@ -1816,4 +1824,52 @@ class ApprovalService {
 		}//end try
 
 	}//end writeDecisionAudit()
+	/**
+	 * The request time and the reviewer of a new approval: the owner, or the admin group when there is none.
+	 *
+	 * @param string $owner The owner who reviews, '' for none.
+	 *
+	 * @return array{requestedAt: string, reviewer: string, reviewerType: string}
+	 */
+	private function reviewFor(string $owner): array {
+		$requestedAt = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
+		if ($owner === '') {
+			return ['requestedAt' => $requestedAt, 'reviewer' => 'admin', 'reviewerType' => 'group'];
+		}
+
+		return ['requestedAt' => $requestedAt, 'reviewer' => $owner, 'reviewerType' => 'user'];
+	}//end reviewFor()
+
+	/**
+	 * Store a tool approval and ping its reviewer; a failed ping is logged, never fatal.
+	 *
+	 * The owner is the reviewing user, and none when the admin group reviews.
+	 *
+	 * @param array<string, mixed> $payload The approval, with its reviewer fields.
+	 * @param string               $label   Who could not be notified, for the log line.
+	 *
+	 * @return ObjectEntity The stored approval.
+	 */
+	private function openToolApproval(array $payload, string $label): ObjectEntity {
+		$owner = '';
+		if ($payload['reviewerType'] === 'user') {
+			$owner = (string)$payload['reviewer'];
+		}
+
+		$approval = $this->persistApproval(data: $payload, target: new ApprovalTarget(uuid: null, owner: $owner));
+
+		try {
+			$this->deliveryService->deliverApprovalRequestForToolInvocation(
+				approval: $approval,
+				reviewerUids: $this->reviewerUids(reviewer: (string)$payload['reviewer'], reviewerType: (string)$payload['reviewerType'])
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq could not notify ' . $label . ' ' . ((string)$approval->getUuid()) . ': ' . $e->getMessage(),
+				['exception' => $e]
+			);
+		}
+
+		return $approval;
+	}//end openToolApproval()
 }//end class

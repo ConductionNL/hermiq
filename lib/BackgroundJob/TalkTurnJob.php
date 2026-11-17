@@ -24,14 +24,14 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-chat-bridge/tasks.md#4-out-of-request-turn-execution-one-service-two-hand-offs
+ * @spec openspec/changes/archive/2026-07-30-talk-chat-bridge/tasks.md#4-out-of-request-turn-execution-one-service-two-hand-offs
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\BackgroundJob;
 
-use OCA\Hermiq\Service\Talk\TalkTurnService;
+use OCA\Hermiq\Kernel\Contracts\TalkTurnServiceInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\QueuedJob;
 
@@ -40,18 +40,25 @@ use OCP\BackgroundJob\QueuedJob;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-the-bot-listener-never-runs-an-agent-turn-inline
+ * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-bot-listener-never-runs-an-agent-turn-inline
  */
 class TalkTurnJob extends QueuedJob {
+	/**
+	 * The fields a queued turn carries, all required.
+	 *
+	 * @var list<string>
+	 */
+	private const TURN_FIELDS = ['conversationUuid', 'speakerUid', 'message', 'roomToken'];
+
 	/**
 	 * Constructor.
 	 *
 	 * @param ITimeFactory $time Core time factory required by QueuedJob.
-	 * @param TalkTurnService $talkTurnService The service holding all turn logic.
+	 * @param TalkTurnServiceInterface $talkTurnService The service holding all turn logic.
 	 */
 	public function __construct(
 		ITimeFactory $time,
-		private readonly TalkTurnService $talkTurnService,
+		private readonly TalkTurnServiceInterface $talkTurnService,
 	) {
 		parent::__construct(time: $time);
 	}//end __construct()
@@ -63,28 +70,40 @@ class TalkTurnJob extends QueuedJob {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
 	 */
 	protected function run($argument): void {
-		if (is_array($argument) === false) {
+		$turn = $this->turnOf(argument: $argument);
+		if ($turn === null) {
 			return;
 		}
 
-		$conversationUuid = (string)($argument['conversationUuid'] ?? '');
-		$speakerUid = (string)($argument['speakerUid'] ?? '');
-		$message = (string)($argument['message'] ?? '');
-		$roomToken = (string)($argument['roomToken'] ?? '');
-
-		if ($conversationUuid === '' || $speakerUid === '' || $roomToken === '' || $message === '') {
-			return;
-		}
-
-		$this->talkTurnService->runTurn(
-			conversationUuid: $conversationUuid,
-			speakerUid: $speakerUid,
-			message: $message,
-			roomToken: $roomToken
-		);
+		$this->talkTurnService->runTurn(...$turn);
 
 	}//end run()
+
+	/**
+	 * The queued turn's four fields as named arguments, or null when any is missing or empty.
+	 *
+	 * @param mixed $argument The job argument.
+	 *
+	 * @return array{conversationUuid: string, speakerUid: string, message: string, roomToken: string}|null
+	 *
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+	 */
+	private function turnOf(mixed $argument): ?array {
+		if (is_array($argument) === false) {
+			return null;
+		}
+
+		$turn = [];
+		foreach (self::TURN_FIELDS as $field) {
+			$turn[$field] = (string)($argument[$field] ?? '');
+			if ($turn[$field] === '') {
+				return null;
+			}
+		}
+
+		return $turn;
+	}//end turnOf()
 }//end class

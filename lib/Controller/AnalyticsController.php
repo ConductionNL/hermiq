@@ -21,15 +21,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/run-analytics/tasks.md#2-controller-route
+ * @spec openspec/changes/archive/2026-09-06-run-analytics/tasks.md#2-controller-route
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\AnalyticsService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\AnalyticsServiceInterface;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -41,26 +42,28 @@ use Throwable;
 /**
  * Tenant-scoped run-analytics read endpoint.
  *
- * @spec openspec/changes/run-analytics/tasks.md#2-controller-route
+ * @spec openspec/changes/archive/2026-09-06-run-analytics/tasks.md#2-controller-route
  */
 class AnalyticsController extends Controller {
 	/**
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param AnalyticsService $analyticsService The run-analytics read service.
+	 * @param AnalyticsServiceInterface $analyticsService The run-analytics read service.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param AgentAccessServiceInterface $agentAccess Per-agent read authorization (IDOR guard for the low ratings).
 	 *
-	 * @spec openspec/changes/run-analytics/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-run-analytics/tasks.md#task-2-1
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly AnalyticsService $analyticsService,
+		private readonly AnalyticsServiceInterface $analyticsService,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
+		private readonly AgentAccessServiceInterface $agentAccess,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -73,7 +76,7 @@ class AnalyticsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/run-analytics/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-run-analytics/tasks.md#task-2-1
 	 */
 	public function index(string $agentId = ''): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -93,4 +96,150 @@ class AnalyticsController extends Controller {
 		}
 
 	}//end index()
+
+	/**
+	 * The latest thumbs-down comments on one agent, for someone who may read it.
+	 *
+	 * The rater is not named. A caller who may not read the agent gets 404, so
+	 * the answer does not tell whether the agent exists.
+	 *
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return JSONResponse `{results: [{comment, date, conversationId}]}`, or an error status.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
+	 */
+	public function lowRatings(string $agentId): JSONResponse {
+		$user = $this->userSession->getUser();
+		if ($user === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		if ($this->agentAccess->loadAccessibleAgent(agentId: $agentId, userId: $user->getUID()) === null) {
+			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		}
+
+		try {
+			return new JSONResponse(['results' => $this->analyticsService->latestLowRatings(agentId: $agentId)]);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq low ratings failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not load the low ratings'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+
+	}//end lowRatings()
+
+	/**
+	 * List the caller's runs across every agent, newest first.
+	 *
+	 * Sits beside `index()` rather than on `RunHistoryController` on purpose. That
+	 * controller is addressed as `/api/schedules/{scheduleId}/runs` and its guard is
+	 * ownership of one schedule, which cannot express "every run I may see" and cannot
+	 * see a flow-triggered run at all. This endpoint answers the cross-agent question,
+	 * and shares its tenant boundary with the KPIs directly above it so the list and
+	 * the numbers can never disagree about what the caller may see.
+	 *
+	 * @param string $agentId Optional agent UUID to scope the list to.
+	 * @param string $status  Optional run status to filter on.
+	 * @param int    $limit   Max rows to return.
+	 * @param int    $offset  Rows to skip.
+	 *
+	 * @return JSONResponse The page of runs, or an error status.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
+	 */
+	public function runs(
+		string $agentId = '',
+		string $status = '',
+		int $limit = 50,
+		int $offset = 0,
+	): JSONResponse {
+		if ($this->userSession->getUser() === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		// Clamped rather than trusted. `limit` reaches this from a query string, and an
+		// unbounded one turns a list endpoint into a way to pull every audit row the
+		// caller can see in a single request.
+		$safeLimit = max(1, min(200, $limit));
+		$safeOffset = max(0, $offset);
+
+		try {
+			return new JSONResponse(
+				$this->analyticsService->listRuns(
+					agentId: $this->optionalFilter(value: $agentId),
+					status: $this->optionalFilter(value: $status),
+					limit: $safeLimit,
+					offset: $safeOffset
+				)
+			);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq run list failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not load runs'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+
+	}//end runs()
+
+	/**
+	 * A filter param as given, or null when it is blank.
+	 *
+	 * @param string $value The param.
+	 *
+	 * @return string|null
+	 */
+	private function optionalFilter(string $value): ?string {
+		if (trim($value) === '') {
+			return null;
+		}
+
+		return $value;
+	}//end optionalFilter()
+	/**
+	 * Compare two runs the caller may see.
+	 *
+	 * Both ids are run audit entry uuids from the run list. A side that is missing,
+	 * a dry run, or a run of an agent the caller may not see is answered 404, the same
+	 * for all three, so the answer never tells a caller that a private run exists.
+	 *
+	 * @param string $left  The left run's id.
+	 * @param string $right The right run's id.
+	 *
+	 * @return JSONResponse Both runs and the aligned comparison, or an error status.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+	 */
+	public function compare(string $left = '', string $right = ''): JSONResponse {
+		if ($this->userSession->getUser() === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		try {
+			$result = $this->analyticsService->compareRuns(leftId: $left, rightId: $right);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq run comparison failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not compare runs'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+
+		$missing = [];
+		foreach (['left', 'right'] as $side) {
+			if ($result[$side] === null) {
+				$missing[] = $side;
+			}
+		}
+
+		if ($missing !== []) {
+			return new JSONResponse(['error' => 'Run not found', 'missing' => $missing], Http::STATUS_NOT_FOUND);
+		}
+
+		return new JSONResponse($result);
+
+	}//end compare()
 }//end class

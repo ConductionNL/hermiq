@@ -5,5 +5,68 @@
     xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 http://pmd.sourceforge.net/ruleset_xml_schema.xsd">
     <description>hermiq — Conduction PHPMD ruleset (single source: conduction/hydra-gates).</description>
 
-    <rule ref="vendor/conduction/hydra-gates/quality-config/phpmd.xml"/>
+    <rule ref="vendor/conduction/hydra-gates/quality-config/phpmd.xml">
+        <exclude name="StaticAccess"/>
+        <exclude name="ShortVariable"/>
+    </rule>
+
+    <!-- StaticAccess: one exception, and only one.
+
+         `\OCA\Hermiq\Support\FleetAppId` is a pure resolver over two constant
+         maps: given a canonical app name it returns whichever id or namespace
+         the instance actually has. It holds no state and no collaborators — it
+         takes the only things it needs as arguments — so there is nothing here
+         that could be injected. Making it a service would add DI wiring around
+         a lookup table, and would have to reach the two call sites that need it
+         before their own constructors run.
+
+         It also exists to be DELETED. It bridges the window in which the fleet
+         answers to both its old and its new app ids and namespaces; once those
+         agree, every call site becomes a plain string again and the class goes.
+
+         This uses the rule's OWN `exceptions` property — its designed
+         configuration surface — rather than an @SuppressWarnings annotation or
+         a baseline entry. The rule stays fully active for every other class,
+         and the exception is one named class, visible in config, with the
+         reason attached. Same shape as pipelinq's.
+
+         SECOND EXCEPTION, added 2026-09-19:
+         `\OCA\OpenRegister\Service\Capability\ToolGrantResolver`.
+         `isWriteOrDestructive()` is declared `public static` by OpenRegister,
+         its owner. hermiq cannot inject what another app declared static, and
+         wrapping it would add an indirection whose only purpose is to satisfy
+         a linter. Two call sites, both asking the same pure classification
+         question of a tool id: IntakeToolGrant::createsOnly() and
+         OutsideToolSurface::writes(). If OpenRegister ever makes it an
+         instance method, delete this half of the exception and inject it. -->
+    <!-- ShortVariable: the shared allowlist, plus `at`.
+
+         Thirteen of this repository's findings are one identifier. `$at` is a
+         DateTimeImmutable meaning "the moment this happened", declared as a
+         parameter and passed by NAME at every call site (`at: $at`), so it
+         reads as prose where it is used. Renaming it to reach three characters
+         would rename the named-argument label at every caller in lib/ and in
+         the tests, and a missed call site under named arguments is a RUNTIME
+         TypeError, not something the analysers catch.
+
+         ⚠️ `minimum` and the rest of `exceptions` are COPIED from
+         conduction/hydra-gates' quality-config/phpmd.xml, because re-declaring
+         a rule REPLACES its properties rather than merging them. Declaring
+         only `exceptions="at"` reset `minimum` to the rule's own default and
+         took this repository from 23 findings to 156. If the shared list
+         changes, this copy has to change with it — which is the argument for
+         adding `at` there instead, and deleting this block.
+      -->
+    <rule ref="rulesets/naming.xml/ShortVariable">
+        <properties>
+            <property name="minimum" value="3" />
+            <property name="exceptions" value="id,db,qb,op,ui,io,gc,tz,pk,fk,to,ch,a,b,l,v,c,t,r,f,n,k,e,at" />
+        </properties>
+    </rule>
+
+    <rule ref="rulesets/cleancode.xml/StaticAccess">
+        <properties>
+            <property name="exceptions" value="\OCA\Hermiq\Support\FleetAppId,\OCA\OpenRegister\Service\Capability\ToolGrantResolver"/>
+        </properties>
+    </rule>
 </ruleset>

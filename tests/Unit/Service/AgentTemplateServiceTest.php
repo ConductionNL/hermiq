@@ -31,11 +31,13 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 use OCA\Hermiq\Service\AgentTemplateSerializer;
 use OCA\Hermiq\Service\AgentTemplateService;
 use OCA\Hermiq\Service\SkillService;
-use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for the agent-template-gallery AgentTemplateService.
@@ -88,37 +90,37 @@ class AgentTemplateServiceTest extends TestCase {
 
 			public function find(
 				int|string $id,
-				?array $_extend = [],
-				bool $files = false,
-				mixed $register = null,
-				mixed $schema = null,
+				?ObjectFindOptions $options = null,
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $_render = true,
-				bool $_audit = true,
+				bool $_multitenancy = true
 			): ?ObjectEntity {
+				$_extend = $options?->extend ?? [];
+				$files = $options?->files ?? false;
+				$register = $options?->register;
+				$schema = $options?->schema;
+				$_render = $options?->render ?? true;
+				$_audit = $options?->audit ?? true;
 				return ($this->byId[$schema . ':' . $id] ?? null);
 			}
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				// openregister#2211 (insert-only saves) added this. A double that
-				// drifts from the real signature is a FATAL, not a failed
-				// assertion: PHP refuses to declare the class and the whole
-				// suite dies before it runs.
-				bool $failIfExists = false,
-				bool $_unowned = false,
+				bool $_multitenancy = true
 			): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
+				$silent = $options->policy->silent ?? false;
+				$_validation = $options->policy->validation ?? true;
+				$uploadedFiles = $options->uploadedFiles;
+				$currentUser = $options->actor->currentUser;
+				$failIfExists = $options->policy->failIfExists ?? false;
+				$_unowned = $options->actor->unowned ?? false;
+				$_dedupOverride = $options->policy->dedupOverride ?? false;
+				$_owner = $options->actor->owner;
 				$payload = is_array($object) ? $object : $object->getObject();
 				$this->saved[] = ['schema' => (string)$schema, 'object' => $payload, 'uuid' => $uuid];
 
@@ -173,22 +175,22 @@ class AgentTemplateServiceTest extends TestCase {
 	}//end scanner()
 
 	/**
-	 * A TenantModelPolicyService mock allowing only the given provider (empty models = any
+	 * A EffectiveModelPolicy mock allowing only the given provider (empty models = any
 	 * model for that provider), with the given default.
 	 *
 	 * @param string $allowedProvider The single allowed provider.
 	 * @param string|null $defaultModel The policy's default model id (or null).
 	 *
-	 * @return TenantModelPolicyService
+	 * @return EffectiveModelPolicy
 	 */
-	private function modelPolicy(string $allowedProvider, ?string $defaultModel = null): TenantModelPolicyService {
+	private function modelPolicy(string $allowedProvider, ?string $defaultModel = null): EffectiveModelPolicy {
 		$policy = [
 			'source' => 'organisation',
 			'allowed' => [['provider' => $allowedProvider, 'models' => []]],
 			'defaultModel' => ($defaultModel !== null) ? ['provider' => $allowedProvider, 'model' => $defaultModel] : null,
 		];
 
-		$service = $this->createMock(TenantModelPolicyService::class);
+		$service = $this->createMock(EffectiveModelPolicy::class);
 		$service->method('effectivePolicyFor')->willReturn($policy);
 		$service->method('isAllowed')->willReturnCallback(
 			static fn (string $organisation, string $provider, string $model): bool => ($provider === $allowedProvider)
@@ -204,7 +206,7 @@ class AgentTemplateServiceTest extends TestCase {
 	 * @param ObjectService $objectService OpenRegister object read/write double.
 	 * @param AgentTemplateSerializer|null $serializer The serializer (real instance by default).
 	 * @param ContentScanService|null $scanner The content scanner (clean by default).
-	 * @param TenantModelPolicyService|null $modelPolicy The model policy (permissive by default).
+	 * @param EffectiveModelPolicy|null $modelPolicy The model policy (permissive by default).
 	 * @param SkillService|null $skillService The skill service (no skills by default).
 	 *
 	 * @return AgentTemplateService
@@ -213,7 +215,7 @@ class AgentTemplateServiceTest extends TestCase {
 		ObjectService $objectService,
 		?AgentTemplateSerializer $serializer = null,
 		?ContentScanService $scanner = null,
-		?TenantModelPolicyService $modelPolicy = null,
+		?EffectiveModelPolicy $modelPolicy = null,
 		?SkillService $skillService = null,
 	): AgentTemplateService {
 		return new AgentTemplateService(
@@ -329,7 +331,9 @@ class AgentTemplateServiceTest extends TestCase {
 
 		$saved = $objectService->saved[0]['object'];
 		$this->assertSame('active', $saved['state']);
-		$this->assertNull($saved['scanReport']);
+		// Absent, not null: the AgentTemplate fragment refuses a null scanReport.
+		$this->assertArrayNotHasKey('scanReport', $saved);
+		$this->assertArrayNotHasKey('quarantineReason', $saved);
 
 	}//end testImportPackageActiveForLocalSource()
 

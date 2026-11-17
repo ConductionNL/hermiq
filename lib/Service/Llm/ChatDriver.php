@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
  */
 
 declare(strict_types=1);
@@ -36,7 +36,7 @@ use LLPhant\Chat\OpenAIChat;
 /**
  * Immutable provider-selection result.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
  */
 final class ChatDriver {
 	/**

@@ -180,33 +180,53 @@ const PROTECTED_BRANCHES = [
  * @returns {string|null} `host/owner/repo`, or null when it cannot be read.
  */
 function repoIdentity(url) {
-	if (typeof url !== 'string' || url.trim() === '') {
-		return null
-	}
-
-	let parsed
-	try {
-		parsed = new URL(url.trim())
-	} catch (err) {
-		// `git@github.com:owner/repo.git` is not a URL. It is also not a shape
-		// this runner ever produces or accepts — the clone URL is built from an
-		// https base — so it is refused rather than special-cased.
+	const parsed = parseCloneUrl(url)
+	if (parsed === null) {
 		return null
 	}
 
 	const host = String(parsed.hostname || '').toLowerCase()
-	let path = String(parsed.pathname || '').toLowerCase()
-
-	path = path
-		.replace(/\.git$/, '')
-		.replace(/^\/+/, '')
-		.replace(/\/+$/, '')
+	const path = identityPath(parsed)
 
 	if (host === '' || path === '') {
 		return null
 	}
 
 	return `${host}/${path}`
+}
+
+/**
+ * Parse a clone URL, or null when it is not a non-empty, parseable URL.
+ *
+ * @param {string} url A clone URL.
+ * @returns {URL|null} The parsed URL.
+ */
+function parseCloneUrl(url) {
+	if (typeof url !== 'string' || url.trim() === '') {
+		return null
+	}
+
+	try {
+		return new URL(url.trim())
+	} catch (err) {
+		// `git@github.com:owner/repo.git` is not a URL. It is also not a shape
+		// this runner ever produces or accepts — the clone URL is built from an
+		// https base — so it is refused rather than special-cased.
+		return null
+	}
+}
+
+/**
+ * The lower-cased `owner/repo` path of a parsed clone URL, without `.git` or edge slashes.
+ *
+ * @param {URL} parsed The parsed clone URL.
+ * @returns {string} The path, '' when there is none.
+ */
+function identityPath(parsed) {
+	return String(parsed.pathname || '').toLowerCase()
+		.replace(/\.git$/, '')
+		.replace(/^\/+/, '')
+		.replace(/\/+$/, '')
 }
 
 /**
@@ -221,6 +241,20 @@ function assertSameRepository(pushUrl, allowedUrl) {
 	const target = repoIdentity(pushUrl)
 	const allowed = repoIdentity(allowedUrl)
 
+	assertAllowedRepoReadable(allowed, allowedUrl)
+	assertPushRepoReadable(target, pushUrl)
+	assertTargetIsAllowed(target, allowed)
+}
+
+/**
+ * Refuse a stage whose declared target repository cannot be read.
+ *
+ * @param {string|null} allowed The allowed repository identity.
+ * @param {string} allowedUrl The URL it was read from.
+ * @returns {void}
+ * @throws {PushRefused} `allowed_repo_unreadable`.
+ */
+function assertAllowedRepoReadable(allowed, allowedUrl) {
 	if (allowed === null) {
 		// Fail CLOSED. An unreadable allowlist entry must never widen to
 		// "anything goes" — that is how an allowlist becomes a no-op.
@@ -229,14 +263,34 @@ function assertSameRepository(pushUrl, allowedUrl) {
 			`the stage declares no readable target repository (got ${JSON.stringify(allowedUrl)})`,
 		)
 	}
+}
 
+/**
+ * Refuse a push whose destination cannot be read as a repository.
+ *
+ * @param {string|null} target The push target identity.
+ * @param {string} pushUrl The URL it was read from.
+ * @returns {void}
+ * @throws {PushRefused} `push_repo_unreadable`.
+ */
+function assertPushRepoReadable(target, pushUrl) {
 	if (target === null) {
 		throw new PushRefused(
 			'push_repo_unreadable',
 			`the push target is not a readable repository URL (got ${JSON.stringify(pushUrl)})`,
 		)
 	}
+}
 
+/**
+ * Refuse a push to any repository but the allowed one.
+ *
+ * @param {string} target The push target identity.
+ * @param {string} allowed The allowed repository identity.
+ * @returns {void}
+ * @throws {PushRefused} `repo_not_allowed`.
+ */
+function assertTargetIsAllowed(target, allowed) {
 	if (target !== allowed) {
 		throw new PushRefused(
 			'repo_not_allowed',
@@ -260,15 +314,37 @@ function assertSameRepository(pushUrl, allowedUrl) {
  * @throws {PushRefused} When the branch is outside the allowlist.
  */
 function assertBranchAllowed(branch, issue) {
-	const name = String(branch === undefined || branch === null ? '' : branch).trim()
-	const issueNumber = String(
-		issue === undefined || issue === null ? '' : issue,
-	).trim()
+	const name = trimmedText(branch)
+	const issueNumber = trimmedText(issue)
 
 	if (name === '') {
 		throw new PushRefused('branch_missing', 'push refused: no branch was named')
 	}
 
+	assertIssueDeclared(issueNumber, issue)
+	assertPlainUnprotectedBranch(name)
+	assertFeatureBranchOfIssue(name, issueNumber)
+}
+
+/**
+ * A value as trimmed text, '' for undefined or null.
+ *
+ * @param {*} value The value.
+ * @returns {string} The text.
+ */
+function trimmedText(value) {
+	return String(value === undefined || value === null ? '' : value).trim()
+}
+
+/**
+ * Refuse a stage that declares no issue number.
+ *
+ * @param {string} issueNumber The trimmed issue number.
+ * @param {*} issue The issue as the stage declared it.
+ * @returns {void}
+ * @throws {PushRefused} `issue_missing`.
+ */
+function assertIssueDeclared(issueNumber, issue) {
 	if (/^[0-9]+$/.test(issueNumber) === false) {
 		// Without an issue there is no scope, and without a scope the pattern
 		// below would admit `feature/<anything>/<anything>`. Fail closed.
@@ -277,7 +353,16 @@ function assertBranchAllowed(branch, issue) {
 			`push refused: the stage declares no issue number, so no branch can be in scope (got ${JSON.stringify(issue)})`,
 		)
 	}
+}
 
+/**
+ * Refuse a protected branch or a fully-qualified ref.
+ *
+ * @param {string} name The trimmed branch name.
+ * @returns {void}
+ * @throws {PushRefused} `protected_branch` or `qualified_ref`.
+ */
+function assertPlainUnprotectedBranch(name) {
 	// Named explicitly so the refusal says WHY, even though the pattern below
 	// would reject these anyway. See PROTECTED_BRANCHES.
 	if (PROTECTED_BRANCHES.includes(name) === true) {
@@ -298,7 +383,17 @@ function assertBranchAllowed(branch, issue) {
 			`push refused: expected a branch name, got the fully-qualified ref "${name}"`,
 		)
 	}
+}
 
+/**
+ * Refuse a branch that is not `feature/<issue>/<slug>` for this issue.
+ *
+ * @param {string} name The trimmed branch name.
+ * @param {string} issueNumber The trimmed issue number.
+ * @returns {void}
+ * @throws {PushRefused} `branch_not_allowed`.
+ */
+function assertFeatureBranchOfIssue(name, issueNumber) {
 	// Anchored at both ends. An unanchored test would match
 	// `evil/feature/42/x` and `feature/42/x:refs/heads/main`.
 	const pattern = new RegExp(`^feature/${issueNumber}/[A-Za-z0-9][A-Za-z0-9._-]*$`)
@@ -356,12 +451,7 @@ function isInScope(file, scope) {
  * @throws {PushRefused} On the first path that is refused.
  */
 function assertDiffAllowed(files, scope = []) {
-	if (Array.isArray(files) === false) {
-		throw new PushRefused(
-			'diff_unreadable',
-			'push refused: the change set could not be read',
-		)
-	}
+	assertChangeSetReadable(files)
 
 	const scopeList = Array.isArray(scope) ? scope : []
 
@@ -373,41 +463,111 @@ function assertDiffAllowed(files, scope = []) {
 			continue
 		}
 
-		if (
-			file.startsWith('/') === true
-			|| file.split('/').includes('..') === true
-		) {
+		assertPathAllowed(file, scopeList)
+	}
+}
+
+/**
+ * Refuse a change set that is not a list.
+ *
+ * @param {*} files The change set.
+ * @returns {void}
+ * @throws {PushRefused} `diff_unreadable`.
+ */
+function assertChangeSetReadable(files) {
+	if (Array.isArray(files) === false) {
+		throw new PushRefused(
+			'diff_unreadable',
+			'push refused: the change set could not be read',
+		)
+	}
+}
+
+/**
+ * Refuse one changed path, checking the absolute prohibitions before the scope rule.
+ *
+ * @param {string} file A normalised, non-empty repository-relative path.
+ * @param {Array<string>} scopeList Declared scope prefixes; empty ⇒ scope unchecked.
+ * @returns {void}
+ * @throws {PushRefused} When the path is refused.
+ */
+function assertPathAllowed(file, scopeList) {
+	assertInsideTree(file)
+	assertNotForbidden(file)
+	assertNotDependencyManifest(file)
+	assertInDeclaredScope(file, scopeList)
+}
+
+/**
+ * Refuse a path that is absolute or climbs out of the tree.
+ *
+ * @param {string} file A repository-relative path.
+ * @returns {void}
+ * @throws {PushRefused} `path_escape`.
+ */
+function assertInsideTree(file) {
+	if (
+		file.startsWith('/') === true
+		|| file.split('/').includes('..') === true
+	) {
+		throw new PushRefused(
+			'path_escape',
+			`push refused: "${file}" is not a repository-relative path`,
+		)
+	}
+}
+
+/**
+ * Refuse a path under one of the forbidden prefixes.
+ *
+ * @param {string} file A repository-relative path.
+ * @returns {void}
+ * @throws {PushRefused} With the first matching rule's code.
+ */
+function assertNotForbidden(file) {
+	for (const rule of FORBIDDEN_PREFIXES) {
+		if (file.startsWith(rule.prefix) === true) {
 			throw new PushRefused(
-				'path_escape',
-				`push refused: "${file}" is not a repository-relative path`,
+				rule.code,
+				`push refused: "${file}" is out of bounds — ${rule.why}`,
 			)
 		}
+	}
+}
 
-		for (const rule of FORBIDDEN_PREFIXES) {
-			if (file.startsWith(rule.prefix) === true) {
-				throw new PushRefused(
-					rule.code,
-					`push refused: "${file}" is out of bounds — ${rule.why}`,
-				)
-			}
-		}
+/**
+ * Refuse a dependency manifest, wherever in the tree it sits.
+ *
+ * @param {string} file A repository-relative path.
+ * @returns {void}
+ * @throws {PushRefused} `dependency_manifest`.
+ */
+function assertNotDependencyManifest(file) {
+	const base = file.split('/').pop()
+	if (DEPENDENCY_MANIFESTS.includes(base) === true) {
+		throw new PushRefused(
+			'dependency_manifest',
+			`push refused: "${file}" is a dependency manifest — `
+				+ 'adding or moving a dependency needs human review',
+		)
+	}
+}
 
-		const base = file.split('/').pop()
-		if (DEPENDENCY_MANIFESTS.includes(base) === true) {
-			throw new PushRefused(
-				'dependency_manifest',
-				`push refused: "${file}" is a dependency manifest — `
-					+ 'adding or moving a dependency needs human review',
-			)
-		}
-
-		if (scopeList.length > 0 && isInScope(file, scopeList) === false) {
-			throw new PushRefused(
-				'out_of_scope',
-				`push refused: "${file}" is outside the scope this issue declared `
-					+ `(${scopeList.join(', ')})`,
-			)
-		}
+/**
+ * Refuse a path outside the declared scope, when a scope was declared.
+ *
+ * @param {string} file A repository-relative path.
+ * @param {Array<string>} scopeList Declared scope prefixes; empty ⇒ scope unchecked.
+ * @returns {void}
+ * @throws {PushRefused} `out_of_scope`.
+ */
+function assertInDeclaredScope(file, scopeList) {
+	if (scopeList.length > 0 && isInScope(file, scopeList) === false) {
+		throw new PushRefused(
+			'out_of_scope',
+			`push refused: "${file}" is outside the scope this issue declared `
+				+ `(${scopeList.join(', ')})`,
+		)
 	}
 }
 

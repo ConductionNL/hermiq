@@ -27,7 +27,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-template-gallery/tasks.md#task-2-agenttemplateserializer-json-package-deserialisation
+ * @spec openspec/changes/archive/2026-07-13-agent-template-gallery/tasks.md#task-2-agenttemplateserializer-json-package-deserialisation
  */
 
 declare(strict_types=1);
@@ -39,9 +39,16 @@ use JsonException;
 /**
  * Lossy-by-design (portable-fields-only) JSON package (de)serialiser for AgentTemplate.
  *
- * @spec openspec/changes/agent-template-gallery/tasks.md#task-2-agenttemplateserializer-json-package-deserialisation
+ * @spec openspec/changes/archive/2026-07-13-agent-template-gallery/tasks.md#task-2-agenttemplateserializer-json-package-deserialisation
  */
 class AgentTemplateSerializer {
+	/**
+	 * The schedule hint fields a template carries, in order, with the type each is cast to.
+	 *
+	 * @var array<string, string>
+	 */
+	private const SCHEDULE_HINT_FIELDS = ['kind' => 'string', 'cronExpr' => 'string', 'intervalMinutes' => 'int', 'deliver' => 'string'];
+
 	/**
 	 * Serialise a template's portable fields into a JSON package string.
 	 *
@@ -179,22 +186,28 @@ class AgentTemplateSerializer {
 		}
 
 		$hint = [];
-		if (isset($raw['kind']) === true) {
-			$hint['kind'] = (string)$raw['kind'];
-		}
-
-		if (isset($raw['cronExpr']) === true) {
-			$hint['cronExpr'] = (string)$raw['cronExpr'];
-		}
-
-		if (isset($raw['intervalMinutes']) === true) {
-			$hint['intervalMinutes'] = (int)$raw['intervalMinutes'];
-		}
-
-		if (isset($raw['deliver']) === true) {
-			$hint['deliver'] = (string)$raw['deliver'];
+		foreach (self::SCHEDULE_HINT_FIELDS as $field => $type) {
+			if (isset($raw[$field]) === true) {
+				$hint[$field] = $this->castHint(value: $raw[$field], type: $type);
+			}
 		}
 
 		return $hint;
 	}//end scheduleHint()
+
+	/**
+	 * One schedule hint value cast to its field's type.
+	 *
+	 * @param mixed  $value The stored value.
+	 * @param string $type  `int` or `string`.
+	 *
+	 * @return int|string
+	 */
+	private function castHint(mixed $value, string $type): int|string {
+		if ($type === 'int') {
+			return (int)$value;
+		}
+
+		return (string)$value;
+	}//end castHint()
 }//end class

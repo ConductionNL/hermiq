@@ -10,8 +10,8 @@
  * but makes it impossible to unit-test anything downstream of it.
  *
  * This stub only needs to EXIST for `class_exists()`. It is never actually called in the
- * unit suite: `Server::get()` cannot resolve a real container there, so any test that
- * reached `sendRequest()` would fail anyway. The broker's own guards (owner, allowed-app,
+ * unit suite: the clients are built without a container there, so any test that reached
+ * `sendRequest()` would fail anyway. The broker's own guards (owner, allowed-app,
  * allow-rules, host-lock) are tested in openregister, where they live.
  *
  * Mirrors the existing `OCA\OpenRegister\Mcp\IMcpToolProvider` / ObjectService stub
@@ -86,6 +86,7 @@ class CredentialBrokerService {
 	 * @param string $credentialId The credential UUID.
 	 * @param string $appId The calling app.
 	 * @param string|null $actingUserId The credential owner.
+	 * @param string|null $actingOrganisationId The acting organisation.
 	 *
 	 * @return string|null The secret, or null when the credential is not inject-only.
 	 */
@@ -93,6 +94,7 @@ class CredentialBrokerService {
 		string $credentialId,
 		string $appId,
 		?string $actingUserId = null,
+		?string $actingOrganisationId = null,
 	): ?string {
 		return null;
 	}//end resolveInjectable()

@@ -47,13 +47,13 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
-use OCP\Server;
+use OCA\Hermiq\Kernel\Contracts\AsyncStageDispatchServiceInterface;
 use RuntimeException;
 
 /**
  * The async half of the stage transport.
  */
-class AsyncStageDispatchService extends StageDispatchService {
+class AsyncStageDispatchService extends StageDispatchService implements AsyncStageDispatchServiceInterface {
 
 	/**
 	 * Start a stage and return a handle to collect it with.
@@ -76,7 +76,8 @@ class AsyncStageDispatchService extends StageDispatchService {
 	 *
 	 * @throws RuntimeException When the stage could not be started.
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess)           Mirrors `dispatch()`; AppAPI is resolved lazily.
+	 * @SuppressWarnings(PHPMD.StaticAccess)           Mirrors `dispatch()`; AppAPI is resolved
+	 *   through the injected container.
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Mirrors `dispatch()` exactly, deliberately:
 	 *   the two must accept the same stage, and a bundled array is the shape in which a field
 	 *   has already been silently dropped at this boundary once.
@@ -98,43 +99,58 @@ class AsyncStageDispatchService extends StageDispatchService {
 		string $jobKey = '',
 		array $collect = [],
 	): array {
-		$ceiling = self::DEFAULT_STAGE_TIMEOUT_MS;
-		if ($timeoutMs > 0) {
-			$ceiling = $timeoutMs;
-		}
-
-		$params = $this->buildParams(
-			repo: $repo,
-			ref: $ref,
-			command: $command,
-			uid: $uid,
-			credentialId: $credentialId,
-			ceiling: $ceiling,
-			toolRepo: $toolRepo,
-			toolRef: $toolRef,
-			push: $push,
-			pushCredentialId: $pushCredentialId,
-			llmCredentialId: $llmCredentialId,
-			collect: $collect
+		return $this->dispatchStageAsync(
+			request: new StageRequest(
+				repo: $repo,
+				ref: $ref,
+				command: $command,
+				uid: $uid,
+				options: new StageOptions(
+					credentialId: $credentialId,
+					timeoutMs: $timeoutMs,
+					toolRepo: $toolRepo,
+					toolRef: $toolRef,
+					push: $push,
+					pushCredentialId: $pushCredentialId,
+					llmCredentialId: $llmCredentialId,
+					collect: $collect,
+					jobKey: $jobKey,
+				)
+			)
 		);
+	}//end dispatchAsync()
+
+	/**
+	 * Start one stage, as `dispatchAsync()` describes, from one request.
+	 *
+	 * @param StageRequest $request The stage, with its job key when the caller has one.
+	 *
+	 * @return array{job: array{id: string, status: string}} The handle.
+	 *
+	 * @throws RuntimeException When the stage could not be started.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
+	 */
+	public function dispatchStageAsync(StageRequest $request): array {
+		$params = $this->buildParams(request: $request);
 
 		// The one field that differs from a synchronous dispatch. Added HERE
 		// rather than inside `buildParams()` so the shared builder keeps one
 		// behaviour and cannot be made to produce two payload shapes.
 		$params['async'] = true;
 
-		$params = $this->withJobKey(params: $params, jobKey: $jobKey);
+		$params = $this->withJobKey(params: $params, jobKey: $request->options->jobKey);
 
 		// Seconds, not minutes: this call returns as soon as the stage is
 		// ACCEPTED. Waiting the stage's own ceiling here would reintroduce
 		// exactly the blocking this class exists to remove.
-		$result = $this->callRunner(route: self::RUNNER_ROUTE, method: 'POST', params: $params, uid: $uid);
+		$result = $this->callRunner(route: self::RUNNER_ROUTE, method: 'POST', params: $params, uid: $request->uid);
 
 		$this->assertReachable(result: $result);
 		$this->assertAccepted(result: $result, what: 'start the stage');
 
 		return $this->mapAccepted(body: (string)$result->getBody());
-	}//end dispatchAsync()
+	}//end dispatchStageAsync()
 
 	/**
 	 * Collect a started stage by its handle.
@@ -282,12 +298,13 @@ class AsyncStageDispatchService extends StageDispatchService {
 	 *
 	 * @return mixed The response, or an array when the ExApp is unreachable.
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) AppAPI is resolved lazily, as `dispatch()` does.
+	 * @SuppressWarnings(PHPMD.StaticAccess) AppAPI is resolved through the injected
+	 *   container by class-string, as `dispatch()` does.
 	 *
 	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function callRunner(string $route, string $method, array $params, ?string $uid): mixed {
-		return Server::get(self::APP_API_PUBLIC_FUNCTIONS)->exAppRequest(
+		return $this->serviceContainer()->get(self::APP_API_PUBLIC_FUNCTIONS)->exAppRequest(
 			self::RUNNER_EXAPP_ID,
 			$route,
 			$uid,

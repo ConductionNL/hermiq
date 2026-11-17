@@ -31,8 +31,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller\Settings;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\WebResearch\WebResearchSettingsHandler;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ConnectionReporterInterface;
+use OCA\Hermiq\Kernel\Contracts\WebResearchSettingsHandlerInterface;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -52,17 +53,20 @@ class WebResearchSettingsController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request.
-	 * @param WebResearchSettingsHandler $settingsHandler Reads/writes `hermiq.webResearch`.
+	 * @param WebResearchSettingsHandlerInterface $settingsHandler Reads/writes `hermiq.webResearch`.
 	 * @param LoggerInterface $logger Logger.
+	 * @param ConnectionReporterInterface|null $connectionReporter Reports the saved search backend to integriq's
+	 *                                                   connection registry; null when built by hand in a test.
 	 *
 	 * @return void
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly WebResearchSettingsHandler $settingsHandler,
+		private readonly WebResearchSettingsHandlerInterface $settingsHandler,
 		private readonly LoggerInterface $logger,
+		private readonly ?ConnectionReporterInterface $connectionReporter = null,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 
@@ -96,27 +100,15 @@ class WebResearchSettingsController extends Controller {
 	 *                      unsupported search provider.
 	 *
 	 * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
+	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function update(): JSONResponse {
-		$data = $this->request->getParam('webResearch');
-		if (is_array($data) === false) {
-			// Accept a flat body too (the whole request as the patch).
-			$data = $this->request->getParams();
-			unset($data['_route']);
-		}
+		$data = $this->requestedPatch();
 
-		$provider = $data['searchProvider'] ?? null;
-		if ($provider !== null
-			&& in_array($provider, WebResearchSettingsHandler::ALLOWED_SEARCH_PROVIDERS, true) === false
-		) {
-			return new JSONResponse(
-				[
-					'error' => 'Unsupported search provider',
-					'allowed' => WebResearchSettingsHandler::ALLOWED_SEARCH_PROVIDERS,
-				],
-				Http::STATUS_UNPROCESSABLE_ENTITY
-			);
+		$refusal = $this->providerRefusal(data: $data);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
 		$data = $this->dropBlankSearchCredential(data: $data);
@@ -131,6 +123,10 @@ class WebResearchSettingsController extends Controller {
 			return new JSONResponse(['error' => 'Failed to save web-research configuration'], Http::STATUS_INTERNAL_SERVER_ERROR);
 		}
 
+		// Tell integriq what the saved backend means for the web search row. A failed
+		// save above reports nothing.
+		$this->reportSearchBackend(config: $merged);
+
 		return new JSONResponse(
 			[
 				'success' => true,
@@ -139,6 +135,94 @@ class WebResearchSettingsController extends Controller {
 		);
 
 	}//end update()
+
+	/**
+	 * The requested patch: the `webResearch` object, or the whole flat request body
+	 * without its route.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function requestedPatch(): array {
+		$data = $this->request->getParam('webResearch');
+		if (is_array($data) === false) {
+			// Accept a flat body too (the whole request as the patch).
+			$data = $this->request->getParams();
+			unset($data['_route']);
+		}
+
+		return $data;
+	}//end requestedPatch()
+
+	/**
+	 * The 422 for a search provider this instance does not support, or null.
+	 *
+	 * @param array<string, mixed> $data The requested patch.
+	 *
+	 * @return JSONResponse|null
+	 */
+	private function providerRefusal(array $data): ?JSONResponse {
+		$provider = $data['searchProvider'] ?? null;
+		if ($provider === null
+			|| in_array($provider, WebResearchSettingsHandlerInterface::ALLOWED_SEARCH_PROVIDERS, true) === true
+		) {
+			return null;
+		}
+
+		return new JSONResponse(
+			[
+				'error' => 'Unsupported search provider',
+				'allowed' => WebResearchSettingsHandlerInterface::ALLOWED_SEARCH_PROVIDERS,
+			],
+			Http::STATUS_UNPROCESSABLE_ENTITY
+		);
+	}//end providerRefusal()
+
+	/**
+	 * Report the `web-search` connection row for a saved configuration.
+	 *
+	 * An empty provider or endpoint is off, not mocked: `web.search` answers
+	 * `search_unavailable`. So the row reads Not configured, never Simulated
+	 * (adopt-connection-registry design D3). The message names the endpoint host
+	 * only, because the full endpoint may carry a key in its query string.
+	 *
+	 * @param array<string, mixed> $config The merged `webResearch` configuration.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+	 */
+	private function reportSearchBackend(array $config): void {
+		if ($this->connectionReporter === null) {
+			return;
+		}
+
+		$provider = (string)($config['searchProvider'] ?? '');
+		$endpoint = trim((string)($config['searchEndpoint'] ?? ''));
+		if ($provider === '' || $endpoint === '') {
+			$this->connectionReporter->report(
+				key: 'web-search',
+				status: 'unconfigured',
+				message: 'No search provider or endpoint is set, so web search answers search_unavailable.'
+			);
+			return;
+		}
+
+		$backend = 'a JSON search API';
+		if ($provider === 'searxng') {
+			$backend = 'SearXNG';
+		}
+
+		$host = parse_url($endpoint, PHP_URL_HOST);
+		if (is_string($host) === true && $host !== '') {
+			$backend .= ' at ' . $host;
+		}
+
+		$this->connectionReporter->report(
+			key: 'web-search',
+			status: 'configured',
+			message: 'Searches go to ' . $backend . '. Saved, not tested.'
+		);
+	}//end reportSearchBackend()
 
 	/**
 	 * Replace the raw credential reference with a derived boolean before the config

@@ -1,0 +1,35 @@
+{
+    "skills": [
+        {
+            "frontmatter": "name: lint\ndescription: Lints",
+            "body": "Do it.\n",
+            "name": "lint",
+            "description": "Lints",
+            "files": [
+                {
+                    "name": "references/a.md",
+                    "content": "A"
+                }
+            ],
+            "bundleName": "lint"
+        }
+    ],
+    "agents": [
+        {
+            "name": "Triage",
+            "prompt": "Sort",
+            "bundleName": "triage"
+        },
+        {
+            "prompt": "p",
+            "name": "nameless",
+            "bundleName": "nameless"
+        }
+    ],
+    "log": [
+        "warning Hermiq skill bundle: rejected entry \u2014 manifest name is not a safe bundled skill name. {\"entry\":\"..\\/up\"}",
+        "warning Hermiq skill bundle: rejected entry \u2014 declared in the manifest but has no SKILL.md. {\"entry\":\"missing\"}",
+        "warning Hermiq skill bundle: rejected entry \u2014 agents/broken.json is not valid JSON. {\"entry\":\"broken\"}",
+        "warning Hermiq skill bundle: rejected entry \u2014 declared in the manifest but agents/absent.json is missing. {\"entry\":\"absent\"}"
+    ]
+}

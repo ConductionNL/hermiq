@@ -72,6 +72,7 @@
 <script>
 import { NcButton, NcLoadingIcon, NcModal, NcNoteCard } from '@nextcloud/vue'
 import { importSkill, installFromSource } from '../api/skills.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'SkillImportModal',
@@ -119,10 +120,7 @@ export default {
 				this.$emit('imported')
 				this.$emit('close')
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Could not import the skill')
+				this.error = errorMessage(e, this.t('hermiq', 'Could not import the skill'))
 			} finally {
 				this.busy = false
 			}

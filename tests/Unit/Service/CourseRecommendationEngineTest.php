@@ -31,12 +31,15 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
+use OCA\Hermiq\Service\LearnerSignalReader;
+use OCA\Hermiq\Service\LearnerSignalRegister;
 use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
 use OCA\Hermiq\Service\ScheduleService;
+use OCA\Hermiq\Tests\Unit\Support\FakeSlugResolver;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\Organisation;
 use OCA\OpenRegister\Db\OrganisationMapper;
@@ -45,6 +48,7 @@ use OCP\App\IAppManager;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for the ai-course-recommendations deterministic ranking engine.
@@ -110,23 +114,22 @@ class CourseRecommendationEngineTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				// openregister#2211 (insert-only saves) added this. A double that
-				// drifts from the real signature is a FATAL, not a failed
-				// assertion: PHP refuses to declare the class and the whole
-				// suite dies before it runs.
-				bool $failIfExists = false,
-				bool $_unowned = false,
+				bool $_multitenancy = true
 			): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
+				$silent = $options->policy->silent ?? false;
+				$_validation = $options->policy->validation ?? true;
+				$uploadedFiles = $options->uploadedFiles;
+				$currentUser = $options->actor->currentUser;
+				$failIfExists = $options->policy->failIfExists ?? false;
+				$_unowned = $options->actor->unowned ?? false;
+				$_dedupOverride = $options->policy->dedupOverride ?? false;
+				$_owner = $options->actor->owner;
 				$payload = is_array($object) ? $object : $object->getObject();
 				$this->saved[] = $payload;
 				$entity = new ObjectEntity();
@@ -217,6 +220,17 @@ class CourseRecommendationEngineTest extends TestCase {
 	 * @param bool $killSwitchEngaged Whether the tenant kill-switch is engaged.
 	 * @param ProviderFactory|null $providerFactory A specific LLM provider double, or a plain mock.
 	 * @param array<int, Organisation> $organisations The learner's resolved organisations.
+	 * @param string|null $installedAppId When given, the ONE app id the instance
+	 *                                    answers to; every other id reports
+	 *                                    not-installed, as a real IAppManager does.
+	 * @param list<string> $presentRegisterSlugs The register slugs the instance carries.
+	 *                                          Defaults to the MIGRATED instance, which is
+	 *                                          the only state that can catch a pinned slug:
+	 *                                          on an unmigrated one the old literal happens
+	 *                                          to be the right answer, so a default of
+	 *                                          `['scholiq']` would let every test here pass
+	 *                                          with the defect present. See
+	 *                                          CourseRegisterResolutionTest.
 	 *
 	 * @return CourseRecommendationEngine
 	 */
@@ -227,12 +241,22 @@ class CourseRecommendationEngineTest extends TestCase {
 		bool $killSwitchEngaged = false,
 		?ProviderFactory $providerFactory = null,
 		array $organisations = [],
+		?string $installedAppId = null,
+		array $presentRegisterSlugs = ['learniq'],
 	): CourseRecommendationEngine {
-		$aiFeatureService = $this->createMock(AiFeatureService::class);
+		$aiFeatureService = $this->createMock(AiFeatureLookup::class);
 		$aiFeatureService->method('findBySlug')->willReturn($feature);
 
 		$appManager = $this->createMock(IAppManager::class);
-		$appManager->method('isInstalled')->willReturn($scholiqInstalled);
+		if ($installedAppId === null) {
+			$appManager->method('isInstalled')->willReturn($scholiqInstalled);
+		} else {
+			$appManager->method('isInstalled')->willReturnCallback(
+				static function (string $appId) use ($installedAppId): bool {
+					return $appId === $installedAppId;
+				}
+			);
+		}
 
 		$scheduleService = $this->createMock(ScheduleService::class);
 		$scheduleService->method('isOrganisationEngaged')->willReturn($killSwitchEngaged);
@@ -240,14 +264,17 @@ class CourseRecommendationEngineTest extends TestCase {
 		$organisationMapper = $this->createMock(OrganisationMapper::class);
 		$organisationMapper->method('findByUserId')->willReturn($organisations);
 
+		$logger = $this->createMock(LoggerInterface::class);
+
 		return new CourseRecommendationEngine(
 			$objectService,
-			$appManager,
+			new LearnerSignalRegister(new FakeSlugResolver($presentRegisterSlugs), $appManager, $logger),
+			new LearnerSignalReader($objectService, $logger),
 			$aiFeatureService,
 			$scheduleService,
 			$providerFactory ?? $this->createMock(ProviderFactory::class),
 			$organisationMapper,
-			$this->createMock(LoggerInterface::class)
+			$logger
 		);
 
 	}//end engine()
@@ -352,6 +379,75 @@ class CourseRecommendationEngineTest extends TestCase {
 		$this->assertSame([], $schemaCallLog);
 
 	}//end testScholiqNotInstalledDegradesToUnavailable()
+
+	/**
+	 * The install gate passes under EITHER name the learner-signal app answers to.
+	 *
+	 * The app renamed `scholiq` -> `learniq`. `isInstalled()` on the name an
+	 * instance does not use returns FALSE rather than raising, so pinning one
+	 * spelling turned this gate into a permanent "not installed" on half the
+	 * fleet: the AI feature was enabled, no schema was ever read, and every
+	 * learner got an empty recommendation set with nothing logged beyond an
+	 * info line. Asserting the schema call log is non-empty is the tell that
+	 * the gate was actually cleared, and it is the exact inverse of the
+	 * assertion in testScholiqNotInstalledDegradesToUnavailable().
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md#scenario-scholiq-not-installed
+	 */
+	public function testTheInstallGatePassesUnderEitherFleetAppId(): void {
+		foreach (['learniq', 'scholiq'] as $installedAppId) {
+			$saved = [];
+			$schemaCallLog = [];
+			$objectService = $this->objectService(bySchema: [], throwFor: [], saved: $saved, schemaCallLog: $schemaCallLog);
+
+			$engine = $this->engine(
+				objectService: $objectService,
+				feature: $this->enabledFeature(),
+				installedAppId: $installedAppId
+			);
+
+			$result = $engine->getOrRegenerate(learnerUid: 'alice');
+
+			$this->assertNotSame(
+				[],
+				$schemaCallLog,
+				'the install gate rejected an instance whose app id is ' . $installedAppId
+			);
+			$this->assertNotSame('unavailable', $result['status']);
+		}
+
+	}//end testTheInstallGatePassesUnderEitherFleetAppId()
+
+	/**
+	 * The persisted `sourceApp` stamp stays `scholiq` on both paths.
+	 *
+	 * 🔴 THIS IS THE OPPOSITE RULE TO THE ONE ABOVE, AND BOTH ARE RIGHT.
+	 * `sourceApp` is a required property of the CourseRecommendation schema and
+	 * stored rows plus the mock register already carry `scholiq`. Following the
+	 * rename here would not migrate those rows, it would split the field into
+	 * two vocabularies so that anything filtering on it sees half the data.
+	 * Lookups follow the rename; stored data does not.
+	 *
+	 * @return void
+	 */
+	public function testThePersistedSourceAppStampIsFrozen(): void {
+		$saved = [];
+		$schemaCallLog = [];
+		$objectService = $this->objectService(bySchema: [], throwFor: [], saved: $saved, schemaCallLog: $schemaCallLog);
+
+		$engine = $this->engine(
+			objectService: $objectService,
+			feature: $this->enabledFeature(),
+			installedAppId: 'learniq'
+		);
+
+		$result = $engine->getOrRegenerate(learnerUid: 'alice');
+
+		$this->assertSame('scholiq', $result['sourceApp']);
+
+	}//end testThePersistedSourceAppStampIsFrozen()
 
 	/**
 	 * The deterministic scoring stage produces the SAME rank/score/matchedSignals
@@ -575,7 +671,10 @@ class CourseRecommendationEngineTest extends TestCase {
 	 * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md#scenario-llm-phrasing-does-not-change-which-courses-are-recommended
 	 */
 	public function testLlmPromptIsScopedToASingleCandidateAndNeverAltersRanking(): void {
-		$now = new DateTimeImmutable('2026-07-13T12:00:00+00:00');
+		// The engine reads the real clock inside getOrRegenerate(), so the
+		// fixture is built on the real clock too: a fixed date ages out of the
+		// engine's signal window and the two rankings drift apart.
+		$now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 		$bySchema = $this->fiveSignalBySchema($now);
 
 		$saved = [];

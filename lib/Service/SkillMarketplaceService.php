@@ -30,7 +30,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
+ * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#2-skillmarketplaceservice
  */
 
 declare(strict_types=1);
@@ -39,8 +39,12 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\SkillMarketplaceServiceInterface;
+use OCA\Hermiq\Support\FleetAppId;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
@@ -55,9 +59,9 @@ use Throwable;
  * install-from-source (HTTP), content scanning (OR ContentScanService), skill CRUD,
  * curation (cron) and hub publish; each dependency is one lifecycle stage.
  *
- * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
+ * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#2-skillmarketplaceservice
  */
-class SkillMarketplaceService {
+class SkillMarketplaceService implements SkillMarketplaceServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -134,8 +138,8 @@ class SkillMarketplaceService {
 	 *
 	 * @return ObjectEntity The quarantined Skill object.
 	 *
-	 * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
-	 * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-quarantine-security-scan-on-install
+	 * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#2-skillmarketplaceservice
+	 * @spec openspec/changes/archive/2026-09-06-skill-package-multifile/specs/skills-marketplace/spec.md#requirement-quarantine-security-scan-on-install
 	 */
 	public function installFromSource(
 		string $package,
@@ -215,8 +219,7 @@ class SkillMarketplaceService {
 
 		return $this->objectService->saveObject(
 			object: $object,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA))
 		);
 
 	}//end installFromSource()
@@ -328,9 +331,10 @@ class SkillMarketplaceService {
 
 		return $this->objectService->saveObject(
 			object: $payload,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: $existing->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: $existing->getUuid()
+			)
 		);
 
 	}//end updateExisting()
@@ -351,7 +355,7 @@ class SkillMarketplaceService {
 	 * reviewer decision (explicit dangerous-verdict override), part of the public
 	 * seam the controller exposes — not an SRP smell.
 	 *
-	 * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
+	 * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#2-skillmarketplaceservice
 	 */
 	public function approveQuarantined(string $skillId, bool $force = false): ?ObjectEntity {
 		$skill = $this->skillService->getSkill(skillId: $skillId);
@@ -390,11 +394,11 @@ class SkillMarketplaceService {
 	 *
 	 * @return array<string, int> Summary counts { scanned, staled, archived }.
 	 *
-	 * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
+	 * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#2-skillmarketplaceservice
 	 */
 	public function curate(): array {
-		$staleDays = $this->appConfig->getValueInt(Application::APP_ID, 'skillStaleDays', self::DEFAULT_STALE_DAYS);
-		$archiveDays = $this->appConfig->getValueInt(Application::APP_ID, 'skillArchiveDays', self::DEFAULT_ARCHIVE_DAYS);
+		$staleDays = $this->appConfig->getValueInt(AppIdentity::APP_ID, 'skillStaleDays', self::DEFAULT_STALE_DAYS);
+		$archiveDays = $this->appConfig->getValueInt(AppIdentity::APP_ID, 'skillArchiveDays', self::DEFAULT_ARCHIVE_DAYS);
 
 		$nowTs = time();
 		$scanned = 0;
@@ -442,7 +446,7 @@ class SkillMarketplaceService {
 	 *
 	 * @return array<string, mixed> The publish result or a structured error.
 	 *
-	 * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
+	 * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#2-skillmarketplaceservice
 	 */
 	public function publishToHub(string $skillId, string $hubId): array {
 		$skill = $this->skillService->getSkill(skillId: $skillId);
@@ -455,10 +459,19 @@ class SkillMarketplaceService {
 		// strip as GitHub publish — unvetted observations never leave the instance.
 		$package = ($this->skillService->exportSkill(skillId: $skillId) ?? '');
 
-		try {
-			// Route outbound through OpenConnector's CallService — never a direct HTTP client.
-			$callService = $this->container->get('OCA\\OpenConnector\\Service\\CallService');
-		} catch (Throwable $e) {
+		// Route outbound through the connector app's CallService — never a direct
+		// HTTP client. Asked for by CANONICAL app name rather than by a literal
+		// FQCN: that app moved its PSR-4 root from `OCA\OpenConnector` to
+		// `OCA\Integriq` with no compatibility alias, and both roots are in the
+		// field. A container lookup on the wrong one throws, and a thrown lookup
+		// here is indistinguishable from the app not being installed — every
+		// publish reported `hub_unavailable` on an instance that had it.
+		$callService = FleetAppId::getService(
+			container: $this->container,
+			canonical: 'integriq',
+			relative: 'Service\CallService'
+		);
+		if ($callService === null) {
 			return [
 				'error' => [
 					'code' => 'hub_unavailable',
@@ -508,11 +521,12 @@ class SkillMarketplaceService {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: $uuid,
-			_rbac: ($systemWide === false),
-			_multitenancy: ($systemWide === false)
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: $uuid
+			),
+			_rbac: $systemWide === false,
+			_multitenancy: $systemWide === false
 		);
 
 	}//end save()
@@ -590,7 +604,7 @@ class SkillMarketplaceService {
 	 *
 	 * @return array<string, mixed> The scan report { severity, safe, findings, scannedAt, … }.
 	 *
-	 * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-quarantine-security-scan-on-install
+	 * @spec openspec/changes/archive/2026-09-06-skill-package-multifile/specs/skills-marketplace/spec.md#requirement-quarantine-security-scan-on-install
 	 */
 	private function scanContent(string $body, mixed $frontmatter, array $files = []): array {
 		$content = $body;

@@ -37,20 +37,26 @@
 //
 // See: https://github.com/ConductionNL/hydra → openspec/architecture/adr-036-universal-widget-manifest.md
 import { CnFlowSidebar } from '@conduction/nextcloud-vue'
+import AgentAvailabilityDialog from './dialogs/AgentAvailabilityDialog.vue'
 import AgentFactsheetDialog from './dialogs/AgentFactsheetDialog.vue'
 import AgentVersionHistoryDialog from './dialogs/agents/AgentVersionHistoryDialog.vue'
 import EmailField from './formFields/EmailField.vue'
+import AgentExportModal from './modals/AgentExportModal.vue'
 // manifest-driven-pages: header-action modals, now resolved via the
 // registry's open-modal path instead of being embedded page components.
 import AgentFormModal from './modals/AgentFormModal.vue'
+import AgentGitModal from './modals/AgentGitModal.vue'
+import AppTemplateCollectModal from './modals/AppTemplateCollectModal.vue'
 import EvalDatasetFormModal from './modals/EvalDatasetFormModal.vue'
 import TemplateImportModal from './modals/TemplateImportModal.vue'
 import AgentMemory from './views/AgentMemory.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
 import Chat from './views/Chat.vue'
+import SharedSession from './views/SharedSession.vue'
 import TenantOps from './views/TenantOps.vue'
 import AgentEvalBaselineWidget from './widgets/AgentEvalBaselineWidget.vue'
 import AgentMemoryWidget from './widgets/AgentMemoryWidget.vue'
+import AgentRatingsWidget from './widgets/AgentRatingsWidget.vue'
 import AgentRunHistoryWidget from './widgets/AgentRunHistoryWidget.vue'
 import AgentRunOperationsWidget from './widgets/AgentRunOperationsWidget.vue'
 // manifest-driven-pages: AgentDetail's six extracted content widgets +
@@ -67,11 +73,15 @@ import AgentTemplateGithubStore from './widgets/AgentTemplateGithubStore.vue'
 import AgentTemplateRowActions from './widgets/AgentTemplateRowActions.vue'
 import AgentToolActivityWidget from './widgets/AgentToolActivityWidget.vue'
 import AgentToolGovernanceWidget from './widgets/AgentToolGovernanceWidget.vue'
+import AiLabelSection from './widgets/AiLabelSection.vue'
 import AnalyticsBreakdownWidget from './widgets/AnalyticsBreakdownWidget.vue'
 // inapp-settings-section: Incidents / EU AI Act audit export / Retention,
 // moved off TenantOps.vue onto the Compliance index page's below-header slot.
+import ChatHealthBlock from './widgets/ChatHealthBlock.vue'
 import ComplianceOperations from './widgets/ComplianceOperations.vue'
 import EvalRunPanelWidget from './widgets/EvalRunPanelWidget.vue'
+// memory-knowledge-bases: the KnowledgeBaseDetail page's sources section.
+import KnowledgeBaseSources from './widgets/KnowledgeBaseSources.vue'
 // skill-self-improvement: the SkillDetail draft review surface (side-by-side
 // diff, provenance, verdicts, Accept/Edit/Reject) and the version history +
 // rollback + republish widget.
@@ -87,6 +97,9 @@ import SkillLinkPanel from './widgets/SkillLinkPanel.vue'
 // skill-maturity: the SkillDetail page's durable maturity scorecard widget
 // (per-level pass/fail + reasons + Qualify + action-gated Attest-L4).
 import SkillMaturityScorecard from './widgets/SkillMaturityScorecard.vue'
+// skills-curator-merges-duplicates: the curator's merge proposals on the Skills
+// index page's below-header slot.
+import SkillMergeProposals from './widgets/SkillMergeProposals.vue'
 // skill-install-idempotency: the SkillDetail page's origin + review-status card
 // (where the skill came from, when it was last refreshed, why it is quarantined,
 // and whether local learnings are ahead of the source).
@@ -96,6 +109,20 @@ import SkillProvenance from './widgets/SkillProvenance.vue'
 // above.
 import SkillRowActions from './widgets/SkillRowActions.vue'
 import SkillVersionHistory from './widgets/SkillVersionHistory.vue'
+
+/**
+ * The props schema of a modal opened with nothing but its `show` flag.
+ *
+ * @return {object} A fresh schema object.
+ */
+function showOnlyProps() {
+	return {
+		type: 'object',
+		properties: {
+			show: { type: 'boolean' },
+		},
+	}
+}
 
 export default {
 	// -------------------------------------------------------------------------
@@ -115,12 +142,7 @@ export default {
 	'agent-form': {
 		kind: 'modal',
 		component: AgentFormModal,
-		propsSchema: {
-			type: 'object',
-			properties: {
-				show: { type: 'boolean' },
-			},
-		},
+		propsSchema: showOnlyProps(),
 	},
 
 	/**
@@ -132,12 +154,18 @@ export default {
 	'agent-version-history': {
 		kind: 'modal',
 		component: AgentVersionHistoryDialog,
-		propsSchema: {
-			type: 'object',
-			properties: {
-				show: { type: 'boolean' },
-			},
-		},
+		propsSchema: showOnlyProps(),
+	},
+
+	/**
+	 * Switch one agent off and on, with who, when and why
+	 * (agents-switch-off-and-stop). Self-resolves the agent id from the route
+	 * when opened via AgentDetail's "Switch off or on" action.
+	 */
+	'agent-availability': {
+		kind: 'modal',
+		component: AgentAvailabilityDialog,
+		propsSchema: showOnlyProps(),
 	},
 
 	/**
@@ -148,12 +176,7 @@ export default {
 	'agent-factsheet': {
 		kind: 'modal',
 		component: AgentFactsheetDialog,
-		propsSchema: {
-			type: 'object',
-			properties: {
-				show: { type: 'boolean' },
-			},
-		},
+		propsSchema: showOnlyProps(),
 	},
 
 	/**
@@ -164,6 +187,43 @@ export default {
 	'template-import': {
 		kind: 'modal',
 		component: TemplateImportModal,
+		propsSchema: { type: 'object', properties: { mode: { type: 'string' } } },
+	},
+
+	/**
+	 * "Keep in git" on the agent page (agents-export-import-and-git-sync): publish,
+	 * push and pull the agent's package with its own GitHub repository.
+	 */
+	'agent-git': {
+		kind: 'modal',
+		component: AgentGitModal,
+		propsSchema: showOnlyProps(),
+	},
+
+	/**
+	 * The agent page's "Export" and "Save as template" (agents-export-import-and-git-sync):
+	 * one modal, the mode prop picks which.
+	 */
+	'agent-export': {
+		kind: 'modal',
+		component: AgentExportModal,
+		propsSchema: {
+			type: 'object',
+			properties: {
+				show: { type: 'boolean' },
+				mode: { type: 'string' },
+			},
+		},
+	},
+
+	/**
+	 * "Check apps for templates": asks the installed apps for the agent templates
+	 * they offer for themselves (agents-bound-to-their-app). Opened via the Store
+	 * page's header action of the same name.
+	 */
+	'app-template-collect': {
+		kind: 'modal',
+		component: AppTemplateCollectModal,
 		propsSchema: { type: 'object', properties: {} },
 	},
 
@@ -176,12 +236,7 @@ export default {
 	EvalDatasetFormModal: {
 		kind: 'modal',
 		component: EvalDatasetFormModal,
-		propsSchema: {
-			type: 'object',
-			properties: {
-				show: { type: 'boolean' },
-			},
-		},
+		propsSchema: showOnlyProps(),
 	},
 
 	// -------------------------------------------------------------------------
@@ -193,13 +248,22 @@ export default {
 
 	/**
 	 * Chat — the AI chat page merged from OpenRegister's chat surface
-	 * (agent-engine-port task 5.1): conversation list + streaming thread +
+	 * (agent-engine-port task 5.1): session list + streaming thread +
 	 * composer + agent selector + feedback, against the Hermiq engine routes.
 	 * Standard nav page, not a dashboard.
 	 */
 	Chat: {
 		kind: 'page',
 		component: Chat,
+	},
+
+	/**
+	 * SharedSession — the read-only page of a session shared with the reader
+	 * (chat-fork-and-share-link): the thread, "Shared by", no message box.
+	 */
+	SharedSession: {
+		kind: 'page',
+		component: SharedSession,
 	},
 
 	/**
@@ -218,6 +282,21 @@ export default {
 	AgentMemory: {
 		kind: 'page',
 		component: AgentMemory,
+	},
+
+	/**
+	 * The AI label section of the AI oversight page (agent-authored-marking): counts of
+	 * agent-written files the viewer can read, the reviewed share, and a Files link.
+	 */
+	'ai-label-section': {
+		kind: 'widget',
+		component: AiLabelSection,
+		defaultSize: { w: 12, h: 4 },
+		minSize: { w: 4, h: 3 },
+		maxSize: { w: 12, h: 6 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'Reads the computed /api/ai-label/stats endpoint, whose counts are limited to the files the viewer can read and whose label is shown as \'Made with AI\', never the stored tag name; a stat tile cannot render the share and the Files link together, so a custom widget is required (ADR-049).',
 	},
 
 	/**
@@ -470,6 +549,42 @@ export default {
 	},
 
 	/**
+	 * Skill merge proposals (skills-curator-merges-duplicates) — the curator's
+	 * pending merges of duplicate skills, with Merge and Keep both, resolved via
+	 * the SkillsCatalog index page's `page.slots.below-header`.
+	 *
+	 * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
+	 */
+	'skill-merge-proposals': {
+		kind: 'widget',
+		component: SkillMergeProposals,
+		defaultSize: { w: 12, h: 4 },
+		minSize: { w: 6, h: 3 },
+		maxSize: { w: 12, h: 8 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'Approving a merge archives the duplicate and moves its agents to the survivor across two objects and the agents that use them, behind the skill.merge-duplicates action (SkillMergeController); a declared object-table/object-op over the skill schema cannot express that two-object decision or its action gate (ADR-049).',
+	},
+
+	/**
+	 * Chat health (spec-coverage-built-rows, row op-health) — whether chat
+	 * works, the AI provider, the default model and each connection's state
+	 * and check time, resolved via the Integrations index page's
+	 * `page.slots.below-header` above integriq's connection list.
+	 */
+	'chat-health': {
+		// @custom-widget-ratchet exclude one verdict built from three sources (GET /api/chat/health, the masked LLM settings and integriq app_connection rows); no built-in widget reads more than one source and no existing custom widget shows chat or connection state, so nothing can absorb it (REQ-SPCOV-012)
+		kind: 'widget',
+		component: ChatHealthBlock,
+		defaultSize: { w: 12, h: 3 },
+		minSize: { w: 6, h: 2 },
+		maxSize: { w: 12, h: 6 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'Combines GET /api/chat/health, the masked LLM settings and integriq app_connection rows into one verdict; no single OpenRegister object collection holds that answer (ADR-049), mirroring compliance-operations\' below-header placement.',
+	},
+
+	/**
 	 * Compliance operations (inapp-settings-section) — Incidents, EU AI Act
 	 * audit export, and Retention, resolved via the Compliance index page's
 	 * `page.slots.below-header`. Ported unchanged from TenantOps.vue, which
@@ -502,6 +617,18 @@ export default {
 		allowedSlots: ['body'],
 		propsSchema: { type: 'object', properties: {} },
 		_note: 'Running a dataset against an agent is a governed, non-delivering Hermiq action (EvalRunController) with no OpenRegister object-trigger equivalent — object-list/object-op cannot express it (ADR-049).',
+	},
+
+	'knowledge-base-sources': {
+		// @custom-widget-ratchet exclude uploads into Files, the Nextcloud file picker and per-source state from a Hermiq route (indexing state, only-you notice) — no built-in widget writes to Files or reads a computed per-row state, so this stays a custom widget.
+		kind: 'widget',
+		component: KnowledgeBaseSources,
+		defaultSize: { w: 12, h: 6 },
+		minSize: { w: 6, h: 4 },
+		maxSize: { w: 12, h: 12 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'memory-knowledge-bases: sources of a KnowledgeBase with upload, add from Files, add a folder and remove; the list scrolls inside its cell.',
 	},
 
 	/**
@@ -630,6 +757,23 @@ export default {
 		allowedSlots: ['body'],
 		propsSchema: { type: 'object', properties: {} },
 		_note: 'The built-in type:data widget renders values only — no per-property info affordance or inline editor at HEAD — so the property gets a dedicated small widget (spec scenario: the description surfaces where the value is changed).',
+	},
+
+	/**
+	 * How people rated this agent's answers on AgentDetail
+	 * (observability-feedback-per-agent): the share rated helpful with the two
+	 * counts, and the latest thumbs-down comments.
+	 */
+	'agent-ratings': {
+		// @custom-widget-ratchet exclude a percentage with its two counts beside a list of thumbs-down comments read from a guarded per-agent endpoint — the built-in stat widget shows one value with a static caption, and object-table binds OR collections, not an aggregate plus a filtered, author-stripped comment list.
+		kind: 'widget',
+		component: AgentRatingsWidget,
+		defaultSize: { w: 12, h: 4 },
+		minSize: { w: 6, h: 3 },
+		maxSize: { w: 12, h: 8 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'An aggregate (share rated helpful plus counts) and an author-stripped comment list behind an agent read-access guard; neither the stat nor the object-table widget can express it.',
 	},
 
 	// -------------------------------------------------------------------------

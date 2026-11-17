@@ -27,14 +27,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-chat-bridge/tasks.md#4-out-of-request-turn-execution-one-service-two-hand-offs
+ * @spec openspec/changes/archive/2026-07-30-talk-chat-bridge/tasks.md#4-out-of-request-turn-execution-one-service-two-hand-offs
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Talk;
 
+use OCA\Hermiq\Kernel\Contracts\TalkTurnServiceInterface;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -46,9 +48,9 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+ * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
  */
-class TalkTurnService {
+class TalkTurnService implements TalkTurnServiceInterface {
 	/**
 	 * Constructor.
 	 *
@@ -58,6 +60,7 @@ class TalkTurnService {
 	 * @param IUserManager $userManager Resolves the speaker and their display name.
 	 * @param IUserSession $userSession Impersonates the speaker for the turn.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param LiteracyRequirement|null $literacy The course requirement (compliance-ai-literacy).
 	 */
 	public function __construct(
 		private readonly Engine $engine,
@@ -66,6 +69,7 @@ class TalkTurnService {
 		private readonly IUserManager $userManager,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
+		private readonly ?LiteracyRequirement $literacy = null,
 	) {
 	}//end __construct()
 
@@ -85,7 +89,7 @@ class TalkTurnService {
 	 *
 	 * @return bool True when an answer was posted.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
 	 */
 	public function runTurn(string $conversationUuid, string $speakerUid, string $message, string $roomToken): bool {
 		$speaker = $this->userManager->get($speakerUid);
@@ -105,45 +109,14 @@ class TalkTurnService {
 		$priorUser = $this->userSession->getUser();
 		$this->userSession->setUser($speaker);
 
+		$turn = new TalkTurn(conversationUuid: $conversationUuid, speakerUid: $speakerUid);
+		$turn->message = $message;
+		$turn->roomToken = $roomToken;
+
 		try {
-			$result = $this->engine->processMessage(
-				conversationId: $conversationUuid,
-				userId: $speakerUid,
-				userMessage: $message,
-				authorId: $speakerUid,
-				authorDisplayName: $this->displayNameOf(uid: $speakerUid)
-			);
-
-			$answer = (string)$result['message'];
-			if (trim($answer) === '') {
-				return $this->reportFailure(
-					roomToken: $roomToken,
-					reason: 'the agent returned an empty answer'
-				);
-			}
-
-			// Post under the AGENT's own bot identity, not the shared one.
-			// Without this the answer renders as the bare actor id
-			// (`bot-<hash>-bot`) or as "Hermiq (Bot)" for every agent alike —
-			// which is the whole problem per-agent bots exist to solve.
-			return $this->bridge->postToRoom(
-				roomToken: $roomToken,
-				message: $answer,
-				agentId: $this->agentForRoom(roomToken: $roomToken)
-			);
+			return $this->answerTurn(turn: $turn);
 		} catch (Throwable $e) {
-			$this->logger->error(
-				message: '[TalkTurnService] Talk-originated agent turn failed',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'conversation' => $conversationUuid,
-					'speaker' => $speakerUid,
-					'roomToken' => $roomToken,
-					'error' => $e->getMessage(),
-				]
-			);
-
+			$this->logFailedTurn(turn: $turn, error: $e);
 			return $this->reportFailure(roomToken: $roomToken, reason: $e->getMessage());
 		} finally {
 			// Restore the prior identity whatever happened, so a failed turn
@@ -154,6 +127,64 @@ class TalkTurnService {
 	}//end runTurn()
 
 	/**
+	 * Ask the engine and post its answer into the room.
+	 *
+	 * Compliance-ai-literacy: a speaker who must finish the course first is told
+	 * so in the room, and no model is called. The answer is posted under the
+	 * AGENT's own bot identity, not the shared one: without it the answer renders
+	 * as the bare actor id (`bot-<hash>-bot`) or as "Hermiq (Bot)" for every agent
+	 * alike — which is the whole problem per-agent bots exist to solve.
+	 *
+	 * @param TalkTurn $turn The turn, running as its speaker.
+	 *
+	 * @return bool True when an answer was posted.
+	 */
+	private function answerTurn(TalkTurn $turn): bool {
+		$this->literacy?->assertMayUseAgents(uid: $turn->speakerUid);
+
+		$result = $this->engine->processMessage(
+			conversationId: $turn->conversationUuid,
+			userId: $turn->speakerUid,
+			userMessage: $turn->message,
+			authorId: $turn->speakerUid,
+			authorDisplayName: $this->displayNameOf(uid: $turn->speakerUid)
+		);
+
+		$answer = (string)$result['message'];
+		if (trim($answer) === '') {
+			return $this->reportFailure(roomToken: $turn->roomToken, reason: 'the agent returned an empty answer');
+		}
+
+		return $this->bridge->postToRoom(
+			roomToken: $turn->roomToken,
+			message: $answer,
+			agentId: $this->agentForRoom(roomToken: $turn->roomToken)
+		);
+	}//end answerTurn()
+
+	/**
+	 * Log a Talk-originated turn that failed.
+	 *
+	 * @param TalkTurn  $turn  The turn.
+	 * @param Throwable $error The failure.
+	 *
+	 * @return void
+	 */
+	private function logFailedTurn(TalkTurn $turn, Throwable $error): void {
+		$this->logger->error(
+			message: '[TalkTurnService] Talk-originated agent turn failed',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'conversation' => $turn->conversationUuid,
+				'speaker' => $turn->speakerUid,
+				'roomToken' => $turn->roomToken,
+				'error' => $error->getMessage(),
+			]
+		);
+	}//end logFailedTurn()
+
+	/**
 	 * Tell the room the turn failed, so the reaction is not the only signal.
 	 *
 	 * @param string $roomToken The room to report in.
@@ -161,7 +192,7 @@ class TalkTurnService {
 	 *
 	 * @return bool Always false — a reported failure is still a failure.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
 	 */
 	private function reportFailure(string $roomToken, string $reason): bool {
 		$this->bridge->postToRoom(
@@ -179,7 +210,10 @@ class TalkTurnService {
 	 *
 	 * @return string|null The display name, or null when unresolvable.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
+	 *
+	 * @psalm-suppress TypeDoesNotContainType OCP 35 types getDisplayName() as
+	 *   non-empty-string; Nextcloud 32-34 can still return '', so the guard stays.
 	 */
 	private function displayNameOf(string $uid): ?string {
 		$user = $this->userManager->get($uid);
@@ -210,7 +244,7 @@ class TalkTurnService {
 	 *
 	 * @return string|null The agent uuid, or null.
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
 	 */
 	private function agentForRoom(string $roomToken): ?string {
 		$conversation = $this->roomBinding->findByRoomToken(roomToken: $roomToken);

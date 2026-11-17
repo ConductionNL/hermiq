@@ -1,0 +1,181 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`AgentTemplatePublishModal > publishes privately by default and shows a failure 1`] = `
+"<nc-modal data-v-9543a063="">
+  <div data-v-9543a063="" class="agent-template-publish-modal">
+    <h3 data-v-9543a063="">Publish to GitHub</h3>
+    <!--v-if-->
+    <nc-textfield data-v-9543a063="" data-modelvalue="acme" data-label="Owner" data-placeholder="e.g. acme-council"></nc-textfield>
+    <nc-textfield data-v-9543a063="" data-modelvalue="repo" data-label="Repository name" data-placeholder="e.g. morning-briefing-template"></nc-textfield>
+    <nc-select data-v-9543a063="" data-modelvalue="{&quot;label&quot;:&quot;Private&quot;,&quot;value&quot;:&quot;private&quot;}" data-options="[{&quot;label&quot;:&quot;Private&quot;,&quot;value&quot;:&quot;private&quot;},{&quot;label&quot;:&quot;Public&quot;,&quot;value&quot;:&quot;public&quot;}]" data-inputlabel="Visibility" data-clearable="false" data-label="label" data-trackby="value"></nc-select>
+    <nc-select data-v-9543a063="" data-modelvalue="{&quot;value&quot;:&quot;c-3&quot;}" data-options="[{&quot;label&quot;:&quot;Mine&quot;,&quot;value&quot;:&quot;c-1&quot;},{&quot;label&quot;:&quot;c-3&quot;,&quot;value&quot;:&quot;c-3&quot;}]" data-inputlabel="GitHub credential" data-loading="false" data-placeholder="Select a credential" data-label="label"></nc-select>
+    <!--v-if-->
+    <nc-button data-v-9543a063="" data-type="primary" data-disabled="true">Publishing…</nc-button>
+  </div>
+</nc-modal>"
+`;
+
+exports[`AgentTemplatePublishModal > publishes privately by default and shows a failure 2`] = `
+"<nc-modal data-v-9543a063="">
+  <div data-v-9543a063="" class="agent-template-publish-modal">
+    <h3 data-v-9543a063="">Publish to GitHub</h3>
+    <nc-notecard data-v-9543a063="" data-type="error">Repository exists</nc-notecard>
+    <nc-textfield data-v-9543a063="" data-modelvalue="acme" data-label="Owner" data-placeholder="e.g. acme-council"></nc-textfield>
+    <nc-textfield data-v-9543a063="" data-modelvalue="repo" data-label="Repository name" data-placeholder="e.g. morning-briefing-template"></nc-textfield>
+    <nc-select data-v-9543a063="" data-modelvalue="{&quot;label&quot;:&quot;Private&quot;,&quot;value&quot;:&quot;private&quot;}" data-options="[{&quot;label&quot;:&quot;Private&quot;,&quot;value&quot;:&quot;private&quot;},{&quot;label&quot;:&quot;Public&quot;,&quot;value&quot;:&quot;public&quot;}]" data-inputlabel="Visibility" data-clearable="false" data-label="label" data-trackby="value"></nc-select>
+    <nc-select data-v-9543a063="" data-modelvalue="{&quot;value&quot;:&quot;c-3&quot;}" data-options="[{&quot;label&quot;:&quot;Mine&quot;,&quot;value&quot;:&quot;c-1&quot;},{&quot;label&quot;:&quot;c-3&quot;,&quot;value&quot;:&quot;c-3&quot;}]" data-inputlabel="GitHub credential" data-loading="false" data-placeholder="Select a credential" data-label="label"></nc-select>
+    <!--v-if-->
+    <nc-button data-v-9543a063="" data-type="primary" data-disabled="false">Publish</nc-button>
+  </div>
+</nc-modal>"
+`;
+
+exports[`AgentTemplatePublishModal > publishes the trimmed coordinates and reports the repository 1`] = `
+"<nc-modal data-v-9543a063="">
+  <div data-v-9543a063="" class="agent-template-publish-modal">
+    <h3 data-v-9543a063="">Publish to GitHub</h3>
+    <!--v-if-->
+    <nc-textfield data-v-9543a063="" data-modelvalue=" acme " data-label="Owner" data-placeholder="e.g. acme-council"></nc-textfield>
+    <nc-textfield data-v-9543a063="" data-modelvalue=" repo " data-label="Repository name" data-placeholder="e.g. morning-briefing-template"></nc-textfield>
+    <nc-select data-v-9543a063="" data-modelvalue="{&quot;label&quot;:&quot;Public&quot;,&quot;value&quot;:&quot;public&quot;}" data-options="[{&quot;label&quot;:&quot;Private&quot;,&quot;value&quot;:&quot;private&quot;},{&quot;label&quot;:&quot;Public&quot;,&quot;value&quot;:&quot;public&quot;}]" data-inputlabel="Visibility" data-clearable="false" data-label="label" data-trackby="value"></nc-select>
+    <nc-select data-v-9543a063="" data-modelvalue="{&quot;label&quot;:&quot;Mine&quot;,&quot;value&quot;:&quot;c-1&quot;}" data-options="[{&quot;label&quot;:&quot;Mine&quot;,&quot;value&quot;:&quot;c-1&quot;},{&quot;label&quot;:&quot;c-3&quot;,&quot;value&quot;:&quot;c-3&quot;}]" data-inputlabel="GitHub credential" data-loading="false" data-placeholder="Select a credential" data-label="label"></nc-select>
+    <!--v-if-->
+    <nc-button data-v-9543a063="" data-type="primary" data-disabled="false">Publish</nc-button>
+  </div>
+</nc-modal>"
+`;
+
+exports[`AgentTemplatePublishModal > reads the broker credentials once and offers the GitHub ones 1`] = `
+"<nc-modal data-v-9543a063="">
+  <div data-v-9543a063="" class="agent-template-publish-modal">
+    <h3 data-v-9543a063="">Publish to GitHub</h3>
+    <!--v-if-->
+    <nc-textfield data-v-9543a063="" data-modelvalue="" data-label="Owner" data-placeholder="e.g. acme-council"></nc-textfield>
+    <nc-textfield data-v-9543a063="" data-modelvalue="" data-label="Repository name" data-placeholder="e.g. morning-briefing-template"></nc-textfield>
+    <nc-select data-v-9543a063="" data-modelvalue="{&quot;label&quot;:&quot;Private&quot;,&quot;value&quot;:&quot;private&quot;}" data-options="[{&quot;label&quot;:&quot;Private&quot;,&quot;value&quot;:&quot;private&quot;},{&quot;label&quot;:&quot;Public&quot;,&quot;value&quot;:&quot;public&quot;}]" data-inputlabel="Visibility" data-clearable="false" data-label="label" data-trackby="value"></nc-select>
+    <nc-select data-v-9543a063="" data-modelvalue="null" data-options="[{&quot;label&quot;:&quot;Mine&quot;,&quot;value&quot;:&quot;c-1&quot;},{&quot;label&quot;:&quot;c-3&quot;,&quot;value&quot;:&quot;c-3&quot;}]" data-inputlabel="GitHub credential" data-loading="false" data-placeholder="Select a credential" data-label="label"></nc-select>
+    <!--v-if-->
+    <nc-button data-v-9543a063="" data-type="primary" data-disabled="true">Publish</nc-button>
+  </div>
+</nc-modal>"
+`;
+
+exports[`AgentTemplatePublishModal > shows the hint when the credentials cannot be read 1`] = `
+"<nc-modal data-v-9543a063="">
+  <div data-v-9543a063="" class="agent-template-publish-modal">
+    <h3 data-v-9543a063="">Publish to GitHub</h3>
+    <!--v-if-->
+    <nc-textfield data-v-9543a063="" data-modelvalue="" data-label="Owner" data-placeholder="e.g. acme-council"></nc-textfield>
+    <nc-textfield data-v-9543a063="" data-modelvalue="" data-label="Repository name" data-placeholder="e.g. morning-briefing-template"></nc-textfield>
+    <nc-select data-v-9543a063="" data-modelvalue="{&quot;label&quot;:&quot;Private&quot;,&quot;value&quot;:&quot;private&quot;}" data-options="[{&quot;label&quot;:&quot;Private&quot;,&quot;value&quot;:&quot;private&quot;},{&quot;label&quot;:&quot;Public&quot;,&quot;value&quot;:&quot;public&quot;}]" data-inputlabel="Visibility" data-clearable="false" data-label="label" data-trackby="value"></nc-select>
+    <nc-select data-v-9543a063="" data-modelvalue="null" data-options="[]" data-inputlabel="GitHub credential" data-loading="false" data-placeholder="Select a credential" data-label="label"></nc-select>
+    <p data-v-9543a063="" class="agent-template-publish-modal__hint">No GitHub credential yet. Add a personal one under your Personal settings, or ask an organisation admin to add one under the Hermiq admin settings, then reopen this dialog.</p>
+    <nc-button data-v-9543a063="" data-type="primary" data-disabled="true">Publish</nc-button>
+  </div>
+</nc-modal>"
+`;
+
+exports[`AgentTemplatePublishModal > shows the hint while no credential is in the response 1`] = `
+"<nc-modal data-v-9543a063="">
+  <div data-v-9543a063="" class="agent-template-publish-modal">
+    <h3 data-v-9543a063="">Publish to GitHub</h3>
+    <!--v-if-->
+    <nc-textfield data-v-9543a063="" data-modelvalue="" data-label="Owner" data-placeholder="e.g. acme-council"></nc-textfield>
+    <nc-textfield data-v-9543a063="" data-modelvalue="" data-label="Repository name" data-placeholder="e.g. morning-briefing-template"></nc-textfield>
+    <nc-select data-v-9543a063="" data-modelvalue="{&quot;label&quot;:&quot;Private&quot;,&quot;value&quot;:&quot;private&quot;}" data-options="[{&quot;label&quot;:&quot;Private&quot;,&quot;value&quot;:&quot;private&quot;},{&quot;label&quot;:&quot;Public&quot;,&quot;value&quot;:&quot;public&quot;}]" data-inputlabel="Visibility" data-clearable="false" data-label="label" data-trackby="value"></nc-select>
+    <nc-select data-v-9543a063="" data-modelvalue="null" data-options="[]" data-inputlabel="GitHub credential" data-loading="false" data-placeholder="Select a credential" data-label="label"></nc-select>
+    <p data-v-9543a063="" class="agent-template-publish-modal__hint">No GitHub credential yet. Add a personal one under your Personal settings, or ask an organisation admin to add one under the Hermiq admin settings, then reopen this dialog.</p>
+    <nc-button data-v-9543a063="" data-type="primary" data-disabled="true">Publish</nc-button>
+  </div>
+</nc-modal>"
+`;
+
+exports[`SkillGithubPublishModal > publishes privately by default and shows a failure 1`] = `
+"<nc-modal data-v-4fd22fcf="">
+  <div data-v-4fd22fcf="" class="skill-github-publish-modal">
+    <h3 data-v-4fd22fcf="">Publish skill to GitHub</h3>
+    <!--v-if-->
+    <nc-textfield data-v-4fd22fcf="" data-modelvalue="acme" data-label="Owner" data-placeholder="e.g. acme-council"></nc-textfield>
+    <nc-textfield data-v-4fd22fcf="" data-modelvalue="repo" data-label="Repository name" data-placeholder="e.g. demo-skill"></nc-textfield>
+    <nc-select data-v-4fd22fcf="" data-modelvalue="{&quot;label&quot;:&quot;Private&quot;,&quot;value&quot;:&quot;private&quot;}" data-options="[{&quot;label&quot;:&quot;Private&quot;,&quot;value&quot;:&quot;private&quot;},{&quot;label&quot;:&quot;Public&quot;,&quot;value&quot;:&quot;public&quot;}]" data-inputlabel="Visibility" data-clearable="false" data-label="label" data-trackby="value"></nc-select>
+    <nc-select data-v-4fd22fcf="" data-modelvalue="{&quot;value&quot;:&quot;c-3&quot;}" data-options="[{&quot;label&quot;:&quot;Mine&quot;,&quot;value&quot;:&quot;c-1&quot;},{&quot;label&quot;:&quot;c-3&quot;,&quot;value&quot;:&quot;c-3&quot;}]" data-inputlabel="GitHub credential" data-loading="false" data-placeholder="Select a credential" data-label="label"></nc-select>
+    <!--v-if-->
+    <nc-button data-v-4fd22fcf="" data-type="primary" data-disabled="true">Publishing…</nc-button>
+  </div>
+</nc-modal>"
+`;
+
+exports[`SkillGithubPublishModal > publishes privately by default and shows a failure 2`] = `
+"<nc-modal data-v-4fd22fcf="">
+  <div data-v-4fd22fcf="" class="skill-github-publish-modal">
+    <h3 data-v-4fd22fcf="">Publish skill to GitHub</h3>
+    <nc-notecard data-v-4fd22fcf="" data-type="error">Repository exists</nc-notecard>
+    <nc-textfield data-v-4fd22fcf="" data-modelvalue="acme" data-label="Owner" data-placeholder="e.g. acme-council"></nc-textfield>
+    <nc-textfield data-v-4fd22fcf="" data-modelvalue="repo" data-label="Repository name" data-placeholder="e.g. demo-skill"></nc-textfield>
+    <nc-select data-v-4fd22fcf="" data-modelvalue="{&quot;label&quot;:&quot;Private&quot;,&quot;value&quot;:&quot;private&quot;}" data-options="[{&quot;label&quot;:&quot;Private&quot;,&quot;value&quot;:&quot;private&quot;},{&quot;label&quot;:&quot;Public&quot;,&quot;value&quot;:&quot;public&quot;}]" data-inputlabel="Visibility" data-clearable="false" data-label="label" data-trackby="value"></nc-select>
+    <nc-select data-v-4fd22fcf="" data-modelvalue="{&quot;value&quot;:&quot;c-3&quot;}" data-options="[{&quot;label&quot;:&quot;Mine&quot;,&quot;value&quot;:&quot;c-1&quot;},{&quot;label&quot;:&quot;c-3&quot;,&quot;value&quot;:&quot;c-3&quot;}]" data-inputlabel="GitHub credential" data-loading="false" data-placeholder="Select a credential" data-label="label"></nc-select>
+    <!--v-if-->
+    <nc-button data-v-4fd22fcf="" data-type="primary" data-disabled="false">Publish</nc-button>
+  </div>
+</nc-modal>"
+`;
+
+exports[`SkillGithubPublishModal > publishes the trimmed coordinates and reports the repository 1`] = `
+"<nc-modal data-v-4fd22fcf="">
+  <div data-v-4fd22fcf="" class="skill-github-publish-modal">
+    <h3 data-v-4fd22fcf="">Publish skill to GitHub</h3>
+    <!--v-if-->
+    <nc-textfield data-v-4fd22fcf="" data-modelvalue=" acme " data-label="Owner" data-placeholder="e.g. acme-council"></nc-textfield>
+    <nc-textfield data-v-4fd22fcf="" data-modelvalue=" repo " data-label="Repository name" data-placeholder="e.g. demo-skill"></nc-textfield>
+    <nc-select data-v-4fd22fcf="" data-modelvalue="{&quot;label&quot;:&quot;Public&quot;,&quot;value&quot;:&quot;public&quot;}" data-options="[{&quot;label&quot;:&quot;Private&quot;,&quot;value&quot;:&quot;private&quot;},{&quot;label&quot;:&quot;Public&quot;,&quot;value&quot;:&quot;public&quot;}]" data-inputlabel="Visibility" data-clearable="false" data-label="label" data-trackby="value"></nc-select>
+    <nc-select data-v-4fd22fcf="" data-modelvalue="{&quot;label&quot;:&quot;Mine&quot;,&quot;value&quot;:&quot;c-1&quot;}" data-options="[{&quot;label&quot;:&quot;Mine&quot;,&quot;value&quot;:&quot;c-1&quot;},{&quot;label&quot;:&quot;c-3&quot;,&quot;value&quot;:&quot;c-3&quot;}]" data-inputlabel="GitHub credential" data-loading="false" data-placeholder="Select a credential" data-label="label"></nc-select>
+    <!--v-if-->
+    <nc-button data-v-4fd22fcf="" data-type="primary" data-disabled="false">Publish</nc-button>
+  </div>
+</nc-modal>"
+`;
+
+exports[`SkillGithubPublishModal > reads the broker credentials once and offers the GitHub ones 1`] = `
+"<nc-modal data-v-4fd22fcf="">
+  <div data-v-4fd22fcf="" class="skill-github-publish-modal">
+    <h3 data-v-4fd22fcf="">Publish skill to GitHub</h3>
+    <!--v-if-->
+    <nc-textfield data-v-4fd22fcf="" data-modelvalue="" data-label="Owner" data-placeholder="e.g. acme-council"></nc-textfield>
+    <nc-textfield data-v-4fd22fcf="" data-modelvalue="" data-label="Repository name" data-placeholder="e.g. demo-skill"></nc-textfield>
+    <nc-select data-v-4fd22fcf="" data-modelvalue="{&quot;label&quot;:&quot;Private&quot;,&quot;value&quot;:&quot;private&quot;}" data-options="[{&quot;label&quot;:&quot;Private&quot;,&quot;value&quot;:&quot;private&quot;},{&quot;label&quot;:&quot;Public&quot;,&quot;value&quot;:&quot;public&quot;}]" data-inputlabel="Visibility" data-clearable="false" data-label="label" data-trackby="value"></nc-select>
+    <nc-select data-v-4fd22fcf="" data-modelvalue="null" data-options="[{&quot;label&quot;:&quot;Mine&quot;,&quot;value&quot;:&quot;c-1&quot;},{&quot;label&quot;:&quot;c-3&quot;,&quot;value&quot;:&quot;c-3&quot;}]" data-inputlabel="GitHub credential" data-loading="false" data-placeholder="Select a credential" data-label="label"></nc-select>
+    <!--v-if-->
+    <nc-button data-v-4fd22fcf="" data-type="primary" data-disabled="true">Publish</nc-button>
+  </div>
+</nc-modal>"
+`;
+
+exports[`SkillGithubPublishModal > shows the hint when the credentials cannot be read 1`] = `
+"<nc-modal data-v-4fd22fcf="">
+  <div data-v-4fd22fcf="" class="skill-github-publish-modal">
+    <h3 data-v-4fd22fcf="">Publish skill to GitHub</h3>
+    <!--v-if-->
+    <nc-textfield data-v-4fd22fcf="" data-modelvalue="" data-label="Owner" data-placeholder="e.g. acme-council"></nc-textfield>
+    <nc-textfield data-v-4fd22fcf="" data-modelvalue="" data-label="Repository name" data-placeholder="e.g. demo-skill"></nc-textfield>
+    <nc-select data-v-4fd22fcf="" data-modelvalue="{&quot;label&quot;:&quot;Private&quot;,&quot;value&quot;:&quot;private&quot;}" data-options="[{&quot;label&quot;:&quot;Private&quot;,&quot;value&quot;:&quot;private&quot;},{&quot;label&quot;:&quot;Public&quot;,&quot;value&quot;:&quot;public&quot;}]" data-inputlabel="Visibility" data-clearable="false" data-label="label" data-trackby="value"></nc-select>
+    <nc-select data-v-4fd22fcf="" data-modelvalue="null" data-options="[]" data-inputlabel="GitHub credential" data-loading="false" data-placeholder="Select a credential" data-label="label"></nc-select>
+    <p data-v-4fd22fcf="" class="skill-github-publish-modal__hint">No GitHub credential yet. Add a personal one under your Personal settings, or ask an organisation admin to add one under the Hermiq admin settings, then reopen this dialog.</p>
+    <nc-button data-v-4fd22fcf="" data-type="primary" data-disabled="true">Publish</nc-button>
+  </div>
+</nc-modal>"
+`;
+
+exports[`SkillGithubPublishModal > shows the hint while no credential is in the response 1`] = `
+"<nc-modal data-v-4fd22fcf="">
+  <div data-v-4fd22fcf="" class="skill-github-publish-modal">
+    <h3 data-v-4fd22fcf="">Publish skill to GitHub</h3>
+    <!--v-if-->
+    <nc-textfield data-v-4fd22fcf="" data-modelvalue="" data-label="Owner" data-placeholder="e.g. acme-council"></nc-textfield>
+    <nc-textfield data-v-4fd22fcf="" data-modelvalue="" data-label="Repository name" data-placeholder="e.g. demo-skill"></nc-textfield>
+    <nc-select data-v-4fd22fcf="" data-modelvalue="{&quot;label&quot;:&quot;Private&quot;,&quot;value&quot;:&quot;private&quot;}" data-options="[{&quot;label&quot;:&quot;Private&quot;,&quot;value&quot;:&quot;private&quot;},{&quot;label&quot;:&quot;Public&quot;,&quot;value&quot;:&quot;public&quot;}]" data-inputlabel="Visibility" data-clearable="false" data-label="label" data-trackby="value"></nc-select>
+    <nc-select data-v-4fd22fcf="" data-modelvalue="null" data-options="[]" data-inputlabel="GitHub credential" data-loading="false" data-placeholder="Select a credential" data-label="label"></nc-select>
+    <p data-v-4fd22fcf="" class="skill-github-publish-modal__hint">No GitHub credential yet. Add a personal one under your Personal settings, or ask an organisation admin to add one under the Hermiq admin settings, then reopen this dialog.</p>
+    <nc-button data-v-4fd22fcf="" data-type="primary" data-disabled="true">Publish</nc-button>
+  </div>
+</nc-modal>"
+`;

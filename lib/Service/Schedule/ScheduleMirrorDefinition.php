@@ -121,6 +121,32 @@ class ScheduleMirrorDefinition {
 	}//end triggerRunAs()
 
 	/**
+	 * The schedule a stored mirror's dispatch node fires.
+	 *
+	 * @param mixed $nodes The stored nodes.
+	 *
+	 * @return string The schedule uuid, or '' when the flow has no dispatch node naming one.
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-3-1
+	 */
+	public function dispatchedScheduleId(mixed $nodes): string {
+		if (is_array($nodes) === false) {
+			return '';
+		}
+
+		foreach ($nodes as $node) {
+			if (is_array($node) === true && ($node['type'] ?? null) === 'hermiq.schedule-dispatch') {
+				$config = ($node['config'] ?? []);
+				if (is_array($config) === true) {
+					return trim((string)($config['scheduleId'] ?? ''));
+				}
+			}
+		}
+
+		return '';
+	}//end dispatchedScheduleId()
+
+	/**
 	 * A fresh v4 uuid for a mirror flow row.
 	 *
 	 * @return string The uuid.

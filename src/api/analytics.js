@@ -11,6 +11,9 @@ import { generateUrl } from '@nextcloud/router'
 /** Hermiq analytics endpoint. */
 const ANALYTICS_BASE = '/apps/hermiq/api/analytics'
 
+/** Hermiq cross-agent run list. */
+const RUNS_BASE = '/apps/hermiq/api/runs'
+
 /**
  * Get run analytics for the caller's tenant, optionally scoped to one agent.
  *
@@ -22,4 +25,66 @@ export async function getAnalytics(agentId = '') {
 		params: agentId ? { agentId } : {},
 	})
 	return response.data
+}
+
+/**
+ * List the caller's runs across every agent, newest first.
+ *
+ * Shares the tenant boundary with `getAnalytics()`, so this list and the dashboard
+ * KPIs above it always describe the same set of runs.
+ *
+ * @param {object}  [options]         Query options.
+ * @param {string}  [options.agentId] Scope to one agent.
+ * @param {string}  [options.status]  Filter on an exact run status.
+ * @param {number}  [options.limit]   Page size (server clamps to 200).
+ * @param {number}  [options.offset]  Rows to skip.
+ * @return {Promise<{results: object[], total: number, limit: number, offset: number}>} The page of runs.
+ */
+export async function listRuns({
+	agentId = '',
+	status = '',
+	limit = 50,
+	offset = 0,
+} = {}) {
+	const params = { limit, offset }
+	if (agentId) {
+		params.agentId = agentId
+	}
+	if (status) {
+		params.status = status
+	}
+	const response = await axios.get(generateUrl(RUNS_BASE), { params })
+	return response.data
+}
+
+/**
+ * Compare two runs the caller may see (observability-compare-two-runs).
+ *
+ * A side the caller may not see answers 404 with `missing: ['left'|'right']`.
+ *
+ * @param {string} left The left run id.
+ * @param {string} right The right run id.
+ * @return {Promise<object>} `{left, right, sameAgent, comparison}`.
+ *
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+ */
+export async function compareRuns(left, right) {
+	const response = await axios.get(generateUrl('/apps/hermiq/api/runs/compare'), {
+		params: { left, right },
+	})
+	return response.data
+}
+
+/**
+ * The latest thumbs-down comments on one agent (read access on the agent required).
+ *
+ * @param {string} agentId The agent UUID.
+ * @return {Promise<Array<object>>} Rows of { comment, date, conversationId }, newest first.
+ * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
+ */
+export async function listLowRatings(agentId) {
+	const response = await axios.get(
+		generateUrl(`/apps/hermiq/api/analytics/agents/${agentId}/low-ratings`),
+	)
+	return Array.isArray(response.data?.results) ? response.data.results : []
 }

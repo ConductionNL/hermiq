@@ -29,6 +29,14 @@
  `loadState('hermiq', …)`, now provided by this class's `getForm()`
  instead of DashboardController.
 
+ Also hosts the remote agents (flows-hand-off-and-wait D5): agents on other
+ servers reached through an integriq source, in
+ src/components/settings/RemoteAgents.vue.
+
+ Also hosts the validated tag (memory-retrieval-scope D2): which restricted
+ Nextcloud system tag marks a document as validated, in
+ src/components/settings/ValidatedTagSettings.vue.
+
  Also hosts organisation-scope credential management (agent-credentials): the
  shared, already-tested `CnCredentials` component mounted `scope="organisation"`
  — an admin manages the FULL allowed-app list for each org-wide broker
@@ -39,11 +47,12 @@
 <template>
 	<div class="hermiq-admin-settings">
 		<NcSettingsSection
+			id="section-ai-provider"
 			:name="t('hermiq', 'AI provider')"
 			:description="
 				t(
 					'hermiq',
-					'Choose which language-model provider Hermiq uses for background work (conversation titles, summaries). Streaming chat and embeddings always use the directly-configured provider — they cannot run through Nextcloud’s TaskProcessing.',
+					'Choose which language-model provider Hermiq uses for background work (session titles, summaries). Streaming chat and embeddings always use the directly-configured provider. They cannot run through Nextcloud’s TaskProcessing.',
 				)
 			">
 			<div class="hermiq-admin-settings__provider">
@@ -52,7 +61,7 @@
 				>
 				<strong>{{ currentProviderLabel }}</strong>
 			</div>
-			<NcButton type="primary" @click="showModal = true">
+			<NcButton variant="primary" @click="showModal = true">
 				<template #icon>
 					<Cog :size="20" />
 				</template>
@@ -66,6 +75,7 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			id="section-web-research"
 			:name="t('hermiq', 'Web research')"
 			:description="
 				t(
@@ -79,7 +89,7 @@
 				>
 				<strong>{{ currentSearchProviderLabel }}</strong>
 			</div>
-			<NcButton type="primary" @click="showWebResearchModal = true">
+			<NcButton variant="primary" @click="showWebResearchModal = true">
 				<template #icon>
 					<Cog :size="20" />
 				</template>
@@ -104,6 +114,85 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			:name="t('hermiq', 'Conversational intake')"
+			:description="
+				t(
+					'hermiq',
+					'How certain the intake has to be before it files a request on somebody’s behalf. Under this, the conversation goes to a person instead, carrying everything that was said.',
+				)
+			">
+			<IntakeSettings />
+		</NcSettingsSection>
+
+		<NcSettingsSection
+			:name="t('hermiq', 'Report grouping')"
+			:description="
+				t(
+					'hermiq',
+					'Where the line falls between one event and two. Two hundred meldingen about one street-wide power cut should read as one item with a count, and a report that only looks alike should not disappear into it.',
+				)
+			">
+			<ReportGroupingSettings />
+		</NcSettingsSection>
+
+		<NcSettingsSection
+			:name="t('hermiq', 'Assistant prompts')"
+			:description="
+				t(
+					'hermiq',
+					'The prompts the assistant offers on a record, with the exact text that is sent to the model. Read them here when you need to explain an answer, and switch them off in one act when you need to stop giving any.',
+				)
+			">
+			<AssistantPromptLibrary />
+		</NcSettingsSection>
+
+		<NcSettingsSection
+			id="section-validated-documents"
+			:name="t('hermiq', 'Validated documents')"
+			:description="
+				t(
+					'hermiq',
+					'The Nextcloud tag that marks a document as validated. An agent set to answer only from validated documents searches only files carrying it, and declines without asking the model when none of them matches.',
+				)
+			">
+			<ValidatedTagSettings />
+		</NcSettingsSection>
+
+		<NcSettingsSection
+			:name="t('hermiq', 'AI run retention')"
+			:description="
+				t(
+					'hermiq',
+					'How long the record of an AI run is kept. Each run is written with the retention that applied at the time, so changing this does not move a promise already made. A daily job removes what a run recorded once it expires, and leaves the audit entry itself in place.',
+				)
+			">
+			<RunRetentionSettings />
+		</NcSettingsSection>
+
+		<NcSettingsSection
+			:name="t('hermiq', 'Code sandbox')"
+			:description="
+				t(
+					'hermiq',
+					'Where the code an agent or a flow runs is executed: in the sandbox app on this server, or at a hosted sandbox provider reached through integriq.',
+				)
+			">
+			<CodeSandboxSettings />
+		</NcSettingsSection>
+
+		<NcSettingsSection
+			id="section-trace-export"
+			:name="t('hermiq', 'Trace export')"
+			:description="
+				t(
+					'hermiq',
+					'Send run and chat traces over OpenTelemetry (OTLP) to a tool such as Langfuse, Grafana Tempo or Jaeger. The export runs in the background and never slows a run.',
+				)
+			">
+			<TraceExportSettings />
+		</NcSettingsSection>
+
+		<NcSettingsSection
 			:name="t('hermiq', 'Talk chat bridge')"
 			:description="
 				t(
@@ -115,6 +204,19 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			id="section-remote-agents"
+			:name="t('hermiq', 'Remote agents')"
+			:description="
+				t(
+					'hermiq',
+					'Agents on other servers that a local agent may hand work to and wait for. Each is reached through an integriq source, which holds the address and the credential; Hermiq keeps only the agent card it fetched.',
+				)
+			">
+			<RemoteAgents />
+		</NcSettingsSection>
+
+		<NcSettingsSection
+			id="section-organisation-credentials"
 			:name="t('hermiq', 'Organisation credentials')"
 			:description="
 				t(
@@ -135,7 +237,15 @@
 import { CnCredentials } from '@conduction/nextcloud-vue'
 import { NcButton, NcSettingsSection } from '@nextcloud/vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
+import AssistantPromptLibrary from '../components/settings/AssistantPromptLibrary.vue'
+import CodeSandboxSettings from '../components/settings/CodeSandboxSettings.vue'
+import IntakeSettings from '../components/settings/IntakeSettings.vue'
+import RemoteAgents from '../components/settings/RemoteAgents.vue'
+import ReportGroupingSettings from '../components/settings/ReportGroupingSettings.vue'
+import RunRetentionSettings from '../components/settings/RunRetentionSettings.vue'
 import TalkBridgeSettings from '../components/settings/TalkBridgeSettings.vue'
+import TraceExportSettings from '../components/settings/TraceExportSettings.vue'
+import ValidatedTagSettings from '../components/settings/ValidatedTagSettings.vue'
 import LlmProviderModal from '../modals/LlmProviderModal.vue'
 import WebResearchSettingsModal from '../modals/WebResearchSettingsModal.vue'
 import AiFeatureRegister from './AiFeatureRegister.vue'
@@ -159,12 +269,20 @@ export default {
 	name: 'AdminRoot',
 	components: {
 		AiFeatureRegister,
+		AssistantPromptLibrary,
 		CnCredentials,
 		Cog,
 		LlmProviderModal,
 		NcButton,
+		CodeSandboxSettings,
+		IntakeSettings,
 		NcSettingsSection,
+		RemoteAgents,
+		ReportGroupingSettings,
+		RunRetentionSettings,
 		TalkBridgeSettings,
+		TraceExportSettings,
+		ValidatedTagSettings,
 		WebResearchSettingsModal,
 	},
 
@@ -252,7 +370,7 @@ export default {
 		 *
 		 * @return {Promise<void>}
 		 *
-		 * @spec openspec/changes/web-research-tool/tasks.md#task-8-admin-settings-ui-for-the-web-research-backend
+		 * @spec openspec/changes/archive/2026-07-14-web-research-tool/tasks.md#task-8-admin-settings-ui-for-the-web-research-backend
 		 */
 		async refreshWebResearch() {
 			try {
@@ -269,7 +387,7 @@ export default {
 		 * @param {string} provider The newly-selected search provider.
 		 * @return {void}
 		 *
-		 * @spec openspec/changes/web-research-tool/tasks.md#task-8-admin-settings-ui-for-the-web-research-backend
+		 * @spec openspec/changes/archive/2026-07-14-web-research-tool/tasks.md#task-8-admin-settings-ui-for-the-web-research-backend
 		 */
 		onWebResearchSaved(provider) {
 			this.searchProvider = provider || null

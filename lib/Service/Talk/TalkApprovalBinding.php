@@ -25,14 +25,18 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-approval-reactions/tasks.md#1-bind-an-approval-to-the-message-that-carries-it
+ * @spec openspec/changes/archive/2026-07-30-talk-approval-reactions/tasks.md#1-bind-an-approval-to-the-message-that-carries-it
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Talk;
 
+use OCA\Hermiq\Kernel\Contracts\TalkApprovalBindingInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -42,9 +46,9 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
+ * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
  */
-class TalkApprovalBinding {
+class TalkApprovalBinding implements TalkApprovalBindingInterface {
 
 	/**
 	 * OpenRegister register slug.
@@ -93,7 +97,7 @@ class TalkApprovalBinding {
 	 *
 	 * @return bool True when the binding was persisted.
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
 	 */
 	public function bind(ObjectEntity $approval, string $roomToken, string $messageId): bool {
 		$approvalUuid = (string)$approval->getUuid();
@@ -120,9 +124,10 @@ class TalkApprovalBinding {
 
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::APPROVAL_SCHEMA,
-				uuid: $approvalUuid
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA),
+					uuid: $approvalUuid
+				)
 			);
 
 			return true;
@@ -152,7 +157,7 @@ class TalkApprovalBinding {
 	 *
 	 * @return ObjectEntity|null The approval, or null when the message carries none.
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-reviewers-reaction-decides-the-approval
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-a-reviewers-reaction-decides-the-approval
 	 */
 	public function findByMessageId(string $messageId): ?ObjectEntity {
 		if ($messageId === '') {
@@ -201,14 +206,13 @@ class TalkApprovalBinding {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-reviewers-reaction-decides-the-approval
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-a-reviewers-reaction-decides-the-approval
 	 */
 	public function recordDecidedVia(string $approvalUuid, string $via): void {
 		try {
 			$approval = $this->objectService->find(
 				id: $approvalUuid,
-				register: self::REGISTER_SLUG,
-				schema: self::APPROVAL_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA)
 			);
 
 			if (($approval instanceof ObjectEntity) === false) {
@@ -220,9 +224,10 @@ class TalkApprovalBinding {
 
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::APPROVAL_SCHEMA,
-				uuid: $approvalUuid
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA),
+					uuid: $approvalUuid
+				)
 			);
 		} catch (Throwable $e) {
 			// Provenance is an audit nicety; never fail a decision over it.

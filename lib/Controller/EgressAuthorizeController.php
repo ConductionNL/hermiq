@@ -39,17 +39,19 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\Llm\RunTokenService;
-use OCA\Hermiq\Service\WebResearch\WebResearchEgressGuard;
-use OCA\Hermiq\Service\WebResearch\WebResearchSettingsHandler;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ForgeEgressPolicyInterface;
+use OCA\Hermiq\Kernel\Contracts\GovernedMcpEndpointInterface;
+use OCA\Hermiq\Kernel\Contracts\RunTokenServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\WebResearchEgressGuardInterface;
+use OCA\Hermiq\Kernel\Contracts\WebResearchSettingsHandlerInterface;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\AnonRateLimit;
@@ -64,7 +66,7 @@ use OCP\Security\Bruteforce\IThrottler;
  * The token-gated egress PDP: answers allow/deny per CONNECT from the shared
  * `WebResearchEgressGuard` policy.
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
  */
 class EgressAuthorizeController extends Controller {
 
@@ -79,22 +81,32 @@ class EgressAuthorizeController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param RunTokenService $runTokenService Verifies the per-run bearer token
+	 * @param RunTokenServiceInterface $runTokenService Verifies the per-run bearer token
 	 *                                         (the SAME token Endpoint 1 uses).
-	 * @param WebResearchEgressGuard $guard THE shared egress policy source (public,
+	 * @param WebResearchEgressGuardInterface $guard THE shared egress policy source (public,
 	 *                                      dependency-free — no second allowlist).
-	 * @param WebResearchSettingsHandler $settingsHandler Reads the same allowlist/denylist/insecure
+	 * @param WebResearchSettingsHandlerInterface $settingsHandler Reads the same allowlist/denylist/insecure
 	 *                                                    knobs `hermiq.webFetch` reads.
 	 * @param IThrottler $throttler Brute-force protection for rejected per-run tokens.
+	 * @param GovernedMcpEndpointInterface $mcpEndpoint Recognises Hermiq's OWN governed MCP
+	 *                                         origin — the one destination the
+	 *                                         web-research SSRF policy cannot judge,
+	 *                                         because it is the control plane rather
+	 *                                         than an internet host.
+	 * @param ForgeEgressPolicyInterface   $forgePolicy The per-run rule for the forge host: reachable
+	 *                                         only for a run whose agent holds a resolving
+	 *                                         grant for a workspace tool that needs it.
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly RunTokenService $runTokenService,
-		private readonly WebResearchEgressGuard $guard,
-		private readonly WebResearchSettingsHandler $settingsHandler,
+		private readonly RunTokenServiceInterface $runTokenService,
+		private readonly WebResearchEgressGuardInterface $guard,
+		private readonly WebResearchSettingsHandlerInterface $settingsHandler,
 		private readonly IThrottler $throttler,
+		private readonly GovernedMcpEndpointInterface $mcpEndpoint,
+		private readonly ForgeEgressPolicyInterface $forgePolicy,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 
@@ -108,8 +120,8 @@ class EgressAuthorizeController extends Controller {
 	 *
 	 * @return JSONResponse The verdict, or a 400/401 error.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-the-proxy-denies-a-non-allowlisted-host-at-the-network-layer
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-one-policy-source-governs-both-layers
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-the-proxy-denies-a-non-allowlisted-host-at-the-network-layer
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-one-policy-source-governs-both-layers
 	 */
 	#[PublicPage]
 	#[NoCSRFRequired]
@@ -118,39 +130,101 @@ class EgressAuthorizeController extends Controller {
 	public function authorize(): JSONResponse {
 		// AUTH FIRST — the per-run token is the authorization. A missing/invalid/
 		// expired/consumed token is rejected before any policy is evaluated.
-		$binding = $this->runTokenService->verify(token: $this->bearerToken());
+		$token = $this->bearerToken();
+		$binding = $this->runTokenService->verify(token: $token);
 		if ($binding === null) {
-			// The per-run token IS the authorization, so a failed verify is a
-			// presented-secret failure. Counted here; the enforcing half is the
-			// #[BruteForceProtection] attribute above (ADR-082).
-			try {
-				$this->throttler->registerAttempt(
-					action: self::THROTTLE_ACTION,
-					ip: $this->request->getRemoteAddress()
-				);
-			} catch (\Throwable $throttlerFailure) {
-				// Bookkeeping must not turn a fail-closed 401 into a 500.
-				unset($throttlerFailure);
-			}
-
-			return new JSONResponse(['error' => 'invalid_token'], Http::STATUS_UNAUTHORIZED);
+			return $this->refuseToken(token: $token);
 		}
 
+		$destination = $this->requestedDestination();
+		if ($destination === null) {
+			return new JSONResponse(['error' => 'invalid_request'], Http::STATUS_BAD_REQUEST);
+		}
+
+		$forgeRefusal = $this->forgeRefusal(host: $destination['host'], agentId: (string)$binding['agentId']);
+		if ($forgeRefusal !== null) {
+			return $forgeRefusal;
+		}
+
+		return $this->policyVerdict(host: $destination['host'], port: $destination['port']);
+
+	}//end authorize()
+
+	/**
+	 * The policy denial for the forge, when the destination is the forge and the run's
+	 * agent holds no grant for a tool that needs it; null otherwise.
+	 *
+	 * Hermiq-runner-git-capability: the forge is reachable only for a run whose
+	 * agent holds a resolving grant for a tool that needs it, decided from the
+	 * run's own token binding. A denial is a policy code, never a timeout.
+	 *
+	 * @param string $host The destination host.
+	 * @param string $agentId The agent the run's token is bound to.
+	 *
+	 * @return JSONResponse|null
+	 */
+	private function forgeRefusal(string $host, string $agentId): ?JSONResponse {
+		if ($this->forgePolicy->isForgeHost(host: $host) === false
+			|| $this->forgePolicy->permits(agentId: $agentId) === true
+		) {
+			return null;
+		}
+
+		return new JSONResponse(
+			[
+				'allowed' => false,
+				'code' => 'egress_denied',
+				'message' => 'This run holds no grant for a workspace tool that needs the forge.',
+			]
+		);
+	}//end forgeRefusal()
+
+	/**
+	 * The host and port the request body names, or null when the body is not a JSON
+	 * object or names no host or no positive port.
+	 *
+	 * @return array{host: string, port: int}|null
+	 */
+	private function requestedDestination(): ?array {
 		$body = json_decode($this->readRawBody(), true);
 		if (is_array($body) === false) {
-			return new JSONResponse(['error' => 'invalid_request'], Http::STATUS_BAD_REQUEST);
+			return null;
 		}
 
 		$host = trim((string)($body['host'] ?? ''));
 		$port = (int)($body['port'] ?? 0);
 		if ($host === '' || $port <= 0) {
-			return new JSONResponse(['error' => 'invalid_request'], Http::STATUS_BAD_REQUEST);
+			return null;
 		}
+
+		return ['host' => $host, 'port' => $port];
+	}//end requestedDestination()
+
+	/**
+	 * The SSRF guard's verdict on the destination, under the web-research policy.
+	 *
+	 * @param string $host The destination host.
+	 * @param int $port The destination port.
+	 *
+	 * @return JSONResponse
+	 */
+	private function policyVerdict(string $host, int $port): JSONResponse {
+		// The ONE destination this policy cannot judge: Hermiq's own governed MCP
+		// endpoint. The runner reaches its governance through this same proxy, and
+		// on a container deployment that endpoint is deliberately a private address
+		// (`mcp_run_base_url`, e.g. `http://nextcloud`) — which the SSRF guard
+		// blocks, correctly, for every destination the MODEL names. This one is not
+		// named by the model: it is set by the admin and it is the very authority
+		// that hands out the tool grants. It is admitted at the same trust tier the
+		// guard already has for the admin-configured search endpoint, on an EXACT
+		// host:port match, and `webFetch` is untouched — it calls the guard with its
+		// own arguments and never with this flag.
+		$isGovernanceOrigin = $this->mcpEndpoint->matches(host: $host, port: $port);
 
 		$config = $this->settingsHandler->getWebResearchSettingsOnly();
 		$verdict = $this->guard->assertSafe(
 			url: 'https://' . $host . ':' . $port . '/',
-			isAdminConfiguredEndpoint: false,
+			isAdminConfiguredEndpoint: $isGovernanceOrigin,
 			allowlist: (array)($config['fetchAllowlist'] ?? []),
 			denylist: (array)($config['fetchDenylist'] ?? []),
 			allowInsecureHttp: (bool)($config['allowInsecureHttp'] ?? false)
@@ -163,8 +237,45 @@ class EgressAuthorizeController extends Controller {
 				'message' => $verdict['message'],
 			]
 		);
+	}//end policyVerdict()
 
-	}//end authorize()
+	/**
+	 * Refuse a token that failed verification, and count it with the brute-force
+	 * throttler only when this instance never issued it.
+	 *
+	 * @param string $token The presented bearer token. Never logged.
+	 *
+	 * @return JSONResponse The fail-closed 401.
+	 *
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 */
+	private function refuseToken(string $token): JSONResponse {
+		// The per-run token IS the authorization, so a failed verify is a
+		// presented-secret failure. Counted here; the enforcing half is the
+		// #[BruteForceProtection] attribute above (ADR-082).
+		//
+		// Only a token this instance never issued is counted. A spent or
+		// expired token that WAS issued is a legitimate component arriving
+		// late (a CLI flushing after its turn ended), and it is refused all
+		// the same. Counting it let one stale caller throttle this endpoint
+		// for every run behind the same proxy IP. A guesser cannot reach the
+		// uncounted branch: it needs the preimage of a stored digest.
+		if ($this->runTokenService->isKnown(token: $token) === true) {
+			return new JSONResponse(['error' => 'invalid_token'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		try {
+			$this->throttler->registerAttempt(
+				action: self::THROTTLE_ACTION,
+				ip: $this->request->getRemoteAddress()
+			);
+		} catch (\Throwable $throttlerFailure) {
+			// Bookkeeping must not turn a fail-closed 401 into a 500.
+			unset($throttlerFailure);
+		}
+
+		return new JSONResponse(['error' => 'invalid_token'], Http::STATUS_UNAUTHORIZED);
+	}//end refuseToken()
 
 	/**
 	 * Extract the bearer token from the `Authorization` header. Never logged.
@@ -186,7 +297,7 @@ class EgressAuthorizeController extends Controller {
 	 *
 	 * @return string The raw request body, or '' when unreadable.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
 	 */
 	protected function readRawBody(): string {
 		$body = file_get_contents('php://input');

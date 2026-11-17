@@ -218,4 +218,25 @@ class TaskTerminalListenerTest extends TestCase {
 
 		$this->listener()->handle(new TaskTerminalEvent(task: $this->completedTask(), committed: true));
 	}//end testUnresolvableApprovalIsSkipped()
+
+	/**
+	 * A rejection without a comment takes the result text as its reason, and a
+	 * rejecting outcome is matched case- and space-insensitively.
+	 *
+	 * @return void
+	 */
+	public function testARejectionWithoutACommentTakesTheResultText(): void {
+		$approval = $this->pendingApproval();
+		$this->approvalService->method('loadApproval')->willReturn($approval);
+		$this->approvalService->expects($this->once())
+			->method('deny')
+			->with($approval, 'carol', 'Out of scope');
+		$this->approvalService->expects($this->never())->method('approve');
+
+		$task = $this->completedTask(outcome: ' REJECTED ');
+		$task->setComment('  ');
+		$task->setResultText(' Out of scope ');
+
+		$this->listener()->handle(new TaskTerminalEvent(task: $task, committed: true));
+	}//end testARejectionWithoutACommentTakesTheResultText()
 }//end class

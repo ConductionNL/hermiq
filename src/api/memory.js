@@ -17,25 +17,10 @@
 
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
+import { listOrResults as toList } from './listEnvelope.js'
 
 /** Hermiq agents API base (memory endpoints hang off an agent). */
 const AGENTS_BASE = '/apps/hermiq/api/agents'
-
-/**
- * Normalise the Hermiq list envelope to a plain array.
- *
- * @param {object} data The response body.
- * @return {Array<object>} The extracted list (empty array on miss).
- */
-function toList(data) {
-	if (Array.isArray(data)) {
-		return data
-	}
-	if (Array.isArray(data?.results)) {
-		return data.results
-	}
-	return []
-}
 
 /**
  * Get an agent's Memory object (tenant-scoped; created empty if none exists).
@@ -75,6 +60,39 @@ export async function consolidateMemory(agentId, entries = null) {
 	const response = await axios.post(
 		generateUrl(`${AGENTS_BASE}/${agentId}/memory/consolidate`),
 		body,
+	)
+	return response.data
+}
+
+/**
+ * Correct one memory entry (owner only). The old entry is kept as forgotten and
+ * the new text becomes a new entry.
+ *
+ * @param {string} agentId The agent UUID.
+ * @param {string} entryId The entry id.
+ * @param {string} text The corrected text.
+ * @return {Promise<object>} The updated memory.
+ * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
+ */
+export async function correctMemoryEntry(agentId, entryId, text) {
+	const response = await axios.put(
+		generateUrl(`${AGENTS_BASE}/${agentId}/memory/entries/${entryId}`),
+		{ text },
+	)
+	return response.data
+}
+
+/**
+ * Make the agent forget one memory entry (owner only, a soft delete).
+ *
+ * @param {string} agentId The agent UUID.
+ * @param {string} entryId The entry id.
+ * @return {Promise<object>} The updated memory.
+ * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+ */
+export async function forgetMemoryEntry(agentId, entryId) {
+	const response = await axios.delete(
+		generateUrl(`${AGENTS_BASE}/${agentId}/memory/entries/${entryId}`),
 	)
 	return response.data
 }

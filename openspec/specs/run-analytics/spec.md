@@ -34,6 +34,46 @@ agents within their organisation, and MUST NOT show data belonging to a differen
 - THEN the system MUST show combined metrics for all three of organisation A's agents
 - AND the system MUST NOT include run data from any other organisation
 
+### Requirement: A cross-agent run list, on the same tenant boundary as the metrics
+
+The system MUST provide one list of the caller's runs across every agent they may see,
+newest first, filterable by agent and by status and paged with an unpaged `total`. It
+MUST resolve visibility through the same agent-set boundary the metrics above use, so
+the list and the metrics can never disagree about which runs are the caller's. It MUST
+include runs from BOTH run channels, and MUST say on each row which channel it arrived
+on. It MUST exclude dry-run and replay previews, exactly as the metrics do.
+
+🔴 The schedule-scoped read (`/api/schedules/{scheduleId}/runs`) cannot satisfy this and
+is not a substitute. It is addressed by one schedule, and a flow-triggered `agent-run`
+entry hangs on the object that triggered the flow, which routinely lives in another
+register. No schedule's `object_uuid` ever matches one, so those runs were counted by
+the metrics and absent from every list.
+
+#### Scenario: An operator looks for last night's failures
+- **GIVEN** several agents ran overnight and some runs failed
+- **WHEN** the operator opens the run list and filters on the failed status
+- **THEN** the system MUST list those runs newest first, naming the agent for each
+- **AND** the system MUST NOT include a run belonging to another organisation
+
+#### Scenario: A flow-triggered run is listed
+- **GIVEN** an agent run was started by a flow, and its audit entry hangs on the
+  triggering object rather than on a schedule
+- **WHEN** the run list is opened
+- **THEN** that run MUST appear in the list
+- **AND** the row MUST identify its channel as a flow rather than a schedule
+
+#### Scenario: A dry run never appears
+- **GIVEN** an agent has a real run and a dry-run preview recorded
+- **WHEN** the run list is opened
+- **THEN** only the real run MUST be listed
+- **AND** the list's total MUST count only the real run, matching the metrics
+
+#### Scenario: A run's delivered link opens the run it describes
+- **GIVEN** a run's output was delivered to Talk with a link
+- **WHEN** the recipient follows that link
+- **THEN** the system MUST open a surface showing that schedule's runs
+- **AND** the system MUST NOT resolve the link to an unrelated page
+
 ### Requirement: Pre-run cost estimate derived from trailing per-agent run history
 The system MUST derive a pre-run cost/token estimate for a given agent from that agent's own
 trailing run history (the same `action='run'` AuditTrail entries `AnalyticsService` aggregates),
@@ -59,6 +99,35 @@ run (see `multi-tenant-ops`'s budget hard-cap requirement).
 - **WHEN** the dispatch gate evaluates whether agent X's budget is exhausted
 - **THEN** the gate MUST evaluate only actual current-period recorded usage
 - **AND** the estimate value MUST NOT be read by the gate at all
+
+### Requirement: An agent owner sees how answers were rated (REQ-FBSTAT-001)
+
+`GET /api/analytics` MUST return a `feedback` block with `positive`, `negative` and `helpfulRate`, on the same tenant boundary and agent scope as the run metrics, and each `perAgent` row MUST carry `positive` and `negative`. The agent page MUST show a "Rated helpful" tile with the share and the counts, and "No ratings yet" when there are none.
+
+#### Scenario: An owner checks how an agent is received
+- GIVEN the owner of "Permit helper", whose answers got three thumbs up and one thumbs down
+- WHEN they open the agent page
+- THEN the "Rated helpful" tile shows 75% with 3 up and 1 down
+
+#### Scenario: The dashboard compares agents
+- GIVEN two agents with ratings
+- WHEN a user opens the dashboard
+- THEN the per-agent breakdown shows the thumbs up and thumbs down for each agent beside its runs
+
+### Requirement: An agent owner reads the latest low ratings (REQ-FBSTAT-002)
+
+The agent page MUST list the last ten thumbs-down ratings that carry a comment, newest first, with the date and without the rater's name. `GET /api/analytics/agents/{agentId}/low-ratings` MUST answer HTTP 404 to a user who may not read the agent.
+
+#### Scenario: An owner reads why answers were rated down
+- GIVEN a thumbs down on "Permit helper" with the comment "Gave the old opening hours"
+- WHEN the owner opens the agent page
+- THEN "Latest low ratings" lists "Gave the old opening hours" with its date
+
+#### Scenario: A user without access
+- GIVEN a private agent the user may not read
+- WHEN they call `GET /api/analytics/agents/{agentId}/low-ratings`
+- THEN the answer is HTTP 404
+- @e2e exclude authorization contract on the endpoint, covered by PHPUnit
 
 ## User Stories
 

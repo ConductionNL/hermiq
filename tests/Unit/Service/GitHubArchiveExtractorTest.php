@@ -373,6 +373,27 @@ class GitHubArchiveExtractorTest extends TestCase {
 	}//end testExtractReturnsNullWhenNoTempFolderIsAvailable()
 
 	/**
+	 * When the temp folder is unavailable, an archive file that already exists on
+	 * disk is removed before extract() gives up.
+	 *
+	 * @return void
+	 */
+	public function testAStagedArchiveFileIsRemovedWhenNoTempFolderIsAvailable(): void {
+		$archivePath = sys_get_temp_dir() . '/hermiq-arch-staged-' . bin2hex(string: random_bytes(length: 8)) . '.tar.gz';
+		$this->allocated[] = $archivePath;
+		touch(filename: $archivePath);
+
+		$manager = $this->createMock(originalClassName: ITempManager::class);
+		$manager->method('getTemporaryFile')->willReturn($archivePath);
+		$manager->method('getTemporaryFolder')->willReturn(false);
+
+		$extractor = new GitHubArchiveExtractor(tempManager: $manager, logger: new NullLogger());
+
+		$this->assertNull(actual: $extractor->extract(body: 'anything', accept: static fn (string $path): bool => true, maxBytes: 16777216));
+		$this->assertFileDoesNotExist(filename: $archivePath);
+	}//end testAStagedArchiveFileIsRemovedWhenNoTempFolderIsAvailable()
+
+	/**
 	 * The sorted key list of a map, so an assertion states the expected SET
 	 * without depending on filesystem iteration order.
 	 *

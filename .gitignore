@@ -15,6 +15,10 @@
 /website/node_modules/
 /website/.docusaurus/
 /js/
+# Built by `npm run build`, exactly like /js/. Holds the AI companion's stylesheet,
+# which scripts/build-companion-css.js copies out of the component library so the
+# always-loaded companion script no longer inlines 801 KB of CSS into itself.
+/css/
 /custom_apps/
 /config/
 
@@ -56,7 +60,10 @@ phpqa_output.log
 **/ALL *
 **/endpoints *
 **/*Analysis*
-**/*references*
+# Junk files named "references <words>" (a shell redirect gone wrong). The space
+# keeps real paths out: the old `**/*references*` also ignored every path
+# containing "preferences".
+**/references *
 **/*encoding*
 **/ter
 **/clearCache*
@@ -107,8 +114,7 @@ openspec/test-site-results/**/*.jpeg
 openspec/test-site-results/**/*.gif
 openspec/test-site-results/**/*.webp
 
-# SBOM is published as release asset (see SECURITY.md), not stored in repo
-sbom.cdx.json
+# Intermediate SBOM files. The merged sbom.cdx.json at the root is committed.
 bom-php.cdx.json
 bom-npm.cdx.json
 composer.phar
@@ -132,3 +138,4 @@ composer.phar
 # Added by the 2026-08-25 fleet hygiene sweep (ADR-100 Decision 2).
 .stale/
 /.e2e-state/
+/coverage-vitest/

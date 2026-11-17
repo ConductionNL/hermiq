@@ -28,14 +28,14 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
+ * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Listener;
 
-use OCA\Hermiq\Service\ScheduleService;
+use OCA\Hermiq\Kernel\Contracts\ScheduleServiceInterface;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use OCP\User\Events\UserChangedEvent;
@@ -48,17 +48,17 @@ use Throwable;
  *
  * @implements IEventListener<Event>
  *
- * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
+ * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
  */
 class UserLifecycleListener implements IEventListener {
 	/**
 	 * Constructor.
 	 *
-	 * @param ScheduleService $scheduleService The offboarding pause mechanic.
+	 * @param ScheduleServiceInterface $scheduleService The offboarding pause mechanic.
 	 * @param LoggerInterface $logger Logs the outcome / any failure.
 	 */
 	public function __construct(
-		private readonly ScheduleService $scheduleService,
+		private readonly ScheduleServiceInterface $scheduleService,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()
@@ -73,7 +73,7 @@ class UserLifecycleListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
+	 * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
 	 */
 	public function handle(Event $event): void {
 		try {
@@ -104,7 +104,7 @@ class UserLifecycleListener implements IEventListener {
 	 *
 	 * @return string|null The offboarded uid, or null when not applicable.
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
+	 * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
 	 */
 	private function resolveOffboardedUid(Event $event): ?string {
 		if ($event instanceof UserDeletedEvent) {

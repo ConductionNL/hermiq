@@ -73,6 +73,7 @@ import { CnDataTable } from '@conduction/nextcloud-vue'
 import { NcEmptyContent, NcNoteCard } from '@nextcloud/vue'
 import ToolboxIcon from 'vue-material-design-icons/ToolboxOutline.vue'
 import { listTools } from '../api/agents.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'McpTools',
@@ -139,10 +140,7 @@ export default {
 			try {
 				this.tools = await listTools()
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.loading = false
 			}

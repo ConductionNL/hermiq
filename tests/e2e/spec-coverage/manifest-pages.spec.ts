@@ -127,6 +127,7 @@ const CUSTOM_PAGE_COMPONENTS: Record<string, string> = {
 	'/chat': 'Chat',
 	'/approvals': 'ApprovalInbox',
 	'/memory': 'AgentMemory',
+	'/runs': 'Runs',
 	'/tenant-ops': 'TenantOps',
 	'/guardrail-policy': 'GuardrailPolicySettings',
 	'/mcp-tools': 'McpTools',

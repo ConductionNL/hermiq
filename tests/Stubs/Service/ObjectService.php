@@ -26,6 +26,10 @@ namespace OCA\OpenRegister\Service;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\Register;
 use OCA\OpenRegister\Db\Schema;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectPatch;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
 
 /**
  * Minimal ObjectService stub for standalone unit runs.
@@ -108,14 +112,16 @@ class ObjectService {
 	 */
 	public function find(
 		int|string $id,
-		?array $_extend = [],
-		bool $files = false,
-		mixed $register = null,
-		mixed $schema = null,
+		?ObjectFindOptions $options = null,
 		bool $_rbac = true,
-		bool $_multitenancy = true,
-		bool $_render = true,
+		bool $_multitenancy = true
 	): ?ObjectEntity {
+		$_extend = $options?->extend ?? [];
+		$files = $options?->files ?? false;
+		$register = $options?->register;
+		$schema = $options?->schema;
+		$_render = $options?->render ?? true;
+		$_audit = $options?->audit ?? true;
 		return null;
 	}//end find()
 
@@ -138,31 +144,22 @@ class ObjectService {
 	 */
 	public function saveObject(
 		array|ObjectEntity $object,
-		?array $extend = [],
-		mixed $register = null,
-		mixed $schema = null,
-		?string $uuid = null,
+		ObjectSaveOptions $options = new ObjectSaveOptions(),
 		bool $_rbac = true,
-		bool $_multitenancy = true,
-		bool $silent = false,
-		// Position matters: the real service declares `$_validation` BETWEEN
-		// `$silent` and `$uploadedFiles`. A double that drifts from the real
-		// signature is a FATAL, not a failed assertion — PHP refuses to declare
-		// any subclass and the whole suite dies at load time, before it runs.
-		bool $_validation = true,
-		?array $uploadedFiles = null,
-		?\OCP\IUser $currentUser = null,
-		// openregister#2211 (insert-only saves) added this. A double that
-		// drifts from the real signature is a FATAL, not a failed
-		// assertion: PHP refuses to declare the class and the whole
-		// suite dies before it runs.
-		bool $failIfExists = false,
-		// openregister added this (stamp the SYSTEM identity as owner even when a
-		// user session exists). This stub is what CI loads — the real class is
-		// absent there — so a drift here is invisible in CI and only fatals when
-		// the suite runs inside a booted Nextcloud, where the real class wins.
-		bool $_unowned = false,
+		bool $_multitenancy = true
 	): ObjectEntity {
+		$extend = $options->extend ?? [];
+		$register = $options->target->register;
+		$schema = $options->target->schema;
+		$uuid = $options->uuid;
+		$silent = $options->policy->silent ?? false;
+		$_validation = $options->policy->validation ?? true;
+		$uploadedFiles = $options->uploadedFiles;
+		$currentUser = $options->actor->currentUser;
+		$failIfExists = $options->policy->failIfExists ?? false;
+		$_unowned = $options->actor->unowned ?? false;
+		$_dedupOverride = $options->policy->dedupOverride ?? false;
+		$_owner = $options->actor->owner;
 		return new ObjectEntity();
 	}//end saveObject()
 
@@ -182,14 +179,15 @@ class ObjectService {
 	 * @return ObjectEntity
 	 */
 	public function patchObject(
-		string $objectId,
-		array $data,
-		Register|string|int|null $register = null,
-		Schema|string|int|null $schema = null,
+		ObjectPatch $patch,
 		bool $_rbac = true,
-		bool $_multitenancy = true,
-		?\OCP\IUser $currentUser = null,
+		bool $_multitenancy = true
 	): ObjectEntity {
+		$objectId = $patch->objectId;
+		$data = $patch->data;
+		$register = $patch->target->register;
+		$schema = $patch->target->schema;
+		$currentUser = $patch->currentUser;
 		return new ObjectEntity();
 	}//end patchObject()
 
@@ -248,12 +246,14 @@ class ObjectService {
 	 * @return bool
 	 */
 	public function deleteObject(
-		string $uuid,
-		mixed $register = null,
-		mixed $schema = null,
+		ObjectDeletion $deletion,
 		bool $_rbac = true,
 		bool $_multitenancy = true,
+		bool $_retentionSweep = false
 	): bool {
+		$uuid = $deletion->uuid;
+		$register = $deletion->target->register;
+		$schema = $deletion->target->schema;
 		return true;
 	}//end deleteObject()
 }//end class

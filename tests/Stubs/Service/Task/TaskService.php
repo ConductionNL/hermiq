@@ -31,6 +31,7 @@ declare(strict_types=1);
 
 namespace OCA\OpenRegister\Service\Task;
 
+use DateTime;
 use LogicException;
 use OCA\OpenRegister\Db\Task;
 
@@ -58,11 +59,13 @@ class TaskService {
 	 *
 	 * @param array<string, mixed> $data The task fields, canonical or legacy.
 	 * @param string|null $actor The creating identity.
+	 * @param callable|null $mayReadBlocker Whether the actor may read a declared blocker.
+	 * @param DateTime|null $createdAt The creation time to stamp.
 	 *
 	 * @return Task The created task.
 	 */
-	public function import(array $data, ?string $actor): Task {
-		unset($data, $actor);
+	public function import(array $data, ?string $actor, ?callable $mayReadBlocker = null, ?DateTime $createdAt = null): Task {
+		unset($data, $actor, $mayReadBlocker, $createdAt);
 		self::refuse();
 	}//end import()
 

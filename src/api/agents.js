@@ -35,6 +35,7 @@
 
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
+import { listOrNestedResults as toList } from './listEnvelope.js'
 
 /** Hermiq agents resource base path (tools catalogue only — CRUD is useAgentStore). */
 const AGENTS_BASE = '/apps/hermiq/api/agents'
@@ -42,23 +43,20 @@ const AGENTS_BASE = '/apps/hermiq/api/agents'
 const HERMIQ_SCHEDULES_BASE = '/apps/hermiq/api/schedules'
 
 /**
- * Normalise the various Hermiq/OpenRegister list envelopes to a plain array.
- * Handles `{ results: [] }`, `{ data: { results: [] } }`, and a bare array.
+ * The agent's instructions filled in for its owner (agents-instruction-variables).
+ * Only the owner gets an answer; anyone else gets a 404.
  *
- * @param {object} data The response body.
- * @return {Array<object>} The extracted list (empty array on miss).
+ * @param {string} agentId The agent.
+ * @param {{prompt: string, startFields: Array<object>, sampleValues: object}} body The form's text, questions and sample answers.
+ * @return {Promise<{text: string, unknown: string[]}>} The filled-in text and the placeholders nothing fills.
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
  */
-function toList(data) {
-	if (Array.isArray(data)) {
-		return data
-	}
-	if (Array.isArray(data?.results)) {
-		return data.results
-	}
-	if (Array.isArray(data?.data?.results)) {
-		return data.data.results
-	}
-	return []
+export async function previewPrompt(agentId, body) {
+	const response = await axios.post(
+		generateUrl(`${AGENTS_BASE}/${encodeURIComponent(agentId)}/prompt-preview`),
+		body,
+	)
+	return response.data
 }
 
 /**
@@ -83,6 +81,22 @@ export async function listTools() {
 		return Object.entries(results).map(([id, tool]) => ({ id, ...tool }))
 	}
 	return []
+}
+
+/**
+ * Check an agent draft from chat before the agent form opens with it
+ * (agents-plain-language-builder). Reads only: the agent exists when the person
+ * saves the form. A draft that is not valid JSON answers 422.
+ *
+ * @param {string} draft The text of the `hermiq-agent-draft` block.
+ * @return {Promise<{draft: object, findings: Array<{field: string, message: string, suggestion: string}>}>}
+ * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+ */
+export async function checkAgentDraft(draft) {
+	const response = await axios.post(generateUrl(`${AGENTS_BASE}/draft-check`), {
+		draft,
+	})
+	return response.data
 }
 
 /**
@@ -217,6 +231,84 @@ export async function diffAgentVersions(agentId, fromId, toId) {
 export async function rollbackAgentVersion(agentId, versionId) {
 	const response = await axios.post(
 		generateUrl(`${AGENTS_BASE}/${agentId}/versions/${versionId}/rollback`),
+	)
+	return response.data
+}
+
+/**
+ * Mark or unmark an agent as the assistant of the app it serves. Only an admin
+ * of the agent's organisation may; a second assistant for one app is refused
+ * with 409 (agents-bound-to-their-app).
+ *
+ * @param {string} agentId The agent uuid.
+ * @param {boolean} appAssistant Whether it answers in its app.
+ * @return {Promise<object>} The flag and the app.
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
+ */
+export async function setAppAssistant(agentId, appAssistant) {
+	const response = await axios.post(
+		generateUrl(`${AGENTS_BASE}/${encodeURIComponent(agentId)}/app-assistant`),
+		{ appAssistant },
+	)
+	return response.data
+}
+
+/**
+ * "Keep in git": publish the agent to a new GitHub repository.
+ *
+ * @param {string} agentId The agent uuid.
+ * @param {object} form `{ githubOwner, repo, visibility, credentialId }`.
+ * @return {Promise<{repoUrl: string, commitSha: string}>}
+ */
+export async function publishAgentToGit(agentId, form) {
+	const response = await axios.post(
+		generateUrl(`/apps/hermiq/api/agents/${agentId}/git/publish`),
+		form,
+	)
+	return response.data
+}
+
+/**
+ * "Keep in git": push the agent to its own repository.
+ *
+ * @param {string} agentId The agent uuid.
+ * @param {string} credentialId The GitHub credential.
+ * @return {Promise<{repoUrl: string, commitSha: string}>}
+ */
+export async function pushAgentToGit(agentId, credentialId) {
+	const response = await axios.post(
+		generateUrl(`/apps/hermiq/api/agents/${agentId}/git/push`),
+		{ credentialId },
+	)
+	return response.data
+}
+
+/**
+ * "Keep in git": what a pull from the agent's repository would change.
+ *
+ * @param {string} agentId The agent uuid.
+ * @param {string} credentialId The GitHub credential.
+ * @return {Promise<{changes: Array<{field: string, from: *, to: *}>}>}
+ */
+export async function previewAgentPull(agentId, credentialId) {
+	const response = await axios.get(
+		generateUrl(`/apps/hermiq/api/agents/${agentId}/git/pull`),
+		{ params: { credentialId } },
+	)
+	return response.data
+}
+
+/**
+ * "Keep in git": write the pulled fields onto the agent.
+ *
+ * @param {string} agentId The agent uuid.
+ * @param {string} credentialId The GitHub credential.
+ * @return {Promise<object>} The saved agent.
+ */
+export async function applyAgentPull(agentId, credentialId) {
+	const response = await axios.post(
+		generateUrl(`/apps/hermiq/api/agents/${agentId}/git/pull`),
+		{ credentialId },
 	)
 	return response.data
 }

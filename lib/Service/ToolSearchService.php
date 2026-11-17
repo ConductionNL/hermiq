@@ -42,21 +42,23 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
- * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#requirement-progressive-tool-disclosure-for-large-catalogs
+ * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-3
+ * @spec openspec/specs/agent-tool-governance/spec.md#requirement-progressive-tool-disclosure-for-large-catalogs
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\ToolSearchServiceInterface;
+
 /**
  * Holds one run's resolved tool descriptor set and ranks `searchTools` queries
  * against it.
  *
- * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
+ * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-3
  */
-class ToolSearchService {
+class ToolSearchService implements ToolSearchServiceInterface {
 
 	/**
 	 * Matches returned per `search()` call are capped so a broad query cannot
@@ -84,7 +86,7 @@ class ToolSearchService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#scenario-a-resolved-catalog-exceeds-the-disclosure-threshold
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-resolved-catalog-exceeds-the-disclosure-threshold
 	 */
 	public function registerResolved(array $descriptors): void {
 		$this->resolved = [];
@@ -109,7 +111,7 @@ class ToolSearchService {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/human-approval-gate/spec.md#requirement-un-granted-destructive-tool-invocation-routes-through-the-approval-gate
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-un-granted-destructive-tool-invocation-routes-through-the-approval-gate
 	 */
 	public function isGranted(string $id): bool {
 		return array_key_exists($id, $this->resolved);
@@ -122,7 +124,7 @@ class ToolSearchService {
 	 *
 	 * @return array<string,mixed>|null
 	 *
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-3
 	 */
 	public function descriptor(string $id): ?array {
 		return ($this->resolved[$id] ?? null);
@@ -137,7 +139,7 @@ class ToolSearchService {
 	 *
 	 * @return array<int, array<string,mixed>> Matching descriptors (capped, best-effort ranked).
 	 *
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#scenario-the-model-searches-for-and-then-invokes-a-deferred-tool
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-the-model-searches-for-and-then-invokes-a-deferred-tool
 	 */
 	public function search(string $query): array {
 		$needle = mb_strtolower(trim($query));

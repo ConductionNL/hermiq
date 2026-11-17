@@ -24,6 +24,7 @@ description:
       delivered to Nextcloud Talk. Agents, their memory and their
       self-improving skills are stored as OpenRegister objects, so every run
       is governed, auditable and multi-tenant.
+      Conduction maintains this component within the Nextcloud ISV programme.
     features:
       - OpenRegister register and schema initialisation
       - Manifest-driven SPA with CnAppRoot
@@ -31,13 +32,37 @@ description:
       - Admin settings panel
       - Playwright e2e test setup
 
+  nl:
+    localisedName: "Hermiq"
+    shortDescription: "Plan autonome AI-agents in Nextcloud"
+    longDescription: |
+      Hermiq brengt autonome AI-agents naar Nextcloud. Je definieert een
+      agent, geeft hem tools en laat hem volgens een schema draaien: dagelijkse
+      rapportages, het sorteren van de inbox, monitoring of een ochtendbriefing.
+      Alles gebeurt in je eigen Nextcloud en de resultaten komen binnen in
+      Nextcloud Talk. Agents, hun geheugen en hun zelflerende vaardigheden worden
+      opgeslagen als OpenRegister-objecten, zodat elke run beheerst,
+      controleerbaar en geschikt voor meerdere organisaties is.
+      Conduction onderhoudt dit component binnen het Nextcloud ISV-programma.
+    features:
+      - Initialisatie van OpenRegister-register en -schema's
+      - Manifestgestuurde single-page-app met CnAppRoot
+      - Basis voor een AI-chatassistent (MCP-toolprovider)
+      - Beheerinstellingen
+      - Opzet voor end-to-endtests met Playwright
+
 legal:
   license: EUPL-1.2
   mainCopyrightOwner: "Conduction B.V."
   repoOwner: "ConductionNL"
 
 maintenance:
-  type: internal
+  type: contract
+  contractors:
+    - name: Conduction B.V.
+      until: "2028-12-31"
+      email: info@conduction.nl
+      website: https://conduction.nl
   contacts:
     - name: "Conduction B.V."
       email: "info@conduction.nl"
@@ -48,3 +73,7 @@ localisation:
   availableLanguages:
     - en
     - nl
+
+# Common Ground layer (nl.vng profile), as a standard supports entry.
+supports:
+  - id: https://commonground.nl/cms/view/54476261/5-lagen-model#service
