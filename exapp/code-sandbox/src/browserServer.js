@@ -75,6 +75,26 @@ function readJson(req) {
 }
 
 /**
+ * A string field of the request body, empty when absent.
+ *
+ * @param {object} body The request body.
+ * @param {string} key The field.
+ * @return {string}
+ */
+function field(body, key) {
+	return String(body[key] || '')
+}
+
+/** Every action: (sessions, conversationId, body, token) => result. */
+const ACTIONS = {
+	open: (sessions, id, body, token) => sessions.open(id, field(body, 'url'), token),
+	read: (sessions, id, body, token) => sessions.read(id, token),
+	click: (sessions, id, body, token) => sessions.click(id, field(body, 'ref'), token),
+	fill: (sessions, id, body, token) => sessions.fill(id, field(body, 'ref'), field(body, 'text'), token),
+	close: async (sessions, id) => ({ closed: await sessions.close(id) }),
+}
+
+/**
  * The action one route performs.
  *
  * @param {BrowserSessions} sessions The contexts.
@@ -83,22 +103,11 @@ function readJson(req) {
  * @return {Promise<object>}
  */
 async function perform(sessions, action, body) {
-	const conversationId = String(body.conversationId || '')
-	const token = String(body.runToken || '')
-	switch (action) {
-	case 'open':
-		return sessions.open(conversationId, String(body.url || ''), token)
-	case 'read':
-		return sessions.read(conversationId, token)
-	case 'click':
-		return sessions.click(conversationId, String(body.ref || ''), token)
-	case 'fill':
-		return sessions.fill(conversationId, String(body.ref || ''), String(body.text || ''), token)
-	case 'close':
-		return { closed: await sessions.close(conversationId) }
-	default:
+	const handler = Object.hasOwn(ACTIONS, action) ? ACTIONS[action] : null
+	if (handler === null) {
 		throw new BrowserRefusal('not_found', 'not found', 404)
 	}
+	return handler(sessions, String(body.conversationId || ''), body, String(body.runToken || ''))
 }
 
 /**

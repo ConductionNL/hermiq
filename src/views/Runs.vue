@@ -389,17 +389,19 @@ export default {
 		 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-the-run-records-actions-and-never-stores-screenshots-req-computer-004
 		 */
 		computerLine(action) {
-			const target = String(action?.target || '')
-			if (action?.action === 'screenshot') {
-				return this.t('hermiq', 'Screenshot of {target}', { target })
+			const entry = action || {}
+			const target = String(entry.target || '')
+			const lines = {
+				__proto__: null,
+				screenshot: () => this.t('hermiq', 'Screenshot of {target}', { target }),
+				type: () => this.t('hermiq', 'Typed "{text}" on {target}', { text: String(entry.text || ''), target }),
+				key: () => this.t('hermiq', 'Pressed {keys} on {target}', { keys: String(entry.keys || ''), target }),
 			}
-			if (action?.action === 'type') {
-				return this.t('hermiq', 'Typed "{text}" on {target}', { text: String(action.text || ''), target })
+			const line = lines[entry.action]
+			if (line !== undefined) {
+				return line()
 			}
-			if (action?.action === 'key') {
-				return this.t('hermiq', 'Pressed {keys} on {target}', { keys: String(action.keys || ''), target })
-			}
-			return this.t('hermiq', 'Clicked at {x}, {y} on {target}', { x: String(action?.x ?? ''), y: String(action?.y ?? ''), target })
+			return this.t('hermiq', 'Clicked at {x}, {y} on {target}', { x: String(entry.x ?? ''), y: String(entry.y ?? ''), target })
 		},
 
 		/**

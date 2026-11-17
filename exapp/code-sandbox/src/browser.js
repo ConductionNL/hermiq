@@ -121,27 +121,57 @@ function cutToBytes(text, maxBytes) {
 function snapshotOf(nodes, maxBytes = SNAPSHOT_MAX_BYTES) {
 	const lines = []
 	const refs = {}
-	let next = 1
 	for (const node of nodes) {
-		if (node.ignored === true) {
-			continue
-		}
-		const role = axValue(node.role)
-		const name = axValue(node.name).replace(/\s+/g, ' ').trim()
-		if (ACTIONABLE_ROLES.includes(role) && node.backendDOMNodeId !== undefined) {
-			const ref = `e${next}`
-			next += 1
-			refs[ref] = node.backendDOMNodeId
-			const value = axValue(node.value)
-			lines.push(`[${ref}] ${role} "${name}"` + (value !== '' ? ` = "${value}"` : ''))
-			continue
-		}
-		if (TEXT_ROLES.includes(role) && name !== '') {
-			lines.push(role === 'heading' ? `# ${name}` : name)
+		const line = node.ignored === true ? null : snapshotLine(node, refs)
+		if (line !== null) {
+			lines.push(line)
 		}
 	}
 	const cut = cutToBytes(lines.join('\n'), maxBytes)
 	return { text: cut.text, refs, truncated: cut.truncated }
+}
+
+/**
+ * The snapshot line of one accessibility node, or null when it shows nothing.
+ * An actionable node gets the next reference, recorded in refs.
+ *
+ * @param {object} node An `Accessibility.getFullAXTree` node.
+ * @param {Object<string, number>} refs The references handed out so far.
+ * @return {string|null}
+ */
+function snapshotLine(node, refs) {
+	const role = axValue(node.role)
+	const name = axValue(node.name).replace(/\s+/g, ' ').trim()
+	if (isActionable(role, node)) {
+		const ref = `e${Object.keys(refs).length + 1}`
+		refs[ref] = node.backendDOMNodeId
+		return `[${ref}] ${role} "${name}"` + valueSuffix(axValue(node.value))
+	}
+	if (TEXT_ROLES.includes(role) && name !== '') {
+		return role === 'heading' ? `# ${name}` : name
+	}
+	return null
+}
+
+/**
+ * Whether a node is one the agent may act on: an actionable role with a DOM node.
+ *
+ * @param {string} role The node role.
+ * @param {object} node The node.
+ * @return {boolean}
+ */
+function isActionable(role, node) {
+	return ACTIONABLE_ROLES.includes(role) && node.backendDOMNodeId !== undefined
+}
+
+/**
+ * The ` = "value"` suffix of an actionable line, empty without a value.
+ *
+ * @param {string} value The node value.
+ * @return {string}
+ */
+function valueSuffix(value) {
+	return value !== '' ? ` = "${value}"` : ''
 }
 
 /**
@@ -163,6 +193,51 @@ function destinationOf(raw) {
 	const host = url.hostname.replace(/^\[|\]$/g, '')
 	const port = url.port !== '' ? Number(url.port) : (url.protocol === 'https:' ? 443 : 80)
 	return { host, port }
+}
+
+/**
+ * The egress verdict a PDP answer carries, default deny.
+ *
+ * @param {number} status The HTTP status of the answer.
+ * @param {string} raw The answer body.
+ * @return {{allowed: boolean, code: string, message: string}}
+ */
+function pdpVerdictOf(status, raw) {
+	if (status !== 200) {
+		return { allowed: false, code: 'pdp_refused', message: 'The egress policy refused the run.' }
+	}
+	const verdict = parsedOrUndefined(raw)
+	if (verdict === undefined) {
+		return { allowed: false, code: 'pdp_malformed', message: 'The egress policy answered unreadably.' }
+	}
+	return answerOf(verdict || {})
+}
+
+/**
+ * The parsed JSON, or undefined when it does not parse.
+ *
+ * @param {string} raw The text.
+ * @return {object|Array|string|number|boolean|null|undefined}
+ */
+function parsedOrUndefined(raw) {
+	try {
+		return JSON.parse(raw)
+	} catch {
+		return undefined
+	}
+}
+
+/**
+ * The egress verdict of a parsed PDP answer: allowed only on `allowed: true`.
+ *
+ * @param {object} answer The answer.
+ * @return {{allowed: boolean, code: string, message: string}}
+ */
+function answerOf(answer) {
+	if (answer.allowed === true) {
+		return { allowed: true, code: 'allowed', message: '' }
+	}
+	return { allowed: false, code: String(answer.code || 'denied'), message: String(answer.message || 'The address is not allowed.') }
 }
 
 /**
@@ -211,22 +286,7 @@ function pdpEgress(options) {
 					raw += chunk
 				}
 			})
-			res.on('end', () => {
-				if (res.statusCode !== 200) {
-					deny('pdp_refused', 'The egress policy refused the run.')
-					return
-				}
-				try {
-					const verdict = JSON.parse(raw)
-					if (verdict !== null && verdict.allowed === true) {
-						resolve({ allowed: true, code: 'allowed', message: '' })
-						return
-					}
-					deny(String((verdict && verdict.code) || 'denied'), String((verdict && verdict.message) || 'The address is not allowed.'))
-				} catch (e) {
-					deny('pdp_malformed', 'The egress policy answered unreadably.')
-				}
-			})
+			res.on('end', () => resolve(pdpVerdictOf(res.statusCode, raw)))
 			res.on('error', () => deny('pdp_unreachable', 'The egress policy could not be reached.'))
 		})
 		req.on('timeout', () => {

@@ -930,29 +930,9 @@ class FacadeToolInvoker {
 
 		$correlationId = $this->toolCallCorrelationId(agentId: $this->agentId, toolId: $call->toolId, arguments: $arguments);
 
-		$preauthorised = $this->computerRunPreAuthorisation(toolId: $call->toolId, arguments: $arguments);
-		if ($preauthorised !== null) {
-			return $this->dispatchToFacade(
-				name: $name,
-				call: new FacadeCall(
-					arguments: $arguments,
-					outcomeOverride: 'invoked_under_preauthorisation',
-					approvalId: $preauthorised['uuid']
-				)
-			);
-		}
-
-		$approvedUnconsumed = $this->approvalService->findApprovedUnconsumedToolCallApproval(correlationId: $correlationId);
-		if ($approvedUnconsumed !== null) {
-			$this->approvalService->markToolCallApprovalConsumed(approval: $approvedUnconsumed);
-			return $this->dispatchToFacade(
-				name: $name,
-				call: new FacadeCall(
-					arguments: $arguments,
-					outcomeOverride: 'invoked_after_approval',
-					approvalId: (string)$approvedUnconsumed->getUuid()
-				)
-			);
+		$authorised = $this->authorisedCall(approvals: $this->approvalService, toolId: $call->toolId, arguments: $arguments, correlationId: $correlationId);
+		if ($authorised !== null) {
+			return $this->dispatchToFacade(name: $name, call: $authorised);
 		}
 
 		$pending = $this->approvalService->findPendingApprovalForToolCall(correlationId: $correlationId);
@@ -977,6 +957,43 @@ class FacadeToolInvoker {
 		);
 
 	}//end handleConfirmClassifiedInvocation()
+
+	/**
+	 * The call to dispatch when a person already authorised it: under the run's
+	 * computer pre-authorisation, or under an approved, unconsumed approval of
+	 * this exact call (which is consumed here). Null when nothing authorises it.
+	 *
+	 * @param ApprovalService      $approvals     The approval store.
+	 * @param string               $toolId        The dotted tool id.
+	 * @param array<string, mixed> $arguments     The call's arguments.
+	 * @param string               $correlationId The call's approval correlation id.
+	 *
+	 * @return FacadeCall|null
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	private function authorisedCall(ApprovalService $approvals, string $toolId, array $arguments, string $correlationId): ?FacadeCall {
+		$preauthorised = $this->computerRunPreAuthorisation(toolId: $toolId, arguments: $arguments);
+		if ($preauthorised !== null) {
+			return new FacadeCall(
+				arguments: $arguments,
+				outcomeOverride: 'invoked_under_preauthorisation',
+				approvalId: $preauthorised['uuid']
+			);
+		}
+
+		$approvedUnconsumed = $approvals->findApprovedUnconsumedToolCallApproval(correlationId: $correlationId);
+		if ($approvedUnconsumed === null) {
+			return null;
+		}
+
+		$approvals->markToolCallApprovalConsumed(approval: $approvedUnconsumed);
+		return new FacadeCall(
+			arguments: $arguments,
+			outcomeOverride: 'invoked_after_approval',
+			approvalId: (string)$approvedUnconsumed->getUuid()
+		);
+	}//end authorisedCall()
 
 	/**
 	 * The reviewer's pre-authorisation of the actions on this call's machine for
@@ -1320,12 +1337,15 @@ class FacadeToolInvoker {
 	 * @return bool True when the tool receives the agent id.
 	 */
 	private function needsAgentId(string $toolId): bool {
-		return in_array($toolId, self::MEMORY_TOOL_IDS, true) === true
-			|| in_array($toolId, self::ARTEFACT_WRITE_TOOL_IDS, true) === true
-			|| in_array($toolId, self::INTEGRIQ_AGENT_TOOL_IDS, true) === true
-			|| $toolId === self::DELEGATE_AGENT_TOOL_ID
-			|| $toolId === self::DELEGATE_AGENTS_TOOL_ID
-			|| in_array($toolId, BrowserToolDescriptors::IDS, true) === true;
+		$agentTools = array_merge(
+			self::MEMORY_TOOL_IDS,
+			self::ARTEFACT_WRITE_TOOL_IDS,
+			self::INTEGRIQ_AGENT_TOOL_IDS,
+			[self::DELEGATE_AGENT_TOOL_ID, self::DELEGATE_AGENTS_TOOL_ID],
+			BrowserToolDescriptors::IDS
+		);
+
+		return in_array($toolId, $agentTools, true) === true;
 
 	}//end needsAgentId()
 
@@ -1493,7 +1513,7 @@ class FacadeToolInvoker {
 			arguments: $arguments,
 			result: $result,
 			approvalId: $approvalId,
-			redact: fn (string $text): string => ($this->redactionService?->redact($text) ?? '«redacted»')
+			redact: $this->redactText(...)
 		);
 		if ($computer !== []) {
 			return array_merge($this->resolveArtefactDescriptor(result: $result), $computer);
@@ -1517,6 +1537,20 @@ class FacadeToolInvoker {
 			return array_merge($artefact, CodeRunTrace::extra(arguments: $arguments, result: $result, redaction: $this->redactionService));
 		}
 
+		return $this->withWebResearchTarget(toolId: $toolId, arguments: $arguments, artefact: $artefact);
+	}//end traceExtraFor()
+
+	/**
+	 * The trace extra with a web-research tool's target added; unchanged for any other tool,
+	 * or when the target cannot be resolved.
+	 *
+	 * @param string               $toolId    The dotted tool id.
+	 * @param array<string, mixed> $arguments The call's arguments.
+	 * @param array<string, mixed> $artefact  The trace extra so far.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function withWebResearchTarget(string $toolId, array $arguments, array $artefact): array {
 		if (in_array($toolId, self::WEB_RESEARCH_TOOL_IDS, true) === false) {
 			return $artefact;
 		}
@@ -1527,7 +1561,20 @@ class FacadeToolInvoker {
 		}
 
 		return array_merge($artefact, ['target' => $target]);
-	}//end traceExtraFor()
+	}//end withWebResearchTarget()
+
+	/**
+	 * A computer action's typed text, redacted; a placeholder without a redaction service.
+	 *
+	 * @param string $text The typed text.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-the-run-records-actions-and-never-stores-screenshots-req-computer-004
+	 */
+	private function redactText(string $text): string {
+		return ($this->redactionService?->redact($text) ?? '«redacted»');
+	}//end redactText()
 
 	/**
 	 * Lift an `artefact` descriptor out of a tool result for the audit record.

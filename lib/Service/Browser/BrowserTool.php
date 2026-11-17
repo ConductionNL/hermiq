@@ -55,6 +55,18 @@ class BrowserTool {
 	public const SNAPSHOT_MAX_BYTES = 20480;
 
 	/**
+	 * The browser action of each tool id.
+	 *
+	 * @var array<string, string>
+	 */
+	private const ACTIONS = [
+		BrowserToolDescriptors::OPEN  => 'open',
+		BrowserToolDescriptors::READ  => 'read',
+		BrowserToolDescriptors::CLICK => 'click',
+		BrowserToolDescriptors::FILL  => 'fill',
+	];
+
+	/**
 	 * Constructor.
 	 *
 	 * @param BrowserClient          $client        The browser service.
@@ -82,20 +94,13 @@ class BrowserTool {
 	 * @spec openspec/changes/tools-browser-and-computer-use/specs/browser-use/spec.md#requirement-pages-reach-the-model-as-untrusted-content-req-browse-002
 	 */
 	public function invoke(string $uid, string $toolId, array $arguments): array {
-		$action = match ($toolId) {
-			BrowserToolDescriptors::OPEN => 'open',
-			BrowserToolDescriptors::READ => 'read',
-			BrowserToolDescriptors::CLICK => 'click',
-			BrowserToolDescriptors::FILL => 'fill',
-			default => null,
-		};
+		$action = (self::ACTIONS[$toolId] ?? null);
 		if ($action === null) {
 			return self::err(code: 'unknown_tool', message: "Unknown tool id '" . $toolId . "'.");
 		}
 
-		$agentId = trim((string)($arguments['agentId'] ?? ''));
-		$conversationId = trim((string)($arguments['conversationId'] ?? ''));
-		if ($agentId === '' || $conversationId === '') {
+		$context = self::conversationOf(arguments: $arguments);
+		if ($context === null) {
 			return self::err(code: 'no_conversation', message: 'The browser is available inside an agent conversation only.');
 		}
 
@@ -104,13 +109,32 @@ class BrowserTool {
 			return $own;
 		}
 
-		$page = $this->perform(action: $action, uid: $uid, agentId: $agentId, conversationId: $conversationId, arguments: $own);
+		$page = $this->perform(action: $action, uid: $uid, agentId: $context['agentId'], conversationId: $context['conversationId'], arguments: $own);
 		if (isset($page['error']) === true) {
 			return $page;
 		}
 
-		return $this->untrusted(page: $page['page'], organisation: $this->organisationOf(agentId: $agentId));
+		return $this->untrusted(page: $page['page'], organisation: $this->organisationOf(agentId: $context['agentId']));
 	}//end invoke()
+
+	/**
+	 * The agent and conversation the engine set on the arguments, or null when either is missing.
+	 *
+	 * @param array<string, mixed> $arguments The tool arguments.
+	 *
+	 * @return array{agentId: string, conversationId: string}|null
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/browser-use/spec.md#requirement-pages-reach-the-model-as-untrusted-content-req-browse-002
+	 */
+	private static function conversationOf(array $arguments): ?array {
+		$agentId = trim((string)($arguments['agentId'] ?? ''));
+		$conversationId = trim((string)($arguments['conversationId'] ?? ''));
+		if ($agentId === '' || $conversationId === '') {
+			return null;
+		}
+
+		return ['agentId' => $agentId, 'conversationId' => $conversationId];
+	}//end conversationOf()
 
 	/**
 	 * Run one browser action, turning each failure into the tool's error shape.
@@ -147,22 +171,46 @@ class BrowserTool {
 	 * @return array<string, mixed>
 	 */
 	private static function ownArguments(string $action, array $arguments): array {
-		$url = trim((string)($arguments['url'] ?? ''));
-		$ref = trim((string)($arguments['ref'] ?? ''));
-		$text = $arguments['text'] ?? null;
-
 		if ($action === 'open') {
-			if (preg_match('#^https?://#i', $url) !== 1) {
-				return self::err(code: 'invalid_argument', message: 'An http or https address is required.');
-			}
-
-			return ['url' => $url];
+			return self::openArguments(url: trim((string)($arguments['url'] ?? '')));
 		}
 
 		if ($action === 'read') {
 			return [];
 		}
 
+		return self::elementArguments(action: $action, arguments: $arguments);
+	}//end ownArguments()
+
+	/**
+	 * The arguments of `open`: an http or https address, or an error envelope.
+	 *
+	 * @param string $url The address the model gave.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use
+	 */
+	private static function openArguments(string $url): array {
+		if (preg_match('#^https?://#i', $url) !== 1) {
+			return self::err(code: 'invalid_argument', message: 'An http or https address is required.');
+		}
+
+		return ['url' => $url];
+	}//end openArguments()
+
+	/**
+	 * The arguments of `click` and `fill`: an element reference, and for `fill` the text, or an error envelope.
+	 *
+	 * @param string               $action    click or fill.
+	 * @param array<string, mixed> $arguments The tool arguments.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use
+	 */
+	private static function elementArguments(string $action, array $arguments): array {
+		$ref = trim((string)($arguments['ref'] ?? ''));
 		if ($ref === '') {
 			return self::err(code: 'invalid_argument', message: 'An element reference from the snapshot is required.');
 		}
@@ -171,12 +219,13 @@ class BrowserTool {
 			return ['ref' => $ref];
 		}
 
+		$text = ($arguments['text'] ?? null);
 		if (is_string($text) === false) {
 			return self::err(code: 'invalid_argument', message: 'The text to type is required.');
 		}
 
 		return ['ref' => $ref, 'text' => $text];
-	}//end ownArguments()
+	}//end elementArguments()
 
 	/**
 	 * The page as untrusted content, cut and filtered for the model.
