@@ -31,6 +31,8 @@ namespace OCA\Hermiq\Service\CodeSandbox;
 use InvalidArgumentException;
 use OCA\Hermiq\Mcp\CodeSandboxToolDescriptors;
 use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
+use OCA\Hermiq\Service\Workspace\WorkspaceException;
+use OCA\Hermiq\Service\Workspace\WorkspaceRunScope;
 use OCP\Files\File;
 use OCP\Files\IRootFolder;
 use Psr\Log\LoggerInterface;
@@ -73,6 +75,8 @@ class RunCodeTool {
 	 * @param CodeSandboxSettings $settings   Where code runs, for the reach.
 	 * @param IRootFolder         $rootFolder The acting user's Files.
 	 * @param LoggerInterface     $logger     Records failures, never code or output.
+	 * @param WorkspaceRunScope|null $scope    The verified run, for its workspace; null runs without one.
+	 * @param WorkspaceTransfer|null $transfer Copies the workspace into a run and writes back what it changed.
 	 *
 	 * @spec openspec/changes/tools-code-sandbox/tasks.md#task-3-the-runcode-tool-and-its-ai-feature-gate
 	 */
@@ -82,6 +86,8 @@ class RunCodeTool {
 		private readonly CodeSandboxSettings $settings,
 		private readonly IRootFolder $rootFolder,
 		private readonly LoggerInterface $logger,
+		private readonly ?WorkspaceRunScope $scope=null,
+		private readonly ?WorkspaceTransfer $transfer=null,
 	) {
 	}//end __construct()
 
@@ -117,9 +123,26 @@ class RunCodeTool {
 			return $files;
 		}
 
+		$workspace = $this->workspaceInput(arguments: $arguments, namedFiles: $files);
+		if (isset($workspace['error']) === true) {
+			return $workspace;
+		}
+
 		$reach = $this->settings->reach();
-		if ($files !== []) {
+		if ($files !== [] || $workspace !== []) {
 			$reach = CodeSandboxToolDescriptors::atLeastUser(reach: $reach);
+		}
+
+		if ($workspace !== []) {
+			return $this->dispatchOnWorkspace(
+				uid: $uid,
+				language: $language,
+				code: $code,
+				stdin: (string)($arguments['stdin'] ?? ''),
+				workspace: $workspace,
+				limits: ['wallSeconds' => ($arguments['timeoutSeconds'] ?? null), 'memoryMb' => ($arguments['memoryMb'] ?? null)],
+				reach: $reach
+			);
 		}
 
 		return $this->dispatch(
@@ -143,12 +166,22 @@ class RunCodeTool {
 	 * @param array<int, array{name: string, content: string}> $files    The input files.
 	 * @param array<string, mixed>                            $limits   The requested limits.
 	 * @param string                                          $reach    The resolved reach.
+	 * @param bool                                            $onWorkspace Whether the files are a workspace copy (relative paths).
 	 *
 	 * @return array<string, mixed>
 	 */
-	private function dispatch(string $uid, string $language, string $code, string $stdin, array $files, array $limits, string $reach): array {
+	private function dispatch(
+		string $uid,
+		string $language,
+		string $code,
+		string $stdin,
+		array $files,
+		array $limits,
+		string $reach,
+		bool $onWorkspace=false,
+	): array {
 		try {
-			$result = $this->client->run(language: $language, code: $code, stdin: $stdin, files: $files, limits: $limits, uid: $uid);
+			$result = $this->client->run(language: $language, code: $code, stdin: $stdin, files: $files, limits: $limits, uid: $uid, workspace: $onWorkspace);
 		} catch (CodeSandboxUnavailableException $e) {
 			return self::err(code: 'code_sandbox_unavailable', message: $e->getMessage());
 		} catch (InvalidArgumentException $e) {
@@ -160,6 +193,134 @@ class RunCodeTool {
 
 		return $result + ['language' => $language, 'reach' => $reach];
 	}//end dispatch()
+
+	/**
+	 * The workspace input of the run: its key and the packed files, an empty
+	 * list when the run goes without the workspace, or an error envelope.
+	 *
+	 * `useWorkspace` defaults to true when the run has an open workspace and
+	 * the call names no `files` of the acting user, so a call that only names
+	 * files runs as it did before workspaces existed. Asked for explicitly, a
+	 * missing workspace or a combination with `files` is refused.
+	 *
+	 * @param array<string, mixed>     $arguments  The call's arguments.
+	 * @param array<int|string, mixed> $namedFiles The acting user's files the call named.
+	 *
+	 * @return array<string, mixed> `{key, files}`, `[]`, or `['error' => ...]`.
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-sandbox-runs-work-on-the-workspace-and-write-back-what-they-change-req-wksp-002
+	 */
+	private function workspaceInput(array $arguments, array $namedFiles): array {
+		$asked = ($arguments['useWorkspace'] ?? null);
+		if ($asked === false || $asked === 'false' || $asked === 0) {
+			return [];
+		}
+
+		$explicit = ($asked === true || $asked === 'true' || $asked === 1);
+		if ($explicit === false && $namedFiles !== []) {
+			return [];
+		}
+
+		if ($explicit === true && $namedFiles !== []) {
+			return self::err(code: 'invalid_argument', message: 'Name files or run on the workspace, not both. Write the file into the workspace first.');
+		}
+
+		$paths = ($arguments['paths'] ?? []);
+		if (is_array($paths) === false || array_is_list($paths) === false) {
+			return self::err(code: 'invalid_argument', message: 'paths is a list of workspace paths.');
+		}
+
+		foreach ($paths as $path) {
+			if (is_string($path) === false || trim($path, '/') === '') {
+				return self::err(code: 'invalid_argument', message: 'Every path is a workspace path.');
+			}
+		}
+
+		$asksForIt = ($explicit === true || $paths !== []);
+		if ($this->scope === null || $this->transfer === null) {
+			return $this->noWorkspace(explicit: $asksForIt);
+		}
+
+		try {
+			$key = $this->scope->current()['workspaceKey'];
+			return ['key' => $key, 'files' => $this->transfer->pack(workspaceKey: $key, paths: $paths)];
+		} catch (WorkspaceException $e) {
+			$absent = in_array($e->getErrorCode(), [WorkspaceException::RUN_SCOPE_INVALID, WorkspaceException::WORKSPACE_ABSENT], true);
+			if ($absent === true) {
+				return $this->noWorkspace(explicit: $asksForIt);
+			}
+
+			return self::err(code: $e->getErrorCode(), message: $e->getMessage());
+		}
+	}//end workspaceInput()
+
+	/**
+	 * A run without a workspace: nothing to add, or a refusal when the call asked for one.
+	 *
+	 * @param bool $explicit Whether the call asked for the workspace (or named paths in it).
+	 *
+	 * @return array<string, mixed> `[]` or `['error' => ...]`.
+	 */
+	private function noWorkspace(bool $explicit): array {
+		if ($explicit === false) {
+			return [];
+		}
+
+		return self::err(code: WorkspaceException::WORKSPACE_ABSENT, message: 'This run has no workspace to run code on.');
+	}//end noWorkspace()
+
+	/**
+	 * Send a run over the workspace copy and write back what it created or changed.
+	 *
+	 * The answer carries what was written and refused instead of the run's
+	 * file contents, which are now in the workspace.
+	 *
+	 * @param string               $uid       The acting user.
+	 * @param string               $language  The language.
+	 * @param string               $code      The code.
+	 * @param string               $stdin     The input.
+	 * @param array<string, mixed> $workspace `{key, files}` from workspaceInput().
+	 * @param array<string, mixed> $limits    The requested limits.
+	 * @param string               $reach     The resolved reach.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#scenario-code-adds-a-column-to-a-file-in-the-workspace
+	 */
+	private function dispatchOnWorkspace(
+		string $uid,
+		string $language,
+		string $code,
+		string $stdin,
+		array $workspace,
+		array $limits,
+		string $reach,
+	): array {
+		$result = $this->dispatch(
+			uid: $uid,
+			language: $language,
+			code: $code,
+			stdin: $stdin,
+			files: $workspace['files'],
+			limits: $limits,
+			reach: $reach,
+			onWorkspace: true
+		);
+		if (isset($result['error']) === true || $this->transfer === null) {
+			return $result;
+		}
+
+		try {
+			$written = $this->transfer->writeBack(workspaceKey: (string)$workspace['key'], sent: $workspace['files'], returned: ($result['files'] ?? []));
+		} catch (WorkspaceException $e) {
+			return self::err(code: $e->getErrorCode(), message: 'The code ran, but nothing was written back: ' . $e->getMessage());
+		}
+
+		$result['files'] = [];
+		$result['workspace'] = $written;
+
+		return $result;
+	}//end dispatchOnWorkspace()
 
 	/**
 	 * The named files as run input, read as the acting user, or an error envelope.

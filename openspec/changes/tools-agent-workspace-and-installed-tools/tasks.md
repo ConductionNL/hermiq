@@ -20,9 +20,10 @@ Kind: code. Size L. Rows `hermiq:dm-agent-workspace`, `hermiq:dm-install-cli-too
 - **acceptance_criteria**:
   - GIVEN a run that changes one file WHEN it ends THEN only that file is written back, confined to the workspace
   - GIVEN a workspace over the input cap WHEN a run is asked THEN it is refused with the limit named
-- [ ] Implement
-- [ ] Test (PHPUnit with a stubbed sandbox, including a returned path that tries to leave the workspace)
+- [x] Implement
+- [x] Test (PHPUnit with a stubbed sandbox, including a returned path that tries to leave the workspace)
   > 2026-11-14, partly built: `WorkspaceTransfer` packs the workspace (or the named `paths`) into run files within the 10 MB input cap, refusing over it with the message from design D2, and writes back only the files a run created or changed, through `WorkspacePathGuard::forWrite()` and inside the workspace budget (a run over budget writes nothing); a returned path outside the workspace or into `.git` is refused and reported while the rest lands. Text travels as UTF-8, anything else as base64. PHPUnit `WorkspaceTransferTest` with the test playing the sandbox. Still open: `useWorkspace` on `hermiq.runCode` in `RunCodeTool`, which is not on development yet (tools-code-sandbox is in its own open build); both boxes stay unticked until that call site exists.
+  > 2026-11-17: `hermiq.runCode` takes `useWorkspace` and `paths` (`RunCodeTool::workspaceInput()`): inside a governed run with an open workspace it packs the workspace (or `paths`) through `WorkspaceTransfer`, sends it as a workspace run, writes back what the run created or changed and answers `workspace: {written, refused}` instead of the file contents. It defaults to the workspace only when the call names no files of the acting user, so those calls run as before; asked for explicitly without a workspace, or together with `files`, it is refused. The sandbox (`exapp/code-sandbox/src/run.js`) gains the workspace mode: relative paths in a `work` folder that is the working directory, the program kept beside it, and every created or changed file answered; a path leaving the folder or into `.git` is refused before anything runs. PHPUnit `RunCodeToolWorkspaceTest`, node tests in `exapp/code-sandbox/test/run.test.js`.
 
 ### Task 3: The Files panel and saving to Files
 - **spec_ref**: `openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-the-user-sees-the-workspace-and-can-keep-a-file-req-wksp-003`

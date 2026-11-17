@@ -118,6 +118,8 @@ class CodeSandboxClient {
 	 * @param array<int, array{name: string, content: string}> $files    Input files.
 	 * @param array<string, mixed>                       $limits   `wallSeconds` and `memoryMb`; clamped to the ceilings.
 	 * @param string|null                                $uid      The acting user, passed to AppAPI.
+	 * @param bool                                       $workspace Whether the files are a workspace copy: relative paths,
+	 *                                                              and the run answers the files it created or changed.
 	 *
 	 * @return array{exitCode: int, stdout: string, stderr: string, durationMs: int, timedOut: bool,
 	 *   files: array<int, mixed>, limits: array{wallSeconds: int, memoryMb: int}} The run result and the limits it ran under.
@@ -135,17 +137,20 @@ class CodeSandboxClient {
 		array $files=[],
 		array $limits=[],
 		?string $uid=null,
+		bool $workspace=false,
 	): array {
 		if (in_array($language, self::LANGUAGES, true) === false) {
 			throw new InvalidArgumentException('The sandbox runs python or node.');
 		}
 
 		$clamped = self::clampLimits(limits: $limits);
+		$payload = ['language' => $language, 'code' => $code, 'stdin' => $stdin, 'files' => array_values($files), 'limits' => $clamped];
+		if ($workspace === true) {
+			$payload['workspace'] = true;
+		}
+
 		if ($this->settings->backend() === CodeSandboxSettings::BACKEND_HOSTED) {
-			return $this->runHosted(
-				payload: ['language' => $language, 'code' => $code, 'stdin' => $stdin, 'files' => array_values($files), 'limits' => $clamped],
-				limits: $clamped
-			);
+			return $this->runHosted(payload: $payload, limits: $clamped);
 		}
 
 		$appApi = $this->appApi();
@@ -158,13 +163,7 @@ class CodeSandboxClient {
 			self::RUN_ROUTE,
 			$uid,
 			'POST',
-			[
-				'language' => $language,
-				'code' => $code,
-				'stdin' => $stdin,
-				'files' => array_values($files),
-				'limits' => $clamped,
-			],
+			$payload,
 			['timeout' => ($clamped['wallSeconds'] + self::TRANSPORT_SLACK_SECONDS)]
 		);
 
