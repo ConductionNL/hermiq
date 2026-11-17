@@ -241,4 +241,17 @@ class DepartmentControlControllerTest extends TestCase {
 	public function testEvidenceForAGroupThatIsNotADepartmentIsNotFound(): void {
 		$this->assertSame(Http::STATUS_NOT_FOUND, $this->controller(admin: true)->evidence(group: 'finance')->getStatus());
 	}//end testEvidenceForAGroupThatIsNotADepartmentIsNotFound()
+
+	/**
+	 * The evidence is a plain download link, so it carries no request token; the switch still needs one.
+	 *
+	 * @return void
+	 */
+	public function testOnlyTheEvidenceDownloadSkipsTheCsrfCheck(): void {
+		$evidence = (string)(new \ReflectionMethod(DepartmentControlController::class, 'evidence'))->getDocComment();
+		$toggle = (string)(new \ReflectionMethod(DepartmentControlController::class, 'toggle'))->getDocComment();
+		$this->assertStringContainsString('@NoCSRFRequired', $evidence);
+		$this->assertStringNotContainsString('@NoAdminRequired', $evidence);
+		$this->assertStringNotContainsString('@NoCSRFRequired', $toggle);
+	}//end testOnlyTheEvidenceDownloadSkipsTheCsrfCheck()
 }//end class

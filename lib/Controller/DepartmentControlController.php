@@ -133,6 +133,8 @@ class DepartmentControlController extends Controller {
 	 *
 	 * @auth admin-only The evidence file lists switch events and refused runs; administrators only.
 	 *
+	 * @NoCSRFRequired The file is opened by a plain download link, which carries no request token.
+	 *
 	 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
 	 */
 	public function evidence(string $group): JSONResponse {
