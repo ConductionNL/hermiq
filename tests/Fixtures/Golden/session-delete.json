@@ -180,6 +180,26 @@
             ],
             [
                 "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s0"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
                 "agentsessionturn"
             ],
             [
@@ -750,6 +770,50 @@
             ],
             [
                 "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s3"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f3",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f2",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f1",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
                 "agentsessionturn"
             ],
             [
@@ -900,6 +964,50 @@
             ],
             [
                 "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s3"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f3",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f2",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f1",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
                 "agentsessionturn"
             ],
             [
@@ -969,6 +1077,26 @@
                     "id": "s1",
                     "register": "hermiq",
                     "schema": "agentsession"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s1"
+                        },
+                        "limit": 1000
+                    }
                 }
             ],
             [
@@ -1053,6 +1181,50 @@
             ],
             [
                 "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s3"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f3",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f2",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f1",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
                 "agentsessionturn"
             ],
             [
@@ -1097,10 +1269,10 @@
     {
         "method": "destroyPermanent",
         "caller": "alice",
-        "status": 200,
+        "status": 500,
         "data": {
-            "message": "Conversation permanently deleted",
-            "uuid": "s0"
+            "error": "Failed to permanently delete conversation",
+            "message": "delete refused for f1"
         },
         "calls": [
             [
@@ -1117,15 +1289,15 @@
             ],
             [
                 "setSchema",
-                "agentsessionturn"
+                "feedback"
             ],
             [
                 "findAll",
-                "agentsessionturn",
+                "feedback",
                 {
                     "config": {
                         "filters": {
-                            "sessionId": "s0"
+                            "conversationId": "s0"
                         },
                         "limit": 1000
                     }
@@ -1134,18 +1306,19 @@
             [
                 "deleteObject",
                 {
-                    "uuid": "s0",
+                    "uuid": "f1",
                     "register": "hermiq",
-                    "schema": "agentsession"
+                    "schema": "feedback"
                 }
             ]
         ],
         "log": [
             [
-                "info",
-                "[SessionController] Conversation permanently deleted",
+                "error",
+                "[SessionController] Failed to permanently delete conversation",
                 {
-                    "uuid": "s0"
+                    "uuid": "s0",
+                    "error": "delete refused for f1"
                 }
             ]
         ]
@@ -1220,6 +1393,34 @@
                     "id": "s2",
                     "register": "hermiq",
                     "schema": "agentsession"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s2"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f1",
+                    "register": "hermiq",
+                    "schema": "feedback"
                 }
             ],
             [
@@ -1404,6 +1605,34 @@
             ],
             [
                 "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s2"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f3",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
                 "agentsessionturn"
             ],
             [
@@ -1518,6 +1747,34 @@
                     "id": "s1",
                     "register": "hermiq",
                     "schema": "agentsession"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s1"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f1",
+                    "register": "hermiq",
+                    "schema": "feedback"
                 }
             ],
             [
@@ -1833,6 +2090,42 @@
             ],
             [
                 "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s0"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f3",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f2",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
                 "agentsessionturn"
             ],
             [
@@ -1973,6 +2266,42 @@
             ],
             [
                 "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s3"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f2",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f1",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
                 "agentsessionturn"
             ],
             [
@@ -2029,6 +2358,34 @@
                     "id": "s0",
                     "register": "hermiq",
                     "schema": "agentsession"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s0"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f1",
+                    "register": "hermiq",
+                    "schema": "feedback"
                 }
             ],
             [
@@ -2500,6 +2857,26 @@
             ],
             [
                 "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s2"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
                 "agentsessionturn"
             ],
             [
@@ -2557,6 +2934,34 @@
                     "id": "s3",
                     "register": "hermiq",
                     "schema": "agentsession"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s3"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f1",
+                    "register": "hermiq",
+                    "schema": "feedback"
                 }
             ],
             [
@@ -2741,6 +3146,42 @@
                     "id": "s3",
                     "register": "hermiq",
                     "schema": "agentsession"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s3"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f3",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f1",
+                    "register": "hermiq",
+                    "schema": "feedback"
                 }
             ],
             [
@@ -3019,6 +3460,26 @@
             ],
             [
                 "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s2"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
                 "agentsessionturn"
             ],
             [
@@ -3203,6 +3664,42 @@
             ],
             [
                 "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s1"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f2",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f1",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
                 "agentsessionturn"
             ],
             [
@@ -3267,6 +3764,26 @@
             ],
             [
                 "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s2"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
                 "agentsessionturn"
             ],
             [
@@ -3323,6 +3840,34 @@
                     "id": "s3",
                     "register": "hermiq",
                     "schema": "agentsession"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s3"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f2",
+                    "register": "hermiq",
+                    "schema": "feedback"
                 }
             ],
             [
@@ -3928,6 +4473,26 @@
             ],
             [
                 "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s2"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
                 "agentsessionturn"
             ],
             [
@@ -4198,6 +4763,42 @@
             ],
             [
                 "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s0"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f3",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f2",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
                 "agentsessionturn"
             ],
             [
@@ -4420,6 +5021,26 @@
                     "id": "s1",
                     "register": "hermiq",
                     "schema": "agentsession"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s1"
+                        },
+                        "limit": 1000
+                    }
                 }
             ],
             [
@@ -4930,6 +5551,42 @@
             ],
             [
                 "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s1"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f2",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f1",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
                 "agentsessionturn"
             ],
             [
@@ -5158,6 +5815,34 @@
                     "id": "s3",
                     "register": "hermiq",
                     "schema": "agentsession"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s3"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f1",
+                    "register": "hermiq",
+                    "schema": "feedback"
                 }
             ],
             [
@@ -5710,6 +6395,42 @@
             ],
             [
                 "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s0"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f2",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f1",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
                 "agentsessionturn"
             ],
             [
@@ -5758,6 +6479,34 @@
                     "id": "s1",
                     "register": "hermiq",
                     "schema": "agentsession"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s1"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f1",
+                    "register": "hermiq",
+                    "schema": "feedback"
                 }
             ],
             [
@@ -5993,6 +6742,42 @@
             ],
             [
                 "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s0"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f2",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f1",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
                 "agentsessionturn"
             ],
             [
@@ -6189,6 +6974,34 @@
             ],
             [
                 "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s1"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f1",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
                 "agentsessionturn"
             ],
             [
@@ -6294,6 +7107,26 @@
                     "id": "s0",
                     "register": "hermiq",
                     "schema": "agentsession"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s0"
+                        },
+                        "limit": 1000
+                    }
                 }
             ],
             [
@@ -7034,6 +7867,34 @@
             ],
             [
                 "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s1"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f1",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
                 "agentsessionturn"
             ],
             [
@@ -7732,6 +8593,42 @@
             ],
             [
                 "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s0"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f2",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f1",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
                 "agentsessionturn"
             ],
             [
@@ -8038,6 +8935,34 @@
                     "id": "s3",
                     "register": "hermiq",
                     "schema": "agentsession"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s3"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f1",
+                    "register": "hermiq",
+                    "schema": "feedback"
                 }
             ],
             [
@@ -8411,6 +9336,50 @@
             ],
             [
                 "setSchema",
+                "feedback"
+            ],
+            [
+                "findAll",
+                "feedback",
+                {
+                    "config": {
+                        "filters": {
+                            "conversationId": "s1"
+                        },
+                        "limit": 1000
+                    }
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f3",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f2",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "deleteObject",
+                {
+                    "uuid": "f1",
+                    "register": "hermiq",
+                    "schema": "feedback"
+                }
+            ],
+            [
+                "setRegister",
+                "hermiq"
+            ],
+            [
+                "setSchema",
                 "agentsessionturn"
             ],
             [
@@ -8748,10 +9717,10 @@
     {
         "method": "destroyPermanent",
         "caller": "alice",
-        "status": 200,
+        "status": 500,
         "data": {
-            "message": "Conversation permanently deleted",
-            "uuid": "s3"
+            "error": "Failed to permanently delete conversation",
+            "message": "delete refused for f1"
         },
         "calls": [
             [
@@ -8768,15 +9737,15 @@
             ],
             [
                 "setSchema",
-                "agentsessionturn"
+                "feedback"
             ],
             [
                 "findAll",
-                "agentsessionturn",
+                "feedback",
                 {
                     "config": {
                         "filters": {
-                            "sessionId": "s3"
+                            "conversationId": "s3"
                         },
                         "limit": 1000
                     }
@@ -8785,18 +9754,19 @@
             [
                 "deleteObject",
                 {
-                    "uuid": "s3",
+                    "uuid": "f1",
                     "register": "hermiq",
-                    "schema": "agentsession"
+                    "schema": "feedback"
                 }
             ]
         ],
         "log": [
             [
-                "info",
-                "[SessionController] Conversation permanently deleted",
+                "error",
+                "[SessionController] Failed to permanently delete conversation",
                 {
-                    "uuid": "s3"
+                    "uuid": "s3",
+                    "error": "delete refused for f1"
                 }
             ]
         ]
