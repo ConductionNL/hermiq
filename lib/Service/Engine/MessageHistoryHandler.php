@@ -524,6 +524,7 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	 *                           size, origin), resolved as the speaker; never bytes or text.
 	 * @param array|null $provenance How an assistant answer came about: model, sources and step
 	 *                               outcomes, never content (chat-how-an-answer-came-about).
+	 * @param array|null $retrievalScope The scope an answer was given (memory-retrieval-scope), stored on the turn.
 	 *
 	 * @return ObjectEntity The persisted Message object.
 	 *
@@ -543,10 +544,11 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 		?string $authorDisplayName = null,
 		array $attachments = [],
 		?array $provenance = null,
+		?array $retrievalScope = null,
 	): ObjectEntity {
 		$payload = $this->messagePayload(
 			message: ['sessionId' => $conversationId, 'role' => $role, 'content' => $content],
-			extras: ['sources' => $sources, 'context' => $context, 'attachments' => $attachments, 'provenance' => $provenance]
+			extras: compact('sources', 'context', 'attachments', 'provenance', 'retrievalScope')
 		);
 		$payload = $this->withAuthorship(
 			payload: $payload,
@@ -559,10 +561,11 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	/**
 	 * The Message payload: the session, role and content, plus each optional
 	 * part that carries something. Empty sources or context are left out,
-	 * attachments are re-indexed, provenance is kept whenever it is given.
+	 * attachments are re-indexed, provenance and the retrieval scope are kept
+	 * whenever they are given.
 	 *
 	 * @param array{sessionId: string, role: string, content: string} $message The session id, role and content.
-	 * @param array{sources: ?array, context: ?array, attachments: array, provenance: ?array} $extras The optional parts.
+	 * @param array{sources: ?array, context: ?array, attachments: array, provenance: ?array, retrievalScope: ?array} $extras The optional parts.
 	 *
 	 * @return array<string, mixed> The payload.
 	 */
@@ -583,6 +586,11 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 
 		if ($extras['provenance'] !== null) {
 			$payload['provenance'] = $extras['provenance'];
+		}
+
+		// Memory-retrieval-scope D5: the scope the answer was given.
+		if ($extras['retrievalScope'] !== null) {
+			$payload['retrievalScope'] = $extras['retrievalScope'];
 		}
 
 		return $payload;
