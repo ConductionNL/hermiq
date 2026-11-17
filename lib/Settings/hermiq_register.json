@@ -2193,29 +2193,35 @@
 							"properties": {
 								"type": {
 									"type": "string",
-									"title": "Type"
+									"title": "Type",
+									"description": "The kind of entity linked: file for a Nextcloud file, object for an OpenRegister object, or a kind added later."
 								},
 								"id": {
 									"type": "string",
-									"title": "Id"
+									"title": "Id",
+									"description": "The id of the linked entity: the file id for a file, the object uuid for an OpenRegister object."
 								},
 								"schema": {
 									"type": "string",
-									"title": "Schema"
+									"title": "Schema",
+									"description": "For an OpenRegister object, the schema it belongs to; left out for a file."
 								},
 								"label": {
 									"type": "string",
-									"title": "Label"
+									"title": "Label",
+									"description": "The display name the sender saw when the link was made; never a path."
 								},
 								"linkedAt": {
 									"type": "string",
 									"format": "date-time",
-									"title": "Linked at"
+									"title": "Linked at",
+									"description": "When the entity was first linked to this session."
 								},
 								"lastUsedAt": {
 									"type": "string",
 									"format": "date-time",
-									"title": "Last used at"
+									"title": "Last used at",
+									"description": "When a turn was last sent from a page carrying this entity."
 								}
 							},
 							"required": [
