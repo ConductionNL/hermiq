@@ -27,6 +27,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 use Exception;
 use OCA\Hermiq\Service\Engine\ContextRetrievalHandler;
 use OCA\Hermiq\Service\Graph\GraphContextRetriever;
+use OCA\Hermiq\Service\KnowledgeBase\KnowledgeBaseRetrieval;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
@@ -132,6 +133,37 @@ class ContextRetrievalHandlerTest extends TestCase {
 	}//end testKeywordModeSearchesAndFormatsSources()
 
 	/**
+	 * An agent's knowledge base rows, searched as the speaker, come first among the sources.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-knowledge-bases/specs/knowledge-bases/spec.md#requirement-an-agent-answers-from-its-attached-knowledge-bases-req-kb-002
+	 */
+	public function testKnowledgeBaseRowsComeFirstAmongTheSources(): void {
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('searchObjectsPaginated')->willReturn(
+			['results' => [['id' => 'obj-1', 'name' => 'Leave policy', '_score' => 0.9]], 'total' => 1]
+		);
+		$knowledgeBases = $this->createMock(KnowledgeBaseRetrieval::class);
+		$knowledgeBases->expects($this->once())->method('rows')
+			->with($this->callback(static fn (array $agent): bool => $agent['knowledgeBaseRefs'] === ['kb-1']), 'betalingstermijn', 'bert', 5)
+			->willReturn(
+				[['entity_type' => 'file', 'entity_id' => 7, 'chunk_text' => 'Betaling binnen 30 dagen', 'metadata' => ['file_id' => 7, 'file_name' => 'inkoopvoorwaarden-2026.pdf']]]
+			);
+
+		$handler = new ContextRetrievalHandler($objectService, new NullLogger(), knowledgeBases: $knowledgeBases);
+		$context = $handler->retrieveContext(
+			query: 'betalingstermijn',
+			agent: $this->agent(['ragSearchMode' => 'keyword', 'ragNumSources' => 5, 'knowledgeBaseRefs' => ['kb-1']]),
+			speaker: 'bert'
+		);
+
+		$this->assertSame(['file', 'object'], array_column($context['sources'], 'type'));
+		$this->assertStringContainsString('Betaling binnen 30 dagen', $context['text']);
+
+	}//end testKnowledgeBaseRowsComeFirstAmongTheSources()
+
+	/**
 	 * semantic/hybrid modes DEGRADE to the keyword path with an info log — no
 	 * crash, no OR-internal vector construction (the ground-truth adaptation).
 	 *
@@ -162,7 +194,14 @@ class ContextRetrievalHandlerTest extends TestCase {
 		);
 
 		$this->assertTrue($degradeLogged, 'The semantic→keyword degrade must be logged');
-		$this->assertSame(['text' => '', 'sources' => []], $context);
+		$this->assertSame(
+			[
+				'text' => '',
+				'sources' => [],
+				'retrievalScope' => ['fileFilters' => null, 'validated' => false, 'floor' => null, 'passed' => 0, 'bestSimilarity' => null, 'abstained' => false],
+			],
+			$context
+		);
 
 	}//end testSemanticModeDegradesToKeywordWithLogNote()
 
@@ -245,7 +284,14 @@ class ContextRetrievalHandlerTest extends TestCase {
 		$handler = new ContextRetrievalHandler($objectService, new NullLogger());
 		$context = $handler->retrieveContext(query: 'anything', agent: null);
 
-		$this->assertSame(['text' => '', 'sources' => []], $context);
+		$this->assertSame(
+			[
+				'text' => '',
+				'sources' => [],
+				'retrievalScope' => ['fileFilters' => null, 'validated' => false, 'floor' => null, 'passed' => 0, 'bestSimilarity' => null, 'abstained' => false],
+			],
+			$context
+		);
 
 	}//end testSearchFailureYieldsEmptyContext()
 

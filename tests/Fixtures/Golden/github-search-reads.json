@@ -147,7 +147,7 @@
             ],
             [
                 "anonymousGet",
-                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.md",
+                "https:\/\/api.github.com\/repos\/beta\/tool\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -168,9 +168,60 @@
                         "User-Agent": "Hermiq-Agent-Template-Store"
                     }
                 }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
             ]
         ],
         "log": [
+            [
+                "debug",
+                "Hermiq GitHub template catalog: broker call not admitted, falling back to anonymous.",
+                []
+            ],
+            [
+                "debug",
+                "Hermiq GitHub template catalog: broker call not admitted, falling back to anonymous.",
+                []
+            ],
+            [
+                "debug",
+                "Hermiq GitHub template catalog: broker call not admitted, falling back to anonymous.",
+                []
+            ],
             [
                 "debug",
                 "Hermiq GitHub template catalog: broker call not admitted, falling back to anonymous.",
@@ -240,9 +291,26 @@
                         "User-Agent": "Hermiq-Agent-Template-Store"
                     }
                 }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/beta\/tool\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
             ]
         ],
         "log": [
+            [
+                "debug",
+                "Hermiq GitHub template catalog: broker call not admitted, falling back to anonymous.",
+                []
+            ],
             [
                 "debug",
                 "Hermiq GitHub template catalog: broker call not admitted, falling back to anonymous.",
@@ -2813,6 +2881,22 @@
                 },
                 null,
                 "alice"
+            ],
+            [
+                "container",
+                "OCA\\OpenRegister\\Service\\Credential\\CredentialBrokerService"
+            ],
+            [
+                "brokerRequest",
+                "cred-1",
+                "hermiq",
+                "GET",
+                "\/repos\/beta\/tool\/contents\/hermiq-skill.json",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                "alice"
             ]
         ],
         "log": [
@@ -2991,6 +3075,18 @@
             [
                 "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.md?ref=main",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json?ref=main",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -6502,6 +6598,18 @@
                         "User-Agent": "Hermiq-Agent-Template-Store"
                     }
                 }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json?ref=main",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
             ]
         ],
         "log": []
@@ -6842,7 +6950,39 @@
                 "cred-1",
                 "hermiq",
                 "GET",
+                "\/repos\/acme\/demo\/contents\/hermiq-skill.json",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                null
+            ],
+            [
+                "container",
+                "OCA\\OpenRegister\\Service\\Credential\\CredentialBrokerService"
+            ],
+            [
+                "brokerRequest",
+                "cred-1",
+                "hermiq",
+                "GET",
                 "\/repos\/acme\/demo\/contents\/hermiq-skill.md",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                null
+            ],
+            [
+                "container",
+                "OCA\\OpenRegister\\Service\\Credential\\CredentialBrokerService"
+            ],
+            [
+                "brokerRequest",
+                "cred-1",
+                "hermiq",
+                "GET",
+                "\/repos\/acme\/demo\/contents\/hermiq-skill.json",
                 {
                     "Accept": "application\/vnd.github+json"
                 },
@@ -8490,9 +8630,42 @@
                         "User-Agent": "Hermiq-Agent-Template-Store"
                     }
                 }
+            ],
+            [
+                "container",
+                "OCA\\OpenRegister\\Service\\Credential\\CredentialBrokerService"
+            ],
+            [
+                "brokerRequest",
+                "cred-1",
+                "hermiq",
+                "GET",
+                "\/repos\/acme\/demo\/contents\/hermiq-skill.json",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                null
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
             ]
         ],
         "log": [
+            [
+                "debug",
+                "Hermiq GitHub template catalog: broker call not admitted, falling back to anonymous.",
+                []
+            ],
             [
                 "debug",
                 "Hermiq GitHub template catalog: broker call not admitted, falling back to anonymous.",
@@ -8539,6 +8712,22 @@
                 "hermiq",
                 "GET",
                 "\/repos\/acme\/demo\/contents\/hermiq-skill.md?ref=v1.2",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                "alice"
+            ],
+            [
+                "container",
+                "OCA\\OpenRegister\\Service\\Credential\\CredentialBrokerService"
+            ],
+            [
+                "brokerRequest",
+                "cred-1",
+                "hermiq",
+                "GET",
+                "\/repos\/acme\/demo\/contents\/hermiq-skill.json?ref=v1.2",
                 {
                     "Accept": "application\/vnd.github+json"
                 },
@@ -9630,12 +9819,35 @@
                 },
                 null,
                 "alice"
+            ],
+            [
+                "container",
+                "OCA\\OpenRegister\\Service\\Credential\\CredentialBrokerService"
+            ],
+            [
+                "brokerRequest",
+                "cred-1",
+                "hermiq",
+                "GET",
+                "\/repos\/acme\/demo\/contents\/hermiq-skill.json",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                "alice"
             ]
         ],
         "log": [
             [
                 "warning",
                 "Hermiq GitHub template catalog: rate-limited fetching \/repos\/acme\/demo\/contents\/hermiq-skill.md \u2014 result will read as \"file absent\", not \"fetch failed\".",
+                {
+                    "status": 403
+                }
+            ],
+            [
+                "warning",
+                "Hermiq GitHub template catalog: rate-limited fetching \/repos\/acme\/demo\/contents\/hermiq-skill.json \u2014 result will read as \"file absent\", not \"fetch failed\".",
                 {
                     "status": 403
                 }
@@ -9656,6 +9868,18 @@
             [
                 "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.md?ref=v1.2",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json?ref=v1.2",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -9946,6 +10170,18 @@
                         "User-Agent": "Hermiq-Agent-Template-Store"
                     }
                 }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
             ]
         ],
         "log": []
@@ -10002,6 +10238,18 @@
             [
                 "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -10928,6 +11176,18 @@
                         "User-Agent": "Hermiq-Agent-Template-Store"
                     }
                 }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json?ref=main",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
             ]
         ],
         "log": [
@@ -11067,6 +11327,34 @@
                 "cred-1",
                 "hermiq",
                 "GET",
+                "\/repos\/acme\/demo\/contents\/hermiq-skill.json",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                null
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "container",
+                "OCA\\OpenRegister\\Service\\Credential\\CredentialBrokerService"
+            ],
+            [
+                "brokerRequest",
+                "cred-1",
+                "hermiq",
+                "GET",
                 "\/repos\/acme\/demo\/git\/trees\/HEAD?recursive=1",
                 {
                     "Accept": "application\/vnd.github+json"
@@ -11088,6 +11376,11 @@
             ]
         ],
         "log": [
+            [
+                "debug",
+                "Hermiq GitHub template catalog: broker call not admitted, falling back to anonymous.",
+                []
+            ],
             [
                 "debug",
                 "Hermiq GitHub template catalog: broker call not admitted, falling back to anonymous.",
@@ -11250,6 +11543,18 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json?ref=main",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/demo\/git\/trees\/main?recursive=1",
                 {
                     "timeout": 10,
@@ -11379,6 +11684,18 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json?ref=main",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/demo\/git\/trees\/main?recursive=1",
                 {
                     "timeout": 10,
@@ -11489,6 +11806,18 @@
                         "User-Agent": "Hermiq-Agent-Template-Store"
                     }
                 }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json?ref=main",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
             ]
         ],
         "log": []
@@ -11507,6 +11836,18 @@
             [
                 "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.md?ref=main",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json?ref=main",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -11541,6 +11882,11 @@
                 {
                     "status": 403
                 }
+            ],
+            [
+                "debug",
+                "Hermiq GitHub template catalog: broker call not admitted, falling back to anonymous.",
+                []
             ],
             [
                 "debug",
@@ -11867,6 +12213,18 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json?ref=main",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/demo\/git\/trees\/main?recursive=1",
                 {
                     "timeout": 10,
@@ -12020,6 +12378,34 @@
             [
                 "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.md?ref=main",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "container",
+                "OCA\\OpenRegister\\Service\\Credential\\CredentialBrokerService"
+            ],
+            [
+                "brokerRequest",
+                "cred-1",
+                "hermiq",
+                "GET",
+                "\/repos\/acme\/demo\/contents\/hermiq-skill.json?ref=main",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                null
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json?ref=main",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -12210,6 +12596,11 @@
                 {
                     "status": 403
                 }
+            ],
+            [
+                "debug",
+                "Hermiq GitHub template catalog: broker call not admitted, falling back to anonymous.",
+                []
             ],
             [
                 "debug",
@@ -12780,6 +13171,18 @@
             [
                 "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -13757,6 +14160,22 @@
                 },
                 null,
                 null
+            ],
+            [
+                "container",
+                "OCA\\OpenRegister\\Service\\Credential\\CredentialBrokerService"
+            ],
+            [
+                "brokerRequest",
+                "cred-1",
+                "hermiq",
+                "GET",
+                "\/repos\/beta\/tool\/contents\/hermiq-skill.json",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                null
             ]
         ],
         "log": [
@@ -14058,6 +14477,18 @@
                         "User-Agent": "Hermiq-Agent-Template-Store"
                     }
                 }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json?ref=main",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
             ]
         ],
         "log": []
@@ -14244,6 +14675,22 @@
                 },
                 null,
                 null
+            ],
+            [
+                "container",
+                "OCA\\OpenRegister\\Service\\Credential\\CredentialBrokerService"
+            ],
+            [
+                "brokerRequest",
+                "cred-1",
+                "hermiq",
+                "GET",
+                "\/repos\/acme\/demo\/contents\/hermiq-skill.json",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                null
             ]
         ],
         "log": []
@@ -14393,6 +14840,18 @@
             [
                 "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.md?ref=main",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json?ref=main",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -16171,6 +16630,18 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/demo\/git\/trees\/HEAD?recursive=1",
                 {
                     "timeout": 10,
@@ -16245,6 +16716,18 @@
             [
                 "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -17608,6 +18091,18 @@
                         "User-Agent": "Hermiq-Agent-Template-Store"
                     }
                 }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json?ref=main",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
             ]
         ],
         "log": []
@@ -17894,7 +18389,31 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo0\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/repo1\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo1\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -17918,7 +18437,31 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo2\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/repo3\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo3\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -17942,7 +18485,31 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo4\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/repo5\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo5\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -17966,7 +18533,31 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo6\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/repo7\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo7\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -17990,7 +18581,31 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo8\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/repo9\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo9\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -18014,7 +18629,31 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo10\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/repo11\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo11\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -18038,7 +18677,31 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo12\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/repo13\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo13\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -18062,7 +18725,31 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo14\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/repo15\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo15\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -18086,7 +18773,31 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo16\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/repo17\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo17\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -18110,7 +18821,31 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo18\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/repo19\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo19\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -18134,7 +18869,31 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo20\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/repo21\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo21\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -18158,7 +18917,31 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo22\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/repo23\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo23\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -18182,7 +18965,31 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo24\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/repo25\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo25\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -18206,7 +19013,31 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo26\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/repo27\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo27\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -18230,7 +19061,31 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo28\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/repo29\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/repo29\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -19000,6 +19855,22 @@
                 "cred-1",
                 "hermiq",
                 "GET",
+                "\/repos\/acme\/demo\/contents\/hermiq-skill.json?ref=main",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                null
+            ],
+            [
+                "container",
+                "OCA\\OpenRegister\\Service\\Credential\\CredentialBrokerService"
+            ],
+            [
+                "brokerRequest",
+                "cred-1",
+                "hermiq",
+                "GET",
                 "\/repos\/acme\/demo\/git\/trees\/main?recursive=1",
                 {
                     "Accept": "application\/vnd.github+json"
@@ -19085,6 +19956,18 @@
             [
                 "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -19245,6 +20128,18 @@
             [
                 "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.md?ref=main",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json?ref=main",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -19719,6 +20614,18 @@
                         "User-Agent": "Hermiq-Agent-Template-Store"
                     }
                 }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json?ref=main",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
             ]
         ],
         "log": []
@@ -19793,6 +20700,18 @@
             [
                 "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -20398,6 +21317,22 @@
                 },
                 null,
                 null
+            ],
+            [
+                "container",
+                "OCA\\OpenRegister\\Service\\Credential\\CredentialBrokerService"
+            ],
+            [
+                "brokerRequest",
+                "cred-1",
+                "hermiq",
+                "GET",
+                "\/repos\/acme\/demo\/contents\/hermiq-skill.json",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                null
             ]
         ],
         "log": []
@@ -20438,6 +21373,22 @@
                 "cred-1",
                 "hermiq",
                 "GET",
+                "\/repos\/acme\/demo\/contents\/hermiq-skill.json",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                null
+            ],
+            [
+                "container",
+                "OCA\\OpenRegister\\Service\\Credential\\CredentialBrokerService"
+            ],
+            [
+                "brokerRequest",
+                "cred-1",
+                "hermiq",
+                "GET",
                 "\/repos\/acme\/demo\/git\/trees\/HEAD?recursive=1",
                 {
                     "Accept": "application\/vnd.github+json"
@@ -20450,6 +21401,13 @@
             [
                 "warning",
                 "Hermiq GitHub template catalog: rate-limited fetching \/repos\/acme\/demo\/contents\/hermiq-skill.md \u2014 result will read as \"file absent\", not \"fetch failed\".",
+                {
+                    "status": 403
+                }
+            ],
+            [
+                "warning",
+                "Hermiq GitHub template catalog: rate-limited fetching \/repos\/acme\/demo\/contents\/hermiq-skill.json \u2014 result will read as \"file absent\", not \"fetch failed\".",
                 {
                     "status": 403
                 }
@@ -21626,6 +22584,18 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/demo\/git\/trees\/HEAD?recursive=1",
                 {
                     "timeout": 10,
@@ -22381,7 +23351,31 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -24334,6 +25328,18 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/demo\/git\/trees\/HEAD?recursive=1",
                 {
                     "timeout": 10,
@@ -24863,6 +25869,18 @@
             ],
             [
                 "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/demo\/git\/trees\/HEAD?recursive=1",
                 {
                     "timeout": 10,
@@ -25062,6 +26080,18 @@
             [
                 "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,
@@ -27253,6 +28283,22 @@
                 "cred-1",
                 "hermiq",
                 "GET",
+                "\/repos\/acme\/demo\/contents\/hermiq-skill.json",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                null
+            ],
+            [
+                "container",
+                "OCA\\OpenRegister\\Service\\Credential\\CredentialBrokerService"
+            ],
+            [
+                "brokerRequest",
+                "cred-1",
+                "hermiq",
+                "GET",
                 "\/repos\/acme\/demo\/git\/trees\/HEAD?recursive=1",
                 {
                     "Accept": "application\/vnd.github+json"
@@ -28608,6 +29654,22 @@
                 "cred-1",
                 "hermiq",
                 "GET",
+                "\/repos\/acme\/demo\/contents\/hermiq-skill.json?ref=v1.2",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                "alice"
+            ],
+            [
+                "container",
+                "OCA\\OpenRegister\\Service\\Credential\\CredentialBrokerService"
+            ],
+            [
+                "brokerRequest",
+                "cred-1",
+                "hermiq",
+                "GET",
                 "\/repos\/acme\/demo\/git\/trees\/v1.2?recursive=1",
                 {
                     "Accept": "application\/vnd.github+json"
@@ -28620,6 +29682,13 @@
             [
                 "warning",
                 "Hermiq GitHub template catalog: rate-limited fetching \/repos\/acme\/demo\/contents\/hermiq-skill.md?ref=v1.2 \u2014 result will read as \"file absent\", not \"fetch failed\".",
+                {
+                    "status": 403
+                }
+            ],
+            [
+                "warning",
+                "Hermiq GitHub template catalog: rate-limited fetching \/repos\/acme\/demo\/contents\/hermiq-skill.json?ref=v1.2 \u2014 result will read as \"file absent\", not \"fetch failed\".",
                 {
                     "status": 403
                 }
@@ -29017,6 +30086,22 @@
                 "hermiq",
                 "GET",
                 "\/repos\/acme\/demo\/contents\/hermiq-skill.md",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                null
+            ],
+            [
+                "container",
+                "OCA\\OpenRegister\\Service\\Credential\\CredentialBrokerService"
+            ],
+            [
+                "brokerRequest",
+                "cred-1",
+                "hermiq",
+                "GET",
+                "\/repos\/acme\/demo\/contents\/hermiq-skill.json",
                 {
                     "Accept": "application\/vnd.github+json"
                 },
@@ -30380,6 +31465,18 @@
                         "User-Agent": "Hermiq-Agent-Template-Store"
                     }
                 }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
             ]
         ],
         "log": [
@@ -31273,6 +32370,34 @@
                 "cred-1",
                 "hermiq",
                 "GET",
+                "\/repos\/acme\/demo\/contents\/hermiq-skill.json?ref=main",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                null
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json?ref=main",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "container",
+                "OCA\\OpenRegister\\Service\\Credential\\CredentialBrokerService"
+            ],
+            [
+                "brokerRequest",
+                "cred-1",
+                "hermiq",
+                "GET",
                 "\/repos\/acme\/demo\/git\/trees\/main?recursive=1",
                 {
                     "Accept": "application\/vnd.github+json"
@@ -31437,6 +32562,11 @@
                 []
             ],
             [
+                "debug",
+                "Hermiq GitHub template catalog: broker call not admitted, falling back to anonymous.",
+                []
+            ],
+            [
                 "warning",
                 "Hermiq GitHub template catalog: rate-limited fetching \/repos\/acme\/demo\/contents\/README.md?ref=main \u2014 result will read as \"file absent\", not \"fetch failed\".",
                 {
@@ -31466,6 +32596,22 @@
                 "hermiq",
                 "GET",
                 "\/repos\/acme\/demo\/contents\/hermiq-skill.md",
+                {
+                    "Accept": "application\/vnd.github+json"
+                },
+                null,
+                null
+            ],
+            [
+                "container",
+                "OCA\\OpenRegister\\Service\\Credential\\CredentialBrokerService"
+            ],
+            [
+                "brokerRequest",
+                "cred-1",
+                "hermiq",
+                "GET",
+                "\/repos\/acme\/demo\/contents\/hermiq-skill.json",
                 {
                     "Accept": "application\/vnd.github+json"
                 },
@@ -32275,6 +33421,18 @@
             [
                 "anonymousGet",
                 "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.md",
+                {
+                    "timeout": 10,
+                    "connect_timeout": 10,
+                    "headers": {
+                        "Accept": "application\/vnd.github+json",
+                        "User-Agent": "Hermiq-Agent-Template-Store"
+                    }
+                }
+            ],
+            [
+                "anonymousGet",
+                "https:\/\/api.github.com\/repos\/acme\/demo\/contents\/hermiq-skill.json",
                 {
                     "timeout": 10,
                     "connect_timeout": 10,

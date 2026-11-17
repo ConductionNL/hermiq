@@ -57,9 +57,13 @@ use OCA\Hermiq\Kernel\Contracts\FlowAgentRunServiceInterface;
 use OCA\Hermiq\Service\AgentRun\AgentRunOutcome;
 use OCA\Hermiq\Service\AgentRun\FlowRunInput;
 use OCA\Hermiq\Service\AgentRun\ResultFieldWrite;
+use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Service\ObjectService;
@@ -98,6 +102,7 @@ class FlowAgentRunService implements FlowAgentRunServiceInterface {
 	 * @param SkillVersionService $skillVersionService Resolves the exposed skills' version identifiers,
 	 *                                                 pinned onto the run-audit context
 	 *                                                 (skill-self-improvement) — never fatal to the run.
+	 * @param TraceExportQueue|null $traceExportQueue Hands the finished run to trace export (observability-export-traces).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
 	 *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -113,6 +118,7 @@ class FlowAgentRunService implements FlowAgentRunServiceInterface {
 		private readonly BudgetService $budgetService,
 		private readonly AgentVersionService $agentVersionService,
 		private readonly SkillVersionService $skillVersionService,
+		private readonly ?TraceExportQueue $traceExportQueue = null,
 	) {
 	}//end __construct()
 
@@ -238,8 +244,7 @@ class FlowAgentRunService implements FlowAgentRunServiceInterface {
 
 		$object = $this->objectService->find(
 			id: $subjectUuid,
-			register: $subjectRegister,
-			schema: $subjectSchema,
+			options: new ObjectFindOptions(register: $subjectRegister, schema: $subjectSchema),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -447,8 +452,7 @@ class FlowAgentRunService implements FlowAgentRunServiceInterface {
 		$subjectSchema = $write->subjectSchema;
 		$fresh = $this->objectService->find(
 			id: $subjectUuid,
-			register: $subjectRegister,
-			schema: $subjectSchema,
+			options: new ObjectFindOptions(register: $subjectRegister, schema: $subjectSchema),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -465,9 +469,10 @@ class FlowAgentRunService implements FlowAgentRunServiceInterface {
 
 		$this->objectService->saveObject(
 			object: $data,
-			register: $subjectRegister,
-			schema: $subjectSchema,
-			uuid: $subjectUuid,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: $subjectRegister, schema: $subjectSchema),
+				uuid: $subjectUuid
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -521,6 +526,7 @@ class FlowAgentRunService implements FlowAgentRunServiceInterface {
 					context: $context
 				)
 			);
+			$this->traceExportQueue?->enqueueRun(context: $context, trigger: 'flow');
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				sprintf(

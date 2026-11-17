@@ -28,6 +28,8 @@ use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for the AI-feature register: listing, DPO acknowledgement, publication and lifecycle.
@@ -108,7 +110,11 @@ class AiFeatureServiceTest extends TestCase {
 	 */
 	private function recordSaves(?\Throwable $throw = null): void {
 		$this->objects->method('saveObject')->willReturnCallback(
-			function (array|ObjectEntity $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null) use ($throw): ObjectEntity {
+			function (array|ObjectEntity $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use ($throw): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				if ($throw !== null) {
 					throw $throw;
 				}
@@ -142,7 +148,13 @@ class AiFeatureServiceTest extends TestCase {
 		$entity = $this->feature([]);
 		$this->objects->expects($this->once())
 			->method('find')
-			->with('feat-1', [], false, 'hermiq', 'agentaifeature')
+			->with(...LegacyObjectArgs::with(method: 'find', expected: [
+					'id' => 'feat-1',
+					'_extend' => [],
+					'files' => false,
+					'register' => 'hermiq',
+					'schema' => 'agentaifeature',
+				]))
 			->willReturn($entity);
 
 		$this->assertNull($this->service()->getFeature(''));

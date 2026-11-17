@@ -24,6 +24,7 @@ use OCA\Hermiq\Service\OrganisationControlService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Tests for finding and toggling a tenant's control object.
@@ -101,8 +102,8 @@ class OrganisationControlServiceTest extends TestCase {
 		$saved = $this->control('org-b', 'u-b');
 		$service->expects($this->once())
 			->method('saveObject')
-			->with(
-				$this->callback(
+			->with(...LegacyObjectArgs::with(method: 'saveObject', expected: [
+					'object' => $this->callback(
 					function (array $data): bool {
 						$this->assertSame('keep', $data['note']);
 						$this->assertTrue($data['engaged']);
@@ -113,13 +114,13 @@ class OrganisationControlServiceTest extends TestCase {
 						return true;
 					}
 				),
-				[],
-				'hermiq',
-				'tenantcontrol',
-				'u-b',
-				false,
-				false
-			)
+					'extend' => [],
+					'register' => 'hermiq',
+					'schema' => 'tenantcontrol',
+					'uuid' => 'u-b',
+					'_rbac' => false,
+					'_multitenancy' => false,
+				]))
 			->willReturn($saved);
 
 		$result = (new OrganisationControlService(objectService: $service))->toggle('org-b', true, 'incident', 'admin');
@@ -136,8 +137,8 @@ class OrganisationControlServiceTest extends TestCase {
 		$service = $this->objects([]);
 		$service->expects($this->exactly(2))
 			->method('saveObject')
-			->with(
-				$this->callback(
+			->with(...LegacyObjectArgs::with(method: 'saveObject', expected: [
+					'object' => $this->callback(
 					function (array $data): bool {
 						$this->assertFalse($data['engaged']);
 						$this->assertNull($data['reason']);
@@ -145,11 +146,11 @@ class OrganisationControlServiceTest extends TestCase {
 						return true;
 					}
 				),
-				[],
-				'hermiq',
-				'tenantcontrol',
-				null
-			)
+					'extend' => [],
+					'register' => 'hermiq',
+					'schema' => 'tenantcontrol',
+					'uuid' => null,
+				]))
 			->willReturn($this->control('org-new', 'u-new'));
 		$control = new OrganisationControlService(objectService: $service);
 

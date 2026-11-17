@@ -65,6 +65,9 @@ use OCA\Hermiq\Service\Eval\L5EvidenceContext;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\BackgroundJob\IJobList;
@@ -1046,8 +1049,7 @@ class EvalRunService implements EvalRunServiceInterface {
 		try {
 			$agentObject = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -1504,8 +1506,7 @@ class EvalRunService implements EvalRunServiceInterface {
 
 		return $this->objectService->saveObject(
 			object: $evalRunData,
-			register: self::REGISTER_SLUG,
-			schema: self::EVALRUN_SCHEMA,
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::EVALRUN_SCHEMA)),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1803,8 +1804,7 @@ class EvalRunService implements EvalRunServiceInterface {
 			try {
 				$skill = $this->objectService->find(
 					id: $skillId,
-					register: self::REGISTER_SLUG,
-					schema: self::SKILL_SCHEMA,
+					options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
 					_rbac: false,
 					_multitenancy: false
 				);
@@ -1833,9 +1833,10 @@ class EvalRunService implements EvalRunServiceInterface {
 
 				$this->objectService->saveObject(
 					object: $data,
-					register: self::REGISTER_SLUG,
-					schema: self::SKILL_SCHEMA,
-					uuid: $skillId,
+					options: new ObjectSaveOptions(
+						target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+						uuid: $skillId
+					),
 					_rbac: false,
 					_multitenancy: false
 				);

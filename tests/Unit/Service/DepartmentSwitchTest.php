@@ -24,6 +24,7 @@ use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -197,8 +198,8 @@ class DepartmentSwitchTest extends TestCase {
 	public function testSwitchingOffRecordsWhoWhenAndWhy(): void {
 		$saved = null;
 		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
-			function (array|ObjectEntity $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$saved): ObjectEntity {
-				$saved = [$object, $register, $schema, $uuid];
+			function (array|ObjectEntity $object, ObjectSaveOptions $options) use (&$saved): ObjectEntity {
+				$saved = [$object, $options->target->register, $options->target->schema, $options->uuid];
 				$entity = new ObjectEntity();
 				$entity->setObject($object);
 				return $entity;
@@ -233,9 +234,9 @@ class DepartmentSwitchTest extends TestCase {
 	 */
 	public function testASwitchIsRecordedInTheAuditTrail(): void {
 		$this->objectService->method('saveObject')->willReturnCallback(
-			static function (array|ObjectEntity $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null): ObjectEntity {
+			static function (array|ObjectEntity $object, ObjectSaveOptions $options): ObjectEntity {
 				$entity = new ObjectEntity();
-				$entity->setUuid((string)$uuid);
+				$entity->setUuid((string)$options->uuid);
 				$entity->setObject($object);
 				return $entity;
 			}

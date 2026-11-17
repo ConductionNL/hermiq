@@ -51,9 +51,14 @@ use OCA\Hermiq\Service\Schedule\FailedAttempt;
 use OCA\Hermiq\Service\Schedule\GateSkip;
 use OCA\Hermiq\Service\Schedule\RunAuditRecord;
 use OCA\Hermiq\Service\Schedule\ScheduleRecordNormaliser;
+use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Mcp\Db\Conversation;
 use OCA\OpenRegister\Mcp\Db\ConversationMapper;
@@ -309,11 +314,16 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *                          written (skill-learnings) — try/catch
 	 *                          wrapped; capture never sits on the run's
 	 *                          critical path.
+	 * @param RunDoneNotifier|null $runDoneNotifier Tells the schedule owner a run is
+	 *                          done when they asked for it (personal-preferences).
+	 *                          Nullable, after the required ones: a service built by
+	 *                          hand in a test sends no such notification.
 	 * @param RunRetentionPolicy|null $retentionPolicy Stamps each run entry with the
 	 *                          retention that applied when it was written
 	 *                          (what-the-model-reads-and-what-is-kept). Nullable and
 	 *                          trailing: a service built by hand in a test writes the
 	 *                          entry it always wrote.
+	 * @param TraceExportQueue|null $traceExportQueue Hands the finished run to trace export (observability-export-traces).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
 	 *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -339,7 +349,9 @@ class ScheduleService implements ScheduleServiceInterface {
 		private readonly SkillVersionService $skillVersionService,
 		private readonly DelegationContext $delegationContext,
 		private readonly IJobList $jobList,
+		private readonly ?RunDoneNotifier $runDoneNotifier = null,
 		private readonly ?RunRetentionPolicy $retentionPolicy = null,
+		private readonly ?TraceExportQueue $traceExportQueue = null,
 	) {
 		$this->tenantKillSwitch = new TenantKillSwitch(objectService: $objectService, logger: $logger);
 		$this->departmentSwitch = new DepartmentSwitch(objectService: $objectService, logger: $logger);
@@ -548,8 +560,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -593,8 +604,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -626,8 +636,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -663,8 +672,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -677,9 +685,10 @@ class ScheduleService implements ScheduleServiceInterface {
 
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
-				uuid: (string)$agent->getUuid(),
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+					uuid: (string)$agent->getUuid()
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -1124,8 +1133,7 @@ class ScheduleService implements ScheduleServiceInterface {
 
 		$session = $this->objectService->find(
 			id: $sessionUuid,
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1466,6 +1474,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		// Wall-clock start of the agent turn, for the run-audit timing (run-audit-log).
 		$startedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 		$summary = '';
+		$succeeded = false;
 
 		// Run the agent + deliver + finalise inside a try/catch that operates on the
 		// SAME $data that already carries the committed advance (nextRun / disabled
@@ -1500,6 +1509,7 @@ class ScheduleService implements ScheduleServiceInterface {
 
 			$data = $this->applySuccessOutcome(data: $data, delivery: $delivery, deferDisable: $deferDisable);
 			$summary = $output;
+			$succeeded = true;
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				sprintf('Hermiq schedule %s failed: %s', (string)$schedule->getUuid(), $e->getMessage()),
@@ -1533,6 +1543,12 @@ class ScheduleService implements ScheduleServiceInterface {
 				attempt: $attemptNumber
 			)
 		);
+
+		// Personal-preferences: the owner asked to hear when a run is done. Only a
+		// run that resolved (not one waiting for a retry), and never fatal.
+		if (($data['lastStatus'] ?? '') !== 'retry_pending') {
+			$this->notifyRunDone(schedule: $schedule, data: $data, succeeded: $succeeded);
+		}
 
 		// Run-reliability: the deferred finite-repeat delete only fires once the
 		// occurrence has actually RESOLVED (ok / error / dead_letter /
@@ -1790,6 +1806,60 @@ class ScheduleService implements ScheduleServiceInterface {
 	}//end markDeadLetter()
 
 	/**
+	 * Tell the schedule owner a run is done, when they switched that on
+	 * (personal-preferences). Never throws.
+	 *
+	 * @param ObjectEntity        $schedule  The schedule that ran.
+	 * @param array<string,mixed> $data      The schedule payload after the run.
+	 * @param bool                $succeeded Whether the run succeeded.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 */
+	private function notifyRunDone(ObjectEntity $schedule, array $data, bool $succeeded): void {
+		if ($this->runDoneNotifier === null) {
+			return;
+		}
+
+		$this->runDoneNotifier->notifyScheduledRun(
+			userId: (string)($schedule->getOwner() ?? ''),
+			agentName: $this->agentNameOf(agentId: (string)($data['agentId'] ?? ''), fallback: (string)($data['name'] ?? '')),
+			scheduleUuid: (string)$schedule->getUuid(),
+			succeeded: $succeeded,
+			channel: (string)($data['deliver'] ?? 'none')
+		);
+	}//end notifyRunDone()
+
+	/**
+	 * An agent's name for a notification, or the fallback when it cannot be read.
+	 *
+	 * @param string $agentId  The agent uuid.
+	 * @param string $fallback The name to use instead (the schedule's name).
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 */
+	private function agentNameOf(string $agentId, string $fallback): string {
+		if ($agentId === '') {
+			return $fallback;
+		}
+
+		try {
+			$name = (string)($this->agentMapper->findByUuid($agentId)->getName() ?? '');
+		} catch (Throwable) {
+			$name = '';
+		}
+
+		if ($name === '') {
+			return $fallback;
+		}
+
+		return $name;
+	}//end agentNameOf()
+
+	/**
 	 * Write the explicit per-run AuditTrail entry via OpenRegister (run-audit-log).
 	 *
 	 * REDACTION-BEFORE-PERSIST (ADR-004): the output/error summary is masked by
@@ -1940,6 +2010,7 @@ class ScheduleService implements ScheduleServiceInterface {
 				context: $context
 			)
 		);
+		$this->traceExportQueue?->enqueueRun(context: $context, trigger: 'schedule', organisation: (string)($context['organisation'] ?? ''));
 	}//end persistRunAudit()
 
 	/**
@@ -2034,6 +2105,8 @@ class ScheduleService implements ScheduleServiceInterface {
 	 * @return DateTimeImmutable|null The next run (UTC), or null for one-shots.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-schedule/spec.md#REQ-SPCOV-003
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-schedule/spec.md#REQ-SPCOV-004
 	 */
 	private function computeNextRun(string $kind, array $data, string $owner, DateTimeImmutable $now): ?DateTimeImmutable {
 		$timezone = $this->resolveTimezone(owner: $owner);
@@ -2614,8 +2687,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -2707,8 +2779,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		$continueSessionUuid = $request->continueSessionUuid;
 		$agent = $this->objectService->find(
 			id: $agentId,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 		);
 		if ($agent === null) {
 			throw new RuntimeException("Agent '{$agentId}' does not exist in the hermiq register");
@@ -2722,8 +2793,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		$conversation = $this->continuedSession(sessionUuid: (string)$continueSessionUuid, owner: $owner, dryRun: $dryRun)
 			?? $this->objectService->saveObject(
 				object: $this->runSession(title: $title, owner: $owner, agent: $agent, startValues: $startValues),
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA))
 			);
 
 		// Remember which conversation this run produced so a Talk-room delivery
@@ -2846,18 +2916,20 @@ class ScheduleService implements ScheduleServiceInterface {
 				}
 
 				$this->objectService->deleteObject(
-					uuid: (string)$message->getUuid(),
-					register: self::REGISTER_SLUG,
-					schema: self::MESSAGE_SCHEMA,
+					new ObjectDeletion(
+						uuid: (string)$message->getUuid(),
+						target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MESSAGE_SCHEMA)
+					),
 					_rbac: false,
 					_multitenancy: false
 				);
 			}
 
 			$this->objectService->deleteObject(
-				uuid: $conversationUuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
+				new ObjectDeletion(
+					uuid: $conversationUuid,
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -3081,8 +3153,7 @@ class ScheduleService implements ScheduleServiceInterface {
 			$uuid = (string)$schedule->getUuid();
 			$fresh = $this->objectService->find(
 				id: $uuid,
-				register: self::REGISTER_SLUG,
-				schema: self::SCHEMA_SLUG,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -3126,9 +3197,10 @@ class ScheduleService implements ScheduleServiceInterface {
 	private function persist(ObjectEntity $schedule, array $data): void {
 		$this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $data),
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG,
-			uuid: (string)$schedule->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
+				uuid: (string)$schedule->getUuid()
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -3198,9 +3270,10 @@ class ScheduleService implements ScheduleServiceInterface {
 	 */
 	private function deleteSchedule(ObjectEntity $schedule): void {
 		$this->objectService->deleteObject(
-			uuid: (string)$schedule->getUuid(),
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG,
+			new ObjectDeletion(
+				uuid: (string)$schedule->getUuid(),
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG)
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

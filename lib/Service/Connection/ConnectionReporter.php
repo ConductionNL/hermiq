@@ -65,7 +65,7 @@ class ConnectionReporter implements ConnectionReporterInterface {
 	 *
 	 * @var array<int, string>
 	 */
-	public const KEYS = ['llm', 'llm-runner', 'speech', 'web-search', 'webhook-delivery', 'github-templates'];
+	public const KEYS = ['llm', 'llm-runner', 'speech', 'web-search', 'webhook-delivery', 'github-templates', 'trace-export'];
 
 	/**
 	 * The statuses integriq accepts in a report (design D6), `limited` included.

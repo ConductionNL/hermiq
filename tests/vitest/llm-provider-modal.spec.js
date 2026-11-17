@@ -80,7 +80,7 @@ describe('LlmProviderModal load', () => {
 			openaiConfig: { chatModel: 'gpt-x', credentialId: 'c-openai' },
 			ollamaConfig: { url: 'http://ollama:11434', chatModel: 'llama3' },
 			fireworksConfig: { baseUrl: 'https://fw', chatModel: 'fw-1', credentialId: 'c-fw' },
-			anthropicConfig: { chatModel: 'claude-x', credentialId: 'c-an', authMode: 'oauth' },
+			anthropicConfig: { chatModel: 'claude-x', credentialId: 'c-an', authMode: 'oauth', promptCaching: true },
 		})
 		expect(vm.modelCapabilities).toEqual({ 'anthropic/claude-x': ['image'] })
 		expect(vm.openaiCredential).toEqual({ label: 'OpenAI key', value: 'c-openai' })
@@ -97,7 +97,7 @@ describe('LlmProviderModal load', () => {
 			openaiConfig: { chatModel: '', credentialId: '' },
 			ollamaConfig: { url: '', chatModel: '' },
 			fireworksConfig: { baseUrl: '', chatModel: '', credentialId: '' },
-			anthropicConfig: { chatModel: '', credentialId: '', authMode: 'weird' },
+			anthropicConfig: { chatModel: '', credentialId: '', authMode: 'weird', promptCaching: true },
 		})
 		expect(vm.modelCapabilities).toEqual({})
 		expect(vm.openaiCredential).toBe(null)
@@ -142,7 +142,7 @@ describe('LlmProviderModal save', () => {
 		['openai', { chatProvider: 'openai', openaiConfig: { chatModel: 'gpt-x', credentialId: 'c-openai' } }],
 		['ollama', { chatProvider: 'ollama', ollamaConfig: { url: 'http://ollama:11434', chatModel: 'llama3' }, modelCapabilities: { 'ollama/llama3': [] } }],
 		['fireworks', { chatProvider: 'fireworks', fireworksConfig: { baseUrl: 'https://fw', chatModel: 'fw-1', credentialId: 'c-fw' }, modelCapabilities: { 'fireworks/fw-1': [] } }],
-		['anthropic', { chatProvider: 'anthropic', anthropicConfig: { chatModel: 'claude-x', credentialId: 'c-an', authMode: 'api_key', scope: 'organisation' }, modelCapabilities: { 'anthropic/claude-x': ['image'] } }],
+		['anthropic', { chatProvider: 'anthropic', anthropicConfig: { chatModel: 'claude-x', credentialId: 'c-an', authMode: 'api_key', promptCaching: true, scope: 'organisation' }, modelCapabilities: { 'anthropic/claude-x': ['image'] } }],
 		['nextcloud', { chatProvider: 'nextcloud' }],
 	])('patches %s with its section and the model ticks', async (provider, expected) => {
 		const stored = { ...FULL, chatProvider: provider, anthropicConfig: { ...FULL.anthropicConfig, authMode: 'api_key' } }
@@ -161,6 +161,18 @@ describe('LlmProviderModal save', () => {
 		expect(wrapper.emitted('saved')).toEqual([[provider]])
 		expect(wrapper.emitted('close')).toEqual([[]])
 		expect(wrapper.vm.saving).toBe(false)
+	})
+
+	it('keeps the provider prompt cache switched off when it was stored off, and saves the switch', async () => {
+		const wrapper = await open({ ...FULL, anthropicConfig: { ...FULL.anthropicConfig, authMode: 'api_key', promptCaching: false } })
+		expect(wrapper.vm.form.anthropicConfig.promptCaching).toBe(false)
+
+		await wrapper.vm.save()
+		expect(api.patchLlmSettings.mock.calls[0][0].anthropicConfig.promptCaching).toBe(false)
+
+		wrapper.vm.form.anthropicConfig.promptCaching = true
+		await wrapper.vm.save()
+		expect(api.patchLlmSettings.mock.calls[1][0].anthropicConfig.promptCaching).toBe(true)
 	})
 
 	it('reports a failed save', async () => {
