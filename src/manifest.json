@@ -751,6 +751,63 @@
 			}
 		},
 		{
+			"id": "KnowledgeBases",
+			"route": "/knowledge-bases",
+			"type": "index",
+			"title": "Knowledge bases",
+			"config": {
+				"register": "hermiq",
+				"schema": "agentknowledgebase",
+				"_note": "memory-knowledge-bases: knowledge bases are documents an agent searches per question. Reached from the Memory page and the agent form's picker, not from the menu (design.md D6). Create and edit go through the generic schema form (name, description, folder); sources are managed on the detail page.",
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "description",
+						"label": "Description"
+					}
+				],
+				"rowRoute": "KnowledgeBaseDetail"
+			}
+		},
+		{
+			"id": "KnowledgeBaseDetail",
+			"route": "/knowledge-bases/:id",
+			"type": "detail",
+			"title": "Knowledge base",
+			"config": {
+				"register": "hermiq",
+				"schema": "agentknowledgebase",
+				"widgets": [
+					{
+						"id": "knowledge-base-sources",
+						"type": "custom",
+						"title": "Sources",
+						"icon": "BookOpenVariantOutline",
+						"_note": "Sources with their indexing state, the only-you notice and where an outside source comes from; upload, add from Files, add a folder, remove. Resolved via page.slots.widget-knowledge-base-sources -> knowledge-base-sources."
+					}
+				],
+				"layout": [
+					{
+						"id": "1",
+						"widgetId": "knowledge-base-sources",
+						"gridX": 0,
+						"gridY": 0,
+						"gridWidth": 12,
+						"gridHeight": 6
+					}
+				],
+				"sidebar": {
+					"enabled": false
+				}
+			},
+			"slots": {
+				"widget-knowledge-base-sources": "knowledge-base-sources"
+			}
+		},
+		{
 			"id": "SkillDetail",
 			"route": "/skills/:id",
 			"type": "detail",

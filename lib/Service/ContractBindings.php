@@ -228,6 +228,10 @@ use OCA\Hermiq\Service\WebResearch\WebSearchClient;
 use OCA\Hermiq\Service\Workspace\ForgeEgressPolicy;
 use OCA\Hermiq\Service\Workspace\ServerSideWorkspaceProvider;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
+use OCA\Hermiq\Kernel\Contracts\KnowledgeBaseServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SourceSharingInspectorInterface;
+use OCA\Hermiq\Service\KnowledgeBase\KnowledgeBaseService;
+use OCA\Hermiq\Service\KnowledgeBase\SourceSharingInspector;
 
 /**
  * Nextcloud autowires concrete classes but not interfaces, so every contract
@@ -266,6 +270,8 @@ final class ContractBindings {
 		$context->registerServiceAlias(AgentCatalogInterface::class, AgentCatalog::class);
 		$context->registerServiceAlias(AgentContextBuilderInterface::class, AgentContextBuilder::class);
 		$context->registerServiceAlias(AgentDraftServiceInterface::class, AgentDraftService::class);
+		$context->registerServiceAlias(KnowledgeBaseServiceInterface::class, KnowledgeBaseService::class);
+		$context->registerServiceAlias(SourceSharingInspectorInterface::class, SourceSharingInspector::class);
 		$context->registerServiceAlias(AgentGitServiceInterface::class, AgentGitService::class);
 		$context->registerServiceAlias(AgentObjectMatcherInterface::class, AgentObjectMatcher::class);
 		$context->registerServiceAlias(AgentTemplateServiceInterface::class, AgentTemplateService::class);
