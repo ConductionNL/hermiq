@@ -2619,7 +2619,8 @@ class ScheduleService implements ScheduleServiceInterface {
 
 	/**
 	 * Whether the in-app agent engine feature flag (`hermiq`.`engine.enabled`)
-	 * is on. Defaults to 'false' — existing installs see zero behavior change.
+	 * is on. Reads 'false' when unset; new installs get it on through the
+	 * EnableEngineOnInstall repair step, existing installs keep their stored value.
 	 *
 	 * @return bool True when the in-app Engine must be used.
 	 *

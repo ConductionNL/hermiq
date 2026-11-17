@@ -189,6 +189,9 @@
             <step>OCA\Hermiq\Repair\ScopeExistingMemories</step>
         </post-migration>
         <install>
+            <!-- New installs get the in-app agent engine on; never on upgrade, so
+                 existing installs keep their stored engine.enabled value. -->
+            <step>OCA\Hermiq\Repair\EnableEngineOnInstall</step>
             <step>OCA\Hermiq\Repair\CheckOpenRegisterCompatibility</step>
             <step>OCA\Hermiq\Repair\InitializeSettings</step>
             <step>OCA\Hermiq\Repair\ProvisionAiOversightGroup</step>
