@@ -25,6 +25,8 @@ namespace OCA\Hermiq\Tests\Unit\Service\CodeSandbox;
 use InvalidArgumentException;
 use OCA\Hermiq\Service\CodeSandbox\CodeSandboxClient;
 use OCA\Hermiq\Service\CodeSandbox\CodeSandboxSettings;
+use OCA\Hermiq\Service\CodeSandbox\HostedSandboxDispatch;
+use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\Hermiq\Service\CodeSandbox\CodeSandboxUnavailableException;
 use OCP\IAppConfig;
 use PHPUnit\Framework\TestCase;
@@ -262,24 +264,135 @@ class CodeSandboxClientTest extends TestCase {
 	}//end testARefusalOrAMalformedAnswerIsAnError()
 
 	/**
-	 * A hosted choice sends nothing through AppAPI and refuses the run.
+	 * A hosted choice never goes through AppAPI: without integriq it refuses
+	 * the run and sends nothing.
 	 *
 	 * @return void
 	 */
 	public function testAHostedChoiceNeverSendsThroughAppApi(): void {
 		$appApi = $this->appApi(answer: $this->response(status: 200, body: '{"exitCode":0}'));
-		$client = $this->client(appApi: $appApi, settings: $this->settings(stored: '{"backend":"hosted","hostedSource":"hosted-sandbox"}'));
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturnCallback(
+			static function (string $id) use ($appApi): object {
+				if ($id === CodeSandboxClient::APP_API_PUBLIC_FUNCTIONS) {
+					return $appApi;
+				}
+
+				throw new RuntimeException('not installed');
+			}
+		);
+		$client = new CodeSandboxClient(
+			settings: $this->settings(stored: '{"backend":"hosted","hostedSource":"hosted-sandbox"}'),
+			logger: $this->createMock(LoggerInterface::class),
+			container: $container
+		);
 
 		$this->assertFalse($client->isAvailable());
 		try {
 			$client->run(language: 'python', code: 'print(1)');
 			$this->fail('A hosted run was dispatched.');
 		} catch (CodeSandboxUnavailableException $e) {
-			$this->assertSame(CodeSandboxClient::HOSTED_NOT_WIRED, $e->getMessage());
+			$this->assertSame(HostedSandboxDispatch::SOURCE_MISSING, $e->getMessage());
 		}
 
 		$this->assertSame([], $appApi->calls);
 	}//end testAHostedChoiceNeverSendsThroughAppApi()
+
+	/**
+	 * A hosted run goes through integriq with the contract and the clamped
+	 * limits, and its answer is mapped like the own sandbox's.
+	 *
+	 * @return void
+	 */
+	public function testAHostedRunGoesThroughIntegriq(): void {
+		$calls = [];
+		$source = new ObjectEntity();
+		$source->setUuid('src-uuid');
+		$source->setObject(['slug' => 'hosted-sandbox']);
+		$callLog = new ObjectEntity();
+		$callLog->setObject(['response' => ['statusCode' => 200, 'body' => '{"exitCode":0,"stdout":"2\\n","stderr":"","durationMs":5,"timedOut":false}']]);
+		$callService = new class($callLog, $calls) {
+			/**
+			 * Constructor.
+			 *
+			 * @param ObjectEntity       $callLog The answer.
+			 * @param array<int, mixed>  $calls   The recorded calls.
+			 */
+			public function __construct(private ObjectEntity $callLog, public array &$calls) {
+			}//end __construct()
+
+			/**
+			 * Record a call.
+			 *
+			 * @param mixed  $source         The source.
+			 * @param string $endpoint       The endpoint.
+			 * @param string $method         The method.
+			 * @param array  $config         The config.
+			 * @param bool   $withholdBodies Whether bodies are kept out of the call log.
+			 *
+			 * @return ObjectEntity
+			 */
+			public function call(mixed $source, string $endpoint='', string $method='GET', array $config=[], bool $withholdBodies=false): ObjectEntity {
+				$this->calls[] = [$source->getUuid(), $endpoint, $method, $config, $withholdBodies];
+				return $this->callLog;
+			}//end call()
+		};
+		$objects = new class($source) {
+			/**
+			 * Constructor.
+			 *
+			 * @param ObjectEntity $source The one source.
+			 */
+			public function __construct(private ObjectEntity $source) {
+			}//end __construct()
+
+			/**
+			 * The sources.
+			 *
+			 * @param array $config        The query.
+			 * @param bool  $_rbac         RBAC.
+			 * @param bool  $_multitenancy Multitenancy.
+			 *
+			 * @return array<int, ObjectEntity>
+			 */
+			public function findAll(array $config=[], bool $_rbac=true, bool $_multitenancy=true): array {
+				return [new ObjectEntity(), $this->source];
+			}//end findAll()
+		};
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturnCallback(
+			static fn (string $id): object => match ($id) {
+				'OCA\\Integriq\\Service\\CallService' => $callService,
+				HostedSandboxDispatch::OBJECT_SERVICE => $objects,
+				default => throw new RuntimeException('not installed'),
+			}
+		);
+		$client = new CodeSandboxClient(
+			settings: $this->settings(stored: '{"backend":"hosted","hostedSource":"hosted-sandbox"}'),
+			logger: $this->createMock(LoggerInterface::class),
+			container: $container
+		);
+
+		$this->assertTrue($client->isAvailable());
+		$result = $client->run(language: 'python', code: 'print(1 + 1)', limits: ['wallSeconds' => 999]);
+
+		$this->assertSame(0, $result['exitCode']);
+		$this->assertSame("2\n", $result['stdout']);
+		$this->assertSame(['wallSeconds' => 300, 'memoryMb' => 512], $result['limits']);
+		$this->assertSame(
+			[[
+				'src-uuid',
+				'/run',
+				'POST',
+				[
+					'json' => ['language' => 'python', 'code' => 'print(1 + 1)', 'stdin' => '', 'files' => [], 'limits' => ['wallSeconds' => 300, 'memoryMb' => 512]],
+					'timeout' => 315,
+				],
+				true,
+			]],
+			$callService->calls
+		);
+	}//end testAHostedRunGoesThroughIntegriq()
 
 	/**
 	 * A language the image does not carry is refused before anything is sent.
