@@ -2165,6 +2165,110 @@
       {
         "@self": {
           "register": "hermiq",
+          "schema": "customtool",
+          "slug": "customtool-zaak-status-opvragen"
+        },
+        "slug": "zaak_status_opvragen",
+        "name": "Zaakstatus opvragen",
+        "description": "Vraagt de actuele status van een zaak op bij het zaaksysteem, op zaaknummer.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "zaaknummer": {
+              "type": "string",
+              "description": "Het nummer van de zaak."
+            }
+          },
+          "required": [
+            "zaaknummer"
+          ]
+        },
+        "changesData": "no",
+        "target": {
+          "type": "integriq",
+          "source": "zaaksysteem",
+          "method": "GET",
+          "path": "/zaken/{{input.zaaknummer}}/status",
+          "bodyTemplate": ""
+        },
+        "enabled": true
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "customtool",
+          "slug": "customtool-melding-registreren"
+        },
+        "slug": "melding_registreren",
+        "name": "Melding openbare ruimte registreren",
+        "description": "Registreert een melding over de openbare ruimte met een omschrijving en een categorie.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "omschrijving": {
+              "type": "string",
+              "description": "Wat er aan de hand is."
+            },
+            "categorie": {
+              "type": "string",
+              "enum": [
+                "afval",
+                "verlichting",
+                "bestrating"
+              ],
+              "description": "Het soort melding."
+            }
+          },
+          "required": [
+            "omschrijving",
+            "categorie"
+          ]
+        },
+        "changesData": "yes",
+        "target": {
+          "type": "flow",
+          "flowId": "melding-registreren"
+        },
+        "enabled": true
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "customtool",
+          "slug": "customtool-afspraak-annuleren"
+        },
+        "slug": "afspraak_annuleren",
+        "name": "Afspraak annuleren",
+        "description": "Annuleert een afspraak aan de balie. Een geannuleerde afspraak kan niet worden hersteld.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "afspraakId": {
+              "type": "string",
+              "description": "De afspraak die vervalt."
+            },
+            "reden": {
+              "type": "string",
+              "description": "Waarom de afspraak vervalt."
+            }
+          },
+          "required": [
+            "afspraakId"
+          ]
+        },
+        "changesData": "irreversible",
+        "target": {
+          "type": "integriq",
+          "source": "afsprakensysteem",
+          "method": "POST",
+          "path": "/afspraken/{{input.afspraakId}}/annuleren",
+          "bodyTemplate": "{\"reden\": \"{{input.reden}}\"}"
+        },
+        "enabled": false
+      },
+      {
+        "@self": {
+          "register": "hermiq",
           "schema": "userprofile",
           "slug": "userprofile-userprofile-1-1"
         },
