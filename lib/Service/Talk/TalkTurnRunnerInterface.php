@@ -9,7 +9,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\Hermiq\Kernel\Contracts;
+namespace OCA\Hermiq\Service\Talk;
 
 /**
  * The contract a triggerable Talk-turn runner fulfils (instant-talk path A).
@@ -27,10 +27,12 @@ namespace OCA\Hermiq\Kernel\Contracts;
  *
  * The runner never removes the queued job: the job is the durable record and
  * finds the done marker when it runs. The runner ships on the
- * `llm-cli-runner-exapp` track; hermiq deliberately carries no implementation.
+ * `llm-cli-runner-exapp` track; hermiq deliberately carries no implementation,
+ * which is also why this lives beside the dispatcher and not under
+ * Kernel\Contracts, where every contract is bound to a hermiq class.
  *
- * @category Kernel
- * @package  OCA\Hermiq\Kernel\Contracts
+ * @category Service
+ * @package  OCA\Hermiq\Service\Talk
  * @author   Conduction b.v. <info@conduction.nl>
  * @license  EUPL-1.2 https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
  * @link     https://github.com/ConductionNL/hermiq

@@ -2,42 +2,52 @@
 
 ## 1. Claims and dedup
 
-- [ ] 1.1 Turn-id derivation (`roomToken` + Talk message id + agent uuid) computed in
+- [x] 1.1 Turn-id derivation (`roomToken` + Talk message id + agent uuid) computed in
       `TalkBotInvokeListener` at hand-off and carried in the `TalkTurnJob` argument.
-- [ ] 1.2 Claim store: insert-only atomic claim with TTL (TTL > turn timeout budget;
+- [x] 1.2 Claim store: insert-only atomic claim with TTL (TTL > turn timeout budget;
       both via `IAppConfig` with safe defaults); persistence via `ObjectService`
       (single write-path) unless a lighter core primitive proves atomic enough —
       decide in-implementation and record it.
-- [ ] 1.3 `TalkTurnJob::run()` claims before executing; an existing live claim ⇒
+      **Decided:** the distributed memcache (`IMemcache::add()`, atomic set-if-absent
+      with TTL on Redis, Memcached and APCu), not `ObjectService`: an object create is
+      a read-then-write and cannot refuse a concurrent duplicate. Without a memcache
+      claims are not atomic, so the instant path stays off and the queued job is the
+      only executor, as before (`TalkTurnClaims`).
+- [x] 1.3 `TalkTurnJob::run()` claims before executing; an existing live claim ⇒
       exit silently; an expired claim ⇒ re-claim and execute (queue as safety net).
 
 ## 2. Immediate execution paths
 
-- [ ] 2.1 `TalkTurnDispatcher::dispatch()`: keep the durable enqueue first; then
+- [x] 2.1 `TalkTurnDispatcher::dispatch()`: keep the durable enqueue first; then
       immediate path selection — registered `ITriggerableProvider` nudge (existing
       `triggerFastPath()`), else post-flush in-process execution.
-- [ ] 2.2 Post-flush execution: run the claimed turn after the sender's response is
+- [x] 2.2 Post-flush execution: run the claimed turn after the sender's response is
       flushed (`fastcgi_finish_request()` where available; guarded shutdown-phase
       execution elsewhere), under a configurable concurrent-instant-turns cap —
       overflow turns stay queued. The sender's request latency MUST be unaffected
       (assert in tests via the dispatch return path).
-- [ ] 2.3 Define the triggerable-runner contract (pull oldest unclaimed turn, claim,
+- [x] 2.3 Define the triggerable-runner contract (pull oldest unclaimed turn, claim,
       execute via `TalkTurnService`, repeat) as a documented interface; the runner
       itself ships on the `llm-cli-runner-exapp` track — do not stub it here.
 
 ## 3. Progressive replies
 
-- [ ] 3.1 `TalkBridge`: add `editMessage(roomToken, messageId, newText, ?agentId)`
+- [x] 3.1 `TalkBridge`: add `editMessage(roomToken, messageId, newText, ?agentId)`
       with the same lazy spreed guards as `postToRoom*`; add an edit-capability
       probe.
-- [ ] 3.2 `TalkTurnService`: delivery sink — first chunk posts via
+- [x] 3.2 `TalkTurnService`: delivery sink — first chunk posts via
       `postToRoomReturningId()`, later chunks edit (throttle default ≥2s via
       `IAppConfig`), final edit is the exact complete answer; edit failure ⇒ stop
       editing, deliver the complete answer as a message at the end; no edit support
       ⇒ today's single-message behaviour.
-- [ ] 3.3 Resolve the ⏳ acknowledgement when the answer or failure notice lands.
+- [x] 3.3 Resolve the ⏳ acknowledgement when the answer or failure notice lands.
 
 ## 4. Multi-agent rooms
+
+Open in the first build: 4.1 still lacks the per-agent refresh on app upgrade (bots
+are installed per agent on agent save and removed on opt-out or deletion);
+4.2 still answers every message in a Hermiq-created room for each enabled agent
+instead of requiring addressing there once a second agent joins; 4.4 is not started.
 
 - [ ] 4.1 `TalkBotInstaller`: register one bot per Talk-enabled agent (name = agent
       name, actor via `botActorId($agentId)`); install/refresh on app upgrade and
@@ -45,10 +55,13 @@
 - [ ] 4.2 `TalkAgentBinding`: resolve the set of enabled agents for a room from
       Talk's bot state; keep `talk_room_agents`/`talk_default_agent` working for
       single-agent rooms; with >1 enabled agent, explicit addressing only.
-- [ ] 4.3 `TalkMentionMatcher`: per-agent matching — `@agent-name` mention or
+- [x] 4.3 `TalkMentionMatcher`: per-agent matching — `@agent-name` mention or
       reply-to-that-agent's-message; multi-mention yields one hand-off per
       addressed agent (each with its own turn id); unaddressed group messages yield
       none; one-to-one rooms keep every-message-is-a-turn.
+      Done in `TalkBotInvokeListener`: spreed invokes each enabled bot on its own, so a
+      per-agent bot matches its own agent's name and replies (`TalkMentionMatcher` is
+      unchanged), and each agent's hand-off gets its own turn id.
 - [ ] 4.4 Sessions become per (room, agent): extend `TalkSessionRoom` mapping;
       migration for existing single-agent room sessions (they keep their session,
       now keyed with the bound agent).
