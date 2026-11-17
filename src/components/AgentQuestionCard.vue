@@ -104,6 +104,7 @@ export default {
 		 * The buttons to show.
 		 *
 		 * @return {Array<string>}
+		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
 		 */
 		options() {
 			return questionOptions(this.question)

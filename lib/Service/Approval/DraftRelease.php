@@ -64,6 +64,7 @@ final class DraftRelease {
 	 * The draft's kind: `delivery` or `tool`.
 	 *
 	 * @return string The kind.
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 	 */
 	public function kind(): string {
 		if ((string)($this->draft['kind'] ?? '') === self::KIND_TOOL) {
@@ -112,6 +113,7 @@ final class DraftRelease {
 	 * The fields of a tool draft a reviewer may edit.
 	 *
 	 * @return list<string> The editable argument names.
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 	 */
 	public function editable(): array {
 		$raw = $this->draft['editable'] ?? self::DEFAULT_EDITABLE;
