@@ -3135,7 +3135,6 @@ OC.L10N.register(
         "No remote agent is registered. Agents cannot hand work to another server until an admin adds one.": "Er is geen externe agent geregistreerd. Agents kunnen geen werk aan een andere server overdragen tot een beheerder er een toevoegt.",
         "Remote agents": "Externe agents",
         "Saving fetches the agent card once through this source. The remote agent stays off until you switch it on.": "Bij opslaan wordt de agentkaart één keer via deze bron opgehaald. De externe agent blijft uit tot je hem aanzet.",
-        "The integriq sources could not be read.": "De integriq-bronnen konden niet worden gelezen.",
         "Used in a grant to name this remote agent. Empty makes one from the name.": "Wordt in een toekenning gebruikt om deze externe agent te noemen. Leeg maakt er een van de naam.",
         "Waiting for “{label}” (started {time})": "Wachten op ‘{label}’ (gestart om {time})",
         "What the remote agent does": "Wat de externe agent doet",
@@ -3260,7 +3259,11 @@ OC.L10N.register(
         "Rights for \"{action}\" saved.": "Rechten voor \"{action}\" opgeslagen.",
         "The rights for \"{action}\" could not be saved.": "De rechten voor \"{action}\" konden niet worden opgeslagen.",
         "Merge duplicate skills": "Dubbele skills samenvoegen",
-        "Archive a duplicate skill and move its agents to the skill that stays.": "Een dubbele skill archiveren en de agents ervan overzetten op de skill die blijft."
+        "Archive a duplicate skill and move its agents to the skill that stays.": "Een dubbele skill archiveren en de agents ervan overzetten op de skill die blijft.",
+        "Semantic search": "Semantisch zoeken",
+        "Vector search through Open Register": "Vectorzoeken via Open Register",
+        "Keyword search: Open Register has no embedding provider configured": "Zoeken op trefwoord: in Open Register is geen embeddingprovider ingesteld",
+        "Keyword search: this Open Register has no vector search": "Zoeken op trefwoord: deze Open Register heeft geen vectorzoeken"
     },
     "nplurals=2; plural=(n != 1);"
 )

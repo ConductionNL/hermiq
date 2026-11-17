@@ -3285,7 +3285,11 @@
         "Rights for \"{action}\" saved.": "Rights for \"{action}\" saved.",
         "The rights for \"{action}\" could not be saved.": "The rights for \"{action}\" could not be saved.",
         "Merge duplicate skills": "Merge duplicate skills",
-        "Archive a duplicate skill and move its agents to the skill that stays.": "Archive a duplicate skill and move its agents to the skill that stays."
+        "Archive a duplicate skill and move its agents to the skill that stays.": "Archive a duplicate skill and move its agents to the skill that stays.",
+        "Semantic search": "Semantic search",
+        "Vector search through Open Register": "Vector search through Open Register",
+        "Keyword search: Open Register has no embedding provider configured": "Keyword search: Open Register has no embedding provider configured",
+        "Keyword search: this Open Register has no vector search": "Keyword search: this Open Register has no vector search"
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"
