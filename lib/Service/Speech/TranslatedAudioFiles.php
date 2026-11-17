@@ -25,8 +25,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Speech;
 
+use OCA\Hermiq\Service\Files\UserFolders;
 use OCP\Files\File;
-use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
 use Throwable;
 
@@ -105,19 +105,7 @@ class TranslatedAudioFiles {
 	 * @spec openspec/changes/chat-translate-a-recording/tasks.md#task-3-the-route-the-saved-file-and-its-mark
 	 */
 	public function save(string $uid, string $bytes, string $sourceLanguage, string $targetLanguage): File {
-		$folder = $this->rootFolder->getUserFolder($uid);
-		foreach (explode('/', self::FOLDER) as $segment) {
-			$next = null;
-			if ($folder->nodeExists($segment) === true) {
-				$next = $folder->get($segment);
-			}
-
-			if ($next instanceof Folder === false) {
-				$next = $folder->newFolder($segment);
-			}
-
-			$folder = $next;
-		}
+		$folder = UserFolders::open(folder: $this->rootFolder->getUserFolder($uid), path: self::FOLDER);
 
 		$name = $folder->getNonExistingName($this->fileName(sourceLanguage: $sourceLanguage, targetLanguage: $targetLanguage));
 		return $folder->newFile($name, $bytes);

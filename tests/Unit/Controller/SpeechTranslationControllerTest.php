@@ -26,6 +26,7 @@ use OCA\Hermiq\Controller\SpeechTranslationController;
 use OCA\Hermiq\Kernel\Contracts\MessageHistoryHandlerInterface;
 use OCA\Hermiq\Service\Speech\SpeechTranslationException;
 use OCA\Hermiq\Service\Speech\TranslationChain;
+use OCA\Hermiq\Service\Chat\SessionTurns;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -155,9 +156,7 @@ final class SpeechTranslationControllerTest extends TestCase {
 			request: $request,
 			userSession: $session,
 			chain: $chain,
-			objectService: $objects,
-			history: $history,
-			participation: new ConversationParticipation(),
+			turns: new SessionTurns(objectService: $objects, history: $history, participation: new ConversationParticipation(), l10n: $l10n),
 			l10n: $l10n,
 			logger: new NullLogger()
 		);
@@ -308,9 +307,7 @@ final class SpeechTranslationControllerTest extends TestCase {
 			request: $this->createMock(IRequest::class),
 			userSession: $session,
 			chain: $chain,
-			objectService: $this->createMock(ObjectService::class),
-			history: $this->createMock(MessageHistoryHandlerInterface::class),
-			participation: new ConversationParticipation(),
+			turns: new SessionTurns(objectService: $this->createMock(ObjectService::class), history: $this->createMock(MessageHistoryHandlerInterface::class), participation: new ConversationParticipation(), l10n: $l10n),
 			l10n: $l10n,
 			logger: new NullLogger()
 		);

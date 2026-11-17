@@ -33,15 +33,15 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Speech;
 
+use OCA\Hermiq\Kernel\Contracts\AgentArtefactMarkerInterface;
 use OCA\Hermiq\Kernel\Contracts\ProviderFactoryInterface;
 use OCA\Hermiq\Kernel\Contracts\SpeechClientInterface;
-use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\AiFeature\ProviderResidencyRegistry;
 use OCA\Hermiq\Service\AiFeature\RedactionRequiredException;
 use OCA\Hermiq\Service\AiFeature\ResidencyViolationException;
+use OCA\Hermiq\Service\AiFeatureService;
 use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
-use OCA\Hermiq\Service\NcNative\AgentArtefactMarker;
 use OCA\Hermiq\Service\NcNative\ArtefactMarkingFailedException;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use Psr\Log\LoggerInterface;
@@ -82,8 +82,8 @@ class TranslationChain {
 	 * @param ProviderFactoryInterface  $providers     The governed LLM provider layer.
 	 * @param SpeechVoiceMap            $voices        The administrator's voice per language.
 	 * @param TranslatedAudioFiles      $files         Writes the spoken result to Files.
-	 * @param AgentArtefactMarker       $marker        Tags the file "Agent authored".
-	 * @param AiFeatureLookup           $features      The AI-feature governance register.
+	 * @param AgentArtefactMarkerInterface $marker        Tags the file "Agent authored".
+	 * @param AiFeatureService          $features      The AI-feature governance register.
 	 * @param ProviderResidencyRegistry $residencies   Where each provider runs.
 	 * @param OrganisationMapper        $organisations The person's active organisation.
 	 * @param LoggerInterface           $logger        Diagnostics, never the transcript.
@@ -93,8 +93,8 @@ class TranslationChain {
 		private readonly ProviderFactoryInterface $providers,
 		private readonly SpeechVoiceMap $voices,
 		private readonly TranslatedAudioFiles $files,
-		private readonly AgentArtefactMarker $marker,
-		private readonly AiFeatureLookup $features,
+		private readonly AgentArtefactMarkerInterface $marker,
+		private readonly AiFeatureService $features,
 		private readonly ProviderResidencyRegistry $residencies,
 		private readonly OrganisationMapper $organisations,
 		private readonly LoggerInterface $logger,

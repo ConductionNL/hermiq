@@ -29,7 +29,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Speech;
 
 use OCA\Hermiq\Kernel\Contracts\ProviderFactoryInterface;
 use OCA\Hermiq\Kernel\Contracts\SpeechClientInterface;
-use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
+use OCA\Hermiq\Service\AiFeatureService;
 use OCA\Hermiq\Service\AiFeature\ProviderResidencyRegistry;
 use OCA\Hermiq\Service\AiFeature\ResidencyViolationException;
 use OCA\Hermiq\Service\Llm\ChatDriver;
@@ -149,7 +149,7 @@ class TranslationChainTest extends TestCase {
 
 		$feature = new ObjectEntity();
 		$feature->setObject(['slug' => 'speech-translation', 'lifecycle' => $lifecycle]);
-		$features = $this->createMock(AiFeatureLookup::class);
+		$features = $this->createMock(AiFeatureService::class);
 		$features->method('findBySlugForGate')->willReturn($feature);
 
 		$residencies = $this->createMock(ProviderResidencyRegistry::class);

@@ -29,12 +29,9 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Kernel\Contracts\MessageHistoryHandlerInterface;
+use OCA\Hermiq\Service\Chat\SessionTurns;
 use OCA\Hermiq\Service\Speech\SpeechTranslationException;
 use OCA\Hermiq\Service\Speech\TranslationChain;
-use OCA\Hermiq\Service\Talk\ConversationParticipation;
-use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
-use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\UserRateLimit;
@@ -65,9 +62,7 @@ class SpeechTranslationController extends Controller {
 	 * @param IRequest                       $request       The request.
 	 * @param IUserSession                   $userSession   The signed-in person.
 	 * @param TranslationChain               $chain         Transcribes, translates, speaks and keeps.
-	 * @param ObjectService                  $objectService Reads the session.
-	 * @param MessageHistoryHandlerInterface $history       Stores the two turns.
-	 * @param ConversationParticipation      $participation Owner-or-listed-participant guard.
+	 * @param SessionTurns                   $turns         Guards the session and stores the two turns.
 	 * @param IL10N                          $l10n          Messages in the person's language.
 	 * @param LoggerInterface                $logger        Diagnostics, never the transcript.
 	 */
@@ -75,9 +70,7 @@ class SpeechTranslationController extends Controller {
 		IRequest $request,
 		private readonly IUserSession $userSession,
 		private readonly TranslationChain $chain,
-		private readonly ObjectService $objectService,
-		private readonly MessageHistoryHandlerInterface $history,
-		private readonly ConversationParticipation $participation,
+		private readonly SessionTurns $turns,
 		private readonly IL10N $l10n,
 		private readonly LoggerInterface $logger,
 	) {
@@ -134,15 +127,10 @@ class SpeechTranslationController extends Controller {
 		}
 
 		$uid = $user->getUID();
-		$session = null;
 		if ($sessionId !== '') {
-			$session = $this->objectService->find(id: $sessionId, options: new ObjectFindOptions(register: 'hermiq', schema: 'agentsession'));
-			if ($session === null) {
-				return $this->refusal(message: $this->l10n->t('This session does not exist.'), code: 'not_found', status: 404);
-			}
-
-			if ($this->participation->mayTakeTurn(conversationData: $session->getObject(), userId: $uid) === false) {
-				return $this->refusal(message: $this->l10n->t('You cannot add to this session.'), code: 'forbidden', status: 403);
+			$refused = $this->turns->refusalFor(sessionId: $sessionId, uid: $uid);
+			if ($refused !== null) {
+				return $refused;
 			}
 		}
 
@@ -175,15 +163,13 @@ class SpeechTranslationController extends Controller {
 			'record' => $result['record'],
 		];
 
-		if ($session === null) {
+		if ($sessionId === '') {
 			return new JSONResponse(data: $answer);
 		}
 
 		return $this->storeTurns(
 			sessionId: $sessionId,
-			uid: $uid,
-			displayName: $user->getDisplayName(),
-			recordingName: $recording['name'],
+			author: ['uid' => $uid, 'displayName' => $user->getDisplayName(), 'recordingName' => $recording['name']],
 			answer: $answer
 		);
 	}//end translate()
@@ -286,63 +272,25 @@ class SpeechTranslationController extends Controller {
 	/**
 	 * Store the request and the result as two turns and answer with both.
 	 *
-	 * @param string               $sessionId     The session.
-	 * @param string               $uid           The person.
-	 * @param string               $displayName   Their display name at send time.
-	 * @param string               $recordingName The recording's file name.
-	 * @param array<string, mixed> $answer        The translation answer.
+	 * @param string               $sessionId The session.
+	 * @param array<string, string> $author   The person: `uid`, `displayName` at send time and `recordingName`.
+	 * @param array<string, mixed> $answer    The translation answer.
 	 *
 	 * @return JSONResponse The answer with the two turns, or a 500 when they could not be stored.
 	 *
 	 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-the-languages-and-engines-used-are-recorded-req-strn-002
 	 */
-	private function storeTurns(string $sessionId, string $uid, string $displayName, string $recordingName, array $answer): JSONResponse {
+	private function storeTurns(string $sessionId, array $author, array $answer): JSONResponse {
 		$request = $this->l10n->t(
 			'Translate %1$s into %2$s',
-			[$recordingName, $this->languageName(code: (string)$answer['record']['targetLanguage'])]
+			[$author['recordingName'], $this->languageName(code: (string)$answer['record']['targetLanguage'])]
 		);
-		$content = $answer['transcript'] . "\n\n" . $answer['translation'];
-		if ($answer['notice'] !== '') {
-			$content .= "\n\n" . $answer['notice'];
-		}
-
-		$attachments = [];
-		if (is_array($answer['file']) === true) {
-			$attachments[] = [
-				'fileId' => $answer['file']['fileId'],
-				'name' => $answer['file']['name'],
-				'mimeType' => 'audio/wav',
-				'size' => $answer['file']['size'],
-				'origin' => 'generated',
-			];
-		}
-
-		// The spoken file's path in the translator's Files, so the chat can play it.
-		$audioPath = '';
-		if (is_array($answer['file']) === true) {
-			$audioPath = (string)$answer['file']['path'];
-		}
-
-		$translation = $answer['record'] + [
-			'transcript' => $answer['transcript'],
-			'translation' => $answer['translation'],
-			'audioPath' => $audioPath,
-		];
 
 		try {
-			$userTurn = $this->history->storeMessage(
-				conversationId: $sessionId,
-				role: 'user',
-				content: $request,
-				authorId: $uid,
-				authorDisplayName: $displayName
-			);
-			$assistantTurn = $this->history->storeMessage(
-				conversationId: $sessionId,
-				role: 'assistant',
-				content: $content,
-				attachments: $attachments,
-				translation: $translation
+			$turns = $this->turns->store(
+				sessionId: $sessionId,
+				user: ['content' => $request, 'authorId' => $author['uid'], 'authorDisplayName' => $author['displayName']],
+				assistant: self::assistantTurn(answer: $answer)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(
@@ -354,21 +302,51 @@ class SpeechTranslationController extends Controller {
 				code: 'not_stored',
 				status: 500
 			);
-		}//end try
+		}
 
-		return new JSONResponse(
-			data: $answer + [
-				'userTurn' => ['id' => (string)$userTurn->getUuid(), 'role' => 'user', 'content' => $request, 'attachments' => []],
-				'assistantTurn' => [
-					'id' => (string)$assistantTurn->getUuid(),
-					'role' => 'assistant',
-					'content' => $content,
-					'attachments' => $attachments,
-					'translation' => $translation,
-				],
-			]
-		);
+		return new JSONResponse(data: $answer + $turns);
 	}//end storeTurns()
+
+	/**
+	 * The answer turn of a translation: transcript and translation (and the notice),
+	 * the spoken file as an attachment, and the translation record the chat plays it from.
+	 *
+	 * @param array<string, mixed> $answer The translation answer.
+	 *
+	 * @return array{content: string, attachments: array, translation: array} The turn.
+	 *
+	 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-the-languages-and-engines-used-are-recorded-req-strn-002
+	 */
+	private static function assistantTurn(array $answer): array {
+		$content = $answer['transcript'] . "\n\n" . $answer['translation'];
+		if ($answer['notice'] !== '') {
+			$content .= "\n\n" . $answer['notice'];
+		}
+
+		$attachments = [];
+		// The spoken file's path in the translator's Files, so the chat can play it.
+		$audioPath = '';
+		if (is_array($answer['file']) === true) {
+			$attachments[] = [
+				'fileId' => $answer['file']['fileId'],
+				'name' => $answer['file']['name'],
+				'mimeType' => 'audio/wav',
+				'size' => $answer['file']['size'],
+				'origin' => 'generated',
+			];
+			$audioPath = (string)$answer['file']['path'];
+		}
+
+		return [
+			'content' => $content,
+			'attachments' => $attachments,
+			'translation' => $answer['record'] + [
+				'transcript' => $answer['transcript'],
+				'translation' => $answer['translation'],
+				'audioPath' => $audioPath,
+			],
+		];
+	}//end assistantTurn()
 
 	/**
 	 * A refusal in the shape the Chat page reads.

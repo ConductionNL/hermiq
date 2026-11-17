@@ -30,8 +30,6 @@ namespace OCA\Hermiq\TaskProcessing;
 
 use OCA\Hermiq\Service\Speech\SpeechTranslationException;
 use OCA\Hermiq\Service\Speech\TranslationChain;
-use OCP\Files\File;
-use OCP\Files\SimpleFS\ISimpleFile;
 use OCP\TaskProcessing\ISynchronousProvider;
 use RuntimeException;
 
@@ -169,18 +167,7 @@ class AudioToAudioTranslateProvider implements ISynchronousProvider {
 	 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-other-apps-can-use-the-chain-through-taskprocessing-where-nextcloud-defines-it-req-strn-004
 	 */
 	public function process(?string $userId, array $input, callable $reportProgress): array {
-		$audio = ($input['input'] ?? null);
-		if ($audio instanceof File === true || $audio instanceof ISimpleFile === true) {
-			$audio = $audio->getContent();
-		}
-
-		if (is_resource($audio) === true) {
-			$audio = stream_get_contents($audio);
-		}
-
-		if (is_string($audio) === false || $audio === '') {
-			throw new RuntimeException('No audio was supplied to translate.');
-		}
+		$audio = TaskAudioInput::bytes(input: $input, purpose: 'translate');
 
 		$origin = (string)($input['origin_language'] ?? '');
 		if ($origin === self::DETECT) {
