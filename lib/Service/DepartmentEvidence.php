@@ -107,23 +107,7 @@ final class DepartmentEvidence {
 			$aiOff = (($data['aiOff'] ?? false) === true);
 			$switchedAt = $this->parseTime(value: (string)($data['switchedAt'] ?? ''));
 
-			$lastRun = null;
-			$refused = 0;
-			foreach ($runs as $run) {
-				if (isset($names[$run['agentId']]) === false) {
-					continue;
-				}
-
-				if ($lastRun === null || $run['at'] > $lastRun) {
-					$lastRun = $run['at'];
-				}
-
-				if ($aiOff === true && $run['status'] === DepartmentSwitch::SKIPPED_STATUS
-					&& ($switchedAt === null || $run['at'] >= $switchedAt)
-				) {
-					$refused++;
-				}
-			}
+			[$lastRun, $refused] = self::runSummary(runs: $runs, names: $names, aiOff: $aiOff, switchedAt: $switchedAt);
 
 			$rows[] = [
 				'group' => $group,
@@ -140,6 +124,39 @@ final class DepartmentEvidence {
 
 		return $rows;
 	}//end overview()
+
+	/**
+	 * When a department's agents last ran, and how many of their runs were
+	 * refused since the department was switched off (0 while it is on).
+	 *
+	 * @param array<int,array<string,mixed>> $runs       The run entries.
+	 * @param array<string,mixed>            $names      The department's agents, by uuid.
+	 * @param bool                           $aiOff      Whether the department is off.
+	 * @param DateTimeImmutable|null         $switchedAt When it was last switched.
+	 *
+	 * @return array{0: DateTimeImmutable|null, 1: int}
+	 */
+	private static function runSummary(array $runs, array $names, bool $aiOff, ?DateTimeImmutable $switchedAt): array {
+		$lastRun = null;
+		$refused = 0;
+		foreach ($runs as $run) {
+			if (isset($names[$run['agentId']]) === false) {
+				continue;
+			}
+
+			if ($lastRun === null || $run['at'] > $lastRun) {
+				$lastRun = $run['at'];
+			}
+
+			if ($aiOff === true && $run['status'] === DepartmentSwitch::SKIPPED_STATUS
+				&& ($switchedAt === null || $run['at'] >= $switchedAt)
+			) {
+				$refused++;
+			}
+		}
+
+		return [$lastRun, $refused];
+	}//end runSummary()
 
 	/**
 	 * The evidence file for one department, or null when the group is not a department.

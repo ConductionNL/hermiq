@@ -161,6 +161,27 @@ final class DepartmentSwitch {
 			return null;
 		}
 
+		$department = $this->agentDepartment(agentId: $agentId);
+		if ($department === self::UNREADABLE) {
+			return self::UNREADABLE;
+		}
+
+		if ($department === '') {
+			return null;
+		}
+
+		return $this->heldDepartment(department: $department);
+	}//end offDepartmentOf()
+
+	/**
+	 * The department an agent names: '' when it names none or does not exist,
+	 * UNREADABLE when it cannot be read.
+	 *
+	 * @param string $agentId The agent's uuid.
+	 *
+	 * @return string
+	 */
+	private function agentDepartment(string $agentId): string {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
@@ -169,8 +190,7 @@ final class DepartmentSwitch {
 				_multitenancy: false
 			);
 		} catch (DoesNotExistException $e) {
-			// An agent that does not exist is not held by a department switch.
-			return null;
+			return '';
 		} catch (Throwable $e) {
 			$this->logger->error(
 				'Hermiq could not read the agent for the department switch, run held: ' . $e->getMessage(),
@@ -179,18 +199,23 @@ final class DepartmentSwitch {
 			return self::UNREADABLE;
 		}
 
-		// An agent that cannot be found is not held by a department switch.
 		if ($agent instanceof ObjectEntity === false) {
-			return null;
+			return '';
 		}
 
-		$department = trim((string)($agent->getObject()['department'] ?? ''));
-		if ($department === '') {
-			return null;
-		}
+		return trim((string)($agent->getObject()['department'] ?? ''));
+	}//end agentDepartment()
 
+	/**
+	 * The department when its AI is off or its switches cannot be read, else null.
+	 *
+	 * @param string $department The department's group id.
+	 *
+	 * @return string|null
+	 */
+	private function heldDepartment(string $department): ?string {
 		try {
-			$departments = $this->readDepartments();
+			$off = self::offGroups(departments: $this->readDepartments());
 		} catch (Throwable $e) {
 			$this->logger->error(
 				'Hermiq could not load the department switches, run held: ' . $e->getMessage(),
@@ -199,12 +224,12 @@ final class DepartmentSwitch {
 			return $department;
 		}
 
-		if (in_array($department, self::offGroups(departments: $departments), true) === false) {
+		if (in_array($department, $off, true) === false) {
 			return null;
 		}
 
 		return $department;
-	}//end offDepartmentOf()
+	}//end heldDepartment()
 
 	/**
 	 * Switch a marked department's AI on or off, recording who and when.
