@@ -35,6 +35,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Tester\CommandTester;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Tests the mirror rollback.
@@ -121,6 +122,7 @@ class RollbackApprovalTaskMirrorTest extends TestCase {
 		$saved = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (array $object, ...$rest) use (&$saved): ObjectEntity {
+				$rest = array_slice(LegacyObjectArgs::positional(method: 'saveObject', args: [$object, ...$rest]), 1);
 				unset($rest);
 				$saved[] = $object;
 				return new ObjectEntity();
@@ -185,6 +187,7 @@ class RollbackApprovalTaskMirrorTest extends TestCase {
 		$this->taskBridge->expects($this->exactly(2))->method('releaseFor');
 		$this->objectService->method('saveObject')->willReturnCallback(
 			static function (array $object, ...$rest): ObjectEntity {
+				$rest = array_slice(LegacyObjectArgs::positional(method: 'saveObject', args: [$object, ...$rest]), 1);
 				unset($rest);
 				if (isset($object['locked']) === true) {
 					throw new \RuntimeException('locked');

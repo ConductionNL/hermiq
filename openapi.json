@@ -60,6 +60,10 @@
             "description": "Tenant-scoped agent-template-gallery endpoints."
         },
         {
+            "name": "agent-acting-user",
+            "description": "Whether an agent's declared acting user still resolves."
+        },
+        {
             "name": "agent-version",
             "description": "Owner/invited-scoped read + owner-only rollback endpoints over an Agent's version history (agent-versioning)."
         },
@@ -228,6 +232,10 @@
             "description": "List, add and remove the participants of a session; the owner only."
         },
         {
+            "name": "session-share",
+            "description": "Read-only shares of a session"
+        },
+        {
             "name": "session-fork",
             "description": "Fork a session at an answer."
         },
@@ -264,6 +272,14 @@
             "description": "The settings talk bridge settings endpoints."
         },
         {
+            "name": "settings-trace-export-settings",
+            "description": "The settings trace export settings endpoints."
+        },
+        {
+            "name": "settings-validated-tag-settings",
+            "description": "The settings validated tag settings endpoints."
+        },
+        {
             "name": "settings-web-research-settings",
             "description": "The settings web research settings endpoints."
         },
@@ -288,6 +304,10 @@
             "description": "Qualify + attest-L4 endpoints for the skill maturity model."
         },
         {
+            "name": "skill-merge",
+            "description": "The curator's skill merge proposals: list, approve and reject."
+        },
+        {
             "name": "skill-version",
             "description": "Version history / diff / rollback / republish endpoints for skills."
         },
@@ -302,6 +322,14 @@
         {
             "name": "ai-label",
             "description": "The AI label on what agents write."
+        },
+        {
+            "name": "remote-agent",
+            "description": "Agents on other servers that a local agent may hand work to, managed by an admin."
+        },
+        {
+            "name": "handoff-result",
+            "description": "The one-time address a webhook workflow posts its late result to."
         }
     ],
     "paths": {
@@ -2597,6 +2625,62 @@
                     },
                     "400": {
                         "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    }
+                }
+            }
+        },
+        "/agents/{id}/acting-user": {
+            "get": {
+                "operationId": "agent-acting-user-show",
+                "summary": "The agent's declared acting user and whether it resolves",
+                "description": "The agent's declared acting user and whether it still resolves: the named account exists and is enabled. An agent with no declared account resolves. An agent the caller may not read answers 404. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "agent-acting-user"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The Agent UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "actingUser": {
+                                            "type": "string"
+                                        },
+                                        "resolves": {
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "required": [
+                                        "actingUser",
+                                        "resolves"
+                                    ]
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "$ref": "#/components/responses/Problem401"
@@ -7854,6 +7938,168 @@
                 }
             }
         },
+        "/sessions/{uuid}/shares": {
+            "get": {
+                "operationId": "session-share-index",
+                "summary": "The read-only shares of a session the caller owns",
+                "description": "The read-only shares of a session the caller owns, with display names. Anyone else gets 404. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "session-share"
+                ],
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "description": "The session uuid.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "session-share-create",
+                "summary": "Share a session the caller owns read-only (body: type user|group, id)",
+                "description": "Share a session the caller owns read-only with a user or a group. Refused (403) when the instance's sharing settings do not allow it; anyone but the owner gets 404. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "session-share"
+                ],
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "description": "The session uuid.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "user",
+                                            "group"
+                                        ],
+                                        "description": "Whether id names a user or a group."
+                                    },
+                                    "id": {
+                                        "type": "string",
+                                        "description": "The user id or group id."
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/sessions/{uuid}/shares/{type}/{id}": {
+            "delete": {
+                "operationId": "session-share-destroy",
+                "summary": "Take a read-only share back",
+                "description": "Take a read-only share back; the recipient loses access at once. Anyone but the owner gets 404. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "session-share"
+                ],
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "description": "The session uuid.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "type",
+                        "in": "path",
+                        "required": true,
+                        "description": "`user` or `group`.",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "user",
+                                "group"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The user id or group id.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
         "/sessions/{uuid}/permanent": {
             "delete": {
                 "operationId": "session-destroy-permanent",
@@ -8397,6 +8643,139 @@
                 }
             }
         },
+        "/settings/validated-tag": {
+            "get": {
+                "operationId": "settings-validated-tag-settings-get",
+                "summary": "The tag that marks a document as validated",
+                "description": "The validated tag's id, name and the groups that may assign it. Admin only.",
+                "tags": [
+                    "settings-validated-tag-settings"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            },
+            "put": {
+                "operationId": "settings-validated-tag-settings-update",
+                "summary": "Name an existing tag as the validated tag",
+                "description": "Name an existing system tag as the validated tag, optionally setting the groups that may assign it. Admin only.",
+                "tags": [
+                    "settings-validated-tag-settings"
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "tagId": {
+                                        "description": "The system tag id."
+                                    },
+                                    "groups": {
+                                        "description": "The groups that may assign the tag; omit to leave them."
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/Problem422"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "settings-validated-tag-settings-create",
+                "summary": "Create the restricted Validated tag",
+                "description": "Create a restricted system tag (default name Validated) assignable by the given groups, and name it as the validated tag. Admin only.",
+                "tags": [
+                    "settings-validated-tag-settings"
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "description": "The tag name, default Validated."
+                                    },
+                                    "groups": {
+                                        "description": "The groups that may assign the tag."
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/Problem422"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
+        },
         "/settings/run-retention": {
             "get": {
                 "operationId": "settings-run-retention-settings-get",
@@ -8486,6 +8865,60 @@
                 "description": "Bind room (settings talk bridge settings). Needs a signed-in Nextcloud user.",
                 "tags": [
                     "settings-talk-bridge-settings"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/settings/trace-export": {
+            "get": {
+                "operationId": "settings-trace-export-settings-get",
+                "summary": "Get (settings trace export settings)",
+                "description": "Get (settings trace export settings). Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "settings-trace-export-settings"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            },
+            "put": {
+                "operationId": "settings-trace-export-settings-update",
+                "summary": "Update (settings trace export settings)",
+                "description": "Update (settings trace export settings). Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "settings-trace-export-settings"
                 ],
                 "responses": {
                     "200": {
@@ -10512,6 +10945,307 @@
                     },
                     "500": {
                         "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
+        },
+        "/handoffs/{id}/result": {
+            "post": {
+                "operationId": "handoff-result-post",
+                "summary": "Accept a webhook workflow's late result for a handoff",
+                "description": "Accept a webhook workflow's late result for a handoff, once, with the handoff's single-use token in the X-Hermiq-Result-Token header or the hermiqResultToken body field. Every refusal (unknown handoff, wrong token, a repeat, a closed handoff) answers the same 404. The body is capped at 1 MB. Public: it needs no login.",
+                "tags": [
+                    "handoff-result"
+                ],
+                "security": [],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The handoff UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "The result closed the handoff.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    }
+                }
+            }
+        },
+        "/remote-agents": {
+            "get": {
+                "operationId": "remote-agent-index",
+                "summary": "List the registered remote agents",
+                "description": "List the registered remote agents: agents on other servers asked over A2A through an integriq source. Needs a Nextcloud admin.",
+                "tags": [
+                    "remote-agent"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "remote-agent-create",
+                "summary": "Register a remote agent",
+                "description": "Register a remote agent: its card is fetched once through the integriq source and kept as a snapshot, and it starts switched off. Body: name, source, and optionally slug and description. Needs a Nextcloud admin.",
+                "tags": [
+                    "remote-agent"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The remote agent was registered.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/Problem502"
+                    }
+                }
+            }
+        },
+        "/remote-agents/{id}": {
+            "put": {
+                "operationId": "remote-agent-update",
+                "summary": "Change a remote agent's name, description or switch",
+                "description": "Change a remote agent's name, description or switch; its source and card stay as registered. Needs a Nextcloud admin.",
+                "tags": [
+                    "remote-agent"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The remote agent UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "remote-agent-destroy",
+                "summary": "Remove a remote agent",
+                "description": "Remove a remote agent. Needs a Nextcloud admin.",
+                "tags": [
+                    "remote-agent"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The remote agent UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    }
+                }
+            }
+        },
+        "/skill-merges": {
+            "get": {
+                "operationId": "skill-merge-index",
+                "summary": "The curator's pending skill merge proposals",
+                "description": "The curator's pending skill merge proposals, newest first: per proposal the skill that goes and the skill that stays (id, name, description, how many agents use it), why the pair was proposed and when. Needs the skill.merge-duplicates action (admins by default). Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "skill-merge"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/skill-merges/{id}/approve": {
+            "post": {
+                "operationId": "skill-merge-approve",
+                "summary": "Approve a skill merge proposal",
+                "description": "Approve the merge proposed on a duplicate skill: every agent that used it moves to the surviving skill, and the duplicate is archived with a pointer to the survivor. Nothing is deleted. 409 when the skill has no pending proposal or the survivor is gone. Needs the skill.merge-duplicates action (admins by default). Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "skill-merge"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The duplicate skill's UUID (the skill the proposal would archive).",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/skill-merges/{id}/reject": {
+            "post": {
+                "operationId": "skill-merge-reject",
+                "summary": "Reject a skill merge proposal (keep both)",
+                "description": "Reject the merge proposed on a duplicate skill: both skills stay as they are and the curator does not propose the same pair again. 409 when the skill has no pending proposal. Needs the skill.merge-duplicates action (admins by default). Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "skill-merge"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The duplicate skill's UUID (the skill the proposal would archive).",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
                     }
                 }
             }

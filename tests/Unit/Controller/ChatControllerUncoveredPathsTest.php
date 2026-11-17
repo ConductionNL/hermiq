@@ -46,6 +46,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Warm-up, guard and failure answers of ChatController.
@@ -174,6 +175,7 @@ final class ChatControllerUncoveredPathsTest extends TestCase {
 	private function findBySchema(array $bySchema): void {
 		$this->objectService->method('find')->willReturnCallback(
 			static function (...$args) use ($bySchema): ?ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'find', args: $args);
 				return ($bySchema[$args[4]] ?? null);
 			}
 		);
@@ -402,6 +404,7 @@ final class ChatControllerUncoveredPathsTest extends TestCase {
 			->method('saveObject')
 			->willReturnCallback(
 				static function (...$args) use (&$saved): ObjectEntity {
+					$args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
 					$saved = $args;
 					return new ObjectEntity();
 				}

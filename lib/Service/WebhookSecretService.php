@@ -53,6 +53,8 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Kernel\Contracts\WebhookSecretServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -449,9 +451,10 @@ class WebhookSecretService implements WebhookSecretServiceInterface {
 		try {
 			return $this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::SCHEMA_SLUG,
-				uuid: $uuid,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
+					uuid: $uuid
+				),
 				_rbac: false,
 				_multitenancy: false
 			);

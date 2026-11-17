@@ -31,6 +31,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for the AgentTemplateService paths the gallery tests leave open.
@@ -120,7 +121,11 @@ class AgentTemplateServiceLifecycleTest extends TestCase {
 	 */
 	private function captureSaves(array &$calls): void {
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (array|ObjectEntity $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$calls): ObjectEntity {
+			function (array|ObjectEntity $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$calls): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$payload = is_array($object) ? $object : $object->getObject();
 				$calls[] = ['object' => $payload, 'register' => $register, 'schema' => $schema, 'uuid' => $uuid];
 				return $this->entity(($uuid ?? 'new-' . count($calls)), $payload);
