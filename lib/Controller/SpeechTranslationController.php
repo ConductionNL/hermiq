@@ -33,6 +33,7 @@ use OCA\Hermiq\Kernel\Contracts\MessageHistoryHandlerInterface;
 use OCA\Hermiq\Service\Speech\SpeechTranslationException;
 use OCA\Hermiq\Service\Speech\TranslationChain;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -135,7 +136,7 @@ class SpeechTranslationController extends Controller {
 		$uid = $user->getUID();
 		$session = null;
 		if ($sessionId !== '') {
-			$session = $this->objectService->find(id: $sessionId, register: 'hermiq', schema: 'agentsession');
+			$session = $this->objectService->find(id: $sessionId, options: new ObjectFindOptions(register: 'hermiq', schema: 'agentsession'));
 			if ($session === null) {
 				return $this->refusal(message: $this->l10n->t('This session does not exist.'), code: 'not_found', status: 404);
 			}

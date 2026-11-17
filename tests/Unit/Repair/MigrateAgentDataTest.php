@@ -39,6 +39,8 @@ use OCP\Migration\IOutput;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for the agent-data-migration repair step.
@@ -806,7 +808,11 @@ class MigrateAgentDataTest extends TestCase {
 			static fn (callable $operation) => $operation()
 		);
 		$objectService->method('find')->willReturnCallback(
-			function (mixed $id, ?array $extend = [], bool $files = false, mixed $register = null, mixed $schema = null) {
+			function (mixed $id, ?ObjectFindOptions $options = null) {
+				$extend = $options?->extend ?? [];
+				$files = $options?->files ?? false;
+				$register = $options?->register;
+				$schema = $options?->schema;
 				if (in_array((string)$id, $this->failingFinds, true) === true) {
 					throw new \RuntimeException('find failed');
 				}
@@ -821,7 +827,11 @@ class MigrateAgentDataTest extends TestCase {
 			}
 		);
 		$objectService->method('saveObject')->willReturnCallback(
-			function (mixed $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null) {
+			function (mixed $object, ObjectSaveOptions $options = new ObjectSaveOptions()) {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				if (in_array((string)$uuid, $this->failingSaves, true) === true) {
 					throw new \RuntimeException('disk full');
 				}

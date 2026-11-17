@@ -27,7 +27,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Chat;
 
 use OCA\Hermiq\Kernel\Contracts\SessionPendingApprovalsInterface;
-use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 
 /**
@@ -42,13 +42,13 @@ class SessionPendingApprovals implements SessionPendingApprovalsInterface {
 	 * Constructor.
 	 *
 	 * @param ToolAccessRequestService $accessRequests The agent's pending tool-access requests.
-	 * @param ApprovalService          $approvals      The approvals routed to a reviewer.
+	 * @param ApprovalInbox            $approvals      The approvals routed to a reviewer.
 	 *
 	 * @spec openspec/changes/archive/2026-11-12-session-about-a-subject/tasks.md
 	 */
 	public function __construct(
 		private readonly ToolAccessRequestService $accessRequests,
-		private readonly ApprovalService $approvals,
+		private readonly ApprovalInbox $approvals,
 	) {
 	}//end __construct()
 
@@ -99,7 +99,7 @@ class SessionPendingApprovals implements SessionPendingApprovalsInterface {
 	/**
 	 * One tool-call approval as an approval card.
 	 *
-	 * @param array<string, mixed> $record A record from ApprovalService::listPendingForReviewer().
+	 * @param array<string, mixed> $record A record from ApprovalInbox::listPendingForReviewer().
 	 *
 	 * @return array<string, mixed> The card.
 	 */

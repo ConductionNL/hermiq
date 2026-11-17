@@ -45,6 +45,7 @@ use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\EvalRunServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\SeedCustodyServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Service\ObjectService;
@@ -257,8 +258,7 @@ class EvalRunController extends Controller {
 		try {
 			$dataset = $this->objectService->find(
 				id: $datasetId,
-				register: self::REGISTER_SLUG,
-				schema: self::DATASET_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::DATASET_SCHEMA)
 			);
 		} catch (Throwable $e) {
 			// `ObjectService::find()` throws when the object is absent, and
@@ -350,8 +350,7 @@ class EvalRunController extends Controller {
 			try {
 				$skill = $this->objectService->find(
 					id: $skillId,
-					register: self::REGISTER_SLUG,
-					schema: self::SKILL_SCHEMA
+					options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA)
 				);
 			} catch (Throwable $e) {
 				return false;

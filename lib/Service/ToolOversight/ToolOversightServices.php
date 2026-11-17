@@ -40,12 +40,14 @@ final class ToolOversightServices {
 	 * @param ToolCatalogView $catalog The grant-annotated tool catalogue.
 	 * @param ToolInvocationLog $invocations The tool-invocation rows and their export.
 	 * @param ToolGrantWrites $grants Grant and access-request writes.
+	 * @param ToolCallMarks|null  $marks       Misuse marks on the agent's tool calls.
 	 */
 	public function __construct(
 		public readonly ToolOversightAgents $agents,
 		public readonly ToolCatalogView $catalog,
 		public readonly ToolInvocationLog $invocations,
 		public readonly ToolGrantWrites $grants,
+		public readonly ?ToolCallMarks $marks = null,
 	) {
 	}//end __construct()
 }//end class

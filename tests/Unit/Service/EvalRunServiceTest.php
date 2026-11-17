@@ -43,6 +43,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * EvalRunService orchestration tests (agent-evals).
@@ -91,26 +92,22 @@ class EvalRunServiceTest extends TestCase {
 
 			public function saveObject(
 				ObjectEntity|array $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				// openregister#2211 (insert-only saves) added this. A double that
-				// drifts from the real signature is a FATAL, not a failed
-				// assertion: PHP refuses to declare the class and the whole
-				// suite dies before it runs.
-				bool $failIfExists = false,
-				bool $_unowned = false,
-				// Added by openregister (duplicate detection), seen 2026-09-16.
-				bool $_dedupOverride = false,
-				?string $_owner = null,
+				bool $_multitenancy = true
 			): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
+				$silent = $options->policy->silent ?? false;
+				$_validation = $options->policy->validation ?? true;
+				$uploadedFiles = $options->uploadedFiles;
+				$currentUser = $options->actor->currentUser;
+				$failIfExists = $options->policy->failIfExists ?? false;
+				$_unowned = $options->actor->unowned ?? false;
+				$_dedupOverride = $options->policy->dedupOverride ?? false;
+				$_owner = $options->actor->owner;
 				$entity = new ObjectEntity();
 				$entity->setUuid('eval-run-uuid');
 				$entity->setObject(is_array($object) ? $object : $object->getObject());
@@ -576,4 +573,45 @@ class EvalRunServiceTest extends TestCase {
 		);
 
 	}//end testAuditAndCaptureFailuresAreLoggedAndNeverFailTheRun()
+	/**
+	 * A pair case runs request A and request B as two turns, asks the judge once with both
+	 * answers, and keeps both answers and the reason on the case result (REQ-BIASEVAL-001).
+	 * @return void
+	 */
+	public function testAPairCaseRunsTwoTurnsAndOneJudgeCall(): void {
+		$schedule = $this->createMock(ScheduleService::class);
+		$schedule->method('getLastRunUsage')->willReturn([]);
+		$schedule->method('getLastRunSkillsUsed')->willReturn([]);
+		$prompts = [];
+		$schedule->expects($this->exactly(2))->method('runAgentAsOwner')->willReturnCallback(
+			function (string $owner, string $agentId, string $prompt) use (&$prompts): string {
+				$prompts[] = $prompt;
+				return 'answer to ' . $prompt;
+			}
+		);
+
+		$scoring = $this->createMock(EvalScoringService::class);
+		$scoring->expects($this->never())->method('score');
+		$scoring->expects($this->once())->method('scorePair')
+			->with($this->anything(), 'answer to Mohamed asks', 'answer to Jan asks', 'org-a')
+			->willReturn(['passed' => true, 'errorMessage' => null, 'score' => null, 'judgeRationale' => 'Same steps.']);
+
+		$service = $this->service(objectService: $this->objectService(), scheduleService: $schedule, scoring: $scoring);
+
+		$run = new \OCA\Hermiq\Service\EvalCaseRun();
+		$run->cases = [['prompt' => 'ignored', 'inputA' => 'Mohamed asks', 'inputB' => 'Jan asks', 'attribute' => 'name', 'expectationType' => 'counterfactualPair']];
+		$run->owner = 'alice';
+		$run->agentId = 'agent-uuid';
+		$run->organisation = 'org-a';
+
+		$result = (new \ReflectionMethod(EvalRunService::class, 'executeCase'))->invoke($service, $run, 0);
+
+		$this->assertSame(['Mohamed asks', 'Jan asks'], $prompts);
+		$this->assertTrue($result['passed']);
+		$this->assertSame('Mohamed asks', $result['prompt']);
+		$this->assertSame('Jan asks', $result['inputB']);
+		$this->assertSame('answer to Mohamed asks', $result['actualOutput']);
+		$this->assertSame('answer to Jan asks', $result['actualOutputB']);
+		$this->assertSame('Same steps.', $result['judgeRationale']);
+	}//end testAPairCaseRunsTwoTurnsAndOneJudgeCall()
 }//end class

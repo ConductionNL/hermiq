@@ -135,6 +135,59 @@ class OrganisationControlControllerTest extends TestCase {
 	}//end controller()
 
 	/**
+	 * Reading an engaged switch says who engaged it and when (row co-disable-dept).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/verify-row-scenarios/specs/human-approval-gate/spec.md#requirement-org-level-kill-switch-halts-all-runs
+	 */
+	public function testShowSaysWhoEngagedTheSwitchAndWhen(): void {
+		$control = new ObjectEntity();
+		$control->setObject(['engaged' => true, 'reason' => 'AI off for the audit', 'engagedBy' => 'org-admin-a', 'engagedAt' => '2026-10-01T09:00:00+00:00']);
+
+		$service = $this->createMock(OrganisationControlService::class);
+		$service->expects($this->once())->method('getForOrganisation')->with('org-a')->willReturn($control);
+
+		$owner = $this->controller(
+			$this->request(),
+			$service,
+			$this->session('owner-a'),
+			$this->createMock(IGroupManager::class),
+			$this->orgMapper('owner-a')
+		)->show('org-a');
+
+		$this->assertSame(Http::STATUS_OK, $owner->getStatus());
+		$this->assertSame(
+			[
+				'organisation' => 'org-a',
+				'engaged' => true,
+				'reason' => 'AI off for the audit',
+				'engagedBy' => 'org-admin-a',
+				'engagedAt' => '2026-10-01T09:00:00+00:00',
+			],
+			$owner->getData()
+		);
+	}//end testShowSaysWhoEngagedTheSwitchAndWhen()
+
+	/**
+	 * A switch never engaged reads as off, with nobody and no time.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/verify-row-scenarios/specs/human-approval-gate/spec.md#requirement-org-level-kill-switch-halts-all-runs
+	 */
+	public function testShowOfANeverEngagedSwitchNamesNobody(): void {
+		$service = $this->createMock(OrganisationControlService::class);
+		$service->method('getForOrganisation')->willReturn(null);
+		$groupManager = $this->createMock(IGroupManager::class);
+		$groupManager->method('isAdmin')->willReturn(true);
+
+		$data = $this->controller($this->request(), $service, $this->session('root'), $groupManager, $this->orgMapper(null))->show('org-b')->getData();
+
+		$this->assertSame(['organisation' => 'org-b', 'engaged' => false, 'reason' => null, 'engagedBy' => null, 'engagedAt' => null], $data);
+	}//end testShowOfANeverEngagedSwitchNamesNobody()
+
+	/**
 	 * An instance admin can read the kill-switch state.
 	 *
 	 * @return void

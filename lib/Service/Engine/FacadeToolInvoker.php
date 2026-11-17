@@ -137,6 +137,8 @@ namespace OCA\Hermiq\Service\Engine;
 
 use Closure;
 use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Service\Handoff\FlowTurn;
+use OCA\Hermiq\Service\Handoff\TurnHandoffs;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ToolClassificationService;
 use OCA\Hermiq\Service\ToolSearchService;
@@ -210,6 +212,14 @@ class FacadeToolInvoker {
 	private const DELEGATE_AGENT_TOOL_ID = 'hermiq.delegateAgent';
 
 	/**
+	 * `hermiq.delegateAgents` (delegation-runs-in-parallel): the same trusted
+	 * calling-agent identity as `DELEGATE_AGENT_TOOL_ID`.
+	 *
+	 * @var string
+	 */
+	private const DELEGATE_AGENTS_TOOL_ID = 'hermiq.delegateAgents';
+
+	/**
 	 * The six integriq agent tools (approval-verification-contract, hermiq#1045)
 	 * that get the running agent's id as `agentId`, overwriting whatever the model
 	 * sent: integriq records it on a staged batch and names it as `actingAgent`
@@ -253,6 +263,9 @@ class FacadeToolInvoker {
 		'hermiq.upsertContact',
 		'hermiq.createTask',
 		'hermiq.completeTask',
+		// Tools-post-a-talk-message: the message is posted as THIS agent's bot,
+		// and only where that bot is a member, so the agent must come from the run.
+		'hermiq.sendTalkMessage',
 	];
 
 	/**
@@ -419,6 +432,12 @@ class FacadeToolInvoker {
 	 *                                   null, every pre-existing caller, is no cap.
 	 * @param Closure|null $agentStillOn Fresh read of the agent's switch before each call;
 	 *                                   null is always on.
+	 * @param array<int,string> $askFirst Registry ids the person who started the run asks to
+	 *                                    approve first (personal-preferences, ask before sending);
+	 *                                    empty, every pre-existing caller, asks nothing extra.
+	 * @param TurnHandoffs|null $handoffs Opens the handoff of work a tool started and did not wait
+	 *                                    for (flows-hand-off-and-wait); null opens none.
+	 * @param string            $conversationId The conversation of this turn; '' opens no handoff.
 	 *
 	 * @return void
 	 *
@@ -453,6 +472,9 @@ class FacadeToolInvoker {
 		private readonly array $waivedConstraintSets = [],
 		?int $maxToolCalls = null,
 		?Closure $agentStillOn = null,
+		private readonly array $askFirst = [],
+		private readonly ?TurnHandoffs $handoffs = null,
+		private readonly string $conversationId = '',
 	) {
 		$this->turnGuard = new TurnGuard(maxToolCalls: $maxToolCalls, agentStillOn: $agentStillOn);
 	}//end __construct()
@@ -586,7 +608,7 @@ class FacadeToolInvoker {
 
 	/**
 	 * Route a granted call through the human gates — `confirm` unless waived, then the
-	 * approval gate — to the facade.
+	 * approval gate, then the person's own ask-before-sending — to the facade.
 	 *
 	 * Agent-capability-reach: an owner may waive the human confirmation for
 	 * ONE grant entry with a `#noapproval` fragment. It is consulted HERE
@@ -608,6 +630,13 @@ class FacadeToolInvoker {
 
 		if ($this->requiresApprovalGate(name: $name) === true) {
 			return $this->handleGatedInvocation(name: $name, arguments: $arguments);
+		}
+
+		// The person who started the run asked to approve anything sent on their
+		// behalf. Read after every other gate: it only adds a question, and an
+		// owner's waiver never answers it for them (personal-preferences).
+		if (in_array($this->resolveToolId(name: $name), $this->askFirst, true) === true) {
+			return $this->handleConfirmClassifiedInvocation(name: $name, arguments: $arguments);
 		}
 
 		return $this->dispatchToFacade(name: $name, call: new FacadeCall(arguments: $arguments));
@@ -1202,7 +1231,8 @@ class FacadeToolInvoker {
 		return in_array($toolId, self::MEMORY_TOOL_IDS, true) === true
 			|| in_array($toolId, self::ARTEFACT_WRITE_TOOL_IDS, true) === true
 			|| in_array($toolId, self::INTEGRIQ_AGENT_TOOL_IDS, true) === true
-			|| $toolId === self::DELEGATE_AGENT_TOOL_ID;
+			|| $toolId === self::DELEGATE_AGENT_TOOL_ID
+			|| $toolId === self::DELEGATE_AGENTS_TOOL_ID;
 
 	}//end needsAgentId()
 
@@ -1257,6 +1287,11 @@ class FacadeToolInvoker {
 			result: $dispatch->envelope['result'],
 			isError: $dispatch->envelope['isError']
 		);
+		$dispatch->envelope['result'] = $this->withHandoff(
+			name: $name,
+			arguments: $arguments,
+			envelope: $dispatch->envelope
+		);
 
 		$reporter->finished(
 			dispatch: $dispatch,
@@ -1265,6 +1300,37 @@ class FacadeToolInvoker {
 
 		return $dispatch->encodedResult();
 	}//end dispatchToFacade()
+
+	/**
+	 * When a tool started work it does not wait for (a flow run, a remote task), in a
+	 * turn with a conversation, open its handoff so the result comes back there, and
+	 * say so in the result (flows-hand-off-and-wait). Every other result is returned as is.
+	 *
+	 * @param string               $name      The LLPhant-side function name.
+	 * @param array<string, mixed> $arguments The call's arguments.
+	 * @param array<string, mixed> $envelope  The facade's {result, isError}.
+	 *
+	 * @return mixed The result, with `handoff` and `note` when a handoff was opened.
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
+	 */
+	private function withHandoff(string $name, array $arguments, array $envelope): mixed {
+		if ($this->handoffs === null || ($envelope['isError'] ?? false) === true) {
+			return $envelope['result'];
+		}
+
+		return $this->handoffs->afterToolCall(
+			toolId: $this->resolveToolId(name: $name),
+			arguments: $arguments,
+			result: $envelope['result'],
+			turn: new FlowTurn(
+				agentId: (string)$this->agentId,
+				conversationId: $this->conversationId,
+				owner: (string)$this->ownerUid
+			)
+		);
+	}//end withHandoff()
 
 	/**
 	 * When an integriq agent tool staged a batch (`status: staged` with a proposal

@@ -74,7 +74,9 @@ namespace OCA\Hermiq\Repair;
 use DateTime;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\OpenRegister\Db\Flow;
+use OCA\OpenRegister\Db\Flow\FlowSelection;
 use OCA\OpenRegister\Db\FlowMapper;
+use OCA\OpenRegister\Kernel\Contracts\ListQuery;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCA\OpenRegister\Service\OrganisationService;
@@ -820,7 +822,7 @@ class SeedHydraTriageFlow implements IRepairStep {
 	 * @return Flow|null The matching flow, or null.
 	 */
 	private function findExisting(FlowMapper $mapper): ?Flow {
-		foreach ($mapper->findAllFlows(app: AppIdentity::APP_ID, limit: 500) as $flow) {
+		foreach ($mapper->findAllFlows(selection: new FlowSelection(app: AppIdentity::APP_ID), query: new ListQuery(limit: 500, offset: 0)) as $flow) {
 			if ($flow->getName() === self::FLOW_NAME) {
 				return $flow;
 			}

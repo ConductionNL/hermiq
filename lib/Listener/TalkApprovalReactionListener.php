@@ -12,7 +12,7 @@
  * if any bystander's 👍 released a gated run this listener would make Hermiq's
  * oversight mechanism weaker than not having it at all. The reactor is
  * therefore checked against the approval's resolved reviewer — using the SAME
- * `ApprovalService::isReviewer()` the inbox uses, never a second opinion — and
+ * `ApprovalInbox::isReviewer()` the inbox uses, never a second opinion — and
  * a reaction from anyone else is ignored.
  *
  * Unlike the chat bridge's turn, the decision runs INLINE: applying an approval
@@ -40,6 +40,7 @@ namespace OCA\Hermiq\Listener;
 
 use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\TalkApprovalBindingInterface;
+use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\Talk\TalkBridge;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\EventDispatcher\Event;
@@ -79,12 +80,14 @@ class TalkApprovalReactionListener implements IEventListener {
 	 * @param TalkApprovalBindingInterface $approvalBinding Resolves an approval from a message id.
 	 * @param ApprovalServiceInterface $approvalService Applies the decision — the same path the inbox uses.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param ApprovalInbox $approvalInbox The reviewer guard — the same check the inbox uses.
 	 */
 	public function __construct(
 		private readonly TalkBridge $bridge,
 		private readonly TalkApprovalBindingInterface $approvalBinding,
 		private readonly ApprovalServiceInterface $approvalService,
 		private readonly LoggerInterface $logger,
+		private readonly ApprovalInbox $approvalInbox,
 	) {
 	}//end __construct()
 
@@ -158,7 +161,7 @@ class TalkApprovalReactionListener implements IEventListener {
 	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-only-the-reviewer-may-decide-by-reaction
 	 */
 	private function fromReviewer(ObjectEntity $approval, string $reactor): bool {
-		if ($this->approvalService->isReviewer($approval, $reactor) === true) {
+		if ($this->approvalInbox->isReviewer($approval, $reactor) === true) {
 			return true;
 		}
 

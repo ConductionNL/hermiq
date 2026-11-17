@@ -20,14 +20,16 @@ Kind: code. Size M. Row `hermiq:dm-deep-research`.
   - GIVEN a refused fetch WHEN it happens THEN it is not in the ledger
 - [ ] Implement
 - [ ] Test (PHPUnit with stubbed tools)
+  - 2026-11-13, first slice: `lib/Service/Research/SourceLedger.php` is built and tested (`SourceLedgerTest`, 5): a fetched page gets a number with its URL, title, fetch time and text (webFetch's untrusted delimiter taken off); a refused or empty fetch gets none; the same URL keeps its first number; the ledger round-trips through the handoff and ends the report with its sources list. The gathering loop through `FacadeToolInvoker` waits on the runner (Task 1).
 
 ### Task 3: The citation check
 - **spec_ref**: `openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-every-citation-is-checked-against-what-was-read-req-research-003`
 - **files**: `lib/Service/Research/CitationChecker.php`
 - **acceptance_criteria**:
   - GIVEN citations that match, a wrong number and an invented passage WHEN checked THEN the first passes and the other two are removed with "(unverified)"
-- [ ] Implement
-- [ ] Test (PHPUnit with fixtures, including quotation marks and whitespace differences)
+- [x] Implement
+- [x] Test (PHPUnit with fixtures, including quotation marks and whitespace differences)
+  - `lib/Service/Research/CitationChecker.php` and `CitationCheck.php`; `CitationCheckerTest` (7): a matching citation renders as `[n]`, a wrong number and an invented passage are removed and their sentence ends with "(unverified)", case, whitespace and every kind of quotation mark are normalised, a full stop inside a quoted passage does not end the sentence, two failures in one sentence mark it once, and the counts read "14 sources, 1 citation checked, 1 unverified".
 
 ### Task 4: The report file and the conversation message
 - **spec_ref**: `openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-the-report-is-saved-in-the-users-files-and-marked-as-agent-authored-req-research-004`
@@ -35,8 +37,9 @@ Kind: code. Size M. Row `hermiq:dm-deep-research`.
 - **acceptance_criteria**:
   - GIVEN a finished run WHEN the report is written THEN it is in the user's Files with the tag, and the conversation has the summary, counts and link
   - GIVEN a failed mark WHEN writing THEN the file is removed and the run fails
-- [ ] Implement
-- [ ] Test (PHPUnit with the tag manager stubbed to fail)
+- [x] Implement
+- [x] Test (PHPUnit with the tag manager stubbed to fail)
+  - `ReportWriter::write()` saves the report as the user into `Hermiq/Onderzoek/<yyyy-mm-dd> <title>.md` (folders made when missing, a free name when taken), marks it "Agent authored" in the same operation and on a failed mark deletes it and throws, so the run fails; `message()` words the conversation message: at most five summary lines, "14 sources, 31 citations checked, 2 unverified" and the link. `ReportWriterTest` (4). The runner (task 1) posts the message once it exists.
 
 ### Task 5: Caps, budget, kill switch and stop
 - **spec_ref**: `openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-research-run-stops-at-its-caps-the-budget-the-kill-switch-or-the-user-req-research-005`
@@ -47,6 +50,8 @@ Kind: code. Size M. Row `hermiq:dm-deep-research`.
   - GIVEN stop WHEN pressed THEN the run ends at the next step
 - [ ] Implement
 - [ ] Test (PHPUnit with a fake clock and stubbed BudgetService; Newman on the stop route for owner and non-owner)
+  - 2026-11-13, first slice: the caps themselves are built, `lib/Service/Research/ResearchCaps.php` with `ResearchCapsTest` (6): instance defaults 40 / 20 / 20 min / 200,000, an agent may only lower a cap, `quick` halves each, and the first line names the cap reached ("This report stopped early: the source limit of 20 was reached."). The budget and kill-switch checks and the stop route wait on the runner.
+  - 2026-11-14, second slice: the check before every model call is built, `lib/Service/Research/ResearchGate.php` with `ResearchGateTest` (5): a stop ends the run with "Research stopped." without reading anything else, an engaged kill switch of the run's organisation ends it before the budget is read, another organisation's does not, and a budget at its hard cap ends it. Wiring it into the runner, the stop route and the controller wait on the runner (Task 1), which needs the `Handoff` schema from `flows-hand-off-and-wait` (still on its own unmerged branch).
 
 ### Task 6: The chat controls
 - **spec_ref**: `openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-user-can-start-deep-research-and-sees-the-plan-req-research-001`

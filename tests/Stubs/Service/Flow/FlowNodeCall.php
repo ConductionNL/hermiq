@@ -1,19 +1,21 @@
 <?php
 
 /**
- * Test stub for OpenRegister FlowNodeCall.
+ * What a flow step is called with: its input items, its configuration and the run context.
  *
- * Stands in for OCA\OpenRegister\Service\Flow\FlowNodeCall when OpenRegister is
- * not installed (standalone CI), with the real constructor.
+ * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
+ * SPDX-License-Identifier: EUPL-1.2
  *
- * @category Test
+ * @category Service
  * @package  OCA\OpenRegister\Service\Flow
  *
- * @author    Conduction Development Team <info@conduction.nl>
+ * @author    Conduction Development Team <dev@conduction.nl>
  * @copyright 2026 Conduction B.V.
  * @license   EUPL-1.2 https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
  *
- * @link https://conduction.nl
+ * @link https://OpenRegister.app
+ *
+ * @spec openspec/specs/flow-engine/spec.md#requirement-a-run-records-what-each-node-received-returned-and-logged
  */
 
 declare(strict_types=1);
@@ -21,21 +23,25 @@ declare(strict_types=1);
 namespace OCA\OpenRegister\Service\Flow;
 
 /**
- * One flow-node invocation: the input items, the step configuration and the run context.
+ * One call of a node: {@see IFlowNode::execute()} and {@see IFlowNodePreview::preview()} take it.
+ *
+ * The items are the data channel ({@see FlowItems}); the context is run-level
+ * metadata and never carries data between steps.
+ *
+ * @spec openspec/specs/flow-engine/spec.md#requirement-a-run-records-what-each-node-received-returned-and-logged
  */
 final class FlowNodeCall {
-
 	/**
 	 * Constructor.
 	 *
-	 * @param array $items The input items.
-	 * @param array $config The step's authored configuration.
-	 * @param array $context Run-level metadata, not the data channel.
+	 * @param array $items   The input items.
+	 * @param array $config  The step's authored configuration.
+	 * @param array $context Run-level metadata.
 	 */
 	public function __construct(
-		public readonly array $items = [],
-		public readonly array $config = [],
-		public readonly array $context = [],
+		public readonly array $items=[],
+		public readonly array $config=[],
+		public readonly array $context=[],
 	) {
 	}//end __construct()
 }//end class

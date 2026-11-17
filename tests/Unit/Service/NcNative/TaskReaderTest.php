@@ -32,6 +32,7 @@ use PHPUnit\Framework\TestCase;
  * The task rows an agent reads from the user's task lists.
  *
  * @covers \OCA\Hermiq\Service\NcNative\TaskReader
+ * @uses   \OCA\Hermiq\Service\NcNative\TaskSource
  */
 class TaskReaderTest extends TestCase {
 
@@ -195,4 +196,50 @@ class TaskReaderTest extends TestCase {
 		self::assertSame(['NEEDS-ACTION', 'NESTED'], array_column($tasks, 'status'));
 
 	}//end testMalformedRowsReadAsUntitledOpenTasks()
+
+	/**
+	 * An explicit STATUS wins over a COMPLETED date, and a repeated property reads its first occurrence.
+	 *
+	 * @return void
+	 */
+	public function testAnExplicitStatusWinsOverACompletedDate(): void {
+		$list = $this->taskList(
+			uri: 'work',
+			name: 'Work',
+			rows: [
+				[
+					'uid' => 'reopened',
+					'objects' => [[
+						'SUMMARY' => [['First title', []], ['Second title', []]],
+						'STATUS' => ['needs-action', []],
+						'COMPLETED' => [new DateTimeImmutable('2026-09-30'), []],
+						'PRIORITY' => [['5', []]],
+					]],
+				],
+			]
+		);
+
+		$reader = new TaskReader();
+		$tasks = $reader->read(lists: [$list], status: 'open', before: null, listUri: '');
+
+		self::assertSame(
+			expected: [
+				[
+					'uid' => 'reopened',
+					'summary' => 'First title',
+					'due' => null,
+					'status' => 'NEEDS-ACTION',
+					'priority' => 5,
+					'list' => 'work',
+					'listName' => 'Work',
+				],
+			],
+			actual: $tasks
+		);
+		self::assertSame(
+			expected: [],
+			actual: $reader->read(lists: [$list], status: 'completed', before: null, listUri: '')
+		);
+
+	}//end testAnExplicitStatusWinsOverACompletedDate()
 }//end class

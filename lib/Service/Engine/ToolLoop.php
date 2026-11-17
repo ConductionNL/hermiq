@@ -65,6 +65,8 @@ use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Service\Agent\AgentAvailabilityService;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\GuardrailPolicyService;
+use OCA\Hermiq\Service\Handoff\TurnHandoffs;
+use OCA\Hermiq\Service\PersonalPreferences;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ToolSearchService;
 use OCA\Hermiq\Service\Workspace\RepoEffectingGrants;
@@ -159,6 +161,10 @@ class ToolLoop implements ToolLoopInterface {
 	 * @param AgentAvailabilityService|null $availabilityService Fresh read of the agent's switch, so a
 	 *                                                        turn stops at its next tool call once the
 	 *                                                        agent is switched off. Null: never stops.
+	 * @param PersonalPreferences|null      $preferences         The signed-in person's own preferences, for
+	 *                                                        ask-before-sending. Null: asks nothing extra.
+	 * @param TurnHandoffs|null             $handoffs            Opens the handoff of work a tool started and
+	 *                                                        did not wait for (flows-hand-off-and-wait). Null: none.
 	 *
 	 * @return void
 	 *
@@ -182,6 +188,8 @@ class ToolLoop implements ToolLoopInterface {
 		private readonly ?RedactionService $redactionService = null,
 		private readonly ?IUserSession $userSession = null,
 		private readonly ?AgentAvailabilityService $availabilityService = null,
+		private readonly ?PersonalPreferences $preferences = null,
+		private readonly ?TurnHandoffs $handoffs = null,
 	) {
 	}//end __construct()
 
@@ -298,6 +306,7 @@ class ToolLoop implements ToolLoopInterface {
 	 * @throws ToolGrantResolutionException When granted tools resolve to nothing.
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) RepoEffectingGrants is a pure rule over the grant grammar, like ToolGrantResolver's static classifiers.
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-tool-governance/spec.md#REQ-SPCOV-015
 	 */
 	private function resolveGrantedFunctions(array $whitelist): array {
 		$functions = RepoEffectingGrants::filterDescriptors(
@@ -498,6 +507,10 @@ class ToolLoop implements ToolLoopInterface {
 	 *                     set, informs the side-effect classification).
 	 *                     False (every pre-existing caller) is
 	 *                     byte-for-byte unchanged behavior.
+	 * @param string $conversationId The conversation the turn belongs to, so a flow an
+	 *                               agent queues can bring its result back there
+	 *                               (flows-hand-off-and-wait). '' (every pre-existing
+	 *                               caller) opens no handoff.
 	 *
 	 * @return array<int, FunctionInfo> FunctionInfo objects ready for `setTools()`.
 	 *
@@ -518,8 +531,10 @@ class ToolLoop implements ToolLoopInterface {
 		?ObjectEntity $agent = null,
 		?string $organisation = null,
 		bool $dryRun = false,
+		string $conversationId = '',
 	): array {
 		$run = new ToolSurfaceRun();
+		$run->conversationId = $conversationId;
 		$run->functions = $functions;
 		$run->channel = $channel;
 		$run->trace = $trace;
@@ -556,9 +571,33 @@ class ToolLoop implements ToolLoopInterface {
 			ownerUid: $this->resolveOwnerUid(agent: $run->agent),
 			waivedConstraintSets: $this->grantResolver->waivedConstraintSets(grants: $this->agentGrants(agent: $run->agent)),
 			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent),
-			agentStillOn: $this->agentStillOn(agentId: $agentId)
+			agentStillOn: $this->agentStillOn(agentId: $agentId),
+			askFirst: $this->askFirst(functions: $run->functions),
+			handoffs: $this->handoffs,
+			conversationId: $run->conversationId
 		);
 	}//end createInvoker()
+
+	/**
+	 * The outbound tools of this turn the person running it asked to approve first.
+	 *
+	 * Empty unless the signed-in person switched on ask-before-sending; a turn with
+	 * no signed-in person asks nothing extra.
+	 *
+	 * @param array<int|string, mixed> $functions Flattened LLPhant function descriptors.
+	 *
+	 * @return list<string> Registry ids.
+	 *
+	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 */
+	private function askFirst(array $functions): array {
+		$uid = (string)($this->userSession?->getUser()?->getUID() ?? '');
+		if ($this->preferences === null || $this->preferences->isOn(userId: $uid, key: PersonalPreferences::ASK_BEFORE_SEND) === false) {
+			return [];
+		}
+
+		return OutboundToolRule::outboundAmong(toolIds: array_values($this->mcpIdsByName(functions: $functions)));
+	}//end askFirst()
 
 	/**
 	 * The acting agent's uuid, or null for agent-less chat.

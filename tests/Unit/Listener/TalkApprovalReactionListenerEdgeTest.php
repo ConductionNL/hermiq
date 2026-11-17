@@ -24,6 +24,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Listener;
 
 use OCA\Hermiq\Listener\TalkApprovalReactionListener;
+use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\Talk\TalkApprovalBinding;
 use OCA\Hermiq\Service\Talk\TalkBridge;
@@ -58,11 +59,18 @@ class TalkApprovalReactionListenerEdgeTest extends TestCase {
 	private $binding;
 
 	/**
-	 * Reviewer check and decisions.
+	 * Decisions.
 	 *
 	 * @var ApprovalService&MockObject
 	 */
 	private $approvals;
+
+	/**
+	 * Reviewer check.
+	 *
+	 * @var ApprovalInbox&MockObject
+	 */
+	private $inbox;
 
 	/**
 	 * Logger.
@@ -90,12 +98,14 @@ class TalkApprovalReactionListenerEdgeTest extends TestCase {
 		$this->binding = $this->createMock(originalClassName: TalkApprovalBinding::class);
 		$this->approvals = $this->createMock(originalClassName: ApprovalService::class);
 		$this->logger = $this->createMock(originalClassName: LoggerInterface::class);
+		$this->inbox = $this->createMock(originalClassName: ApprovalInbox::class);
 
 		$this->listener = new TalkApprovalReactionListener(
 			bridge: $this->bridge,
 			approvalBinding: $this->binding,
 			approvalService: $this->approvals,
-			logger: $this->logger
+			logger: $this->logger,
+			approvalInbox: $this->inbox
 		);
 
 	}//end setUp()
@@ -163,7 +173,7 @@ class TalkApprovalReactionListenerEdgeTest extends TestCase {
 		$this->bridge->method('isAvailable')->willReturn(false);
 
 		$this->binding->expects($this->never())->method('findByMessageId');
-		$this->approvals->expects($this->never())->method('isReviewer');
+		$this->inbox->expects($this->never())->method('isReviewer');
 
 		$this->listener->handle($this->invocation($this->like()));
 

@@ -92,9 +92,31 @@ class ChatRefusalFrame {
 				code: DataUseViolationException::ERROR_CODE,
 				message: $this->l10n->t('This assistant cannot answer: your organisation only allows AI providers that never train on its data.')
 			),
+			// Chat-about-a-document: the scope is malformed or cannot be opened.
+			$cause instanceof TurnScopeException => $this->frame(
+				code: $cause->errorCode(),
+				message: $this->scopeMessage(cause: $cause)
+			),
 			default => null,
 		};
 	}//end forCause()
+
+	/**
+	 * The sentence for a refused scope.
+	 *
+	 * @param TurnScopeException $cause The refusal.
+	 *
+	 * @return string The sentence.
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 */
+	private function scopeMessage(TurnScopeException $cause): string {
+		if ($cause->errorCode() === TurnScopeException::NOT_FOUND) {
+			return $this->l10n->t('The document or folder this question is about cannot be opened.');
+		}
+
+		return $this->l10n->t('This question names its document or folder in a way hermiq does not understand.');
+	}//end scopeMessage()
 
 	/**
 	 * One error frame.

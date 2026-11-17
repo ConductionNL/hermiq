@@ -28,6 +28,7 @@ use OCA\OpenRegister\Service\ObjectService;
 use Opis\JsonSchema\Validator;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 final class AppAssistantServiceTest extends TestCase {
 
@@ -68,6 +69,7 @@ final class AppAssistantServiceTest extends TestCase {
 		$objects->method('findAll')->willReturnCallback(fn (array $config = []): array => array_slice($all, (int)($config['offset'] ?? 0), (int)($config['limit'] ?? 100)));
 		$objects->method('saveObject')->willReturnCallback(
 			function (array $object, ...$rest): ObjectEntity {
+				$rest = array_slice(LegacyObjectArgs::positional(method: 'saveObject', args: [$object, ...$rest]), 1);
 				$this->saved[] = $object;
 				return $this->agent(self::AGENT, 'org-1', $object);
 			}

@@ -15,17 +15,25 @@
 
 ## 2. Edit page
 
-- [ ] 2.1 Add the "Namens wie werkt de agent" choice to `src/modals/AgentFormModal.vue` as drawn on
+- [x] 2.1 Add the "Namens wie werkt de agent" choice to `src/modals/AgentFormModal.vue` as drawn on
       HmAgentBewerken: two radio options, a user picker (`NcSelectUsers` or `NcSelect` with
       `inputLabel`) under the service account option, `actingUser` in the save payload (empty for the
       first option) (REQ-AGID-001). Verify: Vitest test that each option produces the right payload.
-- [ ] 2.2 Disable the service account option for a viewer without `agent.set-acting-user`, read
+      Done: the fieldset sits under "Who can use this agent"; the choice is read and written by
+      `src/utils/agentActingUser.js`; the picker searches Nextcloud's user search (enabled accounts).
+- [x] 2.2 Disable the service account option for a viewer without `agent.set-acting-user`, read
       through `ActionAuthService::can()` via initial state or an existing endpoint, with the sentence
       that an administrator sets it (REQ-AGID-002). Verify: Vitest test with the right withheld.
-- [ ] 2.3 Show a declared `actingUser` that no longer resolves with the warning of REQ-AGID-003; the
+      Done: `DashboardController` provides `can_set_acting_user` from the action matrix; the picker is
+      disabled with the option, and a stored account stays in the payload unchanged.
+- [x] 2.3 Show a declared `actingUser` that no longer resolves with the warning of REQ-AGID-003; the
       resolution comes from the server (enabled or not), never guessed in the browser. Verify: Vitest test.
-- [ ] 2.4 Add the Dutch strings to `l10n/nl.json` and `l10n/nl.js` in the board's wording.
+      Done: `GET /api/agents/{id}/acting-user` (`AgentActingUserController`, read-scoped, 404 for an
+      agent the caller may not read) answers whether the stored account exists and is enabled.
+- [x] 2.4 Add the Dutch strings to `l10n/nl.json` and `l10n/nl.js` in the board's wording.
       Verify: `npm run lint` exits 0.
+      Done: en/nl keys in `l10n/*.json`, `l10n/*.js` rebuilt with `npm run l10n:build`. `npm run lint`
+      reports 0 errors; it exits non-zero on development as well (warnings only).
 
 ## 3. Verification
 

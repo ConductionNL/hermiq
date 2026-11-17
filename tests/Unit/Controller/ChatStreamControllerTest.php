@@ -51,6 +51,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Sentinel exception thrown by TestableChatStreamController in place of
@@ -513,6 +514,7 @@ class ChatStreamControllerTest extends TestCase {
 		$args = null;
 		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$passed = LegacyObjectArgs::positional(method: 'saveObject', args: $passed);
 				$args = $passed;
 				$session = new ObjectEntity();
 				$session->setUuid('conv-new');
@@ -681,6 +683,7 @@ class ChatStreamControllerTest extends TestCase {
 	private function recordWorld(array &$finds, ?array &$saved): void {
 		$this->objectService->method('find')->willReturnCallback(
 			function (mixed ...$args) use (&$finds): ?ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'find', args: $args);
 				$finds[] = $args;
 				$entity = new ObjectEntity();
 				$entity->setUuid((string)$args[0]);
@@ -700,6 +703,7 @@ class ChatStreamControllerTest extends TestCase {
 		);
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$saved): ObjectEntity {
+				$passed = LegacyObjectArgs::positional(method: 'saveObject', args: $passed);
 				$saved = $passed[0];
 				$session = new ObjectEntity();
 				$session->setUuid('conv-new');
@@ -771,6 +775,7 @@ class ChatStreamControllerTest extends TestCase {
 		$finds = [];
 		$this->objectService->method('find')->willReturnCallback(
 			function (mixed ...$args) use (&$finds): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'find', args: $args);
 				$finds[] = $args;
 				$conversation = new ObjectEntity();
 				$conversation->setUuid('conv-1');
