@@ -1131,6 +1131,333 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "Knowledge base upload",
+			"description": "memory-knowledge-bases Task 2: the owner uploads into the knowledge base folder; a non-owner gets 404.",
+			"item": [
+				{
+					"name": "Create the knowledge base reader",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/ocs/v2.php/cloud/users?format=json",
+						"description": "memory-knowledge-bases Task 2: a second, non-admin user who does not own the knowledge base. Created by the admin; an existing user is fine.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"userid\": \"{{kb_user}}\", \"password\": \"{{kb_password}}\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.variables.get('kb_user')) { pm.collectionVariables.set('kb_user', 'hermiq-newman-kb-reader'); }",
+									"if (!pm.variables.get('kb_password')) { pm.collectionVariables.set('kb_password', 'Newman-kb-' + Date.now()); }"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The second user exists', function () {",
+									"    pm.expect([200, 400]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Create a knowledge base as the admin",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agentknowledgebase",
+						"description": "REQ-KB-001: the owner creates a knowledge base without a folder, so uploads land in the default Hermiq/Knowledge bases/<name>.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"name\": \"Newman Inkoopbeleid\", \"description\": \"Knowledge base for the upload check.\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The knowledge base is saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"    const body = pm.response.json();",
+									"    const id = body.id || body.uuid || (body['@self'] || {}).id;",
+									"    pm.expect(id, 'the saved knowledge base carries an id').to.be.a('string').and.not.empty;",
+									"    pm.collectionVariables.set('kb_id', id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The owner uploads two documents",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/knowledge-bases/{{kb_id}}/documents",
+						"description": "REQ-KB-001 / Task 2: two PDFs posted as files[] land in the knowledge base's folder in the owner's Files, under a free name each, and come back as file sources. The fixture path is relative to tests/integration, where CI runs newman.",
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "files[]",
+									"type": "file",
+									"src": "fixtures/offerte-newman.pdf"
+								},
+								{
+									"key": "files[]",
+									"type": "file",
+									"src": "fixtures/offerte-newman.pdf"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The documents are kept', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Both land in the knowledge base folder as file sources', function () {",
+									"    const files = (pm.response.json().results || []).filter(function (s) { return s.type === 'file'; });",
+									"    pm.expect(files.length).to.eql(2);",
+									"    files.forEach(function (s) {",
+									"        pm.expect(s.fileId).to.be.a('number');",
+									"        pm.expect(s.path).to.include('Hermiq/Knowledge bases/Newman Inkoopbeleid/');",
+									"        pm.expect(s.path).to.include('offerte-newman');",
+									"    });",
+									"    pm.expect(files[0].fileId).to.not.eql(files[1].fileId);",
+									"    pm.expect(files[0].path).to.not.eql(files[1].path);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The owner reads the sources",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/knowledge-bases/{{kb_id}}/sources",
+						"description": "REQ-KB-001: the detail page's read lists both uploaded documents with an indexing state slot and whether search is available."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The owner reads the sources', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Both uploads are listed with an indexing state slot', function () {",
+									"    const body = pm.response.json();",
+									"    pm.expect(body.searchAvailable).to.be.a('boolean');",
+									"    const files = (body.results || []).filter(function (s) { return s.type === 'file'; });",
+									"    pm.expect(files.length).to.eql(2);",
+									"    files.forEach(function (s) { pm.expect(s).to.have.property('indexState'); });",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A non-owner cannot upload",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/knowledge-bases/{{kb_id}}/documents",
+						"description": "Task 2: anyone but the owner gets 404, the same answer as for a knowledge base that does not exist.",
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{kb_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{kb_password}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "files[]",
+									"type": "file",
+									"src": "fixtures/offerte-newman.pdf"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The non-owner gets 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A non-owner cannot read the sources",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/knowledge-bases/{{kb_id}}/sources",
+						"description": "Task 5: the sources with their sharing flags are for the owner only.",
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{kb_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{kb_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The non-owner gets 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The refused upload added nothing",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/knowledge-bases/{{kb_id}}/sources",
+						"description": "Task 2: the non-owner's upload left the knowledge base as the owner left it."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Still exactly the two uploads', function () {",
+									"    pm.response.to.have.status(200);",
+									"    const files = (pm.response.json().results || []).filter(function (s) { return s.type === 'file'; });",
+									"    pm.expect(files.length).to.eql(2);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Delete the knowledge base",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agentknowledgebase/{{kb_id}}",
+						"description": "Clean up. The uploaded documents stay in the admin's Files."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The knowledge base is deleted', function () {",
+									"    pm.expect([200, 204]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
 		}
 	]
 }
