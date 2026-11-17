@@ -1416,6 +1416,7 @@ class SessionController extends Controller {
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-each-answer-records-the-scope-it-was-given-req-rscope-004
 	 */
 	private function serializeMessage(ObjectEntity $message): array {
 		$data = $message->getObject();
@@ -1445,6 +1446,8 @@ class SessionController extends Controller {
 			// and its sentences in the reader's language; null on a turn without one.
 			'provenance' => ($data['provenance'] ?? null),
 			'provenanceAccount' => $this->provenanceAccount(record: ($data['provenance'] ?? null)),
+			// The scope the answer was given (memory-retrieval-scope D5); null on a turn without one.
+			'retrievalScope' => ($data['retrievalScope'] ?? null),
 			'created' => $message->getCreated()?->format('c'),
 		];
 	}//end serializeMessage()
