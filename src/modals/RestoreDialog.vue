@@ -231,6 +231,8 @@ export default {
 		 * The backups to pick from: file time and organisation.
 		 *
 		 * @return {Array<{value: string, label: string}>} The options.
+		 *
+		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 		 */
 		backupOptions() {
 			return this.backups.map((backup) => ({
@@ -245,6 +247,8 @@ export default {
 		 * The organisations the backups name.
 		 *
 		 * @return {Array<{value: string, label: string}>} The options.
+		 *
+		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 		 */
 		organisationOptions() {
 			return backupOrganisations(this.backups).map((name) => ({ value: name, label: name }))
@@ -254,6 +258,8 @@ export default {
 		 * The point the form describes.
 		 *
 		 * @return {object} The point.
+		 *
+		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 		 */
 		point() {
 			return restorePoint({
@@ -267,6 +273,8 @@ export default {
 		 * Whether the form names a point.
 		 *
 		 * @return {boolean} Whether it does.
+		 *
+		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 		 */
 		canPreview() {
 			if (this.point.kind === 'moment') {
@@ -279,6 +287,8 @@ export default {
 		 * Whether a restore may start: only after a preview that is not refused.
 		 *
 		 * @return {boolean} Whether it may.
+		 *
+		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 		 */
 		canRestore() {
 			return this.preview !== null && !this.preview.refused && !this.queued
@@ -288,6 +298,8 @@ export default {
 		 * The preview, one row per schema with something to say.
 		 *
 		 * @return {Array<object>} The rows.
+		 *
+		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 		 */
 		rows() {
 			return previewRows(this.preview)
@@ -295,6 +307,13 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * React to the modal opening or closing.
+		 *
+		 * @param {boolean} open Whether it is open now.
+		 *
+		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+		 */
 		show(open) {
 			if (open) {
 				this.reset()
@@ -303,6 +322,11 @@ export default {
 		},
 	},
 
+	/**
+	 * Load the backups when the dialog mounts.
+	 *
+	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+	 */
 	mounted() {
 		if (this.show) {
 			this.loadBackups()
@@ -314,6 +338,8 @@ export default {
 		 * Start over: no preview, nothing queued.
 		 *
 		 * @return {void}
+		 *
+		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 		 */
 		reset() {
 			this.form = { kind: 'backup', file: '', organisation: '', at: '', removeCreatedAfter: false }
@@ -327,6 +353,8 @@ export default {
 		 * A changed point needs a new preview before it can be restored.
 		 *
 		 * @return {void}
+		 *
+		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 		 */
 		clearPreview() {
 			this.preview = null

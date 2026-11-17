@@ -104,6 +104,13 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * React to the modal opening or closing.
+		 *
+		 * @param {boolean} open Whether it is open now.
+		 *
+		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+		 */
 		show(open) {
 			if (open) {
 				this.form = backupForm(this.settings)
