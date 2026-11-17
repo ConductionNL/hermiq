@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright (C) 2026 Conduction B.V.
+#
+# hermiq-code-sandbox, hardened (tools-code-sandbox D2). AppAPI normally
+# deploys the ExApp; this file states the posture a manual or reviewed
+# deployment must keep, and test/deploy.posture.test.js asserts it.
+#
+# - No network route out: the only network is `internal: true`, with no egress
+#   proxy attached. Not even hermiq is reachable from inside.
+# - No data mounts: no volumes. The only writable place is the /work tmpfs,
+#   where each run gets its own directory that is removed when it ends.
+# - Every capability dropped except the two the server needs to run each
+#   program as the separate runner uid; read-only root filesystem;
+#   no-new-privileges; caps on processes and memory for the whole container.
+# - Where the host offers gVisor, run it with `runtime: runsc`.
+
+services:
+  hermiq-code-sandbox:
+    image: ghcr.io/conductionnl/hermiq-code-sandbox:latest
+    # runtime: runsc
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 3g
+    tmpfs:
+      - /work:rw,noexec,nosuid,nodev,size=256m,mode=0711,uid=10000,gid=10000
+      - /tmp:rw,noexec,nosuid,nodev,size=16m
+    environment:
+      APP_ID: hermiq-code-sandbox
+      APP_PORT: "9000"
+    networks:
+      - sandbox-internal
+
+networks:
+  sandbox-internal:
+    internal: true
