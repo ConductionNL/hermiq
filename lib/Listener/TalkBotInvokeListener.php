@@ -42,6 +42,7 @@ use OCA\Hermiq\Kernel\Contracts\TalkRoomGroupingInterface;
 use OCA\Hermiq\Kernel\Contracts\TalkTurnDispatcherInterface;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\Hermiq\Service\Talk\TalkBridge;
+use OCA\Hermiq\Service\Talk\TalkTurnId;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use Psr\Log\LoggerInterface;
@@ -183,7 +184,7 @@ class TalkBotInvokeListener implements IEventListener {
 	 * @return bool True when an agent is bound and addressed.
 	 */
 	private function bindAgent(TalkInvocation $invocation): bool {
-		$agentId = $this->agentBinding->agentForRoom(roomToken: $invocation->roomToken());
+		$agentId = $this->invokedAgent(invocation: $invocation);
 		if ($agentId === null) {
 			// No opted-in agent is bound to this room — both opt-ins are
 			// required, so this is the default state and not an error.
@@ -195,6 +196,42 @@ class TalkBotInvokeListener implements IEventListener {
 	}//end bindAgent()
 
 	/**
+	 * The agent this invocation is for.
+	 *
+	 * Spreed invokes every bot enabled in the room separately, so a per-agent
+	 * bot's invocation names its agent in its own URL: that is how a room holds
+	 * several agents, with Talk's bot management deciding which ones are in it.
+	 * The shared bot keeps the single-agent binding (`talk_room_agents`, then
+	 * `talk_default_agent`), so rooms bound before per-agent bots keep working.
+	 *
+	 * @param TalkInvocation $invocation The invocation.
+	 *
+	 * @return string|null The opted-in agent's uuid, or null.
+	 *
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-a-room-may-host-several-agents-managed-by-talk-moderators
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) TalkBridge's URL helpers are pure functions; see readPayload().
+	 */
+	private function invokedAgent(TalkInvocation $invocation): ?string {
+		$event = $invocation->event;
+		$botUrl = '';
+		if (method_exists($event, 'getBotUrl') === true) {
+			$botUrl = (string)$event->getBotUrl();
+		}
+
+		$agentId = TalkBridge::agentIdFromBotUrl($botUrl);
+		if ($agentId === null) {
+			return $this->agentBinding->agentForRoom(roomToken: $invocation->roomToken());
+		}
+
+		if ($this->agentBinding->isAgentTalkEnabled(agentId: $agentId) === false) {
+			return null;
+		}
+
+		return $agentId;
+	}//end invokedAgent()
+
+	/**
 	 * Hand the turn off to run out of request, and log the path it took.
 	 *
 	 * @param TalkInvocation $invocation The admitted invocation.
@@ -204,11 +241,15 @@ class TalkBotInvokeListener implements IEventListener {
 	private function handOff(TalkInvocation $invocation): void {
 		$turn = $invocation->turn;
 		$conversationUuid = (string)$invocation->conversation?->getUuid();
+		$messageId = $invocation->messageId();
 		$path = $this->dispatcher->dispatch(
 			conversationUuid: $conversationUuid,
 			speakerUid: $turn['speakerUid'],
 			message: $turn['content'],
-			roomToken: $turn['roomToken']
+			roomToken: $turn['roomToken'],
+			turnId: TalkTurnId::derive(roomToken: $turn['roomToken'], messageId: $messageId, agentId: $invocation->agentId),
+			agentId: $invocation->agentId,
+			messageId: $messageId
 		);
 
 		$this->logger->info(
