@@ -23,7 +23,8 @@ Kind: code. Size M. Rows `hermiq:ag-nl-builder`, `hermiq:dm-builder-upgrade`.
   - GIVEN invalid JSON WHEN checked THEN 422
 - [x] Implement (`lib/Service/Agent/AgentDraftService.php`, `lib/Controller/AgentDraftController.php`, route `agent_draft#check`)
 - [x] Test: PHPUnit per finding and 422, `tests/Unit/Service/Agent/AgentDraftServiceTest.php`, `tests/Unit/Controller/AgentDraftControllerTest.php`
-- [ ] Test: Newman for 200 and 422, folder "Agent draft check" in `tests/integration/hermiq.postman_collection.json` (written; run needs the live instance)
+- [x] Test: Newman for 200 and 422, folder "Agent draft check" in `tests/integration/hermiq.postman_collection.json` (written; run needs the live instance)
+  - Live 2026-11-17: both requests of the folder sent to a clean instance: 200 with exactly the findings groups, model, schedule, tools; 422 "This draft could not be read"; no agent written. Sent with curl against the throwaway instance, because the collection's `base_url` defaults to the shared :8080.
 
 ### Task 3: Open as agent in chat and the pre-filled form
 - **spec_ref**: `openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002`

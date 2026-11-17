@@ -36,6 +36,7 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 use OCA\Hermiq\Service\MemoryService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Exception\NotAuthorizedException;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IConfig;
 use OCP\IUser;
@@ -730,4 +731,38 @@ class MemoryServiceTest extends TestCase {
 		$this->assertSame($expected, $actual);
 
 	}//end testEveryReadPathMatchesTheRecordedFixture()
+
+	/**
+	 * A reader OpenRegister will not let create the Memory gets an empty one, not an error.
+	 *
+	 * @return void
+	 */
+	public function testGetMemoryForAReaderWithoutCreateRightIsEmpty(): void {
+		$objects = $this->createMock(ObjectService::class);
+		$objects->method('setRegister')->willReturnSelf();
+		$objects->method('setSchema')->willReturnSelf();
+		$objects->method('findAll')->willReturn([]);
+		$objects->method('saveObject')->willThrowException(new NotAuthorizedException());
+
+		$memory = (new MemoryService($objects, $this->redactionService(), $this->userSession('reader')))->getMemory(agentId: 'agent-shared');
+
+		$this->assertSame('agent-shared', $memory->getObject()['agentId']);
+		$this->assertSame([], $memory->getObject()['entries']);
+	}//end testGetMemoryForAReaderWithoutCreateRightIsEmpty()
+
+	/**
+	 * Any other failure to create the Memory still surfaces.
+	 *
+	 * @return void
+	 */
+	public function testGetMemoryRethrowsOtherFailures(): void {
+		$objects = $this->createMock(ObjectService::class);
+		$objects->method('setRegister')->willReturnSelf();
+		$objects->method('setSchema')->willReturnSelf();
+		$objects->method('findAll')->willReturn([]);
+		$objects->method('saveObject')->willThrowException(new \RuntimeException('schema missing'));
+
+		$this->expectException(\RuntimeException::class);
+		(new MemoryService($objects, $this->redactionService(), $this->userSession('reader')))->getMemory(agentId: 'agent-shared');
+	}//end testGetMemoryRethrowsOtherFailures()
 }//end class
