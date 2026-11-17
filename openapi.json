@@ -36,6 +36,10 @@
     ],
     "tags": [
         {
+            "name": "action-matrix",
+            "description": "The action matrix: every action, who may run it and whether it is on."
+        },
+        {
             "name": "agent-app-assistant",
             "description": "Marks an app's assistant."
         },
