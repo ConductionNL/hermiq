@@ -3135,7 +3135,6 @@ OC.L10N.register(
         "No remote agent is registered. Agents cannot hand work to another server until an admin adds one.": "Er is geen externe agent geregistreerd. Agents kunnen geen werk aan een andere server overdragen tot een beheerder er een toevoegt.",
         "Remote agents": "Externe agents",
         "Saving fetches the agent card once through this source. The remote agent stays off until you switch it on.": "Bij opslaan wordt de agentkaart één keer via deze bron opgehaald. De externe agent blijft uit tot je hem aanzet.",
-        "The integriq sources could not be read.": "De integriq-bronnen konden niet worden gelezen.",
         "Used in a grant to name this remote agent. Empty makes one from the name.": "Wordt in een toekenning gebruikt om deze externe agent te noemen. Leeg maakt er een van de naam.",
         "Waiting for “{label}” (started {time})": "Wachten op ‘{label}’ (gestart om {time})",
         "What the remote agent does": "Wat de externe agent doet",
@@ -3260,7 +3259,13 @@ OC.L10N.register(
         "Rights for \"{action}\" saved.": "Rechten voor \"{action}\" opgeslagen.",
         "The rights for \"{action}\" could not be saved.": "De rechten voor \"{action}\" konden niet worden opgeslagen.",
         "Merge duplicate skills": "Dubbele skills samenvoegen",
-        "Archive a duplicate skill and move its agents to the skill that stays.": "Een dubbele skill archiveren en de agents ervan overzetten op de skill die blijft."
+        "Archive a duplicate skill and move its agents to the skill that stays.": "Een dubbele skill archiveren en de agents ervan overzetten op de skill die blijft.",
+        "Send me this weekly": "Stuur mij dit wekelijks",
+        "Send me this monthly": "Stuur mij dit maandelijks",
+        "Stop sending": "Niet meer sturen",
+        "You will get this report every week.": "Je krijgt dit rapport elke week.",
+        "You will get this report every month.": "Je krijgt dit rapport elke maand.",
+        "This report is no longer sent to you.": "Dit rapport wordt je niet meer gestuurd."
     },
     "nplurals=2; plural=(n != 1);"
 )
