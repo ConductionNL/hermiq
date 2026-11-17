@@ -20,6 +20,12 @@
   ragNumSources, searchFiles, searchObjects). Every NcSelect carries an
   `inputLabel` for the nc-input-labels accessibility gate (WCAG 2.1 AA).
 
+  The people and group pickers (sharing, service account, file owners) keep
+  their option list inside the dialog (`appendToBody` false). Appended to
+  the page body, the list sat outside the modal's focus trap and outside its
+  aria-modal subtree, so screen readers could not reach the options and the
+  keyboard lost them (WCAG 2.2 AA 2.1.1, 4.1.2).
+
   Icon (agent-icon-picker): a Material Design Icon name (e.g. "Creation"),
   picked via the shared `CnIconPicker` in searchable+clearable mode (the full
   MDI range via @mdi/js, not the small curated dashboard-widget icon set) —
@@ -125,6 +131,7 @@
 						<NcSelect
 							v-model="form.invitedUsers"
 							data-testid="agent-form-sharing-people"
+							:appendToBody="false"
 							:inputLabel="t('hermiq', 'People')"
 							:options="peopleOptions"
 							:multiple="true"
@@ -135,6 +142,7 @@
 						<NcSelect
 							v-model="form.groups"
 							data-testid="agent-form-sharing-groups"
+							:appendToBody="false"
 							:inputLabel="t('hermiq', 'Groups')"
 							:options="groupOptions"
 							:multiple="true"
@@ -189,6 +197,7 @@
 						<NcSelect
 							v-model="form.actingUser"
 							data-testid="agent-form-acting-user"
+							:appendToBody="false"
 							:inputLabel="t('hermiq', 'Service account')"
 							:options="actingUserOptions"
 							:filterable="false"
@@ -503,6 +512,7 @@
 						<NcSelect
 							v-model="form.fileOwnerUsers"
 							data-testid="agent-form-file-owner-users"
+							:appendToBody="false"
 							:inputLabel="t('hermiq', 'Files owned by these people')"
 							:options="peopleOptions"
 							:multiple="true"
@@ -513,6 +523,7 @@
 						<NcSelect
 							v-model="form.fileOwnerGroups"
 							data-testid="agent-form-file-owner-groups"
+							:appendToBody="false"
 							:inputLabel="t('hermiq', 'Files owned by members of these groups')"
 							:options="groupOptions"
 							:multiple="true"
