@@ -705,6 +705,40 @@ class FacadeToolInvokerTest extends TestCase {
 	}//end testNonWebResearchToolStepCarriesNoTargetKey()
 
 	/**
+	 * A `hermiq.runCode` call's trace step carries the code run, its outputs
+	 * redacted (tools-code-sandbox D6).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-every-code-run-is-on-the-run-record-redacted-and-capped-req-sandbox-005
+	 */
+	public function testRunCodeTraceStepCarriesTheRedactedCodeRun(): void {
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->method('invokeTool')->willReturn(
+			['result' => ['exitCode' => 0, 'stdout' => "44940 voor jan@example.nl\n", 'stderr' => '', 'durationMs' => 30, 'timedOut' => false], 'isError' => false]
+		);
+		$redaction = $this->createMock(RedactionService::class);
+		$redaction->method('redact')->willReturnArgument(0);
+
+		$trace = new RunTraceCollector();
+		$invoker = new FacadeToolInvoker(
+			facade: $facade,
+			trace: $trace,
+			mcpIdByName: ['hermiq_runCode' => 'hermiq.runCode'],
+			redactionService: $redaction
+		);
+
+		$invoker->hermiq_runCode(language: 'python', code: 'print(round(1284000 * 0.035))');
+
+		$steps = $trace->toArray();
+		$this->assertCount(1, $steps);
+		$this->assertSame('print(round(1284000 * 0.035))', $steps[0]['codeRun']['code']);
+		$this->assertSame(0, $steps[0]['codeRun']['exitCode']);
+		$this->assertSame("44940 voor ***\n", $steps[0]['codeRun']['stdout']);
+
+	}//end testRunCodeTraceStepCarriesTheRedactedCodeRun()
+
+	/**
 	 * ADR-088 §3: a write records the identity of the artefact it produced, so an
 	 * overseer can follow the record to the thing that changed. Without this the
 	 * trace can say `createNote` succeeded but not on what.

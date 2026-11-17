@@ -779,21 +779,17 @@
 								}}</span>
 							</div>
 							<div
-								v-if="streamingTools.length > 0"
+								v-if="streamingSteps.length > 0"
 								class="chat-page__stream-tools">
 								<span
-									v-for="(tool, toolIndex) in streamingTools"
-									:key="toolIndex"
-									class="chat-page__stream-tool">
-									{{
-										tool.done
-											? t('hermiq', 'Used tool: {tool}', {
-													tool: tool.toolId,
-												})
-											: t('hermiq', 'Using tool: {tool}…', {
-													tool: tool.toolId,
-												})
-									}}
+									v-for="step in streamingSteps"
+									:key="step.key"
+									class="chat-page__stream-tool"
+									:class="[
+										`chat-page__stream-tool--${step.kind}`,
+										`chat-page__stream-tool--${step.state}`,
+									]">
+									{{ step.label }}
 								</span>
 							</div>
 							<!-- Streamed markdown is sanitised via DOMPurify with the shared safe config. -->
@@ -1130,6 +1126,7 @@ import { sessionStartErrorMessage } from '../utils/sessionStartError.js'
 import { appendTranscript, speechControls } from '../utils/speech.js'
 import { goalLine as describeGoal } from './chatGoalLine.js'
 import { headedSessionGroups, partitionSessions } from './chatSessionGroups.js'
+import { chatToolSteps } from './chatToolSteps.js'
 
 /**
  * The trigger origins that mean "no person started this".
@@ -1384,6 +1381,23 @@ export default {
 		 */
 		goalLine() {
 			return describeGoal(this.sessionGoal)
+		},
+
+		/**
+		 * The tool steps drawn under the streaming answer: one per tool call,
+		 * and one per part of a parallel delegation, with its target agent
+		 * and state.
+		 *
+		 * @return {Array<object>} The steps.
+		 * @spec openspec/changes/delegation-runs-in-parallel/tasks.md#task-2-1
+		 */
+		streamingSteps() {
+			return chatToolSteps(this.streamingTools, (id) => {
+				const agent = this.agents.find(
+					(entry) => entry.id === id || entry.uuid === id,
+				)
+				return agent?.name || ''
+			})
 		},
 
 		/**
@@ -2454,6 +2468,8 @@ export default {
 						onToolCall: (payload) => {
 							this.streamingTools.push({
 								toolId: payload.toolId || this.t('hermiq', 'tool'),
+								arguments: payload.arguments || {},
+								result: null,
 								done: false,
 							})
 						},
@@ -2463,6 +2479,7 @@ export default {
 									tool.toolId === payload.toolId && !tool.done,
 							)
 							if (entry) {
+								entry.result = payload.result ?? null
 								entry.done = true
 							}
 						},
@@ -3810,6 +3827,16 @@ a.chat-page__source-name {
 	font-size: 12px;
 	color: var(--color-text-maxcontrast);
 	font-style: italic;
+}
+
+.chat-page__stream-tool--part {
+	font-style: normal;
+}
+
+.chat-page__stream-tool--refused,
+.chat-page__stream-tool--failed,
+.chat-page__stream-tool--timeout {
+	color: var(--color-error-text);
 }
 
 .chat-page__typing {
