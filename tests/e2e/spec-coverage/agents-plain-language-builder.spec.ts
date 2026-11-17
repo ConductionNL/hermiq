@@ -158,7 +158,7 @@ test.describe('agents-plain-language-builder: a draft from chat', () => {
 			await clear.first().click()
 		}
 		await expect(page.getByTestId('agent-form-finding-model')).toBeVisible()
-		await page.getByRole('button', { name: 'Save' }).click()
+		await page.getByRole('button', { name: 'Save', exact: true }).click()
 
 		await expect(
 			page.getByRole('heading', { name: 'Attach schedule' }),

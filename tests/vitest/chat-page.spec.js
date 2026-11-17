@@ -59,6 +59,7 @@ vi.mock('../../src/api/chat.js', async (orig) => {
 		ChatStreamError: real.ChatStreamError,
 		answerStartFields: vi.fn(),
 		archiveSession: vi.fn(async () => ({})),
+		bulkSessions: vi.fn(async () => []),
 		createSession: vi.fn(),
 		getImageAvailability: vi.fn(async () => true),
 		getSession: vi.fn(async (uuid) => ({ uuid, title: 'Fresh' })),
@@ -364,11 +365,15 @@ describe('sending', () => {
 			handlers.onToolResult({ toolId: 'search' })
 			handlers.onToolResult({ toolId: 'missing' })
 			seen.push([w.vm.streamingText, JSON.parse(JSON.stringify(w.vm.streamingTools))])
+			seen.push(w.vm.streamingSteps.map((step) => step.label))
 			return { attachmentNotices: ['skipped a.zip'], messageId: 'm9' }
 		})
 		await w.vm.handleSend()
 		expect(api.streamChatMessage.mock.calls[0][0]).toEqual({ message: 'Hello', sessionUuid: 's1', attachments: [] })
-		expect(seen).toEqual([['Hi there', [{ toolId: 'search', done: true }, { toolId: 'tool', done: false }]]])
+		expect(seen).toEqual([['Hi there', [
+			{ toolId: 'search', arguments: {}, result: null, done: true },
+			{ toolId: 'tool', arguments: {}, result: null, done: false },
+		]], ['Used tool: search', 'Using tool: tool…']])
 		expect(w.vm.attachmentNotices).toEqual(['skipped a.zip'])
 		expect(w.vm.attachmentNoticesFor).toBe('m9')
 		expect(api.getSession).toHaveBeenCalledWith('s1')

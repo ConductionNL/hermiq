@@ -138,6 +138,8 @@ namespace OCA\Hermiq\Service\Engine;
 use Closure;
 use OCA\Hermiq\Mcp\CustomToolDescriptors;
 use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Mcp\CodeSandboxToolDescriptors;
+use OCA\Hermiq\Service\CodeSandbox\CodeRunTrace;
 use OCA\Hermiq\Service\Handoff\FlowTurn;
 use OCA\Hermiq\Service\Handoff\TurnHandoffs;
 use OCA\Hermiq\Service\RedactionService;
@@ -1414,6 +1416,11 @@ class FacadeToolInvoker {
 		// (tools-custom-tools-without-code REQ-CUSTOOL-004).
 		if (CustomToolDescriptors::slugOf(toolId: $toolId) !== null) {
 			return array_merge($artefact, self::customToolTrace(toolId: $toolId, result: $result));
+		}
+
+		// The tools-code-sandbox D6 record: the code, its limits and outcome, outputs capped and redacted.
+		if ($toolId === CodeSandboxToolDescriptors::RUN_CODE) {
+			return array_merge($artefact, CodeRunTrace::extra(arguments: $arguments, result: $result, redaction: $this->redactionService));
 		}
 
 		if (in_array($toolId, self::WEB_RESEARCH_TOOL_IDS, true) === false) {

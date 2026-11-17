@@ -24,6 +24,7 @@ import {
 	cleanupFamily,
 	dismissTour,
 	harvestToken,
+	openAgentForm,
 	seedAgent,
 	TEST_PREFIX,
 } from './_fixtures.ts'
@@ -80,7 +81,7 @@ test.describe('agents-instruction-variables: preview and start fields', () => {
 
 		await page.goto(`${await appRoot(page)}/agents/${agentId}`)
 		await dismissTour(page)
-		await page.getByRole('button', { name: 'Edit agent' }).click()
+		await openAgentForm(page)
 		await page.getByTestId('agent-form-preview-prompt').click()
 		await expect(page.getByTestId('agent-form-prompt-preview')).toContainText(
 			'Department:',
