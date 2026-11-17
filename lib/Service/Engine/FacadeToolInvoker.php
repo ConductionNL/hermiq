@@ -139,6 +139,10 @@ use Closure;
 use DateTimeImmutable;
 use OCA\Hermiq\Mcp\ComputerToolDescriptors;
 use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Mcp\CodeSandboxToolDescriptors;
+use OCA\Hermiq\Service\CodeSandbox\CodeRunTrace;
+use OCA\Hermiq\Service\Handoff\FlowTurn;
+use OCA\Hermiq\Service\Handoff\TurnHandoffs;
 use OCA\Hermiq\Service\ComputerUse\ComputerActionRecord;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ToolClassificationService;
@@ -436,6 +440,9 @@ class FacadeToolInvoker {
 	 * @param array<int,string> $askFirst Registry ids the person who started the run asks to
 	 *                                    approve first (personal-preferences, ask before sending);
 	 *                                    empty, every pre-existing caller, asks nothing extra.
+	 * @param TurnHandoffs|null $handoffs Opens the handoff of work a tool started and did not wait
+	 *                                    for (flows-hand-off-and-wait); null opens none.
+	 * @param string            $conversationId The conversation of this turn; '' opens no handoff.
 	 * @param string $runId The run a computer action's approval is scoped to (tools-browser-and-computer-use);
 	 *                      empty, every pre-existing caller, offers no run-scoped pre-authorisation.
 	 *
@@ -473,6 +480,8 @@ class FacadeToolInvoker {
 		?int $maxToolCalls = null,
 		?Closure $agentStillOn = null,
 		private readonly array $askFirst = [],
+		private readonly ?TurnHandoffs $handoffs = null,
+		private readonly string $conversationId = '',
 		private readonly string $runId = '',
 	) {
 		$this->turnGuard = new TurnGuard(maxToolCalls: $maxToolCalls, agentStillOn: $agentStillOn);
@@ -1363,6 +1372,11 @@ class FacadeToolInvoker {
 			result: $dispatch->envelope['result'],
 			isError: $dispatch->envelope['isError']
 		);
+		$dispatch->envelope['result'] = $this->withHandoff(
+			name: $name,
+			arguments: $arguments,
+			envelope: $dispatch->envelope
+		);
 
 		$reporter->finished(
 			dispatch: $dispatch,
@@ -1371,6 +1385,37 @@ class FacadeToolInvoker {
 
 		return $dispatch->encodedResult();
 	}//end dispatchToFacade()
+
+	/**
+	 * When a tool started work it does not wait for (a flow run, a remote task), in a
+	 * turn with a conversation, open its handoff so the result comes back there, and
+	 * say so in the result (flows-hand-off-and-wait). Every other result is returned as is.
+	 *
+	 * @param string               $name      The LLPhant-side function name.
+	 * @param array<string, mixed> $arguments The call's arguments.
+	 * @param array<string, mixed> $envelope  The facade's {result, isError}.
+	 *
+	 * @return mixed The result, with `handoff` and `note` when a handoff was opened.
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
+	 */
+	private function withHandoff(string $name, array $arguments, array $envelope): mixed {
+		if ($this->handoffs === null || ($envelope['isError'] ?? false) === true) {
+			return $envelope['result'];
+		}
+
+		return $this->handoffs->afterToolCall(
+			toolId: $this->resolveToolId(name: $name),
+			arguments: $arguments,
+			result: $envelope['result'],
+			turn: new FlowTurn(
+				agentId: (string)$this->agentId,
+				conversationId: $this->conversationId,
+				owner: (string)$this->ownerUid
+			)
+		);
+	}//end withHandoff()
 
 	/**
 	 * When an integriq agent tool staged a batch (`status: staged` with a proposal
@@ -1458,6 +1503,11 @@ class FacadeToolInvoker {
 		// scalars — the no-content rule is enforced by the shape, not by trusting
 		// each tool to omit content.
 		$artefact = $this->resolveArtefactDescriptor(result: $result);
+
+		// The tools-code-sandbox D6 record: the code, its limits and outcome, outputs capped and redacted.
+		if ($toolId === CodeSandboxToolDescriptors::RUN_CODE) {
+			return array_merge($artefact, CodeRunTrace::extra(arguments: $arguments, result: $result, redaction: $this->redactionService));
+		}
 
 		if (in_array($toolId, self::WEB_RESEARCH_TOOL_IDS, true) === false) {
 			return $artefact;

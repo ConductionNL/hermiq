@@ -78,6 +78,13 @@ final class ToolSurfaceRun {
 	public bool $dryRun = false;
 
 	/**
+	 * The conversation the turn belongs to, '' when there is none (flows-hand-off-and-wait).
+	 *
+	 * @var string
+	 */
+	public string $conversationId = '';
+
+	/**
 	 * The run a computer action's approval is scoped to; '' when there is none.
 	 *
 	 * @var string

@@ -29,6 +29,14 @@
  `loadState('hermiq', …)`, now provided by this class's `getForm()`
  instead of DashboardController.
 
+ Also hosts the remote agents (flows-hand-off-and-wait D5): agents on other
+ servers reached through an integriq source, in
+ src/components/settings/RemoteAgents.vue.
+
+ Also hosts the validated tag (memory-retrieval-scope D2): which restricted
+ Nextcloud system tag marks a document as validated, in
+ src/components/settings/ValidatedTagSettings.vue.
+
  Also hosts organisation-scope credential management (agent-credentials): the
  shared, already-tested `CnCredentials` component mounted `scope="organisation"`
  — an admin manages the FULL allowed-app list for each org-wide broker
@@ -139,6 +147,18 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			id="section-validated-documents"
+			:name="t('hermiq', 'Validated documents')"
+			:description="
+				t(
+					'hermiq',
+					'The Nextcloud tag that marks a document as validated. An agent set to answer only from validated documents searches only files carrying it, and declines without asking the model when none of them matches.',
+				)
+			">
+			<ValidatedTagSettings />
+		</NcSettingsSection>
+
+		<NcSettingsSection
 			:name="t('hermiq', 'AI run retention')"
 			:description="
 				t(
@@ -147,6 +167,17 @@
 				)
 			">
 			<RunRetentionSettings />
+		</NcSettingsSection>
+
+		<NcSettingsSection
+			:name="t('hermiq', 'Code sandbox')"
+			:description="
+				t(
+					'hermiq',
+					'Where the code an agent or a flow runs is executed: in the sandbox app on this server, or at a hosted sandbox provider reached through integriq.',
+				)
+			">
+			<CodeSandboxSettings />
 		</NcSettingsSection>
 
 		<NcSettingsSection
@@ -184,6 +215,18 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			id="section-remote-agents"
+			:name="t('hermiq', 'Remote agents')"
+			:description="
+				t(
+					'hermiq',
+					'Agents on other servers that a local agent may hand work to and wait for. Each is reached through an integriq source, which holds the address and the credential; Hermiq keeps only the agent card it fetched.',
+				)
+			">
+			<RemoteAgents />
+		</NcSettingsSection>
+
+		<NcSettingsSection
 			id="section-organisation-credentials"
 			:name="t('hermiq', 'Organisation credentials')"
 			:description="
@@ -206,12 +249,15 @@ import { CnCredentials } from '@conduction/nextcloud-vue'
 import { NcButton, NcSettingsSection } from '@nextcloud/vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
 import AssistantPromptLibrary from '../components/settings/AssistantPromptLibrary.vue'
+import CodeSandboxSettings from '../components/settings/CodeSandboxSettings.vue'
 import ComputerTargets from '../components/settings/ComputerTargets.vue'
 import IntakeSettings from '../components/settings/IntakeSettings.vue'
+import RemoteAgents from '../components/settings/RemoteAgents.vue'
 import ReportGroupingSettings from '../components/settings/ReportGroupingSettings.vue'
 import RunRetentionSettings from '../components/settings/RunRetentionSettings.vue'
 import TalkBridgeSettings from '../components/settings/TalkBridgeSettings.vue'
 import TraceExportSettings from '../components/settings/TraceExportSettings.vue'
+import ValidatedTagSettings from '../components/settings/ValidatedTagSettings.vue'
 import LlmProviderModal from '../modals/LlmProviderModal.vue'
 import WebResearchSettingsModal from '../modals/WebResearchSettingsModal.vue'
 import AiFeatureRegister from './AiFeatureRegister.vue'
@@ -240,13 +286,16 @@ export default {
 		Cog,
 		LlmProviderModal,
 		NcButton,
+		CodeSandboxSettings,
 		IntakeSettings,
 		NcSettingsSection,
+		RemoteAgents,
 		ReportGroupingSettings,
 		RunRetentionSettings,
 		ComputerTargets,
 		TalkBridgeSettings,
 		TraceExportSettings,
+		ValidatedTagSettings,
 		WebResearchSettingsModal,
 	},
 
