@@ -181,6 +181,17 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			:name="t('hermiq', 'Voices for translated recordings')"
+			:description="
+				t(
+					'hermiq',
+					'The voice that speaks a translated recording in each language. A language without a voice gets a written translation only.',
+				)
+			">
+			<SpeechVoiceSettings />
+		</NcSettingsSection>
+
+		<NcSettingsSection
 			:name="t('hermiq', 'Computer targets')"
 			:description="
 				t(
@@ -255,6 +266,7 @@ import IntakeSettings from '../components/settings/IntakeSettings.vue'
 import RemoteAgents from '../components/settings/RemoteAgents.vue'
 import ReportGroupingSettings from '../components/settings/ReportGroupingSettings.vue'
 import RunRetentionSettings from '../components/settings/RunRetentionSettings.vue'
+import SpeechVoiceSettings from '../components/settings/SpeechVoiceSettings.vue'
 import TalkBridgeSettings from '../components/settings/TalkBridgeSettings.vue'
 import TraceExportSettings from '../components/settings/TraceExportSettings.vue'
 import ValidatedTagSettings from '../components/settings/ValidatedTagSettings.vue'
@@ -292,6 +304,7 @@ export default {
 		RemoteAgents,
 		ReportGroupingSettings,
 		RunRetentionSettings,
+		SpeechVoiceSettings,
 		ComputerTargets,
 		TalkBridgeSettings,
 		TraceExportSettings,
