@@ -46,6 +46,20 @@ final class TalkTurn {
 	public string $roomToken = '';
 
 	/**
+	 * The addressed agent; '' when the room's session names it.
+	 *
+	 * @var string
+	 */
+	public string $agentId = '';
+
+	/**
+	 * The agent-to-agent chain descriptor; empty for a human-rooted turn.
+	 *
+	 * @var array
+	 */
+	public array $chain = [];
+
+	/**
 	 * Constructor.
 	 *
 	 * @param string $conversationUuid The bound conversation.
