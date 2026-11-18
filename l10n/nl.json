@@ -3372,7 +3372,11 @@
         "Rights for \"{action}\" saved.": "Rechten voor \"{action}\" opgeslagen.",
         "The rights for \"{action}\" could not be saved.": "De rechten voor \"{action}\" konden niet worden opgeslagen.",
         "Merge duplicate skills": "Dubbele skills samenvoegen",
-        "Archive a duplicate skill and move its agents to the skill that stays.": "Een dubbele skill archiveren en de agents ervan overzetten op de skill die blijft."
+        "Archive a duplicate skill and move its agents to the skill that stays.": "Een dubbele skill archiveren en de agents ervan overzetten op de skill die blijft.",
+        "Semantic search": "Semantisch zoeken",
+        "Vector search through Open Register": "Vectorzoeken via Open Register",
+        "Keyword search: Open Register has no embedding provider configured": "Zoeken op trefwoord: in Open Register is geen embeddingprovider ingesteld",
+        "Keyword search: this Open Register has no vector search": "Zoeken op trefwoord: deze Open Register heeft geen vectorzoeken"
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"
