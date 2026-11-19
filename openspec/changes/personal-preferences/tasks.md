@@ -25,5 +25,6 @@
 
 ## 3. Verification
 
-- [ ] 3.1 `@spec` tags on every new method (gate 16) and an e2e test in
+- [x] 3.1 `@spec` tags on every new method (gate 16) and an e2e test in
       `tests/e2e/personal-preferences.spec.ts` for the scenarios without an `@e2e exclude` (gate 19).
+      Build round 2: `RunDoneNotifier::sendRunDone()` was the one new method without `@spec`; the e2e covers the dialog, save-and-reopen and the default agent (linted, not run: needs an instance). The two run scenarios are `@e2e exclude` with the unit tests that cover them.
