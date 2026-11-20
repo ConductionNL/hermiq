@@ -51,7 +51,8 @@ use Throwable;
  *
  * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-backup-and-restore-are-for-administrators-only-req-bkup-004
  *
- * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with operations-backup-and-restore; splitting it is follow-up work, not part of this merge.
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with operations-backup-and-restore; splitting it
+ * is follow-up work, not part of this merge.
  */
 class BackupController extends Controller {
 
@@ -103,7 +104,8 @@ class BackupController extends Controller {
 	 *
 	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) RestorePoint is a value object; the static call is its named constructor, with nothing to inject.
+	 * @SuppressWarnings(PHPMD.StaticAccess) RestorePoint is a value object; the static call is its named
+	 * constructor, with nothing to inject.
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function preview(): JSONResponse {
@@ -134,7 +136,8 @@ class BackupController extends Controller {
 	 *
 	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) RestorePoint is a value object; the static call is its named constructor, with nothing to inject.
+	 * @SuppressWarnings(PHPMD.StaticAccess) RestorePoint is a value object; the static call is its named
+	 * constructor, with nothing to inject.
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function restore(): JSONResponse {

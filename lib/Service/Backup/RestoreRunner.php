@@ -61,7 +61,8 @@ use Throwable;
  *
  * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003
  *
- * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with operations-backup-and-restore; splitting it is follow-up work, not part of this merge.
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with operations-backup-and-restore; splitting it
+ * is follow-up work, not part of this merge.
  */
 class RestoreRunner {
 
