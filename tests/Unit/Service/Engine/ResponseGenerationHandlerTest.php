@@ -131,10 +131,13 @@ class ResponseGenerationHandlerTest extends TestCase {
 		$this->assertNotNull($capturedHistory);
 		$system = $capturedHistory[0];
 		$this->assertSame(ChatRole::System, $system->role);
-		$this->assertStringContainsString('You are the meeting assistant.', $system->content);
-		$this->assertStringContainsString('CURRENT APP CONTEXT', $system->content);
-		$this->assertStringContainsString('- app: decidesk', $system->content);
-		$this->assertStringContainsString("CONTEXT:\nDoc excerpt.", $system->content);
+		$this->assertSame('You are the meeting assistant.', $system->content);
+		// The app context and the retrieved context are the per-turn system block.
+		$perTurn = $capturedHistory[1];
+		$this->assertSame(ChatRole::System, $perTurn->role);
+		$this->assertStringContainsString('CURRENT APP CONTEXT', $perTurn->content);
+		$this->assertStringContainsString('- app: decidesk', $perTurn->content);
+		$this->assertStringContainsString("CONTEXT:\nDoc excerpt.", $perTurn->content);
 
 		$last = $capturedHistory[count($capturedHistory) - 1];
 		$this->assertSame(ChatRole::User, $last->role);
@@ -551,15 +554,16 @@ class ResponseGenerationHandlerTest extends TestCase {
 			contextPreamble: 'PREAMBLE'
 		);
 
-		$this->assertCount(4, $captured);
+		$this->assertCount(5, $captured);
+		$this->assertSame("Base.\n\nPREAMBLE", $captured[0]->content);
 		$this->assertSame(
-			"Base.\n\nPREAMBLE\n\nCURRENT APP CONTEXT (this is where the user is RIGHT NOW — prefer tools that match this app):\n"
+			"CURRENT APP CONTEXT (this is where the user is RIGHT NOW — prefer tools that match this app):\n"
 			. "- app: decidesk\n- filters: {\"a\":\"/b\"}\n",
-			$captured[0]->content
+			$captured[1]->content
 		);
-		$this->assertSame('Before', $captured[1]->content);
-		$this->assertSame('Reply', $captured[2]->content);
-		$this->assertSame('Now?', $captured[3]->content);
+		$this->assertSame('Before', $captured[2]->content);
+		$this->assertSame('Reply', $captured[3]->content);
+		$this->assertSame('Now?', $captured[4]->content);
 
 	}//end testThePreambleAndSnapshotFieldsJoinTheSystemPrompt()
 

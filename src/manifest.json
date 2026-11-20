@@ -689,6 +689,16 @@
 						}
 					},
 					{
+						"id": "clear-answer-cache",
+						"label": "Clear cached answers",
+						"type": "open-modal",
+						"target": "agent-answer-cache-clear",
+						"icon": "DeleteSweepOutline",
+						"props": {
+							"show": true
+						}
+					},
+					{
 						"id": "version-history",
 						"label": "Version history",
 						"type": "open-modal",

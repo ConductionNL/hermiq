@@ -491,6 +491,43 @@ class AnalyticsServiceTest extends TestCase {
 	}//end testARunRowListsItsComputerActions()
 
 	/**
+	 * A run row carries the run's token counts, cache counts included, and drops
+	 * anything that is not a whole count; a run without usage gets an empty list.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-3
+	 */
+	public function testARunRowCarriesTheRecordedTokenCounts(): void {
+		$schedules = [$this->schedule('s1', 'agentA')];
+
+		$cached = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$cached->setUuid('run-cached');
+		$cached->setChanged(
+			[
+				'status' => 'ok',
+				'agentId' => 'agentA',
+				'usage' => [
+					'promptTokens' => 2300,
+					'completionTokens' => 120,
+					'cacheReadTokens' => 1840,
+					'cacheWriteTokens' => -1,
+					'llmSeconds' => 1.5,
+					'other' => 'x',
+				],
+			]
+		);
+		$plain = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$plain->setUuid('run-plain');
+
+		$byId = array_column($this->service($schedules, [$cached, $plain])->listRuns()['results'], null, 'id');
+
+		$this->assertSame(['promptTokens' => 2300, 'completionTokens' => 120, 'cacheReadTokens' => 1840], $byId['run-cached']['usage']);
+		$this->assertSame([], $byId['run-plain']['usage']);
+
+	}//end testARunRowCarriesTheRecordedTokenCounts()
+
+	/**
 	 * The status filter narrows the rows, and `total` counts the filtered set.
 	 *
 	 * @return void

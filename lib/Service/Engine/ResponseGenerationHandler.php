@@ -53,6 +53,7 @@ use OCA\Hermiq\Mcp\ComputerToolDescriptors;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Kernel\Contracts\BudgetHardCapInterface;
 use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
+use OCA\Hermiq\Service\AnswerCache\AnswerCacheService;
 use OCA\Hermiq\Service\Llm\AttachmentPartBuilder;
 use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\Llm\ProviderCooldown;
@@ -84,6 +85,9 @@ use Psr\Log\LoggerInterface;
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)
  *
  * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+ *
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength) carried in with models-prompt-and-answer-cache; splitting it
+ * is follow-up work, not part of this merge.
  */
 class ResponseGenerationHandler {
 
@@ -111,6 +115,16 @@ class ResponseGenerationHandler {
 	public array $attachmentNotices = [];
 
 	/**
+	 * How the last turn's answer came from the answer cache, or [] when the model
+	 * gave it (models-prompt-and-answer-cache): `layer`, `entryId` and, for the
+	 * similar layer, `similarity`. Read by the Engine onto its result, and from
+	 * there onto the run and the `final` frame.
+	 *
+	 * @var array<string, string|float>
+	 */
+	public array $lastCache = [];
+
+	/**
 	 * Constructor.
 	 *
 	 * @param ProviderFactory $providerFactory LLM provider resolution (`hermiq.llm`).
@@ -132,6 +146,9 @@ class ResponseGenerationHandler {
 	 * @param BudgetHardCapInterface|null $budget The budget's hard cap, checked before each reference
 	 *                                   call of an ensemble turn (models-several-models-per-turn).
 	 *                                   Null checks none.
+	 * @param AnswerCacheService|null    $answerCache     The answer cache of turns without tools
+	 *                                                    (models-prompt-and-answer-cache). Null:
+	 *                                                    every turn calls the model.
 	 *
 	 * @return void
 	 *
@@ -145,6 +162,7 @@ class ResponseGenerationHandler {
 		private readonly ?AttachmentPartBuilder $attachmentParts = null,
 		private readonly ?ProviderCooldown $cooldown = null,
 		private readonly ?BudgetHardCapInterface $budget = null,
+		private readonly ?AnswerCacheService $answerCache = null,
 	) {
 	}//end __construct()
 
@@ -197,6 +215,8 @@ class ResponseGenerationHandler {
 	 * @param string $projectKey The session's project (memory-project-scopes): the memory
 	 *                           tools read and write that project's memory beside the
 	 *                           shared one. '' is a session without a project.
+	 * @param bool   $answerCacheBypass True when the person asked the model again: the
+	 *                                  answer cache is neither read nor written.
 	 *
 	 * @return string Generated response text.
 	 *
@@ -220,6 +240,7 @@ class ResponseGenerationHandler {
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
 	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
 	 */
 	public function generateResponse(
 		string $userMessage,
@@ -237,6 +258,7 @@ class ResponseGenerationHandler {
 		array $attachments = [],
 		string $speaker = '',
 		string $projectKey = '',
+		bool $answerCacheBypass = false,
 	): string {
 		// Chat-about-a-document: a scoped turn with nothing in scope is answered
 		// with that fact, and the model is never asked to answer from general knowledge.
@@ -260,6 +282,7 @@ class ResponseGenerationHandler {
 		$run->promptVariables = $promptVariables;
 		$run->attachments = $attachments;
 		$run->speaker = $speaker;
+		$run->answerCacheBypass = $answerCacheBypass;
 
 		return $this->runTurn(run: $run);
 	}//end generateResponse()
@@ -320,9 +343,40 @@ class ResponseGenerationHandler {
 				provider: $run->progress->driver->provider,
 				executionMode: $run->progress->driver->executionMode
 			);
+			// Models-prompt-and-answer-cache: the lookup sits where the model call is,
+			// after every gate, so a blocked run stays blocked. The messages are built
+			// once for the key; the turn itself builds them again, with any reference
+			// answers, from the history as it was.
+			$history = $run->messageHistory;
+			$this->lastCache = [];
+			$cached = null;
+			if ($this->answerCache !== null) {
+				$this->buildMessages(run: $run);
+				$cached = $this->answerCache->lookup(run: $run);
+			}
+
+			if ($cached !== null) {
+				$this->lastCache = ['layer' => $cached['layer'], 'entryId' => $cached['entryId']];
+				if (isset($cached['similarity']) === true) {
+					$this->lastCache['similarity'] = $cached['similarity'];
+				}
+
+				$this->lastUsage = ['promptTokens' => 0, 'completionTokens' => 0, 'llmSeconds' => 0.0];
+				return $cached['answer'];
+			}
+
+			$keyed = $run->messageHistory;
+			$run->messageHistory = $history;
 			$references = $this->askReferenceModels(run: $run);
 			$response = $this->answerTurn(run: $run);
 			$this->addReferenceUsage(usages: $references, run: $run);
+			if ($references === [] && $this->answerCache !== null) {
+				// Only a single-model answer is stored, under the key it was looked up by.
+				$answered = $run->messageHistory;
+				$run->messageHistory = $keyed;
+				$this->answerCache->store(run: $run, answer: $response);
+				$run->messageHistory = $answered;
+			}
 			(new TurnPerformanceLog(logger: $this->logger))->record(run: $run, response: $response);
 			return $response;
 		} catch (TurnStoppedException $e) {
@@ -693,7 +747,16 @@ class ResponseGenerationHandler {
 	 * library's public API — there is no injectable seam.
 	 */
 	private function buildMessages(ResponseTurnRun $run): void {
-		array_unshift($run->messageHistory, LLPhantMessage::system((new TurnSystemPrompt())->compose(run: $run)));
+		// Models-prompt-and-answer-cache: the stable block first, the per-turn block
+		// as its own system message after it, so the cached prefix stays the same.
+		$prompt  = new TurnSystemPrompt();
+		$system  = [LLPhantMessage::system($prompt->stable(run: $run))];
+		$perTurn = $prompt->perTurn(run: $run);
+		if ($perTurn !== '') {
+			$system[] = LLPhantMessage::system($perTurn);
+		}
+
+		array_unshift($run->messageHistory, ...$system);
 		$turn = ($this->attachmentParts?->compose(
 			text: $run->userMessage,
 			driver: $run->progress->driver,

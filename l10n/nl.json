@@ -3673,7 +3673,27 @@
         "No drafts waiting": "Geen concepten in afwachting",
         "Text an agent wants to send is held here when its owner asked to check it first.": "Tekst die een agent wil versturen wacht hier als de eigenaar heeft gevraagd die eerst te controleren.",
         "Review": "Nakijken",
-        "Discard draft": "Concept weggooien"
+        "Discard draft": "Concept weggooien",
+        "Reuse answers to repeated questions": "Antwoorden op herhaalde vragen hergebruiken",
+        "Only for questions this agent answers without tools. Someone in your organisation who asks exactly the same gets the stored answer without a model call, marked as answered from cache.": "Alleen voor vragen die deze agent zonder tools beantwoordt. Wie in je organisatie precies hetzelfde vraagt, krijgt het opgeslagen antwoord zonder modelaanroep, gemarkeerd als beantwoord uit de cache.",
+        "Keep answers for (days)": "Antwoorden bewaren (dagen)",
+        "Similar questions": "Vergelijkbare vragen",
+        "Similar questions are not matched: OpenRegister has no vector search here.": "Vergelijkbare vragen worden niet herkend: OpenRegister heeft hier geen vectorzoekfunctie.",
+        "Questions of anyone in the organisation can only be matched while the agent does not search your data.": "Vragen van iedereen in de organisatie kunnen alleen worden herkend als de agent niet in je gegevens zoekt.",
+        "Exact repeats only": "Alleen exacte herhalingen",
+        "Similar questions of the same person": "Vergelijkbare vragen van dezelfde persoon",
+        "Similar questions of anyone in the organisation": "Vergelijkbare vragen van iedereen in de organisatie",
+        "{cached} of {total} input tokens from the provider’s cache": "{cached} van {total} invoertokens uit de cache van de provider",
+        "Answered from cache": "Beantwoord uit de cache",
+        "Ask the model again": "Vraag het model opnieuw",
+        "Clear cached answers": "Opgeslagen antwoorden wissen",
+        "%n cached answer removed.": [
+            "%n opgeslagen antwoord verwijderd.",
+            "%n opgeslagen antwoorden verwijderd."
+        ],
+        "The next questions to this agent go to the model again. Answers it gives are cached anew while the cache is on.": "De volgende vragen aan deze agent gaan weer naar het model. Zolang de cache aan staat, worden de antwoorden opnieuw opgeslagen.",
+        "The cached answers could not be cleared.": "De opgeslagen antwoorden konden niet worden gewist.",
+        "%n cached answers removed.": "%n opgeslagen antwoorden verwijderd."
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

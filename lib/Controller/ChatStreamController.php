@@ -256,7 +256,8 @@ class ChatStreamController extends Controller {
 				// streamed answer gets the same provenance record as a sent one.
 				trace: $trace,
 				attachments: $turn['attachments'],
-				turnChannel: 'hermiq'
+				turnChannel: 'hermiq',
+				answerCacheBypass: $turn['answerCacheBypass']
 			);
 
 			// Session-entity-links D2: a SENT turn records what the page it came
@@ -306,9 +307,10 @@ class ChatStreamController extends Controller {
 	 * @param string $userId The session user.
 	 *
 	 * @return array{userId: string, message: string, agentUuid: string, conversationUuid: string, context: mixed,
-	 *     contextArr: array, attachments: array, ragSettings: array<string, mixed>}
+	 *     contextArr: array, attachments: array, answerCacheBypass: bool, ragSettings: array<string, mixed>}
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
 	 */
 	private function readTurn(string $userId): array {
 		$rawBody = $this->readRequestBody();
@@ -334,6 +336,8 @@ class ChatStreamController extends Controller {
 			'context' => ($body['context'] ?? null),
 			'contextArr' => [],
 			'attachments' => [],
+			// Models-prompt-and-answer-cache: "Ask the model again" bypasses the cache.
+			'answerCacheBypass' => (($body['answerCacheBypass'] ?? false) === true),
 		];
 		if (is_array($turn['context']) === true) {
 			$turn['contextArr'] = $turn['context'];
@@ -543,6 +547,8 @@ class ChatStreamController extends Controller {
 			// not read natively. On `final`, so no new SSE event type is added
 			// (hydra ADR-034 Decision 6).
 			'attachmentNotices' => array_values(array_map('strval', (array)($result['attachmentNotices'] ?? []))),
+			// Models-prompt-and-answer-cache: the answer came from the answer cache.
+			'fromCache' => (((array)($result['cache'] ?? [])) !== []),
 			// Chat-attachments-and-images D8: the answer's attachments, such as an
 			// image the agent created, so a client can show them without a reload.
 			'attachments' => array_values((array)($result['attachments'] ?? [])),

@@ -1019,6 +1019,7 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
                 },
@@ -1037,6 +1038,10 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 503,
+                        "completionTokens": 305
+                    },
                     "user": null,
                     "created": "2026-09-21T15:13:20+00:00"
                 },
@@ -1055,6 +1060,9 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 44
+                    },
                     "user": null,
                     "created": "2026-09-21T14:13:20+00:00"
                 }
@@ -1572,6 +1580,7 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:13:20+00:00"
                 }
@@ -2126,6 +2135,7 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T17:13:20+00:00"
                 },
@@ -2144,6 +2154,7 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T17:13:20+00:00"
                 },
@@ -2162,6 +2173,9 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 32
+                    },
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
                 }
@@ -2493,6 +2507,10 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 678,
+                        "completionTokens": 828
+                    },
                     "user": null,
                     "created": null
                 }
@@ -2764,6 +2782,7 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T17:13:20+00:00"
                 },
@@ -2782,6 +2801,9 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 5
+                    },
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
                 },
@@ -2800,6 +2822,10 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 613,
+                        "completionTokens": 628
+                    },
                     "user": null,
                     "created": null
                 }
@@ -3651,6 +3677,7 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:13:20+00:00"
                 }
@@ -4378,6 +4405,7 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T17:13:20+00:00"
                 },
@@ -4396,6 +4424,10 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 598,
+                        "completionTokens": 149
+                    },
                     "user": null,
                     "created": "2026-09-21T17:13:20+00:00"
                 },
@@ -4414,6 +4446,7 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:13:20+00:00"
                 }
@@ -4571,6 +4604,7 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": null
                 }
@@ -6385,6 +6419,10 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 522,
+                        "completionTokens": 175
+                    },
                     "user": null,
                     "created": "2026-09-21T14:13:20+00:00"
                 }
@@ -6567,6 +6605,7 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T17:13:20+00:00"
                 },
@@ -6585,6 +6624,7 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": null
                 }
@@ -7808,6 +7848,7 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": null
                 }
@@ -8427,6 +8468,7 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:13:20+00:00"
                 }
@@ -9386,6 +9428,9 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 34
+                    },
                     "user": null,
                     "created": "2026-09-21T17:13:20+00:00"
                 }
@@ -11126,6 +11171,7 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:13:20+00:00"
                 }
@@ -11670,6 +11716,7 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T17:13:20+00:00"
                 }
@@ -12322,6 +12369,7 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T17:13:20+00:00"
                 }
@@ -13145,6 +13193,10 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 786,
+                        "completionTokens": 842
+                    },
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
                 }
@@ -13313,6 +13365,7 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": null
                 }
@@ -13493,6 +13546,7 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:13:20+00:00"
                 }
@@ -13674,6 +13728,9 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 16
+                    },
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
                 }
@@ -13843,6 +13900,7 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T17:13:20+00:00"
                 },
@@ -13861,6 +13919,10 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 820,
+                        "completionTokens": 690
+                    },
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
                 }
@@ -15142,6 +15204,7 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": null
                 }
@@ -15882,6 +15945,7 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T17:13:20+00:00"
                 }
@@ -16394,6 +16458,7 @@
                     "providerDisclosure": [],
                     "providerAttempts": [],
                     "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:13:20+00:00"
                 }

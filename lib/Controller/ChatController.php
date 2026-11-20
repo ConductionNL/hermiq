@@ -49,6 +49,7 @@ use OCA\Hermiq\Kernel\Contracts\TalkTurnMirrorInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
 use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
+use OCA\Hermiq\Service\AnswerCache\AnswerCacheService;
 use OCA\Hermiq\Service\AppAssistantResolver;
 use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
 use OCA\Hermiq\Service\Chat\SessionSubject;
@@ -157,6 +158,7 @@ class ChatController extends Controller {
 	 * @param AppAssistantResolver|null $assistants The agent for an app when a chat names none (agents-bound-to-their-app).
 	 * @param TalkTurnMirrorInterface|null $mirror Mirrors a turn into the session's Talk room.
 	 * @param SessionLinks|null $sessionLinks Records what the session is about when a turn is sent (session-entity-links).
+	 * @param AnswerCacheService|null   $answerCache The answer cache, so a thumbs down removes the entry that served a reply.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
@@ -175,6 +177,7 @@ class ChatController extends Controller {
 		private readonly ?AppAssistantResolver $assistants = null,
 		private readonly ?TalkTurnMirrorInterface $mirror = null,
 		private readonly ?SessionLinks $sessionLinks = null,
+		private readonly ?AnswerCacheService $answerCache = null,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
@@ -353,7 +356,8 @@ class ChatController extends Controller {
 				context: $params['context'],
 				trace: $trace,
 				attachments: $params['attachments'],
-				turnChannel: 'hermiq'
+				turnChannel: 'hermiq',
+				answerCacheBypass: $params['answerCacheBypass']
 			);
 
 			// Add conversation UUID to result for frontend.
@@ -900,6 +904,8 @@ class ChatController extends Controller {
 				_rbac: false
 			);
 
+			$this->forgetCachedAnswer(type: $type, message: $message);
+
 			$this->logger->info(
 				message: '[ChatController] Message feedback saved',
 				context: [
@@ -1002,9 +1008,11 @@ class ChatController extends Controller {
 	 * @psalm-return array{conversationUuid: string, agentUuid: string,
 	 *     message: string, attachments: list<mixed>, selectedViews: array, selectedTools: array,
 	 *     ragSettings: array{includeObjects: bool|mixed, includeFiles: bool|mixed,
-	 *     numSourcesFiles: int|mixed, numSourcesObjects: int|mixed}, context: array}
+	 *     numSourcesFiles: int|mixed, numSourcesObjects: int|mixed}, context: array,
+	 *     answerCacheBypass: bool}
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
 	 */
 	private function extractMessageRequestParams(): array {
 		return [
@@ -1020,6 +1028,9 @@ class ChatController extends Controller {
 			// Optional CnAiContext snapshot; anything that is not an array is
 			// silently dropped (missing context is fine).
 			'context' => $this->arrayParam(key: 'context'),
+			// Models-prompt-and-answer-cache: "Ask the model again" resends the
+			// question with the answer cache bypassed. Only a real true counts.
+			'answerCacheBypass' => in_array($this->request->getParam('answerCacheBypass'), [true, 'true', '1', 1], true),
 		];
 	}//end extractMessageRequestParams()
 
@@ -1370,6 +1381,35 @@ class ChatController extends Controller {
 
 		return (int)($paginated['total'] ?? 0);
 	}//end countObjects()
+
+	/**
+	 * Delete the answer-cache entry that served a message given a thumbs down.
+	 *
+	 * Anyone who may rate the turn may remove the entry, so a wrong cached
+	 * answer is not served again. A message the model answered carries no entry.
+	 *
+	 * @param string       $type    The feedback type, `positive` or `negative`.
+	 * @param ObjectEntity $message The rated message.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+	 */
+	private function forgetCachedAnswer(string $type, ObjectEntity $message): void {
+		if ($type !== 'negative' || $this->answerCache === null) {
+			return;
+		}
+
+		$served = ($message->getObject()['answerCache'] ?? null);
+		if (is_array($served) === false) {
+			return;
+		}
+
+		$entryId = (string)($served['entryId'] ?? '');
+		if ($entryId !== '') {
+			$this->answerCache->remove(entryId: $entryId);
+		}
+	}//end forgetCachedAnswer()
 
 	/**
 	 * Find the caller's existing feedback object for a message, if any.

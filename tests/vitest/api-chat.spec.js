@@ -199,6 +199,12 @@ describe('sendChatMessage', () => {
 		await chat.sendChatMessage({ message: 'Q', agentUuid: 'a1', ragSettings: 'x', attachments: [] })
 		expect(calls[0][2]).toEqual({ message: 'Q', agentUuid: 'a1' })
 	})
+
+	it('sends the answer-cache bypass when asking the model again', async () => {
+		const calls = record({ message: 'hi' })
+		await chat.sendChatMessage({ message: 'Q', sessionUuid: 's1', answerCacheBypass: true })
+		expect(calls[0][2]).toEqual({ message: 'Q', conversation: 's1', answerCacheBypass: true })
+	})
 })
 
 describe('attachments, images, feedback and goals', () => {
@@ -298,6 +304,15 @@ describe('streamChatMessage', () => {
 		stubFetch(streamResponse(['event: token\ndata: {"delta":"x"}\n\nevent: final\ndata: {"ok":1}\n\n']))
 		expect(await chat.streamChatMessage({ message: 'Q', sessionUuid: 's1' })).toEqual({ ok: 1 })
 		expect(JSON.parse(fetchCalls[0][1].body)).toEqual({ message: 'Q', conversationUuid: 's1' })
+	})
+
+	it('asks the model again only when the bypass is exactly true (models-prompt-and-answer-cache)', async () => {
+		stubFetch(streamResponse(['event: final\ndata: {"ok":1}\n\n']))
+		await chat.streamChatMessage({ message: 'Q', sessionUuid: 's1', answerCacheBypass: true })
+		expect(JSON.parse(fetchCalls[0][1].body)).toEqual({ message: 'Q', conversationUuid: 's1', answerCacheBypass: true })
+		stubFetch(streamResponse(['event: final\ndata: {"ok":1}\n\n']))
+		await chat.streamChatMessage({ message: 'Q', sessionUuid: 's1', answerCacheBypass: 'yes' })
+		expect(JSON.parse(fetchCalls[fetchCalls.length - 1][1].body)).toEqual({ message: 'Q', conversationUuid: 's1' })
 	})
 
 	it('raises a server-side error, without fallback, on a terminal error event', async () => {

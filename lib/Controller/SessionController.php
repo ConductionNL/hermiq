@@ -1916,6 +1916,7 @@ class SessionController extends Controller {
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
 	 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#scenario-a-reviewer-can-see-what-was-used
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-an-exact-repeat-within-one-organisation-gets-the-stored-answer-req-acache-002
 	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-each-answer-records-the-scope-it-was-given-req-rscope-004
 	 */
 	private function serializeMessage(ObjectEntity $message): array {
@@ -1951,6 +1952,9 @@ class SessionController extends Controller {
 			'provenanceAccount' => $this->provenanceAccount(record: ($data['provenance'] ?? null)),
 			// The record of a translated recording (chat-translate-a-recording), null otherwise.
 			'translation' => ($data['translation'] ?? null),
+			// Models-prompt-and-answer-cache: an answer the cache served says so, so the
+			// chat can show "Answered from cache" with "Ask the model again".
+			'fromCache' => ((string)(((array)($data['answerCache'] ?? []))['entryId'] ?? '') !== ''),
 			// The scope the answer was given (memory-retrieval-scope D5); null on a turn without one.
 			'retrievalScope' => ($data['retrievalScope'] ?? null),
 			'created' => $message->getCreated()?->format('c'),

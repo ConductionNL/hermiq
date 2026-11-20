@@ -471,6 +471,7 @@ export async function deleteSessionPermanent(uuid) {
  *   numSourcesFiles, numSourcesObjects).
  * @param {Array<{fileId: number, origin: string}>} [options.attachments] Files on
  *   this turn, by file id; the server reads each one as the sender.
+ * @param {boolean} [options.answerCacheBypass] True to ask the model again instead of the answer cache.
  * @return {Promise<object>} The engine result ({message, messageId, sources, usage,
  *   session}).
  */
@@ -482,11 +483,12 @@ export async function sendChatMessage({
 	tools,
 	ragSettings,
 	attachments,
+	answerCacheBypass,
 }) {
 	// wire key: ChatController reads getParam('conversation')
 	const payload = {
 		...turnBody(
-			{ message, sessionUuid, agentUuid, attachments },
+			{ message, sessionUuid, agentUuid, attachments, answerCacheBypass },
 			'conversation',
 		),
 		...nonEmptyLists({ views, tools }),
@@ -505,11 +507,16 @@ export async function sendChatMessage({
  * @param {string} [turn.sessionUuid] Existing session UUID.
  * @param {string} [turn.agentUuid] Agent UUID (only when no session exists yet).
  * @param {Array<{fileId: number, origin: string}>} [turn.attachments] Files on this turn.
+ * @param {boolean} [turn.answerCacheBypass] True to ask the model again instead of the answer cache.
  * @param {string} sessionKey The wire key the endpoint reads the session from.
  * @return {object} The request body.
  */
-function turnBody({ message, sessionUuid, agentUuid, attachments }, sessionKey) {
+function turnBody({ message, sessionUuid, agentUuid, attachments, answerCacheBypass }, sessionKey) {
 	const body = { message }
+	// "Ask the model again" (models-prompt-and-answer-cache): sent only when true.
+	if (answerCacheBypass === true) {
+		body.answerCacheBypass = true
+	}
 	// Files on this turn, by file id (chat-attachments-and-images); omitted when none.
 	if (Array.isArray(attachments) && attachments.length > 0) {
 		body.attachments = attachments
@@ -665,6 +672,7 @@ function parseSseFrame(frame) {
  * @param {string} [options.agentUuid] Agent UUID (only when no session exists yet).
  * @param {Array<{fileId: number, origin: string}>} [options.attachments] Files on
  *   this turn, by file id; the server reads each one as the sender.
+ * @param {boolean} [options.answerCacheBypass] True to ask the model again instead of the answer cache.
  * @param {object} [handlers] Event handlers.
  * @param {Function} [handlers.onToken] (delta: string) — incremental assistant text.
  * @param {Function} [handlers.onToolCall] (payload: object) — a tool invocation started.
@@ -677,12 +685,12 @@ function parseSseFrame(frame) {
  *   `error` event (no fallback — the turn failed server-side).
  */
 export async function streamChatMessage(
-	{ message, sessionUuid, agentUuid, attachments },
+	{ message, sessionUuid, agentUuid, attachments, answerCacheBypass },
 	handlers = {},
 ) {
 	// wire key: the stream endpoint reads conversationUuid
 	const body = turnBody(
-		{ message, sessionUuid, agentUuid, attachments },
+		{ message, sessionUuid, agentUuid, attachments, answerCacheBypass },
 		'conversationUuid',
 	)
 	const response = await openStream(body)

@@ -30,6 +30,9 @@ use OCA\OpenRegister\Db\ObjectEntity;
  * One response-generation turn. Built and read only inside ResponseGenerationHandler.
  *
  * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+ *
+ * @SuppressWarnings(PHPMD.TooManyFields) a parameter object for one turn: every field is a turn input, which
+ * is what it is for.
  */
 final class ResponseTurnRun {
 
@@ -125,6 +128,14 @@ final class ResponseTurnRun {
 	 * @var array<int, array{provider: string, model: string, text: string}>
 	 */
 	public array $referenceAnswers = [];
+
+	/**
+	 * Whether this turn skips the answer cache, read and write: the person asked
+	 * the model again (models-prompt-and-answer-cache).
+	 *
+	 * @var bool
+	 */
+	public bool $answerCacheBypass = false;
 
 	/**
 	 * The uid the attachments were resolved for.

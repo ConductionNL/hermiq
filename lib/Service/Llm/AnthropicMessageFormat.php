@@ -45,7 +45,7 @@ final class AnthropicMessageFormat {
 	 *
 	 * @param array $messageHistory Array of LLPhant Message objects.
 	 *
-	 * @return array{system: string, messages: array<int, array<string, mixed>>}
+	 * @return array{system: string|array<int, array{type: string, text: string}>, messages: array<int, array<string, mixed>>}
 	 *
 	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
 	 */
@@ -78,11 +78,33 @@ final class AnthropicMessageFormat {
 		}
 
 		return [
-			'system' => implode("\n\n", $systemParts),
+			'system' => $this->systemField(systemParts: $systemParts),
 			'messages' => $messages,
 		];
 
 	}//end mapHistoryToAnthropicMessages()
+
+	/**
+	 * The `system` field: one system turn as a string, several as text blocks in order.
+	 *
+	 * Models-prompt-and-answer-cache: the turn sends its stable block and its
+	 * per-turn block as two system turns; as separate text blocks the cache
+	 * breakpoint sits on the stable one, and the per-turn one changes freely.
+	 *
+	 * @param array<int, string> $systemParts The system turns' text, in order.
+	 *
+	 * @return string|array<int, array{type: string, text: string}>
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-2
+	 */
+	private function systemField(array $systemParts): string|array {
+		$systemParts = array_values(array_filter($systemParts, static fn (string $part): bool => $part !== ''));
+		if (count($systemParts) <= 1) {
+			return (string)($systemParts[0] ?? '');
+		}
+
+		return array_map(static fn (string $part): array => ['type' => 'text', 'text' => $part], $systemParts);
+	}//end systemField()
 
 	/**
 	 * Map OpenAI-style function definitions to Anthropic `tools`.

@@ -536,6 +536,9 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	 *                                the engines used (chat-translate-a-recording).
 	 * @param string|null $channel Where a human turn was typed: `talk` or `hermiq`; stored on
 	 *                             role=user turns only, anything else is left unset.
+	 * @param array|null $answerCache The answer-cache entry that served an assistant answer,
+	 *                                `{layer, entryId}`; null when the model gave it
+	 *                                (models-prompt-and-answer-cache).
 	 *
 	 * @return ObjectEntity The persisted Message object.
 	 *
@@ -546,6 +549,7 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
 	 * @spec openspec/changes/chat-carry-a-conversation-across-channels/specs/session-channel-continuity/spec.md#requirement-each-turn-records-where-it-was-typed-req-schan-004
 	 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-the-languages-and-engines-used-are-recorded-req-strn-002
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
 	 */
 	public function storeMessage(
 		string $conversationId,
@@ -560,10 +564,11 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 		?array $retrievalScope = null,
 		?array $translation = null,
 		?string $channel = null,
+		?array $answerCache = null,
 	): ObjectEntity {
 		$payload = $this->messagePayload(
 			message: ['sessionId' => $conversationId, 'role' => $role, 'content' => $content],
-			extras: compact('sources', 'context', 'attachments', 'provenance', 'retrievalScope', 'translation')
+			extras: compact('sources', 'context', 'attachments', 'provenance', 'retrievalScope', 'translation', 'answerCache')
 		);
 		$payload = $this->withAuthorship(
 			payload: $payload,
@@ -581,11 +586,12 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	 * The Message payload: the session, role and content, plus each optional
 	 * part that carries something. Empty sources or context are left out,
 	 * attachments are re-indexed, provenance and the retrieval scope are kept
-	 * whenever they are given, a translation record when it is not empty.
+	 * whenever they are given, a translation record when it is not empty, and the answer-cache entry
+	 * that served an answer is kept as `{layer, entryId}`.
 	 *
 	 * @param array{sessionId: string, role: string, content: string} $message The session id, role and content.
 	 * @param array<string, mixed> $extras The optional parts: sources, context, attachments (array),
-	 *                                     provenance, retrievalScope and translation, each nullable.
+	 *                                     provenance, retrievalScope, translation and answerCache, each nullable.
 	 *
 	 * @return array<string, mixed> The payload.
 	 *
@@ -613,8 +619,16 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 			$payload['provenance'] = $extras['provenance'];
 		}
 
+		$answerCache = ($extras['answerCache'] ?? null);
+		if ($answerCache !== null && (string)($answerCache['entryId'] ?? '') !== '') {
+			$payload['answerCache'] = [
+				'layer' => (string)($answerCache['layer'] ?? ''),
+				'entryId' => (string)$answerCache['entryId'],
+			];
+		}
+
 		// Memory-retrieval-scope D5: the scope the answer was given.
-		if ($extras['retrievalScope'] !== null) {
+		if (($extras['retrievalScope'] ?? null) !== null) {
 			$payload['retrievalScope'] = $extras['retrievalScope'];
 		}
 

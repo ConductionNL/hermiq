@@ -128,6 +128,13 @@ class AnalyticsService implements AnalyticsServiceInterface
     private const COMPUTER_FIELDS = ['target', 'action', 'x', 'y', 'text', 'keys', 'approvalId', 'screenshot'];
 
     /**
+     * The token counts a run row carries from the run's recorded usage.
+     *
+     * @var array<int, string>
+     */
+    private const USAGE_COUNTS = ['promptTokens', 'completionTokens', 'cacheReadTokens', 'cacheWriteTokens'];
+
+    /**
      * Page size for the visible-agent scan (paged to exhaustion, never a cap).
      *
      * @var integer
@@ -574,6 +581,7 @@ class AnalyticsService implements AnalyticsServiceInterface
                 keys: ['provider', 'model', 'outcome', 'reason', 'durationMs']
             ),
             'receivedBy'         => self::labelRows(rows: ($context['providerDisclosure']['receivedBy'] ?? []), keys: ['provider', 'model']),
+            'usage'              => $this->runUsage(context: $context),
         ] + self::computerFacts(steps: ($context['steps'] ?? []));
 
     }//end runFacts()
@@ -669,6 +677,40 @@ class AnalyticsService implements AnalyticsServiceInterface
         return $actions;
 
     }//end computerActions()
+
+    /**
+     * The token counts a run recorded, as whole numbers, and only those.
+     *
+     * Models-prompt-and-answer-cache: the run list shows how many input tokens
+     * came from the provider's prompt cache, so it needs the input total and the
+     * cache counts. `promptTokens` already includes the cached tokens. A count
+     * that is not a whole number of zero or more is left out, and a run that
+     * recorded none gets an empty list.
+     *
+     * @param array<string, mixed> $context The entry's recorded `changed` payload.
+     *
+     * @return array<string, int> The recorded counts by name.
+     *
+     * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-3
+     */
+    private function runUsage(array $context): array
+    {
+        $usage = ($context['usage'] ?? null);
+        if (is_array($usage) === false) {
+            return [];
+        }
+
+        $counts = [];
+        foreach (self::USAGE_COUNTS as $key) {
+            $value = ($usage[$key] ?? null);
+            if (is_int($value) === true && $value >= 0) {
+                $counts[$key] = $value;
+            }
+        }
+
+        return $counts;
+
+    }//end runUsage()
 
     /**
      * Who wrote a run entry and when, with the epoch sort key the list orders on.

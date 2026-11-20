@@ -3572,7 +3572,24 @@ OC.L10N.register(
         "No drafts waiting": "No drafts waiting",
         "Text an agent wants to send is held here when its owner asked to check it first.": "Text an agent wants to send is held here when its owner asked to check it first.",
         "Review": "Review",
-        "Discard draft": "Discard draft"
+        "Discard draft": "Discard draft",
+        "Reuse answers to repeated questions": "Reuse answers to repeated questions",
+        "Only for questions this agent answers without tools. Someone in your organisation who asks exactly the same gets the stored answer without a model call, marked as answered from cache.": "Only for questions this agent answers without tools. Someone in your organisation who asks exactly the same gets the stored answer without a model call, marked as answered from cache.",
+        "Keep answers for (days)": "Keep answers for (days)",
+        "Similar questions": "Similar questions",
+        "Similar questions are not matched: OpenRegister has no vector search here.": "Similar questions are not matched: OpenRegister has no vector search here.",
+        "Questions of anyone in the organisation can only be matched while the agent does not search your data.": "Questions of anyone in the organisation can only be matched while the agent does not search your data.",
+        "Exact repeats only": "Exact repeats only",
+        "Similar questions of the same person": "Similar questions of the same person",
+        "Similar questions of anyone in the organisation": "Similar questions of anyone in the organisation",
+        "{cached} of {total} input tokens from the provider’s cache": "{cached} of {total} input tokens from the provider’s cache",
+        "Answered from cache": "Answered from cache",
+        "Ask the model again": "Ask the model again",
+        "Clear cached answers": "Clear cached answers",
+        "%n cached answer removed.": ["%n cached answer removed.","%n cached answers removed."],
+        "The next questions to this agent go to the model again. Answers it gives are cached anew while the cache is on.": "The next questions to this agent go to the model again. Answers it gives are cached anew while the cache is on.",
+        "The cached answers could not be cleared.": "The cached answers could not be cleared.",
+        "%n cached answers removed.": "%n cached answers removed."
     },
     "nplurals=2; plural=(n != 1);"
 )

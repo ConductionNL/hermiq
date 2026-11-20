@@ -38,6 +38,7 @@
 // See: https://github.com/ConductionNL/hydra → openspec/architecture/adr-036-universal-widget-manifest.md
 import { CnFlowSidebar } from '@conduction/nextcloud-vue'
 import AgentBuildsPanel from './components/AgentBuildsPanel.vue'
+import AgentAnswerCacheClearDialog from './dialogs/AgentAnswerCacheClearDialog.vue'
 import AgentAvailabilityDialog from './dialogs/AgentAvailabilityDialog.vue'
 import AgentFactsheetDialog from './dialogs/AgentFactsheetDialog.vue'
 import AgentVersionHistoryDialog from './dialogs/agents/AgentVersionHistoryDialog.vue'
@@ -166,6 +167,17 @@ export default {
 	'agent-availability': {
 		kind: 'modal',
 		component: AgentAvailabilityDialog,
+		propsSchema: showOnlyProps(),
+	},
+
+	/**
+	 * Clear one agent's cached answers (models-prompt-and-answer-cache).
+	 * Self-resolves the agent id from the route when opened via AgentDetail's
+	 * "Clear cached answers" action; the server lets only the owner clear.
+	 */
+	'agent-answer-cache-clear': {
+		kind: 'modal',
+		component: AgentAnswerCacheClearDialog,
 		propsSchema: showOnlyProps(),
 	},
 

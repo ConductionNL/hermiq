@@ -39,6 +39,7 @@ import CompassOutline from 'vue-material-design-icons/CompassOutline.vue'
 import Connection from 'vue-material-design-icons/Connection.vue'
 import Creation from 'vue-material-design-icons/Creation.vue'
 import DatabaseOutline from 'vue-material-design-icons/DatabaseOutline.vue'
+import DeleteSweepOutline from 'vue-material-design-icons/DeleteSweepOutline.vue'
 import Eye from 'vue-material-design-icons/Eye.vue'
 import FileDocumentEditOutline from 'vue-material-design-icons/FileDocumentEditOutline.vue'
 import FileDocumentMultipleOutline from 'vue-material-design-icons/FileDocumentMultipleOutline.vue'
@@ -112,6 +113,7 @@ export default {
 	Creation,
 	Connection,
 	DatabaseOutline,
+	DeleteSweepOutline,
 	Eye,
 	FileDocumentEditOutline,
 	FileSign,

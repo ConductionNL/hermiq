@@ -26,6 +26,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service;
 
 use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
+use OCA\Hermiq\Service\AnswerCache\SimilarQuestionSearch;
 use OCA\Hermiq\Tenant\ManageableOrganisations;
 use OCP\App\IAppManager;
 use OCP\AppFramework\Services\IInitialState;
@@ -63,6 +64,9 @@ class DashboardPageState {
 	 *   an availability guard in OpenRegisterManageableOrganisations.
 	 * @param IAppManager $appManager Runtime app availability (OpenCatalogi publication seam).
 	 * @param ActionAuthServiceInterface $actions The action matrix (agent.set-acting-user).
+	 * @param SimilarQuestionSearch|null $similarQuestions Whether OpenRegister's vector search
+	 *   can match similar questions (answer cache). Resolves the facade lazily and
+	 *   guarded, so this route stays loadable without OpenRegister.
 	 *
 	 * @return void
 	 */
@@ -73,6 +77,7 @@ class DashboardPageState {
 		private readonly ManageableOrganisations $organisations,
 		private readonly IAppManager $appManager,
 		private readonly ActionAuthServiceInterface $actions,
+		private readonly ?SimilarQuestionSearch $similarQuestions=null,
 	) {
 	}//end __construct()
 
@@ -86,7 +91,24 @@ class DashboardPageState {
 	public function provide(): void {
 		$this->provideKillSwitchCapability();
 		$this->provideActingUserCapability();
+		$this->provideVectorSearchCapability();
 	}//end provide()
+
+	/**
+	 * Tell the agent form whether similar questions can be matched
+	 * (`vector_search_available`): OpenRegister's vector facade is there and can
+	 * answer. UX only: the answer cache checks the facade again on every turn.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#scenario-no-vector-search-no-similarity-layer
+	 */
+	private function provideVectorSearchCapability(): void {
+		$this->initialState->provideInitialState(
+			'vector_search_available',
+			$this->similarQuestions?->isAvailable() === true
+		);
+	}//end provideVectorSearchCapability()
 
 	/**
 	 * Provide the kill-switch capability + manageable organisations to the SPA.

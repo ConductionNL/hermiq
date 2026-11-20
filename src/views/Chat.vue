@@ -717,6 +717,21 @@
 								"
 								:text="message.content" />
 
+							<!-- Models-prompt-and-answer-cache: an answer the cache served says so -->
+							<div
+								v-if="message.role === 'assistant' && message.fromCache"
+								class="chat-page__from-cache">
+								<span class="chat-page__from-cache-note">
+									{{ t('hermiq', 'Answered from cache') }}
+								</span>
+								<NcButton
+									variant="tertiary"
+									:disabled="sending"
+									@click="askModelAgain(message)">
+									{{ t('hermiq', 'Ask the model again') }}
+								</NcButton>
+							</div>
+
 							<!-- Feedback (assistant messages with a persisted id) -->
 							<div
 								v-if="
@@ -1201,6 +1216,7 @@ import {
 	findingsByField,
 	scheduleFromDraft,
 } from '../utils/agentDraft.js'
+import { questionBefore } from '../utils/answerCache.js'
 import { sourceFileId, sourceName, sourcePage } from '../utils/chatSources.js'
 import { clockTime, handoffLine, handoffsByMessage } from '../utils/handoffLines.js'
 import {
@@ -2645,6 +2661,36 @@ export default {
 		},
 
 		/**
+		 * "Ask the model again": resend the question a cached answer replied to,
+		 * with the answer cache bypassed, over the same path a typed turn takes.
+		 *
+		 * @param {object} message The assistant message the cache served.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+		 */
+		async askModelAgain(message) {
+			const text = questionBefore(this.messages, message)
+			if (!this.mayStartTurn(text)) {
+				return
+			}
+			this.sendError = ''
+			this.sending = true
+			this.showOptimisticTurn(text, [])
+			const uuid = this.activeSession.uuid
+			try {
+				if (this.settingsCustomised) {
+					await this.sendViaPost(text, uuid, [], true)
+				} else {
+					await this.sendViaStream(text, uuid, [], true)
+				}
+			} catch (e) {
+				this.showSendFailure(e)
+			} finally {
+				await this.finishTurn(uuid)
+			}
+		},
+
+		/**
 		 * Whether a turn can start: there is text, no turn in flight, and a session.
 		 *
 		 * @param {string} text The trimmed message.
@@ -2750,18 +2796,19 @@ export default {
 		 * @param {string} text The user message.
 		 * @param {string} uuid The session UUID.
 		 * @param {Array<object>} [attachments] Files on the turn, by file id.
+		 * @param {boolean} [answerCacheBypass] True to ask the model again instead of the answer cache.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 * @spec openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port/spec.md#requirement-the-chat-page-streams-the-answer-as-the-agent-writes-it-req-chstrm-001
 		 */
-		async sendViaStream(text, uuid, attachments = []) {
+		async sendViaStream(text, uuid, attachments = [], answerCacheBypass = false) {
 			this.isStreaming = true
 			this.streamingText = ''
 			this.streamingTools = []
 			try {
 				const finalPayload = await streamChatMessage(
-					{ message: text, sessionUuid: uuid, attachments },
+					{ message: text, sessionUuid: uuid, attachments, ...(answerCacheBypass ? { answerCacheBypass: true } : {}) },
 					{
 						onToken: (delta) => {
 							this.streamingText += delta
@@ -2794,7 +2841,7 @@ export default {
 				if (e instanceof ChatStreamError && e.transport) {
 					// ADR-034 fallback ladder: degrade to the synchronous endpoint.
 					this.isStreaming = false
-					await this.sendViaPost(text, uuid, attachments)
+					await this.sendViaPost(text, uuid, attachments, answerCacheBypass)
 					return
 				}
 				throw e
@@ -2808,15 +2855,17 @@ export default {
 		 * @param {string} text The user message.
 		 * @param {string} uuid The session UUID.
 		 * @param {Array<object>} [attachments] Files on the turn, by file id.
+		 * @param {boolean} [answerCacheBypass] True to ask the model again instead of the answer cache.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 */
-		async sendViaPost(text, uuid, attachments = []) {
+		async sendViaPost(text, uuid, attachments = [], answerCacheBypass = false) {
 			const result = await sendChatMessage({
 				message: text,
 				sessionUuid: uuid,
 				attachments,
+				...(answerCacheBypass ? { answerCacheBypass: true } : {}),
 				views: this.settings.views,
 				tools: this.settings.tools,
 				ragSettings: {
@@ -4125,6 +4174,19 @@ a.chat-page__source-name {
 }
 
 /* ── Feedback ─────────────────────────────────────────────────────── */
+
+.chat-page__from-cache {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 6px;
+}
+
+.chat-page__from-cache-note {
+	color: var(--color-text-maxcontrast);
+	font-size: var(--font-size-small, 13px);
+}
 
 .chat-page__feedback {
 	display: flex;

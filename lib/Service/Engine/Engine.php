@@ -269,6 +269,8 @@ class Engine implements EngineInterface {
 	 * @param string|null $turnChannel Where the human turn was typed, `talk` or `hermiq`, stored
 	 *                                 on the user turn (chat-carry-a-conversation-across-channels).
 	 *                                 Null leaves it unset, which reads as `hermiq`.
+	 * @param bool $answerCacheBypass True when the person asked the model again: the answer
+	 *                                cache is neither read nor written for this turn.
 	 *
 	 * @return array The result envelope.
 	 *
@@ -293,6 +295,10 @@ class Engine implements EngineInterface {
 	 * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) each parameter it threads adds a line; splitting the
+	 * turn set-up is follow-up work, not part of this merge.
 	 */
 	public function processMessage(
 		string $conversationId,
@@ -310,6 +316,7 @@ class Engine implements EngineInterface {
 		?string $authorDisplayName = null,
 		array $attachments = [],
 		?string $turnChannel = null,
+		bool $answerCacheBypass = false,
 	): array {
 		$this->logger->info(
 			message: '[Engine] Processing message',
@@ -343,6 +350,7 @@ class Engine implements EngineInterface {
 				'turnChannel' => $turnChannel,
 				'trace' => $trace,
 				'dryRun' => $dryRun,
+				'answerCacheBypass' => $answerCacheBypass,
 			];
 
 			// The agent's attached Context objects (agent-context-system) and the
@@ -671,7 +679,8 @@ class Engine implements EngineInterface {
 				),
 				attachments: $turn['resolvedAttachments'],
 				speaker: ($turn['authorId'] ?? $turn['userId']),
-				projectKey: (string)($turn['conversationData']['projectKey'] ?? '')
+				projectKey: (string)($turn['conversationData']['projectKey'] ?? ''),
+				answerCacheBypass: ($turn['answerCacheBypass'] ?? false)
 			);
 		} catch (Exception $e) {
 			throw $this->attachmentRefusalFor(exception: $e, attachments: $turn['resolvedAttachments']);
@@ -713,6 +722,9 @@ class Engine implements EngineInterface {
 			// (run-analytics / ScheduleService::lastRunUsage): load-bearing,
 			// see class docblock.
 			'usage' => $this->responseHandler->lastUsage,
+			// Models-prompt-and-answer-cache: how the answer came from the answer
+			// cache ({layer, entryId}), [] when the model gave it.
+			'cache' => $this->responseHandler->lastCache,
 			// Chat-attachments-and-images D6: what happened to each attachment
 			// the model could not read natively, for the answer's notice.
 			'attachmentNotices' => $this->responseHandler->attachmentNotices,
@@ -816,8 +828,14 @@ class Engine implements EngineInterface {
 	 *
 	 * @spec openspec/specs/agent-engine-port/spec.md
 	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
 	 */
 	private function storeAnswer(array $turn): ObjectEntity {
+		$answerCache = null;
+		if ($this->responseHandler->lastCache !== []) {
+			$answerCache = $this->responseHandler->lastCache;
+		}
+
 		$assistantStored = $this->historyHandler->storeMessage(
 			conversationId: $turn['conversationId'],
 			role: 'assistant',
@@ -825,6 +843,7 @@ class Engine implements EngineInterface {
 			sources: $turn['sources'],
 			attachments: $turn['answerAttachments'],
 			provenance: $turn['provenance'],
+			answerCache: $answerCache,
 			retrievalScope: $turn['retrievalScope']
 		);
 

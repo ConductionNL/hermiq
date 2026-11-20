@@ -395,6 +395,39 @@ describe('sending', () => {
 		expect(w.vm.sendError).toBe('No access')
 	})
 
+	it('asks the model again: resends the question a cached answer replied to, with the cache bypassed', async () => {
+		const w = await ready()
+		const question = { role: 'user', content: 'Wanneer wordt het oud papier opgehaald?' }
+		const answer = { role: 'assistant', content: 'Op maandag.', fromCache: true }
+		w.vm.messages = [question, answer]
+		w.vm.currentMessage = 'a draft the person is still typing'
+		api.streamChatMessage.mockResolvedValueOnce({ messageId: 'm10' })
+
+		await w.vm.askModelAgain(answer)
+
+		expect(api.streamChatMessage.mock.calls[0][0]).toEqual({ message: 'Wanneer wordt het oud papier opgehaald?', sessionUuid: 's1', attachments: [], answerCacheBypass: true })
+		expect(w.vm.currentMessage).toBe('a draft the person is still typing')
+		expect(w.vm.sending).toBe(false)
+
+		// The turn re-read the thread from the server; put the cached answer back.
+		w.vm.messages = [question, answer]
+		w.vm.settings = { ...w.vm.settings, includeFiles: false }
+		await w.vm.askModelAgain(answer)
+		expect(api.sendChatMessage.mock.calls[0][0]).toMatchObject({ message: 'Wanneer wordt het oud papier opgehaald?', answerCacheBypass: true })
+	})
+
+	it('does not ask again without a question before the answer or while a turn runs', async () => {
+		const w = await ready()
+		const answer = { role: 'assistant', content: 'Op maandag.', fromCache: true }
+		w.vm.messages = [answer]
+		await w.vm.askModelAgain(answer)
+		w.vm.messages = [{ role: 'user', content: 'Wanneer?' }, answer]
+		w.vm.sending = true
+		await w.vm.askModelAgain(answer)
+		expect(api.streamChatMessage).not.toHaveBeenCalled()
+		expect(api.sendChatMessage).not.toHaveBeenCalled()
+	})
+
 	it('posts the turn directly when the settings are customised', async () => {
 		const w = await ready()
 		w.vm.settings = { ...w.vm.settings, includeFiles: false }
