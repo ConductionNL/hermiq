@@ -220,9 +220,13 @@ class SeedComplianceControls implements IRepairStep {
 
 	/**
 	 * The seed Control rows (design.md Seed Data): 3 EU AI Act + 3 ISO/IEC 42001 + 4
-	 * NIST AI RMF, each mapped to exactly one of the seven evidenceSource seams.
+	 * NIST AI RMF, each mapped to exactly one of the seven evidenceSource seams, plus the
+	 * two bias-testing controls (ISO/IEC 42001 A.6.2.4, NIST AI RMF MEASURE 2.11) on
+	 * bias-eval-recency (reuse-scheduled-bias-evals).
 	 *
 	 * @return array<int, array<string, mixed>> The seed objects.
+	 *
+	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) One literal seed row per spec'd
 	 *   compliance control (design.md Seed Data) — the length tracks the control
@@ -350,6 +354,28 @@ class SeedComplianceControls implements IRepairStep {
 				'evidenceSource' => 'kill-switch-stop-mechanism',
 				'evidenceDescription' => 'Satisfied when the organisation has a provisioned stop mechanism '
 					. '(kill-switch), regardless of whether it is currently engaged.',
+			],
+			[
+				'frameworkSlug' => 'iso-42001',
+				'controlId' => 'A.6.2.4',
+				'title' => 'AI system verification and validation',
+				'description' => 'The organisation shall define and document verification and validation '
+					. 'measures for the AI system, including the test data and the criteria used.',
+				'sourceUrl' => 'https://www.iso.org/standard/81230.html',
+				'evidenceSource' => 'bias-eval-recency',
+				'evidenceDescription' => 'Satisfied when every agent with a scheduled bias check had a completed '
+					. 'bias check in the last 45 days.',
+			],
+			[
+				'frameworkSlug' => 'nist-ai-rmf',
+				'controlId' => 'MEASURE-2.11',
+				'title' => 'Fairness and bias evaluated',
+				'description' => 'Fairness and bias, as identified in the MAP function, are evaluated and '
+					. 'the results are documented.',
+				'sourceUrl' => 'https://www.nist.gov/itl/ai-risk-management-framework',
+				'evidenceSource' => 'bias-eval-recency',
+				'evidenceDescription' => 'Satisfied when every agent with a scheduled bias check had a completed '
+					. 'bias check in the last 45 days.',
 			],
 		];
 

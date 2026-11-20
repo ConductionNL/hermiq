@@ -30,6 +30,7 @@ use OCA\Hermiq\Listener\AiOversightRecordedListener;
 use OCA\Hermiq\Listener\FlowOversightRegistrationListener;
 use OCA\Hermiq\Listener\FlowRunTerminalListener;
 use OCA\Hermiq\Listener\ListenerRegistrar;
+use OCA\Hermiq\Listener\EvalTemplateGuardListener;
 use OCA\Hermiq\Listener\PublicChannelGuardListener;
 use OCA\Hermiq\Listener\RegisterAgentLeafListener;
 use OCA\Hermiq\Listener\ShareableConfigTypeListener;
@@ -102,6 +103,7 @@ class ListenerRegistrarTest extends TestCase {
 				[ObjectUpdatingEvent::class, AgentActingUserGuardListener::class],
 				[ObjectCreatingEvent::class, PublicChannelGuardListener::class],
 				[ObjectUpdatingEvent::class, PublicChannelGuardListener::class],
+				[ObjectUpdatingEvent::class, EvalTemplateGuardListener::class],
 				[ObjectCreatingEvent::class, AgentDepartmentGuardListener::class],
 				[ObjectUpdatingEvent::class, AgentDepartmentGuardListener::class],
 				[ObjectCreatingEvent::class, AgentEnsembleGuardListener::class],

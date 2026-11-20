@@ -32,6 +32,7 @@ use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\AiFeatureService;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\ComplianceService;
+use OCA\Hermiq\Service\Eval\BiasCheckEvidence;
 use OCA\Hermiq\Service\OrganisationControlService;
 use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\Hermiq\Service\OrganisationOpsService;
@@ -584,4 +585,64 @@ class ComplianceServiceTest extends TestCase {
 		$this->assertNull($service->factsheet(agentId: 'does-not-exist'));
 
 	}//end testFactsheetAssemblesAllFourSourcesAndNullsWhenAgentMissing()
+
+	/**
+	 * The bias-testing controls dispatch to the bias check evidence, and nothing else
+	 * decides their status (reuse-scheduled-bias-evals).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
+	 */
+	public function testTheBiasTestingControlReadsTheBiasCheckEvidence(): void {
+		$evidence = $this->createMock(BiasCheckEvidence::class);
+		$evidence->expects($this->once())->method('evidence')->willReturn(
+			['status' => 'partial', 'detail' => '1 of 2 agent(s) with a scheduled bias check had one in the last 45 days.']
+		);
+
+		$service = new ComplianceService(
+			objectService: $this->catalogueWith(evidenceSource: 'bias-eval-recency'),
+			tenantOpsService: $this->createMock(OrganisationOpsService::class),
+			approvalService: $this->createMock(ApprovalService::class),
+			tenantControlService: $this->createMock(OrganisationControlService::class),
+			modelPolicyService: $this->createMock(EffectiveModelPolicy::class),
+			aiFeatureService: $this->createMock(AiFeatureService::class),
+			aiFeatureLookup: $this->createMock(AiFeatureLookup::class),
+			biasCheckEvidence: $evidence,
+		);
+
+		$control = $service->dashboard(organisation: 'org-a')['frameworks'][0]['controls'][0];
+		$this->assertSame('partial', $control['status']);
+		$this->assertSame('1 of 2 agent(s) with a scheduled bias check had one in the last 45 days.', $control['detail']);
+
+		$this->assertSame('unevidenced', $this->statusFor(evidenceSource: 'bias-eval-recency')['status'], 'Without the evidence service the control is unevidenced.');
+	}//end testTheBiasTestingControlReadsTheBiasCheckEvidence()
+
+	/**
+	 * The factsheet carries the agent's latest bias check, or null for "No bias check run".
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
+	 */
+	public function testTheFactsheetCarriesTheLatestBiasCheck(): void {
+		$check    = ['runId' => 'run-1', 'datasetId' => 'bias-1', 'passRate' => 0.95, 'date' => '2026-09-01', 'startedAt' => '2026-09-01T06:00:00+00:00'];
+		$evidence = $this->createMock(BiasCheckEvidence::class);
+		$evidence->method('latestFor')->willReturnCallback(static fn (string $agentId): ?array => ($agentId === 'agent-1' ? $check : null));
+
+		$objectService = $this->objectService(['agent' => [$this->object('agent-1', ['name' => 'Permit intake helper'], 'alice')]]);
+		$service       = new ComplianceService(
+			objectService: $objectService,
+			tenantOpsService: $this->createMock(OrganisationOpsService::class),
+			approvalService: $this->createMock(ApprovalService::class),
+			tenantControlService: $this->createMock(OrganisationControlService::class),
+			modelPolicyService: $this->createMock(EffectiveModelPolicy::class),
+			aiFeatureService: $this->createMock(AiFeatureService::class),
+			aiFeatureLookup: $this->createMock(AiFeatureLookup::class),
+			biasCheckEvidence: $evidence,
+		);
+
+		$this->assertSame($check, $service->factsheet(agentId: 'agent-1')['biasCheck']);
+		$this->assertNull($this->service(objectService: $objectService)->factsheet(agentId: 'agent-1')['biasCheck']);
+	}//end testTheFactsheetCarriesTheLatestBiasCheck()
 }//end class

@@ -3609,7 +3609,15 @@ OC.L10N.register(
         "This provider does not return reasoning": "This provider does not return reasoning",
         "%1$s for %2$s dropped from %3$s%% to %4$s%%": "%1$s for %2$s dropped from %3$s%% to %4$s%%",
         "%1$s for %2$s fell below its threshold: %3$s%%": "%1$s for %2$s fell below its threshold: %3$s%%",
-        "Open the run to see which cases failed.": "Open the run to see which cases failed."
+        "Open the run to see which cases failed.": "Open the run to see which cases failed.",
+        "A template cannot be changed or run. Pick one of your agents and choose \"Use for this agent\" to get a copy you can edit and run.": "A template cannot be changed or run. Pick one of your agents and choose \"Use for this agent\" to get a copy you can edit and run.",
+        "Copied as \"{name}\". You can now edit and run it.": "Copied as \"{name}\". You can now edit and run it.",
+        "The test set could not be copied.": "The test set could not be copied.",
+        "This test set is a template": "This test set is a template",
+        "Use for this agent": "Use for this agent",
+        "{rate}% on {date}": "{rate}% on {date}",
+        "Bias check": "Bias check",
+        "No bias check run": "No bias check run"
     },
     "nplurals=2; plural=(n != 1);"
 )
