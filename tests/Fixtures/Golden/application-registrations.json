@@ -50,6 +50,18 @@
         [
             "registerEventListener",
             "OCA\\OpenRegister\\Event\\ObjectCreatingEvent",
+            "OCA\\Hermiq\\Listener\\AgentDepartmentGuardListener",
+            0
+        ],
+        [
+            "registerEventListener",
+            "OCA\\OpenRegister\\Event\\ObjectUpdatingEvent",
+            "OCA\\Hermiq\\Listener\\AgentDepartmentGuardListener",
+            0
+        ],
+        [
+            "registerEventListener",
+            "OCA\\OpenRegister\\Event\\ObjectCreatingEvent",
             "OCA\\Hermiq\\Listener\\AgentEnsembleGuardListener",
             0
         ],

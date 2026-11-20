@@ -205,6 +205,50 @@ final class EgressAuthorizeControllerTest extends TestCase {
 	}//end tokens()
 
 	/**
+	 * A token service that recognises one SIGN-IN token for claude.ai.
+	 *
+	 * @return RunTokenService
+	 */
+	private function signInTokens(): RunTokenService {
+		$tokens = $this->createMock(RunTokenService::class);
+		$tokens->method('verify')->willReturnCallback(
+			static function (string $token): ?array {
+				if ($token === 'sign-in') {
+					return ['runId' => 'sign-in:x', 'agentId' => '', 'userId' => 'alice', 'conversationId' => '', 'egressHosts' => ['claude.ai']];
+				}
+				return null;
+			}
+		);
+		return $tokens;
+	}//end signInTokens()
+
+	/**
+	 * A sign-in token reaches its own host on 443, and nothing the allowlist
+	 * admits for a run: not an allowlisted host, not its own host on another port.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/agent-credentials/spec.md#requirement-a-user-can-sign-in-with-a-claude-subscription-req-signin-001
+	 */
+	public function testASignInTokenReachesOnlyItsOwnHostsOn443(): void {
+		$settings = ['fetchAllowlist' => ['api.anthropic.com'], 'fetchDenylist' => [], 'allowInsecureHttp' => false];
+		$verdict = function (string $body) use ($settings): array {
+			$controller = $this->controller($this->signInTokens(), $this->settings($settings), 'Bearer sign-in', $body);
+			return $controller->authorize()->getData();
+		};
+
+		$this->assertSame(['allowed' => true, 'code' => 'allowed', 'message' => ''], $verdict('{"host":"Claude.AI","port":443}'));
+		$this->assertSame(false, $verdict('{"host":"api.anthropic.com","port":443}')['allowed']);
+		$this->assertSame('egress_denied', $verdict('{"host":"api.anthropic.com","port":443}')['code']);
+		$this->assertSame(false, $verdict('{"host":"claude.ai","port":80}')['allowed']);
+
+		// The same allowlisted host IS reachable for an ordinary run token.
+		$run = $this->controller($this->tokens('good'), $this->settings($settings), 'Bearer good', '{"host":"api.anthropic.com","port":443}');
+		$this->assertTrue($run->authorize()->getData()['allowed']);
+
+	}//end testASignInTokenReachesOnlyItsOwnHostsOn443()
+
+	/**
 	 * No/invalid token → 401 before any policy evaluation.
 	 *
 	 * @return void

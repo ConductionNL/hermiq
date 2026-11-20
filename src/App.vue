@@ -118,6 +118,11 @@
 					</NcButton>
 				</NcAppSettingsSection>
 				<NcAppSettingsSection
+					id="subscription-sign-in"
+					:name="t('hermiq', 'Subscription sign-in')">
+					<SubscriptionSignIn />
+				</NcAppSettingsSection>
+				<NcAppSettingsSection
 					id="credentials"
 					:name="t('hermiq', 'Credentials')">
 					<CnCredentials
@@ -150,6 +155,7 @@ import { translatePlural as ncN, translate as ncT } from '@nextcloud/l10n'
 import { NcAppSettingsSection, NcButton } from '@nextcloud/vue'
 import { reactive } from 'vue'
 import PersonalPreferences from './components/PersonalPreferences.vue'
+import SubscriptionSignIn from './components/settings/SubscriptionSignIn.vue'
 import TalkDeliverySettings from './components/TalkDeliverySettings.vue'
 // skill-maturity: the SkillsCatalog maturityLevel column's dots badge, resolved
 // via CnAppRoot's cellWidgets registry (manifest column `widget: "maturity-dots"`).
@@ -160,6 +166,7 @@ import SkillMaturityDots from './widgets/SkillMaturityDots.vue'
 import credentialDeclarations from './credentials.json'
 import { ensembleSummary } from './utils/agentEnsemble.js'
 import { agentCatalogFormatters } from './utils/agentSharing.js'
+import { scheduleListFormatters } from './utils/scheduleList.js'
 
 export default {
 	name: 'App',
@@ -173,6 +180,7 @@ export default {
 		NcButton,
 		PersonalPreferences,
 		TalkDeliverySettings,
+		SubscriptionSignIn,
 	},
 
 	/**
@@ -271,14 +279,17 @@ export default {
 
 		/**
 		 * Cell formatters for manifest columns: the agent catalog's sharing and
-		 * status (agents-sharing-and-catalog-columns).
+		 * status (agents-sharing-and-catalog-columns), and the Schedules page's
+		 * last result, next run and enabled (scheduling-overview-and-start-choice).
 		 *
 		 * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-the-agent-catalog-shows-owner-sharing-and-status-req-agshare-003
+		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-every-schedule-a-person-may-see-is-on-one-page-req-sched-001
 		 * @return {object} Map of formatter id to function.
 		 */
 		formatters() {
 			return {
 				...agentCatalogFormatters(ncT),
+				...scheduleListFormatters(ncT),
 				// The agent's Configuration card: "Ensemble: 2 reference models"
 				// (models-several-models-per-turn REQ-MENS-001).
 				agentEnsemble: (value) => ensembleSummary(value, ncN, ncT),

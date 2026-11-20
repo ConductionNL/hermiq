@@ -222,6 +222,12 @@ class RunTokenService implements RunTokenServiceInterface {
 			'hash' => $this->digest(token: $token),
 		];
 
+		// A sign-in token carries the hosts it may reach; a run token carries none,
+		// so its stored record is unchanged.
+		if ($request->egressHosts !== []) {
+			$record['egressHosts'] = array_values(array_map('strval', $request->egressHosts));
+		}
+
 		$encoded = json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 		if (is_string($encoded) === false) {
 			// Never mint a token whose record could not be stored — a token that
@@ -256,7 +262,7 @@ class RunTokenService implements RunTokenServiceInterface {
 	 *
 	 * @param string $token The presented bearer token.
 	 *
-	 * @return array{runId: string, agentId: string, userId: string, conversationId: string}|null
+	 * @return array{runId: string, agentId: string, userId: string, conversationId: string, egressHosts?: list<string>}|null
 	 *                                                                                            The binding, or null when the token is not valid.
 	 *
 	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
@@ -276,12 +282,21 @@ class RunTokenService implements RunTokenServiceInterface {
 			return null;
 		}
 
-		return [
+		$binding = [
 			'runId' => (string)($record['runId'] ?? ''),
 			'agentId' => (string)($record['agentId'] ?? ''),
 			'userId' => (string)($record['userId'] ?? ''),
 			'conversationId' => (string)($record['conversationId'] ?? ''),
 		];
+
+		// Only a sign-in token names hosts (models-provider-connections D5).
+		if (isset($record['egressHosts']) === true && is_array($record['egressHosts']) === true
+			&& $record['egressHosts'] !== []
+		) {
+			$binding['egressHosts'] = array_values(array_map('strval', $record['egressHosts']));
+		}
+
+		return $binding;
 
 	}//end verify()
 
