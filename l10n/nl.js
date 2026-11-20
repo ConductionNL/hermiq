@@ -3301,7 +3301,17 @@ OC.L10N.register(
         "Rights for \"{action}\" saved.": "Rechten voor \"{action}\" opgeslagen.",
         "The rights for \"{action}\" could not be saved.": "De rechten voor \"{action}\" konden niet worden opgeslagen.",
         "Merge duplicate skills": "Dubbele skills samenvoegen",
-        "Archive a duplicate skill and move its agents to the skill that stays.": "Een dubbele skill archiveren en de agents ervan overzetten op de skill die blijft."
+        "Archive a duplicate skill and move its agents to the skill that stays.": "Een dubbele skill archiveren en de agents ervan overzetten op de skill die blijft.",
+        "Send me this weekly": "Stuur mij dit wekelijks",
+        "Send me this monthly": "Stuur mij dit maandelijks",
+        "Stop sending": "Niet meer sturen",
+        "You will get this report every week.": "Je krijgt dit rapport elke week.",
+        "You will get this report every month.": "Je krijgt dit rapport elke maand.",
+        "This report is no longer sent to you.": "Dit rapport wordt je niet meer gestuurd.",
+        "Semantic search": "Semantisch zoeken",
+        "Vector search through Open Register": "Vectorzoeken via Open Register",
+        "Keyword search: Open Register has no embedding provider configured": "Zoeken op trefwoord: in Open Register is geen embeddingprovider ingesteld",
+        "Keyword search: this Open Register has no vector search": "Zoeken op trefwoord: deze Open Register heeft geen vectorzoeken"
     },
     "nplurals=2; plural=(n != 1);"
 )

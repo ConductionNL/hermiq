@@ -63,6 +63,32 @@ const jsDir = path.join(repoRoot, 'js')
 
 const SENTINEL = 'Two different versions of Dexie'
 const SEMVER_RE = /semVer\s*[:=]\s*["']([0-9][0-9A-Za-z.+-]*)["']/g
+// Since dexie 4.4.7 the minifier hoists the version into a variable
+// (`var bn="4.4.7"` ... `semVer:bn`), so the literal is one hop away.
+const SEMVER_REF_RE = /semVer\s*[:=]\s*([A-Za-z_$][\w$]*)/g
+
+/**
+ * Collects the Dexie version literals a built chunk carries, directly or
+ * through the variable the minifier hoisted it into.
+ *
+ * @param {string} text the chunk source
+ * @return {Set<string>} the versions found
+ */
+function chunkVersions(text) {
+	const versions = new Set()
+	for (const m of text.matchAll(SEMVER_RE)) {
+		versions.add(m[1])
+	}
+	for (const m of text.matchAll(SEMVER_REF_RE)) {
+		const ident = m[1].replace(/\$/g, '\\$')
+		const decl = new RegExp(`(?:^|[^\\w$])${ident}\\s*=\\s*["']([0-9][0-9A-Za-z.+-]*)["']`)
+		const hit = text.match(decl)
+		if (hit) {
+			versions.add(hit[1])
+		}
+	}
+	return versions
+}
 
 if (!fs.existsSync(jsDir)) {
 	console.log(
@@ -96,10 +122,7 @@ for (const name of fs.readdirSync(jsDir).sort()) {
 	if (!text.includes(SENTINEL)) {
 		continue
 	}
-	const versions = new Set()
-	for (const m of text.matchAll(SEMVER_RE)) {
-		versions.add(m[1])
-	}
+	const versions = chunkVersions(text)
 	if (versions.size === 0) {
 		// A chunk carries Dexie's error string but no recognisable version
 		// literal. The marker contract changed, so the guard can no longer

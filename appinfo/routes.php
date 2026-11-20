@@ -661,6 +661,10 @@ $routes = [
         // Agents-bound-to-their-app task 5: the record summary on the agent leaf.
         ['name' => 'recordSummary#show', 'url' => '/api/assistant/summary', 'verb' => 'GET'],
         ['name' => 'recordSummary#summarise', 'url' => '/api/assistant/summarise', 'verb' => 'POST'],
+        // reports-on-a-schedule 1.2: subscribe and cancel on each card of the Reports page.
+        ['name' => 'reportSubscription#index', 'url' => '/api/report-subscriptions', 'verb' => 'GET'],
+        ['name' => 'reportSubscription#subscribe', 'url' => '/api/report-subscriptions/{report}', 'verb' => 'POST'],
+        ['name' => 'reportSubscription#cancel', 'url' => '/api/report-subscriptions/{report}', 'verb' => 'DELETE'],
 
         // Structured PII/redaction-span detection surface (woo-llm-anonymisation):
         // stateless, tool-free, reuses the case-assistant-surface plumbing —
