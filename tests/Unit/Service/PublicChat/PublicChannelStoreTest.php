@@ -89,7 +89,15 @@ class PublicChannelStoreTest extends TestCase {
 				throw new RuntimeException('disk full');
 			}
 
-			$this->writes[] = ['object' => $args[0], 'register' => $args[2], 'schema' => $args[3], 'uuid' => $args[4], '_rbac' => $args[5], '_multitenancy' => $args[6]];
+			$options = $args[1];
+			$this->writes[] = [
+				'object' => $args[0],
+				'register' => $options->target->register,
+				'schema' => $options->target->schema,
+				'uuid' => $options->uuid,
+				'_rbac' => $args[2],
+				'_multitenancy' => $args[3],
+			];
 			return new ObjectEntity();
 		});
 
