@@ -33,6 +33,9 @@ import ContextFormModal from './modals/ContextFormModal.vue'
 // Public chat channel form (delivery-public-web-chat): resolved by the
 // PublicChat settings page's `slots.form-dialog` -> "PublicChannelFormModal".
 import PublicChannelFormModal from './modals/PublicChannelFormModal.vue'
+// Custom tool form (tools-custom-tools-without-code): resolved by the CustomTools
+// page's `slots.form-dialog` -> "CustomToolFormModal".
+import CustomToolFormModal from './modals/CustomToolFormModal.vue'
 // Skill form (skill-form-slot, hermiq-skill-markdown-authoring): resolved by
 // SkillsCatalog's top-level `slots.form-dialog` -> "SkillFormModal", so
 // CnIndexPage's built-in Add CTA + row-edit mount the markdown-authoring form
@@ -139,4 +142,6 @@ export default {
 	// Context form (hermiq-context-documents).
 	ContextFormModal,
 	PublicChannelFormModal,
+	// Custom tool form (tools-custom-tools-without-code).
+	CustomToolFormModal,
 }

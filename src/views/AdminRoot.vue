@@ -10,9 +10,11 @@
  "Administration settings" → "Hermiq".
 
  It carries the "before the app boots" wiring that the manifest-driven
- SPA cannot: choosing which LLM provider Hermiq's background work runs
- on (SPECTR-NEXTCLOUD-PLAN.md §8 move 1). The provider picker itself
- lives in src/modals/LlmProviderModal.vue (modal-isolation gate).
+ SPA cannot. The AI provider section explains that Hermiq uses Nextcloud's
+ own AI settings (use-nextcloud-ai-settings), links there, and shows per
+ task type whether a Nextcloud provider is ready. Choosing a direct
+ provider instead stays possible; that picker lives in
+ src/modals/LlmProviderModal.vue (modal-isolation gate).
 
  Also hosts the web-research backend configuration (web-research-tool):
  the pluggable search endpoint/provider shape and the web.fetch
@@ -38,8 +40,8 @@
  src/components/settings/ValidatedTagSettings.vue.
 
  Also hosts organisation-scope credential management (agent-credentials): the
- shared, already-tested `CnCredentials` component mounted `scope="organisation"`
- — an admin manages the FULL allowed-app list for each org-wide broker
+ shared, already-tested `CnCredentials` component mounted `scope="organisation"`.
+ An admin manages the FULL allowed-app list for each org-wide broker
  credential. Personal-scope credentials stay exactly where they already are
  (the app's own in-app "Credentials" settings section, src/App.vue) — this
  admin panel never reintroduces a personal-scope surface.
@@ -52,15 +54,65 @@
 			:description="
 				t(
 					'hermiq',
-					'Choose which language-model provider Hermiq uses for background work (session titles, summaries). Streaming chat and embeddings always use the directly-configured provider. They cannot run through Nextcloud’s TaskProcessing.',
+					'Hermiq uses the AI provider set up for the whole Nextcloud instance. You enter the API key once, under Administration settings > Artificial intelligence.',
 				)
 			">
+			<p class="hermiq-admin-settings__lead">
+				{{
+					t(
+						'hermiq',
+						'Hermiq sends chats, agent tool calls and summaries there, as the person it works for.',
+					)
+				}}
+			</p>
+
+			<ul
+				v-if="usesNextcloudAi"
+				class="hermiq-admin-settings__task-types"
+				data-testid="hermiq-nextcloud-ai-status">
+				<li
+					v-for="row in taskTypeRows"
+					:key="row.key"
+					class="hermiq-admin-settings__task-type">
+					<span class="hermiq-admin-settings__provider-label"
+						>{{ row.label }}:</span
+					>
+					<strong v-if="row.available">{{
+						t('hermiq', 'Ready: {provider}', {
+							provider: row.provider,
+						})
+					}}</strong>
+					<strong v-else>{{ t('hermiq', 'No provider') }}</strong>
+				</li>
+			</ul>
+
+			<NcNoteCard v-if="nextcloudAiMissing" type="warning">
+				{{ nextcloudAi.adminMessage }}
+			</NcNoteCard>
+
+			<div class="hermiq-admin-settings__actions">
+				<NcButton
+					v-if="nextcloudAi.settingsUrl"
+					variant="primary"
+					:href="nextcloudAi.settingsUrl">
+					<template #icon>
+						<OpenInNew :size="20" />
+					</template>
+					{{ t('hermiq', 'Open Artificial intelligence settings') }}
+				</NcButton>
+			</div>
+
 			<div class="hermiq-admin-settings__provider">
 				<span class="hermiq-admin-settings__provider-label"
 					>{{ t('hermiq', 'Current provider') }}:</span
 				>
 				<strong>{{ currentProviderLabel }}</strong>
 			</div>
+			<p v-if="!usesNextcloudAi" class="hermiq-admin-settings__lead">
+				{{
+					t('hermiq', 'Hermiq uses this provider instead of Nextcloud AI.')
+				}}
+			</p>
 			<div
 				v-if="retrievalTier"
 				class="hermiq-admin-settings__provider"
@@ -70,11 +122,11 @@
 				>
 				<strong>{{ retrievalTierLabel }}</strong>
 			</div>
-			<NcButton variant="primary" @click="showModal = true">
+			<NcButton variant="secondary" @click="showModal = true">
 				<template #icon>
 					<Cog :size="20" />
 				</template>
-				{{ t('hermiq', 'Configure provider') }}
+				{{ t('hermiq', 'Use another provider') }}
 			</NcButton>
 
 			<LlmProviderModal
@@ -179,6 +231,52 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			:name="t('hermiq', 'Scheduled runs in parallel')"
+			:description="
+				t(
+					'hermiq',
+					'How many scheduled agent runs go at once. The schedule tick hands each due run to a background worker, and each run still runs once. The limit per organisation keeps one organisation\'s nightly agents from holding every worker.',
+				)
+			">
+			<RunConcurrencySettings />
+		</NcSettingsSection>
+
+		<NcSettingsSection
+			id="section-backups"
+			:name="t('hermiq', 'Backups')"
+			:description="
+				t(
+					'hermiq',
+					'Back up every organisation\'s hermiq data into a folder in your Files every night: agents, skills, memories, schedules, policies and the other hermiq objects, one file per organisation. Only an administrator sees this section.',
+				)
+			">
+			<p class="hermiq-admin-settings__provider" data-testid="backup-summary">
+				{{ backupSummary }}
+			</p>
+			<NcButton variant="primary" @click="showBackupModal = true">
+				<template #icon>
+					<Cog :size="20" />
+				</template>
+				{{ t('hermiq', 'Configure backups') }}
+			</NcButton>
+			<NcButton :disabled="!backup || !backup.ownerUid || backupQueued" @click="onBackupNow">
+				{{ backupQueued ? t('hermiq', 'Backup queued') : t('hermiq', 'Back up now') }}
+			</NcButton>
+			<NcButton data-testid="restore-open" @click="showRestoreDialog = true">
+				{{ t('hermiq', 'Restore') }}
+			</NcButton>
+
+			<BackupSettingsModal
+				:show="showBackupModal"
+				:settings="backup"
+				@close="showBackupModal = false"
+				@saved="backup = $event" />
+			<RestoreDialog
+				:show="showRestoreDialog"
+				@close="showRestoreDialog = false" />
+		</NcSettingsSection>
+
+		<NcSettingsSection
 			:name="t('hermiq', 'Code sandbox')"
 			:description="
 				t(
@@ -235,41 +333,42 @@
 			<RemoteAgents />
 		</NcSettingsSection>
 
-		<NcSettingsSection
+		<!-- CnCredentials renders its own heading and description, so no
+		     settings-section title wraps it (that duplicated both). -->
+		<div
 			id="section-organisation-credentials"
-			:name="t('hermiq', 'Organisation credentials')"
-			:description="
-				t(
-					'hermiq',
-					'Manage organisation-wide broker credentials (e.g. GitHub) that any allowed Nextcloud app may use on behalf of your organisation. The secret is stored in Doriath — Nextcloud’s native credential vault — never in Hermiq itself.',
-				)
-			">
+			class="hermiq-admin-settings__credentials">
 			<CnCredentials
 				scope="organisation"
 				appId="hermiq"
 				:appName="t('hermiq', 'Hermiq')"
 				:appCredentials="(manifest && manifest.credentials) || []" />
-		</NcSettingsSection>
+		</div>
 	</div>
 </template>
 
 <script>
 import { CnCredentials } from '@conduction/nextcloud-vue'
-import { NcButton, NcSettingsSection } from '@nextcloud/vue'
+import { NcButton, NcNoteCard, NcSettingsSection } from '@nextcloud/vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
+import OpenInNew from 'vue-material-design-icons/OpenInNew.vue'
 import AssistantPromptLibrary from '../components/settings/AssistantPromptLibrary.vue'
 import CodeSandboxSettings from '../components/settings/CodeSandboxSettings.vue'
 import ComputerTargets from '../components/settings/ComputerTargets.vue'
 import IntakeSettings from '../components/settings/IntakeSettings.vue'
 import RemoteAgents from '../components/settings/RemoteAgents.vue'
 import ReportGroupingSettings from '../components/settings/ReportGroupingSettings.vue'
+import RunConcurrencySettings from '../components/settings/RunConcurrencySettings.vue'
 import RunRetentionSettings from '../components/settings/RunRetentionSettings.vue'
 import TalkBridgeSettings from '../components/settings/TalkBridgeSettings.vue'
 import TraceExportSettings from '../components/settings/TraceExportSettings.vue'
 import ValidatedTagSettings from '../components/settings/ValidatedTagSettings.vue'
+import BackupSettingsModal from '../modals/BackupSettingsModal.vue'
 import LlmProviderModal from '../modals/LlmProviderModal.vue'
+import RestoreDialog from '../modals/RestoreDialog.vue'
 import WebResearchSettingsModal from '../modals/WebResearchSettingsModal.vue'
 import AiFeatureRegister from './AiFeatureRegister.vue'
+import { backupNow, getBackupSettings } from '../api/backup.js'
 import { getLlmSettings } from '../api/llm.js'
 import { getRetrievalTier } from '../api/retrievalTier.js'
 import { getWebResearchSettings } from '../api/webResearch.js'
@@ -279,7 +378,7 @@ const PROVIDER_LABELS = {
 	openai: 'OpenAI',
 	ollama: 'Ollama (local)',
 	fireworks: 'Fireworks AI',
-	nextcloud: 'Nextcloud Assistant (TaskProcessing)',
+	nextcloud: 'Nextcloud AI',
 }
 
 const SEARCH_PROVIDER_LABELS = {
@@ -310,16 +409,21 @@ export default {
 	components: {
 		AiFeatureRegister,
 		AssistantPromptLibrary,
+		BackupSettingsModal,
 		CnCredentials,
 		Cog,
 		LlmProviderModal,
+		RestoreDialog,
 		NcButton,
+		NcNoteCard,
+		OpenInNew,
 		CodeSandboxSettings,
 		IntakeSettings,
 		NcSettingsSection,
 		RemoteAgents,
 		ReportGroupingSettings,
 		RunRetentionSettings,
+		RunConcurrencySettings,
 		ComputerTargets,
 		TalkBridgeSettings,
 		TraceExportSettings,
@@ -331,8 +435,17 @@ export default {
 		return {
 			showModal: false,
 			chatProvider: null,
+			// Nextcloud AI readiness per task type hermiq consumes, the admin
+			// message and the link to Nextcloud's AI settings
+			// (use-nextcloud-ai-settings).
+			nextcloudAi: { taskTypes: {}, adminMessage: '', settingsUrl: '' },
 			showWebResearchModal: false,
 			searchProvider: null,
+			// operations-backup-and-restore: the stored backup settings, null until read.
+			backup: null,
+			showBackupModal: false,
+			showRestoreDialog: false,
+			backupQueued: false,
 			// Which tier semantic and hybrid RAG run on (vector-rag), read-only.
 			retrievalTier: null,
 			// The app's own manifest.json — read-only, for CnCredentials'
@@ -343,6 +456,23 @@ export default {
 
 	computed: {
 		/**
+		 * One line on the backup: off, or when, where and how many are kept.
+		 *
+		 * @return {string} The line.
+		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+		 */
+		backupSummary() {
+			if (!this.backup || !this.backup.enabled) {
+				return this.t('hermiq', 'Nightly backups are off.')
+			}
+			return this.t('hermiq', 'Every night at {hour}:00 into "{folder}", keeping {keep} per organisation.', {
+				hour: String(this.backup.hour).padStart(2, '0'),
+				folder: this.backup.folder,
+				keep: this.backup.keep,
+			})
+		},
+
+		/**
 		 * Human-readable name of the current provider, or a "not configured" hint.
 		 *
 		 * @return {string} The label.
@@ -350,10 +480,58 @@ export default {
 		 * @spec exclude Trivial computed display helper; no behavioural spec.
 		 */
 		currentProviderLabel() {
-			if (!this.chatProvider) {
-				return this.t('hermiq', 'Not configured')
+			if (this.usesNextcloudAi) {
+				return this.t('hermiq', 'Nextcloud AI')
 			}
 			return PROVIDER_LABELS[this.chatProvider] || this.chatProvider
+		},
+
+		/**
+		 * Whether hermiq runs on Nextcloud AI: no hermiq-specific provider is
+		 * saved, or `nextcloud` is.
+		 *
+		 * @return {boolean} True on Nextcloud AI.
+		 *
+		 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-5-1
+		 */
+		usesNextcloudAi() {
+			return !this.chatProvider || this.chatProvider === 'nextcloud'
+		},
+
+		/**
+		 * One row per task type hermiq consumes, with its readiness.
+		 *
+		 * @return {Array<object>} Rows of { key, label, available, provider }.
+		 *
+		 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-5-1
+		 */
+		taskTypeRows() {
+			const labels = {
+				chat: this.t('hermiq', 'Chat'),
+				chatWithTools: this.t('hermiq', 'Chat with tools'),
+				text: this.t('hermiq', 'Plain text'),
+			}
+			const types = this.nextcloudAi.taskTypes || {}
+			return Object.keys(labels).map((key) => ({
+				key,
+				label: labels[key],
+				available: Boolean(types[key] && types[key].available),
+				provider: (types[key] && types[key].provider) || '',
+			}))
+		},
+
+		/**
+		 * Whether a task type hermiq needs has no Nextcloud provider.
+		 *
+		 * @return {boolean} True when the admin message should show.
+		 *
+		 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-5-1
+		 */
+		nextcloudAiMissing() {
+			return (
+				this.usesNextcloudAi
+				&& this.taskTypeRows.some((row) => !row.available)
+			)
 		},
 
 		/**
@@ -387,10 +565,40 @@ export default {
 	mounted() {
 		this.refresh()
 		this.refreshWebResearch()
+		this.refreshBackup()
 		this.refreshRetrievalTier()
 	},
 
 	methods: {
+		/**
+		 * Read the backup settings; a failure leaves the section saying backups are off.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+		 */
+		async refreshBackup() {
+			try {
+				this.backup = await getBackupSettings()
+			} catch {
+				this.backup = null
+			}
+		},
+
+		/**
+		 * Queue a backup now.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+		 */
+		async onBackupNow() {
+			try {
+				await backupNow()
+				this.backupQueued = true
+			} catch {
+				this.backupQueued = false
+			}
+		},
+
 		/**
 		 * Fetch the current provider selection for display.
 		 *
@@ -402,6 +610,9 @@ export default {
 			try {
 				const config = await getLlmSettings()
 				this.chatProvider = config.chatProvider || null
+				if (config.nextcloudAi) {
+					this.nextcloudAi = config.nextcloudAi
+				}
 			} catch (e) {
 				this.chatProvider = null
 			}
@@ -473,5 +684,26 @@ export default {
 
 .hermiq-admin-settings__provider-label {
 	color: var(--color-text-maxcontrast);
+}
+
+.hermiq-admin-settings__lead {
+	margin-bottom: 12px;
+}
+
+.hermiq-admin-settings__task-types {
+	margin-bottom: 12px;
+}
+
+.hermiq-admin-settings__task-type {
+	display: flex;
+	gap: 8px;
+}
+
+.hermiq-admin-settings__actions {
+	margin: 12px 0;
+}
+
+.hermiq-admin-settings__credentials {
+	padding: calc(var(--default-grid-baseline) * 7);
 }
 </style>

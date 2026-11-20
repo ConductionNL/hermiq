@@ -20,6 +20,13 @@
 			"order": 10
 		},
 		{
+			"id": "Schedules",
+			"label": "Schedules",
+			"icon": "CalendarClock",
+			"route": "Schedules",
+			"order": 11
+		},
+		{
 			"id": "ApprovalInbox",
 			"label": "Approvals",
 			"icon": "Check",
@@ -255,6 +262,80 @@
 			"slots": {
 				"form-dialog": "AgentFormModal",
 				"delete-dialog": "AgentDeleteDialog"
+			}
+		},
+		{
+			"id": "Schedules",
+			"route": "/schedules",
+			"type": "index",
+			"title": "Schedules",
+			"config": {
+				"_note": "scheduling-overview-and-start-choice D1: every schedule the viewer may see, read from GET /api/schedules (ScheduleListController), which filters per row by owner, agent access and organisation admin. Not an index over the schedule objects: their read rule is authenticated, so that would list every schedule of the organisation to everyone.",
+				"entitySource": "endpoint",
+				"sourceConfig": {
+					"url": "/apps/hermiq/api/schedules",
+					"rowsPath": "results",
+					"totalPath": "total",
+					"searchFields": {
+						"agentId": {
+							"param": "agentId",
+							"single": true
+						},
+						"enabled": {
+							"param": "enabled",
+							"single": true
+						}
+					}
+				},
+				"showAdd": false,
+				"quickFilters": [
+					{
+						"label": "All",
+						"filter": {},
+						"default": true
+					},
+					{
+						"label": "Failed",
+						"filter": {
+							"failed": "true"
+						}
+					},
+					{
+						"label": "Paused",
+						"filter": {
+							"enabled": "false"
+						}
+					}
+				],
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "agentName",
+						"label": "Agent"
+					},
+					{
+						"key": "when",
+						"label": "When"
+					},
+					{
+						"key": "nextRun",
+						"label": "Next run",
+						"formatter": "scheduleNextRun"
+					},
+					{
+						"key": "lastStatus",
+						"label": "Last result",
+						"formatter": "scheduleLastResult"
+					},
+					{
+						"key": "enabled",
+						"label": "Enabled",
+						"formatter": "scheduleEnabled"
+					}
+				]
 			}
 		},
 		{
@@ -1539,6 +1620,38 @@
 			"component": "McpTools",
 			"_note": "Custom page rendering the standard nc-vue list UI (CnDataTable): MCP tools are resolved live from OpenRegister's tool registry, NOT a hermiq schema, so type:index (which requires register+schema) cannot express it.",
 			"title": "MCP tools"
+		},
+		{
+			"id": "CustomTools",
+			"route": "/custom-tools",
+			"type": "index",
+			"title": "Custom tools",
+			"config": {
+				"register": "hermiq",
+				"schema": "customtool",
+				"_note": "tools-custom-tools-without-code: an organisation's own tools that call a flow or an integriq endpoint. Reads go through the generic objects path (the schema lets authenticated users read their organisation's tools); create and edit mount CustomToolFormModal through slots.form-dialog, which writes through hermiq's /api/custom-tools, the endpoint only an organisation admin or instance admin passes. Reached from the MCP tools page.",
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "slug",
+						"label": "Slug"
+					},
+					{
+						"key": "changesData",
+						"label": "Changes data"
+					},
+					{
+						"key": "enabled",
+						"label": "Enabled"
+					}
+				]
+			},
+			"slots": {
+				"form-dialog": "CustomToolFormModal"
+			}
 		},
 		{
 			"id": "FlowIndex",

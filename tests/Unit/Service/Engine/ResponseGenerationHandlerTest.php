@@ -223,32 +223,64 @@ class ResponseGenerationHandlerTest extends TestCase {
 	}//end testAnthropicPathWiresGovernedToolExecutor()
 
 	/**
-	 * Selecting the nextcloud TaskProcessing driver for CHAT is refused (its
-	 * scope is background titles/summaries only) with a clear wrapped error.
+	 * Nextcloud AI runs chat and agent turns (use-nextcloud-ai-settings): the turn goes
+	 * to callNextcloudChat with the full history, the agent's functions and a governed
+	 * tool executor, and its reply is the answer. On the old code this driver was
+	 * refused with "background work only".
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-4
 	 */
-	public function testNextcloudDriverIsRefusedForChat(): void {
+	public function testNextcloudDriverRunsChatWithGovernedTools(): void {
+		$captured = [];
 		$factory = $this->createMock(ProviderFactory::class);
-		$factory->method('getLlmConfig')->willReturn(['chatProvider' => 'nextcloud']);
+		$factory->method('getLlmConfig')->willReturn(['chatProvider' => null]);
 		$factory->method('createChatDriver')->willReturn(
 			new ChatDriver(provider: 'nextcloud', chat: null, model: 'core:text2text')
 		);
-
-		$handler = new ResponseGenerationHandler($factory, $this->toollessLoop(), new NullLogger());
-
-		$this->expectException(Exception::class);
-		$this->expectExceptionMessage('background work only');
-		$handler->generateResponse(
-			userMessage: 'Hi',
-			context: ['text' => '', 'sources' => []],
-			messageHistory: [],
-			agent: null
+		$factory->expects($this->once())->method('callNextcloudChat')->willReturnCallback(
+			function (array $messageHistory, array $functions, ?callable $toolExecutor, ?int $maxToolCalls) use (&$captured): string {
+				$captured = ['history' => $messageHistory, 'functions' => $functions, 'executor' => $toolExecutor];
+				return 'Nextcloud AI answer';
+			}
 		);
 
-	}//end testNextcloudDriverIsRefusedForChat()
+		$toolInstance = new class {
+			/**
+			 * @param string $name Tool name.
+			 * @param array<string, mixed> $args Named arguments.
+			 *
+			 * @return string
+			 */
+			public function __call(string $name, array $args): string {
+				return 'weather:' . ((string)($args['city'] ?? '?'));
+			}//end __call()
+		};
+		$functionInfo = new \LLPhant\Chat\FunctionInfo\FunctionInfo('get_weather', $toolInstance, 'Get weather', []);
+
+		$loop = $this->createMock(ToolLoop::class);
+		$loop->method('listAgentFunctions')->willReturn(
+			[['name' => 'get_weather', 'description' => 'Get weather', 'parameters' => ['type' => 'object', 'properties' => []]]]
+		);
+		$loop->method('buildFunctionInfos')->willReturn([$functionInfo]);
+
+		$handler = new ResponseGenerationHandler($factory, $loop, new NullLogger());
+		$reply = $handler->generateResponse(
+			userMessage: 'weather in Paris?',
+			context: ['text' => '', 'sources' => []],
+			messageHistory: [],
+			agent: $this->agent(['prompt' => 'You are helpful.'])
+		);
+
+		$this->assertSame('Nextcloud AI answer', $reply);
+		$this->assertSame(ChatRole::System, $captured['history'][0]->role);
+		$this->assertSame('weather in Paris?', end($captured['history'])->content);
+		$this->assertSame('get_weather', $captured['functions'][0]['name']);
+		$this->assertIsCallable($captured['executor']);
+		$this->assertSame('weather:Paris', ($captured['executor'])('get_weather', ['city' => 'Paris']));
+
+	}//end testNextcloudDriverRunsChatWithGovernedTools()
 
 	/**
 	 * Provider unavailability surfaces as a wrapped, catchable Exception (the

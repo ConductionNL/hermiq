@@ -143,6 +143,10 @@ final class ListenerRegistrar {
 		$context->registerEventListener(event: ObjectCreatingEvent::class, listener: PublicChannelGuardListener::class);
 		$context->registerEventListener(event: ObjectUpdatingEvent::class, listener: PublicChannelGuardListener::class);
 
+		// Changing the department an agent runs for is for administrators only, on
+		// every write path (oversight-switch-ai-off-per-department).
+		$context->registerEventListener(event: ObjectCreatingEvent::class, listener: AgentDepartmentGuardListener::class);
+		$context->registerEventListener(event: ObjectUpdatingEvent::class, listener: AgentDepartmentGuardListener::class);
 		// An agent's reference models stay inside the model policy, on every
 		// write path (models-several-models-per-turn, REQ-MENS-001).
 		$context->registerEventListener(event: ObjectCreatingEvent::class, listener: AgentEnsembleGuardListener::class);
