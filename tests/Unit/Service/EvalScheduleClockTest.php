@@ -36,7 +36,7 @@ class EvalScheduleClockTest extends TestCase {
 	 * @return DateTimeImmutable
 	 */
 	private function now(): DateTimeImmutable {
-		return new DateTimeImmutable('2026-12-01T07:00:00+00:00');
+		return new DateTimeImmutable(datetime: '2026-12-01T07:00:00+00:00');
 	}//end now()
 
 	/**
@@ -47,9 +47,9 @@ class EvalScheduleClockTest extends TestCase {
 	public function testAPassedNextRunIsDueAndAFutureOneIsNot(): void {
 		$clock = new EvalScheduleClock();
 
-		$this->assertTrue($clock->isDue(['enabled' => true, 'nextRun' => '2026-12-01T06:00:00+00:00'], $this->now()));
-		$this->assertTrue($clock->isDue(['enabled' => true, 'nextRun' => '2026-12-01T07:00:00+00:00'], $this->now()));
-		$this->assertFalse($clock->isDue(['enabled' => true, 'nextRun' => '2027-01-01T06:00:00+00:00'], $this->now()));
+		$this->assertTrue(condition: $clock->isDue(schedule: ['enabled' => true, 'nextRun' => '2026-12-01T06:00:00+00:00'], now: $this->now()));
+		$this->assertTrue(condition: $clock->isDue(schedule: ['enabled' => true, 'nextRun' => '2026-12-01T07:00:00+00:00'], now: $this->now()));
+		$this->assertFalse(condition: $clock->isDue(schedule: ['enabled' => true, 'nextRun' => '2027-01-01T06:00:00+00:00'], now: $this->now()));
 	}//end testAPassedNextRunIsDueAndAFutureOneIsNot()
 
 	/**
@@ -60,9 +60,9 @@ class EvalScheduleClockTest extends TestCase {
 	public function testADisabledScheduleIsNeverDue(): void {
 		$clock = new EvalScheduleClock();
 
-		$this->assertFalse($clock->isDue(['enabled' => false, 'nextRun' => '2026-01-01T00:00:00+00:00'], $this->now()));
-		$this->assertFalse($clock->isDue(['nextRun' => '2026-01-01T00:00:00+00:00'], $this->now()));
-		$this->assertFalse($clock->isDue(['enabled' => 'yes'], $this->now()));
+		$this->assertFalse(condition: $clock->isDue(schedule: ['enabled' => false, 'nextRun' => '2026-01-01T00:00:00+00:00'], now: $this->now()));
+		$this->assertFalse(condition: $clock->isDue(schedule: ['nextRun' => '2026-01-01T00:00:00+00:00'], now: $this->now()));
+		$this->assertFalse(condition: $clock->isDue(schedule: ['enabled' => 'yes'], now: $this->now()));
 	}//end testADisabledScheduleIsNeverDue()
 
 	/**
@@ -73,10 +73,10 @@ class EvalScheduleClockTest extends TestCase {
 	public function testNoNextRunIsDueAndAnUnreadableOneIsNot(): void {
 		$clock = new EvalScheduleClock();
 
-		$this->assertTrue($clock->isDue(['enabled' => true], $this->now()));
-		$this->assertTrue($clock->isDue(['enabled' => true, 'nextRun' => ''], $this->now()));
-		$this->assertFalse($clock->isDue(['enabled' => true, 'nextRun' => 'not a date'], $this->now()));
-		$this->assertFalse($clock->isDue(['enabled' => true, 'nextRun' => 42], $this->now()));
+		$this->assertTrue(condition: $clock->isDue(schedule: ['enabled' => true], now: $this->now()));
+		$this->assertTrue(condition: $clock->isDue(schedule: ['enabled' => true, 'nextRun' => ''], now: $this->now()));
+		$this->assertFalse(condition: $clock->isDue(schedule: ['enabled' => true, 'nextRun' => 'not a date'], now: $this->now()));
+		$this->assertFalse(condition: $clock->isDue(schedule: ['enabled' => true, 'nextRun' => 42], now: $this->now()));
 	}//end testNoNextRunIsDueAndAnUnreadableOneIsNot()
 
 	/**
@@ -85,10 +85,10 @@ class EvalScheduleClockTest extends TestCase {
 	 * @return void
 	 */
 	public function testTheDefaultCadenceIsTheFirstOfTheNextMonth(): void {
-		$next = (new EvalScheduleClock())->nextRun('', $this->now());
+		$next = (new EvalScheduleClock())->nextRun(cronExpr: '', now: $this->now());
 
-		$this->assertNotNull($next);
-		$this->assertSame('2027-01-01T06:00:00+00:00', $next->format(DATE_ATOM));
+		$this->assertNotNull(actual: $next);
+		$this->assertSame(expected: '2027-01-01T06:00:00+00:00', actual: $next->format(DATE_ATOM));
 	}//end testTheDefaultCadenceIsTheFirstOfTheNextMonth()
 
 	/**
@@ -97,10 +97,10 @@ class EvalScheduleClockTest extends TestCase {
 	 * @return void
 	 */
 	public function testACronExpressionIsHonouredStrictlyAfterNow(): void {
-		$next = (new EvalScheduleClock())->nextRun('0 7 * * *', $this->now());
+		$next = (new EvalScheduleClock())->nextRun(cronExpr: '0 7 * * *', now: $this->now());
 
-		$this->assertNotNull($next);
-		$this->assertSame('2026-12-02T07:00:00+00:00', $next->format(DATE_ATOM));
+		$this->assertNotNull(actual: $next);
+		$this->assertSame(expected: '2026-12-02T07:00:00+00:00', actual: $next->format(DATE_ATOM));
 	}//end testACronExpressionIsHonouredStrictlyAfterNow()
 
 	/**
@@ -109,6 +109,6 @@ class EvalScheduleClockTest extends TestCase {
 	 * @return void
 	 */
 	public function testAnInvalidExpressionHasNoNextRun(): void {
-		$this->assertNull((new EvalScheduleClock())->nextRun('every month', $this->now()));
+		$this->assertNull(actual: (new EvalScheduleClock())->nextRun(cronExpr: 'every month', now: $this->now()));
 	}//end testAnInvalidExpressionHasNoNextRun()
 }//end class

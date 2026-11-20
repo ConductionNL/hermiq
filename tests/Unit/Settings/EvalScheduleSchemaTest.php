@@ -50,9 +50,9 @@ class EvalScheduleSchemaTest extends TestCase {
 	public function testTheSchemaIsListedAndTheVersionBumped(): void {
 		$register = $this->register();
 
-		$this->assertSame('evalschedule', $register['components']['schemas']['EvalSchedule']['slug']);
-		$this->assertContains('evalschedule', $register['components']['registers']['hermiq']['schemas']);
-		$this->assertTrue(version_compare($register['info']['version'], '0.78.0', '>'));
+		$this->assertSame(expected: 'evalschedule', actual: $register['components']['schemas']['EvalSchedule']['slug']);
+		$this->assertContains(needle: 'evalschedule', haystack: $register['components']['registers']['hermiq']['schemas']);
+		$this->assertTrue(condition: version_compare($register['info']['version'], '0.78.0', '>'));
 	}//end testTheSchemaIsListedAndTheVersionBumped()
 
 	/**
@@ -63,11 +63,11 @@ class EvalScheduleSchemaTest extends TestCase {
 	public function testAScheduleReferencesItsDatasetAndAgent(): void {
 		$schema = $this->register()['components']['schemas']['EvalSchedule'];
 
-		$this->assertSame(['datasetId', 'agentId'], $schema['required']);
-		$this->assertSame('evaldataset', $schema['properties']['datasetId']['$ref']);
-		$this->assertSame('agent', $schema['properties']['agentId']['$ref']);
-		$this->assertSame('CASCADE', $schema['properties']['datasetId']['onDelete']);
-		$this->assertSame('CASCADE', $schema['properties']['agentId']['onDelete']);
+		$this->assertSame(expected: ['datasetId', 'agentId'], actual: $schema['required']);
+		$this->assertSame(expected: 'evaldataset', actual: $schema['properties']['datasetId']['$ref']);
+		$this->assertSame(expected: 'agent', actual: $schema['properties']['agentId']['$ref']);
+		$this->assertSame(expected: 'CASCADE', actual: $schema['properties']['datasetId']['onDelete']);
+		$this->assertSame(expected: 'CASCADE', actual: $schema['properties']['agentId']['onDelete']);
 	}//end testAScheduleReferencesItsDatasetAndAgent()
 
 	/**
@@ -78,10 +78,10 @@ class EvalScheduleSchemaTest extends TestCase {
 	public function testTheJobFieldsAreDeclared(): void {
 		$properties = $this->register()['components']['schemas']['EvalSchedule']['properties'];
 
-		$this->assertSame('0 6 1 * *', $properties['cronExpr']['default']);
-		$this->assertFalse($properties['enabled']['default']);
-		$this->assertSame('date-time', $properties['nextRun']['format']);
-		$this->assertSame('evalrun', $properties['lastRunId']['$ref']);
-		$this->assertSame('integer', $properties['regressionThresholdPercent']['type']);
+		$this->assertSame(expected: '0 6 1 * *', actual: $properties['cronExpr']['default']);
+		$this->assertFalse(condition: $properties['enabled']['default']);
+		$this->assertSame(expected: 'date-time', actual: $properties['nextRun']['format']);
+		$this->assertSame(expected: 'evalrun', actual: $properties['lastRunId']['$ref']);
+		$this->assertSame(expected: 'integer', actual: $properties['regressionThresholdPercent']['type']);
 	}//end testTheJobFieldsAreDeclared()
 }//end class

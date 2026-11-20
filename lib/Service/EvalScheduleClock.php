@@ -25,10 +25,13 @@ namespace OCA\Hermiq\Service;
 use Cron\CronExpression;
 use DateTimeImmutable;
 use DateTimeZone;
+use InvalidArgumentException;
 use Throwable;
 
 /**
  * Due selection and next-run computation for eval schedules.
+ *
+ * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
  */
 class EvalScheduleClock {
 
@@ -61,12 +64,12 @@ class EvalScheduleClock {
 			return true;
 		}
 
-		if (is_string($nextRun) === false) {
+		if (is_string(value: $nextRun) === false) {
 			return false;
 		}
 
 		try {
-			$moment = new DateTimeImmutable($nextRun);
+			$moment = new DateTimeImmutable(datetime: $nextRun);
 		} catch (Throwable) {
 			return false;
 		}
@@ -85,23 +88,25 @@ class EvalScheduleClock {
 	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
 	 */
 	public function nextRun(string $cronExpr, DateTimeImmutable $now): ?DateTimeImmutable {
-		$expression = trim($cronExpr);
+		$expression = trim(string: $cronExpr);
 		if ($expression === '') {
 			$expression = self::DEFAULT_CRON;
 		}
 
-		if (CronExpression::isValidExpression($expression) === false) {
+		try {
+			$cron = new CronExpression(expression: $expression);
+		} catch (InvalidArgumentException) {
 			return null;
 		}
 
-		$utc  = new DateTimeZone('UTC');
-		$next = (new CronExpression($expression))->getNextRunDate(
-			currentTime: $now->setTimezone($utc),
+		$utc  = new DateTimeZone(timezone: 'UTC');
+		$next = $cron->getNextRunDate(
+			currentTime: $now->setTimezone(timezone: $utc),
 			nth: 0,
 			allowCurrentDate: false,
 			timeZone: 'UTC'
 		);
 
-		return DateTimeImmutable::createFromMutable($next)->setTimezone($utc);
+		return (new DateTimeImmutable(datetime: '@' . $next->getTimestamp()))->setTimezone(timezone: $utc);
 	}//end nextRun()
 }//end class

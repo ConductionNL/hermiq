@@ -144,7 +144,7 @@ class Notifier implements INotifier {
 			$this->urlGenerator->getAbsoluteURL($this->urlGenerator->imagePath(self::APP_ID, 'app-dark.svg'))
 		);
 
-		// reuse-scheduled-bias-evals: a dropped scheduled eval opens on its dataset, where the run is listed.
+		// Reuse-scheduled-bias-evals: a dropped scheduled eval opens on its dataset, where the run is listed.
 		if ($subjectKey === 'eval_regression') {
 			$this->linkEvalRegression(notification: $notification, subjectRaw: $subjectRaw);
 		}
