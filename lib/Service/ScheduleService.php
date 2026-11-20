@@ -397,7 +397,8 @@ class ScheduleService implements ScheduleServiceInterface {
 	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's stored data; it holds no state to inject.
+	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
+	 * stored data; it holds no state to inject.
 	 */
 	public function run(): void {
 		$now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
@@ -1512,7 +1513,8 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
 	 *
-	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) carried in with operations-parallel-run-workers; splitting it is follow-up work, not part of this merge.
+	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) carried in with operations-parallel-run-workers;
+	 * splitting it is follow-up work, not part of this merge.
 	 */
 	private function runCommitted(ObjectEntity $schedule, array $occurrence, DateTimeImmutable $now): void {
 		$data = $occurrence['data'];
@@ -1632,7 +1634,8 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's stored data; it holds no state to inject.
+	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
+	 * stored data; it holds no state to inject.
 	 */
 	private function queueDue(ObjectEntity $schedule, DateTimeImmutable $now): void {
 		$uuid = (string)$schedule->getUuid();
@@ -1667,7 +1670,8 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's stored data; it holds no state to inject.
+	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
+	 * stored data; it holds no state to inject.
 	 */
 	private function runInline(ObjectEntity $schedule, DateTimeImmutable $now): void {
 		if ($this->occurrenceClaim === null || $this->claimsOccurrences() === false) {
@@ -1734,9 +1738,12 @@ class ScheduleService implements ScheduleServiceInterface {
 	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
 	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's stored data; it holds no state to inject.
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) carried in with operations-parallel-run-workers; splitting it is follow-up work, not part of this merge.
-	 * @SuppressWarnings(PHPMD.NPathComplexity) carried in with operations-parallel-run-workers; splitting it is follow-up work, not part of this merge.
+	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
+	 * stored data; it holds no state to inject.
+	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) carried in with operations-parallel-run-workers;
+	 * splitting it is follow-up work, not part of this merge.
+	 * @SuppressWarnings(PHPMD.NPathComplexity) carried in with operations-parallel-run-workers; splitting it
+	 * is follow-up work, not part of this merge.
 	 */
 	public function runQueued(string $scheduleUuid, string $occurrenceKey): string {
 		$schedule = $this->findSchedule(uuid: $scheduleUuid);
@@ -1801,7 +1808,8 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's stored data; it holds no state to inject.
+	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
+	 * stored data; it holds no state to inject.
 	 */
 	private function fitsUnderLimits(ObjectEntity $schedule, DateTimeImmutable $now): bool {
 		if ($this->runConcurrency === null) {
@@ -1853,7 +1861,8 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-a-lost-worker-is-recorded-as-a-failed-run-req-prun-002
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's stored data; it holds no state to inject.
+	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
+	 * stored data; it holds no state to inject.
 	 */
 	private function sweepLostOccurrences(DateTimeImmutable $now): void {
 		if ($this->occurrenceClaim === null || $this->claimsOccurrences() === false) {
