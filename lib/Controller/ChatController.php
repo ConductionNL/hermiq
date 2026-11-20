@@ -282,7 +282,8 @@ class ChatController extends Controller {
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 *
-	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) carried in with session-entity-links; splitting it is follow-up work, not part of this merge.
+	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) carried in with session-entity-links; splitting it is
+	 * follow-up work, not part of this merge.
 	 */
 	public function sendMessage(): JSONResponse {
 		try {
