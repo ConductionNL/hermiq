@@ -31,6 +31,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Talk;
 
 use OCA\Hermiq\Kernel\Contracts\TalkAgentBindingInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkBotInstallerInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
@@ -85,13 +86,54 @@ class TalkAgentBinding implements TalkAgentBindingInterface {
 	 * @param ObjectService $objectService OpenRegister object read.
 	 * @param IAppConfig $appConfig Room→agent binding configuration.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param TalkBotInstallerInterface|null $installer Reads which agents' bots are enabled in a room;
+	 *                                                  without it every room is single-agent.
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
 		private readonly IAppConfig $appConfig,
 		private readonly LoggerInterface $logger,
+		private readonly ?TalkBotInstallerInterface $installer = null,
 	) {
 	}//end __construct()
+
+	/**
+	 * The opted-in agents a room holds.
+	 *
+	 * Talk's bot state decides: every Talk-enabled agent whose own bot a Talk
+	 * moderator enabled in the room. A room with no per-agent bot enabled keeps
+	 * the single-agent binding (`talk_room_agents`, then `talk_default_agent`),
+	 * so rooms bound before per-agent bots answer as they did.
+	 *
+	 * @param string $roomToken The Talk room token.
+	 *
+	 * @return array<int, string> The agent uuids; empty when no opted-in agent is in the room.
+	 *
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-a-room-may-host-several-agents-managed-by-talk-moderators
+	 */
+	public function agentsForRoom(string $roomToken): array {
+		if ($roomToken === '') {
+			return [];
+		}
+
+		$agentIds = [];
+		foreach (($this->installer?->enabledAgentIds(roomToken: $roomToken) ?? []) as $agentId) {
+			if ($this->isAgentTalkEnabled(agentId: $agentId) === true) {
+				$agentIds[] = $agentId;
+			}
+		}
+
+		if ($agentIds !== []) {
+			return $agentIds;
+		}
+
+		$bound = $this->agentForRoom(roomToken: $roomToken);
+		if ($bound === null) {
+			return [];
+		}
+
+		return [$bound];
+	}//end agentsForRoom()
 
 	/**
 	 * The uuid of the opted-in agent bound to a room, or null.

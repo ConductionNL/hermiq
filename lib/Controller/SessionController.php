@@ -48,6 +48,7 @@ use OCA\Hermiq\Kernel\Contracts\SessionPendingApprovalsInterface;
 use OCA\Hermiq\Kernel\Contracts\SessionShareServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\TalkSessionRoomInterface;
 use OCA\Hermiq\Service\Chat\SessionCollaborators;
+use OCA\Hermiq\Service\Chat\SessionLinks;
 use OCA\Hermiq\Service\Chat\SessionSubject;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\SessionSearchService;
@@ -87,6 +88,8 @@ use Psr\Log\LoggerInterface;
  * recording it, and deciding whether a rename may touch it all live in
  * TalkSessionRoom, so this class only calls them. What remains is the ported
  * endpoint surface itself, which is exactly what must not be split.
+ *
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods) carried in with session-entity-links; splitting it is follow-up work, not part of this merge.
  */
 class SessionController extends Controller {
 	use SanitizesForSaveTrait;
@@ -164,6 +167,13 @@ class SessionController extends Controller {
 	private ?SessionSearchService $sessionSearch = null;
 
 	/**
+	 * Records and removes what a session is about (session-entity-links).
+	 *
+	 * @var SessionLinks|null
+	 */
+	private readonly ?SessionLinks $links;
+
+	/**
 	 * The actions `POST /api/sessions/bulk` accepts.
 	 *
 	 * @var list<string>
@@ -209,6 +219,7 @@ class SessionController extends Controller {
 		$this->agentAccess = $collaborators->agentAccess;
 		$this->subject = $collaborators->subject;
 		$this->pendingApprovals = $collaborators->pendingApprovals;
+		$this->links = $collaborators->links;
 	}//end __construct()
 
 	/**
@@ -217,6 +228,8 @@ class SessionController extends Controller {
 	 * Supports filtering with query parameters:
 	 * - _deleted: boolean (true = archived conversations, false/default = active)
 	 * - subject: string (only sessions about this record, latest activity first)
+	 * - linkedType + linkedId: string (only sessions linked to this entity, the most
+	 *   recently used link first; the response then names the `scope` and its label)
 	 * - search: string (at least two characters: only the caller's own sessions whose
 	 *   title or turn text matches, each with its `match`)
 	 * - limit / _limit: int (default: 50)
@@ -230,6 +243,8 @@ class SessionController extends Controller {
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 * @spec openspec/specs/session-surface/spec.md#requirement-the-session-list-can-be-narrowed-to-one-record
 	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) SessionLinks is a set of pure functions over session data; it holds no state to inject.
 	 */
 	public function index(): JSONResponse {
 		try {
@@ -251,6 +266,10 @@ class SessionController extends Controller {
 				sessions: $this->listReadableSessions(userId: $userId),
 				objectUuid: ($params['subject'] ?? null)
 			);
+			// Session-entity-links D3: the scoped list is filtered here, over every
+			// readable session, never over a page the client already has.
+			$scope = self::linkScope(params: $params);
+			$all = SessionLinks::about(sessions: $all, type: $scope['type'], id: $scope['id']);
 
 			$matching = [];
 			foreach ($all as $conversation) {
@@ -273,18 +292,20 @@ class SessionController extends Controller {
 			$total = count($matching);
 			$page = array_slice($matching, $offset, $limit);
 
-			return new JSONResponse(
-				data: [
-					'results' => array_map(
-						fn (ObjectEntity $conv): array => $this->serializeConversation(conversation: $conv, userId: $userId),
-						$page
-					),
-					'total' => $total,
-					'limit' => $limit,
-					'offset' => $offset,
-				],
-				statusCode: 200
-			);
+			$data = [
+				'results' => array_map(
+					fn (ObjectEntity $conv): array => $this->serializeConversation(conversation: $conv, userId: $userId),
+					$page
+				),
+				'total' => $total,
+				'limit' => $limit,
+				'offset' => $offset,
+			];
+			if ($scope['type'] !== '' && $scope['id'] !== '') {
+				$data['scope'] = self::scopeOf(scope: $scope, sessions: $matching);
+			}
+
+			return new JSONResponse(data: $data, statusCode: 200);
 		} catch (Exception $e) {
 			$this->logger->error(
 				message: '[SessionController] Failed to list conversations',
@@ -305,6 +326,128 @@ class SessionController extends Controller {
 			);
 		}//end try
 	}//end index()
+
+	/**
+	 * The entity the session list is scoped to, from `linkedType` and `linkedId`.
+	 *
+	 * @param array<string, mixed> $params The query.
+	 *
+	 * @return array{type: string, id: string}
+	 *
+	 * @spec openspec/changes/session-entity-links/tasks.md
+	 */
+	private static function linkScope(array $params): array {
+		$scope = ['type' => '', 'id' => ''];
+		foreach (['type' => 'linkedType', 'id' => 'linkedId'] as $key => $param) {
+			if (is_scalar($params[$param] ?? null) === true) {
+				$scope[$key] = trim((string)$params[$param]);
+			}
+		}
+
+		return $scope;
+	}//end linkScope()
+
+	/**
+	 * What a scoped list is scoped to, with the label it is headed with: the
+	 * label of the most recently used matching link, null when no session is
+	 * linked yet (the client then names the entity itself).
+	 *
+	 * @param array{type: string, id: string} $scope    The scope.
+	 * @param array<int, ObjectEntity>         $sessions The scoped sessions, most recently used first.
+	 *
+	 * @return array{type: string, id: string, label: string|null}
+	 *
+	 * @spec openspec/changes/session-entity-links/tasks.md
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) SessionLinks is a set of pure functions over session data; it holds no state to inject.
+	 */
+	private static function scopeOf(array $scope, array $sessions): array {
+		$label = null;
+		foreach ($sessions as $session) {
+			$link = SessionLinks::linkTo(sessionData: $session->getObject(), type: $scope['type'], id: $scope['id']);
+			if ($link !== null && $link['label'] !== '') {
+				$label = $link['label'];
+				break;
+			}
+		}
+
+		return $scope + ['label' => $label];
+	}//end scopeOf()
+
+	/**
+	 * Remove one link from a session (DELETE /api/sessions/{uuid}/links?type=&id=).
+	 *
+	 * A link is recorded automatically when a turn is sent, so the person it
+	 * describes must be able to remove it (session-entity-links). Only the
+	 * owner may; afterwards the session no longer shows in that entity's
+	 * scoped list.
+	 *
+	 * @param string $uuid The session.
+	 *
+	 * @return JSONResponse 200 with the session; 400 without type or id; 403 not the owner;
+	 *                      404 unknown session or no such link; 503 when links are unavailable.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/changes/session-entity-links/tasks.md
+	 */
+	public function removeLink(string $uuid): JSONResponse {
+		try {
+			$userId = $this->requireUserId();
+			$session = $this->objectService->find(
+				id: $uuid,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
+			);
+			if ($session === null) {
+				return $this->notFoundResponse();
+			}
+
+			// Modify guard (gate-7): only the owning user may change what a session says it is about.
+			if (($session->getObject()['userId'] ?? null) !== $userId) {
+				return $this->accessDeniedResponse(action: 'modify');
+			}
+
+			$scope = self::linkScope(params: ['linkedType' => $this->request->getParam('type'), 'linkedId' => $this->request->getParam('id')]);
+			if ($scope['type'] === '' || $scope['id'] === '') {
+				return new JSONResponse(
+					data: ['error' => 'Bad request', 'message' => 'Name the link to remove with type and id.'],
+					statusCode: 400
+				);
+			}
+
+			if ($this->links === null) {
+				return new JSONResponse(
+					data: ['error' => 'Unavailable', 'message' => 'Session links are not available.'],
+					statusCode: 503
+				);
+			}
+
+			$updated = $this->links->remove(session: $session, type: $scope['type'], id: $scope['id']);
+			if ($updated === null) {
+				return new JSONResponse(
+					data: ['error' => 'Not found', 'message' => 'This session has no such link.'],
+					statusCode: 404
+				);
+			}
+
+			return new JSONResponse(data: $this->serializeConversation(conversation: $updated, userId: $userId), statusCode: 200);
+		} catch (Exception $e) {
+			$this->logger->error(
+				message: '[SessionController] Could not remove a session link',
+				context: ['session' => $uuid, 'error' => $e->getMessage()]
+			);
+
+			$status = 500;
+			if ((int)$e->getCode() === 401) {
+				$status = 401;
+			}
+
+			return new JSONResponse(
+				data: ['error' => 'Failed to remove the link', 'message' => $e->getMessage()],
+				statusCode: $status
+			);
+		}//end try
+	}//end removeLink()
 
 	/**
 	 * The list envelope of a search: the caller's own matching sessions in the
@@ -1364,6 +1507,8 @@ class SessionController extends Controller {
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 * @spec openspec/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) SessionLinks is a set of pure functions over session data; it holds no state to inject.
 	 */
 	private function serializeConversation(ObjectEntity $conversation, string $userId = ''): array {
 		$data = $conversation->getObject();
@@ -1398,6 +1543,8 @@ class SessionController extends Controller {
 			'talkRoomToken' => ($data['talkRoomToken'] ?? null),
 			'metadata' => $metadata,
 			'subject' => $this->subject->subjectOf(sessionData: $data),
+			// Session-entity-links: what this session is about, each link with its label.
+			'links' => SessionLinks::linksOf(sessionData: $data),
 			// Agents-instruction-variables: the answers to the agent's start fields,
 			// shown in the session header.
 			'startValues' => (array)($data['startValues'] ?? []),

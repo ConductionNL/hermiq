@@ -122,6 +122,83 @@ class TalkRoomBinding implements TalkRoomBindingInterface {
 	}//end findByRoomToken()
 
 	/**
+	 * The session of one agent in a room: sessions are per (room, agent).
+	 *
+	 * The newest session bound to the room for this agent. A session bound
+	 * before sessions were per agent may carry no agent; the agent that next
+	 * takes a turn in the room adopts it, so a single-agent room keeps its
+	 * session, now keyed with its agent. A session of ANOTHER agent is never
+	 * returned: each agent has its own thread of the room.
+	 *
+	 * @param string $roomToken The Talk room token.
+	 * @param string $agentId   The agent uuid.
+	 *
+	 * @return ObjectEntity|null The agent's session in the room, or null.
+	 *
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-sessions-are-per-room-per-agent-and-ordered
+	 */
+	public function findByRoomAndAgent(string $roomToken, string $agentId): ?ObjectEntity {
+		if ($roomToken === '' || $agentId === '') {
+			return null;
+		}
+
+		try {
+			$keyed = $this->firstEntity(objects: $this->sessionsBoundTo(roomToken: $roomToken, agentId: $agentId));
+			if ($keyed !== null) {
+				return $keyed;
+			}
+
+			$legacy = $this->firstEntity(objects: $this->sessionsBoundTo(roomToken: $roomToken));
+			if ($legacy === null || (string)(($legacy->getObject())['agentId'] ?? '') !== '') {
+				return null;
+			}
+
+			return $this->adopt(conversation: $legacy, agentId: $agentId);
+		} catch (Throwable $e) {
+			$this->logRoomLookupFailure(roomToken: $roomToken, error: $e);
+			return null;
+		}
+
+	}//end findByRoomAndAgent()
+
+	/**
+	 * Key a session that carries no agent with the agent now taking its turn.
+	 *
+	 * @param ObjectEntity $conversation The session without an agent.
+	 * @param string       $agentId      The agent adopting it.
+	 *
+	 * @return ObjectEntity The session, now carrying the agent.
+	 *
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-sessions-are-per-room-per-agent-and-ordered
+	 */
+	private function adopt(ObjectEntity $conversation, string $agentId): ObjectEntity {
+		// The saveObject call is PUT-semantic — carry every existing field forward.
+		$data = $conversation->getObject();
+		$data['agentId'] = $agentId;
+
+		$this->objectService->saveObject(
+			object: $data,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+				uuid: (string)$conversation->getUuid()
+			)
+		);
+
+		$this->logger->info(
+			message: '[TalkRoomBinding] A room session without an agent is now keyed with its agent',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'conversation' => (string)$conversation->getUuid(),
+				'agentId' => $agentId,
+			]
+		);
+
+		$conversation->setObject($data);
+		return $conversation;
+	}//end adopt()
+
+	/**
 	 * The newest session bound to a room.
 	 *
 	 * _rbac false: the room token is the key, not the caller. The Session read rule
@@ -131,16 +208,22 @@ class TalkRoomBinding implements TalkRoomBindingInterface {
 	 * gets back.
 	 *
 	 * @param string $roomToken The Talk room token.
+	 * @param string $agentId   Narrow to this agent's session, or '' for any.
 	 *
 	 * @return array<int, mixed> The matching sessions (at most one).
 	 */
-	private function sessionsBoundTo(string $roomToken): array {
+	private function sessionsBoundTo(string $roomToken, string $agentId = ''): array {
+		$filters = ['talkRoomToken' => $roomToken];
+		if ($agentId !== '') {
+			$filters['agentId'] = $agentId;
+		}
+
 		return $this->objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema(self::CONVERSATION_SCHEMA)
 			->findAll(
 				config: [
-					'filters' => ['talkRoomToken' => $roomToken],
+					'filters' => $filters,
 					'sort' => ['created' => 'DESC'],
 					'limit' => 1,
 				],
@@ -431,14 +514,24 @@ class TalkRoomBinding implements TalkRoomBindingInterface {
 				}
 			}
 
+			$session = [
+				'title' => 'Talk conversation',
+				'userId' => $ownerUid,
+				'agentId' => $agentId,
+				'talkRoomToken' => $roomToken,
+				'participants' => $roster,
+			];
+
+			// Sessions are per (room, agent), the room's origin is per room: a
+			// second agent's session in a room Hermiq created keeps it created,
+			// or isCreatedRoom() would read the newest session and flip.
+			$origin = (string)(($this->findByRoomToken(roomToken: $roomToken)?->getObject() ?? [])['talkRoomOrigin'] ?? '');
+			if ($origin !== '') {
+				$session['talkRoomOrigin'] = $origin;
+			}
+
 			$created = $this->objectService->saveObject(
-				object: [
-					'title' => 'Talk conversation',
-					'userId' => $ownerUid,
-					'agentId' => $agentId,
-					'talkRoomToken' => $roomToken,
-					'participants' => $roster,
-				],
+				object: $session,
 				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA))
 			);
 
