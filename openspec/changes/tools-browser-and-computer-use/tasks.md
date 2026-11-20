@@ -38,6 +38,7 @@ Kind: code. Size L. Rows `hermiq:dm-browser-use`, `hermiq:dm-computer-use`.
   - GIVEN a non-admin WHEN they call the routes THEN they are refused
 - [x] Implement (backend: the `ComputerTarget` schema, `ComputerTargetService`, the admin-only `ComputerTargetController` and its routes; the admin settings section `src/components/settings/ComputerTargets.vue` with `src/modals/ComputerTargetFormModal.vue`: list, add, edit, delete, and a test screenshot shown in place and never stored)
 - [ ] Test (PHPUnit with CallService stubbed; Newman on the admin routes; Playwright under tests/e2e/spec-coverage/)
+  - PHPUnit: `ComputerTargetServiceTest`, `ComputerTargetControllerTest`. Newman written: `tests/integration/hermiq-computer-targets.postman_collection.json` (admin list, the name and source refusals, 403 for a user who is not an admin on every route, 404 for an unknown target). Playwright written: `tests/e2e/spec-coverage/tools-browser-and-computer-use.spec.ts` (the admin section, the refusals). The test screenshot needs a registered machine. Newman and Playwright not yet run against a live instance.
 
 ### Task 5: The computer tools, the AI feature and the image path
 - **spec_ref**: `openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-computer-use-is-a-high-risk-ai-feature-that-a-grant-alone-cannot-unlock-req-computer-002`
@@ -64,6 +65,7 @@ Kind: code. Size L. Rows `hermiq:dm-browser-use`, `hermiq:dm-computer-use`.
   - Done: the approval card in `src/views/ApprovalInbox.vue` names the machine and the action with its point, offers "Approve for 15 minutes", and on "Show the screen" reads the machine's screen now through `GET /api/approvals/{id}/screenshot` (reviewer of a pending computer action only, through the computer-use gate, never stored) with the point marked.
 - [ ] Test (PHPUnit with a fake clock; Playwright under tests/e2e/spec-coverage/ on the approval card)
   - PHPUnit on the floor done: `FacadeToolInvokerComputerTest` (no policy, auto, waiver, deny, screenshot, pre-authorised machine, run on the request). Fake clock: `ApprovalServiceComputerRunTest` (fifteen minutes, sixteen minutes later a new approval, another run or machine, unsigned or denied records). `ApprovalControllerTest` on the scope and the reviewer's screen; Vitest `approval-inbox-rows.spec.js` on the card. Playwright needs a live instance and was not run.
+  - Playwright written: the held-click card in `tests/e2e/spec-coverage/tools-browser-and-computer-use.spec.ts` (machine, "Click at 412, 230", "Approve for 15 minutes"), on a seeded pending approval. Not yet run against a live instance.
 
 ### Task 7: The run record for browser and computer actions
 - **spec_ref**: `openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-the-run-records-actions-and-never-stores-screenshots-req-computer-004`
