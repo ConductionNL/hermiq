@@ -169,7 +169,8 @@ class ScopeExistingMemories implements IRepairStep {
 			$unscoped = array_merge($unscoped, array_values(array_filter($page, self::isUnscoped(...))));
 
 			$offset += self::PAGE;
-		} while (count($page) === self::PAGE);
+			$fullPage = (count($page) === self::PAGE);
+		} while ($fullPage === true);
 
 		return $unscoped;
 	}//end unscoped()

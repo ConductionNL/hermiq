@@ -255,6 +255,9 @@ class SpeechTranslationController extends Controller {
 	 * @param string $code The language code.
 	 *
 	 * @return string The name.
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) Locale is used through its static API (a pure helper or named
+	 * constructor) with no state to inject.
 	 */
 	private function languageName(string $code): string {
 		if (class_exists(\Locale::class) === false) {

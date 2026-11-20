@@ -15,6 +15,12 @@
 //     answers `timedOut: true`;
 //   - keeps at most 64 KB of stdout and of stderr.
 //
+// A workspace run (`workspace: true`, tools-agent-workspace-and-installed-tools
+// D2) gets a copy of the agent's workspace as relative paths in a `work`
+// folder, runs with that folder as its working directory, the program kept
+// beside it, and answers every file it created or changed there, so hermiq
+// can write those back. The sandbox itself stays stateless and mount-free.
+//
 // No network is the container's job: its network is `internal: true` with no
 // egress proxy (deploy/docker-compose.yml). This module adds nothing there, so
 // a run outside the container is NOT network-isolated.
@@ -24,6 +30,7 @@
 'use strict'
 
 const { spawn } = require('child_process')
+const crypto = require('crypto')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
@@ -37,6 +44,7 @@ const LIMITS = Object.freeze({
 	maxOutputBytes: 64 * 1024,
 	maxFilesBytes: 10 * 1024 * 1024,
 	maxFiles: 50,
+	maxWorkspaceFiles: 5000,
 })
 
 // Python's memory is capped as address space. V8 reserves far more address
@@ -95,7 +103,10 @@ function invalid(request) {
 	if (request.stdin !== undefined && typeof request.stdin !== 'string') {
 		return 'stdin is text.'
 	}
-	return invalidFiles(request.files)
+	if (request.workspace !== undefined && typeof request.workspace !== 'boolean') {
+		return 'workspace is true or false.'
+	}
+	return invalidFiles(request.files, request.workspace === true)
 }
 
 /**
@@ -104,20 +115,21 @@ function invalid(request) {
  * @param {*} files The `files` list.
  * @return {string|null}
  */
-function invalidFiles(files) {
+function invalidFiles(files, workspace = false) {
 	if (files === undefined) {
 		return null
 	}
-	if (!Array.isArray(files) || files.length > LIMITS.maxFiles) {
-		return 'files is a list of at most ' + LIMITS.maxFiles + ' files.'
+	const most = workspace ? LIMITS.maxWorkspaceFiles : LIMITS.maxFiles
+	if (!Array.isArray(files) || files.length > most) {
+		return 'files is a list of at most ' + most + ' files.'
 	}
 	let total = 0
 	for (const file of files) {
 		if (!file || typeof file.name !== 'string' || typeof file.content !== 'string') {
 			return 'Every file has a name and a content.'
 		}
-		if (file.name !== path.basename(file.name) || file.name === '' || file.name.startsWith('.') || file.name === 'main.py' || file.name === 'main.js') {
-			return 'A file name is a plain name: ' + file.name
+		if (workspace ? !isWorkspacePath(file.name) : !isPlainName(file.name)) {
+			return (workspace ? 'A file name is a relative path inside the workspace: ' : 'A file name is a plain name: ') + file.name
 		}
 		total += Buffer.byteLength(file.content, file.encoding === 'base64' ? 'base64' : 'utf8')
 	}
@@ -128,13 +140,42 @@ function invalidFiles(files) {
 }
 
 /**
+ * Whether a name is a plain file name a run may hold next to its program.
+ *
+ * @param {string} name The name.
+ * @return {boolean}
+ */
+function isPlainName(name) {
+	return name === path.basename(name) && name !== '' && !name.startsWith('.') && name !== 'main.py' && name !== 'main.js'
+}
+
+/**
+ * Whether a name is a relative path that stays inside the work folder: no
+ * absolute path, no empty, `.` or `..` segment, no backslash and nothing in
+ * `.git`.
+ *
+ * @param {string} name The relative path.
+ * @return {boolean}
+ */
+function isWorkspacePath(name) {
+	if (name === '' || name.startsWith('/') || name.includes('\\') || name.includes('\0')) {
+		return false
+	}
+	const segments = name.split('/')
+	if (segments[0] === '.git') {
+		return false
+	}
+	return segments.every((segment) => segment !== '' && segment !== '.' && segment !== '..')
+}
+
+/**
  * The command a run starts: the interpreter under prlimit, as the run UID when set.
  *
  * @param {object} language The language entry.
  * @param {{wallSeconds: number, memoryMb: number}} limits The limits.
  * @return {{command: string, args: string[]}}
  */
-function commandFor(language, limits) {
+function commandFor(language, limits, program = language.file) {
 	const prlimit = [
 		...(language.addressSpace ? ['--as=' + (limits.memoryMb * 1024 * 1024)] : []),
 		'--nproc=' + LIMITS.maxProcesses,
@@ -143,7 +184,8 @@ function commandFor(language, limits) {
 		'--core=0',
 		'--',
 	]
-	let args = [...prlimit, language.command, ...language.args(limits.memoryMb)]
+	const languageArgs = language.args(limits.memoryMb).map((arg) => (arg === language.file ? program : arg))
+	let args = [...prlimit, language.command, ...languageArgs]
 	const uid = process.env.SANDBOX_RUN_UID
 	if (uid && /^\d+$/.test(uid)) {
 		args = ['--reuid=' + uid, '--regid=' + uid, '--clear-groups', '--no-new-privs', '--', 'prlimit', ...args]
@@ -204,6 +246,80 @@ function createdFiles(dir, inputs) {
 }
 
 /**
+ * The files a workspace run created or changed in its work folder, within the caps.
+ *
+ * @param {string} work The work folder.
+ * @param {Map<string, string>} before The SHA-256 of every file placed, by relative path.
+ * @return {{files: Array<{name: string, size: number, content: string, encoding: string}>, truncated: boolean}}
+ */
+function changedFiles(work, before) {
+	const out = []
+	let total = 0
+	let truncated = false
+	const walk = (folder, prefix) => {
+		for (const entry of fs.readdirSync(folder, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+			const relative = prefix === '' ? entry.name : prefix + '/' + entry.name
+			const full = path.join(folder, entry.name)
+			if (entry.isDirectory()) {
+				if (relative !== '.git') {
+					walk(full, relative)
+				}
+				continue
+			}
+			if (!entry.isFile()) {
+				continue
+			}
+			const bytes = fs.readFileSync(full)
+			if (before.get(relative) === crypto.createHash('sha256').update(bytes).digest('hex')) {
+				continue
+			}
+			if (total + bytes.length > LIMITS.maxFilesBytes || out.length >= LIMITS.maxWorkspaceFiles) {
+				truncated = true
+				continue
+			}
+			total += bytes.length
+			out.push({ name: relative, size: bytes.length, content: bytes.toString('base64'), encoding: 'base64' })
+		}
+	}
+	walk(work, '')
+	return { files: out, truncated }
+}
+
+/**
+ * Place the program beside a work folder holding the workspace copy.
+ *
+ * @param {object} request The run request.
+ * @param {object} language The language entry.
+ * @return {{dir: string, work: string, before: Map<string, string>}}
+ */
+function prepareWorkspace(request, language) {
+	const root = process.env.SANDBOX_WORK_ROOT || os.tmpdir()
+	const dir = fs.mkdtempSync(path.join(root, 'run-'))
+	fs.chmodSync(dir, 0o755)
+	fs.writeFileSync(path.join(dir, language.file), request.code)
+	const work = path.join(dir, 'work')
+	fs.mkdirSync(work, { mode: 0o777 })
+	fs.chmodSync(work, 0o777)
+	const before = new Map()
+	for (const file of request.files || []) {
+		const bytes = Buffer.from(file.content, file.encoding === 'base64' ? 'base64' : 'utf8')
+		const full = path.join(work, ...file.name.split('/'))
+		let folder = work
+		for (const segment of file.name.split('/').slice(0, -1)) {
+			folder = path.join(folder, segment)
+			if (!fs.existsSync(folder)) {
+				fs.mkdirSync(folder, { mode: 0o777 })
+				fs.chmodSync(folder, 0o777)
+			}
+		}
+		fs.writeFileSync(full, bytes)
+		fs.chmodSync(full, 0o666)
+		before.set(file.name, crypto.createHash('sha256').update(bytes).digest('hex'))
+	}
+	return { dir, work, before }
+}
+
+/**
  * Place the program and the input files in a fresh work directory.
  *
  * @param {object} request The run request.
@@ -240,6 +356,16 @@ async function run(request) {
 
 	const language = LANGUAGES[request.language]
 	const limits = clampLimits(request.limits)
+	if (request.workspace === true) {
+		const { dir, work, before } = prepareWorkspace(request, language)
+		try {
+			const outcome = await execute(language, limits, work, request.stdin || '', '../' + language.file)
+			const changed = changedFiles(work, before)
+			return { ...outcome, files: changed.files, filesTruncated: changed.truncated, limits }
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true })
+		}
+	}
 	const { dir, inputs } = prepare(request, language)
 	try {
 		const outcome = await execute(language, limits, dir, request.stdin || '')
@@ -256,10 +382,11 @@ async function run(request) {
  * @param {{wallSeconds: number, memoryMb: number}} limits The limits.
  * @param {string} dir The work directory.
  * @param {string} stdin The input.
+ * @param {string} program The program's path from the working directory.
  * @return {Promise<object>} `{exitCode, stdout, stderr, durationMs, timedOut, stdoutTruncated, stderrTruncated}`.
  */
-function execute(language, limits, dir, stdin) {
-	const { command, args } = commandFor(language, limits)
+function execute(language, limits, dir, stdin, program = language.file) {
+	const { command, args } = commandFor(language, limits, program)
 	const started = Date.now()
 	const stdout = capped()
 	const stderr = capped()
@@ -313,4 +440,4 @@ function execute(language, limits, dir, stdin) {
 	})
 }
 
-module.exports = { run, clampLimits, invalid, commandFor, LIMITS, LANGUAGES }
+module.exports = { run, clampLimits, invalid, commandFor, isWorkspacePath, LIMITS, LANGUAGES }

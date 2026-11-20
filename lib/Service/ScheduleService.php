@@ -352,6 +352,8 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *                          trailing: a service built by hand in a test writes the
 	 *                          entry it always wrote.
 	 * @param TraceExportQueue|null $traceExportQueue Hands the finished run to trace export (observability-export-traces).
+	 * @param AgentBuildService|null $agentBuilds The agent's pinned build, recorded on
+	 *                          the run next to the version. Nullable and trailing.
 	 * @param OccurrenceClaim|null $occurrenceClaim Claims a queued occurrence for one worker
 	 *                          (operations-parallel-run-workers). Nullable and trailing: a
 	 *                          service built by hand without it runs every due schedule in
@@ -386,6 +388,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		private readonly ?RunDoneNotifier $runDoneNotifier = null,
 		private readonly ?RunRetentionPolicy $retentionPolicy = null,
 		private readonly ?TraceExportQueue $traceExportQueue = null,
+		private readonly ?AgentBuildService $agentBuilds = null,
 		private readonly ?OccurrenceClaim $occurrenceClaim = null,
 		private readonly ?RunConcurrencySettings $runConcurrency = null,
 	) {
@@ -1012,6 +1015,9 @@ class ScheduleService implements ScheduleServiceInterface {
 	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
 	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
 	 * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-3-wire-the-budget-gate-into-the-dispatch-path-soft-threshold-delivery
+	 *
+	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) carried in with this batch's feature work; splitting it
+	 * is follow-up work, not part of this merge.
 	 */
 	private function dispatch(ObjectEntity $schedule, DispatchOptions $options): void {
 		$now = $options->now;
@@ -2489,6 +2495,9 @@ class ScheduleService implements ScheduleServiceInterface {
 				// this occurrence, captured at write time (null when unresolvable —
 				// never fatal to the run).
 				'agentVersion' => $this->agentVersionService->currentVersionId(agentUuid: $agentId),
+				// The build the agent pinned when this run was recorded, next to the
+				// version (tools-agent-workspace-and-installed-tools); null when none.
+				'buildId' => $this->agentBuilds?->pinnedBuildIdOf(agentUuid: $agentId),
 				// Run-replay-and-dry-run: the exact prompt text used for THIS run,
 				// persisted so a later replay is unaffected by any subsequent edit to
 				// the schedule's own `prompt` field — recorded for every run (real,

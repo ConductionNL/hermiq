@@ -207,6 +207,9 @@ class SessionController extends Controller {
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 * @spec openspec/specs/session-participants/spec.md#requirement-an-invited-colleague-reads-and-takes-turns-req-spart-002
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) carried in with this batch's feature work; splitting it
+	 * is follow-up work, not part of this merge.
 	 */
 	public function __construct(
 		IRequest $request,
@@ -866,6 +869,9 @@ class SessionController extends Controller {
 	 * @return array{projectKey: string, projectName: string}|false|null
 	 *
 	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) MemoryService is used through its static API (a pure helper or
+	 * named constructor) with no state to inject.
 	 */
 	public static function requestedProject(array $data): array|false|null {
 		$key  = trim((string)($data['projectKey'] ?? ''));

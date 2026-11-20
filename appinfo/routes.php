@@ -24,9 +24,9 @@ $routes = [
         ['name' => 'dashboard#page', 'url' => '/', 'verb' => 'GET'],
         ['name' => 'settings#index', 'url' => '/api/settings', 'verb' => 'GET'],
         // models-provider-connections: the session user's subscription sign-in.
-        ['name' => 'subscription_login#index', 'url' => '/api/subscription-login', 'verb' => 'GET'],
-        ['name' => 'subscription_login#start', 'url' => '/api/subscription-login', 'verb' => 'POST'],
-        ['name' => 'subscription_login#code', 'url' => '/api/subscription-login/{id}/code', 'verb' => 'POST'],
+        ['name' => 'subscriptionLogin#index', 'url' => '/api/subscription-login', 'verb' => 'GET'],
+        ['name' => 'subscriptionLogin#start', 'url' => '/api/subscription-login', 'verb' => 'POST'],
+        ['name' => 'subscriptionLogin#code', 'url' => '/api/subscription-login/{id}/code', 'verb' => 'POST'],
         ['name' => 'settings#create', 'url' => '/api/settings', 'verb' => 'POST'],
         ['name' => 'settings#load',  'url' => '/api/settings/load', 'verb' => 'POST'],
 
@@ -233,6 +233,9 @@ $routes = [
             'verb'         => 'POST',
             'requirements' => ['id' => '[^/]+', 'versionId' => '[^/]+'],
         ],
+        // An agent's published builds (pinned files and tools), and publishing one (owner-only).
+        ['name' => 'agentVersion#builds', 'url' => '/api/agents/{id}/builds', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'agentVersion#publishBuild', 'url' => '/api/agents/{id}/builds', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
 
         // Advisory AI-oversight records about one subject, for whoever may open that subject.
         ['name' => 'aiOversight#subject', 'url' => '/api/ai-oversight/subject', 'verb' => 'GET'],
@@ -760,6 +763,10 @@ $routes = [
         // aliases rather than being removed with the rename.
         ['name' => 'session#index', 'url' => '/api/sessions', 'verb' => 'GET'],
         ['name' => 'session#create', 'url' => '/api/sessions', 'verb' => 'POST'],
+        // The chat's Files panel over the caller's session workspace (tools-agent-workspace-and-installed-tools REQ-WKSP-003).
+        ['name' => 'workspaceFiles#index', 'url' => '/api/sessions/{sessionId}/workspace/files', 'verb' => 'GET', 'requirements' => ['sessionId' => '[^/]+']],
+        ['name' => 'workspaceFiles#download', 'url' => '/api/sessions/{sessionId}/workspace/download', 'verb' => 'GET', 'requirements' => ['sessionId' => '[^/]+']],
+        ['name' => 'workspaceFiles#save', 'url' => '/api/sessions/{sessionId}/workspace/save', 'verb' => 'POST', 'requirements' => ['sessionId' => '[^/]+']],
         // Archive, restore or delete several sessions at once (chat-session-search-and-bulk-delete, REQ-SSRCH-002).
         ['name' => 'session#bulk', 'url' => '/api/sessions/bulk', 'verb' => 'POST'],
         ['name' => 'session#show', 'url' => '/api/sessions/{uuid}', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],

@@ -401,6 +401,7 @@
 				data-testid="chat-start-values">
 				{{ sessionStartValues.join(' · ') }}
 			</p>
+			<WorkspaceFilesPanel v-if="activeSession && activeSession.uuid" :sessionId="activeSession.uuid" />
 
 			<div v-if="!activeSession" ref="startSurface" class="chat-page__empty">
 				<div class="chat-page__empty-inner" data-testid="chat-start-surface">
@@ -1122,6 +1123,7 @@ import AgentSelector from '../components/AgentSelector.vue'
 import DictateButton from '../components/DictateButton.vue'
 import ReadAloudButton from '../components/ReadAloudButton.vue'
 import StartFieldsForm from '../components/StartFieldsForm.vue'
+import WorkspaceFilesPanel from '../components/WorkspaceFilesPanel.vue'
 import ProjectPickerDialog from '../dialogs/ProjectPickerDialog.vue'
 import AgentFormModal from '../modals/AgentFormModal.vue'
 import ChatSettingsModal from '../modals/ChatSettingsModal.vue'
@@ -1277,6 +1279,7 @@ export default {
 		ThumbDown,
 		ThumbUp,
 		Upload,
+		WorkspaceFilesPanel,
 	},
 
 	// nc-vue's floating AI companion self-gates on the injected `cnAiContext`

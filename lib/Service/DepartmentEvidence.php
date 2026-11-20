@@ -253,6 +253,9 @@ final class DepartmentEvidence {
 	 * Every run in the audit trail, as agent, status, moment, trigger and object.
 	 *
 	 * @return array<int,array{agentId:string,status:string,at:DateTimeImmutable,trigger:string,objectUuid:string}>
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) DateTimeImmutable is used through its static API (a pure helper
+	 * or named constructor) with no state to inject.
 	 */
 	private function runEntries(): array {
 		$runs = [];

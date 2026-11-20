@@ -223,10 +223,23 @@ export default {
 		 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-an-organisation-admin-declares-a-public-chat-channel-req-pubchat-001
 		 */
 		agentOption: {
+			/**
+			 * The picked agent option, or null.
+			 *
+			 * @return {object|null} The option.
+			 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-an-organisation-admin-declares-a-public-chat-channel-req-pubchat-001
+			 */
 			get() {
 				return this.agentOptions.find((option) => option.id === this.form.agentId) || null
 			},
 
+			/**
+			 * Pick an agent.
+			 *
+			 * @param {object|null} option The picked option.
+			 * @return {void}
+			 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-an-organisation-admin-declares-a-public-chat-channel-req-pubchat-001
+			 */
 			set(option) {
 				this.form.agentId = option?.id || ''
 			},
@@ -269,6 +282,12 @@ export default {
 		},
 	},
 
+	/**
+	 * Read the agents when the modal opens already shown.
+	 *
+	 * @return {void}
+	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-an-organisation-admin-declares-a-public-chat-channel-req-pubchat-001
+	 */
 	mounted() {
 		if (this.show) {
 			this.fetchAgents()

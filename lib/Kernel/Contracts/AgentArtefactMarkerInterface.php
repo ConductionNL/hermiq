@@ -64,7 +64,7 @@ interface AgentArtefactMarkerInterface {
 	 *
 	 * @return bool True when the mark is present.
 	 *
-	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored-req-ailbl-001
+	 * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored-req-ailbl-001
 	 */
 	public function isFileMarked(int $fileId): bool;
 

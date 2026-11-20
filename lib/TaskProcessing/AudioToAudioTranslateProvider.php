@@ -166,6 +166,9 @@ class AudioToAudioTranslateProvider implements ISynchronousProvider {
 	 *                          target language has no voice, so nothing can be spoken.
 	 *
 	 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-other-apps-can-use-the-chain-through-taskprocessing-where-nextcloud-defines-it-req-strn-004
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) TaskAudioInput is used through its static API (a pure helper or
+	 * named constructor) with no state to inject.
 	 */
 	public function process(?string $userId, array $input, callable $reportProgress): array {
 		$audio = TaskAudioInput::bytes(input: $input, purpose: 'translate');

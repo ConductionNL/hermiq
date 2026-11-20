@@ -961,6 +961,9 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 *
 	 * @throws ProviderCallFailedException When the status is not 200.
 	 * @throws ProviderUnavailableException When the body is not a JSON object.
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) ProviderCallFailedException is used through its static API (a
+	 * pure helper or named constructor) with no state to inject.
 	 */
 	private function responsesBody(int $status, string $body, string $retryAfter): array {
 		$decoded = json_decode($body, true);
@@ -2324,6 +2327,9 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @throws ProviderUnavailableException When the OpenAI API key is not configured.
 	 *
 	 * @spec openspec/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+	 *
+	 * @SuppressWarnings(PHPMD.ElseExpression) the two branches build one value from two sources; an early
+	 * return would duplicate what follows.
 	 */
 	private function createOpenAiDriver(array $openaiConfig, ChatDriverRequest $request): ChatDriver {
 		$credentialId = $this->overriddenCredentialId(
@@ -2389,6 +2395,9 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @throws ProviderUnavailableException When no base URL or model is configured, or the base URL is refused.
 	 *
 	 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-an-admin-can-connect-an-openai-compatible-endpoint-by-name-req-pconn-001
+	 *
+	 * @SuppressWarnings(PHPMD.ElseExpression) the two branches build one value from two sources; an early
+	 * return would duplicate what follows.
 	 */
 	private function createOpenAiCompatibleDriver(array $compatibleConfig, ChatDriverRequest $request): ChatDriver {
 		$label = $this->compatibleLabel(compatibleConfig: $compatibleConfig);

@@ -530,6 +530,13 @@
 						"title": "Ratings",
 						"icon": "ThumbUpOutline",
 						"_note": "observability-feedback-per-agent: share rated helpful with the thumbs up and down counts, and the latest thumbs-down comments. Resolved via page.slots.widget-agent-ratings -> agent-ratings."
+					},
+					{
+						"id": "agent-builds",
+						"type": "custom",
+						"title": "Builds",
+						"icon": "PackageVariantClosed",
+						"_note": "tools-agent-workspace-and-installed-tools: the published builds (files and installed tools frozen with an agent version), the pinned one, the unpublished-changes note and Publish build. Resolved via page.slots.widget-agent-builds -> agent-builds."
 					}
 				],
 				"layout": [
@@ -649,6 +656,15 @@
 						"gridWidth": 12,
 						"gridHeight": 4,
 						"showTitle": true
+					},
+					{
+						"id": "13",
+						"widgetId": "agent-builds",
+						"gridX": 0,
+						"gridY": 37,
+						"gridWidth": 12,
+						"gridHeight": 4,
+						"showTitle": false
 					}
 				],
 				"headerActions": [
@@ -737,7 +753,8 @@
 				"widget-agent-memory": "agent-memory",
 				"widget-agent-run-history": "agent-run-history",
 				"widget-agent-eval-baseline": "agent-eval-baseline",
-				"widget-agent-ratings": "agent-ratings"
+				"widget-agent-ratings": "agent-ratings",
+				"widget-agent-builds": "agent-builds"
 			}
 		},
 		{

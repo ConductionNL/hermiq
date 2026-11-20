@@ -44,6 +44,9 @@ final class ProviderRegistrar {
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
 	 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-other-apps-can-use-the-chain-through-taskprocessing-where-nextcloud-defines-it-req-strn-004
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) AudioToAudioTranslateProvider is used through its static API (a
+	 * pure helper or named constructor) with no state to inject.
 	 */
 	public function register(IRegistrationContext $context): void {
 		// TaskProcessing PROVIDERS. Hermiq CONSUMES Nextcloud AI for its own LLM work

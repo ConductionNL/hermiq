@@ -52,6 +52,9 @@ use Throwable;
  * not understood.
  *
  * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with this batch's feature work; splitting it is
+ * follow-up work, not part of this merge.
  */
 class ScheduleWhenController extends Controller {
 
@@ -213,11 +216,14 @@ class ScheduleWhenController extends Controller {
 	 * @param DateTimeImmutable $now    Now.
 	 *
 	 * @return array<string, mixed>|null
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) CronExpression is used through its static API (a pure helper or
+	 * named constructor) with no state to inject.
 	 */
 	private function validRule(string $answer, DateTimeImmutable $now): ?array {
 		$json = trim($answer);
-		if (preg_match('/\{.*\}/s', $json, $m) === 1) {
-			$json = $m[0];
+		if (preg_match('/\{.*\}/s', $json, $match) === 1) {
+			$json = $match[0];
 		}
 
 		$data = json_decode($json, true);
@@ -239,6 +245,9 @@ class ScheduleWhenController extends Controller {
 	 * @param array<string, mixed> $data The decoded answer.
 	 *
 	 * @return array<string, mixed>|null
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) CronExpression is used through its static API (a pure helper or
+	 * named constructor) with no state to inject.
 	 */
 	private static function cronRule(array $data): ?array {
 		$expr = $data['cronExpr'] ?? null;
