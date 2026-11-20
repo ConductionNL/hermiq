@@ -48,6 +48,8 @@ use Throwable;
  * Records, lists and removes the links of a session.
  *
  * @spec openspec/changes/session-entity-links/tasks.md
+ *
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) carried in with session-entity-links; splitting it is follow-up work, not part of this merge.
  */
 class SessionLinks {
 

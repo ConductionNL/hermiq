@@ -88,6 +88,8 @@ use Psr\Log\LoggerInterface;
  * recording it, and deciding whether a rename may touch it all live in
  * TalkSessionRoom, so this class only calls them. What remains is the ported
  * endpoint surface itself, which is exactly what must not be split.
+ *
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods) carried in with session-entity-links; splitting it is follow-up work, not part of this merge.
  */
 class SessionController extends Controller {
 	use SanitizesForSaveTrait;
@@ -241,6 +243,8 @@ class SessionController extends Controller {
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 * @spec openspec/specs/session-surface/spec.md#requirement-the-session-list-can-be-narrowed-to-one-record
 	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) SessionLinks is a set of pure functions over session data; it holds no state to inject.
 	 */
 	public function index(): JSONResponse {
 		try {
@@ -354,6 +358,8 @@ class SessionController extends Controller {
 	 * @return array{type: string, id: string, label: string|null}
 	 *
 	 * @spec openspec/changes/session-entity-links/tasks.md
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) SessionLinks is a set of pure functions over session data; it holds no state to inject.
 	 */
 	private static function scopeOf(array $scope, array $sessions): array {
 		$label = null;
@@ -1501,6 +1507,8 @@ class SessionController extends Controller {
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 * @spec openspec/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) SessionLinks is a set of pure functions over session data; it holds no state to inject.
 	 */
 	private function serializeConversation(ObjectEntity $conversation, string $userId = ''): array {
 		$data = $conversation->getObject();
