@@ -3140,7 +3140,6 @@ OC.L10N.register(
         "No remote agent is registered. Agents cannot hand work to another server until an admin adds one.": "No remote agent is registered. Agents cannot hand work to another server until an admin adds one.",
         "Remote agents": "Remote agents",
         "Saving fetches the agent card once through this source. The remote agent stays off until you switch it on.": "Saving fetches the agent card once through this source. The remote agent stays off until you switch it on.",
-        "The integriq sources could not be read.": "The integriq sources could not be read.",
         "Used in a grant to name this remote agent. Empty makes one from the name.": "Used in a grant to name this remote agent. Empty makes one from the name.",
         "Waiting for “{label}” (started {time})": "Waiting for “{label}” (started {time})",
         "What the remote agent does": "What the remote agent does",
@@ -3249,7 +3248,17 @@ OC.L10N.register(
         "Rights for \"{action}\" saved.": "Rights for \"{action}\" saved.",
         "The rights for \"{action}\" could not be saved.": "The rights for \"{action}\" could not be saved.",
         "Merge duplicate skills": "Merge duplicate skills",
-        "Archive a duplicate skill and move its agents to the skill that stays.": "Archive a duplicate skill and move its agents to the skill that stays."
+        "Archive a duplicate skill and move its agents to the skill that stays.": "Archive a duplicate skill and move its agents to the skill that stays.",
+        "Send me this weekly": "Send me this weekly",
+        "Send me this monthly": "Send me this monthly",
+        "Stop sending": "Stop sending",
+        "You will get this report every week.": "You will get this report every week.",
+        "You will get this report every month.": "You will get this report every month.",
+        "This report is no longer sent to you.": "This report is no longer sent to you.",
+        "Semantic search": "Semantic search",
+        "Vector search through Open Register": "Vector search through Open Register",
+        "Keyword search: Open Register has no embedding provider configured": "Keyword search: Open Register has no embedding provider configured",
+        "Keyword search: this Open Register has no vector search": "Keyword search: this Open Register has no vector search"
     },
     "nplurals=2; plural=(n != 1);"
 )

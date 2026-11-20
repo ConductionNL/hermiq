@@ -4,8 +4,8 @@ name: "Hermiq"
 url: "https://github.com/ConductionNL/hermiq"
 landingURL: "https://hermiq.conduction.nl"
 roadmap: "https://github.com/ConductionNL/hermiq/blob/development/openspec/ROADMAP.md"
-softwareVersion: "0.2.18-unstable.20261117093809"
-releaseDate: "2026-11-17"
+softwareVersion: "0.2.0"
+releaseDate: "2026-09-06"
 logo: img/app-store.svg
 softwareType: "addon"
 

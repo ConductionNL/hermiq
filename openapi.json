@@ -2,7 +2,7 @@
     "openapi": "3.0.3",
     "info": {
         "title": "Hermiq",
-        "version": "0.2.17-unstable.20261103233000",
+        "version": "0.2.19-unstable.20261119140628",
         "description": "The JSON API of Hermiq, the AI assistant app for Nextcloud: agents and agent templates, skills, chat and conversations, sessions and schedules, approvals and guardrail policies, model policy, budgets, evaluations and the settings behind them. The records themselves are stored in OpenRegister and read and written through its API; this document covers the endpoints Hermiq adds on top.\n\nEvery path is served under `/api/v1/`, the version this document describes. The unversioned `/api/` paths keep working, are deprecated, and name their `/api/v1/` successor in a `Link` header next to a `Deprecation` header. Errors are RFC 9457 problem details (`application/problem+json`), and every response carries an `API-Version` header. Paths that implement an external standard keep the formats of that standard and are not described here.",
         "contact": {
             "name": "Conduction B.V.",
@@ -346,6 +346,10 @@
         {
             "name": "knowledge-base",
             "description": "Knowledge bases: uploads into their Files folder and the state of their sources."
+        },
+        {
+            "name": "report-subscription",
+            "description": "The signed-in user's subscriptions to reports on the Reports page."
         }
     ],
     "paths": {
@@ -11870,6 +11874,136 @@
                         "schema": {
                             "type": "string"
                         }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/report-subscriptions": {
+            "get": {
+                "operationId": "report-subscription-index",
+                "summary": "The signed-in user's report subscriptions",
+                "description": "One row per report the signed-in user subscribed to, with its frequency and whether it is still sent. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "report-subscription"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/report-subscriptions/{report}": {
+            "post": {
+                "operationId": "report-subscription-subscribe",
+                "summary": "Send a report to the signed-in user",
+                "description": "Sends the report weekly or monthly to the signed-in user, switching an earlier subscription back on. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "report-subscription"
+                ],
+                "parameters": [
+                    {
+                        "name": "report",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "The report, by its card id on the Reports page, for example AiOversight."
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "frequency"
+                                ],
+                                "properties": {
+                                    "frequency": {
+                                        "type": "string",
+                                        "enum": [
+                                            "weekly",
+                                            "monthly"
+                                        ],
+                                        "description": "How often the report is sent."
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "The report is missing or the frequency is neither weekly nor monthly."
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "report-subscription-cancel",
+                "summary": "Stop sending a report to the signed-in user",
+                "description": "Cancels the signed-in user's subscription to the report; answers whether one was active. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "report-subscription"
+                ],
+                "parameters": [
+                    {
+                        "name": "report",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "The report, by its card id on the Reports page, for example AiOversight."
                     }
                 ],
                 "responses": {
