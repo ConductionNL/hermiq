@@ -1627,6 +1627,57 @@
 						"icon": "ShieldCheckOutline",
 						"route": "AiOversight"
 					}
+				],
+				"cardState": {
+					"url": "/apps/hermiq/api/report-subscriptions",
+					"keyField": "report"
+				},
+				"cardActions": [
+					{
+						"id": "send-weekly",
+						"label": "Send me this weekly",
+						"type": "api-call",
+						"method": "POST",
+						"url": "/apps/hermiq/api/report-subscriptions/@objectId",
+						"payload": {
+							"frequency": "weekly"
+						},
+						"successMessage": "You will get this report every week.",
+						"visibleWhen": {
+							"field": "state.status",
+							"op": "neq",
+							"value": "active"
+						}
+					},
+					{
+						"id": "send-monthly",
+						"label": "Send me this monthly",
+						"type": "api-call",
+						"method": "POST",
+						"url": "/apps/hermiq/api/report-subscriptions/@objectId",
+						"payload": {
+							"frequency": "monthly"
+						},
+						"successMessage": "You will get this report every month.",
+						"visibleWhen": {
+							"field": "state.status",
+							"op": "neq",
+							"value": "active"
+						}
+					},
+					{
+						"id": "stop-sending",
+						"label": "Stop sending",
+						"type": "api-call",
+						"method": "DELETE",
+						"url": "/apps/hermiq/api/report-subscriptions/@objectId",
+						"successMessage": "This report is no longer sent to you.",
+						"visibleWhen": {
+							"field": "state.status",
+							"op": "eq",
+							"value": "active"
+						}
+					}
 				]
 			},
 			"_note": "ADR-112 / ADR-114 Decision 3. Nothing is invented: AI oversight already existed and was an entry in the SETTINGS foldout. That is where configuration lives (ADR-044 Decision 3), and oversight is not configuration — it is a reading of what the agents did, which is what a report is. The page is untouched and stays routable at /ai-oversight, and dossiq deep-links it as an ADR-110 integrations entry, so the route had to survive. Guardrail policy, the algorithm register and Compliance stay in the foldout: those ARE configuration."

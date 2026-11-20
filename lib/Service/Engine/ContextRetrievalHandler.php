@@ -8,20 +8,18 @@
  * formatting, and ragSearchMode/ragNumSources handling are preserved; the retrieval
  * call itself is re-pointed at OpenRegister's public search surface.
  *
- * GROUND-TRUTH ADAPTATION (agent-engine-port pause protocol — document, continue):
- * the ported original constructed `OCA\OpenRegister\Search\Service\Vectorization\VectorEmbeddings`
- * directly for its `semantic`/`hybrid` modes — an OR-INTERNAL class, not a published
- * cross-app facade (unlike `ToolRegistryFacade`). Reproducing that construction here
- * would recreate exactly the wide, undocumented internal dependency gate-27 exists to
- * catch. design.md assumed "OR's existing vector-search surface" exists as a public
- * facade; at openregister HEAD (verified 2026-07-06) it does not. Resolution:
+ * The ported original constructed `OCA\OpenRegister\Search\Service\Vectorization\VectorEmbeddings`
+ * directly for its `semantic`/`hybrid` modes, an OpenRegister-internal class. Hermiq
+ * never reproduced that reach-in (gate-27); those modes ran on the keyword path until
+ * OpenRegister published `VectorSearchFacade`. They now go through it (vector-rag):
  * - `keyword` mode calls `ObjectService::searchObjectsPaginated(query: ['_search' =>
- *   ..., '_limit' => ...])` — the same real, public, documented method the original's
- *   own `searchKeywordOnly()` used.
- * - `semantic`/`hybrid` modes DEGRADE GRACEFULLY to that keyword path, with a
- *   `LoggerInterface::info()` note, rather than crashing or reaching into OR
- *   internals. When OR publishes a vector-search facade, only `retrieveContext()`'s
- *   mode branch needs re-pointing — see the agent-engine-port DEFERRED note.
+ *   ..., '_limit' => ...])`, the public method the original's `searchKeywordOnly()` used.
+ * - `semantic`/`hybrid` call the facade's `searchSemantic()`/`searchHybrid()` through
+ *   {@see VectorSearch}, with the resolved views passed through, when the facade is
+ *   present and reports an embedding backend. Otherwise, or when the call fails, they
+ *   fall back to the keyword path, and VectorSearch logs which of the three it was.
+ * - The empty-views gate stands in front of every mode: the facade is never asked
+ *   without a view set.
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V.
  * SPDX-License-Identifier: EUPL-1.2
@@ -37,6 +35,7 @@
  *
  * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
  * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
+ * @spec openspec/changes/vector-rag/tasks.md#task-2-1
  */
 
 declare(strict_types=1);
@@ -77,6 +76,7 @@ class ContextRetrievalHandler {
 	 * @param ScopedPassageSource|null $scopedSource The passages of a turn scoped to a file or folder; null refuses such a turn.
 	 * @param ValidatedFileSet|null $validatedFiles The files carrying the validated tag (memory-retrieval-scope); null is no file.
 	 * @param KnowledgeBaseRetrieval|null $knowledgeBases The agent's knowledge bases (memory-knowledge-bases); null searches none.
+	 * @param VectorSearch|null $vectorSearch OpenRegister's vector facade (vector-rag); null keeps semantic and hybrid on the keyword path.
 	 *
 	 * @return void
 	 *
@@ -91,6 +91,7 @@ class ContextRetrievalHandler {
 		private readonly ?ScopedPassageSource $scopedSource = null,
 		private readonly ?ValidatedFileSet $validatedFiles = null,
 		private readonly ?KnowledgeBaseRetrieval $knowledgeBases = null,
+		private readonly ?VectorSearch $vectorSearch = null,
 	) {
 	}//end __construct()
 
@@ -507,19 +508,11 @@ class ContextRetrievalHandler {
 			$graph = $this->graphContext(query: $run['query'], agentData: $run['agentData'], limit: $fetchLimit);
 		}
 
-		// Semantic/hybrid degrade to keyword: see the class docblock's
-		// ground-truth adaptation note.
-		if ($searchMode === 'semantic' || $searchMode === 'hybrid') {
-			$this->logger->info(
-				message: '[ContextRetrievalHandler] semantic/hybrid RAG mode requested but no public OR '
-					. 'vector-search facade exists yet at HEAD; degrading to keyword search — '
-					. 'see agent-engine-port DEFERRED note',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'searchMode' => $searchMode,
-				]
-			);
+		if ($graph === null && ($searchMode === 'semantic' || $searchMode === 'hybrid')) {
+			$rows = $this->vectorRows(run: $run, searchMode: $searchMode, limit: $fetchLimit);
+			if ($rows !== null) {
+				return ['results' => $rows, 'text' => ''];
+			}
 		}
 
 		if ($graph === null) {
@@ -539,6 +532,42 @@ class ContextRetrievalHandler {
 			'text' => ($graph['relations'] ?? ''),
 		];
 	}//end candidateResults()
+
+	/**
+	 * Semantic or hybrid rows from OpenRegister's vector facade, or null to take the keyword path.
+	 *
+	 * The empty-views gate holds here too: without a resolved view set the facade is
+	 * not asked, and {@see searchScoped()} decides (the app's registers, or nothing).
+	 *
+	 * @param array<string, mixed> $run        The query and the resolved view filters.
+	 * @param string               $searchMode `semantic` or `hybrid`.
+	 * @param int                  $limit      At most this many rows.
+	 *
+	 * @return array<int, array<string, mixed>>|null The rows, or null for the keyword path.
+	 *
+	 * @spec openspec/changes/vector-rag/tasks.md#task-2-1
+	 * @spec openspec/changes/vector-rag/tasks.md#task-2-2
+	 */
+	private function vectorRows(array $run, string $searchMode, int $limit): ?array {
+		if (empty($run['viewFilters']) === true) {
+			return null;
+		}
+
+		if ($this->vectorSearch === null) {
+			$this->logger->info(
+				message: '[ContextRetrievalHandler] semantic/hybrid RAG mode requested without vector search wired; degrading to keyword search',
+				context: ['searchMode' => $searchMode]
+			);
+			return null;
+		}
+
+		return $this->vectorSearch->search(
+			mode: $searchMode,
+			query: (string)$run['query'],
+			limit: $limit,
+			views: array_values($run['viewFilters'])
+		);
+	}//end vectorRows()
 
 	/**
 	 * The file rows of the agent's knowledge bases, first in the source list.

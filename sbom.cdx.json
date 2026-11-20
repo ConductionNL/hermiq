@@ -211,10 +211,10 @@
       ]
     },
     {
-      "bom-ref": "guzzlehttp/guzzle-7.16.1.0",
+      "bom-ref": "guzzlehttp/guzzle-7.16.3.0",
       "type": "library",
       "name": "guzzle",
-      "version": "7.16.1",
+      "version": "7.16.3",
       "group": "guzzlehttp",
       "description": "Guzzle is a PHP HTTP client library",
       "author": "Graham Campbell, Michael Dowling, Jeremy Lindblom, George Mponos, Tobias Nyholm, Márk Sági-Kazár, Tobias Schultze",
@@ -225,17 +225,17 @@
           }
         }
       ],
-      "purl": "pkg:composer/guzzlehttp/guzzle@7.16.1",
+      "purl": "pkg:composer/guzzlehttp/guzzle@7.16.3",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/guzzle/guzzle/zipball/81755d989b3007ca7f88a069857553cd08e7dc2e",
-          "comment": "dist reference: 81755d989b3007ca7f88a069857553cd08e7dc2e"
+          "url": "https://api.github.com/repos/guzzle/guzzle/zipball/c88a78082757dd5a0c44191651535259fcb6e605",
+          "comment": "dist reference: c88a78082757dd5a0c44191651535259fcb6e605"
         },
         {
           "type": "vcs",
           "url": "https://github.com/guzzle/guzzle.git",
-          "comment": "source reference: 81755d989b3007ca7f88a069857553cd08e7dc2e"
+          "comment": "source reference: c88a78082757dd5a0c44191651535259fcb6e605"
         },
         {
           "type": "issue-tracker",
@@ -244,18 +244,18 @@
         },
         {
           "type": "vcs",
-          "url": "https://github.com/guzzle/guzzle/tree/7.16.1",
+          "url": "https://github.com/guzzle/guzzle/tree/7.16.3",
           "comment": "as detected from Composer manifest 'support.source'"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "81755d989b3007ca7f88a069857553cd08e7dc2e"
+          "value": "c88a78082757dd5a0c44191651535259fcb6e605"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "81755d989b3007ca7f88a069857553cd08e7dc2e"
+          "value": "c88a78082757dd5a0c44191651535259fcb6e605"
         },
         {
           "name": "cdx:composer:package:type",
@@ -317,10 +317,10 @@
       ]
     },
     {
-      "bom-ref": "guzzlehttp/psr7-2.13.3.0",
+      "bom-ref": "guzzlehttp/psr7-2.13.4.0",
       "type": "library",
       "name": "psr7",
-      "version": "2.13.3",
+      "version": "2.13.4",
       "group": "guzzlehttp",
       "description": "PSR-7 message implementation that also provides common utility methods",
       "author": "Graham Campbell, Michael Dowling, George Mponos, Tobias Nyholm, Márk Sági-Kazár, Tobias Schultze, Márk Sági-Kazár",
@@ -331,17 +331,17 @@
           }
         }
       ],
-      "purl": "pkg:composer/guzzlehttp/psr7@2.13.3",
+      "purl": "pkg:composer/guzzlehttp/psr7@2.13.4",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/guzzle/psr7/zipball/6d3cd8285a97eaa352956a4ada92fa03ecce1c4e",
-          "comment": "dist reference: 6d3cd8285a97eaa352956a4ada92fa03ecce1c4e"
+          "url": "https://api.github.com/repos/guzzle/psr7/zipball/ad5e3f872690e1151e1171de2963150fc45ea1e3",
+          "comment": "dist reference: ad5e3f872690e1151e1171de2963150fc45ea1e3"
         },
         {
           "type": "vcs",
           "url": "https://github.com/guzzle/psr7.git",
-          "comment": "source reference: 6d3cd8285a97eaa352956a4ada92fa03ecce1c4e"
+          "comment": "source reference: ad5e3f872690e1151e1171de2963150fc45ea1e3"
         },
         {
           "type": "issue-tracker",
@@ -350,18 +350,18 @@
         },
         {
           "type": "vcs",
-          "url": "https://github.com/guzzle/psr7/tree/2.13.3",
+          "url": "https://github.com/guzzle/psr7/tree/2.13.4",
           "comment": "as detected from Composer manifest 'support.source'"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "6d3cd8285a97eaa352956a4ada92fa03ecce1c4e"
+          "value": "ad5e3f872690e1151e1171de2963150fc45ea1e3"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "6d3cd8285a97eaa352956a4ada92fa03ecce1c4e"
+          "value": "ad5e3f872690e1151e1171de2963150fc45ea1e3"
         },
         {
           "name": "cdx:composer:package:type",
@@ -1185,10 +1185,10 @@
       ]
     },
     {
-      "bom-ref": "theodo-group/llphant-1.0.10.0",
+      "bom-ref": "theodo-group/llphant-1.10.11.0",
       "type": "library",
       "name": "llphant",
-      "version": "1.0.10",
+      "version": "1.10.11",
       "group": "theodo-group",
       "description": "LLPhant is a library to help you build Generative AI applications.",
       "author": "Maxime Thoonsen",
@@ -1199,22 +1199,37 @@
           }
         }
       ],
-      "purl": "pkg:composer/theodo-group/llphant@1.0.10",
+      "purl": "pkg:composer/theodo-group/llphant@1.10.11",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/theodo-group/LLPhant/zipball/d0a94b301dad628765a7e543abef9016f81ee387",
-          "comment": "dist reference: d0a94b301dad628765a7e543abef9016f81ee387"
+          "url": "https://api.github.com/repos/LLPhant/LLPhant/zipball/b6b99e48f364248e5f980fe91e1f71bacbf0ef64",
+          "comment": "dist reference: b6b99e48f364248e5f980fe91e1f71bacbf0ef64"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/LLPhant/LLPhant.git",
+          "comment": "source reference: b6b99e48f364248e5f980fe91e1f71bacbf0ef64"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/LLPhant/LLPhant/tree/1.10.11",
+          "comment": "as detected from Composer manifest 'support.source'"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/LLPhant/LLPhant/issues",
+          "comment": "as detected from Composer manifest 'support.issues'"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "d0a94b301dad628765a7e543abef9016f81ee387"
+          "value": "b6b99e48f364248e5f980fe91e1f71bacbf0ef64"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "d0a94b301dad628765a7e543abef9016f81ee387"
+          "value": "b6b99e48f364248e5f980fe91e1f71bacbf0ef64"
         },
         {
           "name": "cdx:composer:package:type",
@@ -33122,10 +33137,10 @@
       "ref": "dragonmantank/cron-expression-3.6.1.0"
     },
     {
-      "ref": "guzzlehttp/guzzle-7.16.1.0",
+      "ref": "guzzlehttp/guzzle-7.16.3.0",
       "dependsOn": [
         "guzzlehttp/promises-2.6.0.0",
-        "guzzlehttp/psr7-2.13.3.0",
+        "guzzlehttp/psr7-2.13.4.0",
         "psr/http-client-1.0.3.0",
         "symfony/deprecation-contracts-3.8.1.0",
         "symfony/polyfill-php80-1.43.0.0"
@@ -33138,7 +33153,7 @@
       ]
     },
     {
-      "ref": "guzzlehttp/psr7-2.13.3.0",
+      "ref": "guzzlehttp/psr7-2.13.4.0",
       "dependsOn": [
         "psr/http-factory-1.1.0.0",
         "psr/http-message-2.0.0.0",
@@ -33214,10 +33229,10 @@
       ]
     },
     {
-      "ref": "theodo-group/llphant-1.0.10.0",
+      "ref": "theodo-group/llphant-1.10.11.0",
       "dependsOn": [
-        "guzzlehttp/guzzle-7.16.1.0",
-        "guzzlehttp/psr7-2.13.3.0",
+        "guzzlehttp/guzzle-7.16.3.0",
+        "guzzlehttp/psr7-2.13.4.0",
         "openai-php/client-0.19.2.0",
         "php-http/multipart-stream-builder-1.4.2.0",
         "phpoffice/phpword-1.4.0.0",
@@ -33238,7 +33253,7 @@
       "ref": "conductionnl/hermiq-0.1.0.0",
       "dependsOn": [
         "dragonmantank/cron-expression-3.6.1.0",
-        "theodo-group/llphant-1.0.10.0"
+        "theodo-group/llphant-1.10.11.0"
       ]
     }
   ]
