@@ -48,6 +48,10 @@ vi.mock('../../src/dialogs/ForgetMemoryDialog.vue', () => ({
 	default: { name: 'ForgetMemoryDialog', props: ['text', 'busy'], emits: ['close', 'confirm'], template: '<div class="forget-dialog" />' },
 }))
 
+vi.mock('../../src/dialogs/MoveMemoryEntryDialog.vue', () => ({
+	default: { name: 'MoveMemoryEntryDialog', props: ['text', 'projects', 'busy'], emits: ['close', 'confirm'], template: '<div class="move-dialog" />' },
+}))
+
 const memoryApi = await import('../../src/api/memory.js')
 const { default: AgentMemoryPanel } = await import('../../src/components/AgentMemoryPanel.vue')
 

@@ -205,8 +205,14 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 		 * @return string The answer.
 		 */
 		private function turn(ProviderFactory $factory, array $functions): string {
-			$method = new \ReflectionMethod(ProviderFactory::class, 'callAnthropicCli');
-			return $method->invokeArgs($factory, ['cred-1', 'claude-sonnet', [LLPhantMessage::user('Hello')], $functions, 'agent-1', '']);
+			$turn = new \OCA\Hermiq\Service\Llm\CliTurn(model: 'claude-sonnet', agentId: 'agent-1');
+			$turn->credentialId   = 'cred-1';
+			$turn->messageHistory = [LLPhantMessage::user('Hello')];
+			$turn->functions      = $functions;
+			$turn->conversationId = '';
+			$method = new \ReflectionMethod(ProviderFactory::class, 'answerCliTurn');
+			$method->setAccessible(true);
+			return $method->invokeArgs($factory, [$turn]);
 		}//end turn()
 
 		/**

@@ -447,6 +447,9 @@ class FacadeToolInvoker {
 	 * @param string            $conversationId The conversation of this turn; '' opens no handoff.
 	 * @param string $runId The run a computer action's approval is scoped to (tools-browser-and-computer-use);
 	 *                      empty, every pre-existing caller, offers no run-scoped pre-authorisation.
+	 * @param string|null  $projectKey The session's project (memory-project-scopes), injected
+	 *                                 into the memory tools; null, every pre-existing caller,
+	 *                                 is a session without a project (shared memory only).
 	 *
 	 * @return void
 	 *
@@ -485,6 +488,7 @@ class FacadeToolInvoker {
 		private readonly ?TurnHandoffs $handoffs = null,
 		private readonly string $conversationId = '',
 		private readonly string $runId = '',
+		private readonly ?string $projectKey = null,
 	) {
 		$this->turnGuard = new TurnGuard(maxToolCalls: $maxToolCalls, agentStillOn: $agentStillOn);
 	}//end __construct()
@@ -1335,6 +1339,34 @@ class FacadeToolInvoker {
 	}//end withAgentId()
 
 	/**
+	 * Set this run's own project key on the three memory tool calls, or remove
+	 * one the caller supplied when the session has no project: which project's
+	 * memory a call reads or writes is server-side session state, never a tool
+	 * argument the model chooses (memory-project-scopes, design D4). Every other
+	 * tool's arguments pass through unchanged.
+	 *
+	 * @param string               $name      The LLPhant-side function name.
+	 * @param array<string, mixed> $arguments Decoded arguments object.
+	 *
+	 * @return array<string, mixed> Arguments, with `projectKey` set or removed for a memory tool.
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	private function withProjectKey(string $name, array $arguments): array {
+		if (in_array($this->resolveToolId(name: $name), self::MEMORY_TOOL_IDS, true) === false) {
+			return $arguments;
+		}
+
+		unset($arguments['projectKey']);
+		$key = trim((string)$this->projectKey);
+		if ($key !== '') {
+			$arguments['projectKey'] = $key;
+		}
+
+		return $arguments;
+	}//end withProjectKey()
+
+	/**
 	 * Whether a tool acts for the run's agent: the memory, artefact-write and integriq
 	 * agent tools, and delegation.
 	 *
@@ -1398,7 +1430,10 @@ class FacadeToolInvoker {
 			toolId: $name,
 			arguments: $this->withFlowOwner(
 				name: $name,
-				arguments: $this->withAgentId(name: $name, arguments: $arguments)
+				arguments: $this->withProjectKey(
+					name: $name,
+					arguments: $this->withAgentId(name: $name, arguments: $arguments)
+				)
 			)
 		);
 		$dispatch->envelope['result'] = $this->withStagedBatchApproval(

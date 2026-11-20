@@ -194,6 +194,9 @@ class ResponseGenerationHandler {
 	 *                                                      (TurnAttachmentResolver).
 	 * @param string $speaker The uid the attachments were resolved for; their bytes are
 	 *                        read as this person when the model reads them natively.
+	 * @param string $projectKey The session's project (memory-project-scopes): the memory
+	 *                           tools read and write that project's memory beside the
+	 *                           shared one. '' is a session without a project.
 	 *
 	 * @return string Generated response text.
 	 *
@@ -233,6 +236,7 @@ class ResponseGenerationHandler {
 		array $promptVariables = [],
 		array $attachments = [],
 		string $speaker = '',
+		string $projectKey = '',
 	): string {
 		// Chat-about-a-document: a scoped turn with nothing in scope is answered
 		// with that fact, and the model is never asked to answer from general knowledge.
@@ -252,6 +256,7 @@ class ResponseGenerationHandler {
 		$run->trace = $trace;
 		$run->dryRun = $dryRun;
 		$run->conversationId = $conversationId;
+		$run->projectKey = $projectKey;
 		$run->promptVariables = $promptVariables;
 		$run->attachments = $attachments;
 		$run->speaker = $speaker;
@@ -847,7 +852,8 @@ class ResponseGenerationHandler {
 			agentId: $run->progress->cliAgentId,
 			maxTokens: $run->progress->driver->maxTokens,
 			conversationId: $run->conversationId,
-			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent)
+			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent),
+			projectKey: $run->projectKey
 		);
 	}//end requestAnthropic()
 
@@ -908,7 +914,8 @@ class ResponseGenerationHandler {
 			organisation: $run->progress->organisation,
 			dryRun: $run->dryRun,
 			conversationId: $run->conversationId,
-			runId: self::approvalRunOf(run: $run)
+			runId: self::approvalRunOf(run: $run),
+			projectKey: $run->projectKey
 		);
 	}//end functionInfosFor()
 
