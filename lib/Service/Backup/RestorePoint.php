@@ -53,6 +53,8 @@ final class RestorePoint {
 	 * @param string                 $file               The backup file name, for a backup.
 	 * @param DateTimeImmutable|null $at                 The moment, for a moment.
 	 * @param bool                   $removeCreatedAfter Whether objects created after the point move to the deleted objects.
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) the flag is an option of the backup or restore, carried as data; it switches no behaviour of this constructor.
 	 */
 	public function __construct(
 		public readonly string $kind,
@@ -75,6 +77,8 @@ final class RestorePoint {
 	 * @throws InvalidArgumentException When a value is missing or not understood.
 	 *
 	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) BackupFiles::isBackupName() is a pure check of a file name, with nothing to inject.
 	 */
 	public static function fromArray(array $values): self {
 		$kind = (string)($values['kind'] ?? '');

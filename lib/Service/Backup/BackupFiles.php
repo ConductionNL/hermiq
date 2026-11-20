@@ -186,6 +186,8 @@ class BackupFiles {
 	 * @return array<string, mixed> The document.
 	 *
 	 * @throws RuntimeException When it is not a gzipped JSON object.
+	 *
+	 * @SuppressWarnings(PHPMD.ErrorControlOperator) an unreadable file is reported through the return value checked on the next lines.
 	 */
 	private function decode(File $file): array {
 		$raw = @gzdecode((string)$file->getContent());

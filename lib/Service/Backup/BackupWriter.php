@@ -57,6 +57,8 @@ use Throwable;
  * Writes and prunes the per-organisation backup files.
  *
  * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with operations-backup-and-restore; splitting it is follow-up work, not part of this merge.
  */
 class BackupWriter {
 
@@ -172,6 +174,8 @@ class BackupWriter {
 	 * @throws RuntimeException When it cannot be read.
 	 *
 	* @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+	 *
+	 * @SuppressWarnings(PHPMD.ErrorControlOperator) an unreadable file is reported through the return value checked on the next lines.
 	 */
 	public function descriptor(): array {
 		$raw = @file_get_contents($this->registerFile);

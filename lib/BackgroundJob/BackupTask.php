@@ -69,6 +69,8 @@ class BackupTask extends TimedJob {
 	 * @return void
 	 *
 	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+	 *
+	 * @SuppressWarnings(PHPMD.UnusedFormalParameter) $argument is part of the background job signature; this job takes no argument.
 	 */
 	protected function run($argument): void {
 		$settings = $this->settings->get();

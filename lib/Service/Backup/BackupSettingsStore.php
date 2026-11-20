@@ -57,6 +57,8 @@ class BackupSettingsStore {
 	 * @return BackupSettings The settings.
 	 *
 	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) BackupSettings is a value object; the static call is its named constructor, with nothing to inject.
 	 */
 	public function get(): BackupSettings {
 		$raw = $this->appConfig->getValueString(AppIdentity::APP_ID, self::CONFIG_KEY, '');
