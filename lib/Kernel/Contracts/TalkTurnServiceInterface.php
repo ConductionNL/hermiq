@@ -50,10 +50,22 @@ interface TalkTurnServiceInterface {
 	 * @param string $speakerUid The uid whose turn this is (the acting identity).
 	 * @param string $message The message text.
 	 * @param string $roomToken The room to answer in.
+	 * @param string $agentId The addressed agent; '' resolves it from the room's session.
+	 * @param string $messageId The Talk message that addressed the agent; '' when unknown.
+	 * @param array $chain The agent-to-agent chain descriptor; empty for a human-rooted turn.
 	 *
 	 * @return bool True when an answer was posted.
 	 *
 	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-replies-stream-progressively-where-talk-supports-message-editing
 	 */
-	public function runTurn(string $conversationUuid, string $speakerUid, string $message, string $roomToken): bool;
+	public function runTurn(
+		string $conversationUuid,
+		string $speakerUid,
+		string $message,
+		string $roomToken,
+		string $agentId = '',
+		string $messageId = '',
+		array $chain = [],
+	): bool;
 }//end interface

@@ -36,19 +36,81 @@ Two switches are required and both default to off. Neither alone does anything.
 - **In a group conversation**, the agent answers only when it is `@`-mentioned or when you reply
   to one of its own messages. Without this it would answer every message in the room — and group
   rooms are exactly where reports get delivered.
-- **Receipt is acknowledged with a ⏳ reaction** as soon as your message lands. The answer follows
-  when the turn completes.
+- **Receipt is acknowledged with a ⏳ reaction** as soon as your message lands. The reaction is
+  removed once the answer, or a notice that the turn failed, is in the room.
 
-## Why the answer is not instant
+## How the answer arrives so fast
 
-The agent turn deliberately does **not** run inside your message-send request — doing so would
-hold your Talk client waiting for the whole model call. It runs as a background job instead, so
-the answer arrives when that job runs.
+The agent turn never runs inside your message-send request — doing so would hold your Talk client
+waiting for the whole model call. Instead every turn is handed off three ways at once:
 
-**This means reply latency depends on how often the instance runs background jobs.** On a default
-Nextcloud that can be several minutes. If you want conversational latency, run background jobs on
-a fast cadence (system cron every minute). The ⏳ reaction is what tells you the message landed in
-the meantime.
+1. **It is queued as a background job.** This is the durable record: whatever happens to the other
+   paths, the job is there.
+2. **A registered turn runner is nudged**, when one is installed (it ships separately as an ExApp).
+   It picks the turn up within seconds.
+3. **Otherwise the turn runs right after your request has been answered**, in the same PHP process.
+   Your Talk client is already released by then, so you do not wait; the answer starts within
+   seconds instead of at the next background-job tick.
+
+Each turn has an id (room, message, agent) that an executor must **claim** before running it, so
+the instant run and the background job never both answer, and a message Talk delivers twice is
+answered once. If the instant run dies halfway, its claim expires and the background job runs the
+turn instead.
+
+Two limits apply:
+
+- **The instant path needs a distributed memcache** (Redis, Memcached or APCu) for the claims. On
+  an instance without one, turns run on the background job only, as before — the answer then
+  arrives when the job runs, so a fast cron cadence (every minute) matters there.
+- **At most `talk.instantTurnsMax` instant turns run at once** (default 2), so long turns cannot
+  tie up every PHP worker. Turns over the cap wait for the background job. `talk.instantTurns` set
+  to false turns the instant path off. The claim lives `talk.turnClaimTtlSeconds` (default: the
+  turn budget `talk.turnTimeoutSeconds`, 300, plus a minute).
+
+## Answers grow while the agent writes
+
+Where Talk can edit a bot's message, the answer is posted as soon as the agent starts writing and
+then edited as it grows, at most once every `talk.editThrottleSeconds` (default 2) — every edit is
+pushed to every participant, so editing more often would flood phones. The last edit is always the
+exact, complete answer. Where Talk cannot edit, or an edit fails, the complete answer is posted as
+an ordinary message at the end: progressive delivery can never cut an answer short.
+
+## Several agents in one room
+
+Every Talk-enabled agent has its own bot, named after the agent. A moderator adds an agent to a
+room the way any bot is added — Talk's bot settings for the conversation, or
+`occ talk:bot:setup <botId> <token>` — and removing the bot removes that agent from the room at
+once. There is no separate Hermiq list of who is in which room.
+
+In a room with several agents, **only the agent you address answers**: `@`-mention it by name, or
+reply to one of its messages. Mention two agents and each takes its own turn. A message that
+mentions nobody is answered by nobody. That holds in a room Hermiq created for a session too: such
+a room answers every message while it holds one agent, and needs addressing once a moderator adds a
+second. Rooms bound to a single agent before per-agent bots keep working through the shared bot.
+
+**Each agent keeps its own session of the room**, so its history holds what *it* was asked and
+said, not the other agents' turns. A room's session from before this keeps going: the agent that
+takes the next turn there adopts it.
+
+Each agent's bot is refreshed on every install and upgrade of Hermiq, so a bot is never stale until
+somebody saves its agent.
+
+### Agents asking each other
+
+When an agent's answer `@`-mentions another agent in the room, that agent takes a turn on the
+answer. Hard limits keep this bounded:
+
+- **Mention-only.** An answer that mentions no other agent starts nothing, and an agent mentioning
+  itself starts nothing.
+- **Hop budget.** A chain starts at a human's message and takes at most `talk.agentChainMaxHops`
+  agent-triggered turns (default 3). The answer that would go over it posts a one-line notice that
+  the conversation between agents has ended.
+- **Rate cap.** At most `talk.agentChainRoomRatePerMinute` agent-triggered turns per room per minute
+  (default 6), with the same kind of notice. The cap is counted in the distributed memcache; without
+  one, agents do not hand turns to each other at all.
+- **The human's access, never more.** Every turn in a chain runs as the person whose message started
+  it, with their files and credentials. If that person has left the room, or may not take a turn on
+  the mentioned agent's session, the chain stops there.
 
 ## Sharing a session with colleagues
 
@@ -89,8 +151,9 @@ Setting `talkEnabled` to false on the agent has the same effect for that agent.
 
 ## What it does not do
 
-- **No streaming.** Bots post whole messages; there is no token-by-token reply in Talk.
-- **Threads are not sessions.** One room maps to one session; Talk threads are not yet used.
+- **No token-by-token streaming.** Answers grow by throttled edits (see above), not per token.
+- **Threads are not sessions.** One room maps to one session per agent; Talk threads are not yet
+  used.
 - **Approvals are not resolved from Talk.** Approving a gated run still happens in Hermiq.
 - **No non-Nextcloud chat platforms.** Bridging Slack/Telegram/Teams is OpenConnector's job
   (ADR-005), reached through the outbound webhook channel.
