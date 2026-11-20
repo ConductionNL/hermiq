@@ -83,4 +83,11 @@ final class ToolSurfaceRun {
 	 * @var string
 	 */
 	public string $conversationId = '';
+
+	/**
+	 * The run a computer action's approval is scoped to; '' when there is none.
+	 *
+	 * @var string
+	 */
+	public string $runId = '';
 }//end class

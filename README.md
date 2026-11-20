@@ -16,7 +16,7 @@
 
 ---
 
-Hermiq brings autonomous AI agents to Nextcloud. Define an agent, give it tools, and run it on a schedule — all inside your own Nextcloud. Agents, their memory and skills are stored as OpenRegister objects, so every run is governed, auditable and multi-tenant.
+Hermiq brings autonomous AI agents to Nextcloud. Define an agent, give it tools, and run it on a schedule — all inside your own Nextcloud. Agents, their memory and skills are stored as OpenRegister objects, so every run is governed, auditable and multi-tenant. Install it from the [Nextcloud App Store](https://apps.nextcloud.com/apps/hermiq).
 
 > **Manifest-first** — pages, navigation, and dependencies are declared in `src/manifest.json`. The shell (CnAppRoot) reads the manifest at boot and renders index / detail / dashboard / settings pages without per-page Vue files. Reach for a custom Vue component only when the page is `type: "custom"`. See `openspec/architecture/` and hydra ADR-024 for the architectural rationale.
 

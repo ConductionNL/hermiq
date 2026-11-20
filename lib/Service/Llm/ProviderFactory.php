@@ -547,6 +547,41 @@ class ProviderFactory implements ProviderFactoryInterface {
 	}//end instantiateChatDriver()
 
 	/**
+	 * A fallback hop names its own provider and model; the gates that follow run for it as for the first provider.
+	 *
+	 * @param ChatDriverRequest $request The request being resolved.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	private function applyHopOverride(ChatDriverRequest $request): void {
+		if ($request->providerOverride === null || $request->providerOverride === '') {
+			return;
+		}
+
+		$request->chatProvider = $request->providerOverride;
+		$request->agentModel   = $request->modelOverride;
+	}//end applyHopOverride()
+
+	/**
+	 * The effective fallback chain of an organisation's model policy.
+	 *
+	 * @param string|null $organisation The organisation uuid, or null for none.
+	 *
+	 * @return array<int, array{provider: string, model: string}> The hops in order; none without a policy service.
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	public function fallbackChainFor(?string $organisation): array {
+		if ($this->modelPolicyService === null) {
+			return [];
+		}
+
+		return $this->modelPolicyService->fallbackChainFor(organisation: (string)$organisation);
+	}//end fallbackChainFor()
+
+	/**
 	 * Resolve the configured `chatProvider` into a ready-to-use ChatDriver.
 	 *
 	 * @param array $llmConfig The `hermiq.llm` configuration
@@ -580,6 +615,8 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 *                               provider is used first and never bypassed.
 	 * @param array<int, string> $attachmentReferences The file ids attached to this turn,
 	 *                               each checked by the feature's gates on its own.
+	 * @param string|null $providerOverride A fallback hop's provider; the gates run for it as for the first.
+	 * @param string|null $modelOverride    That hop's model.
 	 *
 	 * @return ChatDriver The resolved driver.
 	 *
@@ -601,6 +638,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
 	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
 	 */
 	public function createChatDriver(
 		array $llmConfig,
@@ -612,8 +650,12 @@ class ProviderFactory implements ProviderFactoryInterface {
 		?string $documentReference = null,
 		?array $agentCredentialIds = null,
 		array $attachmentReferences = [],
+		?string $providerOverride = null,
+		?string $modelOverride = null,
 	): ChatDriver {
 		$request = new ChatDriverRequest(llmConfig: $llmConfig, organisation: $organisation);
+		$request->providerOverride = $providerOverride;
+		$request->modelOverride = $modelOverride;
 		$request->agentModel = $agentModel;
 		$request->agentTemperature = $agentTemperature;
 		$request->agentMaxTokens = $agentMaxTokens;
@@ -658,6 +700,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 */
 	private function resolveChatDriver(ChatDriverRequest $request): ChatDriver {
 		$this->driverGates()->resolveFeatureBinding(request: $request);
+		$this->applyHopOverride(request: $request);
 
 		if (empty($request->chatProvider) === true) {
 			throw new ProviderUnavailableException(

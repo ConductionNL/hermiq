@@ -61,6 +61,15 @@
 				>
 				<strong>{{ currentProviderLabel }}</strong>
 			</div>
+			<div
+				v-if="retrievalTier"
+				class="hermiq-admin-settings__provider"
+				data-testid="retrieval-tier">
+				<span class="hermiq-admin-settings__provider-label"
+					>{{ t('hermiq', 'Semantic search') }}:</span
+				>
+				<strong>{{ retrievalTierLabel }}</strong>
+			</div>
 			<NcButton variant="primary" @click="showModal = true">
 				<template #icon>
 					<Cog :size="20" />
@@ -181,6 +190,17 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			:name="t('hermiq', 'Computer targets')"
+			:description="
+				t(
+					'hermiq',
+					'The machines an agent may operate, each reached only through an integriq source whose key stays in the credential broker. A machine is off until you switch it on, and every action on it still needs a person\'s approval.',
+				)
+			">
+			<ComputerTargets />
+		</NcSettingsSection>
+
+		<NcSettingsSection
 			id="section-trace-export"
 			:name="t('hermiq', 'Trace export')"
 			:description="
@@ -239,6 +259,7 @@ import { NcButton, NcSettingsSection } from '@nextcloud/vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
 import AssistantPromptLibrary from '../components/settings/AssistantPromptLibrary.vue'
 import CodeSandboxSettings from '../components/settings/CodeSandboxSettings.vue'
+import ComputerTargets from '../components/settings/ComputerTargets.vue'
 import IntakeSettings from '../components/settings/IntakeSettings.vue'
 import RemoteAgents from '../components/settings/RemoteAgents.vue'
 import ReportGroupingSettings from '../components/settings/ReportGroupingSettings.vue'
@@ -250,6 +271,7 @@ import LlmProviderModal from '../modals/LlmProviderModal.vue'
 import WebResearchSettingsModal from '../modals/WebResearchSettingsModal.vue'
 import AiFeatureRegister from './AiFeatureRegister.vue'
 import { getLlmSettings } from '../api/llm.js'
+import { getRetrievalTier } from '../api/retrievalTier.js'
 import { getWebResearchSettings } from '../api/webResearch.js'
 import manifest from '../manifest.json'
 
@@ -263,6 +285,24 @@ const PROVIDER_LABELS = {
 const SEARCH_PROVIDER_LABELS = {
 	searxng: 'SearXNG (self-hosted)',
 	'generic-json': 'Generic JSON search API',
+}
+
+/**
+ * What the admin reads about the retrieval tier.
+ *
+ * @param {{tier: string, reason: string}|null} tier The tier from the settings read-out.
+ * @param {(app: string, text: string) => string} t The translate function.
+ * @return {string} The label.
+ * @spec openspec/changes/vector-rag/tasks.md#task-4-1
+ */
+export function retrievalTierLabel(tier, t) {
+	if (tier && tier.tier === 'vector-live') {
+		return t('hermiq', 'Vector search through Open Register')
+	}
+	if (tier && tier.reason === 'no-embedding-backend') {
+		return t('hermiq', 'Keyword search: Open Register has no embedding provider configured')
+	}
+	return t('hermiq', 'Keyword search: this Open Register has no vector search')
 }
 
 export default {
@@ -280,6 +320,7 @@ export default {
 		RemoteAgents,
 		ReportGroupingSettings,
 		RunRetentionSettings,
+		ComputerTargets,
 		TalkBridgeSettings,
 		TraceExportSettings,
 		ValidatedTagSettings,
@@ -292,6 +333,8 @@ export default {
 			chatProvider: null,
 			showWebResearchModal: false,
 			searchProvider: null,
+			// Which tier semantic and hybrid RAG run on (vector-rag), read-only.
+			retrievalTier: null,
 			// The app's own manifest.json — read-only, for CnCredentials'
 			// "what {app} uses" informational list (agent-credentials).
 			manifest,
@@ -326,6 +369,16 @@ export default {
 			}
 			return SEARCH_PROVIDER_LABELS[this.searchProvider] || this.searchProvider
 		},
+
+		/**
+		 * The retrieval tier as the admin reads it.
+		 *
+		 * @return {string} The label.
+		 * @spec openspec/changes/vector-rag/tasks.md#task-4-1
+		 */
+		retrievalTierLabel() {
+			return retrievalTierLabel(this.retrievalTier, this.t)
+		},
 	},
 
 	/**
@@ -334,6 +387,7 @@ export default {
 	mounted() {
 		this.refresh()
 		this.refreshWebResearch()
+		this.refreshRetrievalTier()
 	},
 
 	methods: {
@@ -379,6 +433,15 @@ export default {
 			} catch (e) {
 				this.searchProvider = null
 			}
+		},
+
+		/**
+		 * Load which retrieval tier is live; a failed read shows nothing.
+		 *
+		 * @spec openspec/changes/vector-rag/tasks.md#task-4-1
+		 */
+		async refreshRetrievalTier() {
+			this.retrievalTier = await getRetrievalTier()
 		},
 
 		/**

@@ -276,8 +276,16 @@
 								"prompt",
 								"temperature",
 								"maxTokens",
-								"maxToolCalls"
-							]
+								"maxToolCalls",
+								"ensemble"
+							],
+							"overrides": {
+								"ensemble": {
+									"label": "Answer with several models",
+									"formatter": "agentEnsemble",
+									"editable": false
+								}
+							}
 						}
 					},
 					{
@@ -1618,6 +1626,57 @@
 						"description": "What the agents did, and what a human still has to answer for.",
 						"icon": "ShieldCheckOutline",
 						"route": "AiOversight"
+					}
+				],
+				"cardState": {
+					"url": "/apps/hermiq/api/report-subscriptions",
+					"keyField": "report"
+				},
+				"cardActions": [
+					{
+						"id": "send-weekly",
+						"label": "Send me this weekly",
+						"type": "api-call",
+						"method": "POST",
+						"url": "/apps/hermiq/api/report-subscriptions/@objectId",
+						"payload": {
+							"frequency": "weekly"
+						},
+						"successMessage": "You will get this report every week.",
+						"visibleWhen": {
+							"field": "state.status",
+							"op": "neq",
+							"value": "active"
+						}
+					},
+					{
+						"id": "send-monthly",
+						"label": "Send me this monthly",
+						"type": "api-call",
+						"method": "POST",
+						"url": "/apps/hermiq/api/report-subscriptions/@objectId",
+						"payload": {
+							"frequency": "monthly"
+						},
+						"successMessage": "You will get this report every month.",
+						"visibleWhen": {
+							"field": "state.status",
+							"op": "neq",
+							"value": "active"
+						}
+					},
+					{
+						"id": "stop-sending",
+						"label": "Stop sending",
+						"type": "api-call",
+						"method": "DELETE",
+						"url": "/apps/hermiq/api/report-subscriptions/@objectId",
+						"successMessage": "This report is no longer sent to you.",
+						"visibleWhen": {
+							"field": "state.status",
+							"op": "eq",
+							"value": "active"
+						}
 					}
 				]
 			},
