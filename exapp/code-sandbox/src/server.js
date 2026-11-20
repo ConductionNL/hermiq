@@ -147,6 +147,40 @@ function handleEnabled(req, res) {
 }
 
 /**
+ * Forward a browser action to the browser service, which runs in its own
+ * container (tools-browser-and-computer-use D1). The AppAPI headers travel with
+ * it and the browser service checks them itself; this server only refuses
+ * early, and answers 503 when no browser service is configured.
+ *
+ * @param {http.IncomingMessage} req The request.
+ * @param {http.ServerResponse} res The response.
+ * @param {string} path The request path.
+ * @return {void}
+ */
+function handleBrowser(req, res, path) {
+	const verdict = auth.verify(lowerHeaders(req.headers), '')
+	if (!verdict.ok) {
+		req.resume()
+		sendJson(res, verdict.status, { error: 'unauthorised' })
+		return
+	}
+	let target
+	try {
+		target = new URL(path, process.env.BROWSER_CONTROL_URL || '')
+	} catch (e) {
+		req.resume()
+		sendJson(res, 503, { error: 'The browser service is not configured.', code: 'browser_unavailable' })
+		return
+	}
+	const upstream = http.request(target, { method: 'POST', headers: req.headers }, (answer) => {
+		res.writeHead(answer.statusCode || 502, { 'Content-Type': 'application/json' })
+		answer.pipe(res)
+	})
+	upstream.on('error', () => sendJson(res, 503, { error: 'The browser service could not be reached.', code: 'browser_unavailable' }))
+	req.pipe(upstream)
+}
+
+/**
  * Route a request.
  *
  * @param {http.IncomingMessage} req The request.
@@ -165,6 +199,10 @@ function route(req, res) {
 	}
 	if (req.method === 'POST' && path === '/run') {
 		handleRun(req, res)
+		return
+	}
+	if (req.method === 'POST' && /^\/browser\/(open|read|click|fill|close)$/.test(path)) {
+		handleBrowser(req, res, path)
 		return
 	}
 	req.resume()

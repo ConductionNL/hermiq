@@ -36,11 +36,26 @@ export async function listPendingApprovals() {
  * Approve a pending approval and execute the gated run (reviewer/admin-guarded).
  *
  * @param {string} approvalId The Approval object UUID.
+ * @param {string} [scope] `machine-run` also approves the actions on that machine for that run for 15 minutes (a computer action only).
  * @return {Promise<object>} The decision outcome ({ approvalId, status, ran }).
  */
-export async function approveApproval(approvalId) {
+export async function approveApproval(approvalId, scope = '') {
 	const response = await axios.post(
 		generateUrl(`${APPROVALS_BASE}/${approvalId}/approve`),
+		...(scope ? [{ scope }] : []),
+	)
+	return response.data
+}
+
+/**
+ * The machine's screen now, for the reviewer of a pending computer action; shown, never stored.
+ *
+ * @param {string} approvalId The Approval object UUID.
+ * @return {Promise<{image: string, mimeType: string, width: number, height: number, x: number|null, y: number|null}>} The screen and the action's point.
+ */
+export async function approvalScreenshot(approvalId) {
+	const response = await axios.get(
+		generateUrl(`${APPROVALS_BASE}/${approvalId}/screenshot`),
 	)
 	return response.data
 }

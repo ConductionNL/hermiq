@@ -19,6 +19,7 @@ vi.mock('../../src/components/settings/IntakeSettings.vue', () => ({ default: { 
 vi.mock('../../src/components/settings/RemoteAgents.vue', () => ({ default: { name: 'RemoteAgents', render: () => null } }))
 vi.mock('../../src/components/settings/ReportGroupingSettings.vue', () => ({ default: { name: 'ReportGroupingSettings', render: () => null } }))
 vi.mock('../../src/components/settings/RunRetentionSettings.vue', () => ({ default: { name: 'RunRetentionSettings', render: () => null } }))
+vi.mock('../../src/components/settings/ComputerTargets.vue', () => ({ default: { name: 'ComputerTargets', render: () => null } }))
 vi.mock('../../src/components/settings/TalkBridgeSettings.vue', () => ({ default: { name: 'TalkBridgeSettings', render: () => null } }))
 vi.mock('../../src/components/settings/ValidatedTagSettings.vue', () => ({ default: { name: 'ValidatedTagSettings', render: () => null } }))
 vi.mock('../../src/modals/LlmProviderModal.vue', () => ({ default: { name: 'LlmProviderModal', props: ['show'], emits: ['close', 'saved'], render: () => null } }))
@@ -51,6 +52,7 @@ const CHILDREN = [
 	'RemoteAgents',
 	'ReportGroupingSettings',
 	'RunRetentionSettings',
+	'ComputerTargets',
 	'TalkBridgeSettings',
 	'ValidatedTagSettings',
 	'WebResearchSettingsModal',
@@ -155,6 +157,7 @@ describe('AdminRoot', () => {
 			'Validated documents',
 			'AI run retention',
 			'Code sandbox',
+			'Computer targets',
 			'Trace export',
 			'Talk chat bridge',
 			'Remote agents',

@@ -143,6 +143,10 @@ final class ListenerRegistrar {
 		// every write path (oversight-switch-ai-off-per-department).
 		$context->registerEventListener(event: ObjectCreatingEvent::class, listener: AgentDepartmentGuardListener::class);
 		$context->registerEventListener(event: ObjectUpdatingEvent::class, listener: AgentDepartmentGuardListener::class);
+		// An agent's reference models stay inside the model policy, on every
+		// write path (models-several-models-per-turn, REQ-MENS-001).
+		$context->registerEventListener(event: ObjectCreatingEvent::class, listener: AgentEnsembleGuardListener::class);
+		$context->registerEventListener(event: ObjectUpdatingEvent::class, listener: AgentEnsembleGuardListener::class);
 	}//end registerAgentObjectListeners()
 
 	/**
