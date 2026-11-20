@@ -2741,6 +2741,57 @@
                 "searchFiles": false,
                 "searchObjects": true,
                 "isPrivate": false
+            },
+            {
+                "@self": {
+                    "register": "hermiq",
+                    "schema": "agentknowledgebase",
+                    "slug": "agentknowledgebase-afvalbeleid"
+                },
+                "name": "Afvalbeleid",
+                "description": "Het afvalbeleidsplan, de afvalstoffenverordening en de inzamelkalender van de gemeente.",
+                "folderPath": "Hermiq/Knowledge bases/Afvalbeleid",
+                "sources": [
+                    {
+                        "type": "folder",
+                        "path": "Beleid/Afval",
+                        "label": ""
+                    }
+                ]
+            },
+            {
+                "@self": {
+                    "register": "hermiq",
+                    "schema": "agentknowledgebase",
+                    "slug": "agentknowledgebase-vergunningen"
+                },
+                "name": "Vergunningen",
+                "description": "Beleidsregels en veelgestelde vragen over omgevingsvergunningen, evenementen en terrassen.",
+                "folderPath": "Hermiq/Knowledge bases/Vergunningen",
+                "sources": [
+                    {
+                        "type": "file",
+                        "path": "Beleid/Vergunningen/beleidsregels-omgevingsvergunning.pdf",
+                        "label": ""
+                    }
+                ]
+            },
+            {
+                "@self": {
+                    "register": "hermiq",
+                    "schema": "agentknowledgebase",
+                    "slug": "agentknowledgebase-producten-en-diensten"
+                },
+                "name": "Producten en diensten",
+                "description": "De productencatalogus van de gemeente: per product wat het is, wie het aanvraagt en wat het kost.",
+                "folderPath": "Hermiq/Knowledge bases/Producten en diensten",
+                "sources": [
+                    {
+                        "type": "folder",
+                        "path": "Dienstverlening/Productencatalogus",
+                        "label": ""
+                    }
+                ]
             }
         ]
     }

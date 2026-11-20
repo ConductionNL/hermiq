@@ -50,7 +50,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Kernel\Contracts\ComplianceServiceInterface;
 use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
-use OCA\Hermiq\Service\Literacy\LiteracyReport;
+use OCA\Hermiq\Service\Compliance\EvidenceReports;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
@@ -118,7 +118,10 @@ class ComplianceService implements ComplianceServiceInterface {
 	 * @param EffectiveModelPolicy $modelPolicyService Per-org model-provider allowlist.
 	 * @param AiFeatureService $aiFeatureService DPO-ack design-time AI-feature gate.
 	 * @param AiFeatureLookup $aiFeatureLookup Finds the AI feature an agent type names.
-	 * @param LiteracyReport|null $literacyReport The article 4 evidence (compliance-ai-literacy).
+	 * @param EvidenceReports $evidenceReports The report-backed evidence: AI literacy (article 4) and
+	 *                                         bias checks (reuse-scheduled-bias-evals).
+	 *
+	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator (one per evidence seam), not a logic-bearing argument list.
@@ -131,7 +134,7 @@ class ComplianceService implements ComplianceServiceInterface {
 		private readonly EffectiveModelPolicy $modelPolicyService,
 		private readonly AiFeatureService $aiFeatureService,
 		private readonly AiFeatureLookup $aiFeatureLookup,
-		private readonly ?LiteracyReport $literacyReport = null,
+		private readonly EvidenceReports $evidenceReports = new EvidenceReports(),
 	) {
 	}//end __construct()
 
@@ -228,6 +231,7 @@ class ComplianceService implements ComplianceServiceInterface {
 	 * @return array<string, mixed>|null The factsheet, or null when the agent does not exist.
 	 *
 	 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-4-complianceservice-dashboard-export-and-factsheet-aggregation
+	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
 	 */
 	public function factsheet(string $agentId): ?array {
 		$agent = $this->findAgent(agentId: $agentId);
@@ -257,6 +261,7 @@ class ComplianceService implements ComplianceServiceInterface {
 				$this->loadIncidentsForAgent(agentId: $agentId)
 			),
 			'lastReviewedAt' => ($data['reviewedAt'] ?? null),
+			'biasCheck' => $this->evidenceReports->latestBiasCheck(agentId: $agentId),
 		];
 
 	}//end factsheet()
@@ -296,6 +301,7 @@ class ComplianceService implements ComplianceServiceInterface {
 	 * @return array{status: string, detail: string} The computed status + explanation.
 	 *
 	 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-3-complianceservice-computed-evidence-mapping
+	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
 	 */
 	private function computeControlStatus(array $control, string $organisation): array {
 		return match ($control['evidenceSource'] ?? '') {
@@ -305,8 +311,8 @@ class ComplianceService implements ComplianceServiceInterface {
 			'model-policy-risk-control' => $this->evidenceFromModelPolicy(organisation: $organisation),
 			'capability-review-least-privilege' => $this->evidenceFromAccessReview(),
 			'dpo-ack-design-time-gate' => $this->evidenceFromAiFeatures(),
-			'ai-literacy-completion' => $this->literacyReport?->evidence(organisation: $organisation)
-				?? ['status' => 'unevidenced', 'detail' => 'The AI literacy report is not available.'],
+			'ai-literacy-completion' => $this->evidenceReports->literacy(organisation: $organisation),
+			'bias-eval-recency' => $this->evidenceReports->biasTesting(),
 			default => ['status' => 'unevidenced', 'detail' => 'No evidence source mapped for this control.'],
 		};
 

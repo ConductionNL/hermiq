@@ -17,8 +17,10 @@ Kind: code. Size M. Row `hermiq:td-bias-test`.
 - **files**: `lib/Repair/SeedBiasEvalTemplate.php`, `src/views/EvalDatasetDetail.vue` or its manifest widget, `l10n/en.json`, `l10n/nl.json`
 - **acceptance_criteria**:
   - GIVEN a fresh install WHEN seeded twice THEN one template per language; copying creates an editable dataset
-- [ ] Implement
+- [x] Implement
+  - `lib/Settings/eval-templates/bias-public-services.json` holds the English and Dutch template, twenty `counterfactualPair` cases each, four per attribute. `lib/Repair/SeedBiasEvalTemplate.php` seeds them by name under the system identity (both repair lists in `appinfo/info.xml`). EvalDataset gains `template`, `templateKey`, `language` and `agentId` (register v0.80.0). `EvalTemplateGuardListener` refuses an edit of a stored template on every write path. `POST /api/evals/{datasetId}/use` (`EvalTemplateController` over `Service/Eval/EvalTemplateCopier`) copies a template into a dataset the caller owns, linked to an agent the caller owns (404 otherwise, 400 for a dataset that is not a template). On the dataset page the eval run panel shows a template as read-only and offers "Use for this agent" in place of Run, then opens the copy; en/nl strings.
 - [ ] Test (PHPUnit idempotency; Playwright for the copy)
+  - PHPUnit done: `SeedBiasEvalTemplateTest` (one template per language, seeding twice stores nothing, twenty pairs over the five attributes), `EvalTemplateCopierTest`, `EvalTemplateControllerTest`, `EvalTemplateGuardListenerTest`; vitest `eval-template-use.spec.js`. Playwright written in `tests/e2e/spec-coverage/bias-evals.spec.ts`, not run here: it needs a live instance.
 
 ### Task 3: Eval schedules and the job
 - **spec_ref**: `openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003`
@@ -43,8 +45,10 @@ Kind: code. Size M. Row `hermiq:td-bias-test`.
 - **files**: `lib/Service/ComplianceService.php`, `lib/Repair/SeedComplianceControls.php`, the factsheet modal
 - **acceptance_criteria**:
   - GIVEN runs of varying age WHEN computed THEN met, partial and gap as defined; the factsheet shows the latest run
-- [ ] Implement
+- [x] Implement
+  - `lib/Service/Eval/BiasCheckEvidence.php`: a bias check is a completed EvalRun of a dataset with the bias template's key. `latestFor()` gives the factsheet's `biasCheck` (run, dataset, pass rate, date) or null; `evidence()` is the `bias-eval-recency` source in the dashboard's own vocabulary: `satisfied` (met) when every agent with an enabled bias schedule had a check in the last 45 days, `partial` when some did, `unevidenced` (gap) when none did or no agent has a bias schedule. `ComplianceService` dispatches the source and adds `biasCheck` to the factsheet; `SeedComplianceControls` adds ISO/IEC 42001 A.6.2.4 and NIST AI RMF MEASURE 2.11 on it (the control schema's enum gains the value). `AgentFactsheetDialog` shows "Bias check: 95% on 2026-09-01" linking to the dataset with its runs, or "No bias check run"; en/nl strings.
 - [ ] Test (PHPUnit; Playwright on the factsheet)
+  - PHPUnit done: `BiasCheckEvidenceTest` (latest completed run, satisfied, partial, unevidenced, unreadable register), `ComplianceServiceTest` (dispatch and factsheet), `SeedComplianceControlsTest` (13 controls); vitest `factsheet-bias-check.spec.js`. Playwright written in `tests/e2e/spec-coverage/bias-evals.spec.ts`, not run here: it needs a live instance.
 
 ## Verification
 - [ ] `openspec validate reuse-scheduled-bias-evals --type change --strict` passes

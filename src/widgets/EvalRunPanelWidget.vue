@@ -36,6 +36,18 @@
 			{{ error }}
 		</NcNoteCard>
 
+		<NcNoteCard
+			v-if="isTemplate"
+			type="info"
+			:heading="t('hermiq', 'This test set is a template')">
+			{{
+				t(
+					'hermiq',
+					'A template cannot be changed or run. Pick one of your agents and choose "Use for this agent" to get a copy you can edit and run.',
+				)
+			}}
+		</NcNoteCard>
+
 		<div class="eval-run-panel-widget__controls">
 			<NcSelect
 				v-model="selectedAgent"
@@ -46,6 +58,17 @@
 				trackBy="value"
 				:placeholder="t('hermiq', 'Select an agent')" />
 			<NcButton
+				v-if="isTemplate"
+				variant="primary"
+				:disabled="copying || !selectedAgent"
+				@click="useForAgent">
+				<template v-if="copying" #icon>
+					<NcLoadingIcon :size="20" />
+				</template>
+				{{ t('hermiq', 'Use for this agent') }}
+			</NcButton>
+			<NcButton
+				v-else
 				type="primary"
 				:disabled="running || !selectedAgent"
 				@click="run">
@@ -56,7 +79,7 @@
 			</NcButton>
 		</div>
 
-		<div class="eval-run-panel-widget__baseline">
+		<div v-if="!isTemplate" class="eval-run-panel-widget__baseline">
 			<NcCheckboxRadioSwitch
 				v-model="baseline"
 				type="switch"
@@ -226,7 +249,7 @@
 				</tbody>
 			</table>
 		</div>
-		<p v-else class="eval-run-panel-widget__empty-hint">
+		<p v-else-if="!isTemplate" class="eval-run-panel-widget__empty-hint">
 			{{ t('hermiq', 'No runs yet — pick an agent and run this dataset.') }}
 		</p>
 	</div>
@@ -241,7 +264,7 @@ import {
 	NcNoteCard,
 	NcSelect,
 } from '@nextcloud/vue'
-import { runEval } from '../api/evals.js'
+import { runEval, useEvalTemplate } from '../api/evals.js'
 import { listSkills } from '../api/skills.js'
 import {
 	useAgentStore,
@@ -280,6 +303,7 @@ export default {
 			selectedAgent: null,
 			baseline: false,
 			running: false,
+			copying: false,
 			expandedRunId: null,
 			error: '',
 		}
@@ -326,6 +350,16 @@ export default {
 		 */
 		hasLinkedSkills() {
 			return this.linkedSkillIds.length > 0
+		},
+
+		/**
+		 * Whether this dataset is a seeded, read-only template.
+		 *
+		 * @return {boolean} True for a template.
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
+		 */
+		isTemplate() {
+			return this.dataset?.template === true
 		},
 
 		/**
@@ -440,6 +474,28 @@ export default {
 				)
 			} finally {
 				this.running = false
+			}
+		},
+
+		/**
+		 * Copy this template for the selected agent and open the copy.
+		 *
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
+		 * @return {Promise<void>}
+		 */
+		async useForAgent() {
+			if (!this.selectedAgent) {
+				return
+			}
+			this.copying = true
+			try {
+				const copy = await useEvalTemplate(this.datasetId, this.selectedAgent.value)
+				showSuccess(this.t('hermiq', 'Copied as "{name}". You can now edit and run it.', { name: copy.name }))
+				this.$router.push({ name: 'EvalDatasetDetail', params: { id: String(copy.id) } })
+			} catch (e) {
+				showError(e?.response?.data?.error || this.t('hermiq', 'The test set could not be copied.'))
+			} finally {
+				this.copying = false
 			}
 		},
 

@@ -156,6 +156,10 @@
             "description": "Owner-scoped \"run this EvalDataset against this Agent\" endpoint."
         },
         {
+            "name": "eval-template",
+            "description": "Copies an eval dataset template for one of the caller's agents."
+        },
+        {
             "name": "goal",
             "description": "Set, read and stop a standing goal."
         },
@@ -6131,6 +6135,84 @@
                         "content": {
                             "application/json": {
                                 "schema": {}
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
+        },
+        "/evals/{datasetId}/use": {
+            "post": {
+                "operationId": "eval-template-use",
+                "summary": "Copy an eval dataset template for one of the caller's agents",
+                "description": "Copy a seeded, read-only eval dataset template into a new dataset the caller owns, linked to the agent named in the request body. 404 when the template cannot be read or the caller does not own the agent; 400 when the dataset is not a template. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "eval-template"
+                ],
+                "parameters": [
+                    {
+                        "name": "datasetId",
+                        "in": "path",
+                        "required": true,
+                        "description": "The template's uuid.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "agentId": {
+                                        "type": "string",
+                                        "description": "The agent the copy is made for."
+                                    }
+                                },
+                                "required": [
+                                    "agentId"
+                                ],
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The copy was stored.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "name": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
                             }
                         }
                     },

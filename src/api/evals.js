@@ -50,3 +50,17 @@ export async function runEval(datasetId, agentId, options = {}) {
 	)
 	return response.data
 }
+
+/**
+ * Copy a seeded, read-only eval dataset template into a new dataset the caller
+ * owns, linked to one of their agents ("Use for this agent").
+ *
+ * @param {string} datasetId The template's uuid.
+ * @param {string} agentId The agent the copy is made for.
+ * @return {Promise<object>} { id, name } of the new dataset.
+ * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
+ */
+export async function useEvalTemplate(datasetId, agentId) {
+	const response = await axios.post(generateUrl(`${EVALS_BASE}/${datasetId}/use`), { agentId })
+	return response.data
+}
