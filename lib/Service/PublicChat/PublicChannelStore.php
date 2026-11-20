@@ -28,6 +28,9 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\PublicChat;
 
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Security\ISecureRandom;
 use Psr\Log\LoggerInterface;
@@ -138,8 +141,7 @@ class PublicChannelStore {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER, schema: self::AGENT_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -208,9 +210,10 @@ class PublicChannelStore {
 		try {
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER,
-				schema: self::CONVERSATION_SCHEMA,
-				uuid: $conversation['id'],
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER, schema: self::CONVERSATION_SCHEMA),
+					uuid: $conversation['id']
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
