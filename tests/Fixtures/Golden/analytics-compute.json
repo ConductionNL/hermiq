@@ -79,7 +79,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -156,7 +156,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -365,7 +365,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -441,7 +441,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -821,7 +821,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -897,7 +897,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -971,7 +971,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -1089,7 +1089,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -1183,7 +1183,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -1259,7 +1259,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -1355,7 +1355,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 11
@@ -1431,7 +1431,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 11
@@ -1524,7 +1524,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 5
@@ -1619,7 +1619,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 5
@@ -1691,7 +1691,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -1754,7 +1754,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -1835,7 +1835,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -1898,7 +1898,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -2078,7 +2078,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 8
@@ -2209,7 +2209,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 8
@@ -2295,7 +2295,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 8
@@ -2372,7 +2372,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 8
@@ -2444,7 +2444,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 6
@@ -2527,7 +2527,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 6
@@ -2716,7 +2716,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -2847,7 +2847,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -3106,7 +3106,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -3169,7 +3169,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -3366,7 +3366,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -3443,7 +3443,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -3602,7 +3602,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -3685,7 +3685,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -3856,7 +3856,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -3933,7 +3933,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -4106,7 +4106,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 3
@@ -4170,7 +4170,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 3
@@ -4329,7 +4329,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -4448,7 +4448,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -4522,7 +4522,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -4605,7 +4605,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -4799,7 +4799,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -4862,7 +4862,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -4936,7 +4936,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -5013,7 +5013,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -5199,7 +5199,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 0
@@ -5275,7 +5275,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 0
@@ -5336,7 +5336,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -5400,7 +5400,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -5485,7 +5485,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -5561,7 +5561,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -5647,7 +5647,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -5724,7 +5724,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -5996,7 +5996,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 5
@@ -6073,7 +6073,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 5
@@ -6167,7 +6167,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -6243,7 +6243,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -6337,7 +6337,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -6432,7 +6432,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -6518,7 +6518,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -6632,7 +6632,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -6693,7 +6693,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 3
@@ -6756,7 +6756,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 3
@@ -6912,7 +6912,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 1
@@ -6975,7 +6975,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 1
@@ -7036,7 +7036,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -7100,7 +7100,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -7260,7 +7260,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -7337,7 +7337,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -7420,7 +7420,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -7497,7 +7497,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -7598,7 +7598,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 3
@@ -7674,7 +7674,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 3
@@ -7759,7 +7759,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 6
@@ -7855,7 +7855,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 6
@@ -8041,7 +8041,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 0
@@ -8118,7 +8118,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 0
@@ -8201,7 +8201,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -8277,7 +8277,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -8379,7 +8379,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -8474,7 +8474,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -8557,7 +8557,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -8634,7 +8634,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -8707,7 +8707,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -8771,7 +8771,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -8951,7 +8951,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 6
@@ -9027,7 +9027,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 6
@@ -9097,7 +9097,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 0
@@ -9161,7 +9161,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 0
@@ -9338,7 +9338,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 8
@@ -9420,7 +9420,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 8
@@ -9580,7 +9580,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 11
@@ -9644,7 +9644,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 11
@@ -9730,7 +9730,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -9807,7 +9807,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -9902,7 +9902,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -9978,7 +9978,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -10468,7 +10468,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -10544,7 +10544,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -10629,7 +10629,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 3
@@ -10705,7 +10705,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 3
@@ -10777,7 +10777,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 8
@@ -10841,7 +10841,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 8
@@ -10902,7 +10902,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 0
@@ -10966,7 +10966,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 0
@@ -11078,7 +11078,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -11173,7 +11173,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -11357,7 +11357,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -11421,7 +11421,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -11622,7 +11622,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -11704,7 +11704,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -11800,7 +11800,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -11876,7 +11876,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -12036,7 +12036,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -12113,7 +12113,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -12273,7 +12273,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -12356,7 +12356,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -12441,7 +12441,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -12518,7 +12518,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -12592,7 +12592,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -12669,7 +12669,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -12941,7 +12941,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -13017,7 +13017,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -13097,7 +13097,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -13179,7 +13179,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -13265,7 +13265,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -13360,7 +13360,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -13445,7 +13445,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 8
@@ -13540,7 +13540,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 8
@@ -13625,7 +13625,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -13721,7 +13721,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -13794,7 +13794,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -13895,7 +13895,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -13956,7 +13956,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -14019,7 +14019,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -14093,7 +14093,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -14170,7 +14170,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -14264,7 +14264,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -14340,7 +14340,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -14438,7 +14438,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -14501,7 +14501,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -14747,7 +14747,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -14824,7 +14824,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -15094,7 +15094,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 5
@@ -15176,7 +15176,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 5
@@ -15420,7 +15420,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -15483,7 +15483,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -15685,7 +15685,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -15748,7 +15748,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -15833,7 +15833,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -15929,7 +15929,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -16014,7 +16014,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 11
@@ -16090,7 +16090,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 11
@@ -16176,7 +16176,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -16252,7 +16252,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -16346,7 +16346,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -16441,7 +16441,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -16522,7 +16522,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -16585,7 +16585,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -16670,7 +16670,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 3
@@ -16746,7 +16746,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 3
