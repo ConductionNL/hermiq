@@ -83,6 +83,13 @@ class RunTraceCollector {
 	private ?array $providerDisclosure = null;
 
 	/**
+	 * The question this run asked a person (oversight-ask-and-hold), or null.
+	 *
+	 * @var array{text: string, options: list<string>, allowOther: bool}|null
+	 */
+	private ?array $question = null;
+
+	/**
 	 * The attempts of the turn at a provider, in order.
 	 *
 	 * @var array<int, array<string, mixed>>
@@ -263,6 +270,31 @@ class RunTraceCollector {
 
 		return array_merge($this->providerDisclosure, ['receivedBy' => $this->receivedBy()]);
 	}//end providerDisclosure()
+
+	/**
+	 * Record the question this run asked a person, so the turn's answer can carry it.
+	 *
+	 * @param array{text: string, options: list<string>, allowOther: bool} $question The question.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
+	 */
+	public function recordQuestion(array $question): void {
+		$this->question = $question;
+		$this->endStep(token: $this->startStep(type: 'question', name: $question['text']), outcome: 'asked');
+	}//end recordQuestion()
+
+	/**
+	 * The question this run asked a person, or null when it asked none.
+	 *
+	 * @return array{text: string, options: list<string>, allowOther: bool}|null
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
+	 */
+	public function question(): ?array {
+		return $this->question;
+	}//end question()
 
 	/**
 	 * Record one attempt of the turn at a provider.

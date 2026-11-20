@@ -52,6 +52,7 @@ use OCA\Hermiq\Service\Schedule\DispatchOptions;
 use OCA\Hermiq\Service\Schedule\EngineRunRequest;
 use OCA\Hermiq\Service\Schedule\FailedAttempt;
 use OCA\Hermiq\Service\Schedule\GateSkip;
+use OCA\Hermiq\Service\Schedule\OutputHold;
 use OCA\Hermiq\Service\Schedule\RunAuditRecord;
 use OCA\Hermiq\Service\Schedule\ScheduleRecordNormaliser;
 use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
@@ -205,6 +206,14 @@ class ScheduleService implements ScheduleServiceInterface {
 	 * @var array<string, mixed>|null
 	 */
 	private ?array $lastRunDisclosure = null;
+
+	/**
+	 * The question the last engine-path run asked a person with
+	 * hermiq.askPerson (oversight-ask-and-hold), or null. Reset per run.
+	 *
+	 * @var array<string, mixed>|null
+	 */
+	private ?array $lastRunQuestion = null;
 
 	/**
 	 * The last run's attempts at a provider: provider, model, outcome, reason and
@@ -450,6 +459,14 @@ class ScheduleService implements ScheduleServiceInterface {
 			} catch (Throwable $e) {
 				$this->recordFailure(schedule: $schedule, error: $e);
 			}
+		}
+
+		// Oversight-ask-and-hold: a question nobody answered within 7 days
+		// expires as denied. Never fatal to the tick.
+		try {
+			$this->approvalService->expireUnansweredQuestions(now: $now);
+		} catch (Throwable $e) {
+			$this->logger->warning('Hermiq could not expire unanswered questions: ' . $e->getMessage(), ['exception' => $e]);
 		}
 
 	}//end run()
@@ -826,6 +843,8 @@ class ScheduleService implements ScheduleServiceInterface {
 	 * @param ObjectEntity $schedule The schedule to run right now.
 	 * @param bool $bypassApprovalGate When true, skip the requiresApproval gate
 	 *                                 for this authorised occurrence (approval-run).
+	 * @param string|null $prompt The prompt for this occurrence instead of the schedule's own
+	 *                            (oversight-ask-and-hold: the run continues with the person's answer).
 	 *
 	 * @return void
 	 *
@@ -838,7 +857,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#1-backend-thin-run-now-endpoint
 	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
 	 */
-	public function runNow(ObjectEntity $schedule, bool $bypassApprovalGate = false): void {
+	public function runNow(ObjectEntity $schedule, bool $bypassApprovalGate = false, ?string $prompt = null): void {
 		$now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 
 		try {
@@ -847,7 +866,8 @@ class ScheduleService implements ScheduleServiceInterface {
 				options: new DispatchOptions(
 					now: $now,
 					engagedOrganisations: $this->tenantKillSwitch->engagedOrganisations(),
-					bypassApprovalGate: $bypassApprovalGate
+					bypassApprovalGate: $bypassApprovalGate,
+					prompt: $prompt
 				)
 			);
 		} catch (Throwable $e) {
@@ -1044,6 +1064,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		$this->lastRunReferenceAnswers = [];
 		$this->lastRunId = '';
 		$this->lastRunSkillsUsed = [];
+		$this->lastRunQuestion = null;
 
 		// GATE 0 — THE AGENT IS SWITCHED OFF (agents-switch-off-and-stop): recorded
 		// like a kill-switch skip, and the next run still advances.
@@ -1104,7 +1125,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		match ($options->mode) {
 			DispatchOptions::MODE_QUEUE => $this->queueDue(schedule: $schedule, now: $now),
 			DispatchOptions::MODE_CLAIMED => $this->runClaimed(schedule: $schedule, now: $now),
-			default => $this->runInline(schedule: $schedule, now: $now),
+			default => $this->runInline(schedule: $schedule, now: $now, prompt: $options->prompt),
 		};
 
 	}//end dispatch()
@@ -1520,6 +1541,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @param ObjectEntity $schedule The schedule object to fire.
 	 * @param DateTimeImmutable $now The current UTC moment.
+	 * @param string|null $prompt The prompt for this occurrence instead of the schedule's own.
 	 *
 	 * @return void
 	 *
@@ -1530,10 +1552,13 @@ class ScheduleService implements ScheduleServiceInterface {
 	 * @spec openspec/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
 	 * @spec openspec/specs/agent-schedule/spec.md#requirement-consecutive-dead-letter-circuit-breaker-auto-pauses-a-schedule-mvp
 	 */
-	private function runDue(ObjectEntity $schedule, DateTimeImmutable $now): void {
+	private function runDue(ObjectEntity $schedule, DateTimeImmutable $now, ?string $prompt = null): void {
 		$data = $schedule->getObject();
 
 		$occurrence = $this->startOccurrence(schedule: $schedule, data: $data, now: $now);
+		// Oversight-ask-and-hold: an answered question runs this occurrence with the
+		// answer's prompt; the schedule's own prompt stays as it is.
+		$occurrence['prompt'] = $prompt;
 
 		$this->persist(schedule: $schedule, data: $occurrence['data']);
 
@@ -1581,7 +1606,7 @@ class ScheduleService implements ScheduleServiceInterface {
 			$output = $this->runAgentAsOwner(
 				owner: (string)($schedule->getOwner() ?? ''),
 				agentId: (string)($data['agentId'] ?? ''),
-				prompt: (string)($data['prompt'] ?? ''),
+				prompt: (($occurrence['prompt'] ?? null) ?? (string)($data['prompt'] ?? '')),
 				organisation: (string)($schedule->getOrganisation() ?? ''),
 				anchor: $schedule,
 				startValues: (array)($data['startValues'] ?? [])
@@ -1706,6 +1731,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @param ObjectEntity      $schedule The due schedule, past its gates.
 	 * @param DateTimeImmutable $now      The dispatch moment.
+	 * @param string|null       $prompt   The prompt for this occurrence instead of the schedule's own.
 	 *
 	 * @return void
 	 *
@@ -1714,9 +1740,9 @@ class ScheduleService implements ScheduleServiceInterface {
 	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
 	 * stored data; it holds no state to inject.
 	 */
-	private function runInline(ObjectEntity $schedule, DateTimeImmutable $now): void {
+	private function runInline(ObjectEntity $schedule, DateTimeImmutable $now, ?string $prompt = null): void {
 		if ($this->occurrenceClaim === null || $this->claimsOccurrences() === false) {
-			$this->runDue(schedule: $schedule, now: $now);
+			$this->runDue(schedule: $schedule, now: $now, prompt: $prompt);
 			return;
 		}
 
@@ -1730,7 +1756,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		}
 
 		try {
-			$this->runDue(schedule: $schedule, now: $now);
+			$this->runDue(schedule: $schedule, now: $now, prompt: $prompt);
 		} finally {
 			$this->occurrenceClaim->release(scheduleUuid: $uuid);
 		}
@@ -3438,6 +3464,8 @@ class ScheduleService implements ScheduleServiceInterface {
 			// contract) only if a future engine swap ever stops accepting `$trace`.
 			$this->lastRunSteps = $trace->toArray();
 			$this->lastRunDisclosure = $trace->providerDisclosure();
+			// Oversight-ask-and-hold: the question this run asked, for the reviewer.
+			$this->lastRunQuestion = $trace->question();
 			$this->lastRunProviderAttempts = $trace->providerAttempts();
 			$this->lastRunReferenceAnswers = $trace->referenceAnswers();
 			if ($this->lastRunSteps === []) {
@@ -3567,6 +3595,13 @@ class ScheduleService implements ScheduleServiceInterface {
 			$conversationUuid = $this->lastRunConversationUuid;
 		}
 
+		// Oversight-ask-and-hold: a run that asked a question, or whose output is
+		// held, delivers nothing; the reviewer answers or releases it.
+		$held = $this->holdInsteadOfDelivering(channel: $channel, output: $output, schedule: $schedule, conversationUuid: $conversationUuid);
+		if ($held !== null) {
+			return $held;
+		}
+
 		return $this->deliveryService->deliver(
 			channel: $channel,
 			output: $output,
@@ -3575,6 +3610,121 @@ class ScheduleService implements ScheduleServiceInterface {
 		);
 
 	}//end deliver()
+
+	/**
+	 * Turn a run's question or held output into a pending Approval instead of a delivery.
+	 *
+	 * Fails closed: when the Approval cannot be created, nothing is delivered and
+	 * the warning is recorded as the delivery error.
+	 *
+	 * @param string $channel The delivery channel.
+	 * @param string $output The run's output.
+	 * @param ObjectEntity $schedule The schedule.
+	 * @param string|null $conversationUuid The run's conversation.
+	 *
+	 * @return DeliveryResult|null The no-delivery outcome, or null to deliver as usual.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 *
+	 * @SuppressWarnings(PHPMD.ElseExpression) the two branches build one value from two sources; an early
+	 * return would duplicate what follows.
+	 */
+	private function holdInsteadOfDelivering(string $channel, string $output, ObjectEntity $schedule, ?string $conversationUuid): ?DeliveryResult {
+		$question = $this->lastRunQuestion;
+		if ($question === null && $this->holdsOutput(channel: $channel, output: $output, schedule: $schedule->getObject()) === false) {
+			return null;
+		}
+
+		try {
+			if ($question !== null) {
+				$this->approvalService->ensurePendingQuestion(schedule: $schedule, question: $question, runId: $this->lastRunId);
+			} else {
+				$this->approvalService->ensurePendingDraft(schedule: $schedule, channel: $channel, output: $output, conversationUuid: $conversationUuid);
+			}
+		} catch (Throwable $e) {
+			return $this->holdFailed(schedule: $schedule, error: $e);
+		}
+
+		return new DeliveryResult(delivered: false, channel: 'none', fellBack: false, warning: null);
+	}//end holdInsteadOfDelivering()
+
+	/**
+	 * Whether a run's output is held for review: a real output on a real channel,
+	 * with `holdOutput` on for the schedule or its agent.
+	 *
+	 * @param string $channel The delivery channel.
+	 * @param string $output The run's output.
+	 * @param array<string, mixed> $schedule The schedule's data.
+	 *
+	 * @return bool True when the output is held.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) OutputHold is a pure check over the schedule and agent; it holds
+	 * no state to inject.
+	 */
+	private function holdsOutput(string $channel, string $output, array $schedule): bool {
+		if ($channel === 'none' || trim($output) === '') {
+			return false;
+		}
+
+		return OutputHold::holds(schedule: $schedule, agent: $this->agentData(agentId: (string)($schedule['agentId'] ?? ''))) === true;
+	}//end holdsOutput()
+
+	/**
+	 * The fail-closed outcome when output could not be held: log it, deliver nothing.
+	 *
+	 * @param ObjectEntity $schedule The schedule.
+	 * @param Throwable $error Why holding failed.
+	 *
+	 * @return DeliveryResult The no-delivery outcome with its warning.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	private function holdFailed(ObjectEntity $schedule, Throwable $error): DeliveryResult {
+		$this->logger->warning(
+			sprintf('Hermiq could not hold the output of schedule %s for review: %s', (string)$schedule->getUuid(), $error->getMessage()),
+			['exception' => $error]
+		);
+
+		return new DeliveryResult(
+			delivered: false,
+			channel: 'none',
+			fellBack: false,
+			warning: 'The output could not be held for review, so nothing was sent.'
+		);
+	}//end holdFailed()
+
+	/**
+	 * An agent's data, or null when it cannot be read.
+	 *
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return array<string, mixed>|null The agent's data.
+	 */
+	private function agentData(string $agentId): ?array {
+		if ($agentId === '') {
+			return null;
+		}
+
+		try {
+			$agent = $this->objectService->find(
+				id: $agentId,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+				_rbac: false,
+				_multitenancy: false
+			);
+		} catch (Throwable $e) {
+			return null;
+		}
+
+		if (($agent instanceof ObjectEntity) === false) {
+			return null;
+		}
+
+		return $agent->getObject();
+	}//end agentData()
 
 	/**
 	 * The conversation uuid a Talk-room delivery may bind to, or empty.

@@ -584,6 +584,8 @@ class ToolLoop implements ToolLoopInterface {
 			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent),
 			agentStillOn: $this->agentStillOn(agentId: $agentId),
 			askFirst: $this->askFirst(functions: $run->functions),
+			// Oversight-ask-and-hold: the owner holds what this agent writes to people.
+			holdOutput: (($run->agent?->getObject()['holdOutput'] ?? false) === true),
 			handoffs: $this->handoffs,
 			conversationId: $run->conversationId,
 			runId: $run->runId,

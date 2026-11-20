@@ -3556,7 +3556,23 @@ OC.L10N.register(
         "Translate %1$s into %2$s": "Translate %1$s into %2$s",
         "The recording was translated, but the result could not be added to the chat.": "The recording was translated, but the result could not be added to the chat.",
         "Open in Talk": "Open in Talk",
-        "via Talk": "via Talk"
+        "via Talk": "via Talk",
+        "Question from the agent": "Question from the agent",
+        "Suggested answers": "Suggested answers",
+        "Your own answer": "Your own answer",
+        "Send answer": "Send answer",
+        "Review draft": "Review draft",
+        "Could not release the draft": "Could not release the draft",
+        "Goes to": "Goes to",
+        "Discard": "Discard",
+        "Release": "Release",
+        "Edit and release": "Edit and release",
+        "Show": "Show",
+        "Drafts ({count})": "Drafts ({count})",
+        "No drafts waiting": "No drafts waiting",
+        "Text an agent wants to send is held here when its owner asked to check it first.": "Text an agent wants to send is held here when its owner asked to check it first.",
+        "Review": "Review",
+        "Discard draft": "Discard draft"
     },
     "nplurals=2; plural=(n != 1);"
 )

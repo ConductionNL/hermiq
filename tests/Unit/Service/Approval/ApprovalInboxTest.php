@@ -286,4 +286,33 @@ class ApprovalInboxTest extends TestCase {
 		$this->assertFalse($service->isReviewer($approval, ''), 'An empty user id is refused even when isAdmin would say yes.');
 		$this->assertFalse($service->isReviewer($this->approval(['status' => 'pending']), 'bob'), 'An approval without a reviewer admits no non-admin.');
 	}//end testEmptyUserHasNoInboxAndIsNoReviewer()
+
+	/**
+	 * A question record carries its suggested answers and a draft record its
+	 * text and recipients; other records gain neither (oversight-ask-and-hold).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	public function testQuestionAndDraftRecordsCarryWhatIsHeld(): void {
+		$question = ['text' => 'Close them?', 'options' => ['Yes', 'No'], 'allowOther' => false];
+		$draft = ['kind' => 'tool', 'toolId' => 'hermiq.sendMail', 'arguments' => ['to' => 'a@example.org', 'subject' => 's', 'body' => 'b'], 'editable' => ['subject', 'body']];
+		$asked = $this->approval(['status' => 'pending', 'sourceType' => 'question', 'draftPayload' => ['question' => $question, 'runId' => 'r1'], 'reviewer' => 'bob', 'reviewerType' => 'user']);
+		$asked->setUuid('asked');
+		$held = $this->approval(['status' => 'pending', 'sourceType' => 'draft', 'draftPayload' => $draft, 'reviewer' => 'bob', 'reviewerType' => 'user']);
+		$held->setUuid('held');
+		$gate = $this->approval(['status' => 'pending', 'sourceType' => 'schedule', 'draftPayload' => ['x' => 1], 'reviewer' => 'bob', 'reviewerType' => 'user']);
+		$gate->setUuid('gate');
+		$this->objectService->method('findAll')->willReturn([$asked, $held, $gate]);
+		$this->groupManager->method('isInGroup')->willReturn(false);
+
+		$records = $this->inbox()->listPendingForReviewer('bob');
+
+		$this->assertSame($question, $records[0]['question']);
+		$this->assertArrayNotHasKey('draft', $records[0]);
+		$this->assertSame($draft, $records[1]['draft']);
+		$this->assertArrayNotHasKey('question', $records[2]);
+		$this->assertArrayNotHasKey('draft', $records[2]);
+	}//end testQuestionAndDraftRecordsCarryWhatIsHeld()
 }//end class

@@ -140,6 +140,7 @@ use DateTimeImmutable;
 use OCA\Hermiq\Mcp\BrowserToolDescriptors;
 use OCA\Hermiq\Mcp\ComputerToolDescriptors;
 use OCA\Hermiq\Mcp\CustomToolDescriptors;
+use OCA\Hermiq\Service\Approval\DraftRelease;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Mcp\CodeSandboxToolDescriptors;
 use OCA\Hermiq\Service\CodeSandbox\CodeRunTrace;
@@ -189,6 +190,19 @@ class FacadeToolInvoker {
 	 * @var array<int, string>
 	 */
 	private const SEARCH_TOOLS_NAMES = ['hermiq.searchTools', 'hermiq_searchTools'];
+
+	/**
+	 * The `hermiq.askPerson` tool's registry id and LLPhant-safe name (oversight-ask-and-hold).
+	 *
+	 * @var array<int, string>
+	 */
+	private const ASK_PERSON_NAMES = ['hermiq.askPerson', 'hermiq_askPerson'];
+
+	/**
+	 * Message tools an agent's `holdOutput` holds as drafts (oversight-ask-and-hold),
+	 * next to any tool whose descriptor declares `sendsMessage`.
+	 */
+	private const HELD_MESSAGE_TOOLS = ['hermiq.sendMail'];
 
 	/**
 	 * The three agent-memory-tools registry ids that need to know which agent is
@@ -442,6 +456,8 @@ class FacadeToolInvoker {
 	 * @param array<int,string> $askFirst Registry ids the person who started the run asks to
 	 *                                    approve first (personal-preferences, ask before sending);
 	 *                                    empty, every pre-existing caller, asks nothing extra.
+	 * @param bool $holdOutput Whether the agent's owner holds its outbound messages as drafts
+	 *                         for review (oversight-ask-and-hold); false sends as before.
 	 * @param TurnHandoffs|null $handoffs Opens the handoff of work a tool started and did not wait
 	 *                                    for (flows-hand-off-and-wait); null opens none.
 	 * @param string            $conversationId The conversation of this turn; '' opens no handoff.
@@ -485,6 +501,7 @@ class FacadeToolInvoker {
 		?int $maxToolCalls = null,
 		?Closure $agentStillOn = null,
 		private readonly array $askFirst = [],
+		private readonly bool $holdOutput = false,
 		private readonly ?TurnHandoffs $handoffs = null,
 		private readonly string $conversationId = '',
 		private readonly string $runId = '',
@@ -565,6 +582,10 @@ class FacadeToolInvoker {
 			return $this->handleSearchTools(arguments: $arguments);
 		}
 
+		if (in_array($name, self::ASK_PERSON_NAMES, true) === true) {
+			return (new AskPersonCall(turnGuard: $this->turnGuard, trace: $this->trace, channel: $this->channel))->answer(arguments: $arguments);
+		}
+
 		// Agent-guardrails: the GuardrailPolicy's per-tool classification is
 		// checked BEFORE the pre-existing grant/approval-gate check below — a
 		// `deny`/`confirm` classification takes precedence over whatever the
@@ -575,6 +596,95 @@ class FacadeToolInvoker {
 
 		return $this->routeUndenied(name: $name, arguments: $arguments);
 	}//end route()
+
+	/**
+	 * Whether this call sends a message that the agent's `holdOutput` holds:
+	 * `hermiq.sendMail`, or a tool whose descriptor declares `sendsMessage`.
+	 *
+	 * @param string $name The tool function name the LLM called.
+	 *
+	 * @return bool True when the call is held.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	private function holdsMessage(string $name): bool {
+		if ($this->holdOutput === false) {
+			return false;
+		}
+
+		if (in_array($this->resolveToolId(name: $name), self::HELD_MESSAGE_TOOLS, true) === true) {
+			return true;
+		}
+
+		return (($this->descriptorFor(name: $name)['sendsMessage'] ?? false) === true);
+	}//end holdsMessage()
+
+	/**
+	 * Hold a message tool call as a draft Approval; it runs on release.
+	 *
+	 * Without an approval service or agent it is refused, never sent: holding
+	 * is the owner's instruction, so it fails closed.
+	 *
+	 * @param string $name The tool function name the LLM called.
+	 * @param array<string, mixed> $arguments Decoded arguments object.
+	 *
+	 * @return string JSON-encoded outcome for the follow-up LLM turn.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	private function holdMessageDraft(string $name, array $arguments): string {
+		$call = new ToolCall(toolId: $this->resolveToolId(name: $name), arguments: $arguments);
+		if ($this->approvalService === null || $this->agentId === null) {
+			return $this->refusals()->unavailable(call: $call);
+		}
+
+		$approval = $this->approvalService->ensurePendingToolDraft(
+			agentId: $this->agentId,
+			toolId: $call->toolId,
+			arguments: $arguments,
+			editable: $this->editableArguments(name: $name)
+		);
+
+		return $this->refusals()->confirm(call: $call, confirm: self::heldDraft(approvalId: (string)$approval->getUuid()));
+	}//end holdMessageDraft()
+
+	/**
+	 * The arguments of a message tool a reviewer may edit, from its descriptor.
+	 *
+	 * @param string $name The tool function name the LLM called.
+	 *
+	 * @return list<string> The editable argument names.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	private function editableArguments(string $name): array {
+		$editable = $this->descriptorFor(name: $name)['editable'] ?? DraftRelease::DEFAULT_EDITABLE;
+		if (is_array($editable) === false) {
+			$editable = DraftRelease::DEFAULT_EDITABLE;
+		}
+
+		return array_values(array_filter($editable, 'is_string'));
+	}//end editableArguments()
+
+	/**
+	 * The `held` outcome the model reads after its message was held as a draft.
+	 *
+	 * @param string $approvalId The draft Approval.
+	 *
+	 * @return ConfirmRefusal The outcome.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	private static function heldDraft(string $approvalId): ConfirmRefusal {
+		$held = new ConfirmRefusal(
+			status: 'held',
+			message: 'Draft held for review. A reviewer reads it before it is sent; do not send it again.'
+		);
+		$held->approvalId = $approvalId;
+		$held->outcome = 'held';
+
+		return $held;
+	}//end heldDraft()
 
 	/**
 	 * Whether a call is the tool-search tool and tool search is available.
@@ -1404,6 +1514,14 @@ class FacadeToolInvoker {
 	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
 	 */
 	private function dispatchToFacade(string $name, FacadeCall $call): string {
+		// Oversight-ask-and-hold: an agent whose owner holds its output writes a
+		// message as a draft for review instead of sending it. Checked at the one
+		// place a tool is actually invoked, so every gate before it still applies,
+		// and never in a dry run, which sends nothing anyway.
+		if ($this->dryRun === false && $this->holdsMessage(name: $name) === true) {
+			return $this->holdMessageDraft(name: $name, arguments: $call->arguments);
+		}
+
 		$arguments = $call->arguments;
 		$outcomeOverride = $call->outcomeOverride;
 		$dispatch = new ToolDispatch(name: $name, arguments: $arguments);

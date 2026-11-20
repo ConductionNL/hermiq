@@ -359,6 +359,9 @@ class ChatController extends Controller {
 			// Add conversation UUID to result for frontend.
 			$result['conversation'] = $conversation->getUuid();
 
+			// Oversight-ask-and-hold: the question the agent asked the person, or null.
+			$result['question'] = $trace->question();
+
 			// A session with a Talk room gets this turn in the room too, queued so
 			// the answer here never waits on Talk (chat-carry-a-conversation-across-channels D2).
 			$this->mirror?->enqueue(

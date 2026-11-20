@@ -2717,6 +2717,30 @@
                     "bodyTemplate": "{\"reden\": \"{{input.reden}}\"}"
                 },
                 "enabled": false
+            },
+            {
+                "@self": {
+                    "register": "hermiq",
+                    "schema": "agent",
+                    "slug": "agent-weekly-supplier-digest"
+                },
+                "name": "Weekly supplier digest",
+                "description": "Sums up the week's supplier messages every Monday morning.",
+                "prompt": "Summarise this week's messages from suppliers in five bullet points.",
+                "temperature": 0.2,
+                "maxTokens": 1024,
+                "configuration": {},
+                "active": false,
+                "maxToolCalls": 10,
+                "availabilityChangedBy": "admin",
+                "availabilityChangedAt": "2026-09-28T09:00:00+00:00",
+                "availabilityReason": "Paused until the new supplier list is approved",
+                "holdOutput": true,
+                "enableRag": false,
+                "views": [],
+                "searchFiles": false,
+                "searchObjects": true,
+                "isPrivate": false
             }
         ]
     }
