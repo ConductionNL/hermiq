@@ -78,6 +78,9 @@ class TalkTurnService implements TalkTurnServiceInterface {
 	 * @param IAppConfig|null $appConfig Reads the edit throttle (instant-talk).
 	 * @param TalkAgentChain|null $agentChain Follows an answer to the agents it mentions (instant-talk).
 	 * @param IURLGenerator|null $urls Builds the link to the session on the Chat page.
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) every collaborator is optional and trailing, so a
+	 * service built by hand keeps working; a value object for them is follow-up work.
 	 */
 	public function __construct(
 		private readonly Engine $engine,

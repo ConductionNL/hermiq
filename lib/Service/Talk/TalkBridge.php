@@ -52,6 +52,9 @@ use Throwable;
  *
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) carried in with instant-talk; splitting it is follow-up
  * work, not part of this merge.
+ *
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods) carried in with chat-carry-a-conversation-across-channels;
+ * splitting it is follow-up work, not part of this merge.
  */
 class TalkBridge {
 
