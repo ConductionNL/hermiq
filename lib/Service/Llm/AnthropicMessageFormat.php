@@ -271,7 +271,7 @@ final class AnthropicMessageFormat {
 			$block = [
 				'type' => 'tool_result',
 				'tool_use_id' => (string)($toolResult['tool_use_id'] ?? ''),
-				'content' => (string)($toolResult['content'] ?? ''),
+				'content' => $this->toolResultContent(content: (string)($toolResult['content'] ?? '')),
 			];
 
 			if (($toolResult['is_error'] ?? false) === true) {
@@ -283,4 +283,58 @@ final class AnthropicMessageFormat {
 
 		return $blocks;
 	}//end buildAnthropicToolResultBlocks()
+
+	/**
+	 * A tool result's content: the text as is, or an image block and the rest as text
+	 * when the result carries a screenshot (tools-browser-and-computer-use D4).
+	 *
+	 * A result with a base64 `image` and an image `mimeType` (the computer tools) is
+	 * shown to the model as the image, so it can see the screen; the other fields stay
+	 * as JSON text with the image replaced by a note, so the bytes are sent once.
+	 *
+	 * @param string $content The JSON-encoded tool result.
+	 *
+	 * @return string|list<array<string, mixed>> The content, or the image and text blocks.
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-computer-use-is-a-high-risk-ai-feature-that-a-grant-alone-cannot-unlock-req-computer-002
+	 */
+	private function toolResultContent(string $content): string|array {
+		$decoded = json_decode($content, true);
+		if (is_array($decoded) === false) {
+			return $content;
+		}
+
+		$image = ($decoded['image'] ?? null);
+		$mime  = ($decoded['mimeType'] ?? null);
+		if (self::isAttachableImage(image: $image, mime: $mime) === false) {
+			return $content;
+		}
+
+		$decoded['image'] = '(the screenshot is attached as an image)';
+
+		return [
+			['type' => 'image', 'source' => ['type' => 'base64', 'media_type' => $mime, 'data' => $image]],
+			['type' => 'text', 'text' => (string)json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)],
+		];
+	}//end toolResultContent()
+
+	/**
+	 * Whether a tool result's image can be attached as an image block: a
+	 * non-empty base64 string of a supported image type.
+	 *
+	 * @param mixed $image The result's `image` value.
+	 * @param mixed $mime  The result's `mimeType` value.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use
+	 */
+	private static function isAttachableImage(mixed $image, mixed $mime): bool {
+		if (is_string($image) === false || $image === '' || is_string($mime) === false) {
+			return false;
+		}
+
+		return in_array($mime, ['image/png', 'image/jpeg', 'image/gif', 'image/webp'], true) === true
+			&& base64_decode($image, true) !== false;
+	}//end isAttachableImage()
 }//end class

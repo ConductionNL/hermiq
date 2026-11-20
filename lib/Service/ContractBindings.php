@@ -54,6 +54,7 @@ use OCA\Hermiq\Kernel\Contracts\AttachmentStoreInterface;
 use OCA\Hermiq\Kernel\Contracts\BudgetHardCapInterface;
 use OCA\Hermiq\Kernel\Contracts\BudgetServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\ComplianceServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\ComputerUseServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\ConnectionReporterInterface;
 use OCA\Hermiq\Kernel\Contracts\ContextAgentInteractionServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\ConversationTitleWriterInterface;
@@ -179,6 +180,7 @@ use OCA\Hermiq\Service\Assistant\RecordSummaryService;
 use OCA\Hermiq\Service\Chat\AttachmentStore;
 use OCA\Hermiq\Service\Chat\ImageGenerationService;
 use OCA\Hermiq\Service\Chat\SessionPendingApprovals;
+use OCA\Hermiq\Service\ComputerUse\ComputerUseService;
 use OCA\Hermiq\Service\Connection\ConnectionReporter;
 use OCA\Hermiq\Service\Engine\ConversationTitleWriter;
 use OCA\Hermiq\Service\TraceExport\TraceExportDelivery;
@@ -226,6 +228,10 @@ use OCA\Hermiq\Service\WebResearch\WebSearchClient;
 use OCA\Hermiq\Service\Workspace\ForgeEgressPolicy;
 use OCA\Hermiq\Service\Workspace\ServerSideWorkspaceProvider;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
+use OCA\Hermiq\Kernel\Contracts\KnowledgeBaseServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SourceSharingInspectorInterface;
+use OCA\Hermiq\Service\KnowledgeBase\KnowledgeBaseService;
+use OCA\Hermiq\Service\KnowledgeBase\SourceSharingInspector;
 
 /**
  * Nextcloud autowires concrete classes but not interfaces, so every contract
@@ -264,6 +270,8 @@ final class ContractBindings {
 		$context->registerServiceAlias(AgentCatalogInterface::class, AgentCatalog::class);
 		$context->registerServiceAlias(AgentContextBuilderInterface::class, AgentContextBuilder::class);
 		$context->registerServiceAlias(AgentDraftServiceInterface::class, AgentDraftService::class);
+		$context->registerServiceAlias(KnowledgeBaseServiceInterface::class, KnowledgeBaseService::class);
+		$context->registerServiceAlias(SourceSharingInspectorInterface::class, SourceSharingInspector::class);
 		$context->registerServiceAlias(AgentGitServiceInterface::class, AgentGitService::class);
 		$context->registerServiceAlias(AgentObjectMatcherInterface::class, AgentObjectMatcher::class);
 		$context->registerServiceAlias(AgentTemplateServiceInterface::class, AgentTemplateService::class);
@@ -285,6 +293,7 @@ final class ContractBindings {
 		$context->registerServiceAlias(AttachmentStoreInterface::class, AttachmentStore::class);
 		$context->registerServiceAlias(BudgetServiceInterface::class, BudgetService::class);
 		$context->registerServiceAlias(ComplianceServiceInterface::class, ComplianceService::class);
+		$context->registerServiceAlias(ComputerUseServiceInterface::class, ComputerUseService::class);
 		$context->registerServiceAlias(ConnectionReporterInterface::class, ConnectionReporter::class);
 		$context->registerServiceAlias(ContextAgentInteractionServiceInterface::class, ContextAgentInteractionService::class);
 		$context->registerServiceAlias(ConversationTitleWriterInterface::class, ConversationTitleWriter::class);

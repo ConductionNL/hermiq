@@ -64,8 +64,34 @@ final class TurnSystemPrompt {
 			$systemPrompt .= "\n\n" . $run->contextPreamble;
 		}
 
-		return $systemPrompt . $this->appContextBlock(cnAiContext: $run->cnAiContext) . $this->ragContextBlock(context: $run->context);
+		return $systemPrompt . $this->appContextBlock(cnAiContext: $run->cnAiContext) . $this->ragContextBlock(context: $run->context)
+			. $this->referenceAnswersBlock(answers: $run->referenceAnswers);
 	}//end compose()
+
+	/**
+	 * The reference models' answers of an ensemble turn, labelled, for the
+	 * agent's own model to weigh and merge (models-several-models-per-turn D7).
+	 *
+	 * @param array<int, array{provider: string, model: string, text: string}> $answers The answers.
+	 *
+	 * @return string The block, or '' outside an ensemble turn.
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 */
+	private function referenceAnswersBlock(array $answers): string {
+		if ($answers === []) {
+			return '';
+		}
+
+		$block = "\n\nDRAFT ANSWERS FROM OTHER MODELS, for you to weigh and merge. They were written without tools "
+			. 'and may be wrong or incomplete. Write one answer of your own: keep what is right, correct what is not, '
+			. "use your tools where they are needed, and do not mention these drafts.\n";
+		foreach ($answers as $index => $answer) {
+			$block .= sprintf("\n--- Draft %d (%s %s) ---\n%s\n", ($index + 1), $answer['provider'], $answer['model'], $answer['text']);
+		}
+
+		return $block;
+	}//end referenceAnswersBlock()
 
 	/**
 	 * The CnAiContext snapshot the widget sends with each message. Without it

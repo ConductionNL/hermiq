@@ -163,7 +163,7 @@ describe('TenantOps model policies', () => {
 		const w = await mountOps()
 		const p = { id: 'p1', allowed: [{ provider: 'openai', models: ['m1'] }, { provider: 'mistral', models: [] }], defaultModel: 'm1' }
 		w.vm.togglePolicyEdit(p)
-		expect(w.vm.policyDraft).toEqual({ allowedText: 'openai: m1\nmistral', defaultModel: 'm1', requireNoTraining: false })
+		expect(w.vm.policyDraft).toEqual({ allowedText: 'openai: m1\nmistral', defaultModel: 'm1', requireNoTraining: false, fallbacks: [] })
 		expect(w.vm.editingPolicyId).toBe('p1')
 		expect(w.vm.refusedProviders).toEqual(['mistral'])
 		w.vm.togglePolicyEdit(p)
@@ -174,13 +174,14 @@ describe('TenantOps model policies', () => {
 
 	it('saves the parsed allowlist and reloads', async () => {
 		const w = await mountOps()
-		w.vm.policyDraft = { allowedText: ' openai: a, b ,\n\nlocal\n', defaultModel: '', requireNoTraining: true }
+		w.vm.policyDraft = { allowedText: ' openai: a, b ,\n\nlocal\n', defaultModel: '', requireNoTraining: true, fallbacks: [{ provider: ' local ', model: 'm' }, { provider: '', model: '' }] }
 		policy.listModelPoliciesWithDataUse.mockClear()
 		await w.vm.savePolicy({ id: 'p1' })
 		expect(policy.updateModelPolicy).toHaveBeenCalledWith('p1', {
 			allowed: [{ provider: 'openai', models: ['a', 'b'] }, { provider: 'local', models: [] }],
 			defaultModel: null,
 			requireNoTraining: true,
+			fallbackChain: [{ provider: 'local', model: 'm' }],
 		})
 		expect(policy.listModelPoliciesWithDataUse).toHaveBeenCalledTimes(1)
 		expect(w.vm.policySaving).toBe(false)
@@ -193,6 +194,32 @@ describe('TenantOps model policies', () => {
 		policy.updateModelPolicy.mockRejectedValueOnce({})
 		await w.vm.savePolicy({ id: 'p1' })
 		expect(toasts).toEqual([['error', 'Invalid model'], ['error', 'Could not save the model policy.']])
+	})
+
+	it('edits the fallback chain in order and shows a refused entry', async () => {
+		const w = await mountOps()
+		const stored = { id: 'p1', allowed: [{ provider: 'ollama' }], fallbackChain: [{ provider: 'ollama', model: 'a' }] }
+		w.vm.modelPolicies = [stored]
+		w.vm.togglePolicyEdit(stored)
+		w.vm.addDraftFallback()
+		w.vm.policyDraft.fallbacks[1].provider = 'openai'
+		w.vm.policyDraft.fallbacks[1].model = 'gpt'
+		w.vm.moveDraftFallback(1, -1)
+		expect(w.vm.policyDraft.fallbacks.map((row) => row.provider)).toEqual(['openai', 'ollama'])
+
+		policy.updateModelPolicy.mockRejectedValueOnce({ response: { data: { error: 'This fallback is not allowed by the model policy.' } } })
+		await w.vm.savePolicy({ id: 'p1' })
+		expect(policy.updateModelPolicy).toHaveBeenLastCalledWith('p1', expect.objectContaining({
+			fallbackChain: [{ provider: 'openai', model: 'gpt' }, { provider: 'ollama', model: 'a' }],
+		}))
+		expect(w.vm.policyRefusal).toBe('This fallback is not allowed by the model policy.')
+		await w.vm.$nextTick()
+		expect(w.findAllComponents({ name: 'NcNoteCard' }).some((card) => card.attributes('type') === 'error')).toBe(true)
+
+		w.vm.removeDraftFallback(0)
+		expect(w.vm.policyDraft.fallbacks).toEqual([{ provider: 'ollama', model: 'a' }])
+		expect(w.vm.policySummary({ allowed: [{ provider: 'ollama' }], fallbackChain: [{ provider: 'ollama', model: 'a' }] }))
+			.toContain('fallbacks: ollama/a')
 	})
 })
 
