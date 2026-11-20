@@ -242,6 +242,15 @@
 								{{ t('hermiq', 'Continue') }}
 							</NcActionButton>
 							<NcActionButton
+								v-if="talkUrl(session)"
+								data-testid="chat-session-open-in-talk"
+								@click="openInTalk(session)">
+								<template #icon>
+									<Forum :size="20" />
+								</template>
+								{{ t('hermiq', 'Open in Talk') }}
+							</NcActionButton>
+							<NcActionButton
 								v-if="canInvite(session)"
 								@click="openParticipants(session)">
 								<template #icon>
@@ -489,6 +498,12 @@
 								<span class="chat-page__time">{{
 									formatTime(message.created)
 								}}</span>
+								<span
+									v-if="typedInTalk(message)"
+									class="chat-page__via"
+									data-testid="chat-message-via-talk">
+									{{ t('hermiq', 'via Talk') }}
+								</span>
 							</div>
 							<!-- What happened to the attachments the model could not read
 								natively, above the answer they belong to (chat-attachments-and-images D6). -->
@@ -1102,6 +1117,7 @@ import FileDocumentOutline from 'vue-material-design-icons/FileDocumentOutline.v
 import FlagCheckered from 'vue-material-design-icons/FlagCheckered.vue'
 import FlashOutline from 'vue-material-design-icons/FlashOutline.vue'
 import FolderOutline from 'vue-material-design-icons/FolderOutline.vue'
+import Forum from 'vue-material-design-icons/Forum.vue'
 import ImageOutline from 'vue-material-design-icons/ImageOutline.vue'
 import MessageText from 'vue-material-design-icons/MessageText.vue'
 import Paperclip from 'vue-material-design-icons/Paperclip.vue'
@@ -1163,6 +1179,7 @@ import {
 import { listMemoryProjects } from '../api/memory.js'
 import { getPreference, PREFERENCE_KEYS } from '../api/preferences.js'
 import { speechCapabilities } from '../api/speech.js'
+import { isTypedInTalk, talkRoomUrl } from '../services/sessionChannel.js'
 import { useAgentStore } from '../store/store.js'
 import {
 	agentFromDraft,
@@ -1252,6 +1269,7 @@ export default {
 		FileDocumentOutline,
 		FlashOutline,
 		FolderOutline,
+		Forum,
 		MessageText,
 		NcActionButton,
 		NcActions,
@@ -2167,7 +2185,45 @@ export default {
 		 * @spec openspec/specs/session-surface/spec.md#requirement-a-session-row-must-identify-its-agent-and-its-time
 		 */
 		originIcon(session) {
+			if (session?.talkRoomToken) {
+				return 'Forum'
+			}
 			return ORIGIN_ICONS[session?.triggerOrigin] || 'Creation'
+		},
+
+		/**
+		 * The session's Talk room, or an empty string for a session without one.
+		 *
+		 * @param {object} session The session row.
+		 * @return {string}
+		 * @spec openspec/changes/chat-carry-a-conversation-across-channels/tasks.md#task-4-the-doors-on-the-chat-page-and-in-the-room
+		 */
+		talkUrl(session) {
+			return talkRoomUrl(session)
+		},
+
+		/**
+		 * Open the session's Talk room.
+		 *
+		 * @param {object} session The session row.
+		 * @spec openspec/changes/chat-carry-a-conversation-across-channels/tasks.md#task-4-the-doors-on-the-chat-page-and-in-the-room
+		 */
+		openInTalk(session) {
+			const url = talkRoomUrl(session)
+			if (url) {
+				window.location.assign(url)
+			}
+		},
+
+		/**
+		 * Whether a person's turn was typed in Talk.
+		 *
+		 * @param {object} message The turn.
+		 * @return {boolean}
+		 * @spec openspec/changes/chat-carry-a-conversation-across-channels/tasks.md#task-4-the-doors-on-the-chat-page-and-in-the-room
+		 */
+		typedInTalk(message) {
+			return isTypedInTalk(message)
 		},
 
 		/**

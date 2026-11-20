@@ -3581,7 +3581,9 @@ OC.L10N.register(
         "When the build was published.": "Wanneer de build werd gepubliceerd.",
         "Workspace archive": "Werkruimtearchief",
         "Workspace lifetime": "Levensduur van de werkruimte",
-        "Custom tools": "Eigen tools"
+        "Custom tools": "Eigen tools",
+        "Open in Talk": "Openen in Talk",
+        "via Talk": "via Talk"
     },
     "nplurals=2; plural=(n != 1);"
 )

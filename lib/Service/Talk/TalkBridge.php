@@ -52,6 +52,9 @@ use Throwable;
  *
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) carried in with instant-talk; splitting it is follow-up
  * work, not part of this merge.
+ *
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods) carried in with chat-carry-a-conversation-across-channels;
+ * splitting it is follow-up work, not part of this merge.
  */
 class TalkBridge {
 
@@ -486,6 +489,37 @@ class TalkBridge {
 		}//end try
 
 	}//end roomUserIds()
+
+	/**
+	 * A room's display name, or null when Talk is absent or the room cannot be read.
+	 *
+	 * @param string $roomToken The room token.
+	 *
+	 * @return string|null The room's name, trimmed, or null.
+	 *
+	 * @spec openspec/changes/chat-carry-a-conversation-across-channels/specs/session-channel-continuity/spec.md#requirement-a-session-begun-in-talk-can-be-continued-on-the-chat-page-req-schan-001
+	 */
+	public function roomName(string $roomToken): ?string {
+		if ($this->isAvailable() === false || $roomToken === '') {
+			return null;
+		}
+
+		try {
+			$name = trim((string)$this->container->get(self::TALK_MANAGER)->getRoomByToken($roomToken)->getName());
+		} catch (Throwable $e) {
+			$this->logger->debug(
+				message: '[TalkBridge] Could not resolve the room name',
+				context: $this->roomFailure(roomToken: $roomToken, error: $e)
+			);
+			return null;
+		}
+
+		if ($name === '') {
+			return null;
+		}
+
+		return $name;
+	}//end roomName()
 
 	/**
 	 * Whether an agent's own bot is a member of a room: enabled in it.

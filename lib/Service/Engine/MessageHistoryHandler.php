@@ -60,6 +60,13 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	private const MESSAGE_SCHEMA = 'agentsessionturn';
 
 	/**
+	 * Where a human turn can be typed (SessionTurn.channel).
+	 *
+	 * @var list<string>
+	 */
+	public const TURN_CHANNELS = ['talk', 'hermiq'];
+
+	/**
 	 * Number of recent messages to keep in context.
 	 *
 	 * @var int
@@ -527,6 +534,8 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	 * @param array|null $retrievalScope The scope an answer was given (memory-retrieval-scope), stored on the turn.
 	 * @param array|null $translation The record of a translated recording: the languages and
 	 *                                the engines used (chat-translate-a-recording).
+	 * @param string|null $channel Where a human turn was typed: `talk` or `hermiq`; stored on
+	 *                             role=user turns only, anything else is left unset.
 	 *
 	 * @return ObjectEntity The persisted Message object.
 	 *
@@ -535,6 +544,7 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
+	 * @spec openspec/changes/chat-carry-a-conversation-across-channels/specs/session-channel-continuity/spec.md#requirement-each-turn-records-where-it-was-typed-req-schan-004
 	 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-the-languages-and-engines-used-are-recorded-req-strn-002
 	 */
 	public function storeMessage(
@@ -549,6 +559,7 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 		?array $provenance = null,
 		?array $retrievalScope = null,
 		?array $translation = null,
+		?string $channel = null,
 	): ObjectEntity {
 		$payload = $this->messagePayload(
 			message: ['sessionId' => $conversationId, 'role' => $role, 'content' => $content],
@@ -558,6 +569,10 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 			payload: $payload,
 			author: ['authorId' => $authorId, 'authorDisplayName' => $authorDisplayName]
 		);
+
+		if ($role === 'user' && in_array($channel, self::TURN_CHANNELS, true) === true) {
+			$payload['channel'] = $channel;
+		}
 
 		return $this->saveMessage(payload: $payload);
 	}//end storeMessage()

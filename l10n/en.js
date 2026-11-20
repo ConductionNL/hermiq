@@ -3554,7 +3554,9 @@ OC.L10N.register(
         "The recording is %1$s MB; at most %2$s MB can be translated.": "The recording is %1$s MB; at most %2$s MB can be translated.",
         "There is no voice for %s on this server. The translation is shown as text.": "There is no voice for %s on this server. The translation is shown as text.",
         "Translate %1$s into %2$s": "Translate %1$s into %2$s",
-        "The recording was translated, but the result could not be added to the chat.": "The recording was translated, but the result could not be added to the chat."
+        "The recording was translated, but the result could not be added to the chat.": "The recording was translated, but the result could not be added to the chat.",
+        "Open in Talk": "Open in Talk",
+        "via Talk": "via Talk"
     },
     "nplurals=2; plural=(n != 1);"
 )

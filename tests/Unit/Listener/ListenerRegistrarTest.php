@@ -35,6 +35,7 @@ use OCA\Hermiq\Listener\RegisterAgentLeafListener;
 use OCA\Hermiq\Listener\ShareableConfigTypeListener;
 use OCA\Hermiq\Listener\TalkApprovalReactionListener;
 use OCA\Hermiq\Listener\TalkBotInvokeListener;
+use OCA\Hermiq\Listener\TalkRoomRenameListener;
 use OCA\Hermiq\Listener\TaskTerminalListener;
 use OCA\Hermiq\Listener\UserLifecycleListener;
 use OCA\OpenRegister\Event\AgentRunRequestedEvent;
@@ -115,6 +116,7 @@ class ListenerRegistrarTest extends TestCase {
 				['OCA\\OpenRegister\\Event\\TaskTerminalEvent', TaskTerminalListener::class],
 				['OCA\\OpenRegister\\Event\\FlowRunTerminalEvent', FlowRunTerminalListener::class],
 				['OCA\\Talk\\Events\\BotInvokeEvent', TalkApprovalReactionListener::class],
+				['OCA\\Talk\\Events\\RoomModifiedEvent', TalkRoomRenameListener::class],
 			],
 			$registered
 		);

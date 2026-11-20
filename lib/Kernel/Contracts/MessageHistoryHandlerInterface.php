@@ -56,6 +56,8 @@ interface MessageHistoryHandlerInterface {
 	 * @param array|null $retrievalScope The scope an answer was given (memory-retrieval-scope), stored on the turn.
 	 * @param array|null $translation The record of a translated recording: the languages and
 	 *                                the engines used (chat-translate-a-recording).
+	 * @param string|null $channel Where a human turn was typed: `talk` or `hermiq`; stored on
+	 *                             role=user turns only (chat-carry-a-conversation-across-channels).
 	 *
 	 * @return ObjectEntity The persisted Message object.
 	 *
@@ -81,5 +83,6 @@ interface MessageHistoryHandlerInterface {
 		?array $provenance = null,
 		?array $retrievalScope = null,
 		?array $translation = null,
+		?string $channel = null,
 	): ObjectEntity;
 }//end interface
