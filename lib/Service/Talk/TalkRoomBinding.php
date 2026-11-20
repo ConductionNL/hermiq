@@ -48,6 +48,9 @@ use Throwable;
  * @psalm-api
  *
  * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
+ *
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) carried in with chat-carry-a-conversation-across-
+ * channels; splitting it is follow-up work, not part of this merge.
  */
 class TalkRoomBinding implements TalkRoomBindingInterface {
 
