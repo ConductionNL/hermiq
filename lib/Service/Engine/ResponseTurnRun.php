@@ -98,6 +98,13 @@ final class ResponseTurnRun {
 	public string $conversationId = '';
 
 	/**
+	 * The session's project (memory-project-scopes); '' outside a project.
+	 *
+	 * @var string
+	 */
+	public string $projectKey = '';
+
+	/**
 	 * Placeholder values for the agent's instructions.
 	 *
 	 * @var array<string, string>

@@ -194,6 +194,9 @@ class ResponseGenerationHandler {
 	 *                                                      (TurnAttachmentResolver).
 	 * @param string $speaker The uid the attachments were resolved for; their bytes are
 	 *                        read as this person when the model reads them natively.
+	 * @param string $projectKey The session's project (memory-project-scopes): the memory
+	 *                           tools read and write that project's memory beside the
+	 *                           shared one. '' is a session without a project.
 	 *
 	 * @return string Generated response text.
 	 *
@@ -233,6 +236,7 @@ class ResponseGenerationHandler {
 		array $promptVariables = [],
 		array $attachments = [],
 		string $speaker = '',
+		string $projectKey = '',
 	): string {
 		// Chat-about-a-document: a scoped turn with nothing in scope is answered
 		// with that fact, and the model is never asked to answer from general knowledge.
@@ -252,6 +256,7 @@ class ResponseGenerationHandler {
 		$run->trace = $trace;
 		$run->dryRun = $dryRun;
 		$run->conversationId = $conversationId;
+		$run->projectKey = $projectKey;
 		$run->promptVariables = $promptVariables;
 		$run->attachments = $attachments;
 		$run->speaker = $speaker;
@@ -721,6 +726,10 @@ class ResponseGenerationHandler {
 			return $this->callNextcloud(run: $run);
 		}
 
+		if ($run->progress->driver->apiMode === ProviderFactory::API_MODE_RESPONSES) {
+			return $this->callResponses(run: $run);
+		}
+
 		return $this->callLlphant(run: $run);
 	}//end callProvider()
 
@@ -753,6 +762,32 @@ class ResponseGenerationHandler {
 		$this->lastUsage = ['llmSeconds' => round($run->progress->llmTime, 2)];
 		return $response;
 	}//end callNextcloud()
+
+	/**
+	 * OpenAI and OpenAI-compatible in Responses API mode: direct HTTP
+	 * (ProviderFactory::callOpenAiResponses), every function call through the
+	 * same governed executor the Anthropic path uses (models-provider-connections D4).
+	 *
+	 * @param ResponseTurnRun $run The turn.
+	 *
+	 * @return string The response text.
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-a-provider-can-run-in-responses-api-mode-with-governed-tools-req-pconn-004
+	 */
+	private function callResponses(ResponseTurnRun $run): string {
+		$response = $this->providerFactory->callOpenAiResponses(
+			driver: $run->progress->driver,
+			messageHistory: $run->messageHistory,
+			functions: $run->progress->functions,
+			toolExecutor: $this->anthropicToolExecutor(run: $run),
+			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent)
+		);
+		$this->markLlmDone(run: $run);
+
+		$run->trace?->recordStopWhen(stopped: $this->providerFactory->lastCallHitToolCap(), reason: TurnGuard::LIMIT_REACHED);
+		$this->recordFactoryUsage(run: $run);
+		return $response;
+	}//end callResponses()
 
 	/**
 	 * Fireworks uses direct HTTP (ProviderFactory::callFireworksChat). Function
@@ -829,7 +864,8 @@ class ResponseGenerationHandler {
 			agentId: $run->progress->cliAgentId,
 			maxTokens: $run->progress->driver->maxTokens,
 			conversationId: $run->conversationId,
-			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent)
+			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent),
+			projectKey: $run->projectKey
 		);
 	}//end requestAnthropic()
 
@@ -890,7 +926,8 @@ class ResponseGenerationHandler {
 			organisation: $run->progress->organisation,
 			dryRun: $run->dryRun,
 			conversationId: $run->conversationId,
-			runId: self::approvalRunOf(run: $run)
+			runId: self::approvalRunOf(run: $run),
+			projectKey: $run->projectKey
 		);
 	}//end functionInfosFor()
 

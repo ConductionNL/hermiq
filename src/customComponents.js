@@ -30,6 +30,9 @@ import AgentFormModal from './modals/AgentFormModal.vue'
 // Context form (hermiq-context-documents): resolved by the Contexts page's
 // `slots.form-dialog` -> "ContextFormModal".
 import ContextFormModal from './modals/ContextFormModal.vue'
+// Custom tool form (tools-custom-tools-without-code): resolved by the CustomTools
+// page's `slots.form-dialog` -> "CustomToolFormModal".
+import CustomToolFormModal from './modals/CustomToolFormModal.vue'
 // Skill form (skill-form-slot, hermiq-skill-markdown-authoring): resolved by
 // SkillsCatalog's top-level `slots.form-dialog` -> "SkillFormModal", so
 // CnIndexPage's built-in Add CTA + row-edit mount the markdown-authoring form
@@ -135,4 +138,6 @@ export default {
 	SkillFormModal,
 	// Context form (hermiq-context-documents).
 	ContextFormModal,
+	// Custom tool form (tools-custom-tools-without-code).
+	CustomToolFormModal,
 }

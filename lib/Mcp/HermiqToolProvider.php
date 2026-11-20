@@ -113,6 +113,8 @@ use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\WebFetchServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\WebSearchClientInterface;
 use OCA\Hermiq\Service\Browser\BrowserTool;
+use OCA\Hermiq\Service\CustomTool\CustomToolInvoker;
+use OCA\Hermiq\Service\CustomTool\CustomToolService;
 use OCA\Hermiq\Service\CodeSandbox\CodeSandboxSettings;
 use OCA\Hermiq\Service\CodeSandbox\RunCodeTool;
 use OCA\Hermiq\Service\Mcp\DomainTools;
@@ -410,15 +412,18 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'reach' => ToolReachResolver::REACH_SELF,
 			'name' => 'Remember a fact',
 			'description' => 'Append a durable fact to your own memory (scope: agent) or to what you know about the '
-				. 'person you are talking with (scope: user), so you can recall it in a future turn or session.',
+				. 'person you are talking with (scope: user), so you can recall it in a future turn or session. '
+				. 'In a project session scope agent stores it in that project\'s memory. Use shared only for a fact '
+				. 'that holds for every project, such as a naming convention of the organisation.',
 			'inputSchema' => [
 				'type' => 'object',
 				'properties' => [
 					'content' => ['type' => 'string', 'description' => 'The fact to remember.'],
 					'scope' => [
 						'type' => 'string',
-						'enum' => ['agent', 'user'],
-						'description' => 'Whose memory to append to: your own (agent) or the acting user\'s profile (user).',
+						'enum' => ['agent', 'user', 'shared'],
+						'description' => 'Whose memory to append to: your own (agent; the project\'s memory in a project '
+							. 'session), your memory shared by every project (shared), or the acting user\'s profile (user).',
 					],
 				],
 				'required' => ['content', 'scope'],
@@ -757,11 +762,35 @@ class HermiqToolProvider implements IMcpToolProvider {
 			$this->taskDescriptors(),
 			NcTalkToolDescriptors::ALL,
 			$this->imageDescriptors(),
+			$this->customToolDescriptors(),
 			$this->codeSandboxDescriptors(),
 			ComputerToolDescriptors::ALL,
 			BrowserToolDescriptors::ALL
 		);
 	}//end getTools()
+
+	/**
+	 * The enabled custom tools of the acting user's organisation, as
+	 * `hermiq.custom_<slug>` (tools-custom-tools-without-code). Read lazily so a
+	 * catalogue built without OpenRegister still has every built-in tool.
+	 *
+	 * @return array<int, array<string, mixed>> The descriptors.
+	 *
+	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-is-offered-under-a-two-segment-id-and-only-by-exact-grant-req-custool-002
+	 */
+	private function customToolDescriptors(): array {
+		try {
+			$customTools = $this->container->get(CustomToolService::class);
+		} catch (Throwable) {
+			return [];
+		}
+
+		if ($customTools instanceof CustomToolService === false) {
+			return [];
+		}
+
+		return $customTools->descriptors();
+	}//end customToolDescriptors()
 
 	/**
 	 * The runCode tool, with the reach of where code runs now (tools-code-sandbox
@@ -872,6 +901,11 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-exposed-as-governed-agent-tools
 	 */
 	private function routed(string $toolId, NativeToolCall $call): ?array {
+		// A custom tool of the acting user's organisation (tools-custom-tools-without-code).
+		if (CustomToolDescriptors::slugOf(toolId: $toolId) !== null) {
+			return $this->invokeCustomTool(toolId: $toolId, call: $call);
+		}
+
 		$service = $this->userScopedServiceFor(toolId: $toolId);
 		if ($service !== null) {
 			return $this->container->get($service)->invoke(uid: $call->uid, toolId: $toolId, arguments: $call->arguments);
@@ -883,6 +917,31 @@ class HermiqToolProvider implements IMcpToolProvider {
 
 		return null;
 	}//end routed()
+
+	/**
+	 * Run a custom tool through its invoker; a failure becomes the `tool_failed` envelope.
+	 *
+	 * @param string         $toolId The `hermiq.custom_<slug>` id.
+	 * @param NativeToolCall $call   The acting user and arguments.
+	 *
+	 * @return array<string, mixed> The answer, or an error envelope.
+	 *
+	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+	 */
+	private function invokeCustomTool(string $toolId, NativeToolCall $call): array {
+		try {
+			$invoker = $this->container->get(CustomToolInvoker::class);
+		} catch (Throwable $e) {
+			$this->logger->warning('Hermiq custom tools are not available: ' . $e->getMessage());
+			return $this->error(code: 'tool_failed', message: 'The tool call failed.');
+		}
+
+		if (($invoker instanceof CustomToolInvoker) === false) {
+			return $this->error(code: 'tool_failed', message: 'The tool call failed.');
+		}
+
+		return $invoker->invoke(toolId: $toolId, arguments: $call->arguments);
+	}//end invokeCustomTool()
 
 	/**
 	 * The service that owns a graph, domain, Nextcloud task, image, code, computer or browser tool, checked in that order.

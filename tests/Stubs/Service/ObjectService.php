@@ -30,6 +30,8 @@ use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectPatch;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\LockRequest;
+use OCA\OpenRegister\Kernel\Contracts\Value\UnlockRequest;
 
 /**
  * Minimal ObjectService stub for standalone unit runs.
@@ -256,4 +258,30 @@ class ObjectService {
 		$schema = $deletion->target->schema;
 		return true;
 	}//end deleteObject()
+
+	/**
+	 * Lock an object, or with `$advisory` take the advisory lock on a key
+	 * (mirrors openregister main's ObjectService::lockObject()).
+	 *
+	 * @param LockRequest $request  The identifier, process and duration.
+	 * @param bool        $advisory Take the advisory lock on the identifier.
+	 *
+	 * @return array Lock information.
+	 *
+	 * @throws \OCA\OpenRegister\Exception\LockedException When the lock is held.
+	 */
+	public function lockObject(LockRequest $request, bool $advisory = false): array {
+		return ['uuid' => $request->identifier, 'locked' => ['process' => $request->process, 'duration' => $request->duration, 'advisory' => $advisory]];
+	}//end lockObject()
+
+	/**
+	 * Release a lock (mirrors openregister main's ObjectService::unlockObject()).
+	 *
+	 * @param UnlockRequest $request The identifier and the kind of lock.
+	 *
+	 * @return bool Whether there was a lock.
+	 */
+	public function unlockObject(UnlockRequest $request): bool {
+		return $request->identifier !== '';
+	}//end unlockObject()
 }//end class

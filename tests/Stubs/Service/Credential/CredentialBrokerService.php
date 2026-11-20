@@ -98,4 +98,17 @@ class CredentialBrokerService {
 	): ?string {
 		return null;
 	}//end resolveInjectable()
+
+	/**
+	 * Mint a credential: its metadata object and its vault secret (the real
+	 * signature; models-provider-connections stores a signed-in subscription here).
+	 *
+	 * @param CredentialMint        $mint    The name, provider, owner and metadata.
+	 * @param CredentialMintOptions $options The allowed apps, secret, scope and organisation.
+	 *
+	 * @return \OCA\OpenRegister\Db\ObjectEntity The saved credential.
+	 */
+	public function mintCredential(CredentialMint $mint, #[\SensitiveParameter] CredentialMintOptions $options): \OCA\OpenRegister\Db\ObjectEntity {
+		throw new \LogicException('stub: configure mintCredential in the test');
+	}//end mintCredential()
 }//end class

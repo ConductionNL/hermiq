@@ -11,7 +11,7 @@ Kind: code. Size M. Row `hermiq:tl-custom-tool`.
   - GIVEN an organisation admin WHEN they save a valid tool THEN it is stored in their organisation with a unique slug
   - GIVEN a non-admin WHEN they create or edit THEN it is refused
   - GIVEN an input schema with a nested object WHEN saved THEN it is refused with the allowed types named
-- [ ] Implement
+- [x] Implement
 - [ ] Test (PHPUnit on validation and rights; Newman for admin and non-admin)
 
 ### Task 2: Descriptors in the catalogue
@@ -21,8 +21,8 @@ Kind: code. Size M. Row `hermiq:tl-custom-tool`.
   - GIVEN enabled tools in two organisations WHEN a user's catalogue is built THEN only their organisation's appear, as hermiq.custom_<slug>
   - GIVEN an integriq target marked read-only WHEN described THEN reach stays external
   - GIVEN a wildcard grant WHEN resolved THEN no custom tool is granted
-- [ ] Implement
-- [ ] Test (PHPUnit on descriptor building and grant resolution)
+- [x] Implement
+- [x] Test (PHPUnit on descriptor building and grant resolution)
 
 ### Task 3: The invoker
 - **spec_ref**: `openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003`
@@ -31,8 +31,8 @@ Kind: code. Size M. Row `hermiq:tl-custom-tool`.
   - GIVEN bad arguments WHEN invoked THEN invalid_argument is returned before any call
   - GIVEN a flow target WHEN invoked THEN openregister.runFlow runs for that flow only, under the owner rule
   - GIVEN an integriq target WHEN invoked THEN CallService is called, the body template is rendered, and the answer is capped and delimited
-- [ ] Implement
-- [ ] Test (PHPUnit with the facade and CallService stubbed)
+- [x] Implement
+- [x] Test (PHPUnit with the facade and CallService stubbed)
 
 ### Task 4: Governance and the run record
 - **spec_ref**: `openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-passes-the-same-governance-as-every-tool-req-custool-004`
@@ -40,8 +40,8 @@ Kind: code. Size M. Row `hermiq:tl-custom-tool`.
 - **acceptance_criteria**:
   - GIVEN a confirm classification WHEN called THEN the approval gate holds it
   - GIVEN any call WHEN traced THEN the step names the tool, its audit version and its target
-- [ ] Implement
-- [ ] Test (PHPUnit on the chain for a custom id)
+- [x] Implement
+- [x] Test (PHPUnit on the chain for a custom id)
 
 ### Task 5: The Custom tools page and editor
 - **spec_ref**: `openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001`
@@ -49,7 +49,7 @@ Kind: code. Size M. Row `hermiq:tl-custom-tool`.
 - **acceptance_criteria**:
   - GIVEN an organisation admin WHEN they build inputs, pick a target and press Try it THEN the warning is shown and the real answer appears
   - GIVEN the editor WHEN a field uses NcSelect THEN it has an inputLabel
-- [ ] Implement
+- [x] Implement
 - [ ] Test (Playwright under tests/e2e/spec-coverage/)
 
 ## Verification

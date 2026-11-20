@@ -81,6 +81,7 @@ async function page() {
 				NcEmptyContent: { props: ['name'], render() { return h('p', { class: 'empty' }, this.name) } },
 				NcLoadingIcon: true,
 				KillSwitchToggle: true,
+				DepartmentSwitchList: true,
 				CheckDecagram: true,
 				ApprovalPreviewModal: modal('ApprovalPreviewModal', ['close', 'approve', 'deny']),
 				ApprovalDenyModal: modal('ApprovalDenyModal', ['close', 'denied']),

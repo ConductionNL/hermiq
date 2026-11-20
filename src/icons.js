@@ -20,6 +20,7 @@ import BookOpenVariantOutline from 'vue-material-design-icons/BookOpenVariantOut
 import Brain from 'vue-material-design-icons/Brain.vue'
 import CalculatorVariantOutline from 'vue-material-design-icons/CalculatorVariantOutline.vue'
 import Calendar from 'vue-material-design-icons/Calendar.vue'
+import CalendarClock from 'vue-material-design-icons/CalendarClock.vue'
 import CashMultiple from 'vue-material-design-icons/CashMultiple.vue'
 import ChartBar from 'vue-material-design-icons/ChartBar.vue'
 import ChartBoxOutline from 'vue-material-design-icons/ChartBoxOutline.vue'
@@ -119,6 +120,7 @@ export default {
 	ForumOutline,
 	Gauge,
 	GraphOutline,
+	CalendarClock,
 	History,
 	KeyOutline,
 	LinkVariant,
