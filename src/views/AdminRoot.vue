@@ -61,6 +61,15 @@
 				>
 				<strong>{{ currentProviderLabel }}</strong>
 			</div>
+			<div
+				v-if="retrievalTier"
+				class="hermiq-admin-settings__provider"
+				data-testid="retrieval-tier">
+				<span class="hermiq-admin-settings__provider-label"
+					>{{ t('hermiq', 'Semantic search') }}:</span
+				>
+				<strong>{{ retrievalTierLabel }}</strong>
+			</div>
 			<NcButton variant="primary" @click="showModal = true">
 				<template #icon>
 					<Cog :size="20" />
@@ -300,6 +309,7 @@ import WebResearchSettingsModal from '../modals/WebResearchSettingsModal.vue'
 import AiFeatureRegister from './AiFeatureRegister.vue'
 import { backupNow, getBackupSettings } from '../api/backup.js'
 import { getLlmSettings } from '../api/llm.js'
+import { getRetrievalTier } from '../api/retrievalTier.js'
 import { getWebResearchSettings } from '../api/webResearch.js'
 import manifest from '../manifest.json'
 
@@ -313,6 +323,24 @@ const PROVIDER_LABELS = {
 const SEARCH_PROVIDER_LABELS = {
 	searxng: 'SearXNG (self-hosted)',
 	'generic-json': 'Generic JSON search API',
+}
+
+/**
+ * What the admin reads about the retrieval tier.
+ *
+ * @param {{tier: string, reason: string}|null} tier The tier from the settings read-out.
+ * @param {(app: string, text: string) => string} t The translate function.
+ * @return {string} The label.
+ * @spec openspec/changes/vector-rag/tasks.md#task-4-1
+ */
+export function retrievalTierLabel(tier, t) {
+	if (tier && tier.tier === 'vector-live') {
+		return t('hermiq', 'Vector search through Open Register')
+	}
+	if (tier && tier.reason === 'no-embedding-backend') {
+		return t('hermiq', 'Keyword search: Open Register has no embedding provider configured')
+	}
+	return t('hermiq', 'Keyword search: this Open Register has no vector search')
 }
 
 export default {
@@ -350,6 +378,8 @@ export default {
 			showBackupModal: false,
 			showRestoreDialog: false,
 			backupQueued: false,
+			// Which tier semantic and hybrid RAG run on (vector-rag), read-only.
+			retrievalTier: null,
 			// The app's own manifest.json — read-only, for CnCredentials'
 			// "what {app} uses" informational list (agent-credentials).
 			manifest,
@@ -401,6 +431,16 @@ export default {
 			}
 			return SEARCH_PROVIDER_LABELS[this.searchProvider] || this.searchProvider
 		},
+
+		/**
+		 * The retrieval tier as the admin reads it.
+		 *
+		 * @return {string} The label.
+		 * @spec openspec/changes/vector-rag/tasks.md#task-4-1
+		 */
+		retrievalTierLabel() {
+			return retrievalTierLabel(this.retrievalTier, this.t)
+		},
 	},
 
 	/**
@@ -410,6 +450,7 @@ export default {
 		this.refresh()
 		this.refreshWebResearch()
 		this.refreshBackup()
+		this.refreshRetrievalTier()
 	},
 
 	methods: {
@@ -484,6 +525,15 @@ export default {
 			} catch (e) {
 				this.searchProvider = null
 			}
+		},
+
+		/**
+		 * Load which retrieval tier is live; a failed read shows nothing.
+		 *
+		 * @spec openspec/changes/vector-rag/tasks.md#task-4-1
+		 */
+		async refreshRetrievalTier() {
+			this.retrievalTier = await getRetrievalTier()
 		},
 
 		/**

@@ -354,6 +354,10 @@
         {
             "name": "knowledge-base",
             "description": "Knowledge bases: uploads into their Files folder and the state of their sources."
+        },
+        {
+            "name": "report-subscription",
+            "description": "The signed-in user's subscriptions to reports on the Reports page."
         }
     ],
     "paths": {
@@ -11911,6 +11915,136 @@
                         "schema": {
                             "type": "string"
                         }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/report-subscriptions": {
+            "get": {
+                "operationId": "report-subscription-index",
+                "summary": "The signed-in user's report subscriptions",
+                "description": "One row per report the signed-in user subscribed to, with its frequency and whether it is still sent. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "report-subscription"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/report-subscriptions/{report}": {
+            "post": {
+                "operationId": "report-subscription-subscribe",
+                "summary": "Send a report to the signed-in user",
+                "description": "Sends the report weekly or monthly to the signed-in user, switching an earlier subscription back on. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "report-subscription"
+                ],
+                "parameters": [
+                    {
+                        "name": "report",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "The report, by its card id on the Reports page, for example AiOversight."
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "frequency"
+                                ],
+                                "properties": {
+                                    "frequency": {
+                                        "type": "string",
+                                        "enum": [
+                                            "weekly",
+                                            "monthly"
+                                        ],
+                                        "description": "How often the report is sent."
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "The report is missing or the frequency is neither weekly nor monthly."
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "report-subscription-cancel",
+                "summary": "Stop sending a report to the signed-in user",
+                "description": "Cancels the signed-in user's subscription to the report; answers whether one was active. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "report-subscription"
+                ],
+                "parameters": [
+                    {
+                        "name": "report",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "The report, by its card id on the Reports page, for example AiOversight."
                     }
                 ],
                 "responses": {

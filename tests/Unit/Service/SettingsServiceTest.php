@@ -34,6 +34,7 @@ use Psr\Log\LoggerInterface;
  * Tests for getSettings(), updateSettings() and the bundled register version.
  *
  * @covers \OCA\Hermiq\Service\SettingsService
+ * @uses   \OCA\Hermiq\Service\Engine\VectorSearch
  */
 class SettingsServiceTest extends TestCase {
 
@@ -83,15 +84,40 @@ class SettingsServiceTest extends TestCase {
 		$config->method('getValueString')->with('hermiq', 'register', '')->willReturn('reg-7');
 
 		$this->assertSame(
-			['register' => 'reg-7', 'openregisters' => true, 'isAdmin' => true],
+			['register' => 'reg-7', 'openregisters' => true, 'isAdmin' => true, 'retrievalTier' => ['tier' => 'keyword-degraded', 'reason' => 'facade-not-present']],
 			$this->service($config, true, 'admin', true)->getSettings()
 		);
 		$this->assertSame(
-			['register' => 'reg-7', 'openregisters' => false, 'isAdmin' => false],
+			['register' => 'reg-7', 'openregisters' => false, 'isAdmin' => false, 'retrievalTier' => ['tier' => 'keyword-degraded', 'reason' => 'facade-not-present']],
 			$this->service($config, false, 'alice', false)->getSettings()
 		);
 		$this->assertFalse($this->service($config, true, null, true)->getSettings()['isAdmin']);
 	}//end testGetSettingsReportsRegisterAvailabilityAndAdmin()
+
+	/**
+	 * The read-out names the retrieval tier the vector search reports (vector-rag).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/vector-rag/tasks.md#task-4-1
+	 */
+	public function testTheReadOutNamesTheRetrievalTier(): void {
+		$vectors = $this->createMock(\OCA\Hermiq\Service\Engine\VectorSearch::class);
+		$vectors->method('tier')->willReturn(['tier' => 'vector-live', 'reason' => '']);
+		$apps = $this->createMock(\OCP\App\IAppManager::class);
+		$apps->method('isInstalled')->willReturn(true);
+		$service = new SettingsService(
+			appConfig: $this->createMock(IAppConfig::class),
+			appManager: $apps,
+			container: $this->createMock(ContainerInterface::class),
+			groupManager: $this->createMock(IGroupManager::class),
+			userSession: $this->createMock(\OCP\IUserSession::class),
+			logger: $this->createMock(LoggerInterface::class),
+			vectorSearch: $vectors
+		);
+
+		$this->assertSame(expected: ['tier' => 'vector-live', 'reason' => ''], actual: $service->getSettings()['retrievalTier']);
+	}//end testTheReadOutNamesTheRetrievalTier()
 
 	/**
 	 * Only known keys that are present are written, as strings.
