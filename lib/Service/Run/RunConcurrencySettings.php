@@ -119,6 +119,8 @@ class RunConcurrencySettings {
 	 *                                  organisation limit is above the instance limit.
 	 *
 	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+	 *
+	 * @SuppressWarnings(PHPMD.LongVariable) callers pass this argument by name; shortening it would rename the call contract.
 	 */
 	public function setLimits(mixed $maxParallel, mixed $maxParallelPerOrganisation): array {
 		$instance = self::parsed(value: $maxParallel);
@@ -146,6 +148,8 @@ class RunConcurrencySettings {
 	 * @return bool True when the run may start.
 	 *
 	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+	 *
+	 * @SuppressWarnings(PHPMD.LongVariable) callers pass this argument by name; shortening it would rename the call contract.
 	 */
 	public function admits(int $runningOnInstance, int $runningInOrganisation): bool {
 		$limits = $this->limits();
