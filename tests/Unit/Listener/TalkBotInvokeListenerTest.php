@@ -237,7 +237,7 @@ class TalkBotInvokeListenerTest extends TestCase {
 		$this->bridge->method('isAvailable')->willReturn(true);
 		$this->bridge->method('isOneToOne')->willReturn(false);
 		$this->agentBinding->method('agentForRoom')->willReturn('agent-1');
-		$this->roomBinding->method('findByRoomToken')->willReturn(
+		$this->roomBinding->method('findByRoomAndAgent')->willReturn(
 			$this->makeConversation(['userId' => 'alice', 'participants' => []])
 		);
 
@@ -287,7 +287,7 @@ class TalkBotInvokeListenerTest extends TestCase {
 		$this->bridge->method('isAvailable')->willReturn(true);
 		$this->bridge->method('isOneToOne')->willReturn(true);
 		$this->agentBinding->method('agentForRoom')->willReturn('agent-1');
-		$this->roomBinding->method('findByRoomToken')->willReturn(
+		$this->roomBinding->method('findByRoomAndAgent')->willReturn(
 			$this->makeConversation(['userId' => 'alice', 'participants' => []])
 		);
 
@@ -311,7 +311,7 @@ class TalkBotInvokeListenerTest extends TestCase {
 		$this->bridge->method('isAvailable')->willReturn(true);
 		$this->bridge->method('isOneToOne')->willReturn(true);
 		$this->agentBinding->method('agentForRoom')->willReturn('agent-1');
-		$this->roomBinding->method('findByRoomToken')->willReturn(
+		$this->roomBinding->method('findByRoomAndAgent')->willReturn(
 			$this->makeConversation(['userId' => 'alice', 'participants' => []])
 		);
 
@@ -339,7 +339,7 @@ class TalkBotInvokeListenerTest extends TestCase {
 		$this->bridge->method('isAvailable')->willReturn(true);
 		$this->bridge->method('isOneToOne')->willReturn(true);
 		$this->agentBinding->method('agentForRoom')->willReturn('agent-1');
-		$this->roomBinding->method('findByRoomToken')->willReturn(
+		$this->roomBinding->method('findByRoomAndAgent')->willReturn(
 			$this->makeConversation(['userId' => 'alice', 'participants' => []])
 		);
 
@@ -419,7 +419,7 @@ class TalkBotInvokeListenerTest extends TestCase {
 		$this->bridge->method('isAvailable')->willReturn(true);
 		$this->bridge->method('isOneToOne')->willReturn(true);
 		$this->agentBinding->method('agentForRoom')->willReturn('agent-1');
-		$this->roomBinding->method('findByRoomToken')->willReturn(
+		$this->roomBinding->method('findByRoomAndAgent')->willReturn(
 			$this->makeConversation(['userId' => 'bob', 'participants' => ['carol']])
 		);
 
@@ -441,7 +441,7 @@ class TalkBotInvokeListenerTest extends TestCase {
 		$this->bridge->method('isAvailable')->willReturn(true);
 		$this->bridge->method('isOneToOne')->willReturn(true);
 		$this->agentBinding->method('agentForRoom')->willReturn('agent-1');
-		$this->roomBinding->method('findByRoomToken')->willReturn(
+		$this->roomBinding->method('findByRoomAndAgent')->willReturn(
 			$this->makeConversation(['userId' => 'alice', 'participants' => []])
 		);
 

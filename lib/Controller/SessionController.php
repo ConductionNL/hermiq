@@ -44,12 +44,15 @@ use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\AnswerProvenanceWriterInterface;
 use OCA\Hermiq\Kernel\Contracts\EngineInterface;
+use OCA\Hermiq\Kernel\Contracts\MemoryServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\SessionPendingApprovalsInterface;
 use OCA\Hermiq\Kernel\Contracts\SessionShareServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\TalkSessionRoomInterface;
 use OCA\Hermiq\Service\Chat\SessionCollaborators;
+use OCA\Hermiq\Service\Chat\SessionLinks;
 use OCA\Hermiq\Service\Chat\SessionSubject;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
+use OCA\Hermiq\Service\MemoryService;
 use OCA\Hermiq\Service\SessionSearchService;
 use OCA\Hermiq\Service\SessionShareService;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
@@ -87,6 +90,9 @@ use Psr\Log\LoggerInterface;
  * recording it, and deciding whether a rename may touch it all live in
  * TalkSessionRoom, so this class only calls them. What remains is the ported
  * endpoint surface itself, which is exactly what must not be split.
+ *
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods) carried in with session-entity-links; splitting it is follow-
+ * up work, not part of this merge.
  */
 class SessionController extends Controller {
 	use SanitizesForSaveTrait;
@@ -164,6 +170,13 @@ class SessionController extends Controller {
 	private ?SessionSearchService $sessionSearch = null;
 
 	/**
+	 * Records and removes what a session is about (session-entity-links).
+	 *
+	 * @var SessionLinks|null
+	 */
+	private readonly ?SessionLinks $links;
+
+	/**
 	 * The actions `POST /api/sessions/bulk` accepts.
 	 *
 	 * @var list<string>
@@ -189,9 +202,14 @@ class SessionController extends Controller {
 	 * @param ConversationParticipation $participation Owner-or-listed-participant read check.
 	 * @param AnswerProvenanceWriterInterface|null $provenanceWriter How an answer came about, in the reader's language.
 	 * @param SessionShareServiceInterface|null $shares Who a session is shared with, read-only (chat-fork-and-share-link).
+	 * @param MemoryServiceInterface|null $memoryService Names a new project's memory when a session starts in it
+	 *                                                   (memory-project-scopes); null on an older wiring.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 * @spec openspec/specs/session-participants/spec.md#requirement-an-invited-colleague-reads-and-takes-turns-req-spart-002
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) carried in with this batch's feature work; splitting it
+	 * is follow-up work, not part of this merge.
 	 */
 	public function __construct(
 		IRequest $request,
@@ -203,12 +221,14 @@ class SessionController extends Controller {
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
 		private readonly ?AnswerProvenanceWriterInterface $provenanceWriter = null,
 		private readonly ?SessionShareServiceInterface $shares = null,
+		private readonly ?MemoryServiceInterface $memoryService = null,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 		$this->sessionRoom = $collaborators->sessionRoom;
 		$this->agentAccess = $collaborators->agentAccess;
 		$this->subject = $collaborators->subject;
 		$this->pendingApprovals = $collaborators->pendingApprovals;
+		$this->links = $collaborators->links;
 	}//end __construct()
 
 	/**
@@ -217,6 +237,8 @@ class SessionController extends Controller {
 	 * Supports filtering with query parameters:
 	 * - _deleted: boolean (true = archived conversations, false/default = active)
 	 * - subject: string (only sessions about this record, latest activity first)
+	 * - linkedType + linkedId: string (only sessions linked to this entity, the most
+	 *   recently used link first; the response then names the `scope` and its label)
 	 * - search: string (at least two characters: only the caller's own sessions whose
 	 *   title or turn text matches, each with its `match`)
 	 * - limit / _limit: int (default: 50)
@@ -230,6 +252,9 @@ class SessionController extends Controller {
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 * @spec openspec/specs/session-surface/spec.md#requirement-the-session-list-can-be-narrowed-to-one-record
 	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) SessionLinks is a set of pure functions over session data; it
+	 * holds no state to inject.
 	 */
 	public function index(): JSONResponse {
 		try {
@@ -251,6 +276,10 @@ class SessionController extends Controller {
 				sessions: $this->listReadableSessions(userId: $userId),
 				objectUuid: ($params['subject'] ?? null)
 			);
+			// Session-entity-links D3: the scoped list is filtered here, over every
+			// readable session, never over a page the client already has.
+			$scope = self::linkScope(params: $params);
+			$all = SessionLinks::about(sessions: $all, type: $scope['type'], id: $scope['id']);
 
 			$matching = [];
 			foreach ($all as $conversation) {
@@ -273,18 +302,20 @@ class SessionController extends Controller {
 			$total = count($matching);
 			$page = array_slice($matching, $offset, $limit);
 
-			return new JSONResponse(
-				data: [
-					'results' => array_map(
-						fn (ObjectEntity $conv): array => $this->serializeConversation(conversation: $conv, userId: $userId),
-						$page
-					),
-					'total' => $total,
-					'limit' => $limit,
-					'offset' => $offset,
-				],
-				statusCode: 200
-			);
+			$data = [
+				'results' => array_map(
+					fn (ObjectEntity $conv): array => $this->serializeConversation(conversation: $conv, userId: $userId),
+					$page
+				),
+				'total' => $total,
+				'limit' => $limit,
+				'offset' => $offset,
+			];
+			if ($scope['type'] !== '' && $scope['id'] !== '') {
+				$data['scope'] = self::scopeOf(scope: $scope, sessions: $matching);
+			}
+
+			return new JSONResponse(data: $data, statusCode: 200);
 		} catch (Exception $e) {
 			$this->logger->error(
 				message: '[SessionController] Failed to list conversations',
@@ -305,6 +336,129 @@ class SessionController extends Controller {
 			);
 		}//end try
 	}//end index()
+
+	/**
+	 * The entity the session list is scoped to, from `linkedType` and `linkedId`.
+	 *
+	 * @param array<string, mixed> $params The query.
+	 *
+	 * @return array{type: string, id: string}
+	 *
+	 * @spec openspec/changes/session-entity-links/tasks.md
+	 */
+	private static function linkScope(array $params): array {
+		$scope = ['type' => '', 'id' => ''];
+		foreach (['type' => 'linkedType', 'id' => 'linkedId'] as $key => $param) {
+			if (is_scalar($params[$param] ?? null) === true) {
+				$scope[$key] = trim((string)$params[$param]);
+			}
+		}
+
+		return $scope;
+	}//end linkScope()
+
+	/**
+	 * What a scoped list is scoped to, with the label it is headed with: the
+	 * label of the most recently used matching link, null when no session is
+	 * linked yet (the client then names the entity itself).
+	 *
+	 * @param array{type: string, id: string} $scope    The scope.
+	 * @param array<int, ObjectEntity>         $sessions The scoped sessions, most recently used first.
+	 *
+	 * @return array{type: string, id: string, label: string|null}
+	 *
+	 * @spec openspec/changes/session-entity-links/tasks.md
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) SessionLinks is a set of pure functions over session data; it
+	 * holds no state to inject.
+	 */
+	private static function scopeOf(array $scope, array $sessions): array {
+		$label = null;
+		foreach ($sessions as $session) {
+			$link = SessionLinks::linkTo(sessionData: $session->getObject(), type: $scope['type'], id: $scope['id']);
+			if ($link !== null && $link['label'] !== '') {
+				$label = $link['label'];
+				break;
+			}
+		}
+
+		return $scope + ['label' => $label];
+	}//end scopeOf()
+
+	/**
+	 * Remove one link from a session (DELETE /api/sessions/{uuid}/links?type=&id=).
+	 *
+	 * A link is recorded automatically when a turn is sent, so the person it
+	 * describes must be able to remove it (session-entity-links). Only the
+	 * owner may; afterwards the session no longer shows in that entity's
+	 * scoped list.
+	 *
+	 * @param string $uuid The session.
+	 *
+	 * @return JSONResponse 200 with the session; 400 without type or id; 403 not the owner;
+	 *                      404 unknown session or no such link; 503 when links are unavailable.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/changes/session-entity-links/tasks.md
+	 */
+	public function removeLink(string $uuid): JSONResponse {
+		try {
+			$userId = $this->requireUserId();
+			$session = $this->objectService->find(
+				id: $uuid,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
+			);
+			if ($session === null) {
+				return $this->notFoundResponse();
+			}
+
+			// Modify guard (gate-7): only the owning user may change what a session says it is about.
+			if (($session->getObject()['userId'] ?? null) !== $userId) {
+				return $this->accessDeniedResponse(action: 'modify');
+			}
+
+			$scope = self::linkScope(params: ['linkedType' => $this->request->getParam('type'), 'linkedId' => $this->request->getParam('id')]);
+			if ($scope['type'] === '' || $scope['id'] === '') {
+				return new JSONResponse(
+					data: ['error' => 'Bad request', 'message' => 'Name the link to remove with type and id.'],
+					statusCode: 400
+				);
+			}
+
+			if ($this->links === null) {
+				return new JSONResponse(
+					data: ['error' => 'Unavailable', 'message' => 'Session links are not available.'],
+					statusCode: 503
+				);
+			}
+
+			$updated = $this->links->remove(session: $session, type: $scope['type'], id: $scope['id']);
+			if ($updated === null) {
+				return new JSONResponse(
+					data: ['error' => 'Not found', 'message' => 'This session has no such link.'],
+					statusCode: 404
+				);
+			}
+
+			return new JSONResponse(data: $this->serializeConversation(conversation: $updated, userId: $userId), statusCode: 200);
+		} catch (Exception $e) {
+			$this->logger->error(
+				message: '[SessionController] Could not remove a session link',
+				context: ['session' => $uuid, 'error' => $e->getMessage()]
+			);
+
+			$status = 500;
+			if ((int)$e->getCode() === 401) {
+				$status = 401;
+			}
+
+			return new JSONResponse(
+				data: ['error' => 'Failed to remove the link', 'message' => $e->getMessage()],
+				statusCode: $status
+			);
+		}//end try
+	}//end removeLink()
 
 	/**
 	 * The list envelope of a search: the caller's own matching sessions in the
@@ -540,6 +694,7 @@ class SessionController extends Controller {
 	 * @NoAdminRequired
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 */
 	public function create(): JSONResponse {
 		try {
@@ -572,14 +727,18 @@ class SessionController extends Controller {
 				);
 			}
 
-			$conversation = $this->startSession(
-				userId: $userId,
-				start: [
-					'agentId' => (string)$agent->getUuid(),
-					'title' => ($data['title'] ?? null),
-					'metadata' => $this->subject->checkedMetadata(metadata: ($data['metadata'] ?? []), stored: null),
-				]
-			);
+			$project = self::requestedProject(data: $data);
+			if ($project === false) {
+				return self::invalidProjectResponse();
+			}
+
+			$start = [
+				'agentId' => (string)$agent->getUuid(),
+				'title' => ($data['title'] ?? null),
+				'metadata' => $this->subject->checkedMetadata(metadata: ($data['metadata'] ?? []), stored: null),
+			];
+
+			$conversation = $this->startSession(userId: $userId, start: $this->inProject(start: $start, project: $project));
 
 			return $this->createdResponse(conversation: $conversation, userId: $userId);
 		} catch (Exception $e) {
@@ -611,7 +770,9 @@ class SessionController extends Controller {
 	 * uuid, timestamps and organisation are assigned by ObjectService.
 	 *
 	 * @param string $userId The caller.
-	 * @param array{agentId: string, title: mixed, metadata: mixed} $start The agent, the requested title (null for a generated one) and the metadata.
+	 * @param array{agentId: string, title: mixed, metadata: mixed, projectKey?: string} $start The agent, the requested title
+	 *                                                                                         (null for a generated one), the
+	 *                                                                                         metadata and the project, if any.
 	 *
 	 * @return ObjectEntity The saved session with its room.
 	 *
@@ -632,15 +793,19 @@ class SessionController extends Controller {
 			);
 		}
 
+		$session = [
+			'userId' => $userId,
+			'agentId' => $agentId,
+			'title' => $title,
+			'metadata' => $start['metadata'],
+		];
+		// The project is fixed for the life of the session: update() never writes it.
+		if (isset($start['projectKey']) === true) {
+			$session['projectKey'] = $start['projectKey'];
+		}
+
 		$conversation = $this->objectService->saveObject(
-			object: $this->sanitizeForSave(
-				data: [
-					'userId' => $userId,
-					'agentId' => $agentId,
-					'title' => $title,
-					'metadata' => $start['metadata'],
-				]
-			),
+			object: $this->sanitizeForSave(data: $session),
 			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)),
 			_rbac: false
 		);
@@ -652,6 +817,103 @@ class SessionController extends Controller {
 			agentId: $agentId
 		);
 	}//end startSession()
+
+	/**
+	 * The session start in its project, with the project's memory named; unchanged without a project.
+	 *
+	 * @param array{agentId: string, title: mixed, metadata: mixed}  $start   The session start.
+	 * @param array{projectKey: string, projectName: string}|null    $project The requested project, or null.
+	 *
+	 * @return array{agentId: string, title: mixed, metadata: mixed, projectKey?: string}
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 */
+	private function inProject(array $start, ?array $project): array {
+		if ($project === null) {
+			return $start;
+		}
+
+		$this->memoryService?->ensureProjectMemory(
+			agentId: $start['agentId'],
+			projectKey: $project['projectKey'],
+			projectName: $project['projectName']
+		);
+
+		return $start + ['projectKey' => $project['projectKey']];
+	}//end inProject()
+
+	/**
+	 * The 400 answer to a malformed project key.
+	 *
+	 * @return JSONResponse
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 */
+	private static function invalidProjectResponse(): JSONResponse {
+		return new JSONResponse(
+			data: [
+				'error' => 'Invalid project',
+				'message' => 'A project key is a short slug of lower-case letters, digits and hyphens.',
+			],
+			statusCode: 400
+		);
+	}//end invalidProjectResponse()
+
+	/**
+	 * The project a new session asks for: none (null), a key and name, or false
+	 * when the key is malformed. A new project may be named without a key; its
+	 * key is then made from the name.
+	 *
+	 * @param array<string, mixed> $data The request parameters (`projectKey`, `projectName`).
+	 *
+	 * @return array{projectKey: string, projectName: string}|false|null
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) MemoryService is used through its static API (a pure helper or
+	 * named constructor) with no state to inject.
+	 */
+	public static function requestedProject(array $data): array|false|null {
+		$key  = trim((string)($data['projectKey'] ?? ''));
+		$name = trim((string)($data['projectName'] ?? ''));
+		if ($key === '' && $name === '') {
+			return null;
+		}
+
+		if ($key === '') {
+			$key = self::projectKeyFromName(name: $name);
+		}
+
+		if (MemoryService::isProjectKey(key: $key) === false) {
+			return false;
+		}
+
+		return ['projectKey' => $key, 'projectName' => mb_substr($name, 0, 200)];
+	}//end requestedProject()
+
+	/**
+	 * A project key made from a readable name: lower case, letters and digits
+	 * kept, everything else one hyphen, at most 64 characters.
+	 *
+	 * @param string $name The project's name.
+	 *
+	 * @return string The key; '' when the name has no letter or digit.
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 */
+	public static function projectKeyFromName(string $name): string {
+		$ascii = $name;
+		if (function_exists('iconv') === true) {
+			$converted = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $name);
+			if ($converted !== false) {
+				$ascii = $converted;
+			}
+		}
+
+		$slug = trim((string)preg_replace('/[^a-z0-9]+/', '-', strtolower($ascii)), '-');
+
+		return rtrim(substr($slug, 0, 64), '-');
+	}//end projectKeyFromName()
 
 	/**
 	 * Log a started session and answer 201 with it.
@@ -1364,6 +1626,9 @@ class SessionController extends Controller {
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 * @spec openspec/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) SessionLinks is a set of pure functions over session data; it
+	 * holds no state to inject.
 	 */
 	private function serializeConversation(ObjectEntity $conversation, string $userId = ''): array {
 		$data = $conversation->getObject();
@@ -1378,7 +1643,7 @@ class SessionController extends Controller {
 			$deletedAt = ($metadata['deletedAt'] ?? null);
 		}
 
-		return [
+		$serialized = [
 			'id' => $conversation->getUuid(),
 			'uuid' => $conversation->getUuid(),
 			'title' => ($data['title'] ?? null),
@@ -1398,6 +1663,8 @@ class SessionController extends Controller {
 			'talkRoomToken' => ($data['talkRoomToken'] ?? null),
 			'metadata' => $metadata,
 			'subject' => $this->subject->subjectOf(sessionData: $data),
+			// Session-entity-links: what this session is about, each link with its label.
+			'links' => SessionLinks::linksOf(sessionData: $data),
 			// Agents-instruction-variables: the answers to the agent's start fields,
 			// shown in the session header.
 			'startValues' => (array)($data['startValues'] ?? []),
@@ -1409,6 +1676,13 @@ class SessionController extends Controller {
 			'created' => $conversation->getCreated()?->format('c'),
 			'updated' => $conversation->getUpdated()?->format('c'),
 		];
+
+		// Memory-project-scopes: a session in a project names it; any other keeps its shape.
+		if (is_string($data['projectKey'] ?? null) === true && $data['projectKey'] !== '') {
+			$serialized['projectKey'] = $data['projectKey'];
+		}
+
+		return $serialized;
 	}//end serializeConversation()
 
 	/**
@@ -1641,6 +1915,7 @@ class SessionController extends Controller {
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
+	 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#scenario-a-reviewer-can-see-what-was-used
 	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-each-answer-records-the-scope-it-was-given-req-rscope-004
 	 */
 	private function serializeMessage(ObjectEntity $message): array {
@@ -1674,6 +1949,8 @@ class SessionController extends Controller {
 			// and its sentences in the reader's language; null on a turn without one.
 			'provenance' => ($data['provenance'] ?? null),
 			'provenanceAccount' => $this->provenanceAccount(record: ($data['provenance'] ?? null)),
+			// The record of a translated recording (chat-translate-a-recording), null otherwise.
+			'translation' => ($data['translation'] ?? null),
 			// The scope the answer was given (memory-retrieval-scope D5); null on a turn without one.
 			'retrievalScope' => ($data['retrievalScope'] ?? null),
 			'created' => $message->getCreated()?->format('c'),

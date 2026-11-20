@@ -202,7 +202,9 @@ describe('AgentRunOperationsWidget, rendered', () => {
 	it('shows a run error and dismisses it', async () => {
 		agents.runScheduleNow.mockResolvedValueOnce({ status: 'error', error: 'Model offline' })
 		const { w } = await mountWidget(Operations)
-		await click(w, 'Run now')
+		// The first "Run now" is the by-hand start above; the schedule's own is the second.
+		await click(w, 'Run now', 1)
+		expect(agents.runScheduleNow).toHaveBeenCalledTimes(1)
 		const note = w.findAllComponents({ name: 'NcNoteCard' }).find((n) => n.text().includes('Model offline'))
 		expect(note).toBeTruthy()
 		await click(w, 'Dismiss')

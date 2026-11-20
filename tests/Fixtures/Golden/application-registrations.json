@@ -50,6 +50,30 @@
         [
             "registerEventListener",
             "OCA\\OpenRegister\\Event\\ObjectCreatingEvent",
+            "OCA\\Hermiq\\Listener\\PublicChannelGuardListener",
+            0
+        ],
+        [
+            "registerEventListener",
+            "OCA\\OpenRegister\\Event\\ObjectUpdatingEvent",
+            "OCA\\Hermiq\\Listener\\PublicChannelGuardListener",
+            0
+        ],
+        [
+            "registerEventListener",
+            "OCA\\OpenRegister\\Event\\ObjectCreatingEvent",
+            "OCA\\Hermiq\\Listener\\AgentDepartmentGuardListener",
+            0
+        ],
+        [
+            "registerEventListener",
+            "OCA\\OpenRegister\\Event\\ObjectUpdatingEvent",
+            "OCA\\Hermiq\\Listener\\AgentDepartmentGuardListener",
+            0
+        ],
+        [
+            "registerEventListener",
+            "OCA\\OpenRegister\\Event\\ObjectCreatingEvent",
             "OCA\\Hermiq\\Listener\\AgentEnsembleGuardListener",
             0
         ],
@@ -852,18 +876,6 @@
         ],
         [
             "registerTaskProcessingProvider",
-            "OCA\\Hermiq\\TaskProcessing\\Text2TextProvider"
-        ],
-        [
-            "registerTaskProcessingProvider",
-            "OCA\\Hermiq\\TaskProcessing\\Text2TextSummaryProvider"
-        ],
-        [
-            "registerTaskProcessingProvider",
-            "OCA\\Hermiq\\TaskProcessing\\Text2TextHeadlineProvider"
-        ],
-        [
-            "registerTaskProcessingProvider",
             "OCA\\Hermiq\\TaskProcessing\\Text2TextReformulationProvider"
         ],
         [
@@ -873,6 +885,10 @@
         [
             "registerTaskProcessingProvider",
             "OCA\\Hermiq\\TaskProcessing\\ContextAgentProvider"
+        ],
+        [
+            "registerTaskProcessingProvider",
+            "OCA\\Hermiq\\TaskProcessing\\AudioToAudioTranslateProvider"
         ],
         [
             "registerMiddleware",

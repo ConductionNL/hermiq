@@ -29,6 +29,7 @@ use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
 use OCP\IUser;
 use OCP\IUserSession;
 use OCP\TaskProcessing\IManager;
+use OCP\TaskProcessing\ISynchronousProvider;
 use OCP\TaskProcessing\Task;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -53,6 +54,12 @@ class ProviderFactoryGenerateTextTest extends TestCase {
 
 		$manager = $this->createMock(IManager::class);
 		$manager->method('hasProviders')->willReturn($hasProviders);
+		$manager->method('getAvailableTaskTypeIds')->willReturn(
+			$hasProviders ? ['core:text2text', 'core:text2text:chat', 'core:text2text:chatwithtools'] : []
+		);
+		$provider = $this->createMock(ISynchronousProvider::class);
+		$provider->method('getId')->willReturn('integration_openai-text2text');
+		$manager->method('getPreferredProvider')->willReturn($provider);
 
 		// The broker's ownership guard needs an identity to check the credential against.
 		$user = $this->createMock(IUser::class);
@@ -91,6 +98,7 @@ class ProviderFactoryGenerateTextTest extends TestCase {
 		[$factory, $manager] = $this->factory(['chatProvider' => 'nextcloud'], true);
 
 		$done = new Task('core:text2text', ['input' => 'hello'], 'hermiq', null, '');
+		$done->setStatus(Task::STATUS_SUCCESSFUL);
 		$done->setOutput(['output' => 'assistant reply']);
 		$manager->method('runTask')->willReturn($done);
 
@@ -98,16 +106,72 @@ class ProviderFactoryGenerateTextTest extends TestCase {
 	}//end testNextcloudAllowedForBackgroundGeneration()
 
 	/**
-	 * An unconfigured provider raises the recoverable unavailable signal.
+	 * No hermiq-specific provider runs on Nextcloud AI (use-nextcloud-ai-settings): a
+	 * core:text2text task as the session user. On the old code this threw "Chat provider
+	 * is not configured".
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-2-1
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-1-1
 	 */
-	public function testMissingProviderThrows(): void {
-		[$factory] = $this->factory(['chatProvider' => null], true);
+	public function testNoProviderRunsOnNextcloudAiAsTheSessionUser(): void {
+		[$factory, $manager] = $this->factory(['chatProvider' => null], true);
+
+		$seen = null;
+		$manager->expects($this->once())->method('runTask')->willReturnCallback(
+			static function (Task $task) use (&$seen): Task {
+				$seen = $task;
+				$task->setStatus(Task::STATUS_SUCCESSFUL);
+				$task->setOutput(['output' => 'a title']);
+				return $task;
+			}
+		);
+
+		$this->assertSame('a title', $factory->generateText('Title this'));
+		$this->assertSame('core:text2text', $seen->getTaskTypeId());
+		$this->assertSame('alice', $seen->getUserId());
+		$this->assertSame(['input' => 'Title this'], $seen->getInput());
+	}//end testNoProviderRunsOnNextcloudAiAsTheSessionUser()
+
+	/**
+	 * Nextcloud without any AI provider gives the admin message, not a silent failure.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-3-1
+	 */
+	public function testNoNextcloudProviderGivesTheAdminMessage(): void {
+		[$factory] = $this->factory(['chatProvider' => null], false);
 
 		$this->expectException(ProviderUnavailableException::class);
-		$factory->generateText('hello', null, false);
-	}//end testMissingProviderThrows()
+		$this->expectExceptionMessage('Configure an AI provider under Administration settings > Artificial intelligence.');
+		$factory->generateText('hello');
+	}//end testNoNextcloudProviderGivesTheAdminMessage()
+
+	/**
+	 * A chat turn on Nextcloud AI runs as the session user when the caller names none.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-4
+	 */
+	public function testCallNextcloudChatRunsAsTheSessionUser(): void {
+		[$factory, $manager] = $this->factory(['chatProvider' => null], true);
+
+		$seen = null;
+		$manager->expects($this->once())->method('runTask')->willReturnCallback(
+			static function (Task $task) use (&$seen): Task {
+				$seen = $task;
+				$task->setStatus(Task::STATUS_SUCCESSFUL);
+				$task->setOutput(['output' => 'hi alice']);
+				return $task;
+			}
+		);
+
+		$reply = $factory->callNextcloudChat(messageHistory: [\LLPhant\Chat\Message::user('hi')]);
+
+		$this->assertSame('hi alice', $reply);
+		$this->assertSame('core:text2text:chat', $seen->getTaskTypeId());
+		$this->assertSame('alice', $seen->getUserId());
+	}//end testCallNextcloudChatRunsAsTheSessionUser()
 }//end class

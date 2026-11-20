@@ -90,8 +90,9 @@ final class CodeSandboxToolDescriptors {
 				'description' => 'Run a short Python or JavaScript program in an isolated sandbox without network '
 					. 'access and with limits on time and memory, and get its exit code and output. Use it to '
 					. 'calculate, to parse a file you were given, or to check your own reasoning. `files` copies '
-					. 'text files from the acting user\'s Files into the run. Requires the agent code execution '
-					. 'AI feature.',
+					. 'text files from the acting user\'s Files into the run. When the agent keeps a workspace, the '
+					. 'run works on a copy of it (or of `paths`) and the files it creates or changes are written back; '
+					. '`useWorkspace` false runs without it. Requires the agent code execution AI feature.',
 				'inputSchema' => [
 					'type' => 'object',
 					'properties' => [
@@ -107,6 +108,16 @@ final class CodeSandboxToolDescriptors {
 								'required' => ['path'],
 							],
 							'description' => 'Files of the acting user to place in the run\'s work directory.',
+						],
+						'useWorkspace' => [
+							'type' => 'boolean',
+							'description' => 'Run on the agent\'s workspace and write back what the run changes. Default true when '
+								. 'the agent has a workspace and no `files` are named.',
+						],
+						'paths' => [
+							'type' => 'array',
+							'items' => ['type' => 'string'],
+							'description' => 'Workspace paths to send instead of the whole workspace (limit 10 MB together).',
 						],
 						'timeoutSeconds' => ['type' => 'integer', 'description' => 'Wall time limit (default 30, max 300).'],
 						'memoryMb' => ['type' => 'integer', 'description' => 'Memory limit (default 512, max 2048).'],

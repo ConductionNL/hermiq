@@ -29,11 +29,9 @@ use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\TaskProcessing\AbstractTextProvider;
 use OCA\Hermiq\TaskProcessing\ContextAgentProvider;
 use OCA\Hermiq\TaskProcessing\EmptyOptionalShapesTrait;
-use OCA\Hermiq\TaskProcessing\Text2TextHeadlineProvider;
-use OCA\Hermiq\TaskProcessing\Text2TextProvider;
-use OCA\Hermiq\TaskProcessing\Text2TextSummaryProvider;
+use OCA\Hermiq\TaskProcessing\Text2TextReformulationProvider;
 use OCP\TaskProcessing\Exception\ProcessingException;
-use OCP\TaskProcessing\TaskTypes\TextToTextSummary;
+use OCP\TaskProcessing\TaskTypes\TextToTextReformulation;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -48,9 +46,7 @@ use RuntimeException;
  * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-1-3
  */
 #[CoversClass(AbstractTextProvider::class)]
-#[CoversClass(Text2TextProvider::class)]
-#[CoversClass(Text2TextSummaryProvider::class)]
-#[CoversClass(Text2TextHeadlineProvider::class)]
+#[CoversClass(Text2TextReformulationProvider::class)]
 #[CoversClass(ContextAgentProvider::class)]
 #[CoversClass(EmptyOptionalShapesTrait::class)]
 class TextProviderContractTest extends TestCase {
@@ -86,55 +82,6 @@ class TextProviderContractTest extends TestCase {
 	}//end recorder()
 
 	/**
-	 * Each text provider, with its id and the prompt it builds for "BODY".
-	 *
-	 * @return array<string, array{0: class-string<AbstractTextProvider>, 1: string, 2: string}>
-	 */
-	public static function textProviders(): array {
-		return [
-			'text2text' => [Text2TextProvider::class, 'hermiq:text2text', 'BODY'],
-			'summary'   => [
-				Text2TextSummaryProvider::class,
-				'hermiq:text2text:summary',
-				"Summarize the following text concisely, preserving the key points. Reply with only the summary.\n\nBODY",
-			],
-			'headline'  => [
-				Text2TextHeadlineProvider::class,
-				'hermiq:text2text:headline',
-				'Generate a single concise headline (max 10 words) for the following text. '
-					."Reply with only the headline, no punctuation at the end.\n\nBODY",
-			],
-		];
-	}//end textProviders()
-
-	/**
-	 * Each provider sends its exact prompt, without the nextcloud driver, and
-	 * reports completion once.
-	 *
-	 * @param class-string<AbstractTextProvider> $class  The provider class.
-	 * @param string                             $id     The provider id.
-	 * @param string                             $prompt The expected prompt.
-	 *
-	 * @return void
-	 */
-	#[DataProvider('textProviders')]
-	public function testProviderSendsItsExactPrompt(string $class, string $id, string $prompt): void {
-		$this->factory->expects($this->once())
-			->method('generateText')
-			->with($prompt, 'carol', false)
-			->willReturn('reply');
-
-		$seen     = [];
-		$provider = new $class(providerFactory: $this->factory, logger: new NullLogger());
-
-		$this->assertSame(expected: ['output' => 'reply'], actual: $provider->process('carol', ['input' => 'BODY'], $this->recorder(seen: $seen)));
-		$this->assertSame(expected: [1.0], actual: $seen);
-		$this->assertSame(expected: $id, actual: $provider->getId());
-		$this->assertSame(expected: 'Hermiq', actual: $provider->getName());
-		$this->assertSame(expected: 10, actual: $provider->getExpectedRuntime());
-	}//end testProviderSendsItsExactPrompt()
-
-	/**
 	 * Input that is not a non-empty string.
 	 *
 	 * @return array<string, array{0: array<string, mixed>}>
@@ -161,7 +108,7 @@ class TextProviderContractTest extends TestCase {
 	public function testInvalidInputIsRefusedBeforeTheLlm(array $input): void {
 		$this->factory->expects($this->never())->method('generateText');
 		$seen     = [];
-		$provider = new Text2TextProvider(providerFactory: $this->factory, logger: new NullLogger());
+		$provider = new Text2TextReformulationProvider(providerFactory: $this->factory, logger: new NullLogger());
 
 		try {
 			$provider->process('carol', $input, $this->recorder(seen: $seen));
@@ -189,7 +136,7 @@ class TextProviderContractTest extends TestCase {
 			->with(
 				'[Hermiq TaskProcessing] text2text generation failed',
 				$this->callback(
-					callback: static fn (array $context): bool => $context['taskTypeId'] === TextToTextSummary::ID
+					callback: static fn (array $context): bool => $context['taskTypeId'] === TextToTextReformulation::ID
 						&& $context['error'] === 'quota exceeded'
 						&& is_string($context['file']) === true
 						&& is_int($context['line']) === true
@@ -197,7 +144,7 @@ class TextProviderContractTest extends TestCase {
 			);
 
 		$seen     = [];
-		$provider = new Text2TextSummaryProvider(providerFactory: $this->factory, logger: $logger);
+		$provider = new Text2TextReformulationProvider(providerFactory: $this->factory, logger: $logger);
 
 		try {
 			$provider->process(null, ['input' => 'x'], $this->recorder(seen: $seen));
@@ -295,9 +242,7 @@ class TextProviderContractTest extends TestCase {
 	 */
 	public function testOptionalShapesAreEmpty(): void {
 		$providers = [
-			new Text2TextProvider(providerFactory: $this->factory, logger: new NullLogger()),
-			new Text2TextSummaryProvider(providerFactory: $this->factory, logger: new NullLogger()),
-			new Text2TextHeadlineProvider(providerFactory: $this->factory, logger: new NullLogger()),
+			new Text2TextReformulationProvider(providerFactory: $this->factory, logger: new NullLogger()),
 			new ContextAgentProvider(interactionService: $this->createMock(originalClassName: ContextAgentInteractionService::class)),
 		];
 

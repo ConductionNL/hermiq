@@ -7,7 +7,7 @@ declare(strict_types=1);
  *
  * 🔴 This test exists because the fix LOOKS LIKE AN OVERSIGHT.
  *
- * The Agent schema grants `read` and lists no write action at all. A reader who
+ * The Agent schema grants `read` and `create` and lists no other write action. A reader who
  * does not know OpenRegister's rule sees a half-finished block and completes
  * it — and completing it reopens a reproduced vulnerability in which any
  * authenticated user could rewrite any agent's tool grants, prompt, model and
@@ -93,14 +93,31 @@ class AgentAuthorizationTest extends TestCase {
 	}//end testReadFollowsTheSharingPredicate()
 
 	/**
-	 * 🔴 The load-bearing assertion. Every write action MUST stay absent.
+	 * Every signed-in user may create their own agent (Ruben, 17 Nov 2026).
+	 *
+	 * Without a create rule OpenRegister refuses a non-admin's create, so the
+	 * app and the object API turned colleagues away. Create makes a NEW object
+	 * owned by its creator; a save that names an existing uuid is checked as an
+	 * update, so this rule does not reach anybody else's agent.
+	 */
+	public function testEverySignedInUserMayCreateAnAgent(): void {
+		$this->assertSame(
+			['authenticated'],
+			($this->agentAuthorization()['create'] ?? null),
+			'Agent.authorization.create MUST grant every signed-in user, and nothing else.'
+		);
+
+	}//end testEverySignedInUserMayCreateAnAgent()
+
+	/**
+	 * 🔴 The load-bearing assertion. Update and delete MUST stay absent.
 	 *
 	 * If this fails, read the failure message before "fixing" the file.
 	 */
-	public function testWriteActionsAreOmittedSoTheyStayOwnerOnly(): void {
+	public function testUpdateAndDeleteAreOmittedSoTheyStayOwnerOnly(): void {
 		$authorization = $this->agentAuthorization();
 
-		foreach (['create', 'update', 'delete'] as $action) {
+		foreach (['update', 'delete'] as $action) {
 			$this->assertArrayNotHasKey(
 				$action,
 				$authorization,
@@ -116,7 +133,40 @@ class AgentAuthorizationTest extends TestCase {
 			);
 		}
 
-	}//end testWriteActionsAreOmittedSoTheyStayOwnerOnly()
+	}//end testUpdateAndDeleteAreOmittedSoTheyStayOwnerOnly()
+
+	/**
+	 * The fields only an instance admin may set stay admin-only, also on create.
+	 *
+	 * OpenRegister checks a property's update rule on create too, so these rules
+	 * keep a colleague from creating an agent already pointed at a git
+	 * repository or registered as an app's assistant.
+	 */
+	public function testAdminOnlyFieldsKeepTheirRule(): void {
+		$path = __DIR__ . '/../../../lib/Settings/hermiq_register.json';
+		$register = json_decode((string)file_get_contents($path), true);
+		$properties = $register['components']['schemas']['Agent']['properties'];
+
+		foreach (['gitOwner', 'gitRepo', 'gitRef', 'gitLastPulledHash', 'appAssistantFor'] as $field) {
+			$this->assertSame(
+				['update' => [['group' => 'admin']]],
+				($properties[$field]['authorization'] ?? null),
+				$field . ' must stay admin-only.'
+			);
+		}
+
+	}//end testAdminOnlyFieldsKeepTheirRule()
+
+	/**
+	 * A new agent is private unless its creator shares it.
+	 */
+	public function testANewAgentIsPrivateByDefault(): void {
+		$path = __DIR__ . '/../../../lib/Settings/hermiq_register.json';
+		$register = json_decode((string)file_get_contents($path), true);
+
+		$this->assertTrue($register['components']['schemas']['Agent']['properties']['isPrivate']['default'] ?? null);
+
+	}//end testANewAgentIsPrivateByDefault()
 
 	/**
 	 * `scope` must stay unused: it is a single key covering EVERY action, so it

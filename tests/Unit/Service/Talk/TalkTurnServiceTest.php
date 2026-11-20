@@ -21,8 +21,10 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service\Talk;
 
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\Talk\TalkAgentChain;
 use OCA\Hermiq\Service\Talk\TalkBridge;
 use OCA\Hermiq\Service\Talk\TalkRoomBinding;
+use OCA\Hermiq\Service\Talk\TalkTurn;
 use OCA\Hermiq\Service\Talk\TalkTurnService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\IURLGenerator;
@@ -55,6 +57,7 @@ final class TalkTurnServiceTest extends TestCase {
 	 * @param string            $displayName The speaker's display name.
 	 * @param bool              $vanishes   Whether the speaker stops resolving after the first lookup.
 	 * @param array<string, mixed> $bound   The bound conversation's object.
+	 * @param TalkAgentChain|null  $chain   Follows the answer to the agents it mentions.
 	 *
 	 * @return TalkTurnService
 	 */
@@ -64,7 +67,8 @@ final class TalkTurnServiceTest extends TestCase {
 		string $displayName = 'Alice A.',
 		bool $vanishes = false,
 		array $bound = ['agentId' => 'agent-9'],
-		?array $claims = null
+		?array $claims = null,
+		?TalkAgentChain $chain = null
 	): TalkTurnService {
 		$prior = $this->createMock(IUser::class);
 		$prior->method('getUID')->willReturn('prior');
@@ -132,8 +136,32 @@ final class TalkTurnServiceTest extends TestCase {
 			}
 		);
 
-		return new TalkTurnService($engine, $bridge, $binding, $users, $session, $logger, null, $urls);
+		return new TalkTurnService($engine, $bridge, $binding, $users, $session, $logger, null, null, $chain, $urls);
 	}//end service()
+
+	/**
+	 * A posted answer is followed to the agents it mentions, with the turn that
+	 * produced it; an empty answer is not.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-agent-to-agent-turns-are-mention-only-bounded-and-human-rooted
+	 */
+	public function testAPostedAnswerIsFollowedToTheAgentsItMentions(): void {
+		$chain = $this->createMock(TalkAgentChain::class);
+		$chain->expects($this->once())->method('follow')
+			->with(
+				$this->callback(static fn (TalkTurn $turn): bool => $turn->speakerUid === 'alice' && $turn->agentId === 'agent-7' && $turn->chain === ['hop' => 1]),
+				'@Bram over to you.',
+				''
+			)
+			->willReturn(1);
+		$this->assertTrue($this->service('@Bram over to you.', chain: $chain)->runTurn('conv-1', 'alice', 'Hallo', 'room-1', 'agent-7', '', ['hop' => 1]));
+
+		$silent = $this->createMock(TalkAgentChain::class);
+		$silent->expects($this->never())->method('follow');
+		$this->assertFalse($this->service('', chain: $silent)->runTurn('conv-1', 'alice', 'Hallo', 'room-1'));
+	}//end testAPostedAnswerIsFollowedToTheAgentsItMentions()
 
 	/**
 	 * The turn runs as the speaker, is answered under the room's agent, and the

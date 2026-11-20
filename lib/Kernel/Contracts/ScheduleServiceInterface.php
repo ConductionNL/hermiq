@@ -184,6 +184,22 @@ interface ScheduleServiceInterface {
 	public function run(): void;
 
 	/**
+	 * Run one queued occurrence of a schedule on this worker (operations-parallel-run-workers).
+	 *
+	 * Exits without running when the schedule no longer has this occurrence in
+	 * flight or another worker holds its claim, and puts the occurrence back in
+	 * the queue when the run would go over the administrator's limits.
+	 *
+	 * @param string $scheduleUuid  The schedule.
+	 * @param string $occurrenceKey The occurrence the tick queued.
+	 *
+	 * @return string What happened: `ran`, `stale`, `claimed_elsewhere`, `deferred` or `gone`.
+	 *
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
+	 */
+	public function runQueued(string $scheduleUuid, string $occurrenceKey): string;
+
+	/**
 	 * Invoke the OpenRegister agent as the given owner and return its output.
 	 *
 	 * Impersonates the owner (IUserSession/IUserManager, mirroring OpenConnector's
@@ -359,4 +375,27 @@ interface ScheduleServiceInterface {
 	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
 	 */
 	public function runNow(ObjectEntity $schedule, bool $bypassApprovalGate = false): void;
+
+	/**
+	 * The gate that holds a run of this agent now, or null: the agent is switched
+	 * off, the organisation's kill switch is engaged, or the budget's hard cap is
+	 * reached. Read-only.
+	 *
+	 * @param string $organisation The organisation.
+	 * @param string $agentId      The agent.
+	 *
+	 * @return string|null `skipped_agent_off`, `skipped_killswitch`, `skipped_budget`, or null.
+	 *
+	 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+	 */
+	public function gateFor(string $organisation, string $agentId): ?string;
+
+	/**
+	 * The LLM token and latency usage of the last run, `[]` when none was recorded.
+	 *
+	 * @return array<string, mixed> The usage.
+	 *
+	 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+	 */
+	public function getLastRunUsage(): array;
 }//end interface

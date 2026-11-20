@@ -30,6 +30,8 @@ use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectPatch;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\LockRequest;
+use OCA\OpenRegister\Kernel\Contracts\Value\UnlockRequest;
 
 /**
  * Minimal ObjectService stub for standalone unit runs.
@@ -60,6 +62,36 @@ class ObjectService {
 	public function runAsSystem(callable $operation): mixed {
 		return $operation();
 	}//end runAsSystem()
+
+	/**
+	 * Run a callable as an anonymous caller.
+	 *
+	 * Mirrors the real `runAsAnonymous()`: the callable runs and its value is
+	 * returned. The real method clears the session user and any token grant
+	 * for the duration, so only `public` read rules decide.
+	 *
+	 * @param callable $operation The operation to run as anonymous.
+	 *
+	 * @return mixed Whatever $operation returns.
+	 */
+	public function runAsAnonymous(callable $operation) {
+		return $operation();
+	}//end runAsAnonymous()
+
+	/**
+	 * Run a callable acting for one organisation, as a caller who is not a Nextcloud user.
+	 *
+	 * Mirrors the real `runForOrganisation()`, which runs the callable inside
+	 * `runAsAnonymous()` with the organisation fixed for tenancy decisions.
+	 *
+	 * @param string   $organisationUuid The organisation to act for.
+	 * @param callable $operation        The operation to run.
+	 *
+	 * @return mixed Whatever $operation returns.
+	 */
+	public function runForOrganisation(string $organisationUuid, callable $operation) {
+		return $operation();
+	}//end runForOrganisation()
 
 	/**
 	 * Set the active register context.
@@ -256,4 +288,30 @@ class ObjectService {
 		$schema = $deletion->target->schema;
 		return true;
 	}//end deleteObject()
+
+	/**
+	 * Lock an object, or with `$advisory` take the advisory lock on a key
+	 * (mirrors openregister main's ObjectService::lockObject()).
+	 *
+	 * @param LockRequest $request  The identifier, process and duration.
+	 * @param bool        $advisory Take the advisory lock on the identifier.
+	 *
+	 * @return array Lock information.
+	 *
+	 * @throws \OCA\OpenRegister\Exception\LockedException When the lock is held.
+	 */
+	public function lockObject(LockRequest $request, bool $advisory = false): array {
+		return ['uuid' => $request->identifier, 'locked' => ['process' => $request->process, 'duration' => $request->duration, 'advisory' => $advisory]];
+	}//end lockObject()
+
+	/**
+	 * Release a lock (mirrors openregister main's ObjectService::unlockObject()).
+	 *
+	 * @param UnlockRequest $request The identifier and the kind of lock.
+	 *
+	 * @return bool Whether there was a lock.
+	 */
+	public function unlockObject(UnlockRequest $request): bool {
+		return $request->identifier !== '';
+	}//end unlockObject()
 }//end class

@@ -90,4 +90,11 @@ final class ToolSurfaceRun {
 	 * @var string
 	 */
 	public string $runId = '';
+
+	/**
+	 * The session's project (memory-project-scopes), or null outside a project.
+	 *
+	 * @var string|null
+	 */
+	public ?string $projectKey = null;
 }//end class

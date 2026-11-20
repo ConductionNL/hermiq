@@ -69,7 +69,8 @@ class LlmRunValuesTest extends TestCase {
 	}//end testARunCapWinsOverTheDefault()
 
 	/**
-	 * The request takes its chat provider from the config, and none when the config names none.
+	 * The request takes its chat provider from the config, and Nextcloud AI when the
+	 * config names none (use-nextcloud-ai-settings).
 	 *
 	 * @return void
 	 */
@@ -79,7 +80,7 @@ class LlmRunValuesTest extends TestCase {
 
 		$this->assertSame('ollama', $named->chatProvider);
 		$this->assertSame('org-1', $named->organisation);
-		$this->assertNull($unnamed->chatProvider);
+		$this->assertSame('nextcloud', $unnamed->chatProvider);
 	}//end testTheRequestTakesTheChatProviderFromTheConfig()
 
 	/**

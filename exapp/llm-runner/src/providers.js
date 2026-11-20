@@ -230,6 +230,15 @@ const PROVIDERS = {
 		credentialKeys: ['CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY'],
 		apiHost: 'api.anthropic.com',
 		parse: parseClaudeJson,
+		// Subscription sign-in (models-provider-connections D5): `claude setup-token`
+		// prints the vendor's sign-in URL, reads the one-time code the page shows on
+		// STDIN and prints a long-lived subscription token.
+		login: {
+			mode: 'code',
+			args: ['setup-token'],
+			tokenPattern: /sk-ant-oat01-[A-Za-z0-9_-]+/,
+			hosts: ['claude.ai', 'console.anthropic.com', 'api.anthropic.com'],
+		},
 	},
 	openai: {
 		// Installed via `npm i -g @openai/codex` (the OpenAI Codex CLI).
@@ -240,8 +249,24 @@ const PROVIDERS = {
 			return model ? base.concat(['--model', model]) : base
 		},
 		credentialKeys: ['OPENAI_API_KEY'],
+		// A signed-in ChatGPT subscription is the Codex CLI's own auth file, not an
+		// env var: written into the turn's throwaway home as a 0600 file, never
+		// placed in the environment (models-provider-connections D5).
+		authFiles: { CODEX_AUTH_JSON: '.codex/auth.json' },
 		apiHost: 'api.openai.com',
 		parse: parseGenericJson,
+		// The ChatGPT device sign-in: the CLI prints a URL and a code the user enters
+		// on OpenAI's page, and writes its auth file when the sign-in completes.
+		// Offered only when the pinned CLI has it (see loginSupported in server.js).
+		login: {
+			mode: 'device',
+			args: ['login', '--device-auth'],
+			deviceCodePattern: /\b([A-Z0-9]{4}-[A-Z0-9]{4,5})\b/,
+			authFile: '.codex/auth.json',
+			hosts: ['auth.openai.com', 'chatgpt.com'],
+			probeArgs: ['login', '--help'],
+			probeFlag: '--device-auth',
+		},
 	},
 	grok: {
 		// PLACEHOLDER: xAI ships no verified official CLI on npm at build time.

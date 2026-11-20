@@ -87,6 +87,18 @@ interface TalkRoomBindingInterface {
 	public function findByRoomToken(string $roomToken): ?ObjectEntity;
 
 	/**
+	 * One agent's session in a room; a session without an agent is adopted by it.
+	 *
+	 * @param string $roomToken The Talk room token.
+	 * @param string $agentId   The agent uuid.
+	 *
+	 * @return ObjectEntity|null The agent's session in the room, or null.
+	 *
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-sessions-are-per-room-per-agent-and-ordered
+	 */
+	public function findByRoomAndAgent(string $roomToken, string $agentId): ?ObjectEntity;
+
+	/**
 	 * Whether Hermiq created this room for a session, rather than being invited into it.
 	 *
 	 * 🔴 Read from stored data, never inferred from the room's current shape.

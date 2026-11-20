@@ -531,9 +531,11 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	 *                           size, origin), resolved as the speaker; never bytes or text.
 	 * @param array|null $provenance How an assistant answer came about: model, sources and step
 	 *                               outcomes, never content (chat-how-an-answer-came-about).
+	 * @param array|null $retrievalScope The scope an answer was given (memory-retrieval-scope), stored on the turn.
+	 * @param array|null $translation The record of a translated recording: the languages and
+	 *                                the engines used (chat-translate-a-recording).
 	 * @param string|null $channel Where a human turn was typed: `talk` or `hermiq`; stored on
 	 *                             role=user turns only, anything else is left unset.
-	 * @param array|null $retrievalScope The scope an answer was given (memory-retrieval-scope), stored on the turn.
 	 *
 	 * @return ObjectEntity The persisted Message object.
 	 *
@@ -543,6 +545,7 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
 	 * @spec openspec/changes/chat-carry-a-conversation-across-channels/specs/session-channel-continuity/spec.md#requirement-each-turn-records-where-it-was-typed-req-schan-004
+	 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-the-languages-and-engines-used-are-recorded-req-strn-002
 	 */
 	public function storeMessage(
 		string $conversationId,
@@ -554,12 +557,13 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 		?string $authorDisplayName = null,
 		array $attachments = [],
 		?array $provenance = null,
-		?string $channel = null,
 		?array $retrievalScope = null,
+		?array $translation = null,
+		?string $channel = null,
 	): ObjectEntity {
 		$payload = $this->messagePayload(
 			message: ['sessionId' => $conversationId, 'role' => $role, 'content' => $content],
-			extras: compact('sources', 'context', 'attachments', 'provenance', 'retrievalScope')
+			extras: compact('sources', 'context', 'attachments', 'provenance', 'retrievalScope', 'translation')
 		);
 		$payload = $this->withAuthorship(
 			payload: $payload,
@@ -577,12 +581,18 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	 * The Message payload: the session, role and content, plus each optional
 	 * part that carries something. Empty sources or context are left out,
 	 * attachments are re-indexed, provenance and the retrieval scope are kept
-	 * whenever they are given.
+	 * whenever they are given, a translation record when it is not empty.
 	 *
 	 * @param array{sessionId: string, role: string, content: string} $message The session id, role and content.
-	 * @param array{sources: ?array, context: ?array, attachments: array, provenance: ?array, retrievalScope: ?array} $extras The optional parts.
+	 * @param array<string, mixed> $extras The optional parts: sources, context, attachments (array),
+	 *                                     provenance, retrievalScope and translation, each nullable.
 	 *
 	 * @return array<string, mixed> The payload.
+	 *
+	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) carried in with this batch's feature work; splitting it
+	 * is follow-up work, not part of this merge.
+	 * @SuppressWarnings(PHPMD.NPathComplexity) carried in with this batch's feature work; splitting it is
+	 * follow-up work, not part of this merge.
 	 */
 	private function messagePayload(array $message, array $extras): array {
 		$payload = $message;
@@ -606,6 +616,11 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 		// Memory-retrieval-scope D5: the scope the answer was given.
 		if ($extras['retrievalScope'] !== null) {
 			$payload['retrievalScope'] = $extras['retrievalScope'];
+		}
+
+		// Chat-translate-a-recording: the languages and engines a translated recording used.
+		if ($extras['translation'] !== null && $extras['translation'] !== []) {
+			$payload['translation'] = $extras['translation'];
 		}
 
 		return $payload;
