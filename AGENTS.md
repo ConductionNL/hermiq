@@ -39,7 +39,7 @@ npm run watch   # rebuild on change
 composer test:unit    # PHPUnit (phpunit.xml: tests/Unit, tests/unit)
 npm run test:unit     # Vitest (vitest.config.mjs)
 npm run check:specs   # Node spec checks in tests/*.spec.js
-npx playwright test   # Playwright (playwright.config.ts, tests/e2e); there is no npm script for it
+npx playwright test --project chromium   # Playwright (playwright.config.ts, tests/e2e); no npm script exists
 ```
 
 ## Lint and quality
