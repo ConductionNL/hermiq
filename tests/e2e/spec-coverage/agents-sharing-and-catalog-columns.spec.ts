@@ -7,7 +7,8 @@
  *
  * The admin shares a seeded agent with a throwaway group through the agent
  * form, a second user in that group then gets the agent from /api/agents and
- * a second user outside it gets 404; the catalog shows the five columns.
+ * a second user outside it gets 404; a colleague creates their own private
+ * agent that an outsider cannot read; the catalog shows the five columns.
  * Every seeded object, the user and the group are removed in afterAll.
  *
  * Run against a running Nextcloud with Hermiq + OpenRegister installed:
@@ -27,6 +28,7 @@ import {
 	dismissTour,
 	harvestToken,
 	jsonHeaders,
+	openAgentForm,
 	seedAgent,
 	TEST_PREFIX,
 } from './_fixtures.ts'
@@ -77,18 +79,28 @@ test.describe('agents-sharing-and-catalog-columns: the AgentCatalog and the shar
 		const root = await appRoot(page)
 		await page.goto(`${root}/agents/${agent.id}`)
 		await dismissTour(page)
-		await page.getByRole('button', { name: 'Edit agent' }).click()
+		await openAgentForm(page)
 		await page
 			.getByTestId('agent-form-sharing')
 			.getByText('People and groups I choose')
 			.click()
 		const groups = page.getByTestId('agent-form-sharing-groups')
 		await groups.locator('input').fill(GROUP)
-		await page.getByRole('option', { name: GROUP }).click()
-		await page.getByRole('button', { name: 'Save' }).click()
+		// NcSelect appends its listbox to <body>, outside the aria-modal dialog,
+		// so the option is not in the accessibility tree a role query reads.
+		await page.locator('.vs__dropdown-option', { hasText: GROUP }).click()
+		await page
+			.getByRole('dialog', { name: 'Edit agent' })
+			.getByRole('button', { name: 'Save', exact: true })
+			.click()
 
 		const context = await browser.newContext({
-			httpCredentials: { username: member.uid, password: member.password },
+			storageState: { cookies: [], origins: [] },
+			httpCredentials: {
+				username: member.uid,
+				password: member.password,
+				send: 'always',
+			},
 		})
 		const shown = await context.request.get(`${API}/agents/${agent.id}`, {
 			headers: { 'OCS-APIRequest': 'true' },
@@ -107,7 +119,12 @@ test.describe('agents-sharing-and-catalog-columns: the AgentCatalog and the shar
 		})
 		const outsider = await createSecondUser(page.request, token, 'outsider')
 		const context = await browser.newContext({
-			httpCredentials: { username: outsider.uid, password: outsider.password },
+			storageState: { cookies: [], origins: [] },
+			httpCredentials: {
+				username: outsider.uid,
+				password: outsider.password,
+				send: 'always',
+			},
 		})
 		const shown = await context.request.get(`${API}/agents/${agent.id}`, {
 			headers: { 'OCS-APIRequest': 'true' },
@@ -115,6 +132,53 @@ test.describe('agents-sharing-and-catalog-columns: the AgentCatalog and the shar
 		expect(shown.status()).toBe(404)
 		await context.close()
 		await deleteSecondUser(page.request, token, outsider.uid)
+	})
+
+	// @e2e agent-management-ui::create-an-agent
+	test('a colleague creates their own agent and an outsider cannot read it', async ({
+		page,
+		browser,
+	}) => {
+		const author = await createSecondUser(page.request, token, 'author')
+		const outsider = await createSecondUser(page.request, token, 'stranger')
+		const as = (user) => browser.newContext({
+			storageState: { cookies: [], origins: [] },
+			httpCredentials: {
+				username: user.uid,
+				password: user.password,
+				send: 'always',
+			},
+		})
+
+		const authorContext = await as(author)
+		const created = await authorContext.request.post(`${API}/agents`, {
+			headers: { 'OCS-APIRequest': 'true' },
+			data: { name: `${TEST_PREFIX}-author-own`, prompt: 'mine' },
+		})
+		expect(created.status()).toBe(201)
+		const agent = await created.json()
+		expect(agent.owner).toBe(author.uid)
+		expect(agent.isPrivate).toBe(true)
+		const own = await authorContext.request.get(`${API}/agents/${agent.id}`, {
+			headers: { 'OCS-APIRequest': 'true' },
+		})
+		expect(own.status()).toBe(200)
+		await authorContext.close()
+
+		const outsiderContext = await as(outsider)
+		const shown = await outsiderContext.request.get(`${API}/agents/${agent.id}`, {
+			headers: { 'OCS-APIRequest': 'true' },
+		})
+		expect(shown.status()).toBe(404)
+		const direct = await outsiderContext.request.get(
+			`/index.php/apps/openregister/api/objects/hermiq/agent/${agent.id}`,
+			{ headers: { 'OCS-APIRequest': 'true' } },
+		)
+		expect(direct.ok()).toBeFalsy()
+		await outsiderContext.close()
+
+		await deleteSecondUser(page.request, token, outsider.uid)
+		await deleteSecondUser(page.request, token, author.uid)
 	})
 
 	// @e2e agent-management-ui::a-case-handler-looks-for-an-agent-to-use
@@ -153,9 +217,11 @@ test.describe('agents-sharing-and-catalog-columns: the AgentCatalog and the shar
 	}) => {
 		const colleague = await createSecondUser(page.request, token, 'colleague')
 		const context = await browser.newContext({
+			storageState: { cookies: [], origins: [] },
 			httpCredentials: {
 				username: colleague.uid,
 				password: colleague.password,
+				send: 'always',
 			},
 		})
 		const created = await context.request.post(

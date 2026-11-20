@@ -51,6 +51,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * The governed tools/call dispatch of McpRunController.
@@ -113,6 +114,7 @@ final class McpRunControllerDispatchPathsTest extends TestCase {
 		$this->objects = $this->createMock(ObjectService::class);
 		$this->objects->method('find')->willReturnCallback(
 			function (mixed ...$args) use ($agent): mixed {
+				$args = LegacyObjectArgs::positional(method: 'find', args: $args);
 				if (in_array('agentsession', $args, true) === true) {
 					if ($this->conversation instanceof \Throwable) {
 						throw $this->conversation;
@@ -492,4 +494,37 @@ final class McpRunControllerDispatchPathsTest extends TestCase {
 		self::assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
 		self::assertSame(-32700, $response->getData()['error']['code']);
 	}//end testTheRealBodyReaderReadsTheInputStream()
+
+	/**
+	 * The project key in the verified token reaches the governed invoker; the
+	 * model never supplies it (memory-project-scopes, CLI transport).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	public function testTheTokensProjectKeyReachesTheInvoker(): void {
+		$this->toolLoop->expects(self::once())
+			->method('buildFunctionInfos')
+			->with(self::anything(), self::anything(), self::anything(), self::anything(), self::anything(), self::anything(), self::anything(), self::anything(), 'omgevingsvisie-2040')
+			->willReturn([$this->functionInfo(self::TOOL, '{}')]);
+
+		$this->controller(body: $this->callBody(), binding: ['projectKey' => 'omgevingsvisie-2040'])->handle();
+	}//end testTheTokensProjectKeyReachesTheInvoker()
+
+	/**
+	 * A token without a project key builds the invoker with an empty one.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	public function testATokenWithoutAProjectBuildsNoProjectKey(): void {
+		$this->toolLoop->expects(self::once())
+			->method('buildFunctionInfos')
+			->with(self::anything(), self::anything(), self::anything(), self::anything(), self::anything(), self::anything(), '')
+			->willReturn([$this->functionInfo(self::TOOL, '{}')]);
+
+		$this->controller(body: $this->callBody())->handle();
+	}//end testATokenWithoutAProjectBuildsNoProjectKey()
 }//end class

@@ -20,6 +20,7 @@ import BookOpenVariantOutline from 'vue-material-design-icons/BookOpenVariantOut
 import Brain from 'vue-material-design-icons/Brain.vue'
 import CalculatorVariantOutline from 'vue-material-design-icons/CalculatorVariantOutline.vue'
 import Calendar from 'vue-material-design-icons/Calendar.vue'
+import CalendarClock from 'vue-material-design-icons/CalendarClock.vue'
 import CashMultiple from 'vue-material-design-icons/CashMultiple.vue'
 import ChartBar from 'vue-material-design-icons/ChartBar.vue'
 import ChartBoxOutline from 'vue-material-design-icons/ChartBoxOutline.vue'
@@ -38,6 +39,7 @@ import CompassOutline from 'vue-material-design-icons/CompassOutline.vue'
 import Connection from 'vue-material-design-icons/Connection.vue'
 import Creation from 'vue-material-design-icons/Creation.vue'
 import DatabaseOutline from 'vue-material-design-icons/DatabaseOutline.vue'
+import DeleteSweepOutline from 'vue-material-design-icons/DeleteSweepOutline.vue'
 import Eye from 'vue-material-design-icons/Eye.vue'
 import FileDocumentEditOutline from 'vue-material-design-icons/FileDocumentEditOutline.vue'
 import FileDocumentMultipleOutline from 'vue-material-design-icons/FileDocumentMultipleOutline.vue'
@@ -111,6 +113,7 @@ export default {
 	Creation,
 	Connection,
 	DatabaseOutline,
+	DeleteSweepOutline,
 	Eye,
 	FileDocumentEditOutline,
 	FileSign,
@@ -119,6 +122,7 @@ export default {
 	ForumOutline,
 	Gauge,
 	GraphOutline,
+	CalendarClock,
 	History,
 	KeyOutline,
 	LinkVariant,

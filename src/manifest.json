@@ -20,6 +20,13 @@
 			"order": 10
 		},
 		{
+			"id": "Schedules",
+			"label": "Schedules",
+			"icon": "CalendarClock",
+			"route": "Schedules",
+			"order": 11
+		},
+		{
 			"id": "ApprovalInbox",
 			"label": "Approvals",
 			"icon": "Check",
@@ -28,7 +35,7 @@
 		},
 		{
 			"id": "Store",
-			"label": "Store",
+			"label": "Marketplace",
 			"icon": "StoreOutline",
 			"route": "Store",
 			"order": 92,
@@ -92,6 +99,15 @@
 			"route": "TenantOps",
 			"section": "settings",
 			"order": 40
+		},
+		{
+			"id": "PublicChatMenu",
+			"label": "Public chat",
+			"icon": "ChatOutline",
+			"route": "PublicChat",
+			"section": "settings",
+			"order": 45,
+			"permission": "admin"
 		},
 		{
 			"id": "EvalDatasets",
@@ -180,6 +196,14 @@
 			"_note": "Custom page: a streaming chat thread is genuinely custom — SSE token/tool-call consumption with a live assistant bubble, a session archive lifecycle driven by Hermiq's payload-marker soft delete, per-message feedback, and an agent-selector empty state are not expressible via the built-in index/detail/dashboard page types (agent-engine-port). Standard nav page — not a dashboard."
 		},
 		{
+			"id": "SharedSession",
+			"route": "/chat/shared/:id",
+			"type": "custom",
+			"component": "SharedSession",
+			"title": "Shared session",
+			"_note": "chat-fork-and-share-link: the read-only page of a session shared with the reader. Custom because it reads through the session routes, which decide per request whether a share admits the reader; there is no message box and no action on it."
+		},
+		{
 			"id": "AgentCatalog",
 			"route": "/agents",
 			"type": "index",
@@ -241,6 +265,80 @@
 			}
 		},
 		{
+			"id": "Schedules",
+			"route": "/schedules",
+			"type": "index",
+			"title": "Schedules",
+			"config": {
+				"_note": "scheduling-overview-and-start-choice D1: every schedule the viewer may see, read from GET /api/schedules (ScheduleListController), which filters per row by owner, agent access and organisation admin. Not an index over the schedule objects: their read rule is authenticated, so that would list every schedule of the organisation to everyone.",
+				"entitySource": "endpoint",
+				"sourceConfig": {
+					"url": "/apps/hermiq/api/schedules",
+					"rowsPath": "results",
+					"totalPath": "total",
+					"searchFields": {
+						"agentId": {
+							"param": "agentId",
+							"single": true
+						},
+						"enabled": {
+							"param": "enabled",
+							"single": true
+						}
+					}
+				},
+				"showAdd": false,
+				"quickFilters": [
+					{
+						"label": "All",
+						"filter": {},
+						"default": true
+					},
+					{
+						"label": "Failed",
+						"filter": {
+							"failed": "true"
+						}
+					},
+					{
+						"label": "Paused",
+						"filter": {
+							"enabled": "false"
+						}
+					}
+				],
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "agentName",
+						"label": "Agent"
+					},
+					{
+						"key": "when",
+						"label": "When"
+					},
+					{
+						"key": "nextRun",
+						"label": "Next run",
+						"formatter": "scheduleNextRun"
+					},
+					{
+						"key": "lastStatus",
+						"label": "Last result",
+						"formatter": "scheduleLastResult"
+					},
+					{
+						"key": "enabled",
+						"label": "Enabled",
+						"formatter": "scheduleEnabled"
+					}
+				]
+			}
+		},
+		{
 			"id": "AgentDetail",
 			"route": "/agents/:id",
 			"type": "detail",
@@ -268,8 +366,16 @@
 								"prompt",
 								"temperature",
 								"maxTokens",
-								"maxToolCalls"
-							]
+								"maxToolCalls",
+								"ensemble"
+							],
+							"overrides": {
+								"ensemble": {
+									"label": "Answer with several models",
+									"formatter": "agentEnsemble",
+									"editable": false
+								}
+							}
 						}
 					},
 					{
@@ -424,6 +530,13 @@
 						"title": "Ratings",
 						"icon": "ThumbUpOutline",
 						"_note": "observability-feedback-per-agent: share rated helpful with the thumbs up and down counts, and the latest thumbs-down comments. Resolved via page.slots.widget-agent-ratings -> agent-ratings."
+					},
+					{
+						"id": "agent-builds",
+						"type": "custom",
+						"title": "Builds",
+						"icon": "PackageVariantClosed",
+						"_note": "tools-agent-workspace-and-installed-tools: the published builds (files and installed tools frozen with an agent version), the pinned one, the unpublished-changes note and Publish build. Resolved via page.slots.widget-agent-builds -> agent-builds."
 					}
 				],
 				"layout": [
@@ -543,6 +656,15 @@
 						"gridWidth": 12,
 						"gridHeight": 4,
 						"showTitle": true
+					},
+					{
+						"id": "13",
+						"widgetId": "agent-builds",
+						"gridX": 0,
+						"gridY": 37,
+						"gridWidth": 12,
+						"gridHeight": 4,
+						"showTitle": false
 					}
 				],
 				"headerActions": [
@@ -562,6 +684,16 @@
 						"type": "open-modal",
 						"target": "agent-availability",
 						"icon": "Power",
+						"props": {
+							"show": true
+						}
+					},
+					{
+						"id": "clear-answer-cache",
+						"label": "Clear cached answers",
+						"type": "open-modal",
+						"target": "agent-answer-cache-clear",
+						"icon": "DeleteSweepOutline",
 						"props": {
 							"show": true
 						}
@@ -631,7 +763,8 @@
 				"widget-agent-memory": "agent-memory",
 				"widget-agent-run-history": "agent-run-history",
 				"widget-agent-eval-baseline": "agent-eval-baseline",
-				"widget-agent-ratings": "agent-ratings"
+				"widget-agent-ratings": "agent-ratings",
+				"widget-agent-builds": "agent-builds"
 			}
 		},
 		{
@@ -710,7 +843,8 @@
 			"title": "Skills",
 			"slots": {
 				"row-actions": "skill-row-actions",
-				"form-dialog": "SkillFormModal"
+				"form-dialog": "SkillFormModal",
+				"below-header": "skill-merge-proposals"
 			}
 		},
 		{
@@ -739,6 +873,63 @@
 			},
 			"slots": {
 				"form-dialog": "ContextFormModal"
+			}
+		},
+		{
+			"id": "KnowledgeBases",
+			"route": "/knowledge-bases",
+			"type": "index",
+			"title": "Knowledge bases",
+			"config": {
+				"register": "hermiq",
+				"schema": "agentknowledgebase",
+				"_note": "memory-knowledge-bases: knowledge bases are documents an agent searches per question. Reached from the Memory page and the agent form's picker, not from the menu (design.md D6). Create and edit go through the generic schema form (name, description, folder); sources are managed on the detail page.",
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "description",
+						"label": "Description"
+					}
+				],
+				"rowRoute": "KnowledgeBaseDetail"
+			}
+		},
+		{
+			"id": "KnowledgeBaseDetail",
+			"route": "/knowledge-bases/:id",
+			"type": "detail",
+			"title": "Knowledge base",
+			"config": {
+				"register": "hermiq",
+				"schema": "agentknowledgebase",
+				"widgets": [
+					{
+						"id": "knowledge-base-sources",
+						"type": "custom",
+						"title": "Sources",
+						"icon": "BookOpenVariantOutline",
+						"_note": "Sources with their indexing state, the only-you notice and where an outside source comes from; upload, add from Files, add a folder, remove. Resolved via page.slots.widget-knowledge-base-sources -> knowledge-base-sources."
+					}
+				],
+				"layout": [
+					{
+						"id": "1",
+						"widgetId": "knowledge-base-sources",
+						"gridX": 0,
+						"gridY": 0,
+						"gridWidth": 12,
+						"gridHeight": 6
+					}
+				],
+				"sidebar": {
+					"enabled": false
+				}
+			},
+			"slots": {
+				"widget-knowledge-base-sources": "knowledge-base-sources"
 			}
 		},
 		{
@@ -861,7 +1052,7 @@
 			"id": "Store",
 			"route": "/store",
 			"type": "index",
-			"title": "Store",
+			"title": "Marketplace",
 			"config": {
 				"register": "hermiq",
 				"schema": "agenttemplate",
@@ -1352,6 +1543,43 @@
 			"title": "Guardrail policy"
 		},
 		{
+			"id": "PublicChat",
+			"route": "/settings/public-chat",
+			"type": "index",
+			"title": "Public chat",
+			"permission": "admin",
+			"_note": "delivery-public-web-chat task 6 (REQ-PUBCHAT-001): the public chat channels, rows of hermiq's agentpublicchannel objects. The form-dialog slot mounts PublicChannelFormModal: an agent picker that offers only agents without tools (PublicChannelGuardListener refuses one with tools on save and gives a new channel its token), the allowed origins, the public sources, the visitor notice and the questions per day; a saved website channel shows its script and iframe snippets. Channels only answer while the public-chat AI feature is enabled.",
+			"config": {
+				"register": "hermiq",
+				"schema": "agentpublicchannel",
+				"defaultSort": {
+					"field": "name",
+					"direction": "asc"
+				},
+				"columns": [
+					{
+						"key": "name",
+						"label": "Channel"
+					},
+					{
+						"key": "kind",
+						"label": "Kind"
+					},
+					{
+						"key": "enabled",
+						"label": "Answers visitors"
+					},
+					{
+						"key": "dailyQuestionLimit",
+						"label": "Questions per day"
+					}
+				]
+			},
+			"slots": {
+				"form-dialog": "PublicChannelFormModal"
+			}
+		},
+		{
 			"id": "AlgorithmRegister",
 			"route": "/algorithm-register",
 			"type": "index",
@@ -1419,6 +1647,38 @@
 			"component": "McpTools",
 			"_note": "Custom page rendering the standard nc-vue list UI (CnDataTable): MCP tools are resolved live from OpenRegister's tool registry, NOT a hermiq schema, so type:index (which requires register+schema) cannot express it.",
 			"title": "MCP tools"
+		},
+		{
+			"id": "CustomTools",
+			"route": "/custom-tools",
+			"type": "index",
+			"title": "Custom tools",
+			"config": {
+				"register": "hermiq",
+				"schema": "customtool",
+				"_note": "tools-custom-tools-without-code: an organisation's own tools that call a flow or an integriq endpoint. Reads go through the generic objects path (the schema lets authenticated users read their organisation's tools); create and edit mount CustomToolFormModal through slots.form-dialog, which writes through hermiq's /api/custom-tools, the endpoint only an organisation admin or instance admin passes. Reached from the MCP tools page.",
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "slug",
+						"label": "Slug"
+					},
+					{
+						"key": "changesData",
+						"label": "Changes data"
+					},
+					{
+						"key": "enabled",
+						"label": "Enabled"
+					}
+				]
+			},
+			"slots": {
+				"form-dialog": "CustomToolFormModal"
+			}
 		},
 		{
 			"id": "FlowIndex",
@@ -1495,6 +1755,9 @@
 						}
 					}
 				]
+			},
+			"slots": {
+				"below-header": "chat-health"
 			}
 		},
 		{
@@ -1549,6 +1812,57 @@
 						"description": "What the agents did, and what a human still has to answer for.",
 						"icon": "ShieldCheckOutline",
 						"route": "AiOversight"
+					}
+				],
+				"cardState": {
+					"url": "/apps/hermiq/api/report-subscriptions",
+					"keyField": "report"
+				},
+				"cardActions": [
+					{
+						"id": "send-weekly",
+						"label": "Send me this weekly",
+						"type": "api-call",
+						"method": "POST",
+						"url": "/apps/hermiq/api/report-subscriptions/@objectId",
+						"payload": {
+							"frequency": "weekly"
+						},
+						"successMessage": "You will get this report every week.",
+						"visibleWhen": {
+							"field": "state.status",
+							"op": "neq",
+							"value": "active"
+						}
+					},
+					{
+						"id": "send-monthly",
+						"label": "Send me this monthly",
+						"type": "api-call",
+						"method": "POST",
+						"url": "/apps/hermiq/api/report-subscriptions/@objectId",
+						"payload": {
+							"frequency": "monthly"
+						},
+						"successMessage": "You will get this report every month.",
+						"visibleWhen": {
+							"field": "state.status",
+							"op": "neq",
+							"value": "active"
+						}
+					},
+					{
+						"id": "stop-sending",
+						"label": "Stop sending",
+						"type": "api-call",
+						"method": "DELETE",
+						"url": "/apps/hermiq/api/report-subscriptions/@objectId",
+						"successMessage": "This report is no longer sent to you.",
+						"visibleWhen": {
+							"field": "state.status",
+							"op": "eq",
+							"value": "active"
+						}
 					}
 				]
 			},

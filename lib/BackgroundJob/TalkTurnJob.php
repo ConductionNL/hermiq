@@ -9,8 +9,13 @@
  * message sender's request — running the turn there would hold that request
  * open for the length of an LLM call.
  *
- * All logic lives in `TalkTurnService` — this class stays a pure wrapper
- * (ADR-002), exactly like `WebhookAgentRunJob` wraps `WebhookAgentRunService`.
+ * Since instant-talk the job is the SAFETY NET, not the default executor: it is
+ * still enqueued for every turn, and it runs the turn only when no other
+ * executor holds or finished its claim (see `TalkTurnExecutor`).
+ *
+ * All logic lives in `TalkTurnExecutor` and `TalkTurnService` — this class stays
+ * a pure wrapper (ADR-002), exactly like `WebhookAgentRunJob` wraps
+ * `WebhookAgentRunService`.
  *
  * @category Cron
  * @package  OCA\Hermiq\BackgroundJob
@@ -25,13 +30,14 @@
  * @link https://conduction.nl
  *
  * @spec openspec/changes/archive/2026-07-30-talk-chat-bridge/tasks.md#4-out-of-request-turn-execution-one-service-two-hand-offs
+ * @spec openspec/changes/instant-talk/tasks.md#1-claims-and-dedup
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\BackgroundJob;
 
-use OCA\Hermiq\Kernel\Contracts\TalkTurnServiceInterface;
+use OCA\Hermiq\Service\Talk\TalkTurnExecutor;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\QueuedJob;
 
@@ -43,67 +49,31 @@ use OCP\BackgroundJob\QueuedJob;
  * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-bot-listener-never-runs-an-agent-turn-inline
  */
 class TalkTurnJob extends QueuedJob {
-	/**
-	 * The fields a queued turn carries, all required.
-	 *
-	 * @var list<string>
-	 */
-	private const TURN_FIELDS = ['conversationUuid', 'speakerUid', 'message', 'roomToken'];
 
 	/**
 	 * Constructor.
 	 *
-	 * @param ITimeFactory $time Core time factory required by QueuedJob.
-	 * @param TalkTurnServiceInterface $talkTurnService The service holding all turn logic.
+	 * @param ITimeFactory     $time     Core time factory required by QueuedJob.
+	 * @param TalkTurnExecutor $executor Claims and runs the turn.
 	 */
 	public function __construct(
 		ITimeFactory $time,
-		private readonly TalkTurnServiceInterface $talkTurnService,
+		private readonly TalkTurnExecutor $executor,
 	) {
 		parent::__construct(time: $time);
 	}//end __construct()
 
 	/**
-	 * Run the queued turn.
+	 * Run the queued turn, unless another executor claimed or finished it.
 	 *
 	 * @param mixed $argument The enqueued argument shape.
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-turns-execute-immediately-with-claim-based-exactly-once-semantics
 	 */
 	protected function run($argument): void {
-		$turn = $this->turnOf(argument: $argument);
-		if ($turn === null) {
-			return;
-		}
-
-		$this->talkTurnService->runTurn(...$turn);
+		$this->executor->execute(argument: $argument);
 
 	}//end run()
-
-	/**
-	 * The queued turn's four fields as named arguments, or null when any is missing or empty.
-	 *
-	 * @param mixed $argument The job argument.
-	 *
-	 * @return array{conversationUuid: string, speakerUid: string, message: string, roomToken: string}|null
-	 *
-	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
-	 */
-	private function turnOf(mixed $argument): ?array {
-		if (is_array($argument) === false) {
-			return null;
-		}
-
-		$turn = [];
-		foreach (self::TURN_FIELDS as $field) {
-			$turn[$field] = (string)($argument[$field] ?? '');
-			if ($turn[$field] === '') {
-				return null;
-			}
-		}
-
-		return $turn;
-	}//end turnOf()
 }//end class

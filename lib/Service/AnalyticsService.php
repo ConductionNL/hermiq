@@ -99,19 +99,19 @@ class AnalyticsService implements AnalyticsServiceInterface
      * The audit actions that represent an agent run, as ONE comma-joined filter value.
      *
      * AuditTrailMapper::findAll() turns a comma-bearing filter value into a SQL `IN`
-     * (see its filter loop), so both run channels come back from a single query rather
+     * (see its filter loop), so every run channel (schedule, flow, by hand) comes back from a single query rather
      * than two passes that would then need merging and re-sorting.
      *
      * @var string
      */
-    private const RUN_ACTIONS = 'run,agent-run';
+    private const RUN_ACTIONS = 'run,agent-run,manual-run';
 
     /**
      * The trigger a run row shows per audit action; any other action is a flow run.
      *
      * @var array<string, string>
      */
-    private const RUN_TRIGGERS = ['run' => 'schedule'];
+    private const RUN_TRIGGERS = ['run' => 'schedule', 'manual-run' => 'manual'];
 
     /**
      * The provider-disclosure labels a run row carries; anything else on the record is dropped.
@@ -119,6 +119,20 @@ class AnalyticsService implements AnalyticsServiceInterface
      * @var array<int, string>
      */
     private const DISCLOSURE_LABELS = ['provider', 'model', 'residency', 'location', 'dataUse', 'termsReference'];
+
+    /**
+     * The fields of a recorded computer action a run row shows (REQ-COMPUTER-004).
+     *
+     * @var list<string>
+     */
+    private const COMPUTER_FIELDS = ['target', 'action', 'x', 'y', 'text', 'keys', 'approvalId', 'screenshot'];
+
+    /**
+     * The token counts a run row carries from the run's recorded usage.
+     *
+     * @var array<int, string>
+     */
+    private const USAGE_COUNTS = ['promptTokens', 'completionTokens', 'cacheReadTokens', 'cacheWriteTokens'];
 
     /**
      * Page size for the visible-agent scan (paged to exhaustion, never a cap).
@@ -560,9 +574,143 @@ class AnalyticsService implements AnalyticsServiceInterface
                 (array) ($context['providerDisclosure'] ?? []),
                 array_flip(self::DISCLOSURE_LABELS)
             ),
-        ];
+            // Models-several-models-per-turn: each attempt at a provider, and every
+            // provider and model that was sent the prompt.
+            'providerAttempts'   => self::labelRows(
+                rows: ($context['providerAttempts'] ?? []),
+                keys: ['provider', 'model', 'outcome', 'reason', 'durationMs']
+            ),
+            'receivedBy'         => self::labelRows(rows: ($context['providerDisclosure']['receivedBy'] ?? []), keys: ['provider', 'model']),
+            'usage'              => $this->runUsage(context: $context),
+        ] + self::computerFacts(steps: ($context['steps'] ?? []));
 
     }//end runFacts()
+
+    /**
+     * Rows of plain labels: each row keeps only the named scalar keys; anything else is dropped.
+     *
+     * @param mixed              $rows The recorded rows.
+     * @param array<int, string> $keys The keys to keep.
+     *
+     * @return array<int, array<string, scalar>>
+     *
+     * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+     */
+    private static function labelRows(mixed $rows, array $keys): array
+    {
+        if (is_array($rows) === false) {
+            return [];
+        }
+
+        $kept = [];
+        foreach ($rows as $row) {
+            if (is_array($row) === false) {
+                continue;
+            }
+
+            $kept[] = array_filter(
+                array_intersect_key($row, array_flip($keys)),
+                static fn ($value): bool => is_scalar($value)
+            );
+        }
+
+        return $kept;
+
+    }//end labelRows()
+
+    /**
+     * `computerActions` for a run that used a computer; nothing for any other run,
+     * so every other row reads as before.
+     *
+     * @param mixed $steps The run's recorded steps.
+     *
+     * @return array<string, array<int, array<string, mixed>>>
+     *
+     * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-the-run-records-actions-and-never-stores-screenshots-req-computer-004
+     */
+    private static function computerFacts(mixed $steps): array
+    {
+        $actions = self::computerActions(steps: $steps);
+        if ($actions === []) {
+            return [];
+        }
+
+        return ['computerActions' => $actions];
+
+    }//end computerFacts()
+
+    /**
+     * The computer actions a run recorded, as its steps traced them.
+     *
+     * Tools-browser-and-computer-use REQ-COMPUTER-004: the machine, the action,
+     * its point, the redacted text or keys, the approval and the screenshot's
+     * hash and size, never an image. Only those fields leave the record.
+     *
+     * @param mixed $steps The run's recorded steps.
+     *
+     * @return array<int, array<string, mixed>> One entry per computer step, in step order.
+     *
+     * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-the-run-records-actions-and-never-stores-screenshots-req-computer-004
+     */
+    private static function computerActions(mixed $steps): array
+    {
+        if (is_array($steps) === false) {
+            return [];
+        }
+
+        $actions = [];
+        foreach ($steps as $step) {
+            if (is_array($step) === false || is_array($step['computer'] ?? null) === false) {
+                continue;
+            }
+
+            $record = $step['computer'];
+
+            $action = array_intersect_key($record, array_flip(self::COMPUTER_FIELDS));
+            if (is_array($action['screenshot'] ?? null) === true) {
+                $action['screenshot'] = array_intersect_key($action['screenshot'], array_flip(['sha256', 'bytes']));
+            }
+
+            $actions[] = $action;
+        }
+
+        return $actions;
+
+    }//end computerActions()
+
+    /**
+     * The token counts a run recorded, as whole numbers, and only those.
+     *
+     * Models-prompt-and-answer-cache: the run list shows how many input tokens
+     * came from the provider's prompt cache, so it needs the input total and the
+     * cache counts. `promptTokens` already includes the cached tokens. A count
+     * that is not a whole number of zero or more is left out, and a run that
+     * recorded none gets an empty list.
+     *
+     * @param array<string, mixed> $context The entry's recorded `changed` payload.
+     *
+     * @return array<string, int> The recorded counts by name.
+     *
+     * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-3
+     */
+    private function runUsage(array $context): array
+    {
+        $usage = ($context['usage'] ?? null);
+        if (is_array($usage) === false) {
+            return [];
+        }
+
+        $counts = [];
+        foreach (self::USAGE_COUNTS as $key) {
+            $value = ($usage[$key] ?? null);
+            if (is_int($value) === true && $value >= 0) {
+                $counts[$key] = $value;
+            }
+        }
+
+        return $counts;
+
+    }//end runUsage()
 
     /**
      * Who wrote a run entry and when, with the epoch sort key the list orders on.

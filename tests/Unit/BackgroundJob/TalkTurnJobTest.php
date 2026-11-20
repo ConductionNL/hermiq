@@ -22,15 +22,22 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\BackgroundJob;
 
 use OCA\Hermiq\BackgroundJob\TalkTurnJob;
+use OCA\Hermiq\Service\Talk\TalkTurnClaims;
+use OCA\Hermiq\Service\Talk\TalkTurnExecutor;
 use OCA\Hermiq\Service\Talk\TalkTurnService;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\IAppConfig;
+use OCP\ICacheFactory;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use ReflectionMethod;
 
 /**
  * The queued Talk turn, argument shape by argument shape.
  *
  * @covers \OCA\Hermiq\BackgroundJob\TalkTurnJob
+ * @uses \OCA\Hermiq\Service\Talk\TalkTurnExecutor
+ * @uses \OCA\Hermiq\Service\Talk\TalkTurnClaims
  */
 final class TalkTurnJobTest extends TestCase {
 
@@ -63,7 +70,10 @@ final class TalkTurnJobTest extends TestCase {
 			}
 		);
 
-		$job = new TalkTurnJob($this->createMock(ITimeFactory::class), $service);
+		$cacheFactory = $this->createMock(ICacheFactory::class);
+		$cacheFactory->method('isAvailable')->willReturn(false);
+		$claims = new TalkTurnClaims($cacheFactory, $this->createMock(IAppConfig::class), $this->createMock(LoggerInterface::class));
+		$job = new TalkTurnJob($this->createMock(ITimeFactory::class), new TalkTurnExecutor($claims, $service));
 		(new ReflectionMethod(TalkTurnJob::class, 'run'))->invoke($job, $argument);
 
 		return $calls;

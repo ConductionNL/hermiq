@@ -48,6 +48,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Failure answers and fallbacks of SessionController.
@@ -180,7 +181,9 @@ final class SessionControllerUncoveredPathsTest extends TestCase {
 	public function testShowLookupFailureIsServerError(): void {
 		$this->objectService->expects(self::once())
 			->method('find')
-			->with('s-1')
+			->with(...LegacyObjectArgs::with(method: 'find', expected: [
+					'id' => 's-1',
+				]))
 			->willThrowException(new RuntimeException('lookup broke'));
 		$this->expectErrorLogged('[SessionController] Failed to get conversation', 'lookup broke');
 
@@ -247,13 +250,13 @@ final class SessionControllerUncoveredPathsTest extends TestCase {
 		$this->objectService->method('find')->willReturn($this->session('s-1', ['userId' => 'alice', 'metadata' => 'garbage']));
 		$this->objectService->expects(self::once())
 			->method('saveObject')
-			->with(
-				self::callback(static fn (array $object): bool => array_key_exists('metadata', $object) && $object['metadata'] === null && $object['userId'] === 'alice'),
-				self::anything(),
-				'hermiq',
-				'agentsession',
-				's-1'
-			)
+			->with(...LegacyObjectArgs::with(method: 'saveObject', expected: [
+					'object' => self::callback(static fn (array $object): bool => array_key_exists('metadata', $object) && $object['metadata'] === null && $object['userId'] === 'alice'),
+					'extend' => self::anything(),
+					'register' => 'hermiq',
+					'schema' => 'agentsession',
+					'uuid' => 's-1',
+				]))
 			->willReturnCallback(fn (array $object): ObjectEntity => $this->session('s-1', $object));
 
 		$response = $this->controller()->restore('s-1');
@@ -311,4 +314,56 @@ final class SessionControllerUncoveredPathsTest extends TestCase {
 			$result['provenanceAccount']
 		);
 	}//end testMessagesRenderProvenanceSentences()
+
+	/**
+	 * messages() says which answer the answer cache served, without exposing the entry.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-an-exact-repeat-within-one-organisation-gets-the-stored-answer-req-acache-002
+	 */
+	public function testMessagesSayWhichAnswerTheCacheServed(): void {
+		$this->objectService->method('find')->willReturn($this->session('s-1', ['userId' => 'alice']));
+		$this->objectService->method('findAll')->willReturn(
+			[
+				$this->session('t-1', ['sessionId' => 's-1', 'role' => 'user', 'content' => 'Wanneer?']),
+				$this->session('t-2', ['sessionId' => 's-1', 'role' => 'assistant', 'content' => 'Op maandag.', 'answerCache' => ['layer' => 'exact', 'entryId' => 'entry-7']]),
+				$this->session('t-3', ['sessionId' => 's-1', 'role' => 'assistant', 'content' => 'Op dinsdag.', 'answerCache' => ['layer' => 'exact', 'entryId' => '']]),
+			]
+		);
+		$this->objectService->method('searchObjectsPaginated')->willReturn(['total' => 3]);
+		$this->pendingApprovals->method('forSession')->willReturn([]);
+
+		$results = $this->controller([])->messages('s-1')->getData()['results'];
+
+		self::assertSame([false, true, false], array_column($results, 'fromCache'));
+		self::assertArrayNotHasKey('answerCache', $results[1]);
+	}//end testMessagesSayWhichAnswerTheCacheServed()
+
+	/**
+	 * messages() returns the scope each answer was given, and null on a turn without one.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-each-answer-records-the-scope-it-was-given-req-rscope-004
+	 */
+	public function testMessagesReturnTheRetrievalScope(): void {
+		$scope = ['fileFilters' => null, 'validated' => true, 'floor' => 0.55, 'passed' => 0, 'bestSimilarity' => 0.41, 'abstained' => true];
+		$this->objectService->method('find')->willReturn($this->session('s-1', ['userId' => 'alice']));
+		$this->objectService->method('findAll')->willReturn(
+			[
+				$this->session('t-1', ['sessionId' => 's-1', 'role' => 'assistant', 'content' => 'Nee', 'retrievalScope' => $scope]),
+				$this->session('t-2', ['sessionId' => 's-1', 'role' => 'user', 'content' => 'Vraag']),
+			]
+		);
+		$this->objectService->method('searchObjectsPaginated')->willReturn(['total' => 2]);
+		$this->pendingApprovals->method('forSession')->willReturn([]);
+
+		$response = $this->controller()->messages('s-1');
+
+		self::assertSame(200, $response->getStatus());
+		$results = $response->getData()['results'];
+		self::assertSame($scope, $results[0]['retrievalScope']);
+		self::assertNull($results[1]['retrievalScope']);
+	}//end testMessagesReturnTheRetrievalScope()
 }//end class

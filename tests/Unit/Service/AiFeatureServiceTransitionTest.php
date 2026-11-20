@@ -37,6 +37,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Tests for AiFeatureService::enable() and ::disable().
@@ -86,7 +87,13 @@ class AiFeatureServiceTransitionTest extends TestCase {
 		$feature->setUuid('feat-1');
 		$feature->setObject($payload);
 		$this->objectService->method('find')
-			->with('feat-1', [], false, 'hermiq', 'agentaifeature')
+			->with(...LegacyObjectArgs::with(method: 'find', expected: [
+				'id' => 'feat-1',
+				'_extend' => [],
+				'files' => false,
+				'register' => 'hermiq',
+				'schema' => 'agentaifeature',
+			]))
 			->willReturn($feature);
 	}//end givenFeature()
 
@@ -122,13 +129,13 @@ class AiFeatureServiceTransitionTest extends TestCase {
 	public function testEnablePersistsTheEnabledLifecycle(): void {
 		$this->givenFeature(['slug' => 'summaries', 'lifecycle' => 'disabled']);
 		$this->objectService->expects($this->once())->method('saveObject')
-			->with(
-				$this->callback(static fn (array $o): bool => $o['lifecycle'] === 'enabled' && $o['slug'] === 'summaries'),
-				[],
-				'hermiq',
-				'agentaifeature',
-				'feat-1'
-			)
+			->with(...LegacyObjectArgs::with(method: 'saveObject', expected: [
+				'object' => $this->callback(static fn (array $o): bool => $o['lifecycle'] === 'enabled' && $o['slug'] === 'summaries'),
+				'extend' => [],
+				'register' => 'hermiq',
+				'schema' => 'agentaifeature',
+				'uuid' => 'feat-1',
+			]))
 			->willReturn(new ObjectEntity());
 
 		$this->assertSame(AiFeatureService::RESULT_ENABLED, $this->service->enable('feat-1'));
@@ -154,7 +161,9 @@ class AiFeatureServiceTransitionTest extends TestCase {
 	public function testDisablePersistsTheDisabledLifecycle(): void {
 		$this->givenFeature(['lifecycle' => 'enabled']);
 		$this->objectService->expects($this->once())->method('saveObject')
-			->with($this->callback(static fn (array $o): bool => $o['lifecycle'] === 'disabled'))
+			->with(...LegacyObjectArgs::with(method: 'saveObject', expected: [
+				'object' => $this->callback(static fn (array $o): bool => $o['lifecycle'] === 'disabled'),
+			]))
 			->willReturn(new ObjectEntity());
 
 		$this->assertSame(AiFeatureService::RESULT_DISABLED, $this->service->disable('feat-1'));

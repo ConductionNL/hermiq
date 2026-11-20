@@ -1,35 +1,67 @@
-publiccodeYmlVersion: "0.3"
+publiccodeYmlVersion: "0.4"
 
 name: "Hermiq"
 url: "https://github.com/ConductionNL/hermiq"
-softwareVersion: "0.1.2"
-releaseDate: "2026-01-01"
+landingURL: "https://hermiq.conduction.nl"
+roadmap: "https://github.com/ConductionNL/hermiq/blob/development/openspec/ROADMAP.md"
+softwareVersion: "0.2.0"
+releaseDate: "2026-09-06"
+logo: img/app-store.svg
 softwareType: "addon"
 
 platforms:
-  - nextcloud
+  - web
 
 categories:
-  - content-management
+  - workflow-management
+  - task-management
 
 developmentStatus: development
+
+dependsOn:
+  open:
+    - name: Nextcloud
+      versionMin: "32"
+      versionMax: "35"
+    - name: OpenRegister
+      versionMin: "0.2.17-unstable.14"
+
+intendedAudience:
+  countries:
+    - nl
+  scope:
+    - government
+    - local-authorities
 
 description:
   en:
     shortDescription: "Schedule autonomous AI agents in Nextcloud"
     longDescription: |
       Hermiq brings autonomous AI agents to Nextcloud. Define an agent, give
-      it tools, and run it on a schedule — daily reports, inbox triage,
-      monitoring, morning briefings — all inside your own Nextcloud,
+      it tools, and run it on a schedule: daily reports, inbox triage,
+      monitoring, morning briefings. All of it runs inside your own Nextcloud,
       delivered to Nextcloud Talk. Agents, their memory and their
       self-improving skills are stored as OpenRegister objects, so every run
       is governed, auditable and multi-tenant.
+      Hermiq is available in the Nextcloud App Store at
+      https://apps.nextcloud.com/apps/hermiq.
+      Conduction maintains this component within the Nextcloud ISV programme.
+    documentation: "https://hermiq.conduction.nl"
     features:
-      - OpenRegister register and schema initialisation
-      - Manifest-driven SPA with CnAppRoot
-      - AI Chat Companion (MCP tool provider) scaffold
-      - Admin settings panel
-      - Playwright e2e test setup
+      - Define agents, give them tools and run them on a schedule
+      - Chat with an agent from Nextcloud Talk
+      - Install agents and skills from a shared store
+      - Approve or refuse actions before an agent takes them
+      - Read a full record of every agent run
+      - Curate what an agent remembers
+      - Decide which MCP tools an agent may call
+      - Measure whether a skill helps with evaluations
+      - Guardrail policies, compliance controls and Algoritmeregister publication
+      - Budgets and quotas per organisation
+    screenshots:
+      - img/screenshot-dashboard.png
+      - img/screenshot-agents.png
+      - img/screenshot-skills.png
 
   nl:
     localisedName: "Hermiq"
@@ -42,12 +74,25 @@ description:
       Nextcloud Talk. Agents, hun geheugen en hun zelflerende vaardigheden worden
       opgeslagen als OpenRegister-objecten, zodat elke run beheerst,
       controleerbaar en geschikt voor meerdere organisaties is.
+      Hermiq staat in de Nextcloud App Store op
+      https://apps.nextcloud.com/apps/hermiq.
+      Conduction onderhoudt dit component binnen het Nextcloud ISV-programma.
+    documentation: "https://hermiq.conduction.nl"
     features:
-      - Initialisatie van OpenRegister-register en -schema's
-      - Manifestgestuurde single-page-app met CnAppRoot
-      - Basis voor een AI-chatassistent (MCP-toolprovider)
-      - Beheerinstellingen
-      - Opzet voor end-to-endtests met Playwright
+      - Agents definiëren, tools geven en volgens een schema laten draaien
+      - Met een agent chatten vanuit Nextcloud Talk
+      - Agents en vaardigheden installeren uit een gedeelde store
+      - Acties goedkeuren of weigeren voordat een agent ze uitvoert
+      - Een volledig verslag van elke agent-run lezen
+      - Bepalen wat een agent onthoudt
+      - Bepalen welke MCP-tools een agent mag gebruiken
+      - Met evaluaties meten of een vaardigheid helpt
+      - Guardrailbeleid, compliancemaatregelen en publicatie in het Algoritmeregister
+      - Budgetten en quota per organisatie
+    screenshots:
+      - img/screenshot-dashboard.png
+      - img/screenshot-agents.png
+      - img/screenshot-skills.png
 
 legal:
   license: EUPL-1.2
@@ -55,7 +100,12 @@ legal:
   repoOwner: "ConductionNL"
 
 maintenance:
-  type: internal
+  type: contract
+  contractors:
+    - name: Conduction B.V.
+      until: "2028-12-31"
+      email: info@conduction.nl
+      website: https://conduction.nl
   contacts:
     - name: "Conduction B.V."
       email: "info@conduction.nl"

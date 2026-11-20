@@ -29,6 +29,8 @@ use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for the message storage/history handler.
@@ -70,7 +72,10 @@ class MessageHistoryHandlerTest extends TestCase {
 		$saved = [];
 		$objectService = $this->createMock(ObjectService::class);
 		$objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null) use (&$saved): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$saved): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
 				$saved[] = [
 					'object' => $object,
 					'register' => $register,
@@ -173,6 +178,7 @@ class MessageHistoryHandlerTest extends TestCase {
 		$objectService = $this->createMock(ObjectService::class);
 		$objectService->expects($this->once())->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$passed = LegacyObjectArgs::positional(method: 'saveObject', args: $passed);
 				$args = $passed;
 				$entity = new ObjectEntity();
 				$entity->setUuid('msg-1');

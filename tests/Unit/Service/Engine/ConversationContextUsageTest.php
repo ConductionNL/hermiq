@@ -68,14 +68,16 @@ class ConversationContextUsageTest extends TestCase {
 		$handler = new ConversationManagementHandler($objectService, $this->createMock(ProviderFactory::class), new NullLogger());
 		$handler->recordContextUsage(conversationId: 'conv-1', contextUsage: $usage);
 
-		$this->assertSame(['conv-1', [], false, 'hermiq', 'agentsession'], array_slice($found, 0, 5));
+		$this->assertSame('conv-1', $found[0]);
+		$this->assertSame('hermiq', $found[1]->register);
+		$this->assertSame('agentsession', $found[1]->schema);
 		$this->assertCount(1, $saved);
 		$object = $saved[0][0];
 		$this->assertSame('Offer', $object['title']);
 		$this->assertSame(['summary' => 'Earlier.', 'subject' => ['id' => 's'], 'contextUsage' => $usage], $object['metadata']);
 		$this->assertArrayNotHasKey('token_count', $object['metadata']);
-		$this->assertContains('conv-1', $saved[0]);
-		$this->assertContains('agentsession', $saved[0]);
+		$this->assertSame('conv-1', $saved[0][1]->uuid);
+		$this->assertSame('agentsession', $saved[0][1]->target->schema);
 	}//end testTheUsageIsKeptNextToTheExistingMetadata()
 
 	/**

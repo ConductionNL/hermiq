@@ -49,6 +49,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service;
 
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\ContextAgentInteractionServiceInterface;
 use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\ContextAgent\ConfirmationActor;
@@ -56,7 +57,11 @@ use OCA\Hermiq\Service\Engine\Engine;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IAppConfig;
 use OCP\TaskProcessing\Exception\ProcessingException;
 use Psr\Log\LoggerInterface;
@@ -112,7 +117,7 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 	 *
 	 * @param ObjectService $objectService OR object read/write.
 	 * @param Engine $engine Hermiq agent engine (runs the turn).
-	 * @param ApprovalService $approvalService Approval-gate decisions (confirmation mapping).
+	 * @param ApprovalServiceInterface $approvalService Approval-gate decisions (confirmation mapping).
 	 * @param TenantKillSwitch $tenantKillSwitch Kill-switch source (isOrganisationEngaged).
 	 * @param AuditTrailMapper $auditTrailMapper Redacted per-interaction audit write-path.
 	 * @param RedactionService $redactionService Masks secrets/PII before the audit write.
@@ -132,7 +137,7 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 	public function __construct(
 		private readonly ObjectService $objectService,
 		private readonly Engine $engine,
-		private readonly ApprovalService $approvalService,
+		private readonly ApprovalServiceInterface $approvalService,
 		private readonly TenantKillSwitch $tenantKillSwitch,
 		private readonly AuditTrailMapper $auditTrailMapper,
 		private readonly RedactionService $redactionService,
@@ -259,8 +264,7 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 			// below stays under the caller's own read rule.
 			$agent = $this->objectService->find(
 				id: $configured,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false
 			);
 			if ($agent instanceof ObjectEntity) {
@@ -300,12 +304,20 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 	 * @return ObjectEntity The resolved (existing or newly-created) Conversation.
 	 */
 	private function resolveConversation(string $conversationToken, string $userId, string $agentId): ObjectEntity {
-		if ($conversationToken !== '') {
-			$existing = $this->objectService->find(
-				id: $conversationToken,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
-			);
+		// Nextcloud Assistant sends `{}` as the token of a first turn (the context_agent
+		// convention), and OpenRegister's find() throws for an id it does not know
+		// instead of answering null. Both mean "no conversation yet": start one.
+		$existing = null;
+		if ($conversationToken !== '' && $conversationToken !== '{}') {
+			try {
+				$existing = $this->objectService->find(
+					id: $conversationToken,
+					options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
+				);
+			} catch (DoesNotExistException) {
+				$existing = null;
+			}
+
 			if ($existing instanceof ObjectEntity
 				&& (string)($existing->getObject()['userId'] ?? '') === $userId
 			) {
@@ -328,8 +340,7 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 				'title' => 'Assistant agent chat',
 				'metadata' => ['source' => 'contextagent'],
 			],
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)),
 			_rbac: false
 		);
 

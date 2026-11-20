@@ -76,4 +76,25 @@ final class ToolSurfaceRun {
 	 * @var bool
 	 */
 	public bool $dryRun = false;
+
+	/**
+	 * The conversation the turn belongs to, '' when there is none (flows-hand-off-and-wait).
+	 *
+	 * @var string
+	 */
+	public string $conversationId = '';
+
+	/**
+	 * The run a computer action's approval is scoped to; '' when there is none.
+	 *
+	 * @var string
+	 */
+	public string $runId = '';
+
+	/**
+	 * The session's project (memory-project-scopes), or null outside a project.
+	 *
+	 * @var string|null
+	 */
+	public ?string $projectKey = null;
 }//end class

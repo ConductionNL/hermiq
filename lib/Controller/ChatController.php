@@ -38,15 +38,18 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Service\Chat\SessionLinks;
 use Exception;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\EngineInterface;
 use OCA\Hermiq\Kernel\Contracts\LiteracyRequirementInterface;
 use OCA\Hermiq\Kernel\Contracts\ProviderFactoryInterface;
 use OCA\Hermiq\Kernel\Contracts\RunStepBusInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkTurnMirrorInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
 use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
+use OCA\Hermiq\Service\AnswerCache\AnswerCacheService;
 use OCA\Hermiq\Service\AppAssistantResolver;
 use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
 use OCA\Hermiq\Service\Chat\SessionSubject;
@@ -59,6 +62,9 @@ use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\Literacy\LiteracyRequiredException;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
@@ -150,6 +156,9 @@ class ChatController extends Controller {
 	 *                                                 existing caller constructs unchanged.
 	 * @param LiteracyRequirementInterface|null $literacy The course requirement (compliance-ai-literacy).
 	 * @param AppAssistantResolver|null $assistants The agent for an app when a chat names none (agents-bound-to-their-app).
+	 * @param TalkTurnMirrorInterface|null $mirror Mirrors a turn into the session's Talk room.
+	 * @param SessionLinks|null $sessionLinks Records what the session is about when a turn is sent (session-entity-links).
+	 * @param AnswerCacheService|null   $answerCache The answer cache, so a thumbs down removes the entry that served a reply.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
@@ -166,6 +175,9 @@ class ChatController extends Controller {
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
 		private readonly ?LiteracyRequirementInterface $literacy = null,
 		private readonly ?AppAssistantResolver $assistants = null,
+		private readonly ?TalkTurnMirrorInterface $mirror = null,
+		private readonly ?SessionLinks $sessionLinks = null,
+		private readonly ?AnswerCacheService $answerCache = null,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
@@ -211,8 +223,7 @@ class ChatController extends Controller {
 
 			$agent = $this->objectService->find(
 				id: $agentUuid,
-				register: self::REGISTER_SLUG,
-				schema: 'agent'
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: 'agent')
 			);
 			if ($agent === null) {
 				return new JSONResponse(data: ['warmed' => false], statusCode: 200);
@@ -276,6 +287,9 @@ class ChatController extends Controller {
 	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) carried in with session-entity-links; splitting it is
+	 * follow-up work, not part of this merge.
 	 */
 	public function sendMessage(): JSONResponse {
 		try {
@@ -341,11 +355,34 @@ class ChatController extends Controller {
 				ragSettings: $params['ragSettings'],
 				context: $params['context'],
 				trace: $trace,
-				attachments: $params['attachments']
+				attachments: $params['attachments'],
+				turnChannel: 'hermiq',
+				answerCacheBypass: $params['answerCacheBypass']
 			);
 
 			// Add conversation UUID to result for frontend.
 			$result['conversation'] = $conversation->getUuid();
+
+			// Oversight-ask-and-hold: the question the agent asked the person, or null.
+			$result['question'] = $trace->question();
+
+			// A session with a Talk room gets this turn in the room too, queued so
+			// the answer here never waits on Talk (chat-carry-a-conversation-across-channels D2).
+			$this->mirror?->enqueue(
+				session: (array)$conversation->getObject(),
+				sessionId: (string)$conversation->getUuid(),
+				userId: $userId,
+				question: (string)$params['message'],
+				answer: (string)($result['message'] ?? '')
+			);
+
+			// Session-entity-links D2: a SENT turn records what the page it came
+			// from shows; opening the panel records nothing.
+			$this->sessionLinks?->recordTurn(
+				sessionUuid: (string)$conversation->getUuid(),
+				context: (array)$params['context'],
+				userId: $userId
+			);
 
 			// The tool calls this turn made over the governed MCP transport.
 			// `CnAiMessageList` already renders `message.toolCalls` with
@@ -821,8 +858,7 @@ class ChatController extends Controller {
 			// above and the sessionId check below scope it to this conversation.
 			$message = $this->objectService->find(
 				id: $messageId,
-				register: self::REGISTER_SLUG,
-				schema: self::MESSAGE_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::MESSAGE_SCHEMA),
 				_rbac: false
 			);
 			if ($message === null
@@ -861,11 +897,14 @@ class ChatController extends Controller {
 			// sessionId check above are the guard, and `userId` is the caller.
 			$feedback = $this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $payload),
-				register: self::REGISTER_SLUG,
-				schema: self::FEEDBACK_SCHEMA,
-				uuid: $feedbackUuid,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::FEEDBACK_SCHEMA),
+					uuid: $feedbackUuid
+				),
 				_rbac: false
 			);
+
+			$this->forgetCachedAnswer(type: $type, message: $message);
 
 			$this->logger->info(
 				message: '[ChatController] Message feedback saved',
@@ -969,9 +1008,11 @@ class ChatController extends Controller {
 	 * @psalm-return array{conversationUuid: string, agentUuid: string,
 	 *     message: string, attachments: list<mixed>, selectedViews: array, selectedTools: array,
 	 *     ragSettings: array{includeObjects: bool|mixed, includeFiles: bool|mixed,
-	 *     numSourcesFiles: int|mixed, numSourcesObjects: int|mixed}, context: array}
+	 *     numSourcesFiles: int|mixed, numSourcesObjects: int|mixed}, context: array,
+	 *     answerCacheBypass: bool}
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
 	 */
 	private function extractMessageRequestParams(): array {
 		return [
@@ -987,6 +1028,9 @@ class ChatController extends Controller {
 			// Optional CnAiContext snapshot; anything that is not an array is
 			// silently dropped (missing context is fine).
 			'context' => $this->arrayParam(key: 'context'),
+			// Models-prompt-and-answer-cache: "Ask the model again" resends the
+			// question with the answer cache bypassed. Only a real true counts.
+			'answerCacheBypass' => in_array($this->request->getParam('answerCacheBypass'), [true, 'true', '1', 1], true),
 		];
 	}//end extractMessageRequestParams()
 
@@ -1117,8 +1161,7 @@ class ChatController extends Controller {
 	private function findConversation(string $uuid): ObjectEntity {
 		$conversation = $this->objectService->find(
 			id: $uuid,
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 		);
 		if ($conversation === null) {
 			throw new Exception('The conversation with UUID ' . $uuid . ' does not exist', 404);
@@ -1150,8 +1193,7 @@ class ChatController extends Controller {
 		// Look up agent by UUID.
 		$agent = $this->objectService->find(
 			id: $agentUuid,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 		);
 		if ($agent === null) {
 			throw new Exception('The agent with UUID ' . $agentUuid . ' does not exist', 404);
@@ -1182,8 +1224,7 @@ class ChatController extends Controller {
 					context: $turn['context']
 				)
 			),
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)),
 			_rbac: false
 		);
 
@@ -1259,9 +1300,10 @@ class ChatController extends Controller {
 
 		$this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $data),
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
-			uuid: (string)$conversation->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+				uuid: (string)$conversation->getUuid()
+			)
 		);
 	}//end archiveConversation()
 
@@ -1339,6 +1381,35 @@ class ChatController extends Controller {
 
 		return (int)($paginated['total'] ?? 0);
 	}//end countObjects()
+
+	/**
+	 * Delete the answer-cache entry that served a message given a thumbs down.
+	 *
+	 * Anyone who may rate the turn may remove the entry, so a wrong cached
+	 * answer is not served again. A message the model answered carries no entry.
+	 *
+	 * @param string       $type    The feedback type, `positive` or `negative`.
+	 * @param ObjectEntity $message The rated message.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+	 */
+	private function forgetCachedAnswer(string $type, ObjectEntity $message): void {
+		if ($type !== 'negative' || $this->answerCache === null) {
+			return;
+		}
+
+		$served = ($message->getObject()['answerCache'] ?? null);
+		if (is_array($served) === false) {
+			return;
+		}
+
+		$entryId = (string)($served['entryId'] ?? '');
+		if ($entryId !== '') {
+			$this->answerCache->remove(entryId: $entryId);
+		}
+	}//end forgetCachedAnswer()
 
 	/**
 	 * Find the caller's existing feedback object for a message, if any.

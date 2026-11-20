@@ -17,11 +17,11 @@
  * is supplied (blocking callers, background workers) we keep the blocking
  * `generateChat()` call exactly as before.
  *
- * The `nextcloud` TaskProcessing driver is deliberately NOT accepted here: its
- * scope (plan §8 move 1) is background/non-interactive work only — conversation
- * titles and summaries, served by `ConversationManagementHandler` — never chat
- * generation. Selecting it as `chatProvider` and then chatting raises a clear
- * `ProviderUnavailableException` instead of a silent wrong-path call.
+ * The `nextcloud` driver (Nextcloud AI) is accepted for chat and agent turns since
+ * use-nextcloud-ai-settings: the turn runs as `core:text2text:chat` or, with tools,
+ * `core:text2text:chatwithtools` tasks, with hermiq running the tool loop through the
+ * same governed executor as the Anthropic branch. TaskProcessing has no streaming
+ * surface, so the SSE caller receives the whole answer at once.
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V.
  * SPDX-License-Identifier: EUPL-1.2
@@ -43,15 +43,20 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
 
+use OCA\Hermiq\Service\RetrievalScope\ValidatedMode;
 use Closure;
 use Exception;
 use LLPhant\Chat\Message as LLPhantMessage;
 use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
+use OCA\Hermiq\Mcp\ComputerToolDescriptors;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
+use OCA\Hermiq\Kernel\Contracts\BudgetHardCapInterface;
 use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
+use OCA\Hermiq\Service\AnswerCache\AnswerCacheService;
 use OCA\Hermiq\Service\Llm\AttachmentPartBuilder;
 use OCA\Hermiq\Service\Llm\ChatDriver;
+use OCA\Hermiq\Service\Llm\ProviderCooldown;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
 use OCA\Hermiq\Service\Llm\ReasoningOllamaChat;
@@ -81,6 +86,9 @@ use Psr\Log\LoggerInterface;
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)
  *
  * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+ *
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength) carried in with models-prompt-and-answer-cache; splitting it
+ * is follow-up work, not part of this merge.
  */
 class ResponseGenerationHandler {
 
@@ -126,6 +134,16 @@ class ResponseGenerationHandler {
 	public array $attachmentNotices = [];
 
 	/**
+	 * How the last turn's answer came from the answer cache, or [] when the model
+	 * gave it (models-prompt-and-answer-cache): `layer`, `entryId` and, for the
+	 * similar layer, `similarity`. Read by the Engine onto its result, and from
+	 * there onto the run and the `final` frame.
+	 *
+	 * @var array<string, string|float>
+	 */
+	public array $lastCache = [];
+
+	/**
 	 * Constructor.
 	 *
 	 * @param ProviderFactory $providerFactory LLM provider resolution (`hermiq.llm`).
@@ -142,6 +160,14 @@ class ResponseGenerationHandler {
 	 *                                                    a model declared to read them
 	 *                                                    (chat-attachments-and-images). Null
 	 *                                                    sends the text turn as before.
+	 * @param ProviderCooldown|null $cooldown Skips a provider cooling down for the organisation
+	 *                                       (models-several-models-per-turn). Null keeps none.
+	 * @param BudgetHardCapInterface|null $budget The budget's hard cap, checked before each reference
+	 *                                   call of an ensemble turn (models-several-models-per-turn).
+	 *                                   Null checks none.
+	 * @param AnswerCacheService|null    $answerCache     The answer cache of turns without tools
+	 *                                                    (models-prompt-and-answer-cache). Null:
+	 *                                                    every turn calls the model.
 	 *
 	 * @return void
 	 *
@@ -153,6 +179,9 @@ class ResponseGenerationHandler {
 		private readonly LoggerInterface $logger,
 		private readonly ?FeatureProviderResolver $featureResolver = null,
 		private readonly ?AttachmentPartBuilder $attachmentParts = null,
+		private readonly ?ProviderCooldown $cooldown = null,
+		private readonly ?BudgetHardCapInterface $budget = null,
+		private readonly ?AnswerCacheService $answerCache = null,
 	) {
 	}//end __construct()
 
@@ -202,6 +231,11 @@ class ResponseGenerationHandler {
 	 *                                                      (TurnAttachmentResolver).
 	 * @param string $speaker The uid the attachments were resolved for; their bytes are
 	 *                        read as this person when the model reads them natively.
+	 * @param string $projectKey The session's project (memory-project-scopes): the memory
+	 *                           tools read and write that project's memory beside the
+	 *                           shared one. '' is a session without a project.
+	 * @param bool   $answerCacheBypass True when the person asked the model again: the
+	 *                                  answer cache is neither read nor written.
 	 *
 	 * @return string Generated response text.
 	 *
@@ -225,6 +259,7 @@ class ResponseGenerationHandler {
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
 	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
 	 */
 	public function generateResponse(
 		string $userMessage,
@@ -241,6 +276,8 @@ class ResponseGenerationHandler {
 		array $promptVariables = [],
 		array $attachments = [],
 		string $speaker = '',
+		string $projectKey = '',
+		bool $answerCacheBypass = false,
 	): string {
 		// Chat-about-a-document: a scoped turn with nothing in scope is answered
 		// with that fact, and the model is never asked to answer from general knowledge.
@@ -262,9 +299,11 @@ class ResponseGenerationHandler {
 		$run->trace = $trace;
 		$run->dryRun = $dryRun;
 		$run->conversationId = $conversationId;
+		$run->projectKey = $projectKey;
 		$run->promptVariables = $promptVariables;
 		$run->attachments = $attachments;
 		$run->speaker = $speaker;
+		$run->answerCacheBypass = $answerCacheBypass;
 
 		return $this->runTurn(run: $run);
 	}//end generateResponse()
@@ -320,8 +359,47 @@ class ResponseGenerationHandler {
 
 		try {
 			$this->resolveDriver(run: $run);
-			$this->buildMessages(run: $run);
-			$response = $this->callProvider(run: $run);
+			// Tools-browser-and-computer-use D4: a screenshot is an image, so a model
+			// path that cannot read one in a tool result is never offered them.
+			$run->progress->functions = ComputerToolDescriptors::forDriver(
+				functions: $run->progress->functions,
+				provider: $run->progress->driver->provider,
+				executionMode: $run->progress->driver->executionMode
+			);
+			// Models-prompt-and-answer-cache: the lookup sits where the model call is,
+			// after every gate, so a blocked run stays blocked. The messages are built
+			// once for the key; the turn itself builds them again, with any reference
+			// answers, from the history as it was.
+			$history = $run->messageHistory;
+			$this->lastCache = [];
+			$cached = null;
+			if ($this->answerCache !== null) {
+				$this->buildMessages(run: $run);
+				$cached = $this->answerCache->lookup(run: $run);
+			}
+
+			if ($cached !== null) {
+				$this->lastCache = ['layer' => $cached['layer'], 'entryId' => $cached['entryId']];
+				if (isset($cached['similarity']) === true) {
+					$this->lastCache['similarity'] = $cached['similarity'];
+				}
+
+				$this->lastUsage = ['promptTokens' => 0, 'completionTokens' => 0, 'llmSeconds' => 0.0];
+				return $cached['answer'];
+			}
+
+			$keyed = $run->messageHistory;
+			$run->messageHistory = $history;
+			$references = $this->askReferenceModels(run: $run);
+			$response = $this->answerTurn(run: $run);
+			$this->addReferenceUsage(usages: $references, run: $run);
+			if ($references === [] && $this->answerCache !== null) {
+				// Only a single-model answer is stored, under the key it was looked up by.
+				$answered = $run->messageHistory;
+				$run->messageHistory = $keyed;
+				$this->answerCache->store(run: $run, answer: $response);
+				$run->messageHistory = $answered;
+			}
 			(new TurnPerformanceLog(logger: $this->logger))->record(run: $run, response: $response);
 			return $response;
 		} catch (TurnStoppedException $e) {
@@ -363,6 +441,14 @@ class ResponseGenerationHandler {
 	 */
 	private function loadFunctions(ResponseTurnRun $run): void {
 		$toolsStartTime = microtime(true);
+		// Validated mode (memory-retrieval-scope D3): the turn resolves no tools,
+		// so the model cannot fetch anything beyond the validated passages.
+		if (ValidatedMode::isOn(agentData: ($run->agent?->getObject() ?? [])) === true) {
+			$run->progress->functions = [];
+			$run->progress->toolsTime = microtime(true) - $toolsStartTime;
+			return;
+		}
+
 		$run->progress->functions = $this->toolLoop->listAgentFunctions(agent: $run->agent, selectedTools: $run->selectedTools);
 		$run->progress->toolsTime = microtime(true) - $toolsStartTime;
 		if (empty($run->progress->functions) === true) {
@@ -382,13 +468,14 @@ class ResponseGenerationHandler {
 
 	/**
 	 * Resolve the provider driver (agent model/temperature overrides applied),
-	 * record which model saw the turn, and refuse a driver that cannot chat.
+	 * and record which model saw the turn.
 	 *
 	 * @param ResponseTurnRun $run The turn.
 	 *
 	 * @return void
 	 *
 	 * @throws ProviderUnavailableException When the driver serves background work only.
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
 	 */
 	private function resolveDriver(ResponseTurnRun $run): void {
 		$llmConfig = $this->providerFactory->getLlmConfig();
@@ -398,9 +485,204 @@ class ResponseGenerationHandler {
 		$run->progress->driver = $this->createDriver(llmConfig: $llmConfig, inputs: $inputs);
 
 		$this->recordProviderDisclosure(run: $run);
-		$this->assertChatProvider(provider: $run->progress->driver->provider);
 		$this->logProvider(run: $run);
 	}//end resolveDriver()
+
+	/**
+	 * The first half of an ensemble turn: ask each reference model the prompt
+	 * without tools, and hand their answers to the agent's own model as labelled
+	 * context (models-several-models-per-turn D7). Nothing happens for an agent
+	 * without an enabled ensemble.
+	 *
+	 * @param ResponseTurnRun $run The turn, with its own driver resolved.
+	 *
+	 * @return array<int, array{provider: string, model: string, usage: array<string, mixed>}> What each reference call cost.
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 */
+	private function askReferenceModels(ResponseTurnRun $run): array {
+		$references = ReferenceAnswerRound::referencesOf(agentData: $run->agentData());
+		if ($references === []) {
+			return [];
+		}
+
+		$round = new ReferenceAnswerRound(
+			driverFor: fn (string $provider, string $model): ChatDriver => $this->hopDriver(run: $run, provider: $provider, model: $model),
+			answer: fn (ChatDriver $driver): array => $this->answerAsReference(run: $run, driver: $driver),
+			budget: $this->budget
+		);
+		$collected = $round->collect(run: $run, references: $references);
+		$run->referenceAnswers = $collected['answers'];
+
+		return $collected['usages'];
+	}//end askReferenceModels()
+
+	/**
+	 * One reference call: the turn's prompt and history, no tools, no stream,
+	 * no trace steps of its own.
+	 *
+	 * @param ResponseTurnRun $run    The turn.
+	 * @param ChatDriver      $driver The reference model's driver.
+	 *
+	 * @return array{text: string, usage: array<string, mixed>} Its answer and what it cost.
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 */
+	private function answerAsReference(ResponseTurnRun $run, ChatDriver $driver): array {
+		$reference = new ResponseTurnRun(userMessage: $run->userMessage, context: $run->context);
+		$reference->agent = $run->agent;
+		$reference->cnAiContext = $run->cnAiContext;
+		$reference->contextPreamble = $run->contextPreamble;
+		$reference->dryRun = $run->dryRun;
+		$reference->conversationId = $run->conversationId;
+		$reference->promptVariables = $run->promptVariables;
+		$reference->attachments = $run->attachments;
+		$reference->speaker = $run->speaker;
+		$reference->progress->organisation = $run->progress->organisation;
+		$reference->progress->aiFeature = $run->progress->aiFeature;
+		$reference->progress->functions = [];
+
+		$this->lastUsage = [];
+		$text = $this->answerWith(run: $reference, driver: $driver, history: $run->messageHistory);
+
+		return ['text' => $text, 'usage' => $this->lastUsage];
+	}//end answerAsReference()
+
+	/**
+	 * Add the reference calls to the turn's usage: `usage` becomes the sum of every
+	 * call, and `usageByModel` holds each call's own (models-several-models-per-turn D8).
+	 *
+	 * @param array<int, array{provider: string, model: string, usage: array<string, mixed>}> $usages The reference calls.
+	 * @param ResponseTurnRun                                                                   $run    The turn, whose own driver answered last.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-ensemble-counts-every-call-against-the-budget-req-mens-004
+	 */
+	private function addReferenceUsage(array $usages, ResponseTurnRun $run): void {
+		if ($usages === []) {
+			return;
+		}
+
+		$own = $this->lastUsage;
+		$calls = array_merge($usages, [['provider' => $run->progress->driver->provider, 'model' => $run->progress->driver->model, 'usage' => $own]]);
+		$this->lastUsage = EnsembleUsage::sum(calls: $calls);
+	}//end addReferenceUsage()
+
+	/**
+	 * Answer the turn from the first provider, or from the fallback chain when it
+	 * fails with a temporary error or is cooling down (models-several-models-per-turn).
+	 *
+	 * @param ResponseTurnRun $run The turn, with its first driver resolved.
+	 *
+	 * @return string The answer.
+	 *
+	 * @throws Exception The first provider's failure when the turn may not move.
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	private function answerTurn(ResponseTurnRun $run): string {
+		$history = $run->messageHistory;
+		$driverFor = fn (string $provider, string $model): ChatDriver => $this->hopDriver(run: $run, provider: $provider, model: $model);
+		$answer = fn (ChatDriver $driver): string => $this->answerWith(run: $run, driver: $driver, history: $history);
+
+		if ($this->cooldown?->isCooling(organisation: (string)$run->progress->organisation, provider: $run->progress->driver->provider) === true) {
+			$loop = $this->fallbackLoop(run: $run);
+			if ($loop->firstIsCooling(run: $run) === true) {
+				return $loop->skipCoolingFirst(run: $run, driverFor: $driverFor, answer: $answer);
+			}
+		}
+
+		$startedAt = microtime(true);
+		try {
+			$this->buildMessages(run: $run);
+			$text = $this->callProvider(run: $run);
+		} catch (TurnStoppedException $e) {
+			throw $e;
+		} catch (Exception $e) {
+			return $this->fallbackLoop(run: $run)->recover(run: $run, failure: $e, startedAt: $startedAt, driverFor: $driverFor, answer: $answer);
+		}
+
+		$run->trace?->recordProviderAttempt(
+			provider: $run->progress->driver->provider,
+			model: $run->progress->driver->model,
+			outcome: 'answered',
+			reason: '',
+			durationMs: (int)round((microtime(true) - $startedAt) * 1000),
+			received: true
+		);
+
+		return $text;
+	}//end answerTurn()
+
+	/**
+	 * The fallback loop over the organisation's effective chain.
+	 *
+	 * @param ResponseTurnRun $run The turn.
+	 *
+	 * @return ProviderFallbackLoop
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	private function fallbackLoop(ResponseTurnRun $run): ProviderFallbackLoop {
+		return new ProviderFallbackLoop(
+			hops: $this->providerFactory->fallbackChainFor(organisation: $run->progress->organisation),
+			cooldown: $this->cooldown
+		);
+	}//end fallbackLoop()
+
+	/**
+	 * A hop's driver, through the same driver path and gates as the first provider.
+	 *
+	 * @param ResponseTurnRun $run      The turn.
+	 * @param string          $provider The hop's provider.
+	 * @param string          $model    The hop's model.
+	 *
+	 * @return ChatDriver
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	private function hopDriver(ResponseTurnRun $run, string $provider, string $model): ChatDriver {
+		$inputs = new ChatDriverInputs(run: $run);
+		return $this->providerFactory->createChatDriver(
+			llmConfig: $this->providerFactory->getLlmConfig(),
+			agentModel: $inputs->model(),
+			agentTemperature: $inputs->temperature(),
+			organisation: $inputs->organisation(),
+			agentMaxTokens: $inputs->maxTokens(),
+			aiFeature: $inputs->aiFeature(),
+			documentReference: $inputs->documentReference(),
+			agentCredentialIds: $inputs->credentialIds(),
+			attachmentReferences: $inputs->attachmentReferences(),
+			providerOverride: $provider,
+			modelOverride: $model
+		);
+	}//end hopDriver()
+
+	/**
+	 * Run the turn on a hop's driver, from the history as it was before the first try.
+	 *
+	 * @param ResponseTurnRun     $run     The turn.
+	 * @param ChatDriver          $driver  The hop's driver.
+	 * @param array<int, mixed>   $history The message history before the first try.
+	 *
+	 * @return string The answer.
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	private function answerWith(ResponseTurnRun $run, ChatDriver $driver, array $history): string {
+		$run->progress->driver = $driver;
+		$run->messageHistory = $history;
+		$this->recordProviderDisclosure(run: $run);
+		// A hop to a model path that cannot read a screenshot drops the computer tools too.
+		$run->progress->functions = ComputerToolDescriptors::forDriver(
+			functions: $run->progress->functions,
+			provider: $driver->provider,
+			executionMode: $driver->executionMode
+		);
+		$this->buildMessages(run: $run);
+		return $this->callProvider(run: $run);
+	}//end answerWith()
 
 	/**
 	 * Ask the provider factory for the turn's chat driver.
@@ -452,27 +734,6 @@ class ResponseGenerationHandler {
 	}//end recordProviderDisclosure()
 
 	/**
-	 * Scope guard — see the class docblock: the nextcloud driver never chats.
-	 *
-	 * @param string $provider The resolved provider slug.
-	 *
-	 * @return void
-	 *
-	 * @throws ProviderUnavailableException For the nextcloud driver.
-	 */
-	private function assertChatProvider(string $provider): void {
-		if ($provider !== 'nextcloud') {
-			return;
-		}
-
-		throw new ProviderUnavailableException(
-			message: 'The nextcloud (TaskProcessing) chat provider serves background work only '
-			. '(titles, summaries) — select openai, ollama, or fireworks for chat.',
-			code: 503
-		);
-	}//end assertChatProvider()
-
-	/**
 	 * Log the provider and model the turn runs on.
 	 *
 	 * @param ResponseTurnRun $run The turn.
@@ -509,7 +770,16 @@ class ResponseGenerationHandler {
 	 * library's public API — there is no injectable seam.
 	 */
 	private function buildMessages(ResponseTurnRun $run): void {
-		array_unshift($run->messageHistory, LLPhantMessage::system((new TurnSystemPrompt())->compose(run: $run)));
+		// Models-prompt-and-answer-cache: the stable block first, the per-turn block
+		// as its own system message after it, so the cached prefix stays the same.
+		$prompt  = new TurnSystemPrompt();
+		$system  = [LLPhantMessage::system($prompt->stable(run: $run))];
+		$perTurn = $prompt->perTurn(run: $run);
+		if ($perTurn !== '') {
+			$system[] = LLPhantMessage::system($perTurn);
+		}
+
+		array_unshift($run->messageHistory, ...$system);
 		$turn = ($this->attachmentParts?->compose(
 			text: $run->userMessage,
 			driver: $run->progress->driver,
@@ -542,8 +812,72 @@ class ResponseGenerationHandler {
 			return $this->callAnthropic(run: $run);
 		}
 
+		if ($run->progress->driver->provider === 'nextcloud') {
+			return $this->callNextcloud(run: $run);
+		}
+
+		if ($run->progress->driver->apiMode === ProviderFactory::API_MODE_RESPONSES) {
+			return $this->callResponses(run: $run);
+		}
+
 		return $this->callLlphant(run: $run);
 	}//end callProvider()
+
+	/**
+	 * Nextcloud AI (use-nextcloud-ai-settings): the turn runs as TaskProcessing
+	 * tasks through the provider set up under Administration settings > Artificial
+	 * intelligence, as the session user (a scheduled run impersonates its acting
+	 * user). Tools go through the same governed executor as the Anthropic path;
+	 * without a chatwithtools provider a turn with tools fails loudly instead of
+	 * running without them. TaskProcessing reports no token usage, so only the
+	 * latency is recorded.
+	 *
+	 * @param ResponseTurnRun $run The turn.
+	 *
+	 * @return string The response text.
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-4
+	 */
+	private function callNextcloud(ResponseTurnRun $run): string {
+		$response = $this->providerFactory->callNextcloudChat(
+			messageHistory: $run->messageHistory,
+			functions: $run->progress->functions,
+			toolExecutor: $this->anthropicToolExecutor(run: $run),
+			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent)
+		);
+		$this->markLlmDone(run: $run);
+
+		$run->trace?->recordStopWhen(stopped: $this->providerFactory->lastCallHitToolCap(), reason: TurnGuard::LIMIT_REACHED);
+
+		$this->lastUsage = ['llmSeconds' => round($run->progress->llmTime, 2)];
+		return $response;
+	}//end callNextcloud()
+
+	/**
+	 * OpenAI and OpenAI-compatible in Responses API mode: direct HTTP
+	 * (ProviderFactory::callOpenAiResponses), every function call through the
+	 * same governed executor the Anthropic path uses (models-provider-connections D4).
+	 *
+	 * @param ResponseTurnRun $run The turn.
+	 *
+	 * @return string The response text.
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-a-provider-can-run-in-responses-api-mode-with-governed-tools-req-pconn-004
+	 */
+	private function callResponses(ResponseTurnRun $run): string {
+		$response = $this->providerFactory->callOpenAiResponses(
+			driver: $run->progress->driver,
+			messageHistory: $run->messageHistory,
+			functions: $run->progress->functions,
+			toolExecutor: $this->anthropicToolExecutor(run: $run),
+			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent)
+		);
+		$this->markLlmDone(run: $run);
+
+		$run->trace?->recordStopWhen(stopped: $this->providerFactory->lastCallHitToolCap(), reason: TurnGuard::LIMIT_REACHED);
+		$this->recordFactoryUsage(run: $run);
+		return $response;
+	}//end callResponses()
 
 	/**
 	 * The characters of every message the model is sent, for an estimated token count.
@@ -655,12 +989,13 @@ class ResponseGenerationHandler {
 			maxTokens: $run->progress->driver->maxTokens,
 			conversationId: $run->conversationId,
 			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent),
+			projectKey: $run->projectKey,
 			showReasoning: self::showsReasoning(run: $run)
 		);
 	}//end requestAnthropic()
 
 	/**
-	 * The executor callAnthropicChat runs a requested tool with, by (name, input).
+	 * The executor callAnthropicChat and callNextcloudChat run a requested tool with, by (name, input).
 	 *
 	 * It runs the tool through the SAME governed FunctionInfo objects the LLPhant
 	 * path uses (ToolLoop::buildFunctionInfos — one shared FacadeToolInvoker,
@@ -714,9 +1049,34 @@ class ResponseGenerationHandler {
 			trace: $run->trace,
 			agent: $run->agent,
 			organisation: $run->progress->organisation,
-			dryRun: $run->dryRun
+			dryRun: $run->dryRun,
+			conversationId: $run->conversationId,
+			runId: self::approvalRunOf(run: $run),
+			projectKey: $run->projectKey
 		);
 	}//end functionInfosFor()
+
+	/**
+	 * The run a chat turn's computer actions are approved for: its conversation.
+	 *
+	 * A chat turn has no run token; an action waiting for approval ends the turn
+	 * and the next turn of the same conversation retries it, so the conversation
+	 * is the run a reviewer's machine pre-authorisation covers, for at most its
+	 * fifteen minutes (tools-browser-and-computer-use REQ-COMPUTER-003).
+	 *
+	 * @param ResponseTurnRun $run The turn.
+	 *
+	 * @return string `conversation:<id>`, or '' without a conversation.
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	private static function approvalRunOf(ResponseTurnRun $run): string {
+		if ($run->conversationId === '') {
+			return '';
+		}
+
+		return 'conversation:' . $run->conversationId;
+	}//end approvalRunOf()
 
 	/**
 	 * OpenAI / Ollama: the LLPhant chat instance from the driver.

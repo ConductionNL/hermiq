@@ -33,6 +33,7 @@ namespace OCA\Hermiq\Service\Talk;
 
 use OCA\Hermiq\Kernel\Contracts\TalkBridgeStatusInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -271,8 +272,7 @@ class TalkBridgeStatus implements TalkBridgeStatusInterface {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 			);
 
 			if (($agent instanceof ObjectEntity) === false) {

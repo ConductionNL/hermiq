@@ -58,6 +58,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
 
+use OCA\Hermiq\Service\RetrievalScope\ValidatedMode;
 use Exception;
 use OCA\Hermiq\BackgroundJob\ConversationTitleJob;
 use OCA\Hermiq\Kernel\Contracts\EngineInterface;
@@ -70,7 +71,9 @@ use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\Llm\ModelContextWindows;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
+use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\BackgroundJob\IJobList;
 use OCP\IUserManager;
@@ -175,6 +178,7 @@ class Engine implements EngineInterface {
 	 *                                                        refuses any turn that carries one.
 	 * @param ImageGenerationService|null $images Hands over the images the agent created in the
 	 *                                            turn, for the answer (chat-attachments-and-images D8).
+	 * @param TraceExportQueue|null $traceExportQueue Hands the finished run to trace export (observability-export-traces).
 	 * @param RedactionService|null $redaction Redacts the model's reasoning before it is stored
 	 *                                         (chat-how-an-answer-came-about D3); null stores none.
 	 * @param ModelContextWindows|null $contextWindows The declared context window per model, for
@@ -205,6 +209,7 @@ class Engine implements EngineInterface {
 		private readonly ?PromptVariableResolver $promptVariables = null,
 		private readonly ?TurnAttachmentResolver $attachmentResolver = null,
 		private readonly ?ImageGenerationService $images = null,
+		private readonly ?TraceExportQueue $traceExportQueue = null,
 		private readonly ?RedactionService $redaction = null,
 		private readonly ?ModelContextWindows $contextWindows = null,
 	) {
@@ -269,6 +274,11 @@ class Engine implements EngineInterface {
 	 *                           ({fileId} or {path}). Resolved in the speaker's Files
 	 *                           before the turn is stored or any model is called, and
 	 *                           kept on the user turn as references only.
+	 * @param string|null $turnChannel Where the human turn was typed, `talk` or `hermiq`, stored
+	 *                                 on the user turn (chat-carry-a-conversation-across-channels).
+	 *                                 Null leaves it unset, which reads as `hermiq`.
+	 * @param bool $answerCacheBypass True when the person asked the model again: the answer
+	 *                                cache is neither read nor written for this turn.
 	 *
 	 * @return array The result envelope.
 	 *
@@ -293,6 +303,10 @@ class Engine implements EngineInterface {
 	 * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) each parameter it threads adds a line; splitting the
+	 * turn set-up is follow-up work, not part of this merge.
 	 */
 	public function processMessage(
 		string $conversationId,
@@ -309,6 +323,8 @@ class Engine implements EngineInterface {
 		?string $authorId = null,
 		?string $authorDisplayName = null,
 		array $attachments = [],
+		?string $turnChannel = null,
+		bool $answerCacheBypass = false,
 	): array {
 		$this->logger->info(
 			message: '[Engine] Processing message',
@@ -339,8 +355,10 @@ class Engine implements EngineInterface {
 				// The CnAiContext snapshot, kept apart from the RAG context of the turn.
 				'cnAiContext' => $context,
 				'channel' => $channel,
+				'turnChannel' => $turnChannel,
 				'trace' => $trace,
 				'dryRun' => $dryRun,
+				'answerCacheBypass' => $answerCacheBypass,
 			];
 
 			// The agent's attached Context objects (agent-context-system) and the
@@ -361,7 +379,7 @@ class Engine implements EngineInterface {
 			$timings = [];
 			$ragContext = $this->turnContext(turn: $turn, timings: $timings);
 			$turnHistory = $this->turnHistory(turn: $turn, timings: $timings);
-			$aiResponse = $this->reviewedResponse(
+			$aiResponse = $this->answerOrAbstain(
 				turn: $turn + ['ragContext' => $ragContext, 'turnHistory' => $turnHistory, 'guardrail' => $guardrail],
 				timings: $timings
 			);
@@ -372,6 +390,7 @@ class Engine implements EngineInterface {
 				'aiResponse' => $aiResponse,
 				'answerAttachments' => ($this->images?->takeCreated() ?? []),
 				'sources' => $ragContext['sources'],
+				'retrievalScope' => ($ragContext['retrievalScope'] ?? null),
 			];
 			// Chat-how-an-answer-came-about D1: identities and outcomes, never content.
 			$turn['provenance'] = (new AnswerProvenance())->build(trace: $trace, sources: $turn['sources']);
@@ -387,7 +406,7 @@ class Engine implements EngineInterface {
 				contextUsage: $turn['contextUsage']
 			);
 
-			return $this->turnEnvelope(turn: $turn, timings: $timings);
+			return $this->exportTurn(turn: $turn, envelope: $this->turnEnvelope(turn: $turn, timings: $timings), timings: $timings);
 		} catch (Exception $e) {
 			$this->logger->error(
 				message: '[Engine] Message processing failed',
@@ -424,8 +443,7 @@ class Engine implements EngineInterface {
 		$turn = $request;
 		$turn['conversation'] = $this->objectService->find(
 			id: $request['conversationId'],
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 		);
 		if ($turn['conversation'] === null) {
 			throw new Exception('Conversation not found: ' . $request['conversationId']);
@@ -468,8 +486,7 @@ class Engine implements EngineInterface {
 			// still applies.
 			$turn['agent'] = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false
 			);
 		}
@@ -588,6 +605,32 @@ class Engine implements EngineInterface {
 	}//end turnHistory()
 
 	/**
+	 * The answer: the agent's abstention when validated mode found no passage
+	 * at or above its floor, without asking the model (memory-retrieval-scope
+	 * D3); otherwise the model's reviewed answer.
+	 *
+	 * @param array<string, mixed> $turn    The turn, with its RAG context, history and guardrail.
+	 * @param array<string, float> $timings The turn's timings, filled in place.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-agent-in-validated-mode-refuses-without-asking-the-model-when-nothing-validated-matches-req-rscope-003
+	 */
+	private function answerOrAbstain(array $turn, array &$timings): string {
+		if (($turn['ragContext']['retrievalScope']['abstained'] ?? false) !== true) {
+			return $this->reviewedResponse(turn: $turn, timings: $timings);
+		}
+
+		$timings['llm'] = 0.0;
+		$this->logger->info(
+			message: '[Engine] Validated mode found no passage above the floor; abstained without the model',
+			context: ['conversationId' => $turn['conversationId']]
+		);
+
+		return ValidatedMode::abstention(agentData: ($turn['agent']?->getObject() ?? []));
+	}//end answerOrAbstain()
+
+	/**
 	 * The model's answer as the output guardrail lets it be stored and sent.
 	 *
 	 * Agent-guardrails: the output filter runs BEFORE the assistant Message is
@@ -653,7 +696,9 @@ class Engine implements EngineInterface {
 					)
 				),
 				attachments: $turn['resolvedAttachments'],
-				speaker: ($turn['authorId'] ?? $turn['userId'])
+				speaker: ($turn['authorId'] ?? $turn['userId']),
+				projectKey: (string)($turn['conversationData']['projectKey'] ?? ''),
+				answerCacheBypass: ($turn['answerCacheBypass'] ?? false)
 			);
 		} catch (Exception $e) {
 			throw $this->attachmentRefusalFor(exception: $e, attachments: $turn['resolvedAttachments']);
@@ -695,6 +740,9 @@ class Engine implements EngineInterface {
 			// (run-analytics / ScheduleService::lastRunUsage): load-bearing,
 			// see class docblock.
 			'usage' => $this->responseHandler->lastUsage,
+			// Models-prompt-and-answer-cache: how the answer came from the answer
+			// cache ({layer, entryId}), [] when the model gave it.
+			'cache' => $this->responseHandler->lastCache,
 			// Chat-attachments-and-images D6: what happened to each attachment
 			// the model could not read natively, for the answer's notice.
 			'attachmentNotices' => $this->responseHandler->attachmentNotices,
@@ -711,11 +759,53 @@ class Engine implements EngineInterface {
 			// D4: the tokens the session uses, the model's window when declared, and
 			// whether the count is an estimate.
 			'contextUsage' => $turn['contextUsage'],
+			// Memory-retrieval-scope D5: the scope the answer was given.
+			'retrievalScope' => $turn['retrievalScope'],
 			// Skill-evals: the skill uuids actually exposed to this run's context,
 			// recorded on the run's audit entry for ALL runs.
 			'skillsUsed' => $turn['skillsUsed'],
 		];
 	}//end turnEnvelope()
+
+	/**
+	 * Hand the finished chat turn to trace export (observability-export-traces D5).
+	 *
+	 * Only the turn's identities, timing, usage and step timeline are handed over, plus
+	 * the prompt and answer for the exporter to filter and redact when an administrator
+	 * chose redacted text. A dry run is a preview and is not exported. Never throws: the
+	 * queue swallows its own failures, so the turn's result is never changed.
+	 *
+	 * @param array<string, mixed> $turn     The finished turn.
+	 * @param array<string, mixed> $envelope The turn's result envelope.
+	 * @param array<string, float> $timings  The context, history and llm timings, in seconds.
+	 *
+	 * @return array<string, mixed> The envelope, unchanged.
+	 *
+	 * @spec openspec/changes/observability-export-traces/tasks.md#task-4-every-run-writer-and-the-chat-turn-enqueue
+	 */
+	private function exportTurn(array $turn, array $envelope, array $timings): array {
+		if ($this->traceExportQueue === null || ($turn['dryRun'] ?? false) === true) {
+			return $envelope;
+		}
+
+		$endedAt = microtime(true);
+		$this->traceExportQueue->enqueueChatTurn(
+			turn: [
+				'conversationId' => (string)($turn['conversationId'] ?? ''),
+				'userId' => (string)($turn['userId'] ?? ''),
+				'agentId' => (string)($turn['conversationData']['agentId'] ?? ''),
+				'prompt' => (string)($turn['userMessage'] ?? ''),
+				'message' => (string)($envelope['message'] ?? ''),
+				'usage' => (array)($envelope['usage'] ?? []),
+				'steps' => (array)($envelope['steps'] ?? []),
+				'startedAt' => ($endedAt - (float)array_sum($timings)),
+				'endedAt' => $endedAt,
+			],
+			organisation: (string)($turn['organisation'] ?? '')
+		);
+
+		return $envelope;
+	}//end exportTurn()
 
 	/**
 	 * The turn's context usage: the provider's count for a turn without tool calls,
@@ -772,7 +862,8 @@ class Engine implements EngineInterface {
 			context: $turn['cnAiContext'],
 			authorId: $turn['authorId'],
 			authorDisplayName: $turn['authorDisplayName'],
-			attachments: $turn['resolvedAttachments']
+			attachments: $turn['resolvedAttachments'],
+			channel: ($turn['turnChannel'] ?? null)
 		);
 
 		$this->conversationHandler->checkAndSummarize(conversation: $turn['conversation']);
@@ -794,8 +885,14 @@ class Engine implements EngineInterface {
 	 *
 	 * @spec openspec/specs/agent-engine-port/spec.md
 	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
 	 */
 	private function storeAnswer(array $turn): ObjectEntity {
+		$answerCache = null;
+		if ($this->responseHandler->lastCache !== []) {
+			$answerCache = $this->responseHandler->lastCache;
+		}
+
 		$assistantStored = $this->historyHandler->storeMessage(
 			conversationId: $turn['conversationId'],
 			role: 'assistant',
@@ -803,6 +900,8 @@ class Engine implements EngineInterface {
 			sources: $turn['sources'],
 			attachments: $turn['answerAttachments'],
 			provenance: $turn['provenance'],
+			answerCache: $answerCache,
+			retrievalScope: $turn['retrievalScope'],
 			reasoning: $turn['reasoning'],
 			reasoningWithheld: $turn['reasoningWithheld']
 		);

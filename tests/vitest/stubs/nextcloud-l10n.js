@@ -34,3 +34,12 @@ export function n(app, singular, plural, count, vars = {}) {
 }
 
 export { t as translate, n as translatePlural }
+
+/**
+ * The page language; the stand-in page is English.
+ *
+ * @return {string} The language code.
+ */
+export function getLanguage() {
+	return 'en'
+}

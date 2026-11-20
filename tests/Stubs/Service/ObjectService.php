@@ -26,6 +26,12 @@ namespace OCA\OpenRegister\Service;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\Register;
 use OCA\OpenRegister\Db\Schema;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectPatch;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\LockRequest;
+use OCA\OpenRegister\Kernel\Contracts\Value\UnlockRequest;
 
 /**
  * Minimal ObjectService stub for standalone unit runs.
@@ -56,6 +62,36 @@ class ObjectService {
 	public function runAsSystem(callable $operation): mixed {
 		return $operation();
 	}//end runAsSystem()
+
+	/**
+	 * Run a callable as an anonymous caller.
+	 *
+	 * Mirrors the real `runAsAnonymous()`: the callable runs and its value is
+	 * returned. The real method clears the session user and any token grant
+	 * for the duration, so only `public` read rules decide.
+	 *
+	 * @param callable $operation The operation to run as anonymous.
+	 *
+	 * @return mixed Whatever $operation returns.
+	 */
+	public function runAsAnonymous(callable $operation) {
+		return $operation();
+	}//end runAsAnonymous()
+
+	/**
+	 * Run a callable acting for one organisation, as a caller who is not a Nextcloud user.
+	 *
+	 * Mirrors the real `runForOrganisation()`, which runs the callable inside
+	 * `runAsAnonymous()` with the organisation fixed for tenancy decisions.
+	 *
+	 * @param string   $organisationUuid The organisation to act for.
+	 * @param callable $operation        The operation to run.
+	 *
+	 * @return mixed Whatever $operation returns.
+	 */
+	public function runForOrganisation(string $organisationUuid, callable $operation) {
+		return $operation();
+	}//end runForOrganisation()
 
 	/**
 	 * Set the active register context.
@@ -108,15 +144,16 @@ class ObjectService {
 	 */
 	public function find(
 		int|string $id,
-		?array $_extend = [],
-		bool $files = false,
-		mixed $register = null,
-		mixed $schema = null,
+		?ObjectFindOptions $options = null,
 		bool $_rbac = true,
-		bool $_multitenancy = true,
-		bool $_render = true,
-		bool $_audit = true,
+		bool $_multitenancy = true
 	): ?ObjectEntity {
+		$_extend = $options?->extend ?? [];
+		$files = $options?->files ?? false;
+		$register = $options?->register;
+		$schema = $options?->schema;
+		$_render = $options?->render ?? true;
+		$_audit = $options?->audit ?? true;
 		return null;
 	}//end find()
 
@@ -139,34 +176,22 @@ class ObjectService {
 	 */
 	public function saveObject(
 		array|ObjectEntity $object,
-		?array $extend = [],
-		mixed $register = null,
-		mixed $schema = null,
-		?string $uuid = null,
+		ObjectSaveOptions $options = new ObjectSaveOptions(),
 		bool $_rbac = true,
-		bool $_multitenancy = true,
-		bool $silent = false,
-		// Position matters: the real service declares `$_validation` BETWEEN
-		// `$silent` and `$uploadedFiles`. A double that drifts from the real
-		// signature is a FATAL, not a failed assertion — PHP refuses to declare
-		// any subclass and the whole suite dies at load time, before it runs.
-		bool $_validation = true,
-		?array $uploadedFiles = null,
-		?\OCP\IUser $currentUser = null,
-		// openregister#2211 (insert-only saves) added this. A double that
-		// drifts from the real signature is a FATAL, not a failed
-		// assertion: PHP refuses to declare the class and the whole
-		// suite dies before it runs.
-		bool $failIfExists = false,
-		// openregister added this (stamp the SYSTEM identity as owner even when a
-		// user session exists). This stub is what CI loads — the real class is
-		// absent there — so a drift here is invisible in CI and only fatals when
-		// the suite runs inside a booted Nextcloud, where the real class wins.
-		bool $_unowned = false,
-		// Added by openregister (duplicate detection), seen 2026-09-16.
-		bool $_dedupOverride = false,
-		?string $_owner = null,
+		bool $_multitenancy = true
 	): ObjectEntity {
+		$extend = $options->extend ?? [];
+		$register = $options->target->register;
+		$schema = $options->target->schema;
+		$uuid = $options->uuid;
+		$silent = $options->policy->silent ?? false;
+		$_validation = $options->policy->validation ?? true;
+		$uploadedFiles = $options->uploadedFiles;
+		$currentUser = $options->actor->currentUser;
+		$failIfExists = $options->policy->failIfExists ?? false;
+		$_unowned = $options->actor->unowned ?? false;
+		$_dedupOverride = $options->policy->dedupOverride ?? false;
+		$_owner = $options->actor->owner;
 		return new ObjectEntity();
 	}//end saveObject()
 
@@ -186,14 +211,15 @@ class ObjectService {
 	 * @return ObjectEntity
 	 */
 	public function patchObject(
-		string $objectId,
-		array $data,
-		Register|string|int|null $register = null,
-		Schema|string|int|null $schema = null,
+		ObjectPatch $patch,
 		bool $_rbac = true,
-		bool $_multitenancy = true,
-		?\OCP\IUser $currentUser = null,
+		bool $_multitenancy = true
 	): ObjectEntity {
+		$objectId = $patch->objectId;
+		$data = $patch->data;
+		$register = $patch->target->register;
+		$schema = $patch->target->schema;
+		$currentUser = $patch->currentUser;
 		return new ObjectEntity();
 	}//end patchObject()
 
@@ -252,12 +278,40 @@ class ObjectService {
 	 * @return bool
 	 */
 	public function deleteObject(
-		string $uuid,
-		mixed $register = null,
-		mixed $schema = null,
+		ObjectDeletion $deletion,
 		bool $_rbac = true,
 		bool $_multitenancy = true,
+		bool $_retentionSweep = false
 	): bool {
+		$uuid = $deletion->uuid;
+		$register = $deletion->target->register;
+		$schema = $deletion->target->schema;
 		return true;
 	}//end deleteObject()
+
+	/**
+	 * Lock an object, or with `$advisory` take the advisory lock on a key
+	 * (mirrors openregister main's ObjectService::lockObject()).
+	 *
+	 * @param LockRequest $request  The identifier, process and duration.
+	 * @param bool        $advisory Take the advisory lock on the identifier.
+	 *
+	 * @return array Lock information.
+	 *
+	 * @throws \OCA\OpenRegister\Exception\LockedException When the lock is held.
+	 */
+	public function lockObject(LockRequest $request, bool $advisory = false): array {
+		return ['uuid' => $request->identifier, 'locked' => ['process' => $request->process, 'duration' => $request->duration, 'advisory' => $advisory]];
+	}//end lockObject()
+
+	/**
+	 * Release a lock (mirrors openregister main's ObjectService::unlockObject()).
+	 *
+	 * @param UnlockRequest $request The identifier and the kind of lock.
+	 *
+	 * @return bool Whether there was a lock.
+	 */
+	public function unlockObject(UnlockRequest $request): bool {
+		return $request->identifier !== '';
+	}//end unlockObject()
 }//end class

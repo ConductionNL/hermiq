@@ -396,6 +396,54 @@ class TalkBotInstaller implements TalkBotInstallerInterface {
 	}//end enableInRoom()
 
 	/**
+	 * The agents whose own bot is enabled in a room, read from spreed's bot state.
+	 *
+	 * Only rows in the enabled state count, and only bots whose url is a
+	 * per-agent Hermiq url: the shared bot carries no agent. A failure to read
+	 * is logged and answers no agents, which keeps a room on its single-agent
+	 * binding.
+	 *
+	 * @param string $roomToken The Talk room token.
+	 *
+	 * @return array<int, string> The agent uuids, in spreed's order.
+	 *
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-a-room-may-host-several-agents-managed-by-talk-moderators
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) See installForAgent().
+	 */
+	public function enabledAgentIds(string $roomToken): array {
+		if ($roomToken === '' || $this->bridge->isAvailable() === false) {
+			return [];
+		}
+
+		try {
+			$botMapper = $this->container->get(self::BOT_SERVER_MAPPER);
+			$conversationMapper = $this->container->get(self::BOT_CONVERSATION_MAPPER);
+
+			$agentIds = [];
+			foreach ($conversationMapper->findForToken($roomToken) as $row) {
+				if ((int)$row->getState() !== self::BOT_STATE_ENABLED) {
+					continue;
+				}
+
+				$agentId = TalkBridge::agentIdFromBotUrl(url: (string)$botMapper->findById((int)$row->getBotId())->getUrl());
+				if ($agentId !== null && in_array($agentId, $agentIds, true) === false) {
+					$agentIds[] = $agentId;
+				}
+			}
+
+			return $agentIds;
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				message: '[TalkBotInstaller] Could not read the bots enabled in the room',
+				context: ['file' => __FILE__, 'line' => __LINE__, 'roomToken' => $roomToken, 'error' => $e->getMessage()]
+			);
+			return [];
+		}//end try
+
+	}//end enabledAgentIds()
+
+	/**
 	 * Write the bot's enabled row for the room, unless the bot is already enabled there.
 	 *
 	 * @param string $agentId The agent whose bot to enable.

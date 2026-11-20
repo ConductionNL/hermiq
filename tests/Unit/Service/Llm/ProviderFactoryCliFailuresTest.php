@@ -45,7 +45,6 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 	use OCP\IUser;
 	use OCP\IUserSession;
 	use OCP\TaskProcessing\IManager;
-	use OCP\TaskProcessing\Task;
 	use PHPUnit\Framework\MockObject\MockObject;
 	use PHPUnit\Framework\TestCase;
 	use Psr\Container\ContainerInterface;
@@ -56,6 +55,8 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 	 * What a `cli` turn does when it cannot be governed or its credential cannot be resolved.
 	 *
 	 * @covers \OCA\Hermiq\Service\Llm\ProviderFactory
+	 * @uses   \OCA\Hermiq\Service\Llm\AnthropicCliRunner
+	 * @uses   \OCA\Hermiq\Service\Llm\CliRunTokens
 	 * @uses   \OCA\Hermiq\Service\Llm\CliTurn
 	 */
 	final class ProviderFactoryCliFailuresTest extends TestCase {
@@ -203,8 +204,14 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 		 * @return string The answer.
 		 */
 		private function turn(ProviderFactory $factory, array $functions): string {
-			$method = new \ReflectionMethod(ProviderFactory::class, 'callAnthropicCli');
-			return $method->invokeArgs($factory, ['cred-1', 'claude-sonnet', [LLPhantMessage::user('Hello')], $functions, 'agent-1', '']);
+			$turn = new \OCA\Hermiq\Service\Llm\CliTurn(model: 'claude-sonnet', agentId: 'agent-1');
+			$turn->credentialId   = 'cred-1';
+			$turn->messageHistory = [LLPhantMessage::user('Hello')];
+			$turn->functions      = $functions;
+			$turn->conversationId = '';
+			$method = new \ReflectionMethod(ProviderFactory::class, 'answerCliTurn');
+			$method->setAccessible(true);
+			return $method->invokeArgs($factory, [$turn]);
 		}//end turn()
 
 		/**
@@ -283,7 +290,8 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 		}//end testARefusedCredentialIsRefused()
 
 		/**
-		 * A failing Nextcloud Assistant task is logged and surfaced as unavailable with its cause.
+		 * A Nextcloud AI task that cannot be placed with a provider is surfaced as
+		 * unavailable, with the admin message and its cause (use-nextcloud-ai-settings).
 		 *
 		 * @return void
 		 */
@@ -291,22 +299,16 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 			$manager = $this->createMock(IManager::class);
 			$manager->method('hasProviders')->willReturn(true);
 			$cause = new RuntimeException('provider crashed');
-			$manager->method('runTask')->willReturnCallback(
-				static function (Task $task) use ($cause): Task {
-					throw $cause;
-				}
-			);
-			$this->logger->expects(self::once())->method('warning')->with(
-				'[ProviderFactory] Nextcloud Assistant task failed',
-				self::callback(static fn (array $context): bool => $context['error'] === 'provider crashed')
-			);
+			$manager->method('getAvailableTaskTypeIds')->willReturn(['core:text2text']);
+			$manager->method('getPreferredProvider')->willThrowException($cause);
+			$manager->expects(self::never())->method('runTask');
 			$factory = new ProviderFactory($this->createMock(LlmSettingsHandler::class), $manager, $this->createMock(IUserSession::class), $this->logger);
 
 			try {
 				$factory->generateViaNextcloud(prompt: 'Summarise this.', userId: 'alice');
 				self::fail('A failed task was answered.');
 			} catch (ProviderUnavailableException $e) {
-				self::assertSame('Nextcloud Assistant task failed: provider crashed', $e->getMessage());
+				self::assertSame('Configure an AI provider under Administration settings > Artificial intelligence.', $e->getMessage());
 				self::assertSame($cause, $e->getPrevious());
 			}
 		}//end testAFailingAssistantTaskIsUnavailable()

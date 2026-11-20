@@ -66,8 +66,13 @@ class Notifier implements INotifier {
 		'skill_published_behind',
 		'skill_rollback_suggested',
 		'session_participant_added',
+		'run_done',
+		'session_shared',
 		'goal_reached',
 		'goal_exhausted',
+		'restore_finished',
+		'report_due',
+		'handoff_result',
 	];
 
 	/**
@@ -138,6 +143,15 @@ class Notifier implements INotifier {
 			$this->urlGenerator->getAbsoluteURL($this->urlGenerator->imagePath(self::APP_ID, 'app-dark.svg'))
 		);
 
+		// Chat-fork-and-share-link: a shared session opens on its read-only page.
+		if ($subjectKey === 'session_shared' && $notification->getObjectId() !== '') {
+			$notification->setLink(
+				$this->urlGenerator->getAbsoluteURL(
+					rtrim($this->urlGenerator->linkToRoute('hermiq.dashboard.page'), '/') . '/chat/shared/' . rawurlencode($notification->getObjectId())
+				)
+			);
+		}
+
 		return $notification;
 	}//end prepare()
 
@@ -167,11 +181,41 @@ class Notifier implements INotifier {
 			'skill_published_behind' => $this->skillPublishedBehindText(name: $name, l: $l),
 			'skill_rollback_suggested' => $this->skillRollbackSuggestedText(name: $name, l: $l),
 			'session_participant_added' => $this->sessionParticipantAddedText(owner: (string)($subjectRaw['owner'] ?? ''), name: $name, l: $l),
+			'run_done' => $this->runDoneText(name: $name, succeeded: (($subjectRaw['result'] ?? '') === 'ok'), l: $l),
+			'session_shared' => $this->sessionSharedText(owner: (string)($subjectRaw['owner'] ?? ''), name: $name, l: $l),
 			'goal_reached' => $this->goalText(reached: true, name: $name, l: $l),
 			'goal_exhausted' => $this->goalText(reached: false, name: $name, l: $l),
+			'restore_finished' => $this->restoreFinishedText(subjectRaw: $subjectRaw, l: $l),
+			'report_due' => $this->reportDueText(subjectRaw: $subjectRaw, l: $l),
+			'handoff_result' => $this->handoffResultText(name: $name, l: $l),
 			default => $this->runCompleteText(name: $name, l: $l),
 		};
 	}//end resolveSubjectAndMessage()
+
+	/**
+	 * The `run_done` wording (personal-preferences): the agent and the result of a
+	 * run the recipient started, sent because they asked to be told.
+	 *
+	 * @param string $name      The agent's name, when known.
+	 * @param bool   $succeeded Whether the run succeeded.
+	 * @param IL10N  $l         The recipient-language localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 */
+	private function runDoneText(string $name, bool $succeeded, IL10N $l): array {
+		$subject = $l->t('Your agent run is done');
+		if ($name !== '') {
+			$subject = $l->t('%s is done', [$name]);
+		}
+
+		if ($succeeded === true) {
+			return [$subject, $l->t('The run finished successfully.')];
+		}
+
+		return [$subject, $l->t('The run ended with an error.')];
+	}//end runDoneText()
 
 	/**
 	 * The default `run_complete` wording (also the fallback for any subject key
@@ -341,6 +385,26 @@ class Notifier implements INotifier {
 	}//end sessionParticipantAddedText()
 
 	/**
+	 * Text for `session_shared`: an owner shared a session read-only with the recipient.
+	 *
+	 * @param string $owner The owner's display name.
+	 * @param string $name  The session title.
+	 * @param IL10N  $l     The recipient's localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+	 */
+	private function sessionSharedText(string $owner, string $name, IL10N $l): array {
+		$subject = $l->t('A chat session was shared with you');
+		if ($owner !== '' && $name !== '') {
+			$subject = $l->t('%1$s shared the session \'%2$s\' with you', [$owner, $name]);
+		}
+
+		return [$subject, $l->t('You can read it in Chat under Shared with you. You cannot add to it.')];
+	}//end sessionSharedText()
+
+	/**
 	 * Text for `goal_reached` and `goal_exhausted`: a standing goal ended (agents-standing-goal).
 	 *
 	 * @param bool   $reached True when the check passed, false when the turn limit was used.
@@ -364,4 +428,77 @@ class Notifier implements INotifier {
 			$l->t('The agent used every turn without reaching the goal. Open the session to see how far it got.'),
 		];
 	}//end goalText()
+
+	/**
+	 * Text for `restore_finished`: a restore of an organisation ended
+	 * (operations-backup-and-restore). With failures the agents stay stopped,
+	 * and the message names the failed objects.
+	 *
+	 * @param array<string,mixed> $subjectRaw The stored parameters (`organisation`, `failures`, `failed`).
+	 * @param IL10N $l The recipient-language localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003
+	 */
+	private function restoreFinishedText(array $subjectRaw, IL10N $l): array {
+		$organisation = (string)($subjectRaw['organisation'] ?? '');
+		$failures = (int)($subjectRaw['failures'] ?? 0);
+		if ($failures === 0) {
+			return [
+				$l->t('Restore of %s completed', [$organisation]),
+				$l->t('Every object was written back and the agents run again.'),
+			];
+		}
+
+		$failed = implode('; ', array_map('strval', (array)($subjectRaw['failed'] ?? [])));
+
+		return [
+			$l->n('Restore of %s completed with %n failure', 'Restore of %s completed with %n failures', $failures, [$organisation]),
+			$l->t('The agents stay stopped until an administrator releases the kill switch. Failed: %s', [$failed]),
+		];
+	}//end restoreFinishedText()
+
+	/**
+	 * Text for `report_due`: a subscribed report is ready for its week or month (reports-on-a-schedule).
+	 *
+	 * @param array<string,mixed> $subjectRaw The stored subject parameters (`report`, `from`, `to`).
+	 * @param IL10N               $l          The recipient's localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/changes/reports-on-a-schedule/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
+	 */
+	private function reportDueText(array $subjectRaw, IL10N $l): array {
+		$report = (string)($subjectRaw['report'] ?? '');
+		$label  = $report;
+		if ($report === 'AiOversight') {
+			$label = $l->t('AI oversight');
+		}
+
+		return [
+			$l->t('Your report is ready: %s', [$label]),
+			$l->t(
+				'It covers %1$s to %2$s. Open it to read what happened in that period.',
+				[(string)($subjectRaw['from'] ?? ''), (string)($subjectRaw['to'] ?? '')]
+			),
+		];
+	}//end reportDueText()
+
+	/**
+	 * The `handoff_result` wording: work an agent started has come back (flows-hand-off-and-wait).
+	 *
+	 * @param string $name The work's label, for example "Vergunningcheck".
+	 * @param IL10N  $l    The recipient-language localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002
+	 */
+	private function handoffResultText(string $name, IL10N $l): array {
+		return [
+			$l->t('Your assistant has the result of “%s”.', [$name]),
+			$l->t('Open the conversation to read its answer.'),
+		];
+	}//end handoffResultText()
 }//end class

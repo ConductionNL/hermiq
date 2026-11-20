@@ -92,4 +92,49 @@ interface ApprovalServiceInterface {
 	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
 	 */
 	public function loadApproval(string $uuid): ?ObjectEntity;
+
+	/**
+	 * Answer a pending question Approval and dispatch its run again with the answer.
+	 *
+	 * @param ObjectEntity $approval The pending question Approval.
+	 * @param string $deciderUid The reviewer answering.
+	 * @param string $answer The chosen or typed answer.
+	 *
+	 * @return array{status: string, ran: bool} The resulting status and whether the run was dispatched.
+	 *
+	 * @throws \InvalidArgumentException When it is not a pending question or the answer is refused.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 */
+	public function answerQuestion(ObjectEntity $approval, string $deciderUid, string $answer): array;
+
+	/**
+	 * Release a held draft as written or with edits to its editable fields.
+	 *
+	 * @param ObjectEntity $approval The pending draft Approval.
+	 * @param string $deciderUid The reviewer releasing it.
+	 * @param array<string, mixed> $edits The edited fields.
+	 *
+	 * @return array{status: string, ran: bool} The resulting status and whether it was sent.
+	 *
+	 * @throws \OCA\Hermiq\Service\Approval\DraftEditRefused When a field that may not be edited is changed.
+	 * @throws \InvalidArgumentException When it is not a pending draft.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	public function releaseDraft(ObjectEntity $approval, string $deciderUid, array $edits = []): array;
+
+	/**
+	 * Widen an approved computer action to the actions on its machine for its
+	 * run, for fifteen minutes from now; null when the approval cannot carry that.
+	 *
+	 * @param ObjectEntity       $approval   The approved computer-action approval.
+	 * @param string             $deciderUid The reviewer.
+	 * @param \DateTimeImmutable $now        The moment of the decision.
+	 *
+	 * @return array{uuid: string, expiresAt: string}|null
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	public function preauthoriseComputerRun(ObjectEntity $approval, string $deciderUid, \DateTimeImmutable $now): ?array;
 }//end interface

@@ -47,6 +47,9 @@ use Exception;
 use LLPhant\Chat\Message as LLPhantMessage;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -296,8 +299,7 @@ class ConversationManagementHandler {
 		try {
 			$conversation = $this->objectService->find(
 				id: $conversationId,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 			if ($conversation === null) {
 				return;
@@ -313,9 +315,10 @@ class ConversationManagementHandler {
 			$data['metadata'] = $metadata;
 			$this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $data),
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
-				uuid: $conversationId
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+					uuid: $conversationId
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(
@@ -343,6 +346,7 @@ class ConversationManagementHandler {
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-2
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-engine-port/spec.md#REQ-SPCOV-009
 	 */
 	public function checkAndSummarize(ObjectEntity $conversation): void {
 		$data = $conversation->getObject();
@@ -388,9 +392,10 @@ class ConversationManagementHandler {
 
 			$this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $data),
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
-				uuid: $conversationUuid
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+					uuid: $conversationUuid
+				)
 			);
 
 			$this->logger->info(
@@ -572,6 +577,11 @@ class ConversationManagementHandler {
 
 		if ($driver->provider === 'nextcloud') {
 			return $this->providerFactory->generateViaNextcloud(prompt: $prompt);
+		}
+
+		// OpenAI and OpenAI-compatible in Responses API mode (models-provider-connections D4).
+		if ($driver->apiMode === ProviderFactory::API_MODE_RESPONSES) {
+			return $this->providerFactory->callOpenAiResponses(driver: $driver, messageHistory: [LLPhantMessage::user($prompt)]);
 		}
 
 		// OpenAI / Ollama: driver->chat is a ready LLPhant chat instance.

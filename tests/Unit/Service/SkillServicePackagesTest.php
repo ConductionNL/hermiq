@@ -29,6 +29,8 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * A skill package is parsed into a stored skill, exported back without its
@@ -59,7 +61,11 @@ class SkillServicePackagesTest extends TestCase {
 	private function service(?LoggerInterface $logger = null): SkillService {
 		$this->objects = $this->createMock(ObjectService::class);
 		$this->objects->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], $register = null, $schema = null, ?string $uuid = null): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$this->saved[] = [$object, $register, $schema, $uuid];
 				return self::entity(payload: $object, uuid: ($uuid ?? 'new-uuid'));
 			}
@@ -220,6 +226,7 @@ class SkillServicePackagesTest extends TestCase {
 		$service = $this->service(logger: $logger);
 		$this->objects->method('find')->willReturnCallback(
 			static function (string $id, ...$rest): ?ObjectEntity {
+				$rest = array_slice(LegacyObjectArgs::positional(method: 'find', args: [$id, ...$rest]), 1);
 				if ($id === 'agent-1') {
 					throw new RuntimeException('agent store down');
 				}

@@ -38,6 +38,7 @@ use OCA\Hermiq\Service\RedactionService;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -220,7 +221,12 @@ class WorkspaceAuditor {
 	 */
 	private function subject(string $agentId): ObjectEntity {
 		try {
-			$agent = $this->objects->find(id: $agentId, register: 'hermiq', schema: 'agent', _rbac: false, _multitenancy: false);
+			$agent = $this->objects->find(
+				id: $agentId,
+				options: new ObjectFindOptions(register: 'hermiq', schema: 'agent'),
+				_rbac: false,
+				_multitenancy: false
+			);
 			if ($agent instanceof ObjectEntity) {
 				return $agent;
 			}

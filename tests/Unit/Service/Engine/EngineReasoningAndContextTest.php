@@ -157,10 +157,11 @@ class EngineReasoningAndContextTest extends TestCase {
 		$this->assertFalse($result['reasoningWithheld']);
 		$this->assertStringNotContainsString('Look it up', $result['message']);
 
-		// storeMessage(conversationId, role, content, sources, context, authorId, authorDisplayName, attachments, provenance, reasoning, reasoningWithheld)
-		$this->assertSame($result['reasoning'], $this->stored['assistant'][6]);
-		$this->assertFalse($this->stored['assistant'][7]);
-		$this->assertNull($this->stored['user'][6]);
+		// storeMessage(conversationId, role, content, sources, context, authorId, authorDisplayName, attachments,
+		// provenance, retrievalScope, translation, channel, answerCache, reasoning, reasoningWithheld)
+		$this->assertSame($result['reasoning'], $this->stored['assistant'][10]);
+		$this->assertFalse($this->stored['assistant'][11]);
+		$this->assertNull($this->stored['user'][10]);
 
 		$usage = ['usedTokens' => 850, 'windowTokens' => 1000, 'estimated' => false];
 		$this->assertSame($usage, $result['contextUsage']);
@@ -177,8 +178,8 @@ class EngineReasoningAndContextTest extends TestCase {
 
 		$this->assertNull($result['reasoning']);
 		$this->assertTrue($result['reasoningWithheld']);
-		$this->assertNull($this->stored['assistant'][6]);
-		$this->assertTrue($this->stored['assistant'][7]);
+		$this->assertNull($this->stored['assistant'][10]);
+		$this->assertTrue($this->stored['assistant'][11]);
 		// No provider count: an estimate of (400 + 11 characters) / 4.
 		$this->assertSame(['usedTokens' => 103, 'windowTokens' => 1000, 'estimated' => true], $result['contextUsage']);
 	}//end testABlockedReasoningIsWithheld()

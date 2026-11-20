@@ -51,6 +51,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Sentinel exception thrown by TestableChatStreamController in place of
@@ -451,6 +452,40 @@ class ChatStreamControllerTest extends TestCase {
 	}//end testAFinalFrameWithoutNoticesCarriesAnEmptyList()
 
 	/**
+	 * "Ask the model again" reaches the engine as the answer-cache bypass; only a JSON true counts.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+	 */
+	public function testAskingTheModelAgainBypassesTheAnswerCache(): void {
+		$this->authenticate('alice');
+		$this->objectService->method('find')->willReturnCallback(
+			function (): ObjectEntity {
+				$conversation = new ObjectEntity();
+				$conversation->setUuid('conv-1');
+				$conversation->setObject(['userId' => 'alice', 'agentId' => 'agent-1']);
+				return $conversation;
+			}
+		);
+		$seen = [];
+		$this->engine->method('processMessage')->willReturnCallback(
+			static function (...$args) use (&$seen): array {
+				// Positional, in the order of Engine::processMessage(): answerCacheBypass is the 15th.
+				$seen[] = ($args[15] ?? null);
+				return ['message' => 'Op maandag.', 'messageId' => 'msg-46', 'sources' => []];
+			}
+		);
+
+		foreach (['{"message":"Wanneer?","conversationUuid":"conv-1","answerCacheBypass":true}', '{"message":"Wanneer?","conversationUuid":"conv-1","answerCacheBypass":"true"}', '{"message":"Wanneer?","conversationUuid":"conv-1"}'] as $body) {
+			$this->runStream($this->makeController($body));
+		}
+
+		$this->assertSame([true, false, false], $seen);
+
+	}//end testAskingTheModelAgainBypassesTheAnswerCache()
+
+	/**
 	 * The final frame carries the answer's attachments, such as an image the agent created; none is an empty list.
 	 *
 	 * @return void
@@ -513,6 +548,7 @@ class ChatStreamControllerTest extends TestCase {
 		$args = null;
 		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$passed = LegacyObjectArgs::positional(method: 'saveObject', args: $passed);
 				$args = $passed;
 				$session = new ObjectEntity();
 				$session->setUuid('conv-new');
@@ -681,6 +717,7 @@ class ChatStreamControllerTest extends TestCase {
 	private function recordWorld(array &$finds, ?array &$saved): void {
 		$this->objectService->method('find')->willReturnCallback(
 			function (mixed ...$args) use (&$finds): ?ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'find', args: $args);
 				$finds[] = $args;
 				$entity = new ObjectEntity();
 				$entity->setUuid((string)$args[0]);
@@ -700,6 +737,7 @@ class ChatStreamControllerTest extends TestCase {
 		);
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$saved): ObjectEntity {
+				$passed = LegacyObjectArgs::positional(method: 'saveObject', args: $passed);
 				$saved = $passed[0];
 				$session = new ObjectEntity();
 				$session->setUuid('conv-new');
@@ -771,6 +809,7 @@ class ChatStreamControllerTest extends TestCase {
 		$finds = [];
 		$this->objectService->method('find')->willReturnCallback(
 			function (mixed ...$args) use (&$finds): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'find', args: $args);
 				$finds[] = $args;
 				$conversation = new ObjectEntity();
 				$conversation->setUuid('conv-1');

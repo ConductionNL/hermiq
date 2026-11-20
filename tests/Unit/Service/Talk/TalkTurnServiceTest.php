@@ -21,10 +21,13 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service\Talk;
 
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\Talk\TalkAgentChain;
 use OCA\Hermiq\Service\Talk\TalkBridge;
 use OCA\Hermiq\Service\Talk\TalkRoomBinding;
+use OCA\Hermiq\Service\Talk\TalkTurn;
 use OCA\Hermiq\Service\Talk\TalkTurnService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCP\IURLGenerator;
 use OCP\IUser;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -54,6 +57,7 @@ final class TalkTurnServiceTest extends TestCase {
 	 * @param string            $displayName The speaker's display name.
 	 * @param bool              $vanishes   Whether the speaker stops resolving after the first lookup.
 	 * @param array<string, mixed> $bound   The bound conversation's object.
+	 * @param TalkAgentChain|null  $chain   Follows the answer to the agents it mentions.
 	 *
 	 * @return TalkTurnService
 	 */
@@ -62,7 +66,9 @@ final class TalkTurnServiceTest extends TestCase {
 		bool $knownUser = true,
 		string $displayName = 'Alice A.',
 		bool $vanishes = false,
-		array $bound = ['agentId' => 'agent-9']
+		array $bound = ['agentId' => 'agent-9'],
+		?array $claims = null,
+		?TalkAgentChain $chain = null
 	): TalkTurnService {
 		$prior = $this->createMock(IUser::class);
 		$prior->method('getUID')->willReturn('prior');
@@ -115,6 +121,13 @@ final class TalkTurnServiceTest extends TestCase {
 		$conversation->setObject($bound);
 		$binding = $this->createMock(TalkRoomBinding::class);
 		$binding->method('findByRoomToken')->willReturnCallback(fn (string $token) => ($token === 'room-1' ? $conversation : null));
+		$urls = null;
+		if ($claims !== null) {
+			// The first-answer claims in order: the session uuid, then null once claimed.
+			$binding->method('claimFirstAnswerLink')->with('room-1')->willReturnOnConsecutiveCalls(...$claims);
+			$urls = $this->createMock(IURLGenerator::class);
+			$urls->method('getAbsoluteURL')->willReturnCallback(static fn (string $path): string => 'https://cloud.example' . $path);
+		}
 
 		$logger = $this->createMock(LoggerInterface::class);
 		$logger->method('error')->willReturnCallback(
@@ -123,8 +136,32 @@ final class TalkTurnServiceTest extends TestCase {
 			}
 		);
 
-		return new TalkTurnService($engine, $bridge, $binding, $users, $session, $logger);
+		return new TalkTurnService($engine, $bridge, $binding, $users, $session, $logger, null, null, $chain, $urls);
 	}//end service()
+
+	/**
+	 * A posted answer is followed to the agents it mentions, with the turn that
+	 * produced it; an empty answer is not.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-agent-to-agent-turns-are-mention-only-bounded-and-human-rooted
+	 */
+	public function testAPostedAnswerIsFollowedToTheAgentsItMentions(): void {
+		$chain = $this->createMock(TalkAgentChain::class);
+		$chain->expects($this->once())->method('follow')
+			->with(
+				$this->callback(static fn (TalkTurn $turn): bool => $turn->speakerUid === 'alice' && $turn->agentId === 'agent-7' && $turn->chain === ['hop' => 1]),
+				'@Bram over to you.',
+				''
+			)
+			->willReturn(1);
+		$this->assertTrue($this->service('@Bram over to you.', chain: $chain)->runTurn('conv-1', 'alice', 'Hallo', 'room-1', 'agent-7', '', ['hop' => 1]));
+
+		$silent = $this->createMock(TalkAgentChain::class);
+		$silent->expects($this->never())->method('follow');
+		$this->assertFalse($this->service('', chain: $silent)->runTurn('conv-1', 'alice', 'Hallo', 'room-1'));
+	}//end testAPostedAnswerIsFollowedToTheAgentsItMentions()
 
 	/**
 	 * The turn runs as the speaker, is answered under the room's agent, and the
@@ -140,6 +177,7 @@ final class TalkTurnServiceTest extends TestCase {
 		$args = $this->events[1][1];
 		$this->assertSame(['conv-1', 'alice', 'Hallo'], array_slice($args, 0, 3));
 		$this->assertSame(['alice', 'Alice A.'], array_slice($args, 11, 2));
+		$this->assertSame('talk', $args[14] ?? null, 'A turn from a Talk room is recorded as typed in Talk.');
 		$this->assertSame(['post', 'room-1', 'The answer.', 'agent-9'], $this->events[2]);
 		$this->assertSame(['setUser', 'prior'], $this->events[3]);
 		$this->assertCount(4, $this->events);
@@ -233,4 +271,32 @@ final class TalkTurnServiceTest extends TestCase {
 		$this->assertSame(['post', 'room-1', 'Answer', null], $this->events[2]);
 	}//end testABoundSessionWithoutAnAgentPostsUnderTheSharedBot()
 
+	/**
+	 * The agent's first answer in a room ends with the link to the session; the
+	 * second does not (chat-carry-a-conversation-across-channels REQ-SCHAN-003).
+	 *
+	 * @return void
+	 */
+	public function testOnlyTheFirstAnswerInTheRoomCarriesTheSessionLink(): void {
+		$service = $this->service(reply: 'The answer.', claims: ['sess-1', null]);
+
+		$service->runTurn('conv-1', 'alice', 'Hallo', 'room-1');
+		$service->runTurn('conv-1', 'alice', 'Nog iets', 'room-1');
+
+		$posts = array_values(array_filter($this->events, static fn (array $event): bool => $event[0] === 'post'));
+		$this->assertSame("The answer.\n\nContinue in Hermiq: https://cloud.example/apps/hermiq/chat?session=sess-1", $posts[0][2]);
+		$this->assertSame('The answer.', $posts[1][2]);
+	}//end testOnlyTheFirstAnswerInTheRoomCarriesTheSessionLink()
+
+	/**
+	 * The formatter ends the answer with the link on its own paragraph.
+	 *
+	 * @return void
+	 */
+	public function testTheContinueLineEndsTheAnswer(): void {
+		$this->assertSame(
+			"Twee offertes.\n\nContinue in Hermiq: https://x/apps/hermiq/chat?session=s",
+			TalkTurnService::continueInHermiq(answer: "Twee offertes.\n", url: 'https://x/apps/hermiq/chat?session=s')
+		);
+	}//end testTheContinueLineEndsTheAnswer()
 }//end class

@@ -45,7 +45,7 @@ final class AnthropicMessageFormat {
 	 *
 	 * @param array $messageHistory Array of LLPhant Message objects.
 	 *
-	 * @return array{system: string, messages: array<int, array<string, mixed>>}
+	 * @return array{system: string|array<int, array{type: string, text: string}>, messages: array<int, array<string, mixed>>}
 	 *
 	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
 	 */
@@ -78,11 +78,33 @@ final class AnthropicMessageFormat {
 		}
 
 		return [
-			'system' => implode("\n\n", $systemParts),
+			'system' => $this->systemField(systemParts: $systemParts),
 			'messages' => $messages,
 		];
 
 	}//end mapHistoryToAnthropicMessages()
+
+	/**
+	 * The `system` field: one system turn as a string, several as text blocks in order.
+	 *
+	 * Models-prompt-and-answer-cache: the turn sends its stable block and its
+	 * per-turn block as two system turns; as separate text blocks the cache
+	 * breakpoint sits on the stable one, and the per-turn one changes freely.
+	 *
+	 * @param array<int, string> $systemParts The system turns' text, in order.
+	 *
+	 * @return string|array<int, array{type: string, text: string}>
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-2
+	 */
+	private function systemField(array $systemParts): string|array {
+		$systemParts = array_values(array_filter($systemParts, static fn (string $part): bool => $part !== ''));
+		if (count($systemParts) <= 1) {
+			return (string)($systemParts[0] ?? '');
+		}
+
+		return array_map(static fn (string $part): array => ['type' => 'text', 'text' => $part], $systemParts);
+	}//end systemField()
 
 	/**
 	 * Map OpenAI-style function definitions to Anthropic `tools`.
@@ -300,7 +322,7 @@ final class AnthropicMessageFormat {
 			$block = [
 				'type' => 'tool_result',
 				'tool_use_id' => (string)($toolResult['tool_use_id'] ?? ''),
-				'content' => (string)($toolResult['content'] ?? ''),
+				'content' => $this->toolResultContent(content: (string)($toolResult['content'] ?? '')),
 			];
 
 			if (($toolResult['is_error'] ?? false) === true) {
@@ -312,4 +334,58 @@ final class AnthropicMessageFormat {
 
 		return $blocks;
 	}//end buildAnthropicToolResultBlocks()
+
+	/**
+	 * A tool result's content: the text as is, or an image block and the rest as text
+	 * when the result carries a screenshot (tools-browser-and-computer-use D4).
+	 *
+	 * A result with a base64 `image` and an image `mimeType` (the computer tools) is
+	 * shown to the model as the image, so it can see the screen; the other fields stay
+	 * as JSON text with the image replaced by a note, so the bytes are sent once.
+	 *
+	 * @param string $content The JSON-encoded tool result.
+	 *
+	 * @return string|list<array<string, mixed>> The content, or the image and text blocks.
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-computer-use-is-a-high-risk-ai-feature-that-a-grant-alone-cannot-unlock-req-computer-002
+	 */
+	private function toolResultContent(string $content): string|array {
+		$decoded = json_decode($content, true);
+		if (is_array($decoded) === false) {
+			return $content;
+		}
+
+		$image = ($decoded['image'] ?? null);
+		$mime  = ($decoded['mimeType'] ?? null);
+		if (self::isAttachableImage(image: $image, mime: $mime) === false) {
+			return $content;
+		}
+
+		$decoded['image'] = '(the screenshot is attached as an image)';
+
+		return [
+			['type' => 'image', 'source' => ['type' => 'base64', 'media_type' => $mime, 'data' => $image]],
+			['type' => 'text', 'text' => (string)json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)],
+		];
+	}//end toolResultContent()
+
+	/**
+	 * Whether a tool result's image can be attached as an image block: a
+	 * non-empty base64 string of a supported image type.
+	 *
+	 * @param mixed $image The result's `image` value.
+	 * @param mixed $mime  The result's `mimeType` value.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use
+	 */
+	private static function isAttachableImage(mixed $image, mixed $mime): bool {
+		if (is_string($image) === false || $image === '' || is_string($mime) === false) {
+			return false;
+		}
+
+		return in_array($mime, ['image/png', 'image/jpeg', 'image/gif', 'image/webp'], true) === true
+			&& base64_decode($image, true) !== false;
+	}//end isAttachableImage()
 }//end class

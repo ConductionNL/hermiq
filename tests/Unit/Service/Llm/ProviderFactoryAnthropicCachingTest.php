@@ -136,6 +136,36 @@ class ProviderFactoryAnthropicCachingTest extends TestCase {
 		$this->assertSame(3, substr_count((string)json_encode($second), 'cache_control'));
 	}
 
+	/**
+	 * Two turns whose retrieved context differs send the same stable system block,
+	 * with the breakpoint on it, and only the per-turn block differs.
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-2
+	 */
+	public function testTheStableBlockIsTheSameWhenTheRetrievedContextDiffers(): void {
+		$factory = $this->factory(
+			[
+				['content' => [['type' => 'text', 'text' => 'One.']], 'stop_reason' => 'end_turn', 'usage' => []],
+				['content' => [['type' => 'text', 'text' => 'Two.']], 'stop_reason' => 'end_turn', 'usage' => []],
+			]
+		);
+		foreach (['CONTEXT: document A', 'CONTEXT: document B'] as $retrieved) {
+			$factory->callAnthropicChat(
+				credentialId: 'cred',
+				model: 'claude-x',
+				baseUrl: 'https://api.anthropic.com/v1',
+				messageHistory: [LLPhantMessage::system('You are the case assistant.'), LLPhantMessage::system($retrieved), LLPhantMessage::user('Question')]
+			);
+		}
+
+		[$first, $second] = $this->bodies;
+		$stable = ['type' => 'text', 'text' => 'You are the case assistant.', 'cache_control' => ['type' => 'ephemeral']];
+		$this->assertSame($stable, $first['system'][0]);
+		$this->assertSame(json_encode($first['system'][0]), json_encode($second['system'][0]));
+		$this->assertSame(['type' => 'text', 'text' => 'CONTEXT: document A'], $first['system'][1]);
+		$this->assertSame(['type' => 'text', 'text' => 'CONTEXT: document B'], $second['system'][1]);
+	}
+
 	public function testTheAdminsLifetimeIsUsedAndUnreadableSettingsKeepCachingOn(): void {
 		$this->toolTurn($this->factory(self::toolResponses([]), ['anthropicConfig' => ['promptCacheTtl' => '1h']]));
 		$this->assertSame(['type' => 'ephemeral', 'ttl' => '1h'], $this->bodies[0]['tools'][0]['cache_control']);

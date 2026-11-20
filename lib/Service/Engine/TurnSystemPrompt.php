@@ -5,7 +5,8 @@
  *
  * Agent.prompt (or the default) with the owner's placeholders filled in, then
  * the assembled Context preamble, the CnAiContext snapshot and the RAG context,
- * in that order.
+ * in that order. The first two are the stable block, the last two the per-turn
+ * block, so a provider's prompt cache on the stable block survives a turn.
  *
  * @category Service
  * @package  OCA\Hermiq\Service\Engine
@@ -38,7 +39,28 @@ final class TurnSystemPrompt {
 	private const DEFAULT_PROMPT = 'You are a helpful AI assistant that helps users find and understand their data.';
 
 	/**
-	 * Compose the system prompt of the turn.
+	 * Compose the system prompt of the turn: the stable block, then the per-turn block.
+	 *
+	 * @param ResponseTurnRun $run The turn.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+	 */
+	public function compose(ResponseTurnRun $run): string {
+		$perTurn = $this->perTurn(run: $run);
+		if ($perTurn === '') {
+			return $this->stable(run: $run);
+		}
+
+		return $this->stable(run: $run) . "\n\n" . $perTurn;
+	}//end compose()
+
+	/**
+	 * The stable block: the agent's prompt and its Context preamble.
+	 *
+	 * It is the same on every turn of one agent version, so a provider's prompt
+	 * cache on it survives from one turn to the next.
 	 *
 	 * @param ResponseTurnRun $run The turn.
 	 *
@@ -46,9 +68,9 @@ final class TurnSystemPrompt {
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) PromptVariableResolver::fill is a pure template fill.
 	 *
-	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-2
 	 */
-	public function compose(ResponseTurnRun $run): string {
+	public function stable(ResponseTurnRun $run): string {
 		// Agents-instruction-variables: the owner's placeholders are filled in
 		// here, on Agent.prompt alone and before anything is appended, so no
 		// retrieved document or user text is ever read as a template.
@@ -64,8 +86,51 @@ final class TurnSystemPrompt {
 			$systemPrompt .= "\n\n" . $run->contextPreamble;
 		}
 
-		return $systemPrompt . $this->appContextBlock(cnAiContext: $run->cnAiContext) . $this->ragContextBlock(context: $run->context);
-	}//end compose()
+		return $systemPrompt;
+	}//end stable()
+
+	/**
+	 * The per-turn block: the current app context, the retrieved context and an ensemble
+	 * turn's reference answers, or ''.
+	 *
+	 * @param ResponseTurnRun $run The turn.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-2
+	 */
+	public function perTurn(ResponseTurnRun $run): string {
+		return ltrim(
+			$this->appContextBlock(cnAiContext: $run->cnAiContext) . $this->ragContextBlock(context: $run->context)
+			. $this->referenceAnswersBlock(answers: $run->referenceAnswers),
+			"\n"
+		);
+	}//end perTurn()
+
+	/**
+	 * The reference models' answers of an ensemble turn, labelled, for the
+	 * agent's own model to weigh and merge (models-several-models-per-turn D7).
+	 *
+	 * @param array<int, array{provider: string, model: string, text: string}> $answers The answers.
+	 *
+	 * @return string The block, or '' outside an ensemble turn.
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 */
+	private function referenceAnswersBlock(array $answers): string {
+		if ($answers === []) {
+			return '';
+		}
+
+		$block = "\n\nDRAFT ANSWERS FROM OTHER MODELS, for you to weigh and merge. They were written without tools "
+			. 'and may be wrong or incomplete. Write one answer of your own: keep what is right, correct what is not, '
+			. "use your tools where they are needed, and do not mention these drafts.\n";
+		foreach ($answers as $index => $answer) {
+			$block .= sprintf("\n--- Draft %d (%s %s) ---\n%s\n", ($index + 1), $answer['provider'], $answer['model'], $answer['text']);
+		}
+
+		return $block;
+	}//end referenceAnswersBlock()
 
 	/**
 	 * The CnAiContext snapshot the widget sends with each message. Without it

@@ -560,6 +560,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -601,6 +602,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -1571,6 +1573,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -1599,6 +1602,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -1847,6 +1851,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -1888,6 +1893,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -2357,6 +2363,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -2380,6 +2387,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -2623,6 +2631,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -2659,6 +2668,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -3460,6 +3470,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -3488,6 +3499,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -4159,6 +4171,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -4187,6 +4200,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": [
                 "s1"
             ]
@@ -4680,6 +4694,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -4721,6 +4736,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -5090,6 +5106,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -5131,6 +5148,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -5700,6 +5718,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -5736,6 +5755,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -6384,6 +6404,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -6420,6 +6441,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -6821,6 +6843,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -6844,6 +6867,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -7256,6 +7280,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -7297,6 +7322,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": [
                 "s1"
             ]
@@ -8499,6 +8525,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -8535,6 +8562,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -10845,6 +10873,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -10886,6 +10915,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -12106,6 +12136,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -12134,6 +12165,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": [
                 "s1"
             ]
@@ -13041,6 +13073,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -13064,6 +13097,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": [
                 "s1"
             ]
@@ -13283,6 +13317,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -13311,6 +13346,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": [
                 "s1"
             ]
@@ -14412,6 +14448,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -14448,6 +14485,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -14763,6 +14801,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -14804,6 +14843,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -15569,6 +15609,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -15592,6 +15633,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": [
                 "s1"
             ]
@@ -16551,6 +16593,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -16596,6 +16639,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -17120,6 +17164,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -17156,6 +17201,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -17710,6 +17756,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -17746,6 +17793,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": [
                 "s1"
             ]
@@ -18428,6 +18476,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -18451,6 +18500,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": [
                 "s1"
             ]
@@ -18957,6 +19007,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -18997,6 +19048,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -19872,6 +19924,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -19900,6 +19953,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -20215,6 +20269,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -20243,6 +20298,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -21096,6 +21152,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -21119,6 +21176,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -21430,6 +21488,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -21466,6 +21525,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": [
                 "s1"
             ]
@@ -22166,6 +22226,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -22189,6 +22250,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -22917,6 +22979,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -22953,6 +23016,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": [
                 "s1"
             ]
@@ -24425,6 +24489,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -24448,6 +24513,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": [
                 "s1"
             ]
@@ -24679,6 +24745,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -24719,6 +24786,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -26272,6 +26340,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -26300,6 +26369,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -26873,6 +26943,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -26896,6 +26967,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -27292,6 +27364,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -27337,6 +27410,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -27837,6 +27911,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -27877,6 +27952,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -28869,6 +28945,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -28909,6 +28986,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -29650,6 +29728,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -29673,6 +29752,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -29914,6 +29994,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -29959,6 +30040,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": [
                 "s1"
             ]
@@ -30280,6 +30362,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -30316,6 +30399,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": [
                 "s1"
             ]
@@ -31180,6 +31264,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -31208,6 +31293,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -32638,6 +32724,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -32666,6 +32753,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -33188,6 +33276,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -33224,6 +33313,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -34710,6 +34800,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -34759,6 +34850,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -35452,6 +35544,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -35488,6 +35581,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": [
                 "s1"
             ]
@@ -36198,6 +36292,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -36243,6 +36338,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -37129,6 +37225,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -37157,6 +37254,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -37399,6 +37497,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -37440,6 +37539,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": [
                 "s1"
             ]
@@ -38249,6 +38349,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -38289,6 +38390,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": [
                 "s1"
             ]
@@ -38484,6 +38586,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -38507,6 +38610,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -39100,6 +39204,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -39141,6 +39246,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": [
                 "s1"
             ]
@@ -39866,6 +39972,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -39889,6 +39996,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -40166,6 +40274,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -40194,6 +40303,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": [
                 "s1"
             ]
@@ -40823,6 +40933,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -40846,6 +40957,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": [
                 "s1"
             ]
@@ -41486,6 +41598,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -41509,6 +41622,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -42843,6 +42957,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -42892,6 +43007,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -43561,6 +43677,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -43589,6 +43706,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": [
                 "s1"
             ]
@@ -46718,6 +46836,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -46741,6 +46860,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -46996,6 +47116,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -47036,6 +47157,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -47548,6 +47670,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -47593,6 +47716,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -48863,6 +48987,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -48886,6 +49011,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -49211,6 +49337,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -49239,6 +49366,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -50028,6 +50156,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -50072,6 +50201,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -50267,6 +50397,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -50308,6 +50439,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": [
                 "s1"
             ]
@@ -50664,6 +50796,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -50709,6 +50842,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -51572,6 +51706,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -51595,6 +51730,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -51889,6 +52025,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -51917,6 +52054,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -52528,6 +52666,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -52569,6 +52708,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,
@@ -53054,6 +53194,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -53090,6 +53231,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": [
                 "s1"
             ]
@@ -53357,6 +53499,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -53398,6 +53541,7 @@
                 "windowTokens": null,
                 "estimated": false
             },
+            "retrievalScope": null,
             "skillsUsed": []
         },
         "error": null,

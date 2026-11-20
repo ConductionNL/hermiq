@@ -51,9 +51,13 @@ use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\SkillLearnings\CaptureSource;
 use OCA\Hermiq\Service\SkillLearnings\CaptureUsage;
 use OCA\Hermiq\Service\SkillLearnings\ExtractionInput;
+use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -176,6 +180,7 @@ class SkillLearningsCaptureService implements SkillLearningsCaptureServiceInterf
 	 * @param RedactionService $redactionService The agent-memory redaction path, applied verbatim
 	 *                                           to every observation BEFORE persist.
 	 * @param LoggerInterface $logger PSR-3 logger (every failure is logged, never thrown).
+	 * @param TraceExportQueue|null $traceExportQueue Hands the finished run to trace export (observability-export-traces).
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
@@ -184,6 +189,7 @@ class SkillLearningsCaptureService implements SkillLearningsCaptureServiceInterf
 		private readonly BudgetService $budgetService,
 		private readonly RedactionService $redactionService,
 		private readonly LoggerInterface $logger,
+		private readonly ?TraceExportQueue $traceExportQueue = null,
 	) {
 	}//end __construct()
 
@@ -334,10 +340,12 @@ class SkillLearningsCaptureService implements SkillLearningsCaptureServiceInterf
 
 		$parsedCandidates = $this->mergeCandidates(
 			candidates: $parsedCandidates,
-			confirmations: $confirmations,
-			observations: $observations,
-			runId: $runId,
-			evalFail: $source->evalFail
+			run: [
+				'confirmations' => $confirmations,
+				'observations' => $observations,
+				'runId' => $runId,
+				'evalFail' => $source->evalFail,
+			]
 		);
 
 		$this->persistCandidates(skill: $skill, data: $data, files: $files, candidates: $parsedCandidates);
@@ -365,8 +373,7 @@ class SkillLearningsCaptureService implements SkillLearningsCaptureServiceInterf
 	private function loadForCapture(string $skillId, string $runId, string $agentId, string $organisation): ?array {
 		$skill = $this->objectService->find(
 			id: $skillId,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -445,26 +452,21 @@ class SkillLearningsCaptureService implements SkillLearningsCaptureServiceInterf
 	 * run marks every candidate it touched that carries no marker yet; new
 	 * observations are appended as dated lines for this run.
 	 *
-	 * @param array<int, array<string, mixed>>                $candidates    The parsed candidates.
-	 * @param array<int, int>                                 $confirmations Valid candidate indexes.
-	 * @param array<int, array{section: string, text: string}> $observations The sanitized observations.
-	 * @param string                                          $runId         The originating run's id.
-	 * @param string                                          $evalFail      Failed-eval marker ref (`''` = none).
+	 * @param array<int, array<string, mixed>> $candidates The parsed candidates.
+	 * @param array<string, mixed>             $run        The run: `confirmations` (valid candidate indexes),
+	 *                                                     `observations` (sanitized `{section, text}`), `runId`
+	 *                                                     and `evalFail` (failed-eval marker ref, `''` = none).
 	 *
 	 * @return array<int, array<string, mixed>> The merged candidates.
 	 *
 	 * @spec openspec/specs/skill-learnings/spec.md#requirement-a-post-run-capture-pass-appends-dated-atomic-candidates-per-exercised-skill
 	 */
-	private function mergeCandidates(
-		array $candidates,
-		array $confirmations,
-		array $observations,
-		string $runId,
-		string $evalFail,
-	): array {
+	private function mergeCandidates(array $candidates, array $run): array {
 		$today = $this->today();
+		$runId = $run['runId'];
+		$evalFail = $run['evalFail'];
 
-		foreach ($confirmations as $index) {
+		foreach ($run['confirmations'] as $index) {
 			$candidate = $candidates[$index];
 			if (in_array($runId, $candidate['runs'], true) === false) {
 				$candidate['runs'][] = $runId;
@@ -479,7 +481,7 @@ class SkillLearningsCaptureService implements SkillLearningsCaptureServiceInterf
 			$candidates[$index] = $candidate;
 		}
 
-		foreach ($observations as $observation) {
+		foreach ($run['observations'] as $observation) {
 			$candidates[] = [
 				'date' => $today,
 				'section' => $observation['section'],
@@ -526,9 +528,10 @@ class SkillLearningsCaptureService implements SkillLearningsCaptureServiceInterf
 
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: (string)$skill->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: (string)$skill->getUuid()
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -959,8 +962,7 @@ class SkillLearningsCaptureService implements SkillLearningsCaptureServiceInterf
 
 			$schedule = $this->objectService->find(
 				id: $scheduleUuid,
-				register: self::REGISTER_SLUG,
-				schema: self::SCHEDULE_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEDULE_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -971,23 +973,25 @@ class SkillLearningsCaptureService implements SkillLearningsCaptureServiceInterf
 				return;
 			}
 
+			$runContext = [
+				'status' => 'skill_capture',
+				'runType' => 'skill-capture',
+				'runId' => $runId,
+				'agentId' => $agentId,
+				'dryRun' => false,
+				'usage' => [
+					'promptTokens' => $promptTokens,
+					'completionTokens' => $completionTokens,
+				],
+			];
 			$this->auditTrailMapper->recordObjectEvent(
 				event: new ObjectAuditEvent(
 					object: $schedule,
 					action: 'run',
-					context: [
-						'status' => 'skill_capture',
-						'runType' => 'skill-capture',
-						'runId' => $runId,
-						'agentId' => $agentId,
-						'dryRun' => false,
-						'usage' => [
-							'promptTokens' => $promptTokens,
-							'completionTokens' => $completionTokens,
-						],
-					]
+					context: $runContext
 				)
 			);
+			$this->traceExportQueue?->enqueueRun(context: $runContext, trigger: 'skill');
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				sprintf('Hermiq learnings capture could not record usage for run %s: %s', $runId, $e->getMessage()),
