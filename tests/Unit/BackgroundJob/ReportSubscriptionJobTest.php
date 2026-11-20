@@ -14,7 +14,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/reports-on-a-schedule/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
+ * @spec openspec/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
  */
 
 declare(strict_types=1);

@@ -25,7 +25,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/reports-on-a-schedule/tasks.md#1.2
+ * @spec openspec/changes/archive/2026-11-20-reports-on-a-schedule/tasks.md#1.2
  */
 
 declare(strict_types=1);
@@ -41,7 +41,7 @@ use OCA\OpenRegister\Service\ObjectService;
 /**
  * Read and change the session user's report subscriptions.
  *
- * @spec openspec/changes/reports-on-a-schedule/tasks.md#1.2
+ * @spec openspec/changes/archive/2026-11-20-reports-on-a-schedule/tasks.md#1.2
  */
 class ReportSubscriptions {
 
@@ -76,7 +76,7 @@ class ReportSubscriptions {
 	 *
 	 * @return list<array{id: string, report: string, frequency: string, status: string}>
 	 *
-	 * @spec openspec/changes/reports-on-a-schedule/tasks.md#1.2
+	 * @spec openspec/changes/archive/2026-11-20-reports-on-a-schedule/tasks.md#1.2
 	 */
 	public function mine(string $person): array {
 		$rows = [];
@@ -101,7 +101,7 @@ class ReportSubscriptions {
 	 *
 	 * @throws InvalidArgumentException When the report is empty or the frequency is neither.
 	 *
-	 * @spec openspec/changes/reports-on-a-schedule/tasks.md#1.2
+	 * @spec openspec/changes/archive/2026-11-20-reports-on-a-schedule/tasks.md#1.2
 	 */
 	public function subscribe(string $person, string $report, string $frequency): array {
 		$report = trim($report);
@@ -130,7 +130,7 @@ class ReportSubscriptions {
 	 *
 	 * @return bool True when an active subscription was cancelled.
 	 *
-	 * @spec openspec/changes/reports-on-a-schedule/tasks.md#1.2
+	 * @spec openspec/changes/archive/2026-11-20-reports-on-a-schedule/tasks.md#1.2
 	 */
 	public function cancel(string $person, string $report): bool {
 		$existing = $this->subscriptionTo(person: $person, report: trim($report));

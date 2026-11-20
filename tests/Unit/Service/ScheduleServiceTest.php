@@ -4542,7 +4542,7 @@ class ScheduleServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 	 */
 	public function testAFinishedRunCallsTheRunDoneNotifier(): void {
 		$this->objectService->method('findAll')->willReturn([]);
@@ -4567,7 +4567,7 @@ class ScheduleServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 	 */
 	public function testAFailedRunCallsTheRunDoneNotifierWithTheFailure(): void {
 		$this->objectService->method('findAll')->willReturn([]);
@@ -4592,7 +4592,7 @@ class ScheduleServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 	 */
 	public function testARunWaitingForARetryIsNotReportedDone(): void {
 		$schedule = $this->schedule(

@@ -14,7 +14,7 @@
   without it (the list answers 401/403) sees nothing here, and with no pending proposal
   the section is not shown.
 
-  @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
+  @spec openspec/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
 -->
 <template>
 	<section v-if="visible" class="skill-merges" :aria-label="t('hermiq', 'Merge proposals')">
@@ -103,7 +103,7 @@ export default {
 		 * Whether the section shows: loaded, allowed, and something to show.
 		 *
 		 * @return {boolean} True when visible.
-		 * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#scenario-two-duplicate-skills-get-one-merge-proposal
+		 * @spec openspec/specs/skills-marketplace/spec.md#scenario-two-duplicate-skills-get-one-merge-proposal
 		 */
 		visible() {
 			return this.loaded && this.allowed && (this.proposals.length > 0 || this.error !== '' || this.notice !== '')
@@ -113,7 +113,7 @@ export default {
 	/**
 	 * Load the proposals when the page opens.
 	 *
-	 * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#scenario-two-duplicate-skills-get-one-merge-proposal
+	 * @spec openspec/specs/skills-marketplace/spec.md#scenario-two-duplicate-skills-get-one-merge-proposal
 	 */
 	mounted() {
 		this.load()
@@ -124,7 +124,7 @@ export default {
 		 * Read the pending proposals; a refusal hides the section.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#scenario-two-duplicate-skills-get-one-merge-proposal
+		 * @spec openspec/specs/skills-marketplace/spec.md#scenario-two-duplicate-skills-get-one-merge-proposal
 		 */
 		async load() {
 			try {
@@ -146,8 +146,8 @@ export default {
 		 * @param {object} proposal The proposal.
 		 * @param {string} choice 'merge' or 'keep'.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#scenario-an-approved-merge-archives-the-duplicate-and-moves-its-agents
-		 * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#scenario-a-rejected-merge-changes-nothing
+		 * @spec openspec/specs/skills-marketplace/spec.md#scenario-an-approved-merge-archives-the-duplicate-and-moves-its-agents
+		 * @spec openspec/specs/skills-marketplace/spec.md#scenario-a-rejected-merge-changes-nothing
 		 */
 		async decide(proposal, choice) {
 			const id = proposal.duplicate.id
@@ -178,7 +178,7 @@ export default {
 		 *
 		 * @param {number} count The agent count.
 		 * @return {string} The label.
-		 * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#scenario-two-duplicate-skills-get-one-merge-proposal
+		 * @spec openspec/specs/skills-marketplace/spec.md#scenario-two-duplicate-skills-get-one-merge-proposal
 		 */
 		agentsLabel(count) {
 			return this.n('hermiq', 'used by %n agent', 'used by %n agents', count)
@@ -189,7 +189,7 @@ export default {
 		 *
 		 * @param {string} reason `same-name` or `same-instructions`.
 		 * @return {string} The label.
-		 * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#scenario-two-duplicate-skills-get-one-merge-proposal
+		 * @spec openspec/specs/skills-marketplace/spec.md#scenario-two-duplicate-skills-get-one-merge-proposal
 		 */
 		reasonLabel(reason) {
 			if (reason === 'same-instructions') {

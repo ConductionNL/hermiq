@@ -135,7 +135,7 @@ class LlmSettingsController extends Controller {
 	 *
 	 * @return array{taskTypes: array<string, mixed>, adminMessage: string, settingsUrl: string}
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-5-1
 	 */
 	private function nextcloudAiStatus(): array {
 		$settingsUrl = '';

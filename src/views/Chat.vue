@@ -2361,7 +2361,7 @@ export default {
 		 * clear the thread and show the agent picker.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+		 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 		 */
 		onNewSessionClick() {
 			const agent = defaultAgentOf(this.agents, this.defaultAgentId)
@@ -2376,7 +2376,7 @@ export default {
 		 * Read the person's default agent for new sessions; none on failure.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+		 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 		 */
 		async loadDefaultAgent() {
 			try {

@@ -12,7 +12,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+ * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
  */
 
 declare(strict_types=1);
@@ -32,7 +32,7 @@ use Throwable;
  * Never throws: a notification that cannot be sent is logged and the run's
  * own outcome stands.
  *
- * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+ * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
  */
 class RunDoneNotifier {
 
@@ -51,7 +51,7 @@ class RunDoneNotifier {
 	 * @param IURLGenerator        $urlGenerator        Builds the link to the run list.
 	 * @param LoggerInterface      $logger              Logger.
 	 *
-	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 	 */
 	public function __construct(
 		private readonly PersonalPreferences $preferences,
@@ -75,7 +75,7 @@ class RunDoneNotifier {
 	 *
 	 * @return bool Whether a notification was sent.
 	 *
-	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 	 */
 	public function notifyScheduledRun(
 		string $userId,
@@ -111,7 +111,7 @@ class RunDoneNotifier {
 	 *
 	 * @return bool Whether the notification was sent.
 	 *
-	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 	 */
 	private function sendRunDone(string $userId, array $run): bool {
 		try {

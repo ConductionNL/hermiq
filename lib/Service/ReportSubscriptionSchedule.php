@@ -17,7 +17,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/reports-on-a-schedule/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
+ * @spec openspec/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
  */
 
 declare(strict_types=1);
@@ -30,7 +30,7 @@ use DateTimeImmutable;
 /**
  * The due rule and the covered period of a weekly or monthly report subscription.
  *
- * @spec openspec/changes/reports-on-a-schedule/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
+ * @spec openspec/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
  */
 final class ReportSubscriptionSchedule {
 
@@ -57,7 +57,7 @@ final class ReportSubscriptionSchedule {
 	 *
 	 * @return bool True when the report goes out now.
 	 *
-	 * @spec openspec/changes/reports-on-a-schedule/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
+	 * @spec openspec/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
 	 */
 	public function isDue(string $status, string $frequency, ?DateTimeImmutable $lastSent, DateTimeImmutable $now): bool {
 		$interval = $this->interval(frequency: $frequency);
@@ -80,7 +80,7 @@ final class ReportSubscriptionSchedule {
 	 *
 	 * @return array{from: DateTimeImmutable, to: DateTimeImmutable}|null The period, or null for an unknown frequency.
 	 *
-	 * @spec openspec/changes/reports-on-a-schedule/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
+	 * @spec openspec/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
 	 */
 	public function period(string $frequency, DateTimeImmutable $now): ?array {
 		$interval = $this->interval(frequency: $frequency);

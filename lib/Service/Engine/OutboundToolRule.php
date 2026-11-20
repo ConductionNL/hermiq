@@ -19,7 +19,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+ * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
  */
 
 declare(strict_types=1);
@@ -29,7 +29,7 @@ namespace OCA\Hermiq\Service\Engine;
 /**
  * Classifies a tool id as outbound or not.
  *
- * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+ * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
  */
 final class OutboundToolRule {
 
@@ -54,7 +54,7 @@ final class OutboundToolRule {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 	 */
 	public static function isOutbound(string $toolId): bool {
 		$segments = explode('.', trim($toolId));
@@ -77,7 +77,7 @@ final class OutboundToolRule {
 	 *
 	 * @return list<string>
 	 *
-	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 	 */
 	public static function outboundAmong(array $toolIds): array {
 		return array_values(array_unique(array_filter($toolIds, static fn (string $id): bool => self::isOutbound(toolId: $id))));

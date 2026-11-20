@@ -836,7 +836,7 @@ class ResponseGenerationHandler {
 	 *
 	 * @return string The response text.
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-4
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-4
 	 */
 	private function callNextcloud(ResponseTurnRun $run): string {
 		$response = $this->providerFactory->callNextcloudChat(

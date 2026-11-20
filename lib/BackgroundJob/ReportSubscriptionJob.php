@@ -17,7 +17,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/reports-on-a-schedule/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
+ * @spec openspec/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
  */
 
 declare(strict_types=1);
@@ -42,7 +42,7 @@ use Throwable;
 /**
  * Hourly: every active subscription whose week or month has passed gets its report.
  *
- * @spec openspec/changes/reports-on-a-schedule/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
+ * @spec openspec/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
  */
 class ReportSubscriptionJob extends TimedJob {
 
@@ -91,7 +91,7 @@ class ReportSubscriptionJob extends TimedJob {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/reports-on-a-schedule/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
+	 * @spec openspec/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
 	 */
 	protected function run($argument): void {
 		$now = new DateTimeImmutable('@' . $this->time->getTime());
@@ -118,7 +118,7 @@ class ReportSubscriptionJob extends TimedJob {
 	 *
 	 * @return bool True when the report was sent.
 	 *
-	 * @spec openspec/changes/reports-on-a-schedule/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
+	 * @spec openspec/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
 	 */
 	public function sendIfDue(ObjectEntity $subscription, DateTimeImmutable $now): bool {
 		$data      = $subscription->getObject();
@@ -165,7 +165,7 @@ class ReportSubscriptionJob extends TimedJob {
 	 *
 	 * @return string The absolute link.
 	 *
-	 * @spec openspec/changes/reports-on-a-schedule/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
+	 * @spec openspec/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
 	 */
 	public function reportLink(string $report, array $period): string {
 		$base = rtrim($this->urlGenerator->linkToRouteAbsolute('hermiq.dashboard.page'), '/');
