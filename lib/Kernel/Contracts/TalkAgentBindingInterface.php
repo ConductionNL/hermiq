@@ -78,4 +78,27 @@ interface TalkAgentBindingInterface {
 	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-integration-is-opt-in-on-both-sides
 	 */
 	public function bindRoom(string $roomToken, string $agentId): void;
+
+	/**
+	 * Whether the agent exists and has opted in to Talk.
+	 *
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-a-room-may-host-several-agents-managed-by-talk-moderators
+	 */
+	public function isAgentTalkEnabled(string $agentId): bool;
+
+	/**
+	 * The opted-in agents a room holds: those whose own bot is enabled there,
+	 * else the room's single-agent binding.
+	 *
+	 * @param string $roomToken The Talk room token.
+	 *
+	 * @return array<int, string> The agent uuids.
+	 *
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-a-room-may-host-several-agents-managed-by-talk-moderators
+	 */
+	public function agentsForRoom(string $roomToken): array;
 }//end interface

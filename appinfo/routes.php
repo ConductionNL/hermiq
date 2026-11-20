@@ -23,6 +23,10 @@ $routes = [
         // Dashboard + Settings.
         ['name' => 'dashboard#page', 'url' => '/', 'verb' => 'GET'],
         ['name' => 'settings#index', 'url' => '/api/settings', 'verb' => 'GET'],
+        // models-provider-connections: the session user's subscription sign-in.
+        ['name' => 'subscription_login#index', 'url' => '/api/subscription-login', 'verb' => 'GET'],
+        ['name' => 'subscription_login#start', 'url' => '/api/subscription-login', 'verb' => 'POST'],
+        ['name' => 'subscription_login#code', 'url' => '/api/subscription-login/{id}/code', 'verb' => 'POST'],
         ['name' => 'settings#create', 'url' => '/api/settings', 'verb' => 'POST'],
         ['name' => 'settings#load',  'url' => '/api/settings/load', 'verb' => 'POST'],
 
@@ -545,6 +549,19 @@ $routes = [
         // cleanup job last enforced it and how much it removed.
         ['name' => 'Settings\RunRetentionSettings#get', 'url' => '/api/settings/run-retention', 'verb' => 'GET'],
         ['name' => 'Settings\RunRetentionSettings#update', 'url' => '/api/settings/run-retention', 'verb' => 'PUT'],
+        // How many scheduled runs go at once, for the instance and per organisation (operations-parallel-run-workers).
+        ['name' => 'Settings\RunConcurrencySettings#get', 'url' => '/api/settings/run-concurrency', 'verb' => 'GET'],
+        ['name' => 'Settings\RunConcurrencySettings#update', 'url' => '/api/settings/run-concurrency', 'verb' => 'PUT'],
+        // Backup (operations-backup-and-restore): the admin-only backup settings and
+        // "Back up now", which queues BackupNowJob and returns at once.
+        ['name' => 'Settings\BackupSettings#get', 'url' => '/api/settings/backup', 'verb' => 'GET'],
+        ['name' => 'Settings\BackupSettings#update', 'url' => '/api/settings/backup', 'verb' => 'PUT'],
+        ['name' => 'Settings\BackupSettings#backupNow', 'url' => '/api/backup/now', 'verb' => 'POST'],
+        // Restore (operations-backup-and-restore 3-4): the backups in the folder, the
+        // preview that writes nothing, and the restore, queued as RestoreJob.
+        ['name' => 'backup#files', 'url' => '/api/backup/files', 'verb' => 'GET'],
+        ['name' => 'backup#preview', 'url' => '/api/backup/restore/preview', 'verb' => 'POST'],
+        ['name' => 'backup#restore', 'url' => '/api/backup/restore', 'verb' => 'POST'],
         // observability-export-traces: trace export settings, admin only (REQ-TREX-001).
         ['name' => 'Settings\TraceExportSettings#get', 'url' => '/api/settings/trace-export', 'verb' => 'GET'],
         ['name' => 'Settings\TraceExportSettings#update', 'url' => '/api/settings/trace-export', 'verb' => 'PUT'],
@@ -705,6 +722,8 @@ $routes = [
             'requirements' => ['uuid' => '[^/]+'],
         ],
         ['name' => 'session#update', 'url' => '/api/sessions/{uuid}', 'verb' => 'PATCH', 'requirements' => ['uuid' => '[^/]+']],
+        // Session-entity-links: the owner removes a link a sent turn recorded.
+        ['name' => 'session#removeLink', 'url' => '/api/sessions/{uuid}/links', 'verb' => 'DELETE', 'requirements' => ['uuid' => '[^/]+']],
         // Agents-instruction-variables: a person's answers to the agent's start fields, once per session.
         ['name' => 'instructionVariables#answer', 'url' => '/api/sessions/{uuid}/start-values', 'verb' => 'PUT', 'requirements' => ['uuid' => '[^/]+']],
         // Agents-standing-goal: read, set and stop a session's standing goal.

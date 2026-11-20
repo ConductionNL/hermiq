@@ -34,6 +34,7 @@ use Cron\CronExpression;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\BackgroundJob\ScheduleRunJob;
 use OCA\Hermiq\BackgroundJob\SkillLearningsCaptureJob;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\ScheduleServiceInterface;
@@ -44,6 +45,8 @@ use OCA\Hermiq\Service\AiFeature\RunRetentionPolicy;
 use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
+use OCA\Hermiq\Service\Run\OccurrenceClaim;
+use OCA\Hermiq\Service\Run\RunConcurrencySettings;
 use OCA\Hermiq\Service\Schedule\CoarseStepTimeline;
 use OCA\Hermiq\Service\Schedule\DispatchOptions;
 use OCA\Hermiq\Service\Schedule\EngineRunRequest;
@@ -120,6 +123,13 @@ class ScheduleService implements ScheduleServiceInterface {
 	 * @var string
 	 */
 	private const SCHEMA_SLUG = 'schedule';
+
+	/**
+	 * The error a lost worker's occurrence is recorded with (operations-parallel-run-workers).
+	 *
+	 * @var string
+	 */
+	public const LOST_WORKER_MESSAGE = 'The worker stopped before the run finished.';
 
 	/**
 	 * OpenRegister schema slug for agent objects (agent-engine-port; only read
@@ -335,6 +345,12 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *                          trailing: a service built by hand in a test writes the
 	 *                          entry it always wrote.
 	 * @param TraceExportQueue|null $traceExportQueue Hands the finished run to trace export (observability-export-traces).
+	 * @param OccurrenceClaim|null $occurrenceClaim Claims a queued occurrence for one worker
+	 *                          (operations-parallel-run-workers). Nullable and trailing: a
+	 *                          service built by hand without it runs every due schedule in
+	 *                          the tick's own process, as before.
+	 * @param RunConcurrencySettings|null $runConcurrency The administrator's limits on parallel
+	 *                          scheduled runs; without it a worker applies none.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
 	 *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -363,6 +379,8 @@ class ScheduleService implements ScheduleServiceInterface {
 		private readonly ?RunDoneNotifier $runDoneNotifier = null,
 		private readonly ?RunRetentionPolicy $retentionPolicy = null,
 		private readonly ?TraceExportQueue $traceExportQueue = null,
+		private readonly ?OccurrenceClaim $occurrenceClaim = null,
+		private readonly ?RunConcurrencySettings $runConcurrency = null,
 	) {
 		$this->tenantKillSwitch = new TenantKillSwitch(objectService: $objectService, logger: $logger);
 	}//end __construct()
@@ -378,6 +396,9 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
+	 * stored data; it holds no state to inject.
 	 */
 	public function run(): void {
 		$now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
@@ -396,10 +417,25 @@ class ScheduleService implements ScheduleServiceInterface {
 		// in this set is halted synchronously before its agent runs (ADR-004 Art. 14).
 		$engagedOrganisations = $this->tenantKillSwitch->engagedOrganisations();
 
+		// Operations-parallel-run-workers: with a claim wired the tick only decides
+		// and commits; a background worker runs each occurrence. Without one the
+		// tick runs them itself, one after the other, as it always did.
+		$mode = DispatchOptions::MODE_INLINE;
+		$queues = $this->claimsOccurrences();
+		if ($queues === true) {
+			$mode = DispatchOptions::MODE_QUEUE;
+			$this->sweepLostOccurrences(now: $now);
+		}
+
 		foreach ($due as $schedule) {
+			// An occurrence already in flight is a worker's; the tick does not queue a second one.
+			if ($queues === true && OccurrenceClaim::pendingOf(data: $schedule->getObject()) !== '') {
+				continue;
+			}
+
 			// Per-schedule isolation: one bad schedule must not block the tick.
 			try {
-				$this->dispatch(schedule: $schedule, options: new DispatchOptions(now: $now, engagedOrganisations: $engagedOrganisations));
+				$this->dispatch(schedule: $schedule, options: new DispatchOptions(now: $now, engagedOrganisations: $engagedOrganisations, mode: $mode));
 			} catch (Throwable $e) {
 				$this->recordFailure(schedule: $schedule, error: $e);
 			}
@@ -1028,7 +1064,11 @@ class ScheduleService implements ScheduleServiceInterface {
 			return;
 		}
 
-		$this->runDue(schedule: $schedule, now: $now);
+		match ($options->mode) {
+			DispatchOptions::MODE_QUEUE => $this->queueDue(schedule: $schedule, now: $now),
+			DispatchOptions::MODE_CLAIMED => $this->runClaimed(schedule: $schedule, now: $now),
+			default => $this->runInline(schedule: $schedule, now: $now),
+		};
 
 	}//end dispatch()
 
@@ -1385,6 +1425,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		$data['nextRun'] = $nextRun?->format('c');
 		$data['lastStatus'] = $status;
 		$data['lastError'] = null;
+		$data = self::withoutPending(data: $data);
 
 		$this->persist(schedule: $schedule, data: $data);
 		$this->writeRunAudit(
@@ -1452,13 +1493,35 @@ class ScheduleService implements ScheduleServiceInterface {
 		$data = $schedule->getObject();
 
 		$occurrence = $this->startOccurrence(schedule: $schedule, data: $data, now: $now);
+
+		$this->persist(schedule: $schedule, data: $occurrence['data']);
+
+		$this->runCommitted(schedule: $schedule, occurrence: $occurrence, now: $now);
+
+	}//end runDue()
+
+	/**
+	 * Run an occurrence whose advance is already committed: the agent turn, the
+	 * delivery, the outcome, the run audit, and the final save or delete.
+	 *
+	 * @param ObjectEntity $schedule The schedule.
+	 * @param array<string, mixed> $occurrence The committed occurrence: data, attemptNumber,
+	 *                                         deferDisable, limitReached and retryEnabled.
+	 * @param DateTimeImmutable $now The dispatch moment.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) carried in with operations-parallel-run-workers;
+	 * splitting it is follow-up work, not part of this merge.
+	 */
+	private function runCommitted(ObjectEntity $schedule, array $occurrence, DateTimeImmutable $now): void {
 		$data = $occurrence['data'];
 		$attemptNumber = $occurrence['attemptNumber'];
 		$deferDisable = $occurrence['deferDisable'];
 		$limitReached = $occurrence['limitReached'];
 		$retryEnabled = $occurrence['retryEnabled'];
-
-		$this->persist(schedule: $schedule, data: $data);
 
 		// Wall-clock start of the agent turn, for the run-audit timing (run-audit-log).
 		$startedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
@@ -1519,6 +1582,9 @@ class ScheduleService implements ScheduleServiceInterface {
 			$summary = 'error: ' . $e->getMessage();
 		}//end try
 
+		// The outcome is recorded: no occurrence is in flight any more.
+		$data = self::withoutPending(data: $data);
+
 		// Write the explicit, redacted per-run AuditTrail entry (run-audit-log). Done
 		// for BOTH success and error, and BEFORE any delete, so no run — including the
 		// final occurrence of a finite repeat — escapes the immutable trail. Never
@@ -1550,7 +1616,460 @@ class ScheduleService implements ScheduleServiceInterface {
 
 		$this->persist(schedule: $schedule, data: $data);
 
-	}//end runDue()
+	}//end runCommitted()
+
+	/**
+	 * Commit a due occurrence and queue it for a background worker.
+	 *
+	 * The advance is committed exactly as before a run in the tick's own
+	 * process (nextRun, repeat, a disabled one-shot), with `lastStatus: queued`
+	 * and the occurrence key in `pendingOccurrence`; then one ScheduleRunJob is
+	 * added for that key. A job already in the list for the key is not added
+	 * again.
+	 *
+	 * @param ObjectEntity      $schedule The due schedule, past its gates.
+	 * @param DateTimeImmutable $now      The tick's moment.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
+	 * stored data; it holds no state to inject.
+	 */
+	private function queueDue(ObjectEntity $schedule, DateTimeImmutable $now): void {
+		$uuid = (string)$schedule->getUuid();
+		$data = $schedule->getObject();
+		$key = OccurrenceClaim::keyFor(scheduleUuid: $uuid, data: $data);
+
+		$occurrence = $this->startOccurrence(schedule: $schedule, data: $data, now: $now);
+		$data = $occurrence['data'];
+		$data['lastStatus'] = 'queued';
+		$data['pendingOccurrence'] = $key;
+		$data['pendingSince'] = $now->format('c');
+		$this->persist(schedule: $schedule, data: $data);
+
+		$argument = ['scheduleId' => $uuid, 'occurrenceKey' => $key];
+		if ($this->jobList->has(ScheduleRunJob::class, $argument) === false) {
+			$this->jobList->add(ScheduleRunJob::class, $argument);
+		}
+
+	}//end queueDue()
+
+	/**
+	 * Run a due occurrence in this process, under the same claim a worker takes.
+	 *
+	 * An engine-fired or approved run (runNow) and a local retry of the same
+	 * schedule cannot run at the same time: whoever holds the claim runs, the
+	 * other does nothing. Without a claim wired it runs as it always did.
+	 *
+	 * @param ObjectEntity      $schedule The due schedule, past its gates.
+	 * @param DateTimeImmutable $now      The dispatch moment.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
+	 * stored data; it holds no state to inject.
+	 */
+	private function runInline(ObjectEntity $schedule, DateTimeImmutable $now): void {
+		if ($this->occurrenceClaim === null || $this->claimsOccurrences() === false) {
+			$this->runDue(schedule: $schedule, now: $now);
+			return;
+		}
+
+		$uuid = (string)$schedule->getUuid();
+		$key = OccurrenceClaim::keyFor(scheduleUuid: $uuid, data: $schedule->getObject());
+		if ($this->occurrenceClaim->claim(scheduleUuid: $uuid, occurrenceKey: $key, ttlSeconds: RunConcurrencySettings::CLAIM_TTL_SECONDS) === false) {
+			$this->logger->info(
+				sprintf('Hermiq schedule %s is already running on a worker; this run does not start.', $uuid)
+			);
+			return;
+		}
+
+		try {
+			$this->runDue(schedule: $schedule, now: $now);
+		} finally {
+			$this->occurrenceClaim->release(scheduleUuid: $uuid);
+		}
+
+	}//end runInline()
+
+	/**
+	 * Run the occurrence the tick committed, on the worker that holds its claim.
+	 *
+	 * The advance is not committed a second time: the schedule is marked
+	 * `running` and the committed occurrence runs as it would have in the tick.
+	 *
+	 * @param ObjectEntity      $schedule The schedule, re-read after the claim.
+	 * @param DateTimeImmutable $now      The worker's moment.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
+	 */
+	private function runClaimed(ObjectEntity $schedule, DateTimeImmutable $now): void {
+		$data = $schedule->getObject();
+		$data['lastStatus'] = 'running';
+		$data['pendingSince'] = $now->format('c');
+		$this->persist(schedule: $schedule, data: $data);
+
+		$this->runCommitted(schedule: $schedule, occurrence: $this->committedOccurrence(data: $data), now: $now);
+
+	}//end runClaimed()
+
+	/**
+	 * Run one queued occurrence of a schedule on this worker.
+	 *
+	 * In order: the schedule must still have this occurrence in flight; the
+	 * run must fit under the administrator's limits, or the occurrence goes
+	 * back in the queue; the worker must win the claim; and after the claim the
+	 * schedule is read again, so a worker that won a claim another worker had
+	 * just released finds the occurrence already done. The gates for the agent
+	 * switch, the kill switch, the budget and approval are then checked again,
+	 * because time passed since the tick queued it.
+	 *
+	 * @param string $scheduleUuid  The schedule.
+	 * @param string $occurrenceKey The occurrence the tick queued.
+	 *
+	 * @return string `ran`, `stale`, `claimed_elsewhere`, `deferred` or `gone`.
+	 *
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
+	 * stored data; it holds no state to inject.
+	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) carried in with operations-parallel-run-workers;
+	 * splitting it is follow-up work, not part of this merge.
+	 * @SuppressWarnings(PHPMD.NPathComplexity) carried in with operations-parallel-run-workers; splitting it
+	 * is follow-up work, not part of this merge.
+	 */
+	public function runQueued(string $scheduleUuid, string $occurrenceKey): string {
+		$schedule = $this->findSchedule(uuid: $scheduleUuid);
+		if ($schedule === null) {
+			return 'gone';
+		}
+
+		if ($occurrenceKey === '' || OccurrenceClaim::pendingOf(data: $schedule->getObject()) !== $occurrenceKey) {
+			return 'stale';
+		}
+
+		$now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+		if ($this->fitsUnderLimits(schedule: $schedule, now: $now) === false) {
+			// Back in the queue, never dropped: another worker picks it up later.
+			$this->jobList->add(ScheduleRunJob::class, ['scheduleId' => $scheduleUuid, 'occurrenceKey' => $occurrenceKey]);
+			return 'deferred';
+		}
+
+		$ttl = RunConcurrencySettings::CLAIM_TTL_SECONDS;
+		if ($this->occurrenceClaim === null || $this->claimsOccurrences() === false
+			|| $this->occurrenceClaim->claim(scheduleUuid: $scheduleUuid, occurrenceKey: $occurrenceKey, ttlSeconds: $ttl) === false
+		) {
+			return 'claimed_elsewhere';
+		}
+
+		try {
+			$schedule = $this->findSchedule(uuid: $scheduleUuid);
+			if ($schedule === null || OccurrenceClaim::pendingOf(data: $schedule->getObject()) !== $occurrenceKey) {
+				return 'stale';
+			}
+
+			try {
+				$this->dispatch(
+					schedule: $schedule,
+					options: new DispatchOptions(
+						now: $now,
+						engagedOrganisations: $this->tenantKillSwitch->engagedOrganisations(),
+						mode: DispatchOptions::MODE_CLAIMED
+					)
+				);
+			} catch (Throwable $e) {
+				$this->recordFailure(schedule: $schedule, error: $e);
+			}
+
+			return 'ran';
+		} finally {
+			$this->occurrenceClaim->release(scheduleUuid: $scheduleUuid);
+		}//end try
+
+	}//end runQueued()
+
+	/**
+	 * Whether one more scheduled run fits under the limits, counting the runs
+	 * that are running now within their time-to-live, on the instance and in
+	 * the schedule's organisation. Without limits wired, or when the running
+	 * runs cannot be counted, the run fits: a limit is a throttle, not a gate.
+	 *
+	 * @param ObjectEntity      $schedule The schedule about to run.
+	 * @param DateTimeImmutable $now      The worker's moment.
+	 *
+	 * @return bool True when the run may start.
+	 *
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
+	 * stored data; it holds no state to inject.
+	 */
+	private function fitsUnderLimits(ObjectEntity $schedule, DateTimeImmutable $now): bool {
+		if ($this->runConcurrency === null) {
+			return true;
+		}
+
+		try {
+			$running = $this->schedulesWithStatus(status: 'running');
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq could not count the running scheduled runs; the limit is not applied: ' . $e->getMessage(),
+				['exception' => $e]
+			);
+			return true;
+		}
+
+		$organisation = (string)($schedule->getOrganisation() ?? '');
+		$onInstance = 0;
+		$inOrganisation = 0;
+		foreach ($running as $other) {
+			if ((string)$other->getUuid() === (string)$schedule->getUuid()
+				|| OccurrenceClaim::isLiveRun(data: $other->getObject(), now: $now, ttlSeconds: RunConcurrencySettings::CLAIM_TTL_SECONDS) === false
+			) {
+				continue;
+			}
+
+			$onInstance++;
+			if ($organisation !== '' && (string)($other->getOrganisation() ?? '') === $organisation) {
+				$inOrganisation++;
+			}
+		}
+
+		return $this->runConcurrency->admits(runningOnInstance: $onInstance, runningInOrganisation: $inOrganisation);
+
+	}//end fitsUnderLimits()
+
+	/**
+	 * Record every occurrence whose worker was lost as a failed run.
+	 *
+	 * An occurrence still `queued` or `running` a time-to-live after it was
+	 * queued or started, whose claim nobody holds, is failed with "The worker
+	 * stopped before the run finished." and handed to the schedule's retry
+	 * policy, which retries under a new attempt key. It is never run again
+	 * under its own key. Never fatal to the tick.
+	 *
+	 * @param DateTimeImmutable $now The tick's moment.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-a-lost-worker-is-recorded-as-a-failed-run-req-prun-002
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
+	 * stored data; it holds no state to inject.
+	 */
+	private function sweepLostOccurrences(DateTimeImmutable $now): void {
+		if ($this->occurrenceClaim === null || $this->claimsOccurrences() === false) {
+			return;
+		}
+
+		try {
+			$inFlight = array_merge($this->schedulesWithStatus(status: 'queued'), $this->schedulesWithStatus(status: 'running'));
+		} catch (Throwable $e) {
+			$this->logger->warning('Hermiq could not sweep for lost scheduled runs: ' . $e->getMessage(), ['exception' => $e]);
+			return;
+		}
+
+		foreach ($inFlight as $schedule) {
+			if (OccurrenceClaim::isStale(data: $schedule->getObject(), now: $now, ttlSeconds: RunConcurrencySettings::CLAIM_TTL_SECONDS) === false) {
+				continue;
+			}
+
+			$uuid = (string)$schedule->getUuid();
+			// A worker that still holds the claim is still running: leave it.
+			if ($this->occurrenceClaim->claim(scheduleUuid: $uuid, occurrenceKey: 'sweep', ttlSeconds: 60) === false) {
+				continue;
+			}
+
+			try {
+				$this->recordLostOccurrence(schedule: $schedule, now: $now);
+			} catch (Throwable $e) {
+				$this->logger->warning(sprintf('Hermiq could not record the lost run of schedule %s: %s', $uuid, $e->getMessage()), ['exception' => $e]);
+			} finally {
+				$this->occurrenceClaim->release(scheduleUuid: $uuid);
+			}
+		}//end foreach
+
+	}//end sweepLostOccurrences()
+
+	/**
+	 * Fail a lost occurrence and apply the schedule's retry policy.
+	 *
+	 * @param ObjectEntity      $schedule The schedule with the lost occurrence.
+	 * @param DateTimeImmutable $now      The tick's moment.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-a-lost-worker-is-recorded-as-a-failed-run-req-prun-002
+	 */
+	private function recordLostOccurrence(ObjectEntity $schedule, DateTimeImmutable $now): void {
+		$data = $schedule->getObject();
+		$occurrence = $this->committedOccurrence(data: $data);
+		$error = new RuntimeException(self::LOST_WORKER_MESSAGE);
+
+		$data = $this->applyFailureOutcome(
+			schedule: $schedule,
+			attempt: new FailedAttempt(
+				data: $data,
+				retryEnabled: $occurrence['retryEnabled'],
+				attemptNumber: $occurrence['attemptNumber'],
+				deferDisable: $occurrence['deferDisable'],
+				now: $now,
+				error: $error
+			)
+		);
+		$data = self::withoutPending(data: $data);
+
+		// Nothing ran in this process: the audit entry must not carry another run's identity.
+		$this->lastRunAsUser = (string)($schedule->getOwner() ?? '');
+		$this->lastRunUsage = [];
+		$this->lastRunSteps = [];
+		$this->lastRunDisclosure = null;
+		$this->lastRunProviderAttempts = [];
+		$this->lastRunReferenceAnswers = [];
+		$this->lastRunId = '';
+		$this->lastRunSkillsUsed = [];
+		$this->writeRunAudit(
+			schedule: $schedule,
+			record: new RunAuditRecord(
+				data: $data,
+				summary: 'error: ' . self::LOST_WORKER_MESSAGE,
+				startedAt: $now,
+				attempt: $occurrence['attemptNumber']
+			)
+		);
+
+		if ($occurrence['limitReached'] === true && ($data['lastStatus'] ?? '') !== 'retry_pending') {
+			$this->deleteSchedule(schedule: $schedule);
+			return;
+		}
+
+		$this->persist(schedule: $schedule, data: $data);
+
+	}//end recordLostOccurrence()
+
+	/**
+	 * Whether the tick queues occurrences for workers: a claim is wired and the
+	 * installed OpenRegister can take it.
+	 *
+	 * @return bool True when occurrences are claimed and queued.
+	 *
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
+	 */
+	private function claimsOccurrences(): bool {
+		return $this->occurrenceClaim !== null && $this->occurrenceClaim->isAvailable() === true;
+
+	}//end claimsOccurrences()
+
+	/**
+	 * The schedules whose `lastStatus` is the given one, across organisations.
+	 *
+	 * @param string $status The status.
+	 *
+	 * @return ObjectEntity[] The schedules.
+	 */
+	private function schedulesWithStatus(string $status): array {
+		$objects = $this->objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::SCHEMA_SLUG)
+			->findAll(
+				config: ['filters' => ['lastStatus' => $status]],
+				_rbac: false,
+				_multitenancy: false
+			);
+
+		return array_values(
+			array_filter(
+				$objects,
+				static fn (mixed $object): bool => $object instanceof ObjectEntity && (($object->getObject()['lastStatus'] ?? '') === $status)
+			)
+		);
+
+	}//end schedulesWithStatus()
+
+	/**
+	 * One schedule by uuid, read past RBAC as the dispatcher does, or null.
+	 *
+	 * @param string $uuid The schedule.
+	 *
+	 * @return ObjectEntity|null The schedule.
+	 */
+	private function findSchedule(string $uuid): ?ObjectEntity {
+		if (trim($uuid) === '') {
+			return null;
+		}
+
+		$found = $this->objectService->find(
+			id: $uuid,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
+			_rbac: false,
+			_multitenancy: false
+		);
+
+		if (($found instanceof ObjectEntity) === false) {
+			return null;
+		}
+
+		return $found;
+
+	}//end findSchedule()
+
+	/**
+	 * The occurrence the tick committed, worked out again from the schedule it saved.
+	 *
+	 * Mirrors startRetryAttempt() and startFreshOccurrence() after their commit:
+	 * a retry is attempt n+1 of the retry state the commit left untouched; the
+	 * repeat count was already bumped, so the limit is reached when it is at or
+	 * past `times`.
+	 *
+	 * @param array<string, mixed> $data The committed schedule.
+	 *
+	 * @return array{data: array<string, mixed>, attemptNumber: int, deferDisable: bool, limitReached: bool, retryEnabled: bool}
+	 *
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
+	 */
+	private function committedOccurrence(array $data): array {
+		$retryEnabled = (($data['retryEnabled'] ?? false) === true);
+		$retryState = $this->normaliseRetryState(raw: ($data['retryState'] ?? null));
+		$attempt = 1;
+		if ($retryEnabled === true && $retryState !== null) {
+			$attempt = ($retryState['attempt'] + 1);
+		}
+
+		$repeat = $this->normaliseRepeat(repeat: ($data['repeat'] ?? []));
+		$limitReached = ($repeat['times'] > 0 && $repeat['completed'] >= $repeat['times']);
+		$isOnce = ((string)($data['kind'] ?? '') === 'once');
+
+		return [
+			'data' => $data,
+			'attemptNumber' => $attempt,
+			'deferDisable' => ($retryEnabled === true && ($isOnce === true || $limitReached === true)),
+			'limitReached' => $limitReached,
+			'retryEnabled' => $retryEnabled,
+		];
+
+	}//end committedOccurrence()
+
+	/**
+	 * The schedule with no occurrence in flight.
+	 *
+	 * @param array<string, mixed> $data The schedule.
+	 *
+	 * @return array<string, mixed> The schedule.
+	 */
+	private static function withoutPending(array $data): array {
+		$data['pendingOccurrence'] = null;
+		$data['pendingSince'] = null;
+
+		return $data;
+
+	}//end withoutPending()
 
 	/**
 	 * Compute the commit-before-run advance for one occurrence — either a FRESH
@@ -3187,7 +3706,7 @@ class ScheduleService implements ScheduleServiceInterface {
 			$data = $fresh->getObject();
 			$data['lastStatus'] = 'error';
 			$data['lastError'] = $error->getMessage();
-			$this->persist(schedule: $fresh, data: $data);
+			$this->persist(schedule: $fresh, data: self::withoutPending(data: $data));
 		} catch (Throwable $e) {
 			$this->logger->error(
 				'Hermiq could not record schedule failure: ' . $e->getMessage(),

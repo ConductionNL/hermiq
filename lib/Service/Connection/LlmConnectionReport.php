@@ -52,6 +52,7 @@ class LlmConnectionReport {
 		'fireworks' => 'Fireworks AI',
 		'anthropic' => 'Anthropic',
 		'nextcloud' => 'Nextcloud Assistant',
+		'openai-compatible' => 'OpenAI-compatible endpoint',
 	];
 
 	/**
@@ -96,7 +97,7 @@ class LlmConnectionReport {
 			return ['unconfigured', 'No chat provider is chosen. Chat answers 503 until one is.'];
 		}
 
-		$name = (self::PROVIDER_NAMES[$provider] ?? $provider);
+		$name = $this->providerName(provider: $provider, config: $config);
 
 		try {
 			$this->providerFactory->createChatDriver(llmConfig: $config);
@@ -115,6 +116,23 @@ class LlmConnectionReport {
 
 		return ['configured', 'Chat uses ' . $name . '. Saved, not tested.'];
 	}//end describeProvider()
+
+	/**
+	 * The name a message uses for the saved provider: an OpenAI-compatible endpoint
+	 * goes by its admin's label, as "vLLM Rekencentrum (OpenAI-compatible)".
+	 * @param string               $provider The `chatProvider` value.
+	 * @param array<string, mixed> $config   The saved configuration.
+	 * @return string The name.
+	 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-an-admin-can-connect-an-openai-compatible-endpoint-by-name-req-pconn-001
+	 */
+	private function providerName(string $provider, array $config): string {
+		$label = trim((string)(($config['openaiCompatibleConfig'] ?? [])['label'] ?? ''));
+		if ($provider === 'openai-compatible' && $label !== '') {
+			return $label . ' (OpenAI-compatible)';
+		}
+
+		return (self::PROVIDER_NAMES[$provider] ?? $provider);
+	}//end providerName()
 
 	/**
 	 * What the saved configuration means for the `llm-runner` row.
