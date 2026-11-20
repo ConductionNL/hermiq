@@ -17,11 +17,11 @@
  * is supplied (blocking callers, background workers) we keep the blocking
  * `generateChat()` call exactly as before.
  *
- * The `nextcloud` TaskProcessing driver is deliberately NOT accepted here: its
- * scope (plan §8 move 1) is background/non-interactive work only — conversation
- * titles and summaries, served by `ConversationManagementHandler` — never chat
- * generation. Selecting it as `chatProvider` and then chatting raises a clear
- * `ProviderUnavailableException` instead of a silent wrong-path call.
+ * The `nextcloud` driver (Nextcloud AI) is accepted for chat and agent turns since
+ * use-nextcloud-ai-settings: the turn runs as `core:text2text:chat` or, with tools,
+ * `core:text2text:chatwithtools` tasks, with hermiq running the tool loop through the
+ * same governed executor as the Anthropic branch. TaskProcessing has no streaming
+ * surface, so the SSE caller receives the whole answer at once.
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V.
  * SPDX-License-Identifier: EUPL-1.2
@@ -391,7 +391,7 @@ class ResponseGenerationHandler {
 
 	/**
 	 * Resolve the provider driver (agent model/temperature overrides applied),
-	 * record which model saw the turn, and refuse a driver that cannot chat.
+	 * and record which model saw the turn.
 	 *
 	 * @param ResponseTurnRun $run The turn.
 	 *
@@ -408,7 +408,6 @@ class ResponseGenerationHandler {
 		$run->progress->driver = $this->createDriver(llmConfig: $llmConfig, inputs: $inputs);
 
 		$this->recordProviderDisclosure(run: $run);
-		$this->assertChatProvider(provider: $run->progress->driver->provider);
 		$this->logProvider(run: $run);
 	}//end resolveDriver()
 
@@ -598,7 +597,6 @@ class ResponseGenerationHandler {
 		$run->progress->driver = $driver;
 		$run->messageHistory = $history;
 		$this->recordProviderDisclosure(run: $run);
-		$this->assertChatProvider(provider: $driver->provider);
 		// A hop to a model path that cannot read a screenshot drops the computer tools too.
 		$run->progress->functions = ComputerToolDescriptors::forDriver(
 			functions: $run->progress->functions,
@@ -657,27 +655,6 @@ class ResponseGenerationHandler {
 			)
 		);
 	}//end recordProviderDisclosure()
-
-	/**
-	 * Scope guard — see the class docblock: the nextcloud driver never chats.
-	 *
-	 * @param string $provider The resolved provider slug.
-	 *
-	 * @return void
-	 *
-	 * @throws ProviderUnavailableException For the nextcloud driver.
-	 */
-	private function assertChatProvider(string $provider): void {
-		if ($provider !== 'nextcloud') {
-			return;
-		}
-
-		throw new ProviderUnavailableException(
-			message: 'The nextcloud (TaskProcessing) chat provider serves background work only '
-			. '(titles, summaries) — select openai, ollama, or fireworks for chat.',
-			code: 503
-		);
-	}//end assertChatProvider()
 
 	/**
 	 * Log the provider and model the turn runs on.
@@ -744,12 +721,46 @@ class ResponseGenerationHandler {
 			return $this->callAnthropic(run: $run);
 		}
 
+		if ($run->progress->driver->provider === 'nextcloud') {
+			return $this->callNextcloud(run: $run);
+		}
+
 		if ($run->progress->driver->apiMode === ProviderFactory::API_MODE_RESPONSES) {
 			return $this->callResponses(run: $run);
 		}
 
 		return $this->callLlphant(run: $run);
 	}//end callProvider()
+
+	/**
+	 * Nextcloud AI (use-nextcloud-ai-settings): the turn runs as TaskProcessing
+	 * tasks through the provider set up under Administration settings > Artificial
+	 * intelligence, as the session user (a scheduled run impersonates its acting
+	 * user). Tools go through the same governed executor as the Anthropic path;
+	 * without a chatwithtools provider a turn with tools fails loudly instead of
+	 * running without them. TaskProcessing reports no token usage, so only the
+	 * latency is recorded.
+	 *
+	 * @param ResponseTurnRun $run The turn.
+	 *
+	 * @return string The response text.
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-4
+	 */
+	private function callNextcloud(ResponseTurnRun $run): string {
+		$response = $this->providerFactory->callNextcloudChat(
+			messageHistory: $run->messageHistory,
+			functions: $run->progress->functions,
+			toolExecutor: $this->anthropicToolExecutor(run: $run),
+			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent)
+		);
+		$this->markLlmDone(run: $run);
+
+		$run->trace?->recordStopWhen(stopped: $this->providerFactory->lastCallHitToolCap(), reason: TurnGuard::LIMIT_REACHED);
+
+		$this->lastUsage = ['llmSeconds' => round($run->progress->llmTime, 2)];
+		return $response;
+	}//end callNextcloud()
 
 	/**
 	 * OpenAI and OpenAI-compatible in Responses API mode: direct HTTP
@@ -858,7 +869,7 @@ class ResponseGenerationHandler {
 	}//end requestAnthropic()
 
 	/**
-	 * The executor callAnthropicChat runs a requested tool with, by (name, input).
+	 * The executor callAnthropicChat and callNextcloudChat run a requested tool with, by (name, input).
 	 *
 	 * It runs the tool through the SAME governed FunctionInfo objects the LLPhant
 	 * path uses (ToolLoop::buildFunctionInfos — one shared FacadeToolInvoker,

@@ -45,7 +45,6 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 	use OCP\IUser;
 	use OCP\IUserSession;
 	use OCP\TaskProcessing\IManager;
-	use OCP\TaskProcessing\Task;
 	use PHPUnit\Framework\MockObject\MockObject;
 	use PHPUnit\Framework\TestCase;
 	use Psr\Container\ContainerInterface;
@@ -291,7 +290,8 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 		}//end testARefusedCredentialIsRefused()
 
 		/**
-		 * A failing Nextcloud Assistant task is logged and surfaced as unavailable with its cause.
+		 * A Nextcloud AI task that cannot be placed with a provider is surfaced as
+		 * unavailable, with the admin message and its cause (use-nextcloud-ai-settings).
 		 *
 		 * @return void
 		 */
@@ -299,22 +299,16 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 			$manager = $this->createMock(IManager::class);
 			$manager->method('hasProviders')->willReturn(true);
 			$cause = new RuntimeException('provider crashed');
-			$manager->method('runTask')->willReturnCallback(
-				static function (Task $task) use ($cause): Task {
-					throw $cause;
-				}
-			);
-			$this->logger->expects(self::once())->method('warning')->with(
-				'[ProviderFactory] Nextcloud Assistant task failed',
-				self::callback(static fn (array $context): bool => $context['error'] === 'provider crashed')
-			);
+			$manager->method('getAvailableTaskTypeIds')->willReturn(['core:text2text']);
+			$manager->method('getPreferredProvider')->willThrowException($cause);
+			$manager->expects(self::never())->method('runTask');
 			$factory = new ProviderFactory($this->createMock(LlmSettingsHandler::class), $manager, $this->createMock(IUserSession::class), $this->logger);
 
 			try {
 				$factory->generateViaNextcloud(prompt: 'Summarise this.', userId: 'alice');
 				self::fail('A failed task was answered.');
 			} catch (ProviderUnavailableException $e) {
-				self::assertSame('Nextcloud Assistant task failed: provider crashed', $e->getMessage());
+				self::assertSame('Configure an AI provider under Administration settings > Artificial intelligence.', $e->getMessage());
 				self::assertSame($cause, $e->getPrevious());
 			}
 		}//end testAFailingAssistantTaskIsUnavailable()

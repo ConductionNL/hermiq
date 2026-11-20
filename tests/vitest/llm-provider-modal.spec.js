@@ -121,6 +121,9 @@ describe('LlmProviderModal load', () => {
 describe('LlmProviderModal save', () => {
 	it('refuses without a provider', async () => {
 		const vm = (await open({})).vm
+		// Loading preselects Nextcloud AI; the guard covers a cleared choice.
+		expect(vm.selectedProvider.value).toBe('nextcloud')
+		vm.selectedProvider = null
 		await vm.save()
 
 		expect(vm.error).toBe('Select a provider first.')

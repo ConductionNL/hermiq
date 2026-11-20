@@ -853,18 +853,6 @@
         ],
         [
             "registerTaskProcessingProvider",
-            "OCA\\Hermiq\\TaskProcessing\\Text2TextProvider"
-        ],
-        [
-            "registerTaskProcessingProvider",
-            "OCA\\Hermiq\\TaskProcessing\\Text2TextSummaryProvider"
-        ],
-        [
-            "registerTaskProcessingProvider",
-            "OCA\\Hermiq\\TaskProcessing\\Text2TextHeadlineProvider"
-        ],
-        [
-            "registerTaskProcessingProvider",
             "OCA\\Hermiq\\TaskProcessing\\Text2TextReformulationProvider"
         ],
         [

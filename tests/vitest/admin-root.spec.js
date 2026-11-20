@@ -95,9 +95,10 @@ beforeEach(() => {
 describe('AdminRoot', () => {
 	it.each([
 		['openai', 'searxng', ['OpenAI', 'SearXNG (self-hosted)']],
-		['nextcloud', 'generic-json', ['Nextcloud Assistant (TaskProcessing)', 'Generic JSON search API']],
+		['nextcloud', 'generic-json', ['Nextcloud AI', 'Generic JSON search API']],
 		['mistral', 'brave', ['mistral', 'brave']],
-		['', undefined, ['Not configured', 'Not configured']],
+		// No hermiq provider saved: Nextcloud AI is the default (use-nextcloud-ai-settings).
+		['', undefined, ['Nextcloud AI', 'Not configured']],
 	])('names provider %p and search backend %p', async (chatProvider, searchProvider, labels) => {
 		llm.getLlmSettings.mockResolvedValue({ chatProvider })
 		webResearch.getWebResearchSettings.mockResolvedValue({ searchProvider })
@@ -109,13 +110,13 @@ describe('AdminRoot', () => {
 		expect(current(w)).toEqual(labels)
 	})
 
-	it('reads both as not configured when the settings cannot be read', async () => {
+	it('falls back to Nextcloud AI and no search backend when the settings cannot be read', async () => {
 		llm.getLlmSettings.mockRejectedValue(new Error('down'))
 		webResearch.getWebResearchSettings.mockRejectedValue(new Error('down'))
 
 		const w = await mountPanel()
 
-		expect(current(w)).toEqual(['Not configured', 'Not configured'])
+		expect(current(w)).toEqual(['Nextcloud AI', 'Not configured'])
 	})
 
 	it('opens the provider modal and shows what it saved', async () => {
@@ -172,8 +173,10 @@ describe('AdminRoot', () => {
 			'Trace export',
 			'Talk chat bridge',
 			'Remote agents',
-			'Organisation credentials',
 		])
+		// CnCredentials brings its own heading, so it sits outside a settings
+		// section, under the anchor the connection registry links to.
+		expect(w.find('#section-organisation-credentials').exists()).toBe(true)
 		for (const name of CHILDREN) {
 			expect(w.findComponent({ name }).exists(), name).toBe(true)
 		}
