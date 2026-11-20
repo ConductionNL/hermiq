@@ -21,8 +21,9 @@ is already covered. Task 3 verifies the existing behaviour against the new entry
   - GIVEN the file WHEN the entry is added THEN `version` is bumped `1.4.0` → `1.5.0` and the file is still valid JSON
   - GIVEN the file WHEN scanned THEN it contains no secret value — `{secret}` is a placeholder only
   - GIVEN `anthropic` and `anthropic-oauth` WHEN this task completes THEN both are byte-for-byte unchanged
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
+  - Done on openregister main: `anthropic-cli` is in `lib/Settings/credential-providers.json` (inject_only, no baseUrl, no allowRules, house-style `$comment`; the catalogue is now at version 1.12.0).
 
 ### Task 2: Declare the anthropic-cli credential in Hermiq's manifest
 - **spec_ref**: `openspec/changes/cli-runner-credential-declaration/specs/agent-credentials/spec.md#requirement-manifest-declared-credential-requirements`
@@ -33,8 +34,9 @@ is already covered. Task 3 verifies the existing behaviour against the new entry
   - GIVEN the `reason` WHEN read by a user THEN it is human-readable English, names the CLI execution mode it serves, and explains why the token cannot be proxied
   - GIVEN `provider` WHEN compared to the catalogue THEN it matches `identifier` byte-for-byte — `ProviderCatalogue::get()` is an exact key lookup
   - GIVEN the file WHEN the entry is added THEN it is still valid JSON and the five existing entries are unchanged
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
+  - Done on development: the declaration lives in `src/credentials.json` (the manifest's credentials moved there), `{provider: "anthropic-cli", reason, scopes: []}`, beside the five earlier entries.
 
 ### Task 3: Verify the broker's existing guards against the new provider
 - **spec_ref**: `openspec/changes/cli-runner-credential-declaration/specs/agent-credentials/spec.md#requirement-the-inject-only-anthropic-cli-credential-is-never-proxied`
