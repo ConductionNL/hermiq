@@ -158,12 +158,11 @@ class PublicChatGate {
 			return false;
 		}
 
-		$data = $agent;
+		$data = (array)$agent;
 		if ($agent instanceof ObjectEntity) {
-			$data = $agent->getObject();
+			$data = (array)$agent->getObject();
 		}
 
-		/** @var array<string, mixed> $data */
 		$grants = array_filter(
 			(array)($data['tools'] ?? []),
 			static fn (mixed $tool): bool => is_string($tool) === true && trim($tool) !== '' && trim($tool) !== '__none__'
