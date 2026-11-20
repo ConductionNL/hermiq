@@ -385,7 +385,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 *
 	 * @return NextcloudTaskClient The client.
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-1
 	 */
 	private function nextcloudClient(): NextcloudTaskClient {
 		if ($this->nextcloudClient !== null) {
@@ -2177,7 +2177,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 *                                      or the task fails/returns no output.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-2
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-3
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-3
 	 */
 	public function generateViaNextcloud(string $prompt, ?string $userId = null, ?string $customId = null): string {
 		return $this->nextcloudClient()->generate(
@@ -2206,7 +2206,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @throws ProviderUnavailableException When no Nextcloud provider serves the turn, a
 	 *                                      task fails, or the wait runs out.
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-4
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-4
 	 */
 	public function callNextcloudChat(
 		array $messageHistory,
@@ -2931,7 +2931,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @throws ProviderUnavailableException When Nextcloud has no AI provider at all, with
 	 *                                      the admin message saying where to set one up.
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-3-1
 	 */
 	private function createNextcloudDriver(): ChatDriver {
 		if ($this->taskManager->hasProviders() === false) {

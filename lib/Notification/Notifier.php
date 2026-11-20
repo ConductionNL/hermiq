@@ -202,7 +202,7 @@ class Notifier implements INotifier {
 	 *
 	 * @return array{0:string,1:string} The [subject, message] pair.
 	 *
-	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 	 */
 	private function runDoneText(string $name, bool $succeeded, IL10N $l): array {
 		$subject = $l->t('Your agent run is done');
@@ -467,7 +467,7 @@ class Notifier implements INotifier {
 	 *
 	 * @return array{0:string,1:string} The [subject, message] pair.
 	 *
-	 * @spec openspec/changes/reports-on-a-schedule/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
+	 * @spec openspec/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
 	 */
 	private function reportDueText(array $subjectRaw, IL10N $l): array {
 		$report = (string)($subjectRaw['report'] ?? '');

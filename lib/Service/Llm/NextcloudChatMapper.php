@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-2
+ * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-2
  */
 
 declare(strict_types=1);
@@ -36,7 +36,7 @@ use stdClass;
 /**
  * Maps hermiq chat turns onto Nextcloud's chat task shapes and back.
  *
- * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-2
+ * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-2
  */
 class NextcloudChatMapper {
 
@@ -47,7 +47,7 @@ class NextcloudChatMapper {
 	 *
 	 * @return array{system: string, input: string, history: list<string>}
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-2
 	 */
 	public function splitHistory(array $messageHistory): array {
 		$system = [];
@@ -95,7 +95,7 @@ class NextcloudChatMapper {
 	 *
 	 * @return string The tools JSON: `[{type: "function", function: {...}}]`.
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-2
 	 */
 	public function buildTools(array $functions): string {
 		$tools = [];
@@ -138,7 +138,7 @@ class NextcloudChatMapper {
 	 *
 	 * @return list<array{id: string, name: string, args: array<string, mixed>}>
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-2
 	 */
 	public function parseToolCalls(mixed $raw): array {
 		if (is_string($raw) === false || trim($raw) === '') {
@@ -178,7 +178,7 @@ class NextcloudChatMapper {
 	 *
 	 * @return string The JSON.
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-2
 	 */
 	public function encode(array $value): string {
 		return (string)json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -191,7 +191,7 @@ class NextcloudChatMapper {
 	 *
 	 * @return string The JSON, or ''.
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-2
 	 */
 	public function encodeList(array $list): string {
 		if ($list === []) {
@@ -213,7 +213,7 @@ class NextcloudChatMapper {
 	 *
 	 * @return list<string> The extended history.
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-2
 	 */
 	public function appendRound(array $history, string $input, array $toolMessages, string $text, array $toolCalls): array {
 		if ($input !== '') {
@@ -245,7 +245,7 @@ class NextcloudChatMapper {
 	 *
 	 * @return string The error.
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-1
 	 */
 	public function errorOf(Task $task): string {
 		// The provider's own message. getUserFacingErrorMessage() is newer (NC 33) than

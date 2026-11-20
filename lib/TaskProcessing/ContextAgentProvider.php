@@ -13,7 +13,7 @@
  * `ContextAgentInteractionService`, which owns the confirmation→approval-gate mapping,
  * conversation_token↔Conversation binding, actions↔tool-allowlist disclosure, and the
  * kill-switch gate. The multi-turn action-confirmation loop is deferred to a single-turn
- * path (see the service docblock + openspec/changes/contextagent-provider/design.md).
+ * path (see the service docblock + openspec/changes/archive/2026-11-20-contextagent-provider/design.md).
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V.
  * SPDX-License-Identifier: EUPL-1.2
@@ -27,7 +27,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/contextagent-provider/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-1-1
  */
 
 declare(strict_types=1);
@@ -43,7 +43,7 @@ use OCP\TaskProcessing\TaskTypes\ContextAgentInteraction;
 /**
  * Hermiq's provider for the `core:contextagent:interaction` task type.
  *
- * @spec openspec/changes/contextagent-provider/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-1-1
  */
 class ContextAgentProvider implements ISynchronousProvider {
 	use EmptyOptionalShapesTrait;
@@ -91,7 +91,7 @@ class ContextAgentProvider implements ISynchronousProvider {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-1-1
 	 */
 	public function getTaskTypeId(): string {
 		return ContextAgentInteraction::ID;
@@ -128,8 +128,8 @@ class ContextAgentProvider implements ISynchronousProvider {
 	 * @psalm-param  callable(float):bool $reportProgress
 	 * @psalm-return array{output: string, conversation_token: string, actions: string}
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-1-2
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-6-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-6-2
 	 */
 	public function process(?string $userId, array $input, callable $reportProgress): array {
 		$message = (string)($input['input'] ?? '');

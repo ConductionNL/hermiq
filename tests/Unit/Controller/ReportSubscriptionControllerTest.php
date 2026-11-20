@@ -14,7 +14,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/reports-on-a-schedule/tasks.md#1.2
+ * @spec openspec/changes/archive/2026-11-20-reports-on-a-schedule/tasks.md#1.2
  */
 
 declare(strict_types=1);

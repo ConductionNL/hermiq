@@ -25,7 +25,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
+ * @spec openspec/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
  */
 
 declare(strict_types=1);
@@ -47,7 +47,7 @@ use Throwable;
 /**
  * List, approve and reject the curator's skill merge proposals.
  *
- * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
+ * @spec openspec/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
  */
 class SkillMergeController extends Controller {
 
@@ -95,7 +95,7 @@ class SkillMergeController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 *
-	 * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#scenario-two-duplicate-skills-get-one-merge-proposal
+	 * @spec openspec/specs/skills-marketplace/spec.md#scenario-two-duplicate-skills-get-one-merge-proposal
 	 */
 	public function index(): JSONResponse {
 		$refusal = $this->refusal();
@@ -120,7 +120,7 @@ class SkillMergeController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 *
-	 * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#scenario-an-approved-merge-archives-the-duplicate-and-moves-its-agents
+	 * @spec openspec/specs/skills-marketplace/spec.md#scenario-an-approved-merge-archives-the-duplicate-and-moves-its-agents
 	 */
 	public function approve(string $id): JSONResponse {
 		$refusal = $this->refusal();
@@ -145,7 +145,7 @@ class SkillMergeController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 *
-	 * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#scenario-a-rejected-merge-changes-nothing
+	 * @spec openspec/specs/skills-marketplace/spec.md#scenario-a-rejected-merge-changes-nothing
 	 */
 	public function reject(string $id): JSONResponse {
 		$refusal = $this->refusal();

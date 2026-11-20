@@ -6,7 +6,7 @@
  * with the person's default agent when one is set and still there, and shows
  * the agent picker otherwise.
  *
- * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+ * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
  */
 
 import { flushPromises, shallowMount } from '@vue/test-utils'

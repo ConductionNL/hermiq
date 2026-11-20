@@ -10,7 +10,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+ * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
  */
 
 declare(strict_types=1);

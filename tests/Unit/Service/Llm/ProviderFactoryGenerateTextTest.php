@@ -112,7 +112,7 @@ class ProviderFactoryGenerateTextTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-1-1
 	 */
 	public function testNoProviderRunsOnNextcloudAiAsTheSessionUser(): void {
 		[$factory, $manager] = $this->factory(['chatProvider' => null], true);
@@ -138,7 +138,7 @@ class ProviderFactoryGenerateTextTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-3-1
 	 */
 	public function testNoNextcloudProviderGivesTheAdminMessage(): void {
 		[$factory] = $this->factory(['chatProvider' => null], false);
@@ -153,7 +153,7 @@ class ProviderFactoryGenerateTextTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-4
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-4
 	 */
 	public function testCallNextcloudChatRunsAsTheSessionUser(): void {
 		[$factory, $manager] = $this->factory(['chatProvider' => null], true);

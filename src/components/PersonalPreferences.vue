@@ -12,7 +12,7 @@
   an approval; the server never lets it remove one a tool or an administrator
   requires.
 
-  @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+  @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 -->
 <template>
 	<div class="personal-preferences">
@@ -100,7 +100,7 @@ export default {
 		 * The answer languages, translated.
 		 *
 		 * @return {Array<{value: string, label: string}>} The options.
-		 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+		 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 		 */
 		languageOptions() {
 			return ANSWER_LANGUAGES.map((option) => ({
@@ -113,7 +113,7 @@ export default {
 		 * The chosen answer language as an option, or null.
 		 *
 		 * @return {object|null} The option.
-		 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+		 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 		 */
 		selectedLanguage() {
 			return this.languageOptions.find((option) => option.value === this.answerLanguage) || null
@@ -123,7 +123,7 @@ export default {
 		 * The agents the person can start a chat with.
 		 *
 		 * @return {Array<{value: string, label: string}>} The options.
-		 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+		 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 		 */
 		agentOptions() {
 			return this.agents
@@ -135,7 +135,7 @@ export default {
 		 * The default agent as an option, or null.
 		 *
 		 * @return {object|null} The option.
-		 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+		 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 		 */
 		selectedAgent() {
 			return this.agentOptions.find((option) => option.value === this.defaultAgent) || null
@@ -151,7 +151,7 @@ export default {
 		 * Read the four preferences and the agents to choose from.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+		 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 		 */
 		async load() {
 			this.loading = true
@@ -187,7 +187,7 @@ export default {
 		 * @param {string} key The preference key.
 		 * @param {string} value The value to store.
 		 * @return {Promise<boolean>} Whether it was saved.
-		 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+		 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 		 */
 		async save(key, value) {
 			this.error = ''
@@ -205,7 +205,7 @@ export default {
 		 *
 		 * @param {object|null} option The picked option.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+		 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 		 */
 		async onLanguage(option) {
 			const value = option ? option.value : ''
@@ -219,7 +219,7 @@ export default {
 		 *
 		 * @param {object|null} option The picked option.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+		 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 		 */
 		async onDefaultAgent(option) {
 			const value = option ? option.value : ''
@@ -234,7 +234,7 @@ export default {
 		 * @param {'askBeforeSend'|'notifyRunDone'} name The switch.
 		 * @param {boolean} on Its new state.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+		 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 		 */
 		async onSwitch(name, on) {
 			if (await this.save(PREFERENCE_KEYS[name], switchValue(on))) {

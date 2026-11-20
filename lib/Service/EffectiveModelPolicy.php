@@ -142,7 +142,7 @@ class EffectiveModelPolicy implements EffectiveModelPolicyInterface {
 	 * @return array{source: string, allowed: array<int, array{provider: string, models: array<int, string>}>, defaultModel: null}
 	 *
 	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-1-1
 	 */
 	private function fallbackPolicy(): array {
 		$chatProvider = $this->settingsHandler->getLLMSettingsOnly()['chatProvider'] ?? null;

@@ -603,7 +603,7 @@ class ToolLoop implements ToolLoopInterface {
 	 *
 	 * @return list<string> Registry ids.
 	 *
-	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 	 */
 	private function askFirst(array $functions): array {
 		$uid = (string)($this->userSession?->getUser()?->getUID() ?? '');

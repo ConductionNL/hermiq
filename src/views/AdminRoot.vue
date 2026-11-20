@@ -505,7 +505,7 @@ export default {
 		 *
 		 * @return {boolean} True on Nextcloud AI.
 		 *
-		 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-5-1
+		 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-5-1
 		 */
 		usesNextcloudAi() {
 			return !this.chatProvider || this.chatProvider === 'nextcloud'
@@ -516,7 +516,7 @@ export default {
 		 *
 		 * @return {Array<object>} Rows of { key, label, available, provider }.
 		 *
-		 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-5-1
+		 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-5-1
 		 */
 		taskTypeRows() {
 			const labels = {
@@ -538,7 +538,7 @@ export default {
 		 *
 		 * @return {boolean} True when the admin message should show.
 		 *
-		 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-5-1
+		 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-5-1
 		 */
 		nextcloudAiMissing() {
 			return (

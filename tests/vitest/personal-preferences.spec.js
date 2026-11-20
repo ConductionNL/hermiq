@@ -7,7 +7,7 @@
  * the per-user preferences endpoint; the settings dialog shows the section
  * above Talk delivery; the helpers decide switches and the default agent.
  *
- * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+ * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
  */
 
 import axios from '@nextcloud/axios'
