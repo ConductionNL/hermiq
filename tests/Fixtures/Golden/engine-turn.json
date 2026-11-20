@@ -595,6 +595,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -1588,6 +1595,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -1871,6 +1885,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -2359,6 +2380,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -2632,6 +2660,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -3457,6 +3492,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -4151,6 +4193,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": [
                 "s1"
@@ -4680,6 +4729,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -5084,6 +5140,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -5685,6 +5748,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -6364,6 +6434,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -6782,6 +6859,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -7230,6 +7314,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -8463,6 +8554,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -10810,6 +10908,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -12052,6 +12157,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -12978,6 +13090,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": [
                 "s1"
@@ -13219,6 +13338,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -14352,6 +14478,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -14702,6 +14835,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -15485,6 +15625,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -16485,6 +16632,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -17039,6 +17193,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -17624,6 +17785,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -18325,6 +18493,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": [
                 "s1"
@@ -18865,6 +19040,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -19764,6 +19946,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -20101,6 +20290,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -20973,6 +21169,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -21314,6 +21517,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -22032,6 +22242,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -22791,6 +23008,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -24282,6 +24506,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": [
                 "s1"
@@ -24547,6 +24778,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -26123,6 +26361,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -26715,6 +26960,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -27150,6 +27402,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -27685,6 +27944,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -28713,6 +28979,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -29471,6 +29744,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -29752,6 +30032,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -30105,6 +30392,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": [
                 "s1"
@@ -30991,6 +31285,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -32445,6 +32746,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -32997,6 +33305,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -34527,6 +34842,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -35252,6 +35574,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": [
                 "s1"
@@ -36001,6 +36330,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -36911,6 +37247,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -37188,6 +37531,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -38033,6 +38383,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": [
                 "s1"
@@ -38245,6 +38602,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -38874,6 +39238,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -39618,6 +39989,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -39917,6 +40295,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -40564,6 +40949,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -41222,6 +41614,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -42601,6 +43000,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -43292,6 +43698,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -46440,6 +46853,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -46729,6 +47149,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -47281,6 +47708,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -48570,6 +49004,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -48917,6 +49358,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -49746,6 +50194,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -49976,6 +50431,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -50372,6 +50834,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -51254,6 +51723,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -51570,6 +52046,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -52218,6 +52701,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": []
         },
@@ -52734,6 +53224,13 @@
                 ],
                 "steps": []
             },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
+            },
             "retrievalScope": null,
             "skillsUsed": [
                 "s1"
@@ -53036,6 +53533,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []

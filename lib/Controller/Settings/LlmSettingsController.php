@@ -40,6 +40,7 @@ use OCA\Hermiq\Kernel\Contracts\ModelCapabilityRegistryInterface;
 use OCA\Hermiq\Service\Connection\LlmConnectionReport;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\NextcloudTaskClient;
+use OCA\Hermiq\Service\Llm\ModelContextWindows;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -71,6 +72,9 @@ class LlmSettingsController extends Controller {
 	 * @param NextcloudTaskClient|null $nextcloudAi Reports which Nextcloud AI task types have a
 	 *                                              provider; null when built by hand in a test.
 	 * @param IURLGenerator|null $urlGenerator Builds the link to Nextcloud's AI admin settings.
+	 * @param ModelContextWindows|null $contextWindows The declared context window per model
+	 *                                                 (chat-how-an-answer-came-about D4); null
+	 *                                                 when built by hand in a test.
 	 *
 	 * @return void
 	 *
@@ -84,6 +88,7 @@ class LlmSettingsController extends Controller {
 		private readonly ?LlmConnectionReport $connectionReport = null,
 		private readonly ?NextcloudTaskClient $nextcloudAi = null,
 		private readonly ?IURLGenerator $urlGenerator = null,
+		private readonly ?ModelContextWindows $contextWindows = null,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
@@ -119,6 +124,7 @@ class LlmSettingsController extends Controller {
 			$masked['effectiveChatProvider'] = LlmSettingsHandler::DEFAULT_CHAT_PROVIDER;
 		}
 		$masked['nextcloudAi'] = $this->nextcloudAiStatus();
+		$masked['modelContextWindows'] = ($this->contextWindows?->all() ?? []);
 
 		return new JSONResponse($masked);
 	}//end get()
@@ -175,7 +181,17 @@ class LlmSettingsController extends Controller {
 
 		unset($data['modelCapabilities']);
 
-		return $this->save(patch: $this->dropBlankCredentials(data: $data), capabilities: $capabilities);
+		// The declared context windows (chat-how-an-answer-came-about D4) live in their
+		// own key too, validated before and written after the llm save, like the capabilities.
+		$windows = $this->declaredContextWindows(data: $data);
+		if ($windows instanceof JSONResponse) {
+			return $windows;
+		}
+
+		unset($data['modelContextWindows']);
+
+		$response = $this->save(patch: $this->dropBlankCredentials(data: $data), capabilities: $capabilities);
+		return $this->withContextWindows(response: $response, windows: $windows);
 
 	}//end update()
 
@@ -255,6 +271,54 @@ class LlmSettingsController extends Controller {
 		}
 
 	}//end persist()
+
+	/**
+	 * The patch's declared context windows, validated; null when the patch names none.
+	 *
+	 * @param array<string, mixed> $data The llm patch.
+	 *
+	 * @return array<string, int|null>|JSONResponse|null The declarations, or the 422 answer.
+	 *
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+	 */
+	private function declaredContextWindows(array $data): array|JSONResponse|null {
+		if ($this->contextWindows === null || array_key_exists('modelContextWindows', $data) === false) {
+			return null;
+		}
+
+		try {
+			return $this->contextWindows->normalizeDeclarations(declarations: (array)$data['modelContextWindows']);
+		} catch (InvalidArgumentException $e) {
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_UNPROCESSABLE_ENTITY);
+		}
+	}//end declaredContextWindows()
+
+	/**
+	 * Write the declared context windows once the llm save succeeded, and add every
+	 * declared window to the answer.
+	 *
+	 * @param JSONResponse                  $response The save's answer.
+	 * @param array<string, int|null>|null  $windows  The declarations, or null when none were sent.
+	 *
+	 * @return JSONResponse
+	 *
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+	 */
+	private function withContextWindows(JSONResponse $response, ?array $windows): JSONResponse {
+		if ($this->contextWindows === null || $response->getStatus() !== Http::STATUS_OK) {
+			return $response;
+		}
+
+		if ($windows !== null) {
+			$this->contextWindows->declareMany(declarations: $windows);
+		}
+
+		$data = (array)$response->getData();
+		$data['modelContextWindows'] = $this->contextWindows->all();
+		$response->setData($data);
+
+		return $response;
+	}//end withContextWindows()
 
 	/**
 	 * The patch's declared model capabilities, normalised; null when the patch names none.

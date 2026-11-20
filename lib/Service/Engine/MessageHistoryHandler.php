@@ -539,6 +539,9 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	 * @param array|null $answerCache The answer-cache entry that served an assistant answer,
 	 *                                `{layer, entryId}`; null when the model gave it
 	 *                                (models-prompt-and-answer-cache).
+	 * @param string|null $reasoning The model's reasoning, already filtered and redacted;
+	 *                               null or '' stores none (chat-how-an-answer-came-about D3).
+	 * @param bool $reasoningWithheld True when the output filter blocked the reasoning.
 	 *
 	 * @return ObjectEntity The persisted Message object.
 	 *
@@ -550,6 +553,9 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	 * @spec openspec/changes/chat-carry-a-conversation-across-channels/specs/session-channel-continuity/spec.md#requirement-each-turn-records-where-it-was-typed-req-schan-004
 	 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-the-languages-and-engines-used-are-recorded-req-strn-002
 	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) reasoningWithheld is a stored fact of the turn, written as
+	 * data, not a behaviour switch.
 	 */
 	public function storeMessage(
 		string $conversationId,
@@ -565,11 +571,23 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 		?array $translation = null,
 		?string $channel = null,
 		?array $answerCache = null,
+		?string $reasoning = null,
+		bool $reasoningWithheld = false,
 	): ObjectEntity {
 		$payload = $this->messagePayload(
 			message: ['sessionId' => $conversationId, 'role' => $role, 'content' => $content],
 			extras: compact('sources', 'context', 'attachments', 'provenance', 'retrievalScope', 'translation', 'answerCache')
 		);
+
+		// Chat-how-an-answer-came-about D3: the reasoning arrives filtered and redacted.
+		if ($reasoning !== null && $reasoning !== '') {
+			$payload['reasoning'] = $reasoning;
+		}
+
+		if ($reasoningWithheld === true) {
+			$payload['reasoningWithheld'] = true;
+		}
+
 		$payload = $this->withAuthorship(
 			payload: $payload,
 			author: ['authorId' => $authorId, 'authorDisplayName' => $authorDisplayName]

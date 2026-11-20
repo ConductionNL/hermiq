@@ -3616,7 +3616,24 @@ OC.L10N.register(
         "%n cached answer removed.": ["%n opgeslagen antwoord verwijderd.","%n opgeslagen antwoorden verwijderd."],
         "The next questions to this agent go to the model again. Answers it gives are cached anew while the cache is on.": "De volgende vragen aan deze agent gaan weer naar het model. Zolang de cache aan staat, worden de antwoorden opnieuw opgeslagen.",
         "The cached answers could not be cleared.": "De opgeslagen antwoorden konden niet worden gewist.",
-        "%n cached answers removed.": "%n opgeslagen antwoorden verwijderd."
+        "%n cached answers removed.": "%n opgeslagen antwoorden verwijderd.",
+        "Reasoning withheld": "Redenering tegengehouden",
+        "Ask the model for its reasoning and show it next to the answer. Only Anthropic and Ollama return reasoning. Off by default: reasoning costs tokens.": "Vraag het model om zijn redenering en toon die naast het antwoord. Alleen Anthropic en Ollama geven een redenering terug. Standaard uit: redeneren kost tokens.",
+        "The model's own reasoning for this answer, after the organisation's output filter and redaction. Stored only when the agent's owner asked for it.": "De eigen redenering van het model bij dit antwoord, na het uitvoerfilter van de organisatie en het weglakken. Alleen bewaard als de eigenaar van de agent erom vroeg.",
+        "The organisation's output filter blocked the model's reasoning, so none was stored.": "Het uitvoerfilter van de organisatie hield de redenering van het model tegen, dus er is niets bewaard.",
+        "Context window (tokens)": "Contextvenster (tokens)",
+        "Context: {used} of {window} tokens ({percent}%)": "Context: {used} van {window} tokens ({percent}%)",
+        "Context: {used} tokens": "Context: {used} tokens in gebruik",
+        "Context: about {used} of {window} tokens ({percent}%)": "Context: ongeveer {used} van {window} tokens ({percent}%)",
+        "Context: about {used} tokens": "Context: ongeveer {used} tokens in gebruik",
+        "How many tokens the model can read at once. Leave empty when you do not know; the chat then shows the tokens used only.": "Hoeveel tokens het model in één keer kan lezen. Laat leeg als je het niet weet; de chat toont dan alleen de gebruikte tokens.",
+        "Model reasoning": "Redenering van het model",
+        "Show the model's reasoning": "Redenering van het model tonen",
+        "The answer shows the model's own reasoning next to it. Reasoning costs tokens.": "Het antwoord toont de eigen redenering van het model ernaast. Redeneren kost tokens.",
+        "The reasoning was withheld by the organisation's filter.": "De redenering is tegengehouden door het filter van de organisatie.",
+        "The session is close to the model's limit. Start a new session or fork from an earlier answer.": "De sessie zit dicht bij de limiet van het model. Begin een nieuwe sessie of ga verder vanaf een eerder antwoord.",
+        "This is the model's own text. It can be wrong.": "Dit is de eigen tekst van het model. Die kan onjuist zijn.",
+        "This provider does not return reasoning": "Deze provider geeft geen redenering terug"
     },
     "nplurals=2; plural=(n != 1);"
 )

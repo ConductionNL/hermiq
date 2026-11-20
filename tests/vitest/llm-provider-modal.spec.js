@@ -146,9 +146,9 @@ describe('LlmProviderModal save', () => {
 
 	it.each([
 		['openai', { chatProvider: 'openai', openaiConfig: { chatModel: 'gpt-x', credentialId: 'c-openai' } }],
-		['ollama', { chatProvider: 'ollama', ollamaConfig: { url: 'http://ollama:11434', chatModel: 'llama3' }, modelCapabilities: { 'ollama/llama3': [] } }],
-		['fireworks', { chatProvider: 'fireworks', fireworksConfig: { baseUrl: '/inference/v1', chatModel: 'fw-1', credentialId: 'c-fw' }, modelCapabilities: { 'fireworks/fw-1': [] } }],
-		['anthropic', { chatProvider: 'anthropic', anthropicConfig: { chatModel: 'claude-x', credentialId: 'c-an', authMode: 'api_key', promptCaching: true, scope: 'organisation' }, modelCapabilities: { 'anthropic/claude-x': ['image'] } }],
+		['ollama', { chatProvider: 'ollama', ollamaConfig: { url: 'http://ollama:11434', chatModel: 'llama3' }, modelCapabilities: { 'ollama/llama3': [] }, modelContextWindows: { 'ollama/llama3': null } }],
+		['fireworks', { chatProvider: 'fireworks', fireworksConfig: { baseUrl: '/inference/v1', chatModel: 'fw-1', credentialId: 'c-fw' }, modelCapabilities: { 'fireworks/fw-1': [] }, modelContextWindows: { 'fireworks/fw-1': null } }],
+		['anthropic', { chatProvider: 'anthropic', anthropicConfig: { chatModel: 'claude-x', credentialId: 'c-an', authMode: 'api_key', promptCaching: true, scope: 'organisation' }, modelCapabilities: { 'anthropic/claude-x': ['image'] }, modelContextWindows: { 'anthropic/claude-x': null } }],
 		['nextcloud', { chatProvider: 'nextcloud' }],
 	])('patches %s with its section and the model ticks', async (provider, expected) => {
 		const stored = { ...FULL, chatProvider: provider, anthropicConfig: { ...FULL.anthropicConfig, authMode: 'api_key' } }
@@ -167,6 +167,20 @@ describe('LlmProviderModal save', () => {
 		expect(wrapper.emitted('saved')).toEqual([[provider]])
 		expect(wrapper.emitted('close')).toEqual([[]])
 		expect(wrapper.vm.saving).toBe(false)
+	})
+
+	it('sends the declared context window of the model, and null to clear it', async () => {
+		const wrapper = await open({ ...FULL, chatProvider: 'anthropic', anthropicConfig: { ...FULL.anthropicConfig, authMode: 'api_key' }, modelContextWindows: { 'anthropic/claude-x': 200000 } })
+		expect(wrapper.vm.contextWindow).toBe(200000)
+
+		wrapper.vm.contextWindow = '128000'
+		await wrapper.vm.save()
+		expect(api.patchLlmSettings.mock.calls[0][0].modelContextWindows).toEqual({ 'anthropic/claude-x': 128000 })
+
+		wrapper.vm.contextWindow = ''
+		expect(wrapper.vm.contextWindow).toBe('')
+		wrapper.vm.contextWindow = '12.5'
+		expect(wrapper.vm.modelContextWindows['anthropic/claude-x']).toBeNull()
 	})
 
 	it('keeps the provider prompt cache switched off when it was stored off, and saves the switch', async () => {
@@ -225,6 +239,7 @@ describe('LlmProviderModal OpenAI-compatible endpoint and OpenAI base URL', () =
 				apiMode: 'chat_completions',
 			},
 			modelCapabilities: { 'openai-compatible/mistral-small-3.2': [] },
+			modelContextWindows: { 'openai-compatible/mistral-small-3.2': null },
 		})
 	})
 

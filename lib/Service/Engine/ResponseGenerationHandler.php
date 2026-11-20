@@ -59,6 +59,7 @@ use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\Llm\ProviderCooldown;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
+use OCA\Hermiq\Service\Llm\ReasoningOllamaChat;
 use OCA\OpenRegister\Db\ObjectEntity;
 use Psr\Log\LoggerInterface;
 
@@ -104,6 +105,24 @@ class ResponseGenerationHandler {
 	 * @var array<string, int|float>
 	 */
 	public array $lastUsage = [];
+
+	/**
+	 * The model's reasoning from the last generateResponse() call, unfiltered; ''
+	 * when the agent's owner did not ask for it or the provider returned none
+	 * (chat-how-an-answer-came-about D3). The Engine filters and redacts it.
+	 *
+	 * @var string
+	 */
+	public string $lastReasoning = '';
+
+	/**
+	 * What the model was given in the last generateResponse() call, for the context
+	 * meter (chat-how-an-answer-came-about D4): the provider and model that served it
+	 * and the characters of every message sent (system prompt, history and turn).
+	 *
+	 * @var array{provider: string, model: string, promptCharacters: int}|array{}
+	 */
+	public array $lastPrompt = [];
 
 	/**
 	 * The notices about attachments the last turn could not send natively, in the
@@ -266,6 +285,8 @@ class ResponseGenerationHandler {
 		if ($noMatch !== null) {
 			$this->attachmentNotices = [];
 			$this->lastUsage = [];
+			$this->lastReasoning = '';
+			$this->lastPrompt = [];
 			return $noMatch;
 		}
 
@@ -316,6 +337,8 @@ class ResponseGenerationHandler {
 	private function startTurn(ResponseTurnRun $run, ?ObjectEntity $agent): ResponseTurnRun {
 		$run->progress->startTime = microtime(true);
 		$this->attachmentNotices = [];
+		$this->lastReasoning = '';
+		$this->lastPrompt = [];
 		$run->agent = $agent;
 		return $run;
 	}//end startTurn()
@@ -776,6 +799,11 @@ class ResponseGenerationHandler {
 	 */
 	private function callProvider(ResponseTurnRun $run): string {
 		$run->progress->llmStartTime = microtime(true);
+		$this->lastPrompt = [
+			'provider' => $run->progress->driver->provider,
+			'model' => $run->progress->driver->model,
+			'promptCharacters' => self::promptCharacters(messageHistory: $run->messageHistory),
+		];
 		if ($run->progress->driver->provider === 'fireworks') {
 			return $this->callFireworks(run: $run);
 		}
@@ -852,6 +880,39 @@ class ResponseGenerationHandler {
 	}//end callResponses()
 
 	/**
+	 * The characters of every message the model is sent, for an estimated token count.
+	 *
+	 * @param array<int, mixed> $messageHistory The LLPhant messages of the turn.
+	 *
+	 * @return int The character count (multibyte-aware).
+	 *
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+	 */
+	public static function promptCharacters(array $messageHistory): int {
+		$characters = 0;
+		foreach ($messageHistory as $message) {
+			if (is_object($message) === true && is_string($message->content ?? null) === true) {
+				$characters += mb_strlen($message->content);
+			}
+		}
+
+		return $characters;
+	}//end promptCharacters()
+
+	/**
+	 * Whether the agent's owner switched on "Show the model's reasoning".
+	 *
+	 * @param ResponseTurnRun $run The turn.
+	 *
+	 * @return bool True only for a stored boolean true.
+	 *
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+	 */
+	public static function showsReasoning(ResponseTurnRun $run): bool {
+		return ($run->agentData()['showReasoning'] ?? false) === true;
+	}//end showsReasoning()
+
+	/**
 	 * Fireworks uses direct HTTP (ProviderFactory::callFireworksChat). Function
 	 * calling is not supported there; functions are logged + ignored inside the call.
 	 *
@@ -898,6 +959,7 @@ class ResponseGenerationHandler {
 		$this->markLlmDone(run: $run);
 
 		$run->trace?->recordStopWhen(stopped: $this->providerFactory->lastCallHitToolCap(), reason: TurnGuard::LIMIT_REACHED);
+		$this->lastReasoning = $this->providerFactory->lastCallReasoning();
 
 		// The input and output tokens of every request of the turn, tool loop
 		// included, which a token budget counts (hermiq#985).
@@ -927,7 +989,8 @@ class ResponseGenerationHandler {
 			maxTokens: $run->progress->driver->maxTokens,
 			conversationId: $run->conversationId,
 			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent),
-			projectKey: $run->projectKey
+			projectKey: $run->projectKey,
+			showReasoning: self::showsReasoning(run: $run)
 		);
 	}//end requestAnthropic()
 
@@ -1030,9 +1093,19 @@ class ResponseGenerationHandler {
 	 * @throws ProviderUnavailableException When the driver carries no chat instance.
 	 */
 	private function callLlphant(ResponseTurnRun $run): string {
-		$call = new LlphantChatCall(chat: $this->toolReadyChat(run: $run), logger: $this->logger);
+		$chat = $this->toolReadyChat(run: $run);
+		// Ollama returns reasoning when asked (`think: true`); OpenAI and Nextcloud are
+		// never asked (chat-how-an-answer-came-about D3).
+		if (($chat instanceof ReasoningOllamaChat) === true && self::showsReasoning(run: $run) === true) {
+			$chat->askForReasoning();
+		}
+
+		$call = new LlphantChatCall(chat: $chat, logger: $this->logger);
 		$response = $call->generate(run: $run);
 		$this->markLlmDone(run: $run);
+		if (($chat instanceof ReasoningOllamaChat) === true) {
+			$this->lastReasoning = $chat->lastThinking;
+		}
 
 		$this->lastUsage = $call->usage();
 		$this->lastUsage['llmSeconds'] = round($run->progress->llmTime, 2);

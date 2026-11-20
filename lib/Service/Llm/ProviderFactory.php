@@ -60,7 +60,6 @@ use Closure;
 use Exception;
 use GuzzleHttp\Psr7\Request;
 use LLPhant\Chat\Message as LLPhantMessage;
-use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use LLPhant\OllamaConfig;
 use LLPhant\OpenAIConfig;
@@ -183,6 +182,13 @@ class ProviderFactory implements ProviderFactoryInterface {
 	private const MAX_TOOL_ITERATIONS = 10;
 
 	/**
+	 * The smallest extended-thinking budget the Anthropic Messages API accepts.
+	 *
+	 * @var int
+	 */
+	private const THINKING_MIN_BUDGET = 1024;
+
+	/**
 	 * The runner ExApp link of `cli` turns, built on first use.
 	 *
 	 * @var AnthropicCliRunner|null
@@ -214,6 +220,14 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @var NextcloudTaskClient|null
 	 */
 	private ?NextcloudTaskClient $builtNcClient = null;
+
+	/**
+	 * The reasoning the last Anthropic turn returned, every request of its tool loop
+	 * joined; '' when none was asked for or returned (chat-how-an-answer-came-about D3).
+	 *
+	 * @var string
+	 */
+	private string $lastCallReasoning = '';
 
 	/**
 	 * The run tokens of `cli` turns, built on first use.
@@ -441,6 +455,18 @@ class ProviderFactory implements ProviderFactoryInterface {
 	public function lastCallHitToolCap(): bool {
 		return $this->lastCallHitToolCap;
 	}//end lastCallHitToolCap()
+
+	/**
+	 * The reasoning the last callAnthropicChat() returned, unfiltered: the caller passes
+	 * it through the output filter and redaction before it is stored or shown.
+	 *
+	 * @return string The reasoning, or '' when none was asked for or returned.
+	 *
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+	 */
+	public function lastCallReasoning(): string {
+		return $this->lastCallReasoning;
+	}//end lastCallReasoning()
 
 	/**
 	 * Add one request's usage to a running total.
@@ -1227,6 +1253,10 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @param string $projectKey The session's project (memory-project-scopes); on `cli` it
 	 *                           is bound into the run token for the memory tools. '' outside
 	 *                           a project.
+	 * @param bool $showReasoning Ask for extended thinking (Agent.showReasoning,
+	 *                            chat-how-an-answer-came-about D3). Off by default, so a
+	 *                            call site that does not pass it is unchanged. Read the
+	 *                            reasoning with lastCallReasoning(). Ignored on `cli`.
 	 *
 	 * @return string Generated response text (the final assistant turn).
 	 *
@@ -1236,6 +1266,9 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 *
 	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
 	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-execution-mode-selects-the-anthropic-transport-and-defaults-to-http
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) showReasoning is the agent's stored setting, passed on as
+	 * a request option.
 	 */
 	public function callAnthropicChat(
 		string $credentialId,
@@ -1251,6 +1284,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 		string $conversationId = '',
 		?int $maxToolCalls = null,
 		string $projectKey = '',
+		bool $showReasoning = false,
 	): string {
 		$this->resetCallState();
 		$run = new AnthropicChatRun(credentialId: $credentialId, model: $model);
@@ -1264,6 +1298,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 		$run->conversationId = $conversationId;
 		$run->maxToolCalls = $maxToolCalls;
 		$run->projectKey = $projectKey;
+		$run->showReasoning = $showReasoning;
 
 		// `cli` routes the turn through the hermiq-llm-runner ExApp instead of the direct
 		// Messages API. Branch BEFORE any HTTP assembly: the two transports share nothing
@@ -1284,6 +1319,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	private function resetCallState(): void {
 		$this->lastCallUsage = [];
 		$this->lastCallHitToolCap = false;
+		$this->lastCallReasoning = '';
 	}//end resetCallState()
 
 	/**
@@ -1416,6 +1452,10 @@ class ProviderFactory implements ProviderFactoryInterface {
 			data: $this->postToAnthropic(loop: $loop, payload: $this->anthropicPayload(loop: $loop))
 		);
 		$loop->text = $parsed['text'];
+		$this->lastCallReasoning = $this->joinedReasoning(
+			earlier: $this->lastCallReasoning,
+			next: (string)($parsed['reasoning'] ?? '')
+		);
 
 		// Every request of the tool loop is billed, so every request counts.
 		$this->lastCallUsage = $this->addUsage(
@@ -1464,11 +1504,17 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @return array<string, mixed>
 	 */
 	private function anthropicPayload(AnthropicToolLoop $loop): array {
+		$maxTokens = ($loop->run->maxTokens ?? 4096);
 		$payload = [
 			'model' => $loop->run->model,
-			'max_tokens' => ($loop->run->maxTokens ?? 4096),
+			'max_tokens' => $maxTokens,
 			'messages' => $loop->messages,
 		];
+
+		$budget = $this->thinkingBudget(showReasoning: $loop->run->showReasoning, maxTokens: $maxTokens);
+		if ($budget !== null) {
+			$payload['thinking'] = ['type' => 'enabled', 'budget_tokens' => $budget];
+		}
 
 		if ($loop->system !== '') {
 			$payload['system'] = $loop->system;
@@ -1484,6 +1530,51 @@ class ProviderFactory implements ProviderFactoryInterface {
 
 		return $payload;
 	}//end anthropicPayload()
+
+	/**
+	 * The extended-thinking budget of a request: a quarter of `max_tokens`, at least the
+	 * API's minimum of 1024 and below `max_tokens`. Null, so no thinking is asked for,
+	 * when reasoning is off or `max_tokens` leaves no room for the minimum budget.
+	 *
+	 * @param bool $showReasoning Whether the agent's owner asked for reasoning.
+	 * @param int  $maxTokens     The request's `max_tokens`.
+	 *
+	 * @return int|null The budget in tokens, or null.
+	 *
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+	 */
+	private function thinkingBudget(bool $showReasoning, int $maxTokens): ?int {
+		if ($showReasoning === false) {
+			return null;
+		}
+
+		$budget = max(self::THINKING_MIN_BUDGET, intdiv($maxTokens, 4));
+		if ($budget >= $maxTokens) {
+			return null;
+		}
+
+		return $budget;
+	}//end thinkingBudget()
+
+	/**
+	 * Reasoning collected so far plus the next request's, separated by a blank line.
+	 *
+	 * @param string $earlier The reasoning of earlier requests of the tool loop.
+	 * @param string $next    The reasoning of the next request.
+	 *
+	 * @return string
+	 */
+	private function joinedReasoning(string $earlier, string $next): string {
+		if ($next === '') {
+			return $earlier;
+		}
+
+		if ($earlier === '') {
+			return $next;
+		}
+
+		return $earlier . "\n\n" . $next;
+	}//end joinedReasoning()
 
 	/**
 	 * The prompt-cache breakpoints the admin's Anthropic settings ask for: on
@@ -2306,7 +2397,9 @@ class ProviderFactory implements ProviderFactoryInterface {
 		// having no effect on a single request.
 		$config->modelOptions = array_merge($config->modelOptions, $this->agentModelOptions(request: $request, ceilingKey: 'num_predict'));
 
-		$chat = new OllamaChat($config);
+		// ReasoningOllamaChat is OllamaChat that also keeps the `thinking` field of an
+		// answer that asked for it (chat-how-an-answer-came-about D3); unchanged otherwise.
+		$chat = new ReasoningOllamaChat($config);
 
 		return new ChatDriver(provider: 'ollama', chat: $chat, model: $config->model, maxTokens: $request->agentMaxTokens);
 	}//end createOllamaDriver()

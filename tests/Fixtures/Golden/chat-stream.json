@@ -2741,6 +2741,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -3326,6 +3329,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -3646,6 +3652,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -3900,6 +3909,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -4418,6 +4430,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -4569,6 +4584,9 @@
                     ],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -5630,6 +5648,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -6437,6 +6458,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -7028,6 +7052,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -7971,6 +7998,9 @@
                     ],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -9504,6 +9534,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -10215,6 +10248,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -10336,6 +10372,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -10573,6 +10612,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -11051,6 +11093,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -11515,6 +11560,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -12298,6 +12346,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -13562,6 +13613,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -14433,6 +14487,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -15489,6 +15546,9 @@
                     ],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -15630,6 +15690,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -19062,6 +19125,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -21287,6 +21353,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -21523,6 +21592,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -21868,6 +21940,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -22191,6 +22266,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -22971,6 +23049,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -23480,6 +23561,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -24710,6 +24794,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -25000,6 +25087,9 @@
                     ],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -26107,6 +26197,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -26217,6 +26310,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },
@@ -26774,6 +26870,9 @@
                     "attachments": [],
                     "sources": [],
                     "provenance": null,
+                    "reasoning": null,
+                    "reasoningWithheld": false,
+                    "contextUsage": null,
                     "question": null
                 }
             },

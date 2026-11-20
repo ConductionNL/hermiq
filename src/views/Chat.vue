@@ -613,6 +613,29 @@
 								</ul>
 							</details>
 
+							<!-- The model's reasoning (chat-how-an-answer-came-about D5): only when the
+							     agent's owner asked for it and the provider returned it, filtered and
+							     redacted on the server; folded, keyboard operable. -->
+							<details
+								v-if="message.role === 'assistant' && message.reasoning"
+								class="chat-page__provenance chat-page__reasoning"
+								data-testid="chat-message-reasoning">
+								<summary class="chat-page__provenance-summary">
+									{{ t('hermiq', 'Model reasoning') }}
+								</summary>
+								<p class="chat-page__reasoning-note">
+									{{ t('hermiq', 'This is the model\'s own text. It can be wrong.') }}
+								</p>
+								<p class="chat-page__reasoning-text">
+									{{ message.reasoning }}
+								</p>
+							</details>
+							<p
+								v-else-if="message.role === 'assistant' && message.reasoningWithheld"
+								class="chat-page__reasoning-note"
+								data-testid="chat-message-reasoning-withheld">
+								{{ t('hermiq', 'The reasoning was withheld by the organisation\'s filter.') }}
+							</p>
 							<!-- The question the agent asked with hermiq.askPerson
 							     (oversight-ask-and-hold D1): a button per suggested answer;
 							     the chosen one is sent as the next message. -->
@@ -1025,6 +1048,20 @@
 							)
 						}}
 					</p>
+					<!-- How full the model's context is (chat-how-an-answer-came-about D4). -->
+					<p
+						v-if="contextReadout"
+						class="chat-page__context"
+						role="status"
+						data-testid="chat-context-usage">
+						{{ contextReadout.text }}
+						<strong
+							v-if="contextReadout.warning"
+							class="chat-page__context-warning"
+							data-testid="chat-context-warning">
+							{{ contextReadout.warning }}
+						</strong>
+					</p>
 				</div>
 			</template>
 		</section>
@@ -1218,6 +1255,7 @@ import {
 } from '../utils/agentDraft.js'
 import { questionBefore } from '../utils/answerCache.js'
 import { sourceFileId, sourceName, sourcePage } from '../utils/chatSources.js'
+import { contextReadout } from '../utils/contextUsage.js'
 import { clockTime, handoffLine, handoffsByMessage } from '../utils/handoffLines.js'
 import {
 	initialAnswers,
@@ -1424,6 +1462,9 @@ export default {
 			// assistant message they belong to (chat-attachments-and-images D6).
 			attachmentNotices: [],
 			attachmentNoticesFor: '',
+			// The context usage each session's last turn reported, by session uuid
+			// (chat-how-an-answer-came-about D4); the session's stored one otherwise.
+			contextUsageBySession: {},
 			// The question the agent asked in the last turn (hermiq.askPerson), and
 			// the id of the answer it belongs under (oversight-ask-and-hold).
 			pendingQuestion: null,
@@ -1488,6 +1529,21 @@ export default {
 		 */
 		handoffGroups() {
 			return handoffsByMessage(this.handoffs, this.messages)
+		},
+
+		/**
+		 * The context readout of the open session, or null without a usage record.
+		 *
+		 * @return {{text: string, warning: string}|null}
+		 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+		 */
+		contextReadout() {
+			const uuid = this.activeSession?.uuid || this.activeSession?.id
+			if (!uuid) {
+				return null
+			}
+			const usage = this.contextUsageBySession[uuid] || this.activeSession?.metadata?.contextUsage
+			return contextReadout(usage, this.t)
 		},
 
 		/**
@@ -2836,6 +2892,7 @@ export default {
 				)
 				this.attachmentNotices = finalPayload?.attachmentNotices || []
 				this.attachmentNoticesFor = finalPayload?.messageId || ''
+				this.rememberContextUsage(uuid, finalPayload?.contextUsage)
 				this.takeQuestion(finalPayload)
 			} catch (e) {
 				if (e instanceof ChatStreamError && e.transport) {
@@ -2875,6 +2932,7 @@ export default {
 					numSourcesFiles: this.settings.numSourcesFiles,
 				},
 			})
+			this.rememberContextUsage(uuid, result?.contextUsage)
 			this.takeQuestion(result)
 		},
 
@@ -2915,6 +2973,21 @@ export default {
 			}
 			this.currentMessage = text
 			await this.handleSend()
+		},
+
+		/**
+		 * Keep the context usage a turn reported for its session.
+		 *
+		 * @param {string} uuid The session UUID.
+		 * @param {object|null|undefined} usage The usage from the `final` frame or the send response.
+		 * @return {void}
+		 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+		 */
+		rememberContextUsage(uuid, usage) {
+			if (!uuid || !usage) {
+				return
+			}
+			this.contextUsageBySession = { ...this.contextUsageBySession, [uuid]: usage }
 		},
 
 		/**
@@ -4083,6 +4156,29 @@ export default {
 	padding-left: 20px;
 	list-style: disc;
 	color: var(--color-main-text);
+}
+
+.chat-page__reasoning-note {
+	margin: 4px 0 0;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.9em;
+}
+
+.chat-page__reasoning-text {
+	margin: 4px 0 0;
+	white-space: pre-wrap;
+	color: var(--color-main-text);
+}
+
+.chat-page__context {
+	margin: 4px 0 0;
+	font-size: 0.85em;
+	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__context-warning {
+	display: block;
+	color: var(--color-warning-text, var(--color-main-text));
 }
 
 .chat-page__handoffs {
