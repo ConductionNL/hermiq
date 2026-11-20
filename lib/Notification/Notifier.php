@@ -73,6 +73,7 @@ class Notifier implements INotifier {
 		'restore_finished',
 		'report_due',
 		'handoff_result',
+		'eval_regression',
 	];
 
 	/**
@@ -143,6 +144,11 @@ class Notifier implements INotifier {
 			$this->urlGenerator->getAbsoluteURL($this->urlGenerator->imagePath(self::APP_ID, 'app-dark.svg'))
 		);
 
+		// reuse-scheduled-bias-evals: a dropped scheduled eval opens on its dataset, where the run is listed.
+		if ($subjectKey === 'eval_regression') {
+			$this->linkEvalRegression(notification: $notification, subjectRaw: $subjectRaw);
+		}
+
 		// Chat-fork-and-share-link: a shared session opens on its read-only page.
 		if ($subjectKey === 'session_shared' && $notification->getObjectId() !== '') {
 			$notification->setLink(
@@ -188,6 +194,7 @@ class Notifier implements INotifier {
 			'restore_finished' => $this->restoreFinishedText(subjectRaw: $subjectRaw, l: $l),
 			'report_due' => $this->reportDueText(subjectRaw: $subjectRaw, l: $l),
 			'handoff_result' => $this->handoffResultText(name: $name, l: $l),
+			'eval_regression' => $this->evalRegressionText(subjectRaw: $subjectRaw, l: $l),
 			default => $this->runCompleteText(name: $name, l: $l),
 		};
 	}//end resolveSubjectAndMessage()
@@ -501,4 +508,54 @@ class Notifier implements INotifier {
 			$l->t('Open the conversation to read its answer.'),
 		];
 	}//end handoffResultText()
+
+	/**
+	 * The `eval_regression` wording: a scheduled eval run fell below its regression
+	 * threshold (reuse-scheduled-bias-evals), e.g. "Bias check for Permit intake helper
+	 * dropped from 95% to 80%".
+	 *
+	 * @param array<string,mixed> $subjectRaw The stored subject parameters (`name`, `dataset`, `previous`, `current`).
+	 * @param IL10N               $l          The recipient-language localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#scenario-the-monthly-bias-check-drops-and-the-owner-is-told
+	 */
+	private function evalRegressionText(array $subjectRaw, IL10N $l): array {
+		$dataset  = (string)($subjectRaw['dataset'] ?? '');
+		$agent    = (string)($subjectRaw['name'] ?? '');
+		$current  = (int)($subjectRaw['current'] ?? 0);
+		$previous = $subjectRaw['previous'] ?? null;
+		$message  = $l->t('Open the run to see which cases failed.');
+
+		if (is_int($previous) === false) {
+			return [$l->t('%1$s for %2$s fell below its threshold: %3$s%%', [$dataset, $agent, $current]), $message];
+		}
+
+		return [$l->t('%1$s for %2$s dropped from %3$s%% to %4$s%%', [$dataset, $agent, $previous, $current]), $message];
+	}//end evalRegressionText()
+
+	/**
+	 * Link an `eval_regression` notification to the dataset page that lists the run.
+	 *
+	 * @param INotification       $notification The notification being prepared.
+	 * @param array<string,mixed> $subjectRaw   The stored subject parameters (`datasetId`).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#scenario-the-monthly-bias-check-drops-and-the-owner-is-told
+	 */
+	private function linkEvalRegression(INotification $notification, array $subjectRaw): void {
+		$datasetId = (string)($subjectRaw['datasetId'] ?? '');
+		if ($datasetId === '') {
+			return;
+		}
+
+		$path = rtrim($this->urlGenerator->linkToRoute('hermiq.dashboard.page'), '/') . '/evals/' . rawurlencode($datasetId);
+		if ($notification->getObjectId() !== '') {
+			$path .= '?run=' . rawurlencode($notification->getObjectId());
+		}
+
+		$notification->setLink($this->urlGenerator->getAbsoluteURL($path));
+	}//end linkEvalRegression()
 }//end class

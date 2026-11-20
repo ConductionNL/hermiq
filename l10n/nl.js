@@ -3633,7 +3633,10 @@ OC.L10N.register(
         "The reasoning was withheld by the organisation's filter.": "De redenering is tegengehouden door het filter van de organisatie.",
         "The session is close to the model's limit. Start a new session or fork from an earlier answer.": "De sessie zit dicht bij de limiet van het model. Begin een nieuwe sessie of ga verder vanaf een eerder antwoord.",
         "This is the model's own text. It can be wrong.": "Dit is de eigen tekst van het model. Die kan onjuist zijn.",
-        "This provider does not return reasoning": "Deze provider geeft geen redenering terug"
+        "This provider does not return reasoning": "Deze provider geeft geen redenering terug",
+        "%1$s for %2$s dropped from %3$s%% to %4$s%%": "%1$s voor %2$s is gedaald van %3$s%% naar %4$s%%",
+        "%1$s for %2$s fell below its threshold: %3$s%%": "%1$s voor %2$s is onder de drempel gezakt: %3$s%%",
+        "Open the run to see which cases failed.": "Open de run om te zien welke gevallen zijn mislukt."
     },
     "nplurals=2; plural=(n != 1);"
 )

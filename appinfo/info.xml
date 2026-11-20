@@ -60,6 +60,7 @@
         <job>OCA\Hermiq\BackgroundJob\WorkspaceExpiryJob</job>
         <job>OCA\Hermiq\BackgroundJob\BackupTask</job>
         <job>OCA\Hermiq\BackgroundJob\ReportSubscriptionJob</job>
+        <job>OCA\Hermiq\BackgroundJob\EvalScheduleTask</job>
         <job>OCA\Hermiq\BackgroundJob\RemoteTaskPollJob</job>
     </background-jobs>
 

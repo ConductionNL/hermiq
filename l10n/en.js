@@ -3606,7 +3606,10 @@ OC.L10N.register(
         "The reasoning was withheld by the organisation's filter.": "The reasoning was withheld by the organisation's filter.",
         "The session is close to the model's limit. Start a new session or fork from an earlier answer.": "The session is close to the model's limit. Start a new session or fork from an earlier answer.",
         "This is the model's own text. It can be wrong.": "This is the model's own text. It can be wrong.",
-        "This provider does not return reasoning": "This provider does not return reasoning"
+        "This provider does not return reasoning": "This provider does not return reasoning",
+        "%1$s for %2$s dropped from %3$s%% to %4$s%%": "%1$s for %2$s dropped from %3$s%% to %4$s%%",
+        "%1$s for %2$s fell below its threshold: %3$s%%": "%1$s for %2$s fell below its threshold: %3$s%%",
+        "Open the run to see which cases failed.": "Open the run to see which cases failed."
     },
     "nplurals=2; plural=(n != 1);"
 )
