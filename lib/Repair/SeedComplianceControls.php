@@ -131,6 +131,8 @@ class SeedComplianceControls implements IRepairStep {
 	 * @param IOutput $output Progress reporting.
 	 *
 	 * @return void
+	 *
+	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
 	 */
 	private function seedPacks(object $objectService, IOutput $output): void {
 		$frameworksSeeded = 0;
@@ -154,7 +156,7 @@ class SeedComplianceControls implements IRepairStep {
 		}//end foreach
 
 		$controlsSeeded = 0;
-		foreach ($this->seedControls() as $control) {
+		foreach ([...$this->seedControls(), ...$this->biasTestingControls()] as $control) {
 			try {
 				$exists = $this->controlExists(
 					objectService: $objectService,
@@ -354,6 +356,41 @@ class SeedComplianceControls implements IRepairStep {
 		];
 
 	}//end seedControls()
+
+	/**
+	 * The two bias-testing controls (reuse-scheduled-bias-evals): ISO/IEC 42001
+	 * A.6.2.4 and NIST AI RMF MEASURE 2.11, both on `bias-eval-recency`.
+	 *
+	 * @return array<int, array<string, mixed>> The seed objects.
+	 *
+	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
+	 */
+	private function biasTestingControls(): array {
+		$evidence = 'Satisfied when every agent with a scheduled bias check had a completed bias check in the last 45 days.';
+
+		return [
+			[
+				'frameworkSlug' => 'iso-42001',
+				'controlId' => 'A.6.2.4',
+				'title' => 'AI system verification and validation',
+				'description' => 'The organisation shall define and document verification and validation '
+					. 'measures for the AI system, including the test data and the criteria used.',
+				'sourceUrl' => 'https://www.iso.org/standard/81230.html',
+				'evidenceSource' => 'bias-eval-recency',
+				'evidenceDescription' => $evidence,
+			],
+			[
+				'frameworkSlug' => 'nist-ai-rmf',
+				'controlId' => 'MEASURE-2.11',
+				'title' => 'Fairness and bias evaluated',
+				'description' => 'Fairness and bias, as identified in the MAP function, are evaluated and '
+					. 'the results are documented.',
+				'sourceUrl' => 'https://www.nist.gov/itl/ai-risk-management-framework',
+				'evidenceSource' => 'bias-eval-recency',
+				'evidenceDescription' => $evidence,
+			],
+		];
+	}//end biasTestingControls()
 
 	/**
 	 * Whether a ControlFramework with the given slug already exists (system context,

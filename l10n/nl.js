@@ -3636,7 +3636,15 @@ OC.L10N.register(
         "This provider does not return reasoning": "Deze provider geeft geen redenering terug",
         "%1$s for %2$s dropped from %3$s%% to %4$s%%": "%1$s voor %2$s is gedaald van %3$s%% naar %4$s%%",
         "%1$s for %2$s fell below its threshold: %3$s%%": "%1$s voor %2$s is onder de drempel gezakt: %3$s%%",
-        "Open the run to see which cases failed.": "Open de run om te zien welke gevallen zijn mislukt."
+        "Open the run to see which cases failed.": "Open de run om te zien welke gevallen zijn mislukt.",
+        "This test set is a template": "Deze testset is een sjabloon",
+        "A template cannot be changed or run. Pick one of your agents and choose \"Use for this agent\" to get a copy you can edit and run.": "Een sjabloon kun je niet wijzigen of uitvoeren. Kies een van je agents en kies \"Gebruik voor deze agent\" voor een kopie die je kunt bewerken en uitvoeren.",
+        "Use for this agent": "Gebruik voor deze agent",
+        "Copied as \"{name}\". You can now edit and run it.": "Gekopieerd als \"{name}\". Je kunt de kopie nu bewerken en uitvoeren.",
+        "The test set could not be copied.": "De testset kon niet worden gekopieerd.",
+        "Bias check": "Biascheck",
+        "No bias check run": "Nog geen biascheck uitgevoerd",
+        "{rate}% on {date}": "{rate}% op {date}"
     },
     "nplurals=2; plural=(n != 1);"
 )

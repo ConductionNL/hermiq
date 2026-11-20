@@ -127,6 +127,9 @@ $routes = [
         // generic OpenRegister objects path (createObjectStore) — this is the one
         // net-new backend endpoint the UI needs, mirroring runNow#run.
         ['name' => 'evalRun#run', 'url' => '/api/evals/{datasetId}/run', 'verb' => 'POST', 'requirements' => ['datasetId' => '[^/]+']],
+        // "Use for this agent": copy a seeded eval dataset template into a dataset the
+        // caller owns, linked to one of their agents (reuse-scheduled-bias-evals).
+        ['name' => 'evalTemplate#use', 'url' => '/api/evals/{datasetId}/use', 'verb' => 'POST', 'requirements' => ['datasetId' => '[^/]+']],
 
         // Schedule webhook-secret lifecycle (delivery-channels): owner-guarded mint/
         // rotate/revoke/status for the OUTBOUND deliver=webhook signing secret —

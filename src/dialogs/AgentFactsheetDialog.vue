@@ -70,6 +70,15 @@
 						<dd>{{ factsheet.agent.actingUser || '—' }}</dd>
 						<dt>{{ t('hermiq', 'Last access review') }}</dt>
 						<dd>{{ formatDate(factsheet.lastReviewedAt) }}</dd>
+						<dt>{{ t('hermiq', 'Bias check') }}</dt>
+						<dd>
+							<router-link
+								v-if="factsheet.biasCheck"
+								:to="{ name: 'EvalDatasetDetail', params: { id: factsheet.biasCheck.datasetId } }">
+								{{ biasCheckLabel(factsheet.biasCheck) }}
+							</router-link>
+							<span v-else>{{ t('hermiq', 'No bias check run') }}</span>
+						</dd>
 					</dl>
 				</section>
 
@@ -226,6 +235,18 @@ export default {
 		 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
 		 */
 		formatDate: dateOrDash,
+
+		/**
+		 * The latest bias check as "95% on 2026-09-01".
+		 *
+		 * @param {object} check The factsheet's biasCheck: { passRate, date }.
+		 * @return {string} The label.
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
+		 */
+		biasCheckLabel(check) {
+			const rate = Math.round(Number(check?.passRate || 0) * 100)
+			return this.t('hermiq', '{rate}% on {date}', { rate, date: check?.date || '—' })
+		},
 	},
 }
 </script>

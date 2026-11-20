@@ -142,6 +142,8 @@ final class ListenerRegistrar {
 		// its origins are origins, and a new channel gets its random token.
 		$context->registerEventListener(event: ObjectCreatingEvent::class, listener: PublicChannelGuardListener::class);
 		$context->registerEventListener(event: ObjectUpdatingEvent::class, listener: PublicChannelGuardListener::class);
+		// A seeded eval dataset template stays read-only (reuse-scheduled-bias-evals).
+		$context->registerEventListener(event: ObjectUpdatingEvent::class, listener: EvalTemplateGuardListener::class);
 
 		// Changing the department an agent runs for is for administrators only, on
 		// every write path (oversight-switch-ai-off-per-department).
