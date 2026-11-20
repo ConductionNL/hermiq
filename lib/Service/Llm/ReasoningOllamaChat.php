@@ -89,7 +89,7 @@ class ReasoningOllamaChat extends OllamaChat {
 	 *
 	 * @param string               $method The HTTP method.
 	 * @param string               $path   The API path.
-	 * @param array<string, mixed> $json   The request body.
+	 * @param mixed[]              $json   The request body.
 	 *
 	 * @return ResponseInterface The response, with its body intact.
 	 *

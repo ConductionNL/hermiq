@@ -313,7 +313,7 @@ class LlmSettingsController extends Controller {
 			$this->contextWindows->declareMany(declarations: $windows);
 		}
 
-		$data = $response->getData();
+		$data = (array)$response->getData();
 		$data['modelContextWindows'] = $this->contextWindows->all();
 		$response->setData($data);
 
