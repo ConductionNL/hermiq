@@ -192,9 +192,27 @@ class ScheduleService implements ScheduleServiceInterface {
 	 * Copied onto the run record so a later declaration cannot rewrite it. Null
 	 * when the run never reached a provider. Reset per run, read by writeRunAudit.
 	 *
-	 * @var array<string, string>|null
+	 * @var array<string, mixed>|null
 	 */
 	private ?array $lastRunDisclosure = null;
+
+	/**
+	 * The last run's attempts at a provider: provider, model, outcome, reason and
+	 * duration, in order (models-several-models-per-turn). Reset per run, read by writeRunAudit.
+	 *
+	 * @var array<int, array<string, mixed>>
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+	 */
+	private array $lastRunProviderAttempts = [];
+
+	/**
+	 * The answers of the last run's reference models, in an ensemble turn
+	 * (models-several-models-per-turn); empty otherwise.
+	 *
+	 * @var array<int, array{provider: string, model: string, text: string}>
+	 */
+	private array $lastRunReferenceAnswers = [];
 
 	/**
 	 * The last (top-level or delegated) run's own fresh run identifier
@@ -956,6 +974,8 @@ class ScheduleService implements ScheduleServiceInterface {
 		$this->lastRunUsage = [];
 		$this->lastRunSteps = [];
 		$this->lastRunDisclosure = null;
+		$this->lastRunProviderAttempts = [];
+		$this->lastRunReferenceAnswers = [];
 		$this->lastRunId = '';
 		$this->lastRunSkillsUsed = [];
 
@@ -1145,6 +1165,8 @@ class ScheduleService implements ScheduleServiceInterface {
 		$this->lastRunUsage = [];
 		$this->lastRunSteps = [];
 		$this->lastRunDisclosure = null;
+		$this->lastRunProviderAttempts = [];
+		$this->lastRunReferenceAnswers = [];
 		$this->lastRunAsUser = (string)($schedule->getOwner() ?? '');
 		$this->lastRunId = '';
 
@@ -1239,6 +1261,8 @@ class ScheduleService implements ScheduleServiceInterface {
 		$this->lastRunUsage = [];
 		$this->lastRunSteps = [];
 		$this->lastRunDisclosure = null;
+		$this->lastRunProviderAttempts = [];
+		$this->lastRunReferenceAnswers = [];
 		$this->lastRunAsUser = (string)($schedule->getOwner() ?? '');
 		$this->lastRunId = '';
 
@@ -1892,6 +1916,12 @@ class ScheduleService implements ScheduleServiceInterface {
 				// Models-no-training-guarantee: which provider saw this run, where it
 				// runs and what it declared about training, as it stood at run time.
 				'providerDisclosure' => $this->lastRunDisclosure,
+				// Models-several-models-per-turn: every attempt of the turn at a provider, in order.
+				'providerAttempts' => $this->lastRunProviderAttempts,
+				// Models-several-models-per-turn: the reference models' answers of an
+				// ensemble turn, kept on the run and never shown in the chat; redacted
+				// before the append-only write like the summary.
+				'referenceAnswers' => $this->redactedReferenceAnswers(),
 				// Skill-evals: the skill uuids the run-loop seam actually exposed to
 				// this run's context — persisted for EVERY run (not just evals) so
 				// skill-learnings can later attribute run outcomes to skills.
@@ -2020,6 +2050,24 @@ class ScheduleService implements ScheduleServiceInterface {
 		}//end try
 
 	}//end enqueueLearningsCapture()
+
+	/**
+	 * The last run's reference answers with secrets and personal data masked.
+	 *
+	 * @return array<int, array{provider: string, model: string, text: string}>
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 */
+	private function redactedReferenceAnswers(): array {
+		return array_map(
+			fn (array $answer): array => [
+				'provider' => $answer['provider'],
+				'model' => $answer['model'],
+				'text' => $this->redactionService->redact($answer['text']),
+			],
+			$this->lastRunReferenceAnswers
+		);
+	}//end redactedReferenceAnswers()
 
 	/**
 	 * Whether a step timeline includes any `tool`-type step.
@@ -2348,6 +2396,8 @@ class ScheduleService implements ScheduleServiceInterface {
 		$this->lastRunUsage = [];
 		$this->lastRunSteps = [];
 		$this->lastRunDisclosure = null;
+		$this->lastRunProviderAttempts = [];
+		$this->lastRunReferenceAnswers = [];
 		$this->lastRunAsUser = $owner;
 		$this->lastRunId = '';
 		$this->lastRunSkillsUsed = [];
@@ -2619,7 +2669,8 @@ class ScheduleService implements ScheduleServiceInterface {
 
 	/**
 	 * Whether the in-app agent engine feature flag (`hermiq`.`engine.enabled`)
-	 * is on. Defaults to 'false' — existing installs see zero behavior change.
+	 * is on. Reads 'false' when unset; new installs get it on through the
+	 * EnableEngineOnInstall repair step, existing installs keep their stored value.
 	 *
 	 * @return bool True when the in-app Engine must be used.
 	 *
@@ -2824,6 +2875,8 @@ class ScheduleService implements ScheduleServiceInterface {
 			// contract) only if a future engine swap ever stops accepting `$trace`.
 			$this->lastRunSteps = $trace->toArray();
 			$this->lastRunDisclosure = $trace->providerDisclosure();
+			$this->lastRunProviderAttempts = $trace->providerAttempts();
+			$this->lastRunReferenceAnswers = $trace->referenceAnswers();
 			if ($this->lastRunSteps === []) {
 				// @phpstan-ignore-next-line -- deliberate defensive fallback, see above.
 				$envelopeSteps = ($result['steps'] ?? []);

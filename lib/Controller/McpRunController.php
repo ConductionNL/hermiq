@@ -589,7 +589,8 @@ class McpRunController extends Controller {
 		$functionInfos = $this->toolLoop->buildFunctionInfos(
 			functions: $descriptors,
 			agent: $agent,
-			organisation: $this->organisationOf(agent: $agent)
+			organisation: $this->organisationOf(agent: $agent),
+			runId: $this->runId
 		);
 
 		foreach ($functionInfos as $functionInfo) {
