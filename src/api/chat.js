@@ -68,26 +68,68 @@ const FRAME_HANDLERS = new Map([
 const SESSIONS_BASE = '/apps/hermiq/api/sessions'
 
 /**
+ * The most session uuids one bulk request may carry (the server refuses more with 400).
+ */
+const BULK_MAX = 100
+
+/**
  * List the current user's sessions (server-side user-scoped).
  *
  * @param {object} [options] List options.
  * @param {boolean} [options.archived] True to list archived (soft-deleted) sessions.
  * @param {number} [options.limit] Page size (default 50).
  * @param {number} [options.offset] Page offset (default 0).
- * @return {Promise<{results: Array<object>, total: number}>} The page envelope.
+ * @param {string} [options.search] A search term: only the caller's own sessions whose title
+ *   or turns contain it come back, each with a `match` (`{ turnUuid, excerpt }` or `{ title: true }`).
+ * @return {Promise<{results: Array<object>, total: number, truncated: boolean}>} The page envelope;
+ *   `truncated` says a search did not reach the oldest sessions.
+ * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
  */
 export async function listSessions({
 	archived = false,
 	limit = 50,
 	offset = 0,
+	search = '',
 } = {}) {
-	const response = await axios.get(generateUrl(SESSIONS_BASE), {
-		params: { _deleted: archived ? 'true' : 'false', limit, offset },
-	})
+	const params = { _deleted: archived ? 'true' : 'false', limit, offset }
+	const term = String(search || '').trim()
+	if (term !== '') {
+		params.search = term
+	}
+	const response = await axios.get(generateUrl(SESSIONS_BASE), { params })
 	return {
 		results: Array.isArray(response.data?.results) ? response.data.results : [],
 		total: response.data?.total ?? 0,
+		truncated: response.data?.truncated === true,
 	}
+}
+
+/**
+ * Archive, restore or permanently delete several of the caller's sessions at once.
+ *
+ * The server checks each uuid as the caller's own and answers per uuid: `ok`,
+ * `not_found` (missing, or not the caller's) or `refused` (the write failed).
+ *
+ * The route takes at most 100 uuids per request, so a longer selection is sent
+ * in consecutive requests of 100 and the answers are joined.
+ *
+ * @param {'archive'|'restore'|'delete'} action What to do with them.
+ * @param {Array<string>} uuids The session uuids.
+ * @return {Promise<Array<{uuid: string, status: string}>>} The outcome per uuid.
+ * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+ */
+export async function bulkSessions(action, uuids) {
+	const results = []
+	for (let start = 0; start < uuids.length; start += BULK_MAX) {
+		const response = await axios.post(generateUrl(`${SESSIONS_BASE}/bulk`), {
+			action,
+			uuids: uuids.slice(start, start + BULK_MAX),
+		})
+		if (Array.isArray(response.data?.results)) {
+			results.push(...response.data.results)
+		}
+	}
+	return results
 }
 
 /**
@@ -234,6 +276,100 @@ export async function removeParticipant(uuid, uid) {
 		),
 	)
 	return response.data.results || []
+}
+
+/**
+ * The read-only shares of a session (owner only).
+ *
+ * @param {string} uuid The session UUID.
+ * @return {Promise<Array<{type: string, id: string, displayName: string, sharedBy: string, sharedAt: string}>>} The shares.
+ * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ */
+export async function listShares(uuid) {
+	const response = await axios.get(
+		generateUrl(`${SESSIONS_BASE}/${encodeURIComponent(uuid)}/shares`),
+	)
+	return response.data.results || []
+}
+
+/**
+ * Share a session read-only with a user or a group (owner only).
+ *
+ * @param {string} uuid The session UUID.
+ * @param {string} type `user` or `group`.
+ * @param {string} id The user id or group id.
+ * @return {Promise<Array<object>>} The shares after the change.
+ * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ */
+export async function addShare(uuid, type, id) {
+	const response = await axios.post(
+		generateUrl(`${SESSIONS_BASE}/${encodeURIComponent(uuid)}/shares`),
+		{ type, id },
+	)
+	return response.data.results || []
+}
+
+/**
+ * Take a read-only share back (owner only).
+ *
+ * @param {string} uuid The session UUID.
+ * @param {string} type `user` or `group`.
+ * @param {string} id The user id or group id.
+ * @return {Promise<Array<object>>} The shares after the change.
+ * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-revoke-a-share-at-once-req-sshare-003
+ */
+export async function removeShare(uuid, type, id) {
+	const response = await axios.delete(
+		generateUrl(
+			`${SESSIONS_BASE}/${encodeURIComponent(uuid)}/shares/${encodeURIComponent(type)}/${encodeURIComponent(id)}`,
+		),
+	)
+	return response.data.results || []
+}
+
+/**
+ * The sessions shared with the current user, for "Shared with you".
+ *
+ * @return {Promise<Array<object>>} The shared sessions, newest first.
+ * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+ */
+export async function listSharedSessions() {
+	const response = await axios.get(generateUrl(SESSIONS_BASE), {
+		params: { shared: 'true', limit: 50, offset: 0 },
+	})
+	return Array.isArray(response.data?.results) ? response.data.results : []
+}
+
+/**
+ * Search users and groups the owner may share with, through Nextcloud's
+ * collaborator search, which applies the instance's sharing rules.
+ *
+ * @param {string} search The typed text.
+ * @return {Promise<Array<{type: string, id: string, displayName: string}>>} Matching users and groups.
+ * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ */
+export async function searchSharees(search) {
+	const response = await axios.get(generateOcsUrl('core/autocomplete/get'), {
+		params: { search, itemType: '', itemId: '', shareTypes: [0, 1], limit: 10 },
+	})
+	return shareeOptions(response.data?.ocs?.data || [])
+}
+
+/**
+ * The collaborator search's answer as share options.
+ *
+ * @param {Array<{id: string, label?: string, source?: string}>} items The autocomplete items.
+ * @return {Array<{type: string, id: string, displayName: string}>} The options.
+ * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ */
+export function shareeOptions(items) {
+	return items
+		.filter((item) => item && item.id && (item.source === 'users' || item.source === 'groups'))
+		.map((item) => ({
+			type: item.source === 'groups' ? 'group' : 'user',
+			id: item.id,
+			displayName: item.label || item.id,
+		}))
 }
 
 /**
@@ -789,4 +925,21 @@ export async function warmChat(agentUuid, sessionUuid) {
 	} catch {
 		return false
 	}
+}
+
+/**
+ * The handoffs of one session: the work an agent started there and waits for
+ * (flows-hand-off-and-wait). Read from OpenRegister with the person's own session,
+ * whose read rule shows each person only the handoffs they requested.
+ *
+ * @param {string} sessionUuid The session.
+ * @return {Promise<Array<object>>} The handoffs, in any order.
+ * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+ */
+export async function listHandoffs(sessionUuid) {
+	const response = await axios.get(generateUrl('/apps/openregister/api/objects/hermiq/agenthandoff'), {
+		params: { conversationId: sessionUuid, _limit: 100 },
+	})
+	const rows = Array.isArray(response.data?.results) ? response.data.results : []
+	return rows.filter((row) => row && row.conversationId === sessionUuid)
 }

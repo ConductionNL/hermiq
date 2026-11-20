@@ -49,6 +49,18 @@
         ],
         [
             "registerEventListener",
+            "OCA\\OpenRegister\\Event\\ObjectCreatingEvent",
+            "OCA\\Hermiq\\Listener\\AgentEnsembleGuardListener",
+            0
+        ],
+        [
+            "registerEventListener",
+            "OCA\\OpenRegister\\Event\\ObjectUpdatingEvent",
+            "OCA\\Hermiq\\Listener\\AgentEnsembleGuardListener",
+            0
+        ],
+        [
+            "registerEventListener",
             "OCA\\OpenRegister\\Service\\Flow\\RegisterFlowNodesEvent",
             "OCA\\Hermiq\\Flow\\HermiqFlowNodeListener",
             0
@@ -101,6 +113,12 @@
             "registerEventListener",
             "OCA\\OpenRegister\\Event\\TaskTerminalEvent",
             "OCA\\Hermiq\\Listener\\TaskTerminalListener",
+            0
+        ],
+        [
+            "registerEventListener",
+            "OCA\\OpenRegister\\Event\\FlowRunTerminalEvent",
+            "OCA\\Hermiq\\Listener\\FlowRunTerminalListener",
             0
         ],
         [
@@ -163,6 +181,16 @@
             "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\AgentDraftServiceInterface",
             "OCA\\Hermiq\\Service\\Agent\\AgentDraftService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\KnowledgeBaseServiceInterface",
+            "OCA\\Hermiq\\Service\\KnowledgeBase\\KnowledgeBaseService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\SourceSharingInspectorInterface",
+            "OCA\\Hermiq\\Service\\KnowledgeBase\\SourceSharingInspector"
         ],
         [
             "registerServiceAlias",
@@ -271,6 +299,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\ComputerUseServiceInterface",
+            "OCA\\Hermiq\\Service\\ComputerUse\\ComputerUseService"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\ConnectionReporterInterface",
             "OCA\\Hermiq\\Service\\Connection\\ConnectionReporter"
         ],
@@ -283,6 +316,11 @@
             "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\ConversationTitleWriterInterface",
             "OCA\\Hermiq\\Service\\Engine\\ConversationTitleWriter"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\TraceExportDeliveryInterface",
+            "OCA\\Hermiq\\Service\\TraceExport\\TraceExportDelivery"
         ],
         [
             "registerServiceAlias",
@@ -571,6 +609,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\SessionShareServiceInterface",
+            "OCA\\Hermiq\\Service\\SessionShareService"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\SessionPendingApprovalsInterface",
             "OCA\\Hermiq\\Service\\Chat\\SessionPendingApprovals"
         ],
@@ -701,6 +744,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\TalkMessageToolInterface",
+            "OCA\\Hermiq\\Service\\NcNative\\TalkMessageTool"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\ToolAccessRequestServiceInterface",
             "OCA\\Hermiq\\Service\\ToolAccessRequestService"
         ],
@@ -713,6 +761,11 @@
             "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\ToolSearchServiceInterface",
             "OCA\\Hermiq\\Service\\ToolSearchService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\ValidatedTagSettingsInterface",
+            "OCA\\Hermiq\\Service\\RetrievalScope\\ValidatedTagSettings"
         ],
         [
             "registerServiceAlias",
@@ -743,6 +796,31 @@
             "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\WebhookSecretServiceInterface",
             "OCA\\Hermiq\\Service\\WebhookSecretService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\BudgetHardCapInterface",
+            "OCA\\Hermiq\\Service\\BudgetService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AnswerProvenanceWriterInterface",
+            "OCA\\Hermiq\\Service\\Engine\\AnswerProvenanceWriter"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\SessionForkServiceInterface",
+            "OCA\\Hermiq\\Service\\SessionForkService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AgentArtefactMarkerInterface",
+            "OCA\\Hermiq\\Service\\NcNative\\AgentArtefactMarker"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AiLabelStatsServiceInterface",
+            "OCA\\Hermiq\\Service\\AiLabelStatsService"
         ],
         [
             "registerServiceAlias",

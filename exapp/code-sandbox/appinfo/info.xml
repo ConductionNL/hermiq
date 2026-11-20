@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+    <id>hermiq-code-sandbox</id>
+    <name>hermiq-code-sandbox</name>
+    <summary>Runs short Python and JavaScript programs for Hermiq, isolated</summary>
+    <description><![CDATA[hermiq-code-sandbox — optional code sandbox ExApp for Hermiq
+
+Runs short pieces of Python or JavaScript that an agent (`hermiq.runCode`) or a
+flow's code step (`hermiq.code-step`) sends, and answers their exit code and
+output. Each run gets a fresh work directory that is removed when it ends,
+runs as a separate non-root user, and is capped on time, memory, processes and
+output. The container has no network route out and no data mounts.
+
+Hermiq calls `POST /run` through AppAPI only; the route requires the AppAPI
+shared secret. See exapp/code-sandbox/README.md for the hardening model.
+    ]]></description>
+    <version>0.1.0</version>
+    <licence>EUPL-1.2</licence>
+    <author mail="info@conduction.nl" homepage="https://www.conduction.nl/">Conduction</author>
+    <category>tools</category>
+    <website>https://github.com/ConductionNL/hermiq</website>
+    <bugs>https://github.com/ConductionNL/hermiq/issues</bugs>
+    <repository>https://github.com/ConductionNL/hermiq</repository>
+
+    <dependencies>
+        <nextcloud min-version="32" max-version="34"/>
+    </dependencies>
+
+    <external-app>
+        <docker-install>
+            <registry>ghcr.io</registry>
+            <image>conductionnl/hermiq-code-sandbox</image>
+            <image-tag>latest</image-tag>
+        </docker-install>
+
+        <routes>
+            <route>
+                <url>run</url>
+                <verb>POST</verb>
+                <access_level>ADMIN</access_level>
+                <headers_to_exclude>[]</headers_to_exclude>
+            </route>
+            <route>
+                <url>heartbeat</url>
+                <verb>GET</verb>
+                <access_level>PUBLIC</access_level>
+                <headers_to_exclude>[]</headers_to_exclude>
+            </route>
+        </routes>
+
+        <environment-variables>
+            <variable>
+                <name>SANDBOX_CONCURRENCY</name>
+                <display-name>Runs at the same time</display-name>
+                <description>How many runs the sandbox takes at once; more are refused with 429. Default: 2.</description>
+            </variable>
+        </environment-variables>
+    </external-app>
+</info>

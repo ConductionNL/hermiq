@@ -47,6 +47,7 @@ use Random\Randomizer;
 use ReflectionMethod;
 use RuntimeException;
 use Stringable;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Golden comparison of the session start.
@@ -192,6 +193,7 @@ class SessionCreateGoldenTest extends TestCase {
 		$objectService = $this->createMock(originalClassName: ObjectService::class);
 		$objectService->method('saveObject')->willReturnCallback(
 			function (mixed ...$args) use (&$calls, $failSave): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'saveObject', args: $args);
 				$passed = $this->passed(args: $args);
 				$calls[] = ['saveObject', $passed];
 				if ($failSave === 'runtime') {
@@ -294,7 +296,7 @@ class SessionCreateGoldenTest extends TestCase {
 	 */
 	private function passed(array $args): array {
 		$out = [];
-		foreach ((new ReflectionMethod(ObjectService::class, 'saveObject'))->getParameters() as $index => $param) {
+		foreach (LegacyObjectArgs::parameters(ObjectService::class, 'saveObject') as $index => $param) {
 			if (array_key_exists($index, $args) === false) {
 				continue;
 			}

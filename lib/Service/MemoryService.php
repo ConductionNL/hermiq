@@ -39,8 +39,11 @@ use DateTimeZone;
 use OCA\Hermiq\Kernel\Contracts\MemoryServiceInterface;
 use OCA\Hermiq\Service\Memory\MemoryEntryRef;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserSession;
+use Throwable;
 
 /**
  * Reads and writes agent memory (Memory/UserProfile/Session/SessionTurn) via OpenRegister.
@@ -138,9 +141,14 @@ class MemoryService implements MemoryServiceInterface {
 	/**
 	 * Get (or create) the Memory object for an agent, scoped to the caller's tenant.
 	 *
+	 * A caller OpenRegister will not let create one (a reader of a shared agent) gets
+	 * an empty, unsaved Memory instead, so reading never needs a write right.
+	 *
 	 * @param string $agentId The agent UUID.
 	 *
 	 * @return ObjectEntity The agent's Memory object.
+	 *
+	 * @throws Throwable When the create fails for any other reason.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-1
 	 */
@@ -150,16 +158,28 @@ class MemoryService implements MemoryServiceInterface {
 			return $existing;
 		}
 
-		return $this->objectService->saveObject(
-			object: [
-				'agentId' => $agentId,
-				'entries' => [],
-				'charBudget' => self::DEFAULT_MEMORY_BUDGET,
-				'needsConsolidation' => false,
-			],
-			register: self::REGISTER_SLUG,
-			schema: self::MEMORY_SCHEMA
-		);
+		$memory = [
+			'agentId' => $agentId,
+			'entries' => [],
+			'charBudget' => self::DEFAULT_MEMORY_BUDGET,
+			'needsConsolidation' => false,
+		];
+
+		try {
+			return $this->objectService->saveObject(
+				object: $memory,
+				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MEMORY_SCHEMA))
+			);
+		} catch (Throwable $e) {
+			// OpenRegister's NotAuthorizedException carries 403 as its code.
+			if ((int)$e->getCode() !== 403) {
+				throw $e;
+			}
+
+			$unsaved = new ObjectEntity();
+			$unsaved->setObject($memory);
+			return $unsaved;
+		}//end try
 
 	}//end getMemory()
 
@@ -193,8 +213,7 @@ class MemoryService implements MemoryServiceInterface {
 				'charBudget' => self::DEFAULT_PROFILE_BUDGET,
 				'needsConsolidation' => false,
 			],
-			register: self::REGISTER_SLUG,
-			schema: self::USER_PROFILE_SCHEMA
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::USER_PROFILE_SCHEMA))
 		);
 
 	}//end getUserProfile()
@@ -261,9 +280,10 @@ class MemoryService implements MemoryServiceInterface {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::MEMORY_SCHEMA,
-			uuid: (string)$memory->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MEMORY_SCHEMA),
+				uuid: (string)$memory->getUuid()
+			)
 		);
 
 	}//end consolidateMemory()
@@ -581,9 +601,10 @@ class MemoryService implements MemoryServiceInterface {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::MEMORY_SCHEMA,
-			uuid: (string)$memory->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MEMORY_SCHEMA),
+				uuid: (string)$memory->getUuid()
+			)
 		);
 
 	}//end correctMemoryEntry()
@@ -647,9 +668,10 @@ class MemoryService implements MemoryServiceInterface {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: $schema,
-			uuid: (string)$object->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: $schema),
+				uuid: (string)$object->getUuid()
+			)
 		);
 
 	}//end appendEntry()
@@ -697,9 +719,10 @@ class MemoryService implements MemoryServiceInterface {
 
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: $schema,
-			uuid: (string)$object->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: $schema),
+				uuid: (string)$object->getUuid()
+			)
 		);
 
 		return true;

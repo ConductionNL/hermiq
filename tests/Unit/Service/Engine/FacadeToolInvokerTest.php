@@ -571,6 +571,32 @@ class FacadeToolInvokerTest extends TestCase {
 	}//end testAgentIdIsInjectedForMemoryToolsOnly()
 
 	/**
+	 * A browser tool gets the run's agent and its conversation, so each
+	 * conversation drives its own browser context (tools-browser-and-computer-use D1).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/browser-use/spec.md#requirement-the-browser-reaches-only-what-the-egress-policy-allows-req-browse-001
+	 */
+	public function testBrowserToolsReceiveTheAgentAndTheConversation(): void {
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->expects($this->once())
+			->method('invokeTool')
+			->with('hermiq_browserOpen', ['url' => 'https://example.org/', 'agentId' => 'agent-1', 'conversationId' => 'conv-9'])
+			->willReturn(['result' => ['content' => ''], 'isError' => false]);
+
+		$invoker = new FacadeToolInvoker(
+			facade: $facade,
+			agentId: 'agent-1',
+			mcpIdByName: ['hermiq_browserOpen' => 'hermiq.browserOpen'],
+			conversationId: 'conv-9'
+		);
+
+		$invoker->hermiq_browserOpen(url: 'https://example.org/');
+
+	}//end testBrowserToolsReceiveTheAgentAndTheConversation()
+
+	/**
 	 * A NON-memory tool's arguments are never touched by the agentId injection —
 	 * every other tool's behaviour is byte-for-byte unchanged.
 	 *
@@ -703,6 +729,40 @@ class FacadeToolInvokerTest extends TestCase {
 		$this->assertArrayNotHasKey('target', $steps[0]);
 
 	}//end testNonWebResearchToolStepCarriesNoTargetKey()
+
+	/**
+	 * A `hermiq.runCode` call's trace step carries the code run, its outputs
+	 * redacted (tools-code-sandbox D6).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-every-code-run-is-on-the-run-record-redacted-and-capped-req-sandbox-005
+	 */
+	public function testRunCodeTraceStepCarriesTheRedactedCodeRun(): void {
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->method('invokeTool')->willReturn(
+			['result' => ['exitCode' => 0, 'stdout' => "44940 voor jan@example.nl\n", 'stderr' => '', 'durationMs' => 30, 'timedOut' => false], 'isError' => false]
+		);
+		$redaction = $this->createMock(RedactionService::class);
+		$redaction->method('redact')->willReturnArgument(0);
+
+		$trace = new RunTraceCollector();
+		$invoker = new FacadeToolInvoker(
+			facade: $facade,
+			trace: $trace,
+			mcpIdByName: ['hermiq_runCode' => 'hermiq.runCode'],
+			redactionService: $redaction
+		);
+
+		$invoker->hermiq_runCode(language: 'python', code: 'print(round(1284000 * 0.035))');
+
+		$steps = $trace->toArray();
+		$this->assertCount(1, $steps);
+		$this->assertSame('print(round(1284000 * 0.035))', $steps[0]['codeRun']['code']);
+		$this->assertSame(0, $steps[0]['codeRun']['exitCode']);
+		$this->assertSame("44940 voor ***\n", $steps[0]['codeRun']['stdout']);
+
+	}//end testRunCodeTraceStepCarriesTheRedactedCodeRun()
 
 	/**
 	 * ADR-088 §3: a write records the identity of the artefact it produced, so an

@@ -59,6 +59,9 @@ namespace OCA\Hermiq\Service;
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\Contracts\GuardrailPolicyServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use RuntimeException;
 
@@ -198,8 +201,7 @@ class GuardrailPolicyService implements GuardrailPolicyServiceInterface {
 
 		return $this->objectService->find(
 			id: $uuid,
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -561,9 +563,10 @@ class GuardrailPolicyService implements GuardrailPolicyServiceInterface {
 
 		$policy = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG,
-			uuid: $uuid,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
+				uuid: $uuid
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

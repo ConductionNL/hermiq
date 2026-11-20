@@ -31,6 +31,8 @@ use DateTimeImmutable;
 use DateTimeInterface;
 use InvalidArgumentException;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 
 /**
@@ -122,9 +124,10 @@ class ToolCallMarks {
 		$payload[self::PROPERTY] = array_values($marks);
 		$this->objectService->saveObject(
 			object: $payload,
-			register: 'hermiq',
-			schema: 'agent',
-			uuid: (string)$agent->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: 'hermiq', schema: 'agent'),
+				uuid: (string)$agent->getUuid()
+			)
 		);
 
 		return $mark;

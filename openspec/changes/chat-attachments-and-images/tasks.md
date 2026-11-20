@@ -13,7 +13,7 @@ Kind: code. Size L. Rows `hermiq:ch-attach`, `dm-image-chat`, `ch-image-gen`, `d
   - GIVEN a logged-in person WHEN they post a PDF as field `file` THEN the answer is 200 with `path`, `name`, `fileId`, `mimeType`, `size`, and the file is in their Files under `Hermiq/Attachments`
   - GIVEN a file over the cap or of a refused type WHEN it is posted THEN the answer is 400 with `error`, and nothing is written
 - [x] Implement (size cap: app config `hermiq` / `chat.attachmentMaxMb`, default 20)
-- [ ] Test (PHPUnit on the controller and store: done, AttachmentStoreTest and ChatAttachmentControllerTest; Newman upload with an allowed and a refused file: not written yet, it needs a multipart fixture the CI Newman job can reach)
+- [ ] Test (PHPUnit on the controller and store: done, AttachmentStoreTest and ChatAttachmentControllerTest; Newman upload with an allowed and a refused file: written in `tests/integration/hermiq.postman_collection.json` folder "Chat attachments" with fixtures under `tests/integration/fixtures/`, not yet run, it needs the live instance)
 
 ### Task 2: Upload from device and choose from Files on the Chat page
 - **spec_ref**: `openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002`
@@ -30,7 +30,7 @@ Kind: code. Size L. Rows `hermiq:ch-attach`, `dm-image-chat`, `ch-image-gen`, `d
   - GIVEN a shared session WHEN a participant names a file id only another person can read THEN the turn is refused and the model is not called
   - GIVEN a feature that requires redaction WHEN an unredacted file is attached THEN the run is refused before the provider call
 - [x] Implement (TurnAttachmentResolver reads each file as the turn's speaker; ProviderFactory::createChatDriver runs enforceForRun once per attachment; register 0.49.0, SessionTurn 0.4.0)
-- [ ] Test (PHPUnit on resolution and the per-attachment enforcement: done, TurnAttachmentResolverTest, EngineAttachmentsTest, ProviderFactoryAttachmentsTest, ResponseGenerationHandlerTest, MessageHistoryHandlerTest, ChatControllerTest; Newman with a foreign file id: not written yet, it needs a second user and a file id the CI Newman job can reach)
+- [ ] Test (PHPUnit on resolution and the per-attachment enforcement: done, TurnAttachmentResolverTest, EngineAttachmentsTest, ProviderFactoryAttachmentsTest, ResponseGenerationHandlerTest, MessageHistoryHandlerTest, ChatControllerTest; Newman with a foreign file id: written in folder "Chat attachments read as the speaker", which uses the second user and session of "Session sharing"; not yet run, it needs the live instance)
 
 ### Task 4: Declared input capabilities per model
 - **spec_ref**: `openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004`

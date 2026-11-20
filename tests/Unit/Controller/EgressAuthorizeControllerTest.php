@@ -447,6 +447,43 @@ final class EgressAuthorizeControllerTest extends TestCase {
 	}//end testAllowlistedHostIsAllowed()
 
 	/**
+	 * The browser of the code sandbox app presents a run token minted for one
+	 * conversation (tools-browser-and-computer-use): the PDP accepts it and judges
+	 * its destinations by the same policy, so a private address is refused and an
+	 * allowed host is reached.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/browser-use/spec.md#requirement-the-browser-reaches-only-what-the-egress-policy-allows-req-browse-001
+	 */
+	public function testTheBrowsersRunTokenIsJudgedByTheSamePolicy(): void {
+		$tokens = $this->createMock(RunTokenService::class);
+		$tokens->method('verify')->willReturnCallback(
+			static fn (string $token): ?array => $token === 'browser-token'
+				? ['runId' => 'browser:conv-1', 'agentId' => 'agent-1', 'userId' => 'alice', 'conversationId' => 'conv-1']
+				: null
+		);
+		$settings = ['fetchAllowlist' => [], 'fetchDenylist' => [], 'allowInsecureHttp' => true];
+
+		$public = $this->resolvedAddress;
+		$this->resolvedAddress = '10.0.0.5';
+		$private = $this->controller($tokens, $this->settings($settings), 'Bearer browser-token', '{"host":"10.0.0.5","port":80}')->authorize();
+		$this->assertSame(200, $private->getStatus());
+		$this->assertFalse($private->getData()['allowed']);
+		$this->assertNotEmpty($private->getData()['code']);
+
+		$this->resolvedAddress = $public;
+		$public = $this->controller(
+			$tokens,
+			$this->settings(['fetchAllowlist' => ['api.anthropic.com']] + $settings),
+			'Bearer browser-token',
+			'{"host":"api.anthropic.com","port":443}'
+		)->authorize();
+		$this->assertTrue($public->getData()['allowed']);
+
+	}//end testTheBrowsersRunTokenIsJudgedByTheSamePolicy()
+
+	/**
 	 * The forge host is denied, as egress_denied, to a run whose agent holds no forge tool grant,
 	 * even when the allowlist names it; with the grant the ordinary policy decides.
 	 *

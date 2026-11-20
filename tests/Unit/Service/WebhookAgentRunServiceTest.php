@@ -40,6 +40,7 @@ use OCA\Hermiq\Service\BudgetService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\Hermiq\Service\SkillVersionService;
+use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
 use OCA\Hermiq\Service\WebhookAgentRunService;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\Agent;
@@ -246,6 +247,49 @@ class WebhookAgentRunServiceTest extends TestCase {
 		$this->assertSame('version-1', $this->auditCalls[0]['context']['agentVersion'], 'agent-versioning: the executing agent version must be pinned.');
 
 	}//end testHappyPathRunsAgentAndAudits()
+
+	/**
+	 * A finished webhook run is handed to trace export once, with the audited context, and the run's result is unchanged.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/trace-export/spec.md#requirement-export-never-slows-or-changes-a-run-req-trex-003
+	 */
+	public function testAFinishedWebhookRunIsEnqueuedForTraceExport(): void {
+		$this->agentMapper->method('findByUuid')->willReturn($this->agent('dave'));
+		$this->objectService->method('find')->willReturn($this->agentObject());
+		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->scheduleService->method('runAgentAsOwner')->willReturn('Acknowledged');
+
+		$enqueued = [];
+		$queue    = $this->createMock(TraceExportQueue::class);
+		$queue->expects($this->once())->method('enqueueRun')->willReturnCallback(
+			function (array $context, string $trigger, string $organisation = '') use (&$enqueued): bool {
+				$enqueued[] = [$context, $trigger];
+				return true;
+			}
+		);
+
+		$service = new WebhookAgentRunService(
+			objectService: $this->objectService,
+			agentMapper: $this->agentMapper,
+			logger: $this->createMock(LoggerInterface::class),
+			auditTrailMapper: $this->auditTrailMapper,
+			redactionService: new RedactionService($this->createMock(IConfig::class)),
+			scheduleService: $this->scheduleService,
+			approvalService: $this->approvalService,
+			budgetService: $this->budgetService,
+			agentVersionService: $this->agentVersionService,
+			skillVersionService: $this->createMock(SkillVersionService::class),
+			traceExportQueue: $queue,
+		);
+
+		$this->assertTrue($service->run($this->context()));
+		$this->assertSame('webhook', $enqueued[0][1]);
+		$this->assertSame($this->auditCalls[0]['context'], $enqueued[0][0]);
+		$this->assertSame('corr-1', $enqueued[0][0]['correlationId']);
+
+	}//end testAFinishedWebhookRunIsEnqueuedForTraceExport()
 
 	/**
 	 * GATE 1 — an engaged kill-switch halts the run before the agent is ever

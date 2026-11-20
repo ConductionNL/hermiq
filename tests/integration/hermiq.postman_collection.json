@@ -508,6 +508,2419 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "Session search and bulk actions",
+			"description": "chat-session-search-and-bulk-delete (REQ-SSRCH-001, REQ-SSRCH-002, REQ-SSRCH-003). Self-contained: it creates its own agent, sessions and the second user that Session sharing also uses.",
+			"item": [
+				{
+					"name": "Create the second user",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/ocs/v2.php/cloud/users?format=json",
+						"description": "A second, non-admin user who owns none of the sessions below. An existing user is fine.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"userid\": \"{{share_user}}\", \"password\": \"{{share_password}}\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.variables.get('share_user')) { pm.collectionVariables.set('share_user', 'hermiq-newman-reader'); }",
+									"if (!pm.variables.get('share_password')) { pm.collectionVariables.set('share_password', 'Newman-reader-' + Date.now()); }"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The second user exists', function () {",
+									"    pm.expect([200, 400]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Create an agent for the search sessions",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agent",
+						"description": "An agent to start the sessions with.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"name\": \"Newman search agent\", \"description\": \"Agent for the session search and bulk checks.\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The agent is saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"    const body = pm.response.json();",
+									"    pm.collectionVariables.set('search_agent', body.id || body.uuid || (body['@self'] || {}).id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Start the first search session",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions",
+						"description": "A session of the admin's own for the checks below.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"agentId\": \"{{search_agent}}\", \"title\": \"Newman zoeksessie A\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The session is created', function () {",
+									"    pm.response.to.have.status(201);",
+									"    pm.collectionVariables.set('search_a', pm.response.json().uuid);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Store a turn that mentions the monument",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agentsessionturn",
+						"description": "The turn the search below finds. Stored as the admin through the OpenRegister object API, so no model is needed.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"sessionId\": \"{{search_a}}\", \"role\": \"user\", \"content\": \"Wat zegt het advies over het monument aan de Kerkstraat?\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The turn is stored', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Search finds the session at its turn",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions?search=monument",
+						"description": "REQ-SSRCH-001: the session is returned with an excerpt and the uuid of the matching turn."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The search answers', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().search).to.eql('monument');",
+									"});",
+									"pm.test('The session is found with its match', function () {",
+									"    const hit = pm.response.json().results.find(r => r.uuid === pm.collectionVariables.get('search_a'));",
+									"    pm.expect(hit, 'the seeded session').to.be.an('object');",
+									"    pm.expect(hit.match.turnUuid).to.be.a('string').and.not.empty;",
+									"    pm.expect(hit.match.excerpt.toLowerCase()).to.include('monument');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Without a search term the list is unchanged",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions",
+						"description": "REQ-SSRCH-001: no search parameter gives the plain list, with no search fields and no matches."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The plain list answers', function () {",
+									"    pm.response.to.have.status(200);",
+									"    const body = pm.response.json();",
+									"    pm.expect(body).to.have.all.keys('results', 'total', 'limit', 'offset');",
+									"    pm.expect(body.results.every(r => r.match === undefined)).to.eql(true);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The second user does not find the admin's session",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions?search=monument",
+						"description": "REQ-SSRCH-001: search covers only the caller's own sessions; a word only the admin's session holds finds nothing for anyone else."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The admin session is not found', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().results.map(r => r.uuid)).to.not.include(pm.collectionVariables.get('search_a'));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Start the second bulk session",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions",
+						"description": "A session of the admin's own for the checks below.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"agentId\": \"{{search_agent}}\", \"title\": \"Newman bulksessie B\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The session is created', function () {",
+									"    pm.response.to.have.status(201);",
+									"    pm.collectionVariables.set('bulk_b', pm.response.json().uuid);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Start the third bulk session",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions",
+						"description": "A session of the admin's own for the checks below.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"agentId\": \"{{search_agent}}\", \"title\": \"Newman bulksessie C\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The session is created', function () {",
+									"    pm.response.to.have.status(201);",
+									"    pm.collectionVariables.set('bulk_c', pm.response.json().uuid);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Archive two sessions in one request",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/bulk",
+						"description": "REQ-SSRCH-002: action archive, answered per uuid.",
+						"body": {
+							"mode": "raw",
+							"raw": "{{bulk_body}}"
+						}
+					},
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.variables.set('bulk_body', JSON.stringify({ action: 'archive', uuids: [pm.collectionVariables.get('search_a'), pm.collectionVariables.get('bulk_b')] }));"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Both are archived', function () {",
+									"    pm.response.to.have.status(200);",
+									"    const body = pm.response.json();",
+									"    pm.expect(body.action).to.eql('archive');",
+									"    pm.expect(body.results.map(r => r.status)).to.eql(['ok', 'ok']);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The archived sessions are on the Archive tab",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions?_deleted=true&limit=200",
+						"description": "Both sessions archived above are listed as archived."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Both are archived', function () {",
+									"    pm.response.to.have.status(200);",
+									"    const uuids = pm.response.json().results.map(r => r.uuid);",
+									"    pm.expect(uuids).to.include(pm.collectionVariables.get('search_a'));",
+									"    pm.expect(uuids).to.include(pm.collectionVariables.get('bulk_b'));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Restore one session",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/bulk",
+						"description": "REQ-SSRCH-002: action restore brings a session back to the Active tab.",
+						"body": {
+							"mode": "raw",
+							"raw": "{{bulk_body}}"
+						}
+					},
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.variables.set('bulk_body', JSON.stringify({ action: 'restore', uuids: [pm.collectionVariables.get('search_a')] }));"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('It is restored', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().results).to.eql([{ uuid: pm.collectionVariables.get('search_a'), status: 'ok' }]);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The restored session is active again",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions?limit=200",
+						"description": "The restored session is back on the Active tab."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('It is active', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().results.map(r => r.uuid)).to.include(pm.collectionVariables.get('search_a'));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Another person's session reads as not found",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/bulk",
+						"description": "REQ-SSRCH-002: the second user cannot delete the admin's session.",
+						"body": {
+							"mode": "raw",
+							"raw": "{{bulk_body}}"
+						}
+					},
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.variables.set('bulk_body', JSON.stringify({ action: 'delete', uuids: [pm.collectionVariables.get('search_a')] }));"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('It is reported not found', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().results[0].status).to.eql('not_found');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Delete two sessions and an unknown one",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/bulk",
+						"description": "REQ-SSRCH-002: the two own sessions are deleted and the third uuid is reported not_found.",
+						"body": {
+							"mode": "raw",
+							"raw": "{{bulk_body}}"
+						}
+					},
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.variables.set('bulk_body', JSON.stringify({ action: 'delete', uuids: [pm.collectionVariables.get('bulk_b'), pm.collectionVariables.get('bulk_c'), 'e2espec-no-such-session'] }));"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Two are deleted, one is not found', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().results.map(r => r.status)).to.eql(['ok', 'ok', 'not_found']);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A deleted session is gone",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{bulk_b}}",
+						"description": "REQ-SSRCH-003: the deleted session no longer opens."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('It is gone', function () {",
+									"    pm.response.to.have.status(404);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The admin's session survived",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{search_a}}",
+						"description": "The second user's refused delete changed nothing."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('It still opens', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "More than 100 uuids are refused",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/bulk",
+						"description": "REQ-SSRCH-002: 101 uuids are answered 400 and nothing changes.",
+						"body": {
+							"mode": "raw",
+							"raw": "{{bulk_body}}"
+						}
+					},
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.variables.set('bulk_body', JSON.stringify({ action: 'archive', uuids: Array.from({ length: 101 }, (_, i) => 'e2espec-bulk-' + i) }));"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The request is refused', function () {",
+									"    pm.response.to.have.status(400);",
+									"    pm.expect(pm.response.json().error).to.be.a('string').and.not.empty;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "An unknown action is refused",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/bulk",
+						"description": "REQ-SSRCH-002: only archive, restore and delete are actions.",
+						"body": {
+							"mode": "raw",
+							"raw": "{{bulk_body}}"
+						}
+					},
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.variables.set('bulk_body', JSON.stringify({ action: 'merge', uuids: [pm.collectionVariables.get('search_a')] }));"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The request is refused', function () {",
+									"    pm.response.to.have.status(400);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Clean up the search session",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{search_a}}/permanent",
+						"description": "Removes the first search session."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('It is removed', function () {",
+									"    pm.expect([200, 204]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Session sharing",
+			"item": [
+				{
+					"name": "Create the second user",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/ocs/v2.php/cloud/users?format=json",
+						"description": "chat-fork-and-share-link: a second, non-admin user reads as someone the session is not, then is, shared with. Created by the admin; an existing user is fine.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"userid\": \"{{share_user}}\", \"password\": \"{{share_password}}\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.variables.get('share_user')) { pm.collectionVariables.set('share_user', 'hermiq-newman-reader'); }",
+									"if (!pm.variables.get('share_password')) { pm.collectionVariables.set('share_password', 'Newman-reader-' + Date.now()); }"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The second user exists', function () {",
+									"    pm.expect([200, 400]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Create an agent as the admin",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agent",
+						"description": "An agent to start the session with.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"name\": \"Newman share agent\", \"description\": \"Agent for the session sharing check.\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The agent is saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"    const body = pm.response.json();",
+									"    pm.collectionVariables.set('share_agent', body.id || body.uuid || (body['@self'] || {}).id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Start a session as the admin",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions",
+						"description": "The session the checks below read and share.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"agentId\": \"{{share_agent}}\", \"title\": \"Offerte dakrenovatie Newman\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The session is created', function () {",
+									"    pm.response.to.have.status(201);",
+									"    pm.collectionVariables.set('shared_session', pm.response.json().uuid);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Task 1: the second user reads it through the OpenRegister object API",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agentsession/{{shared_session}}",
+						"description": "chat-fork-and-share-link task 1 (design D5): another user of the same organisation must not read someone else's session through OpenRegister's generic object API. A 200 here means the schema's read grant is wider than the share model and stops the change.",
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('OpenRegister does not hand the session to another user', function () {",
+									"    pm.expect(pm.response.code).to.not.eql(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Not shared: the second user gets 404",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{shared_session}}",
+						"description": "REQ-SSHARE-004: anyone the session is not shared with gets the same 404 as a session that does not exist.",
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('A stranger gets 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"    pm.expect(pm.response.text()).to.not.include('Newman');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A non-owner cannot list the shares",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{shared_session}}/shares",
+						"description": "REQ-SSHARE-001: only the owner manages shares; anyone else gets 404.",
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The share list is the owner\\'s', function () {",
+									"    pm.response.to.have.status(404);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The owner shares with the second user",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{shared_session}}/shares",
+						"description": "REQ-SSHARE-001: the owner adds a read-only share for a user.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"type\": \"user\", \"id\": \"{{share_user}}\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The share is saved', function () {",
+									"    pm.response.to.have.status(200);",
+									"    const ids = pm.response.json().results.map((s) => s.type + ':' + s.id);",
+									"    pm.expect(ids).to.include('user:' + pm.variables.get('share_user'));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The recipient reads the session",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{shared_session}}",
+						"description": "REQ-SSHARE-002: a recipient reads the session, as recipient, with the share that admits them.",
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The recipient reads it', function () {",
+									"    pm.response.to.have.status(200);",
+									"    const body = pm.response.json();",
+									"    pm.expect(body.role).to.eql('recipient');",
+									"    pm.expect(body.share.type).to.eql('user');",
+									"    pm.expect(body.participants).to.eql([]);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The recipient reads the turns",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{shared_session}}/messages",
+						"description": "REQ-SSHARE-002: and its turns.",
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The turns are readable', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().pendingApprovals).to.eql([]);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The recipient finds it under Shared with you",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions?shared=true",
+						"description": "REQ-SSHARE-002: the shared session is listed for the recipient.",
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('It is listed', function () {",
+									"    pm.response.to.have.status(200);",
+									"    const ids = pm.response.json().results.map((s) => s.uuid);",
+									"    pm.expect(ids).to.include(pm.variables.get('shared_session'));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The recipient cannot rename it",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{shared_session}}",
+						"description": "REQ-SSHARE-002: a recipient changes nothing.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"title\": \"Overgenomen\"}"
+						},
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The rename is refused', function () {",
+									"    pm.expect(pm.response.code).to.not.eql(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The recipient cannot fork it",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{shared_session}}/fork",
+						"description": "Out of scope for a recipient: the owner forks.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"turnUuid\": \"00000000-0000-4000-8000-000000000000\"}"
+						},
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The fork is refused', function () {",
+									"    pm.expect(pm.response.code).to.not.eql(201);",
+									"    pm.expect(pm.response.code).to.not.eql(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The recipient cannot delete it",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{shared_session}}",
+						"description": "REQ-SSHARE-002: a recipient reads and does nothing else; deleting (archiving) is the owner's.",
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The delete is refused', function () {",
+									"    pm.expect([200, 204]).to.not.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The recipient cannot send in it",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/chat/send",
+						"description": "REQ-SSHARE-002: a recipient cannot add a turn to someone else's session.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"conversation\": \"{{shared_session}}\", \"message\": \"Mag ik iets toevoegen?\"}"
+						},
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The send is refused', function () {",
+									"    pm.expect(pm.response.code).to.be.at.least(400);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The session is still the owner's",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{shared_session}}",
+						"description": "After the refused writes the owner reads the session unchanged."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Title and owner unchanged', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().title).to.eql('Offerte dakrenovatie Newman');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The owner takes the share back",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{shared_session}}/shares/user/{{share_user}}",
+						"description": "REQ-SSHARE-003: the owner removes the share."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The share is gone', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().results).to.eql([]);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "After the revoke the recipient gets 404",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{shared_session}}",
+						"description": "REQ-SSHARE-003: the former recipient's next read gets the 404 of a missing session.",
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Access is gone at once', function () {",
+									"    pm.response.to.have.status(404);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Chat attachments read as the speaker",
+			"description": "REQ-CATT-003: an attachment is read as the person who sent the turn. Runs after Session sharing, which creates the second user and the admin's session.",
+			"item": [
+				{
+					"name": "The second user uploads a file of their own",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/chat/attachments",
+						"description": "A file only the second user can read; its id is named in the admin's turn below.",
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "fixtures/offerte-newman.pdf"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The second user\\'s file is kept', function () {",
+									"    pm.response.to.have.status(200);",
+									"    const body = pm.response.json();",
+									"    pm.expect(body.fileId).to.be.a('number');",
+									"    pm.collectionVariables.set('foreign_file_id', body.fileId);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The admin names that file in a turn and is refused",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/chat/send",
+						"description": "The file id belongs to another person, so the turn is refused with 400 before anything is stored or any model is called.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"conversation\": \"{{shared_session}}\", \"message\": \"Vat dit document samen.\", \"attachments\": [{\"fileId\": {{foreign_file_id}}}]}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The turn is refused', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"pm.test('The answer says the file is not available', function () {",
+									"    const body = pm.response.json();",
+									"    pm.expect(body.errorCode).to.eql('attachment_refused');",
+									"    pm.expect(body.error).to.be.a('string').and.not.empty;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The refused turn stored nothing",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/chat/history?conversationId={{shared_session}}",
+						"description": "No turn naming the foreign file was written to the session."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('No stored turn names the foreign file', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.text()).to.not.include('Vat dit document samen.');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Knowledge base upload",
+			"description": "memory-knowledge-bases Task 2: the owner uploads into the knowledge base folder; a non-owner gets 404.",
+			"item": [
+				{
+					"name": "Create the knowledge base reader",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/ocs/v2.php/cloud/users?format=json",
+						"description": "memory-knowledge-bases Task 2: a second, non-admin user who does not own the knowledge base. Created by the admin; an existing user is fine.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"userid\": \"{{kb_user}}\", \"password\": \"{{kb_password}}\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.variables.get('kb_user')) { pm.collectionVariables.set('kb_user', 'hermiq-newman-kb-reader'); }",
+									"if (!pm.variables.get('kb_password')) { pm.collectionVariables.set('kb_password', 'Newman-kb-' + Date.now()); }"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The second user exists', function () {",
+									"    pm.expect([200, 400]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Create a knowledge base as the admin",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agentknowledgebase",
+						"description": "REQ-KB-001: the owner creates a knowledge base without a folder, so uploads land in the default Hermiq/Knowledge bases/<name>.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"name\": \"Newman Inkoopbeleid\", \"description\": \"Knowledge base for the upload check.\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The knowledge base is saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"    const body = pm.response.json();",
+									"    const id = body.id || body.uuid || (body['@self'] || {}).id;",
+									"    pm.expect(id, 'the saved knowledge base carries an id').to.be.a('string').and.not.empty;",
+									"    pm.collectionVariables.set('kb_id', id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The owner uploads two documents",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/knowledge-bases/{{kb_id}}/documents",
+						"description": "REQ-KB-001 / Task 2: two PDFs posted as files[] land in the knowledge base's folder in the owner's Files, under a free name each, and come back as file sources. The fixture path is relative to tests/integration, where CI runs newman.",
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "files[]",
+									"type": "file",
+									"src": "fixtures/offerte-newman.pdf"
+								},
+								{
+									"key": "files[]",
+									"type": "file",
+									"src": "fixtures/offerte-newman.pdf"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The documents are kept', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Both land in the knowledge base folder as file sources', function () {",
+									"    const files = (pm.response.json().results || []).filter(function (s) { return s.type === 'file'; });",
+									"    pm.expect(files.length).to.eql(2);",
+									"    files.forEach(function (s) {",
+									"        pm.expect(s.fileId).to.be.a('number');",
+									"        pm.expect(s.path).to.include('Hermiq/Knowledge bases/Newman Inkoopbeleid/');",
+									"        pm.expect(s.path).to.include('offerte-newman');",
+									"    });",
+									"    pm.expect(files[0].fileId).to.not.eql(files[1].fileId);",
+									"    pm.expect(files[0].path).to.not.eql(files[1].path);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The owner reads the sources",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/knowledge-bases/{{kb_id}}/sources",
+						"description": "REQ-KB-001: the detail page's read lists both uploaded documents with an indexing state slot and whether search is available."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The owner reads the sources', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Both uploads are listed with an indexing state slot', function () {",
+									"    const body = pm.response.json();",
+									"    pm.expect(body.searchAvailable).to.be.a('boolean');",
+									"    const files = (body.results || []).filter(function (s) { return s.type === 'file'; });",
+									"    pm.expect(files.length).to.eql(2);",
+									"    files.forEach(function (s) { pm.expect(s).to.have.property('indexState'); });",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A non-owner cannot upload",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/knowledge-bases/{{kb_id}}/documents",
+						"description": "Task 2: anyone but the owner gets 404, the same answer as for a knowledge base that does not exist.",
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{kb_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{kb_password}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "files[]",
+									"type": "file",
+									"src": "fixtures/offerte-newman.pdf"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The non-owner gets 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A non-owner cannot read the sources",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/knowledge-bases/{{kb_id}}/sources",
+						"description": "Task 5: the sources with their sharing flags are for the owner only.",
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{kb_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{kb_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The non-owner gets 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The refused upload added nothing",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/knowledge-bases/{{kb_id}}/sources",
+						"description": "Task 2: the non-owner's upload left the knowledge base as the owner left it."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Still exactly the two uploads', function () {",
+									"    pm.response.to.have.status(200);",
+									"    const files = (pm.response.json().results || []).filter(function (s) { return s.type === 'file'; });",
+									"    pm.expect(files.length).to.eql(2);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Delete the knowledge base",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agentknowledgebase/{{kb_id}}",
+						"description": "Clean up. The uploaded documents stay in the admin's Files."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The knowledge base is deleted', function () {",
+									"    pm.expect([200, 204]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Session fork",
+			"item": [
+				{
+					"name": "Start a session to fork",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions",
+						"description": "chat-fork-and-share-link task 2: the session the fork checks read.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"agentId\": \"{{share_agent}}\", \"title\": \"Bouwvergunning schuur Newman\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The session is created', function () {",
+									"    pm.response.to.have.status(201);",
+									"    pm.collectionVariables.set('fork_source', pm.response.json().uuid);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A question",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agentsessionturn",
+						"description": "Seed turn 1 (user) through the object API, so the check needs no model.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"sessionId\": \"{{fork_source}}\", \"agentId\": \"{{share_agent}}\", \"role\": \"user\", \"content\": \"Heb ik een vergunning nodig voor een schuur van 20 m2?\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"    const body = pm.response.json();",
+									"    pm.collectionVariables.set('fork_question', body.id || body.uuid || (body['@self'] || {}).id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "An answer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agentsessionturn",
+						"description": "Seed turn 2 (assistant).",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"sessionId\": \"{{fork_source}}\", \"agentId\": \"{{share_agent}}\", \"role\": \"assistant\", \"content\": \"Meestal niet, als de schuur in het achtererfgebied staat en lager is dan 3 meter.\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"    const body = pm.response.json();",
+									"    pm.collectionVariables.set('fork_answer', body.id || body.uuid || (body['@self'] || {}).id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A follow-up",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agentsessionturn",
+						"description": "Seed turn 3 (user), after the answer forked at: it must not be copied.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"sessionId\": \"{{fork_source}}\", \"agentId\": \"{{share_agent}}\", \"role\": \"user\", \"content\": \"En als hij aan de voorkant staat?\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"    const body = pm.response.json();",
+									"    pm.collectionVariables.set('fork_followup', body.id || body.uuid || (body['@self'] || {}).id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Forking at a question is refused",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{fork_source}}/fork",
+						"description": "REQ-SFORK-001: only an answer can be forked from; 400 and nothing created.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"turnUuid\": \"{{fork_question}}\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('A user turn gives 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Forking without a turn is refused",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{fork_source}}/fork",
+						"description": "REQ-SFORK-001: a fork names the answer it starts from.",
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('No turn gives 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Someone else cannot fork it",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{fork_source}}/fork",
+						"description": "REQ-SFORK-001: a foreign session answers 404, the same as one that does not exist.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"turnUuid\": \"{{fork_answer}}\"}"
+						},
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('A stranger gets 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The owner forks at the answer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{fork_source}}/fork",
+						"description": "REQ-SFORK-001: a new session with copies of the turns up to and including the answer, and forkedFrom naming the source.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"turnUuid\": \"{{fork_answer}}\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The fork is created', function () {",
+									"    pm.response.to.have.status(201);",
+									"    const body = pm.response.json();",
+									"    pm.expect(body.uuid).to.not.eql(pm.variables.get('fork_source'));",
+									"    pm.expect(body.messageCount).to.eql(2);",
+									"    pm.expect(body.forkedFrom.sessionId).to.eql(pm.variables.get('fork_source'));",
+									"    pm.expect(body.forkedFrom.turnId).to.eql(pm.variables.get('fork_answer'));",
+									"    pm.collectionVariables.set('fork_new', body.uuid);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The fork holds the two turns",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{fork_new}}/messages",
+						"description": "The copies, in order, without the follow-up."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Two turns, question then answer', function () {",
+									"    pm.response.to.have.status(200);",
+									"    const body = pm.response.json();",
+									"    const turns = body.results || body.messages || [];",
+									"    pm.expect(turns.map((t) => t.role)).to.eql(['user', 'assistant']);",
+									"    pm.expect(JSON.stringify(turns)).to.not.include('voorkant');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The source is untouched",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{fork_source}}/messages",
+						"description": "REQ-SFORK-001: the source keeps its three turns."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Three turns in the source', function () {",
+									"    pm.response.to.have.status(200);",
+									"    const body = pm.response.json();",
+									"    pm.expect((body.results || body.messages || []).length).to.eql(3);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Clean up the fork",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{fork_new}}",
+						"description": "Archive the fork again."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 204]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Clean up the source",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{fork_source}}",
+						"description": "Archive the source again."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 204]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
 		}
 	]
 }

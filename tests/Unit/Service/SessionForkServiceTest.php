@@ -32,6 +32,7 @@ use OCA\Hermiq\Service\SessionForkService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for forking a session.
@@ -94,7 +95,11 @@ class SessionForkServiceTest extends TestCase {
 			}
 		);
 		$objects->method('saveObject')->willReturnCallback(
-			function (array|ObjectEntity $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null, bool $_rbac = true): ObjectEntity {
+			function (array|ObjectEntity $object, ObjectSaveOptions $options = new ObjectSaveOptions(), bool $_rbac = true): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$this->saves[] = ['schema' => $schema, 'object' => $object, 'uuid' => $uuid, 'rbac' => $_rbac];
 				return $this->entity('new-' . count($this->saves), $object);
 			}

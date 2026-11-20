@@ -29,6 +29,8 @@ use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for upsert, update, lookup and the allow-list validation.
@@ -73,7 +75,11 @@ class OrganisationModelPolicyWriteTest extends TestCase {
 		$this->objects->method('setSchema')->willReturnSelf();
 		$this->objects->method('findAll')->willReturn($stored);
 		$this->objects->method('saveObject')->willReturnCallback(
-			function (array|ObjectEntity $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null, bool $rbac = true, bool $multi = true): ObjectEntity {
+			function (array|ObjectEntity $object, ObjectSaveOptions $options = new ObjectSaveOptions(), bool $rbac = true, bool $multi = true): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$this->saved[] = [(array)$object, $uuid, $rbac, $multi];
 				$self = (array)($object['@self'] ?? []);
 				return $this->policy((string)($self['organisation'] ?? ''), (string)($uuid ?? 'new-uuid'), (array)$object);
@@ -118,7 +124,15 @@ class OrganisationModelPolicyWriteTest extends TestCase {
 		$service = $this->service([$entity, 'junk', $this->policy('', 'p-0')]);
 		$this->objects->expects($this->once())
 			->method('find')
-			->with('p-1', [], false, 'hermiq', 'modelpolicy', false, false)
+			->with(...LegacyObjectArgs::with(method: 'find', expected: [
+					'id' => 'p-1',
+					'_extend' => [],
+					'files' => false,
+					'register' => 'hermiq',
+					'schema' => 'modelpolicy',
+					'_rbac' => false,
+					'_multitenancy' => false,
+				]))
 			->willReturn($entity);
 
 		$this->assertNull($service->findById(''));
@@ -158,6 +172,7 @@ class OrganisationModelPolicyWriteTest extends TestCase {
 				'allowed' => $data['allowed'],
 				'defaultModel' => ['provider' => 'openai', 'model' => 'gpt-4o'],
 				'requireNoTraining' => true,
+				'fallbackChain' => [],
 			],
 			$result
 		);
@@ -258,6 +273,73 @@ class OrganisationModelPolicyWriteTest extends TestCase {
 		$this->assertFalse($this->saved[1][0]['requireNoTraining']);
 		$this->assertSame('instance', $changed['source']);
 	}//end testUpdateMergesOverTheStoredPolicy()
+
+	/**
+	 * An organisation admin saves a local model as fallback: the chain is
+	 * stored in order, trimmed, and the effective policy returns it.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
+	 */
+	public function testAnAllowedFallbackChainIsSavedInOrder(): void {
+		$service = $this->service();
+		$result = $service->upsertForOrganisation(
+			'org-a',
+			[
+				'allowed' => [['provider' => 'anthropic', 'models' => ['claude-opus-4-8']], ['provider' => 'ollama', 'models' => []]],
+				'fallbackChain' => [['provider' => 'ollama', 'model' => ' qwen2.5 '], ['provider' => 'anthropic', 'model' => 'claude-opus-4-8']],
+			]
+		);
+
+		$chain = [['provider' => 'ollama', 'model' => 'qwen2.5'], ['provider' => 'anthropic', 'model' => 'claude-opus-4-8']];
+		$this->assertSame($chain, $this->saved[0][0]['fallbackChain']);
+		$this->assertSame($chain, $result['fallbackChain']);
+
+		$stored = $this->policy('org-a', 'p-1', $this->saved[0][0]);
+		$this->objects->method('find')->willReturn($stored);
+		$service->update('p-1', ['defaultModel' => null]);
+		$this->assertSame($chain, $this->saved[1][0]['fallbackChain'], 'an update without a chain keeps it');
+		$service->update('p-1', ['fallbackChain' => null]);
+		$this->assertSame([], $this->saved[2][0]['fallbackChain'], 'null clears it');
+	}//end testAnAllowedFallbackChainIsSavedInOrder()
+
+	/**
+	 * A fallback outside the policy, a malformed chain or a fifth fallback is
+	 * refused, and nothing is saved.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
+	 */
+	public function testAFallbackOutsideThePolicyIsRefused(): void {
+		$ollamaOnly = [['provider' => 'ollama', 'models' => []]];
+		$cases = [
+			[[['provider' => 'openai', 'model' => 'gpt-4o-mini']], OrganisationModelPolicyService::FALLBACK_NOT_ALLOWED],
+			[[['provider' => 'ollama', 'model' => '']], OrganisationModelPolicyService::FALLBACK_NOT_ALLOWED],
+			[[['provider' => 'ollama']], OrganisationModelPolicyService::FALLBACK_NOT_ALLOWED],
+			[['ollama'], 'Each fallback must be an object with provider/model'],
+			[['a' => ['provider' => 'ollama', 'model' => 'x']], 'fallbackChain must be a list of {provider, model} entries'],
+			['ollama', 'fallbackChain must be a list of {provider, model} entries'],
+			[array_fill(0, 5, ['provider' => 'ollama', 'model' => 'qwen2.5']), 'A model policy names at most 4 fallbacks.'],
+		];
+		foreach ($cases as [$chain, $message]) {
+			$service = $this->service();
+			try {
+				$service->upsertForOrganisation('org-a', ['allowed' => $ollamaOnly, 'fallbackChain' => $chain]);
+				$this->fail('refused: ' . json_encode($chain));
+			} catch (\InvalidArgumentException $exception) {
+				$this->assertSame($message, $exception->getMessage());
+			}
+
+			$this->assertSame([], $this->saved, 'the stored policy is unchanged');
+		}
+
+		$service = $this->service();
+		$this->objects->method('find')->willReturn($this->policy('org-a', 'p-1', ['allowed' => $ollamaOnly]));
+		$this->expectExceptionMessage(OrganisationModelPolicyService::FALLBACK_NOT_ALLOWED);
+		$service->update('p-1', ['fallbackChain' => [['provider' => 'openai', 'model' => 'gpt-4o-mini']]]);
+	}//end testAFallbackOutsideThePolicyIsRefused()
 
 	/**
 	 * A provider listed with no models admits any of its models as the default.

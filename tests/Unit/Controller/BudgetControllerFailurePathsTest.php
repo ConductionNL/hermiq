@@ -45,6 +45,7 @@ use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * The budget endpoints when the service behind them fails.
@@ -272,7 +273,13 @@ class BudgetControllerFailurePathsTest extends TestCase {
 		$service->method('findById')->willReturn($this->existing());
 		$objects = $this->createMock(ObjectService::class);
 		$objects->expects($this->once())->method('deleteObject')
-			->with('b1', BudgetService::REGISTER_SLUG, BudgetService::BUDGET_SCHEMA, false, false)
+			->with(...LegacyObjectArgs::with(method: 'deleteObject', expected: [
+				'uuid' => 'b1',
+				'register' => BudgetService::REGISTER_SLUG,
+				'schema' => BudgetService::BUDGET_SCHEMA,
+				'_rbac' => false,
+				'_multitenancy' => false,
+			]))
 			->willReturn(true);
 
 		$response = $this->controller($service, ['objects' => $objects])->destroy('b1');

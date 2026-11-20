@@ -42,6 +42,8 @@ use OCP\IUserSession;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
 
 /**
  * Tests for the agent-engine-port SessionController.
@@ -443,6 +445,7 @@ class SessionControllerTest extends TestCase {
 		$args = null;
 		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$passed = LegacyObjectArgs::positional(method: 'saveObject', args: $passed);
 				$args = $passed;
 				$entity = new ObjectEntity();
 				$entity->setUuid('conv-new');
@@ -612,7 +615,10 @@ class SessionControllerTest extends TestCase {
 
 		$deleted = [];
 		$this->objectService->method('deleteObject')->willReturnCallback(
-			function (string $uuid, mixed $register = null, mixed $schema = null) use (&$deleted): bool {
+			function (ObjectDeletion $deletion) use (&$deleted): bool {
+				$uuid = $deletion->uuid;
+				$register = $deletion->target->register;
+				$schema = $deletion->target->schema;
 				$deleted[] = [$uuid, $schema];
 				return true;
 			}
@@ -677,14 +683,16 @@ class SessionControllerTest extends TestCase {
 	}//end testRestoreClearsArchiveMarker()
 
 	/**
-	 * destroyPermanent() deletes the messages and the conversation via
-	 * ObjectService::deleteObject() (feedback is untouched, mirroring OR).
+	 * destroyPermanent() deletes the feedback, then the messages, then the
+	 * conversation via ObjectService::deleteObject(), so no feedback is left
+	 * pointing at a deleted session.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-deleting-a-session-removes-everything-that-belongs-to-it-req-ssrch-003
 	 */
-	public function testDestroyPermanentDeletesMessagesThenConversation(): void {
+	public function testDestroyPermanentDeletesFeedbackThenMessagesThenConversation(): void {
 		$this->request->method('getParams')->willReturn([]);
 		$this->objectService->method('find')->willReturn(
 			$this->conversation('conv-1', ['userId' => 'alice', 'agentId' => 'a1'])
@@ -693,11 +701,27 @@ class SessionControllerTest extends TestCase {
 		$message = new ObjectEntity();
 		$message->setUuid('msg-1');
 		$message->setObject(['sessionId' => 'conv-1']);
-		$this->objectService->method('findAll')->willReturn([$message]);
+		$feedback = new ObjectEntity();
+		$feedback->setUuid('fb-1');
+		$feedback->setObject(['conversationId' => 'conv-1']);
+		$filters = [];
+		$this->objectService->method('findAll')->willReturnCallback(
+			function (array $config) use (&$filters, $message, $feedback): array {
+				$filters[] = $config['filters'];
+				if (isset($config['filters']['conversationId']) === true) {
+					return [$feedback];
+				}
+
+				return [$message];
+			}
+		);
 
 		$deleted = [];
 		$this->objectService->method('deleteObject')->willReturnCallback(
-			function (string $uuid, mixed $register = null, mixed $schema = null) use (&$deleted): bool {
+			function (ObjectDeletion $deletion) use (&$deleted): bool {
+				$uuid = $deletion->uuid;
+				$register = $deletion->target->register;
+				$schema = $deletion->target->schema;
 				$deleted[] = [$uuid, $schema];
 				return true;
 			}
@@ -706,15 +730,17 @@ class SessionControllerTest extends TestCase {
 		$response = $this->controller()->destroyPermanent('conv-1');
 
 		$this->assertSame(200, $response->getStatus());
+		$this->assertSame([['conversationId' => 'conv-1'], ['sessionId' => 'conv-1']], $filters);
 		$this->assertSame(
 			[
+				['fb-1', 'feedback'],
 				['msg-1', 'agentsessionturn'],
 				['conv-1', 'agentsession'],
 			],
 			$deleted
 		);
 
-	}//end testDestroyPermanentDeletesMessagesThenConversation()
+	}//end testDestroyPermanentDeletesFeedbackThenMessagesThenConversation()
 
 	/**
 	 * Gate-7: a foreign conversation can be neither destroyed, restored, nor

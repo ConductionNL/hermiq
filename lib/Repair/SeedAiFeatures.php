@@ -31,6 +31,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Repair;
 
 use OCA\Hermiq\Repair\Support\AiFeatureRows;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -133,8 +135,7 @@ class SeedAiFeatures implements IRepairStep {
 
 				$objectService->saveObject(
 					object: $feature,
-					register: self::REGISTER_SLUG,
-					schema: self::AIFEATURE_SCHEMA,
+					options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA)),
 					_rbac: false,
 					_multitenancy: false
 				);
@@ -175,6 +176,14 @@ class SeedAiFeatures implements IRepairStep {
 				'tenantId' => '',
 			],
 			[
+				'slug' => 'agent-code-execution',
+				'name' => 'Agent code execution',
+				'description' => 'An agent runs code it wrote in an isolated sandbox.',
+				'riskCategory' => 'high',
+				'lifecycle' => 'disabled',
+				'tenantId' => '',
+			],
+			[
 				'slug' => 'chat-companion',
 				'name' => 'Chat companion',
 				'description' => 'A conversational assistant that answers user questions with limited autonomy.',
@@ -203,6 +212,17 @@ class SeedAiFeatures implements IRepairStep {
 				'description' => 'Creates an image from a description through the instance\'s text-to-image provider. '
 					. 'Every image is saved in the requester\'s Files and tagged Agent authored.',
 				'riskCategory' => 'limited',
+				'lifecycle' => 'disabled',
+				'tenantId' => '',
+			],
+			[
+				// Tools-browser-and-computer-use D4: a screen can show anything, and
+				// it goes to the model provider, so high-risk and off until the DPO
+				// acknowledges it. A tool grant alone never unlocks it.
+				'slug' => 'computer-use',
+				'name' => 'Computer use',
+				'description' => 'An agent operates a desktop application on a registered machine by looking at its screen and clicking.',
+				'riskCategory' => 'high',
 				'lifecycle' => 'disabled',
 				'tenantId' => '',
 			],
