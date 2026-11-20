@@ -32,11 +32,8 @@ namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Controller\Chat\ImageTurn;
 use OCA\Hermiq\Kernel\Contracts\ImageGenerationServiceInterface;
-use OCA\Hermiq\Kernel\Contracts\MessageHistoryHandlerInterface;
 use OCA\Hermiq\Service\Chat\ImageGenerationException;
-use OCA\Hermiq\Service\Talk\ConversationParticipation;
-use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
-use OCA\OpenRegister\Service\ObjectService;
+use OCA\Hermiq\Service\Chat\SessionTurns;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\UserRateLimit;
@@ -72,9 +69,7 @@ class ChatImageController extends Controller {
 	 * @param IRequest                  $request       The request.
 	 * @param IUserSession              $userSession   The signed-in person.
 	 * @param ImageGenerationServiceInterface    $images        Creates and marks the image.
-	 * @param ObjectService             $objectService Reads the session.
-	 * @param MessageHistoryHandlerInterface     $history       Stores the two turns.
-	 * @param ConversationParticipation $participation Owner-or-listed-participant guard.
+	 * @param SessionTurns              $turns         Guards the session and stores the two turns.
 	 * @param IL10N                     $l10n          Messages in the person's language.
 	 * @param LoggerInterface           $logger        Logger.
 	 */
@@ -83,9 +78,7 @@ class ChatImageController extends Controller {
 		IRequest $request,
 		private readonly IUserSession $userSession,
 		private readonly ImageGenerationServiceInterface $images,
-		private readonly ObjectService $objectService,
-		private readonly MessageHistoryHandlerInterface $history,
-		private readonly ConversationParticipation $participation,
+		private readonly SessionTurns $turns,
 		private readonly IL10N $l10n,
 		private readonly LoggerInterface $logger,
 	) {
@@ -133,13 +126,9 @@ class ChatImageController extends Controller {
 		}
 
 		$uid = $user->getUID();
-		$session = $this->objectService->find(id: $sessionId, options: new ObjectFindOptions(register: 'hermiq', schema: 'agentsession'));
-		if ($session === null) {
-			return $this->refusal(message: $this->l10n->t('This session does not exist.'), code: 'not_found', status: 404);
-		}
-
-		if ($this->participation->mayTakeTurn(conversationData: $session->getObject(), userId: $uid) === false) {
-			return $this->refusal(message: $this->l10n->t('You cannot add to this session.'), code: 'forbidden', status: 403);
+		$refused = $this->turns->refusalFor(sessionId: $sessionId, uid: $uid);
+		if ($refused !== null) {
+			return $refused;
 		}
 
 		try {
@@ -176,18 +165,10 @@ class ChatImageController extends Controller {
 		$answer = $this->l10n->t('Here is the image you asked for.');
 
 		try {
-			$userTurn = $this->history->storeMessage(
-				conversationId: $sessionId,
-				role: 'user',
-				content: $prompt,
-				authorId: $uid,
-				authorDisplayName: $displayName
-			);
-			$assistantTurn = $this->history->storeMessage(
-				conversationId: $sessionId,
-				role: 'assistant',
-				content: $answer,
-				attachments: [$attachment]
+			$turns = $this->turns->store(
+				sessionId: $sessionId,
+				user: ['content' => $prompt, 'authorId' => $uid, 'authorDisplayName' => $displayName],
+				assistant: ['content' => $answer, 'attachments' => [$attachment]]
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(
@@ -198,17 +179,7 @@ class ChatImageController extends Controller {
 			return $this->refusal(message: $message, code: 'not_stored', status: 500);
 		}
 
-		return new JSONResponse(
-			data: [
-				'userTurn' => ['id' => (string)$userTurn->getUuid(), 'role' => 'user', 'content' => $prompt, 'attachments' => []],
-				'assistantTurn' => [
-					'id' => (string)$assistantTurn->getUuid(),
-					'role' => 'assistant',
-					'content' => $answer,
-					'attachments' => [$attachment],
-				],
-			]
-		);
+		return new JSONResponse(data: $turns);
 	}//end storeTurns()
 
 	/**
