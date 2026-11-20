@@ -276,6 +276,14 @@
             "description": "The settings run retention settings endpoints."
         },
         {
+            "name": "settings-backup-settings",
+            "description": "The backup settings endpoints."
+        },
+        {
+            "name": "backup",
+            "description": "The restore endpoints: the backups, the preview and the restore."
+        },
+        {
             "name": "settings-talk-bridge-settings",
             "description": "The settings talk bridge settings endpoints."
         },
@@ -350,6 +358,10 @@
         {
             "name": "report-subscription",
             "description": "The signed-in user's subscriptions to reports on the Reports page."
+        },
+        {
+            "name": "settings-run-concurrency-settings",
+            "description": "The settings run concurrency settings endpoints."
         }
     ],
     "paths": {
@@ -7470,6 +7482,24 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "linkedType",
+                        "in": "query",
+                        "required": false,
+                        "description": "Only sessions linked to an entity of this kind (file, object, ...); use with linkedId. The response then carries `scope` with the label to head the list with.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "linkedId",
+                        "in": "query",
+                        "required": false,
+                        "description": "The id of the linked entity; use with linkedType.",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ]
             },
@@ -7743,6 +7773,66 @@
                     },
                     "404": {
                         "$ref": "#/components/responses/Problem404"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
+        },
+        "/sessions/{uuid}/links": {
+            "delete": {
+                "operationId": "session-remove-link",
+                "summary": "Remove a link from a session",
+                "description": "Remove one link from a session: what the session says it is about (session-entity-links). A link is recorded automatically when a turn is sent from a page that shows a file or a record, so the owner can remove it here; afterwards the session no longer appears in that entity's scoped list. Only the owner may. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "session"
+                ],
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "description": "Session UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "required": true,
+                        "description": "The kind of the linked entity, for example file or object.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "id",
+                        "in": "query",
+                        "required": true,
+                        "description": "The id of the linked entity.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
                     },
                     "500": {
                         "$ref": "#/components/responses/Problem500"
@@ -9155,6 +9245,190 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/settings/backup": {
+            "get": {
+                "operationId": "settings-backup-settings-get",
+                "summary": "Get (settings backup settings)",
+                "description": "The backup settings: on or off, the Files folder, the hour, how many backups to keep, whether chat sessions are included. Needs a Nextcloud administrator.",
+                "tags": [
+                    "settings-backup-settings"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    }
+                }
+            },
+            "put": {
+                "operationId": "settings-backup-settings-update",
+                "summary": "Update (settings backup settings)",
+                "description": "Save the backup settings; the folder is in the saving administrator's Files. 422 names a value out of range. Needs a Nextcloud administrator.",
+                "tags": [
+                    "settings-backup-settings"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    }
+                }
+            }
+        },
+        "/backup/now": {
+            "post": {
+                "operationId": "settings-backup-settings-backup-now",
+                "summary": "Back up now (settings backup settings)",
+                "description": "Queue a backup of every organisation now; answers at once. 409 when no backup settings were saved yet. Needs a Nextcloud administrator.",
+                "tags": [
+                    "settings-backup-settings"
+                ],
+                "responses": {
+                    "202": {
+                        "description": "The backup is queued.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    }
+                }
+            }
+        },
+        "/backup/files": {
+            "get": {
+                "operationId": "backup-files",
+                "summary": "Files (backup)",
+                "description": "The backups in the backup folder, newest first, each with its manifest. Needs a Nextcloud administrator.",
+                "tags": [
+                    "backup"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    }
+                }
+            }
+        },
+        "/backup/restore/preview": {
+            "post": {
+                "operationId": "backup-preview",
+                "summary": "Preview (backup)",
+                "description": "What a restore to a backup file (kind backup, file) or a moment (kind moment, organisation, at) would change, per schema; writes nothing. 422 for a point that cannot be understood, 404 for a backup that is not there, 409 for a backup from a newer register version. Needs a Nextcloud administrator.",
+                "tags": [
+                    "backup"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    }
+                }
+            }
+        },
+        "/backup/restore": {
+            "post": {
+                "operationId": "backup-restore",
+                "summary": "Restore (backup)",
+                "description": "Queue a restore to a backup file or a moment; answers at once. removeCreatedAfter moves objects created after the point to the deleted objects. Refused as the preview is. Needs a Nextcloud administrator.",
+                "tags": [
+                    "backup"
+                ],
+                "responses": {
+                    "202": {
+                        "description": "The restore is queued.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
                     }
                 }
             }
@@ -11854,6 +12128,60 @@
                         },
                         "description": "The report, by its card id on the Reports page, for example AiOversight."
                     }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/settings/run-concurrency": {
+            "get": {
+                "operationId": "settings-run-concurrency-settings-get",
+                "summary": "Get (settings run concurrency settings)",
+                "description": "Get (settings run concurrency settings). Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "settings-run-concurrency-settings"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            },
+            "put": {
+                "operationId": "settings-run-concurrency-settings-update",
+                "summary": "Update (settings run concurrency settings)",
+                "description": "Update (settings run concurrency settings). Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "settings-run-concurrency-settings"
                 ],
                 "responses": {
                     "200": {

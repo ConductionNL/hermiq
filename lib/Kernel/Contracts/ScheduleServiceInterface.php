@@ -184,6 +184,22 @@ interface ScheduleServiceInterface {
 	public function run(): void;
 
 	/**
+	 * Run one queued occurrence of a schedule on this worker (operations-parallel-run-workers).
+	 *
+	 * Exits without running when the schedule no longer has this occurrence in
+	 * flight or another worker holds its claim, and puts the occurrence back in
+	 * the queue when the run would go over the administrator's limits.
+	 *
+	 * @param string $scheduleUuid  The schedule.
+	 * @param string $occurrenceKey The occurrence the tick queued.
+	 *
+	 * @return string What happened: `ran`, `stale`, `claimed_elsewhere`, `deferred` or `gone`.
+	 *
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
+	 */
+	public function runQueued(string $scheduleUuid, string $occurrenceKey): string;
+
+	/**
 	 * Invoke the OpenRegister agent as the given owner and return its output.
 	 *
 	 * Impersonates the owner (IUserSession/IUserManager, mirroring OpenConnector's
