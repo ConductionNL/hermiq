@@ -31,6 +31,7 @@ namespace OCA\Hermiq\TaskProcessing;
 use OCA\Hermiq\Service\Speech\SpeechTranslationException;
 use OCA\Hermiq\Service\Speech\TranslationChain;
 use OCP\TaskProcessing\ISynchronousProvider;
+use OCP\TaskProcessing\ShapeDescriptor;
 use RuntimeException;
 
 /**
@@ -130,7 +131,7 @@ class AudioToAudioTranslateProvider implements ISynchronousProvider {
 	/**
 	 * No optional inputs beyond the task type's own.
 	 *
-	 * @return array The shapes.
+	 * @return array<string, ShapeDescriptor> The shapes.
 	 *
 	 * @spec openspec/changes/chat-translate-a-recording/tasks.md#task-6-the-taskprocessing-provider-behind-a-class-check
 	 */
@@ -141,7 +142,7 @@ class AudioToAudioTranslateProvider implements ISynchronousProvider {
 	/**
 	 * No optional outputs beyond the task type's own.
 	 *
-	 * @return array The shapes.
+	 * @return array<string, ShapeDescriptor> The shapes.
 	 *
 	 * @spec openspec/changes/chat-translate-a-recording/tasks.md#task-6-the-taskprocessing-provider-behind-a-class-check
 	 */
@@ -159,7 +160,7 @@ class AudioToAudioTranslateProvider implements ISynchronousProvider {
 	 * @param array       $input          `input` (the recording), `origin_language`, `target_language`.
 	 * @param callable    $reportProgress Progress callback.
 	 *
-	 * @return array `['audio_output' => <WAV bytes>]`.
+	 * @return array<string, string> `['audio_output' => <WAV bytes>]`.
 	 *
 	 * @throws RuntimeException When the recording is missing, a step is refused, or the
 	 *                          target language has no voice, so nothing can be spoken.
