@@ -385,7 +385,7 @@ class HermiqToolProviderTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored-req-ailbl-001
+	 * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored-req-ailbl-001
 	 */
 	public function testRunInjectedAgentIdReachesTheMarkedWrites(): void {
 		$writeService = $this->createMock(NcNativeWriteService::class);
