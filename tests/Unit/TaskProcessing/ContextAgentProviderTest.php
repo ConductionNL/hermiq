@@ -16,7 +16,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/contextagent-provider/tasks.md#task-1-2
+ * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-1-2
  */
 
 declare(strict_types=1);
@@ -31,7 +31,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests for ContextAgentProvider.
  *
- * @spec openspec/changes/contextagent-provider/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-1-1
  */
 class ContextAgentProviderTest extends TestCase {
 	/**
@@ -39,7 +39,7 @@ class ContextAgentProviderTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-1-1
 	 */
 	public function testTaskTypeId(): void {
 		$provider = new ContextAgentProvider($this->createMock(ContextAgentInteractionService::class));
@@ -53,7 +53,7 @@ class ContextAgentProviderTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-1-2
 	 */
 	public function testProcessForwardsToService(): void {
 		$expected = ['output' => 'hi', 'conversation_token' => 'conv-1', 'actions' => '{}'];
@@ -79,7 +79,7 @@ class ContextAgentProviderTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-1-2
 	 */
 	public function testProcessTreatsAbsentConfirmationAsNull(): void {
 		$service = $this->createMock(ContextAgentInteractionService::class);
@@ -99,7 +99,7 @@ class ContextAgentProviderTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-6-2
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-6-2
 	 */
 	public function testTheTurnRunsAsTheTaskUser(): void {
 		$alice = $this->createMock(\OCP\IUser::class);

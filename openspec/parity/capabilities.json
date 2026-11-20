@@ -2124,8 +2124,8 @@
 				"state": "built",
 				"owner": "nextcloud/server",
 				"evidence": "lib/TaskProcessing/ContextAgentProvider.php implements ISynchronousProvider over OCP\\TaskProcessing\\TaskTypes\\ContextAgentInteraction (the core task type behind Nextcloud's Smart Picker 'Ask AI' flow); lib/AppInfo/Application.php:353 registerTaskProcessingProvider(ContextAgentProvider::class).",
-				"change": "openspec/changes/contextagent-provider",
-				"requirement": "openspec/changes/contextagent-provider/specs/contextagent-provider :: Hermiq registers as an alternative ContextAgent provider"
+				"change": "openspec/changes/archive/2026-11-20-contextagent-provider",
+				"requirement": "openspec/specs/contextagent-provider :: Hermiq registers as an alternative ContextAgent provider"
 			},
 			"reachedOn": "Nextcloud's Smart Picker in any text field (core UI) -> ContextAgentInteraction task -> hermiq's ContextAgentProvider",
 			"note": "This is a machine/task-type integration point, not a hermiq-owned screen; the picker UI itself is Nextcloud core's.",
@@ -4324,8 +4324,8 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "Not built: the curator only moves skills from active to stale to archived; decision 390 adds merging duplicates. (12 Nov) Was: appinfo/info.xml:52-58 registers SkillCuratorTask, SkillLearningsPromotionTask and SkillConsolidationTask in <background-jobs>. openspec/specs/skills-marketplace/spec.md describes SkillCuratorTask as a daily TimedJob doing active->stale->archived transitions and states it 'NEVER hard-deletes'.",
 				"spec": "openspec/specs/skills-marketplace",
-				"requirement": "openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace :: The curator SHALL propose merging duplicate skills",
-				"plan": "openspec/changes/skills-curator-merges-duplicates"
+				"requirement": "openspec/specs/skills-marketplace :: The curator SHALL propose merging duplicate skills",
+				"plan": "openspec/changes/archive/2026-11-20-skills-curator-merges-duplicates"
 			},
 			"reachedOn": "Automatic daily TimedJob (SkillCuratorTask), no page action needed",
 			"provider": "hermiq",
@@ -7296,8 +7296,8 @@
 				"evidence": "Not built: every report is read on demand (reports spec Purpose); decision 390 adds reports on a schedule. (12 Nov) Was: src/manifest.json page 'Reports' route /reports, type 'reports', one card ('AI oversight' -> route AiOversight); menu entry 'ReportsMenu' section footer order 95; the AiOversight page itself (type dashboard) reads Approval objects (sourceType=advisory) via stats-block/object-table widgets, no bespoke controller.",
 				"spec": "openspec/specs/reports",
 				"readOn": "2026-10-07",
-				"requirement": "openspec/changes/reports-on-a-schedule/specs/reports :: A person SHALL receive a report on a schedule they choose",
-				"plan": "openspec/changes/reports-on-a-schedule"
+				"requirement": "openspec/specs/reports :: A person SHALL receive a report on a schedule they choose",
+				"plan": "openspec/changes/archive/2026-11-20-reports-on-a-schedule"
 			},
 			"reachedOn": "footer menu -> Reports (/reports) -> AI oversight card -> /ai-oversight",
 			"note": "Re-rated yes to partial on 2026-10-07: there is one report, AI oversight, read on demand; nothing produces reports on a schedule, which the row asks for. The Reports page is specified after the fact in openspec/specs/reports; the oversight report itself in openspec/changes/ai-oversight-advisory-approvals (open, 16 of 18 tasks done), which round 1 did not link.",
@@ -8772,8 +8772,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:45-46 preferences#getPreference/setPreference GET/PUT /api/preferences/{key}; lib/Controller/PreferencesController.php:1-47 generic per-user key/value store backed by Nextcloud IConfig; src/api/talk.js:56,68 uses it for the concrete 'delivertarget' preference, read/written from src/components/TalkDeliverySettings.vue.",
-				"spec": "openspec/changes/personal-preferences",
-				"requirement": "openspec/changes/personal-preferences/specs/personal-preferences :: A person's agent preferences are kept per person and set in hermiq's settings dialog (REQ-PREF-001)"
+				"spec": "openspec/changes/archive/2026-11-20-personal-preferences",
+				"requirement": "openspec/specs/personal-preferences :: A person's agent preferences are kept per person and set in hermiq's settings dialog (REQ-PREF-001)"
 			},
 			"reachedOn": "Talk delivery settings (per-user delivery-target preference); also consumed by shared nextcloud-vue widgets (e.g. CnSupportDialog per the controller's own docblock)",
 			"note": "The only concrete hermiq-side preference wired up today is the Talk delivery target; the endpoint is generic so other per-user preferences could be added without new routes.",

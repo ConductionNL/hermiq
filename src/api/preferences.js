@@ -7,7 +7,7 @@
  * PreferencesController). Each person's values are their own; an empty value
  * clears the preference.
  *
- * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-a-persons-agent-preferences-are-kept-per-person-and-set-in-hermiqs-settings-dialog-req-pref-001
+ * @spec openspec/specs/personal-preferences/spec.md#requirement-a-persons-agent-preferences-are-kept-per-person-and-set-in-hermiqs-settings-dialog-req-pref-001
  */
 
 import axios from '@nextcloud/axios'
@@ -29,7 +29,7 @@ export const PREFERENCE_KEYS = Object.freeze({
  *
  * @param {string} key The preference key.
  * @return {string} The URL.
- * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-a-persons-agent-preferences-are-kept-per-person-and-set-in-hermiqs-settings-dialog-req-pref-001
+ * @spec openspec/specs/personal-preferences/spec.md#requirement-a-persons-agent-preferences-are-kept-per-person-and-set-in-hermiqs-settings-dialog-req-pref-001
  */
 function preferenceUrl(key) {
 	return generateUrl('/apps/hermiq/api/preferences/' + encodeURIComponent(key))
@@ -40,7 +40,7 @@ function preferenceUrl(key) {
  *
  * @param {string} key The preference key.
  * @return {Promise<string>} The stored value, or `''` when none is set.
- * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-a-persons-agent-preferences-are-kept-per-person-and-set-in-hermiqs-settings-dialog-req-pref-001
+ * @spec openspec/specs/personal-preferences/spec.md#requirement-a-persons-agent-preferences-are-kept-per-person-and-set-in-hermiqs-settings-dialog-req-pref-001
  */
 export async function getPreference(key) {
 	const { data } = await axios.get(preferenceUrl(key))
@@ -54,7 +54,7 @@ export async function getPreference(key) {
  * @param {string} key The preference key.
  * @param {string} value The value.
  * @return {Promise<string>} The value the server now holds, or `''`.
- * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-a-persons-agent-preferences-are-kept-per-person-and-set-in-hermiqs-settings-dialog-req-pref-001
+ * @spec openspec/specs/personal-preferences/spec.md#requirement-a-persons-agent-preferences-are-kept-per-person-and-set-in-hermiqs-settings-dialog-req-pref-001
  */
 export async function setPreference(key, value) {
 	const { data } = await axios.put(preferenceUrl(key), { value: value || '' })

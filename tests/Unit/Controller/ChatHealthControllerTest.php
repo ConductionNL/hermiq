@@ -105,7 +105,7 @@ class ChatHealthControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-3-2
 	 */
 	public function testHealthOkOnNextcloudAiWhenAProviderServesChat(): void {
 		$llmSettings = $this->createMock(LlmSettingsHandler::class);

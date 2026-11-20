@@ -22,7 +22,7 @@
  * provider per task type). Hermiq's differentiator is governance — approval gate,
  * kill-switch, per-agent capability profile, redacted audit.
  *
- * DEFERRED (single-turn scope; see openspec/changes/contextagent-provider/design.md):
+ * DEFERRED (single-turn scope; see openspec/changes/archive/2026-11-20-contextagent-provider/design.md):
  * the stateful multi-turn "propose actions → pause → confirm → resume the exact tool
  * execution" loop. This pass runs one governed turn per interaction (Hermiq's engine
  * executes its own allowlist-gated tool loop inline), surfaces the allowlist in
@@ -41,7 +41,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/contextagent-provider/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-1
  */
 
 declare(strict_types=1);
@@ -74,7 +74,7 @@ use Throwable;
  * ties together conversation storage, the engine, the approval gate, the kill-switch
  * and the audit write — that governance composition IS the feature.
  *
- * @spec openspec/changes/contextagent-provider/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-1
  */
 class ContextAgentInteractionService implements ContextAgentInteractionServiceInterface {
 	/**
@@ -167,7 +167,7 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 	 * @throws ProcessingException When there is no user context, no available agent, the
 	 *                             org kill-switch is engaged, or the turn fails.
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-2
 	 */
 	public function interact(?string $userId, string $input, ?int $confirmation, string $conversationToken): array {
 		if ($userId === null || $userId === '') {

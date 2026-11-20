@@ -17,7 +17,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+ * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-2
  */
 
 declare(strict_types=1);
@@ -47,7 +47,7 @@ use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 /**
  * Tests for ContextAgentInteractionService.
  *
- * @spec openspec/changes/contextagent-provider/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-1
  */
 class ContextAgentInteractionServiceTest extends TestCase {
 	/**
@@ -193,7 +193,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-2
 	 */
 	public function testNullUserThrows(): void {
 		$this->expectException(ProcessingException::class);
@@ -205,7 +205,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-2
 	 */
 	public function testKillSwitchHaltsBeforeEngine(): void {
 		$this->withConfiguredAgent($this->agent('agent-1', 'org-engaged'));
@@ -225,7 +225,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-2
 	 */
 	public function testFirstTurnCreatesConversationAndReturnsShape(): void {
 		$this->withConfiguredAgent($this->agent('agent-1', 'org-1', ['openregister.searchObjects']));
@@ -303,7 +303,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-2
 	 */
 	public function testExistingTokenIsReused(): void {
 		$agent = $this->agent('agent-1');
@@ -337,7 +337,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-6-2
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-6-2
 	 */
 	public function testAnEmptyObjectOrUnknownTokenStartsAConversation(): void {
 		$agent = $this->agent('agent-1');
@@ -363,7 +363,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-2
 	 */
 	public function testConfirmationApprovesPendingApproval(): void {
 		$this->withConfiguredAgent($this->agent('agent-1'));
@@ -388,7 +388,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-2
 	 */
 	public function testConfirmationDeniesPendingApproval(): void {
 		$this->withConfiguredAgent($this->agent('agent-1'));
@@ -413,7 +413,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-2
 	 */
 	public function testConfirmationNoPendingIsNoop(): void {
 		$this->withConfiguredAgent($this->agent('agent-1'));
@@ -433,7 +433,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-2
 	 */
 	public function testNoAgentThrows(): void {
 		$this->appConfig->method('getValueString')->willReturn('');
@@ -456,7 +456,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/specs/contextagent-provider/spec.md#requirement-an-interaction-runs-one-governed-turn-and-returns-the-contextagent-shape
+	 * @spec openspec/specs/contextagent-provider/spec.md#requirement-an-interaction-runs-one-governed-turn-and-returns-the-contextagent-shape
 	 */
 	public function testANonAdminsFirstTurnSessionIsSavedForThemPastTheObjectApiCreateCheck(): void {
 		$this->withConfiguredAgent($this->agent('agent-1'));

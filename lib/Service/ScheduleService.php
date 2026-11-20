@@ -2390,7 +2390,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 	 */
 	private function notifyRunDone(ObjectEntity $schedule, array $data, bool $succeeded): void {
 		if ($this->runDoneNotifier === null) {
@@ -2414,7 +2414,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 	 */
 	private function agentNameOf(string $agentId, string $fallback): string {
 		if ($agentId === '') {

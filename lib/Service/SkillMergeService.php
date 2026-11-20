@@ -36,7 +36,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
+ * @spec openspec/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
  */
 
 declare(strict_types=1);
@@ -56,7 +56,7 @@ use Psr\Log\LoggerInterface;
 /**
  * Proposes, approves and rejects merges of duplicate skills.
  *
- * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
+ * @spec openspec/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
  */
 class SkillMergeService implements SkillMergeServiceInterface {
 
@@ -97,7 +97,7 @@ class SkillMergeService implements SkillMergeServiceInterface {
 	 *
 	 * @return array{scanned: int, proposed: int}
 	 *
-	 * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
 	 */
 	public function proposeMerges(): array {
 		$skills = $this->loadSkills();
@@ -149,7 +149,7 @@ class SkillMergeService implements SkillMergeServiceInterface {
 	 *
 	 * @return array{merged: bool, survivor?: string, agentsMoved?: int, error?: string}
 	 *
-	 * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
 	 */
 	public function approveMerge(string $duplicateId): array {
 		$duplicate = $this->skillService->getSkill(skillId: $duplicateId);
@@ -197,7 +197,7 @@ class SkillMergeService implements SkillMergeServiceInterface {
 	 *
 	 * @return array{rejected: bool, error?: string}
 	 *
-	 * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
 	 */
 	public function rejectMerge(string $duplicateId): array {
 		$duplicate = $this->skillService->getSkill(skillId: $duplicateId);
@@ -227,7 +227,7 @@ class SkillMergeService implements SkillMergeServiceInterface {
 	 *
 	 * @return array<int, array{duplicate: array<string, mixed>, survivor: array<string, mixed>, reason: string, proposedAt: string}>
 	 *
-	 * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#scenario-two-duplicate-skills-get-one-merge-proposal
+	 * @spec openspec/specs/skills-marketplace/spec.md#scenario-two-duplicate-skills-get-one-merge-proposal
 	 */
 	public function pendingMerges(): array {
 		$byId = [];

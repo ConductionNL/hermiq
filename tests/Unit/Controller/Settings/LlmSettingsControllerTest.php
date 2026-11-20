@@ -108,7 +108,7 @@ class LlmSettingsControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-5-1
 	 */
 	public function testGetReportsNextcloudAiStatus(): void {
 		$handler = $this->createMock(LlmSettingsHandler::class);

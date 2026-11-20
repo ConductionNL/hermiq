@@ -177,7 +177,7 @@ class OrganisationModelPolicyServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-1-1
 	 */
 	public function testFallbackPolicyAllowsNextcloudAiWhenNoProviderIsSaved(): void {
 		$service = $this->service([]);

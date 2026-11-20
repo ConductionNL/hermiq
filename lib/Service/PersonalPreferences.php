@@ -18,7 +18,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-a-persons-agent-preferences-are-kept-per-person-and-set-in-hermiqs-settings-dialog-req-pref-001
+ * @spec openspec/specs/personal-preferences/spec.md#requirement-a-persons-agent-preferences-are-kept-per-person-and-set-in-hermiqs-settings-dialog-req-pref-001
  */
 
 declare(strict_types=1);
@@ -31,7 +31,7 @@ use OCP\IConfig;
 /**
  * Reads one person's preferences.
  *
- * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-a-persons-agent-preferences-are-kept-per-person-and-set-in-hermiqs-settings-dialog-req-pref-001
+ * @spec openspec/specs/personal-preferences/spec.md#requirement-a-persons-agent-preferences-are-kept-per-person-and-set-in-hermiqs-settings-dialog-req-pref-001
  */
 class PersonalPreferences {
 
@@ -68,7 +68,7 @@ class PersonalPreferences {
 	 *
 	 * @param IConfig $config The per-user configuration.
 	 *
-	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-a-persons-agent-preferences-are-kept-per-person-and-set-in-hermiqs-settings-dialog-req-pref-001
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-a-persons-agent-preferences-are-kept-per-person-and-set-in-hermiqs-settings-dialog-req-pref-001
 	 */
 	public function __construct(
 		private readonly IConfig $config,
@@ -83,7 +83,7 @@ class PersonalPreferences {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-a-persons-agent-preferences-are-kept-per-person-and-set-in-hermiqs-settings-dialog-req-pref-001
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-a-persons-agent-preferences-are-kept-per-person-and-set-in-hermiqs-settings-dialog-req-pref-001
 	 */
 	public function isOn(string $userId, string $key): bool {
 		if ($userId === '') {
@@ -103,7 +103,7 @@ class PersonalPreferences {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 	 */
 	public function value(string $userId, string $key): string {
 		if ($userId === '') {
@@ -120,7 +120,7 @@ class PersonalPreferences {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-a-persons-agent-preferences-are-kept-per-person-and-set-in-hermiqs-settings-dialog-req-pref-001
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-a-persons-agent-preferences-are-kept-per-person-and-set-in-hermiqs-settings-dialog-req-pref-001
 	 */
 	public static function storedKey(string $key): string {
 		return 'pref_' . substr((string)preg_replace('/[^a-z0-9-]/', '', strtolower($key)), 0, 64);

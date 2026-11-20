@@ -117,7 +117,7 @@ class LlmSettingsConnectionReportTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-1-1
 	 */
 	public function testASaveWithoutAProviderReportsNextcloudAi(): void {
 		$this->factory->expects($this->once())->method('createChatDriver')->willThrowException(
@@ -192,7 +192,7 @@ class LlmSettingsConnectionReportTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-4
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-4
 	 */
 	public function testANextcloudProviderReportsConfigured(): void {
 		$this->factory->method('createChatDriver')->willReturn(new ChatDriver(provider: 'nextcloud', chat: null, model: 'core:text2text'));
