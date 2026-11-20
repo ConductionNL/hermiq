@@ -1635,6 +1635,9 @@ class ApprovalService implements ApprovalServiceInterface {
 	 * @throws InvalidArgumentException When the approval is not a pending question or the answer is refused.
 	 *
 	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) QuestionAnswer is a set of pure functions over a question and its
+	 * answer; it holds no state to inject.
 	 */
 	public function answerQuestion(ObjectEntity $approval, string $deciderUid, string $answer): array {
 		$data = $approval->getObject();
@@ -1687,6 +1690,9 @@ class ApprovalService implements ApprovalServiceInterface {
 	 * @return string The prompt to run again with.
 	 *
 	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) QuestionAnswer is a set of pure functions over a question and its
+	 * answer; it holds no state to inject.
 	 */
 	private static function answeredPrompt(array $data): string {
 		$draft = (array)($data['draftPayload'] ?? []);
@@ -1706,6 +1712,9 @@ class ApprovalService implements ApprovalServiceInterface {
 	 * @return int The number of questions expired.
 	 *
 	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) QuestionAnswer is a set of pure functions over a question and its
+	 * answer; it holds no state to inject.
 	 */
 	public function expireUnansweredQuestions(?DateTimeImmutable $now = null): int {
 		$now ??= new DateTimeImmutable('now', new DateTimeZone('UTC'));
