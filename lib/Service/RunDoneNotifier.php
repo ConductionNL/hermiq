@@ -110,6 +110,8 @@ class RunDoneNotifier {
 	 * @param array{agentName: string, scheduleUuid: string, result: string} $run    The agent's name, the schedule and `ok`|`error`.
 	 *
 	 * @return bool Whether the notification was sent.
+	 *
+	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 	 */
 	private function sendRunDone(string $userId, array $run): bool {
 		try {
