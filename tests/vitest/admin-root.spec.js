@@ -18,6 +18,7 @@ vi.mock('../../src/components/settings/AssistantPromptLibrary.vue', () => ({ def
 vi.mock('../../src/components/settings/IntakeSettings.vue', () => ({ default: { name: 'IntakeSettings', render: () => null } }))
 vi.mock('../../src/components/settings/RemoteAgents.vue', () => ({ default: { name: 'RemoteAgents', render: () => null } }))
 vi.mock('../../src/components/settings/ReportGroupingSettings.vue', () => ({ default: { name: 'ReportGroupingSettings', render: () => null } }))
+vi.mock('../../src/components/settings/RunConcurrencySettings.vue', () => ({ default: { name: 'RunConcurrencySettings', render: () => null } }))
 vi.mock('../../src/components/settings/RunRetentionSettings.vue', () => ({ default: { name: 'RunRetentionSettings', render: () => null } }))
 vi.mock('../../src/components/settings/ComputerTargets.vue', () => ({ default: { name: 'ComputerTargets', render: () => null } }))
 vi.mock('../../src/components/settings/TalkBridgeSettings.vue', () => ({ default: { name: 'TalkBridgeSettings', render: () => null } }))
@@ -56,6 +57,7 @@ const CHILDREN = [
 	'LlmProviderModal',
 	'RemoteAgents',
 	'ReportGroupingSettings',
+	'RunConcurrencySettings',
 	'RestoreDialog',
 	'RunRetentionSettings',
 	'ComputerTargets',
@@ -163,6 +165,7 @@ describe('AdminRoot', () => {
 			'Assistant prompts',
 			'Validated documents',
 			'AI run retention',
+			'Scheduled runs in parallel',
 			'Backups',
 			'Code sandbox',
 			'Computer targets',

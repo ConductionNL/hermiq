@@ -179,6 +179,17 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			:name="t('hermiq', 'Scheduled runs in parallel')"
+			:description="
+				t(
+					'hermiq',
+					'How many scheduled agent runs go at once. The schedule tick hands each due run to a background worker, and each run still runs once. The limit per organisation keeps one organisation\'s nightly agents from holding every worker.',
+				)
+			">
+			<RunConcurrencySettings />
+		</NcSettingsSection>
+
+		<NcSettingsSection
 			id="section-backups"
 			:name="t('hermiq', 'Backups')"
 			:description="
@@ -298,6 +309,7 @@ import ComputerTargets from '../components/settings/ComputerTargets.vue'
 import IntakeSettings from '../components/settings/IntakeSettings.vue'
 import RemoteAgents from '../components/settings/RemoteAgents.vue'
 import ReportGroupingSettings from '../components/settings/ReportGroupingSettings.vue'
+import RunConcurrencySettings from '../components/settings/RunConcurrencySettings.vue'
 import RunRetentionSettings from '../components/settings/RunRetentionSettings.vue'
 import TalkBridgeSettings from '../components/settings/TalkBridgeSettings.vue'
 import TraceExportSettings from '../components/settings/TraceExportSettings.vue'
@@ -360,6 +372,7 @@ export default {
 		RemoteAgents,
 		ReportGroupingSettings,
 		RunRetentionSettings,
+		RunConcurrencySettings,
 		ComputerTargets,
 		TalkBridgeSettings,
 		TraceExportSettings,

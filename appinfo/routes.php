@@ -533,6 +533,9 @@ $routes = [
         // cleanup job last enforced it and how much it removed.
         ['name' => 'Settings\RunRetentionSettings#get', 'url' => '/api/settings/run-retention', 'verb' => 'GET'],
         ['name' => 'Settings\RunRetentionSettings#update', 'url' => '/api/settings/run-retention', 'verb' => 'PUT'],
+        // How many scheduled runs go at once, for the instance and per organisation (operations-parallel-run-workers).
+        ['name' => 'Settings\RunConcurrencySettings#get', 'url' => '/api/settings/run-concurrency', 'verb' => 'GET'],
+        ['name' => 'Settings\RunConcurrencySettings#update', 'url' => '/api/settings/run-concurrency', 'verb' => 'PUT'],
         // Backup (operations-backup-and-restore): the admin-only backup settings and
         // "Back up now", which queues BackupNowJob and returns at once.
         ['name' => 'Settings\BackupSettings#get', 'url' => '/api/settings/backup', 'verb' => 'GET'],

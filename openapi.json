@@ -358,6 +358,10 @@
         {
             "name": "report-subscription",
             "description": "The signed-in user's subscriptions to reports on the Reports page."
+        },
+        {
+            "name": "settings-run-concurrency-settings",
+            "description": "The settings run concurrency settings endpoints."
         }
     ],
     "paths": {
@@ -12124,6 +12128,60 @@
                         },
                         "description": "The report, by its card id on the Reports page, for example AiOversight."
                     }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/settings/run-concurrency": {
+            "get": {
+                "operationId": "settings-run-concurrency-settings-get",
+                "summary": "Get (settings run concurrency settings)",
+                "description": "Get (settings run concurrency settings). Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "settings-run-concurrency-settings"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            },
+            "put": {
+                "operationId": "settings-run-concurrency-settings-update",
+                "summary": "Update (settings run concurrency settings)",
+                "description": "Update (settings run concurrency settings). Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "settings-run-concurrency-settings"
                 ],
                 "responses": {
                     "200": {
