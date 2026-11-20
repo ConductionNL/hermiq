@@ -2,6 +2,23 @@
 
 ## 1. Backend: bound the audit-trail read
 
+> **Re-measured 2026-11-17 (build round 2): blocked on a design decision, no code changed.**
+> The read moved to `AnalyticsService::visibleRuns()` and its tenant boundary is no longer the schedule
+> set: it is `changed.agentId` checked against the caller's visible agents (`loadVisibleAgents()`), because
+> the run entries hang on different objects per writer: `run` on a schedule (`ScheduleService`), a skill
+> draft (`SkillConsolidationService`) or a schedule again (`SkillLearningsCaptureService`), and `agent-run`
+> on the flow's triggering object (`FlowAgentRunService`) or the agent (`WebhookAgentRunService`). There is
+> no `$scheduleUuidToAgent` any more. So:
+> - 1.1 as written (`object_uuid IN <schedule uuids>`) would drop every `agent-run` and skill run from the
+>   caller's own metrics: a wrong total, not a bound.
+> - 1.2's stopgap `limit` would make every metric a silent floor (the method's own comment says why it is
+>   deliberately unlimited), and a limit before the per-row tenant check pages over rows the caller cannot see.
+> - A correct bound needs OpenRegister's `AuditTrailMapper::findAll()` to filter on `changed.agentId`
+>   (a JSON path, per database dialect), or the writers to record the agent in a queryable column. That is
+>   an OpenRegister change with MySQL, PostgreSQL and SQLite JSON tests, and a decision on which of the two.
+> Until one is chosen, 1.1 to 2.3 cannot be built without changing what a tenant sees.
+
+
 - [ ] 1.1 In `lib/Service/AnalyticsService.php::computeAnalytics()` (currently
       `lib/Service/AnalyticsService.php:117`), replace the unbounded
       `$this->auditTrailMapper->findAll(filters: ['action' => self::RUN_ACTION])` with a
