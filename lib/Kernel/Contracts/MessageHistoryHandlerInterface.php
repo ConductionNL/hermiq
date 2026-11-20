@@ -53,6 +53,7 @@ interface MessageHistoryHandlerInterface {
 	 *                           size, origin), resolved as the speaker; never bytes or text.
 	 * @param array|null $provenance How an assistant answer came about: model, sources and step
 	 *                               outcomes, never content (chat-how-an-answer-came-about).
+	 * @param array|null $retrievalScope The scope an answer was given (memory-retrieval-scope), stored on the turn.
 	 * @param array|null $translation The record of a translated recording: the languages and
 	 *                                the engines used (chat-translate-a-recording).
 	 *
@@ -75,6 +76,7 @@ interface MessageHistoryHandlerInterface {
 		?string $authorDisplayName = null,
 		array $attachments = [],
 		?array $provenance = null,
+		?array $retrievalScope = null,
 		?array $translation = null,
 	): ObjectEntity;
 }//end interface
