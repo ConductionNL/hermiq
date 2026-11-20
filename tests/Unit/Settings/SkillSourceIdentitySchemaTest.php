@@ -58,9 +58,9 @@ class SkillSourceIdentitySchemaTest extends TestCase {
 	public function testSourceUrlIsAnOptionalString(): void {
 		$skill = $this->skill();
 
-		$this->assertSame('string', $skill['properties']['sourceUrl']['type']);
-		$this->assertArrayNotHasKey('format', $skill['properties']['sourceUrl']);
-		$this->assertNotContains('sourceUrl', $skill['required']);
+		$this->assertSame(expected: 'string', actual: $skill['properties']['sourceUrl']['type']);
+		$this->assertArrayNotHasKey(key: 'format', array: $skill['properties']['sourceUrl']);
+		$this->assertNotContains(needle: 'sourceUrl', haystack: $skill['required']);
 	}//end testSourceUrlIsAnOptionalString()
 
 	/**
@@ -73,10 +73,10 @@ class SkillSourceIdentitySchemaTest extends TestCase {
 	public function testSourceUpdatedAtIsAnOptionalDateTimeBesidePublishedAt(): void {
 		$skill = $this->skill();
 
-		$this->assertSame('string', $skill['properties']['sourceUpdatedAt']['type']);
-		$this->assertSame('date-time', $skill['properties']['sourceUpdatedAt']['format']);
-		$this->assertNotContains('sourceUpdatedAt', $skill['required']);
-		$this->assertArrayHasKey('publishedAt', $skill['properties']);
+		$this->assertSame(expected: 'string', actual: $skill['properties']['sourceUpdatedAt']['type']);
+		$this->assertSame(expected: 'date-time', actual: $skill['properties']['sourceUpdatedAt']['format']);
+		$this->assertNotContains(needle: 'sourceUpdatedAt', haystack: $skill['required']);
+		$this->assertArrayHasKey(key: 'publishedAt', array: $skill['properties']);
 	}//end testSourceUpdatedAtIsAnOptionalDateTimeBesidePublishedAt()
 
 	/**
@@ -87,6 +87,6 @@ class SkillSourceIdentitySchemaTest extends TestCase {
 	 * @return void
 	 */
 	public function testOnlyTheNameIsRequired(): void {
-		$this->assertSame(['name'], $this->skill()['required']);
+		$this->assertSame(expected: ['name'], actual: $this->skill()['required']);
 	}//end testOnlyTheNameIsRequired()
 }//end class
