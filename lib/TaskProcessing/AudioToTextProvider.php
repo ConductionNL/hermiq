@@ -25,8 +25,6 @@ declare(strict_types=1);
 namespace OCA\Hermiq\TaskProcessing;
 
 use OCA\Hermiq\Kernel\Contracts\SpeechClientInterface;
-use OCP\Files\File;
-use OCP\Files\SimpleFS\ISimpleFile;
 use OCP\TaskProcessing\EShapeType;
 use OCP\TaskProcessing\ISynchronousProvider;
 use OCP\TaskProcessing\ShapeDescriptor;
@@ -157,8 +155,6 @@ class AudioToTextProvider implements ISynchronousProvider {
 	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-remote-systems-route-through-openconnector
 	 */
 	public function process(?string $userId, array $input, callable $reportProgress): array {
-		$audio = ($input['input'] ?? null);
-
 		// 🔴 NEXTCLOUD HANDS AN `OCP\Files\File` NODE, NOT A RESOURCE AND NOT BYTES.
 		// This method used to accept only the latter two, so EVERY audio2text task
 		// failed with the message below — measured 2026-08-20 on task 3, the first
@@ -176,17 +172,7 @@ class AudioToTextProvider implements ISynchronousProvider {
 		// All three shapes are accepted rather than the one this version happens
 		// to pass: the ISimpleFile/File split differs by input source, and a
 		// provider that guesses is a provider that breaks on the next caller.
-		if ($audio instanceof File === true || $audio instanceof ISimpleFile === true) {
-			$audio = $audio->getContent();
-		}
-
-		if (is_resource($audio) === true) {
-			$audio = stream_get_contents($audio);
-		}
-
-		if (is_string($audio) === false || $audio === '') {
-			throw new RuntimeException('No audio was supplied to transcribe.');
-		}
+		$audio = TaskAudioInput::bytes(input: $input, purpose: 'transcribe');
 
 		$reportProgress(0.1);
 

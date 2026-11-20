@@ -38,6 +38,22 @@ namespace OCA\Hermiq\Kernel\Contracts;
 interface AgentArtefactMarkerInterface {
 
 	/**
+	 * Mark a file an agent wrote as agent-authored.
+	 *
+	 * Throws on failure by design: the caller fails the write rather than report
+	 * success on an unmarked artefact.
+	 *
+	 * @param int $fileId The file id to mark.
+	 *
+	 * @return void
+	 *
+	 * @throws \OCA\Hermiq\Service\NcNative\ArtefactMarkingFailedException When the tag cannot be resolved, created or assigned.
+	 *
+	 * @spec exclude Structural contract, no functional requirement.
+	 */
+	public function markFile(int $fileId): void;
+
+	/**
 	 * Whether a file already carries the agent-authored mark.
 	 *
 	 * Read-only probe used by tests and by callers that must not double-assign;

@@ -20,6 +20,7 @@ vi.mock('../../src/components/settings/RemoteAgents.vue', () => ({ default: { na
 vi.mock('../../src/components/settings/ReportGroupingSettings.vue', () => ({ default: { name: 'ReportGroupingSettings', render: () => null } }))
 vi.mock('../../src/components/settings/RunConcurrencySettings.vue', () => ({ default: { name: 'RunConcurrencySettings', render: () => null } }))
 vi.mock('../../src/components/settings/RunRetentionSettings.vue', () => ({ default: { name: 'RunRetentionSettings', render: () => null } }))
+vi.mock('../../src/components/settings/SpeechVoiceSettings.vue', () => ({ default: { name: 'SpeechVoiceSettings', render: () => null } }))
 vi.mock('../../src/components/settings/ComputerTargets.vue', () => ({ default: { name: 'ComputerTargets', render: () => null } }))
 vi.mock('../../src/components/settings/TalkBridgeSettings.vue', () => ({ default: { name: 'TalkBridgeSettings', render: () => null } }))
 vi.mock('../../src/components/settings/ValidatedTagSettings.vue', () => ({ default: { name: 'ValidatedTagSettings', render: () => null } }))
@@ -60,6 +61,7 @@ const CHILDREN = [
 	'RunConcurrencySettings',
 	'RestoreDialog',
 	'RunRetentionSettings',
+	'SpeechVoiceSettings',
 	'ComputerTargets',
 	'TalkBridgeSettings',
 	'ValidatedTagSettings',
@@ -169,6 +171,7 @@ describe('AdminRoot', () => {
 			'Scheduled runs in parallel',
 			'Backups',
 			'Code sandbox',
+			'Voices for translated recordings',
 			'Computer targets',
 			'Trace export',
 			'Talk chat bridge',

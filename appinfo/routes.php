@@ -590,6 +590,9 @@ $routes = [
         // cleanup job last enforced it and how much it removed.
         ['name' => 'Settings\RunRetentionSettings#get', 'url' => '/api/settings/run-retention', 'verb' => 'GET'],
         ['name' => 'Settings\RunRetentionSettings#update', 'url' => '/api/settings/run-retention', 'verb' => 'PUT'],
+        // Chat-translate-a-recording D3: the administrator's voice per language (admin only).
+        ['name' => 'Settings\SpeechVoiceSettings#get', 'url' => '/api/settings/speech-voices', 'verb' => 'GET'],
+        ['name' => 'Settings\SpeechVoiceSettings#update', 'url' => '/api/settings/speech-voices', 'verb' => 'PUT'],
         // How many scheduled runs go at once, for the instance and per organisation (operations-parallel-run-workers).
         ['name' => 'Settings\RunConcurrencySettings#get', 'url' => '/api/settings/run-concurrency', 'verb' => 'GET'],
         ['name' => 'Settings\RunConcurrencySettings#update', 'url' => '/api/settings/run-concurrency', 'verb' => 'PUT'],
@@ -712,6 +715,10 @@ $routes = [
         ['name' => 'speech#transcribe',   'url' => '/api/speech/transcriptions', 'verb' => 'POST'],
         ['name' => 'speech#synthesise',   'url' => '/api/speech/speech', 'verb' => 'POST'],
         ['name' => 'speech#capabilities', 'url' => '/api/speech/capabilities', 'verb' => 'GET'],
+        // Chat-translate-a-recording: transcribe, translate and speak one recording, and
+        // where the translation step will run (shown before the person starts).
+        ['name' => 'speechTranslation#translate', 'url' => '/api/speech/translations', 'verb' => 'POST'],
+        ['name' => 'speechTranslation#where', 'url' => '/api/speech/translations/where', 'verb' => 'GET'],
 
         // SSE streaming chat endpoint (six-event envelope, hydra ADR-034 Decision 6).
         ['name' => 'chatStream#stream', 'url' => '/api/chat/stream', 'verb' => 'POST'],
