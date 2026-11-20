@@ -2921,6 +2921,491 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "Backup and restore",
+			"item": [
+				{
+					"name": "Create a user who is not an administrator",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/ocs/v2.php/cloud/users?format=json",
+						"description": "operations-backup-and-restore REQ-BKUP-004: a regular user, to be refused. Created by the admin; an existing user is fine.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"userid\": \"{{backup_user}}\", \"password\": \"{{backup_password}}\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.variables.get('backup_user')) { pm.collectionVariables.set('backup_user', 'hermiq-newman-nonadmin'); }",
+									"if (!pm.variables.get('backup_password')) { pm.collectionVariables.set('backup_password', 'Newman-nonadmin-' + Date.now()); }"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The regular user exists', function () {",
+									"    pm.expect([200, 400]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The administrator saves the backup settings",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/settings/backup",
+						"description": "An administrator saves a folder, hour and number to keep, with sessions out; the answer is what is stored.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"enabled\": false, \"folder\": \"Hermiq backups\", \"hour\": 3, \"keep\": 7, \"includeSessions\": false}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The settings are stored', function () {",
+									"    pm.response.to.have.status(200);",
+									"    const body = pm.response.json();",
+									"    pm.expect(body.hour).to.eql(3);",
+									"    pm.expect(body.keep).to.eql(7);",
+									"    pm.expect(body.includeSessions).to.eql(false);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The administrator reads the backup settings",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/settings/backup",
+						"description": "The settings read back as saved."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The settings are answered', function () {",
+									"    pm.response.to.have.status(200);",
+									"    const body = pm.response.json();",
+									"    pm.expect(body).to.include.keys('enabled', 'folder', 'hour', 'keep', 'includeSessions');",
+									"    pm.expect(body.keep).to.eql(7);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "An hour out of range is refused",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/settings/backup",
+						"description": "A value out of range answers 422 with the reason.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"enabled\": false, \"folder\": \"Hermiq backups\", \"hour\": 24, \"keep\": 7, \"includeSessions\": false}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The hour is refused', function () {",
+									"    pm.response.to.have.status(422);",
+									"    pm.expect(pm.response.json().error).to.be.a('string').and.not.empty;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A regular user cannot read the backup settings",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/settings/backup",
+						"description": "REQ-BKUP-004: every backup route needs an administrator.",
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{backup_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{backup_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('A regular user is refused', function () {",
+									"    pm.expect(pm.response.code).to.eql(403);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A regular user cannot change the backup settings",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/settings/backup",
+						"description": "REQ-BKUP-004: a regular user switching backups on with sessions is refused.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"enabled\": true, \"folder\": \"Hermiq backups\", \"hour\": 3, \"keep\": 7, \"includeSessions\": true}"
+						},
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{backup_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{backup_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('A regular user is refused', function () {",
+									"    pm.expect(pm.response.code).to.eql(403);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A regular user cannot back up now",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/backup/now",
+						"description": "REQ-BKUP-004.",
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{backup_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{backup_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('A regular user is refused', function () {",
+									"    pm.expect(pm.response.code).to.eql(403);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A regular user cannot list the backups",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/backup/files",
+						"description": "REQ-BKUP-004.",
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{backup_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{backup_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('A regular user is refused', function () {",
+									"    pm.expect(pm.response.code).to.eql(403);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A regular user cannot preview a restore",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/backup/restore/preview",
+						"description": "REQ-BKUP-004.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"kind\": \"moment\", \"organisation\": \"tilburg\", \"at\": \"2026-09-28T02:00:00Z\"}"
+						},
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{backup_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{backup_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('A regular user is refused', function () {",
+									"    pm.expect(pm.response.code).to.eql(403);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A regular user cannot restore",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/backup/restore",
+						"description": "REQ-BKUP-004 scenario 'A regular user cannot restore': 403 and no job is queued.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"kind\": \"moment\", \"organisation\": \"tilburg\", \"at\": \"2026-09-28T02:00:00Z\"}"
+						},
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{backup_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{backup_password}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('A regular user is refused', function () {",
+									"    pm.expect(pm.response.code).to.eql(403);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The refused change changed nothing",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/settings/backup",
+						"description": "The settings read as the administrator saved them."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Nothing changed', function () {",
+									"    pm.response.to.have.status(200);",
+									"    const body = pm.response.json();",
+									"    pm.expect(body.enabled).to.eql(false);",
+									"    pm.expect(body.includeSessions).to.eql(false);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
 		}
 	]
 }

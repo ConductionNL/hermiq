@@ -124,7 +124,7 @@ class TalkBotInvokeListenerGoldenTest extends TestCase {
 
 		$binding = $this->createMock(TalkRoomBinding::class);
 		$binding->method('isCreatedRoom')->willReturn($room['created'] ?? false);
-		$binding->method('findByRoomToken')->willReturn(($room['existing'] ?? true) === true ? $conversation : null);
+		$binding->method('findByRoomAndAgent')->willReturn(($room['existing'] ?? true) === true ? $conversation : null);
 		$binding->method('syncParticipants')->willReturnCallback(
 			function (ObjectEntity $conv, array $participants): ObjectEntity {
 				$this->log[] = 'sync ' . implode(',', $participants);

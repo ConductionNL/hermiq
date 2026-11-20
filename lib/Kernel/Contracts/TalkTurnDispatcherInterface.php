@@ -44,10 +44,23 @@ interface TalkTurnDispatcherInterface {
 	 * @param string $speakerUid The uid whose turn this is.
 	 * @param string $message The message text.
 	 * @param string $roomToken The room to answer in.
+	 * @param string $turnId The turn id; '' runs it unclaimed.
+	 * @param string $agentId The addressed agent; '' resolves it from the room's session.
+	 * @param string $messageId The Talk message that addressed the agent.
+	 * @param array $chain The agent-to-agent chain descriptor; empty for a human-rooted turn.
 	 *
-	 * @return string The path taken: `triggered` or `queued`.
+	 * @return string The path taken: `triggered`, `instant` or `queued`.
 	 *
 	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
 	 */
-	public function dispatch(string $conversationUuid, string $speakerUid, string $message, string $roomToken): string;
+	public function dispatch(
+		string $conversationUuid,
+		string $speakerUid,
+		string $message,
+		string $roomToken,
+		string $turnId = '',
+		string $agentId = '',
+		string $messageId = '',
+		array $chain = [],
+	): string;
 }//end interface
