@@ -507,16 +507,16 @@ class ToolLoop implements ToolLoopInterface {
 	 *                     set, informs the side-effect classification).
 	 *                     False (every pre-existing caller) is
 	 *                     byte-for-byte unchanged behavior.
-	 * @param string|null $projectKey The session's project (memory-project-scopes),
-	 *                                threaded onto the shared `FacadeToolInvoker`, which
-	 *                                hands it to the memory tools. Null or '' is a session
-	 *                                without a project (shared memory only).
 	 * @param string $conversationId The conversation the turn belongs to, so a flow an
 	 *                               agent queues can bring its result back there
 	 *                               (flows-hand-off-and-wait). '' (every pre-existing
 	 *                               caller) opens no handoff.
 	 * @param string $runId The run a computer action's approval is scoped to; '' offers no
 	 *                      run-scoped pre-authorisation (tools-browser-and-computer-use).
+	 * @param string|null $projectKey The session's project (memory-project-scopes),
+	 *                                threaded onto the shared `FacadeToolInvoker`, which
+	 *                                hands it to the memory tools. Null or '' is a session
+	 *                                without a project (shared memory only).
 	 *
 	 * @return array<int, FunctionInfo> FunctionInfo objects ready for `setTools()`.
 	 *
