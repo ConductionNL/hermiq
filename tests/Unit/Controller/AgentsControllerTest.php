@@ -26,6 +26,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\AgentsController;
+use OCA\Hermiq\Service\Agent\ReferenceModelSettings;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\Hermiq\Service\Agent\AgentAvailabilityService;
 use OCA\Hermiq\Service\Agent\AgentCatalog;
@@ -41,6 +42,7 @@ use OCP\IUserSession;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
 
 /**
  * Tests for the agent-engine-port AgentsController.
@@ -141,7 +143,8 @@ class AgentsControllerTest extends TestCase {
 				agentAccess: $access,
 				availability: $availability,
 				userManager: $this->createMock(IUserManager::class),
-			)
+			),
+			$this->createMock(ReferenceModelSettings::class)
 		);
 
 	}//end controller()
@@ -411,7 +414,10 @@ class AgentsControllerTest extends TestCase {
 
 		$deleted = [];
 		$this->objectService->method('deleteObject')->willReturnCallback(
-			function (string $uuid, mixed $register = null, mixed $schema = null) use (&$deleted): bool {
+			function (ObjectDeletion $deletion) use (&$deleted): bool {
+				$uuid = $deletion->uuid;
+				$register = $deletion->target->register;
+				$schema = $deletion->target->schema;
 				$deleted[] = [$uuid, $schema];
 				return true;
 			}

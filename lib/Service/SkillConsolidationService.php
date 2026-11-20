@@ -50,9 +50,13 @@ use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\SkillConsolidationServiceInterface;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\SkillConsolidation\DraftEvalSubject;
+use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
@@ -231,6 +235,7 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 	 * @param IUserManager $userManager Resolves the skill owner for impersonation.
 	 * @param IURLGenerator $urlGenerator SkillDetail deep link for the Approval payload.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param TraceExportQueue|null $traceExportQueue Hands the finished run to trace export (observability-export-traces).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
 	 *   a distinct injected collaborator (one per pipeline gate), not a logic-bearing
@@ -256,6 +261,7 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 		private readonly IUserManager $userManager,
 		private readonly IURLGenerator $urlGenerator,
 		private readonly LoggerInterface $logger,
+		private readonly ?TraceExportQueue $traceExportQueue = null,
 	) {
 	}//end __construct()
 
@@ -382,14 +388,45 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-proposes-a-draft-version-and-never-edits-the-active-skill
 	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-and-its-evals-respect-the-kill-switch-and-budget-hard-caps
 	 *
-	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) One linear, spec-ordered gate chain
-	 *   (open-draft, kill-switch, budget, learnings, LLM pass, persist, audit) — each
-	 *   gate is a simple early return; splitting would obscure the binding order.
 	 */
 	public function proposeForSkill(ObjectEntity $skill, string $trigger, ?string $triggerEvalRunId = null): array {
-		$skillId = (string)$skill->getUuid();
+		$refusal = $this->proposalRefusal(skill: $skill, trigger: $trigger);
+		if ($refusal !== null) {
+			return $refusal;
+		}
 
-		$existing = $this->findOpenDraftForSkill(skillId: $skillId);
+		$proposal = $this->consolidationPass(skill: $skill);
+		if ($proposal['status'] !== self::STATUS_PROPOSED) {
+			return [
+				'created' => false,
+				'status' => $proposal['status'],
+				'draft' => null,
+			];
+		}
+
+		$proposal['trigger'] = $trigger;
+		$proposal['triggerEvalRunId'] = (string)($triggerEvalRunId ?? '');
+
+		return [
+			'created' => true,
+			'status' => 'proposed',
+			'draft' => $this->writeDraft(skill: $skill, proposal: $proposal),
+		];
+
+	}//end proposeForSkill()
+
+	/**
+	 * The outcome that stops a proposal before any model call, in gate order:
+	 * an open draft (returned as a pointer), then the kill-switch, then the budget
+	 * hard cap. A blocked attempt is audited.
+	 *
+	 * @param ObjectEntity $skill   The skill to consolidate.
+	 * @param string       $trigger `threshold`|`regression`|`manual`.
+	 *
+	 * @return array{created: bool, status: string, draft: ObjectEntity|null}|null The refusal, or null when every gate is open.
+	 */
+	private function proposalRefusal(ObjectEntity $skill, string $trigger): ?array {
+		$existing = $this->findOpenDraftForSkill(skillId: (string)$skill->getUuid());
 		if ($existing !== null) {
 			// Design.md Decision 7: at most ONE open draft per skill — every trigger
 			// no-ops; the manual endpoint returns the open draft as a pointer.
@@ -422,21 +459,30 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 			];
 		}
 
+		return null;
+
+	}//end proposalRefusal()
+
+	/**
+	 * The one LLM pass over a skill's driving learnings, through the governed
+	 * chokepoint (tenant model policy applies). Without driving learnings no
+	 * model is called: a proposal without them would fabricate provenance.
+	 *
+	 * @param ObjectEntity $skill The skill to consolidate.
+	 *
+	 * @return array{status: string, data?: array, entries?: array, prompt?: string, response?: string, proposedBody?: string}
+	 *         `proposed` with the pass's inputs and output, else `no_learnings` or `empty_proposal`.
+	 */
+	private function consolidationPass(ObjectEntity $skill): array {
+		$skillId = (string)$skill->getUuid();
 		$data = $skill->getObject();
 		$excluded = $this->rejectedRefsForSkill(skillId: $skillId);
 		$entries = $this->drivingEntries(data: $data, excludedRefs: $excluded);
 		if ($entries === []) {
-			// Nothing (left) to consolidate — a proposal without driving learnings
-			// would fabricate provenance.
-			return [
-				'created' => false,
-				'status' => 'no_learnings',
-				'draft' => null,
-			];
+			return ['status' => 'no_learnings'];
 		}
 
-		// ONE LLM pass through the governed chokepoint (tenant model policy applies).
-		$policyScope = $organisation;
+		$policyScope = (string)($skill->getOrganisation() ?? '');
 		if ($policyScope === '') {
 			$policyScope = null;
 		}
@@ -454,25 +500,45 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 			$this->logger->info(
 				sprintf('Hermiq consolidation: empty LLM proposal for skill %s — no draft created.', $skillId)
 			);
-			return [
-				'created' => false,
-				'status' => 'empty_proposal',
-				'draft' => null,
-			];
+			return ['status' => 'empty_proposal'];
 		}
 
+		return [
+			'status' => self::STATUS_PROPOSED,
+			'data' => $data,
+			'entries' => $entries,
+			'prompt' => $prompt,
+			'response' => $response,
+			'proposedBody' => $proposedBody,
+		];
+
+	}//end consolidationPass()
+
+	/**
+	 * Persist a proposed draft with its provenance and pinned `baseVersionId`,
+	 * audit it, book the pass's usage on it and pre-qualify it.
+	 *
+	 * @param ObjectEntity $skill    The skill the draft is for.
+	 * @param array        $proposal The pass of {@see consolidationPass()} plus its trigger and triggerEvalRunId.
+	 *
+	 * @return ObjectEntity The draft after pre-qualification.
+	 */
+	private function writeDraft(ObjectEntity $skill, array $proposal): ObjectEntity {
+		$skillId = (string)$skill->getUuid();
+		$data = $proposal['data'];
+		$entries = $proposal['entries'];
 		$draftPayload = [
 			'skillId' => $skillId,
 			'baseVersionId' => (string)($this->versionService->currentVersionId(skillUuid: $skillId) ?? ''),
-			'trigger' => $trigger,
+			'trigger' => $proposal['trigger'],
 			'status' => self::STATUS_PROPOSED,
 			'proposedFrontmatter' => (string)($data['frontmatter'] ?? ''),
-			'proposedBody' => $proposedBody,
+			'proposedBody' => $proposal['proposedBody'],
 			'proposedFiles' => $this->normalisedFiles(files: ($data['files'] ?? [])),
 			'provenance' => [
 				'learningRefs' => array_values(array_map(static fn (array $entry): string => $entry['ref'], $entries)),
 				'runIds' => $this->runIdsFromEntries(entries: $entries),
-				'triggerEvalRunId' => (string)($triggerEvalRunId ?? ''),
+				'triggerEvalRunId' => $proposal['triggerEvalRunId'],
 			],
 			'noEvalEvidence' => false,
 			'approvalId' => '',
@@ -485,7 +551,7 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 			context: [
 				'transition' => self::STATUS_PROPOSED,
 				'actor' => $this->actorId(),
-				'trigger' => $trigger,
+				'trigger' => $proposal['trigger'],
 				'skillId' => $skillId,
 			]
 		);
@@ -493,17 +559,11 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 		// Budget accounting: the consolidation pass's estimated usage lands as an
 		// `action='run'` entry on the draft, which BudgetService's scope union sums
 		// into the SAME per-org budget a scheduled run uses.
-		$this->recordConsolidationUsage(draft: $draft, prompt: $prompt, response: $response);
+		$this->recordConsolidationUsage(draft: $draft, prompt: $proposal['prompt'], response: $proposal['response']);
 
-		$draft = $this->prequalifyDraft(draft: $draft);
+		return $this->prequalifyDraft(draft: $draft);
 
-		return [
-			'created' => true,
-			'status' => 'proposed',
-			'draft' => $draft,
-		];
-
-	}//end proposeForSkill()
+	}//end writeDraft()
 
 	/**
 	 * Pre-qualification — BEFORE any human sees the draft (spec order is binding):
@@ -838,9 +898,10 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 
 		$this->objectService->saveObject(
 			object: $payload,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: (string)($draftData['skillId'] ?? ''),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: (string)($draftData['skillId'] ?? '')
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1242,8 +1303,7 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 
 		$draft = $this->objectService->find(
 			id: $draftId,
-			register: self::REGISTER_SLUG,
-			schema: self::DRAFT_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::DRAFT_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1868,8 +1928,7 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 
 		$skill = $this->objectService->find(
 			id: $skillId,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1911,9 +1970,10 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 		try {
 			return $this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::DRAFT_SCHEMA,
-				uuid: $uuid,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::DRAFT_SCHEMA),
+					uuid: $uuid
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -2001,20 +2061,22 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 	 */
 	private function recordConsolidationUsage(ObjectEntity $draft, string $prompt, string $response): void {
 		try {
+			$runContext = [
+				'status' => 'consolidation',
+				'usage' => [
+					'promptTokens' => (int)ceil(strlen($prompt) / self::CHARS_PER_TOKEN),
+					'completionTokens' => (int)ceil(strlen($response) / self::CHARS_PER_TOKEN),
+				],
+				'summary' => 'Skill consolidation LLM pass (skill-self-improvement).',
+			];
 			$this->auditTrailMapper->recordObjectEvent(
 				event: new ObjectAuditEvent(
 					object: $draft,
 					action: 'run',
-					context: [
-						'status' => 'consolidation',
-						'usage' => [
-							'promptTokens' => (int)ceil(strlen($prompt) / self::CHARS_PER_TOKEN),
-							'completionTokens' => (int)ceil(strlen($response) / self::CHARS_PER_TOKEN),
-						],
-						'summary' => 'Skill consolidation LLM pass (skill-self-improvement).',
-					]
+					context: $runContext
 				)
 			);
+			$this->traceExportQueue?->enqueueRun(context: $runContext, trigger: 'skill');
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				'Hermiq could not record consolidation usage for draft '

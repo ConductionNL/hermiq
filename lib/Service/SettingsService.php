@@ -26,6 +26,7 @@ namespace OCA\Hermiq\Service;
 
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\SettingsServiceInterface;
+use OCA\Hermiq\Service\Engine\VectorSearch;
 use OCP\App\IAppManager;
 use OCP\IAppConfig;
 use OCP\IGroupManager;
@@ -58,6 +59,7 @@ class SettingsService implements SettingsServiceInterface {
 	 * @param IGroupManager $groupManager The group manager
 	 * @param IUserSession $userSession The user session
 	 * @param LoggerInterface $logger The logger
+	 * @param VectorSearch|null $vectorSearch Which retrieval tier is live (vector-rag)
 	 *
 	 * @return void
 	 */
@@ -68,8 +70,24 @@ class SettingsService implements SettingsServiceInterface {
 		private IGroupManager $groupManager,
 		private IUserSession $userSession,
 		private LoggerInterface $logger,
+		private ?VectorSearch $vectorSearch = null,
 	) {
 	}//end __construct()
+
+	/**
+	 * Which retrieval tier semantic and hybrid RAG run on now, read-only (vector-rag).
+	 *
+	 * @return array{tier: string, reason: string}
+	 *
+	 * @spec openspec/changes/vector-rag/tasks.md#task-4-1
+	 */
+	public function retrievalTier(): array {
+		if ($this->vectorSearch === null) {
+			return ['tier' => VectorSearch::TIER_KEYWORD, 'reason' => VectorSearch::REASON_NOT_PRESENT];
+		}
+
+		return $this->vectorSearch->tier();
+	}//end retrievalTier()
 
 	/**
 	 * Check whether OpenRegister is installed and available.
@@ -106,6 +124,7 @@ class SettingsService implements SettingsServiceInterface {
 			[
 				'openregisters' => $this->isOpenRegisterAvailable(),
 				'isAdmin' => $isAdmin,
+				'retrievalTier' => $this->retrievalTier(),
 			]
 		);
 	}//end getSettings()

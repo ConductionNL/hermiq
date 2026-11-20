@@ -188,7 +188,9 @@ webpackConfig.resolve.alias = {
 		__dirname,
 		'node_modules/vue/dist/vue.runtime.esm-bundler.js',
 	),
-	pinia$: path.resolve(__dirname, 'node_modules/pinia'),
+	// pinia 4 is exports-only (exports '.' -> ./dist/pinia.js, no main/module), so a
+	// directory alias can't resolve it — point at the entry file its exports name.
+	pinia$: require.resolve('pinia', { paths: [__dirname] }),
 	// Dedupe vue-router to ONE copy (absolute file): the aliased lib worktree ships
 	// its own vue-router, and a per-importer resolve gives @nextcloud/vue's
 	// RouterLink a different router instance than app.use(router) provided.

@@ -40,6 +40,7 @@ use OCP\IUser;
 use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Tests for the cost-guardrails BudgetController.
@@ -503,7 +504,13 @@ class BudgetControllerTest extends TestCase {
 		$objectService = $this->createMock(ObjectService::class);
 		$objectService->expects($this->once())
 			->method('deleteObject')
-			->with('b1', BudgetService::REGISTER_SLUG, BudgetService::BUDGET_SCHEMA, false, false)
+			->with(...LegacyObjectArgs::with(method: 'deleteObject', expected: [
+					'uuid' => 'b1',
+					'register' => BudgetService::REGISTER_SLUG,
+					'schema' => BudgetService::BUDGET_SCHEMA,
+					'_rbac' => false,
+					'_multitenancy' => false,
+				]))
 			->willReturn(true);
 
 		$response = $this->controller(

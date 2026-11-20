@@ -51,6 +51,7 @@ Kind: code. Size M. Row `hermiq:dm-deep-research`.
 - [ ] Implement
 - [ ] Test (PHPUnit with a fake clock and stubbed BudgetService; Newman on the stop route for owner and non-owner)
   - 2026-11-13, first slice: the caps themselves are built, `lib/Service/Research/ResearchCaps.php` with `ResearchCapsTest` (6): instance defaults 40 / 20 / 20 min / 200,000, an agent may only lower a cap, `quick` halves each, and the first line names the cap reached ("This report stopped early: the source limit of 20 was reached."). The budget and kill-switch checks and the stop route wait on the runner.
+  - 2026-11-14, second slice: the check before every model call is built, `lib/Service/Research/ResearchGate.php` with `ResearchGateTest` (5): a stop ends the run with "Research stopped." without reading anything else, an engaged kill switch of the run's organisation ends it before the budget is read, another organisation's does not, and a budget at its hard cap ends it. Wiring it into the runner, the stop route and the controller wait on the runner (Task 1), which needs the `Handoff` schema from `flows-hand-off-and-wait` (still on its own unmerged branch).
 
 ### Task 6: The chat controls
 - **spec_ref**: `openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-user-can-start-deep-research-and-sees-the-plan-req-research-001`

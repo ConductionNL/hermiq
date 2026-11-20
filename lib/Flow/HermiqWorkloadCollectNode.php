@@ -58,7 +58,7 @@ namespace OCA\Hermiq\Flow;
 
 use OCA\Hermiq\Kernel\Contracts\AsyncStageDispatchServiceInterface;
 use OCA\OpenRegister\Service\Flow\FlowNodeCall;
-use OCA\OpenRegister\Service\Flow\IFlowNode;
+use OCA\OpenRegister\Service\Flow\ICallFlowNode;
 use OCP\IL10N;
 use OCP\IURLGenerator;
 use OCP\WorkflowEngine\IManager;
@@ -67,7 +67,7 @@ use UnexpectedValueException;
 /**
  * Reads the outcome of a stage started asynchronously.
  */
-class HermiqWorkloadCollectNode implements IFlowNode {
+class HermiqWorkloadCollectNode implements ICallFlowNode {
 
 	/**
 	 * Constructor.

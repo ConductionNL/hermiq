@@ -36,7 +36,7 @@
 		<!-- Session list column -->
 		<aside class="chat-page__list">
 			<div class="chat-page__list-head">
-				<NcButton variant="primary" wide @click="newSession">
+				<NcButton variant="primary" wide @click="onNewSessionClick">
 					<template #icon>
 						<Plus :size="20" />
 					</template>
@@ -64,7 +64,98 @@
 						{{ t('hermiq', 'Archive') }}
 					</NcCheckboxRadioSwitch>
 				</div>
+				<NcTextField
+					:modelValue="searchTerm"
+					class="chat-page__search"
+					data-testid="chat-session-search"
+					:label="t('hermiq', 'Search sessions')"
+					trailingButtonIcon="close"
+					:trailingButtonLabel="t('hermiq', 'Clear search')"
+					:showTrailingButton="searchTerm !== ''"
+					@update:modelValue="onSearchInput"
+					@trailingButtonClick="clearSearch" />
+				<NcButton
+					v-if="!selecting"
+					variant="tertiary"
+					wide
+					data-testid="chat-session-select"
+					:disabled="selectableShown.length === 0"
+					@click="startSelecting">
+					<template #icon>
+						<CheckboxMultipleMarkedOutline :size="20" />
+					</template>
+					{{ t('hermiq', 'Select') }}
+				</NcButton>
 			</div>
+
+			<!--
+				Selection mode (REQ-SSRCH-002): the bar names how many rows are ticked and
+				acts on all of them in one request per 100. Its buttons follow the row
+				checkboxes in tab order; space toggles the focused row.
+			-->
+			<div
+				v-if="selecting"
+				class="chat-page__bulk"
+				role="toolbar"
+				data-testid="chat-session-bulk-bar"
+				:aria-label="t('hermiq', 'Selected sessions')">
+				<span class="chat-page__bulk-count" data-testid="chat-session-bulk-count">
+					{{ n('hermiq', '%n selected', '%n selected', selected.length) }}
+				</span>
+				<NcButton
+					variant="tertiary"
+					data-testid="chat-session-select-all"
+					:disabled="bulkBusy"
+					@click="selectAllShown">
+					{{ t('hermiq', 'Select all shown') }}
+				</NcButton>
+				<NcButton
+					v-if="!showArchive"
+					data-testid="chat-session-bulk-archive"
+					:disabled="bulkBusy || selected.length === 0"
+					@click="runBulk('archive')">
+					<template #icon>
+						<NcLoadingIcon v-if="bulkBusy" :size="20" />
+						<Archive v-else :size="20" />
+					</template>
+					{{ t('hermiq', 'Archive selected') }}
+				</NcButton>
+				<NcButton
+					v-else
+					data-testid="chat-session-bulk-restore"
+					:disabled="bulkBusy || selected.length === 0"
+					@click="runBulk('restore')">
+					<template #icon>
+						<NcLoadingIcon v-if="bulkBusy" :size="20" />
+						<Restore v-else :size="20" />
+					</template>
+					{{ t('hermiq', 'Restore selected') }}
+				</NcButton>
+				<NcButton
+					variant="error"
+					data-testid="chat-session-bulk-delete"
+					:disabled="bulkBusy || selected.length === 0"
+					@click="showBulkDelete = true">
+					<template #icon>
+						<Delete :size="20" />
+					</template>
+					{{ t('hermiq', 'Delete selected') }}
+				</NcButton>
+				<NcButton
+					variant="tertiary"
+					data-testid="chat-session-bulk-cancel"
+					:disabled="bulkBusy"
+					@click="stopSelecting">
+					{{ t('hermiq', 'Cancel') }}
+				</NcButton>
+			</div>
+
+			<NcNoteCard
+				v-if="searchActive && searchTruncated"
+				type="info"
+				data-testid="chat-session-search-truncated">
+				{{ t('hermiq', 'Only your 1000 most recent sessions were searched.') }}
+			</NcNoteCard>
 
 			<div v-if="sessionsLoading" class="chat-page__list-state">
 				<NcLoadingIcon :size="28" />
@@ -72,7 +163,9 @@
 
 			<NcNoteCard v-else-if="visibleSessions.length === 0" type="info">
 				{{
-					showArchive
+					searchActive
+						? t('hermiq', 'No sessions match {term}.', { term: appliedSearch })
+						: showArchive
 						? t('hermiq', 'No archived sessions.')
 						: t(
 								'hermiq',
@@ -101,14 +194,26 @@
 						:key="session.uuid"
 						class="chat-page__row"
 						:data-testid="`chat-session-row-${group.key}`"
-						:class="{ 'chat-page__row--active': isActive(session) }">
+						:class="{
+							'chat-page__row--active': isActive(session),
+							'chat-page__row--selected': selecting && isSelected(session),
+						}">
+						<NcCheckboxRadioSwitch
+							v-if="selecting && isSelectable(session)"
+							class="chat-page__row-check"
+							data-testid="chat-session-row-check"
+							type="checkbox"
+							:modelValue="isSelected(session)"
+							:aria-label="t('hermiq', 'Select {title}', { title: session.title || t('hermiq', 'New session') })"
+							@update:modelValue="toggleSelected(session)" />
 						<div
 							class="chat-page__row-main"
 							data-testid="chat-session-row"
 							role="button"
 							tabindex="0"
-							@click="selectSession(session)"
-							@keydown.enter="selectSession(session)">
+							@click="onRowActivate(session)"
+							@keydown.enter="onRowActivate(session)"
+							@keydown.space.prevent="onRowSpace(session)">
 							<span class="chat-page__row-icon">
 								<component :is="originIcon(session)" :size="20" />
 							</span>
@@ -119,6 +224,10 @@
 								<span class="chat-page__row-meta">{{
 									rowMeta(session)
 								}}</span>
+								<span
+									v-if="session.match && session.match.excerpt"
+									class="chat-page__row-excerpt"
+									data-testid="chat-session-row-excerpt">{{ session.match.excerpt }}</span>
 							</span>
 						</div>
 						<NcActions
@@ -139,6 +248,15 @@
 									<AccountMultiplePlus :size="20" />
 								</template>
 								{{ t('hermiq', 'Invite colleagues') }}
+							</NcActionButton>
+							<NcActionButton
+								v-if="!showArchive && canShare(session)"
+								data-testid="chat-session-share"
+								@click="openShare(session)">
+								<template #icon>
+									<ShareVariant :size="20" />
+								</template>
+								{{ t('hermiq', 'Share') }}
 							</NcActionButton>
 							<NcActionButton
 								v-if="!showArchive && session.role !== 'participant'"
@@ -165,6 +283,39 @@
 								{{ t('hermiq', 'Delete session') }}
 							</NcActionButton>
 						</NcActions>
+					</div>
+				</template>
+				<!--
+					Chat-fork-and-share-link: sessions shared with the reader,
+					read-only. Each opens its own read-only page.
+				-->
+				<template v-if="!showArchive && sharedSessions.length > 0">
+					<h3 class="chat-page__group" data-testid="chat-session-group-shared-with-you">
+						{{ t('hermiq', 'Shared with you') }}
+					</h3>
+					<div
+						v-for="session in sharedSessions"
+						:key="`shared-${session.uuid}`"
+						class="chat-page__row"
+						data-testid="chat-session-row-shared-with-you">
+						<div
+							class="chat-page__row-main"
+							role="button"
+							tabindex="0"
+							@click="openShared(session)"
+							@keydown.enter="openShared(session)">
+							<span class="chat-page__row-icon">
+								<ShareVariant :size="20" />
+							</span>
+							<span class="chat-page__row-text">
+								<strong>{{ session.title || t('hermiq', 'New session') }}</strong>
+								<span class="chat-page__row-meta">{{
+									session.share && session.share.sharedByDisplayName
+										? t('hermiq', 'Shared by {name}', { name: session.share.sharedByDisplayName })
+										: ''
+								}}</span>
+							</span>
+						</div>
 					</div>
 				</template>
 			</div>
@@ -288,7 +439,11 @@
 						v-for="message in messages"
 						:key="message.uuid || message.id"
 						class="chat-page__message"
-						:class="`chat-page__message--${message.role}`">
+						:data-turn-uuid="message.uuid || message.id"
+						:class="[
+							`chat-page__message--${message.role}`,
+							{ 'chat-page__message--found': highlightTurn !== '' && (message.uuid || message.id) === highlightTurn },
+						]">
 						<div class="chat-page__avatar">
 							<NcAvatar
 								v-if="message.role === 'user'"
@@ -402,6 +557,39 @@
 									</li>
 								</ul>
 							</details>
+
+							<!-- The scope the answer was given (memory-retrieval-scope D5). -->
+							<div
+								v-if="message.role === 'assistant' && scopeDisplay(message.retrievalScope)"
+								class="chat-page__scope"
+								data-testid="chat-retrieval-scope">
+								<p
+									v-if="scopeDisplay(message.retrievalScope).abstained"
+									class="chat-page__scope-abstained">
+									{{
+										t(
+											'hermiq',
+											'No validated document matched this question. The assistant did not answer from other knowledge.',
+										)
+									}}
+								</p>
+								<p class="chat-page__scope-detail">
+									<span v-if="scopeDisplay(message.retrievalScope).validated">{{
+										t(
+											'hermiq',
+											'Validated mode, floor {floor}. Passages at or above it: {passed}. Best match: {best}.',
+											{
+												passed: String(scopeDisplay(message.retrievalScope).passed),
+												floor: similarityText(scopeDisplay(message.retrievalScope).floor),
+												best: similarityText(scopeDisplay(message.retrievalScope).best),
+											},
+										)
+									}}</span>
+									<span v-if="scopeDisplay(message.retrievalScope).filtered">{{
+										t('hermiq', 'The agent’s file filters limited which files were searched.')
+									}}</span>
+								</p>
+							</div>
 
 							<!-- RAG sources -->
 							<div
@@ -560,6 +748,20 @@
 									{{ t('hermiq', 'Send feedback') }}
 								</NcButton>
 							</div>
+
+							<!-- Work this turn started and waits for (flows-hand-off-and-wait). -->
+							<ul
+								v-if="handoffGroups[message.id]"
+								class="chat-page__handoffs"
+								data-testid="chat-handoffs">
+								<li
+									v-for="handoff in handoffGroups[message.id]"
+									:key="handoff.id || handoff.uuid || handoff.requestedAt"
+									class="chat-page__handoff"
+									:class="`chat-page__handoff--${handoff.status}`">
+									{{ handoffLine(handoff, t, clockTime) }}
+								</li>
+							</ul>
 						</div>
 					</div>
 
@@ -577,21 +779,17 @@
 								}}</span>
 							</div>
 							<div
-								v-if="streamingTools.length > 0"
+								v-if="streamingSteps.length > 0"
 								class="chat-page__stream-tools">
 								<span
-									v-for="(tool, toolIndex) in streamingTools"
-									:key="toolIndex"
-									class="chat-page__stream-tool">
-									{{
-										tool.done
-											? t('hermiq', 'Used tool: {tool}', {
-													tool: tool.toolId,
-												})
-											: t('hermiq', 'Using tool: {tool}…', {
-													tool: tool.toolId,
-												})
-									}}
+									v-for="step in streamingSteps"
+									:key="step.key"
+									class="chat-page__stream-tool"
+									:class="[
+										`chat-page__stream-tool--${step.kind}`,
+										`chat-page__stream-tool--${step.state}`,
+									]">
+									{{ step.label }}
 								</span>
 							</div>
 							<!-- Streamed markdown is sanitised via DOMPurify with the shared safe config. -->
@@ -739,6 +937,11 @@
 		</section>
 
 		<!-- Isolated modals (ADR-004) -->
+		<SessionShareModal
+			:show="shareTarget !== null"
+			:session="shareTarget"
+			@close="shareTarget = null"
+			@changed="onSharesChanged" />
 		<SessionParticipantsModal
 			:show="participantsTarget !== null"
 			:session="participantsTarget"
@@ -764,6 +967,11 @@
 			:session="deleteTarget"
 			@close="showDelete = false"
 			@deleted="onDeleted" />
+		<SessionBulkDeleteModal
+			:show="showBulkDelete"
+			:uuids="selected"
+			@close="showBulkDelete = false"
+			@deleted="onBulkDeleted" />
 		<ChatSettingsModal
 			:show="showSettings"
 			:availableViews="availableViews"
@@ -813,11 +1021,13 @@ import {
 	NcCheckboxRadioSwitch,
 	NcLoadingIcon,
 	NcNoteCard,
+	NcTextField,
 } from '@nextcloud/vue'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import AccountMultiplePlus from 'vue-material-design-icons/AccountMultiplePlus.vue'
 import Archive from 'vue-material-design-icons/Archive.vue'
+import CheckboxMultipleMarkedOutline from 'vue-material-design-icons/CheckboxMultipleMarkedOutline.vue'
 // One icon per session row, chosen by what started the session. A row that
 // always drew the same mark would leave the human/automated split visible only
 // in the group headings, which scroll away; the agent itself is named in the
@@ -845,6 +1055,7 @@ import PuzzlePlusOutline from 'vue-material-design-icons/PuzzlePlusOutline.vue'
 import Restore from 'vue-material-design-icons/Restore.vue'
 import RobotOutline from 'vue-material-design-icons/RobotOutline.vue'
 import Send from 'vue-material-design-icons/Send.vue'
+import ShareVariant from 'vue-material-design-icons/ShareVariant.vue'
 import SitemapOutline from 'vue-material-design-icons/SitemapOutline.vue'
 import SourceBranch from 'vue-material-design-icons/SourceBranch.vue'
 import StopCircleOutline from 'vue-material-design-icons/StopCircleOutline.vue'
@@ -860,22 +1071,27 @@ import ChatSettingsModal from '../modals/ChatSettingsModal.vue'
 import GenerateImageModal from '../modals/GenerateImageModal.vue'
 import GoalFormModal from '../modals/GoalFormModal.vue'
 import ScheduleFormModal from '../modals/ScheduleFormModal.vue'
+import SessionBulkDeleteModal from '../modals/SessionBulkDeleteModal.vue'
 import SessionDeleteModal from '../modals/SessionDeleteModal.vue'
 import SessionParticipantsModal from '../modals/SessionParticipantsModal.vue'
 import SessionRenameModal from '../modals/SessionRenameModal.vue'
+import SessionShareModal from '../modals/SessionShareModal.vue'
 import SkillFormModal from '../modals/SkillFormModal.vue'
 import { checkAgentDraft } from '../api/agents.js'
 import {
 	answerStartFields,
 	archiveSession,
+	bulkSessions,
 	ChatStreamError,
 	createSession,
 	forkSession,
 	getImageAvailability,
 	getSession,
 	getSessionGoal,
+	listHandoffs,
 	listMessages,
 	listSessions,
+	listSharedSessions,
 	restoreSession,
 	sendChatMessage,
 	sendMessageFeedback,
@@ -884,6 +1100,7 @@ import {
 	uploadChatAttachment,
 	warmChat,
 } from '../api/chat.js'
+import { getPreference, PREFERENCE_KEYS } from '../api/preferences.js'
 import { speechCapabilities } from '../api/speech.js'
 import { useAgentStore } from '../store/store.js'
 import {
@@ -893,6 +1110,7 @@ import {
 	scheduleFromDraft,
 } from '../utils/agentDraft.js'
 import { sourceFileId, sourceName, sourcePage } from '../utils/chatSources.js'
+import { clockTime, handoffLine, handoffsByMessage } from '../utils/handoffLines.js'
 import {
 	initialAnswers,
 	missingRequired,
@@ -900,11 +1118,15 @@ import {
 	startFieldsOf,
 	startValueSummary,
 } from '../utils/instructionVariables.js'
+import { defaultAgentOf } from '../utils/personalPreferences.js'
+import { scopeDisplay, similarityText } from '../utils/retrievalScope.js'
 import { canForkSession, forkedSessionToOpen } from '../utils/sessionFork.js'
+import { canShareSession } from '../utils/sessionShare.js'
 import { sessionStartErrorMessage } from '../utils/sessionStartError.js'
 import { appendTranscript, speechControls } from '../utils/speech.js'
 import { goalLine as describeGoal } from './chatGoalLine.js'
 import { headedSessionGroups, partitionSessions } from './chatSessionGroups.js'
+import { chatToolSteps } from './chatToolSteps.js'
 
 /**
  * The trigger origins that mean "no person started this".
@@ -915,6 +1137,16 @@ import { headedSessionGroups, partitionSessions } from './chatSessionGroups.js'
  * to look under the first time a new origin ships.
  */
 const AUTOMATED_ORIGINS = ['cron', 'event', 'flow']
+
+/**
+ * Session search (REQ-SSRCH-001): the shortest term searched (the server ignores
+ * shorter ones), the pause after typing before it searches, how many results one
+ * search shows, and how long a found turn stays highlighted.
+ */
+const SEARCH_MIN_LENGTH = 2
+const SEARCH_DEBOUNCE_MS = 300
+const SEARCH_LIMIT = 100
+const HIGHLIGHT_MS = 2000
 
 /** The row icon for each trigger origin; anything else uses the agent mark. */
 const ORIGIN_ICONS = {
@@ -932,12 +1164,16 @@ export default {
 		AgentSelector,
 		Archive,
 		ChatSettingsModal,
+		CheckboxMultipleMarkedOutline,
 		Close,
 		ClockOutline,
 		CogOutline,
+		SessionBulkDeleteModal,
 		SessionDeleteModal,
 		SessionParticipantsModal,
 		SessionRenameModal,
+		SessionShareModal,
+		ShareVariant,
 		GenerateImageModal,
 		GoalFormModal,
 		ImageOutline,
@@ -958,6 +1194,7 @@ export default {
 		NcCheckboxRadioSwitch,
 		NcLoadingIcon,
 		NcNoteCard,
+		NcTextField,
 		Paperclip,
 		Pencil,
 		Plus,
@@ -1003,17 +1240,42 @@ export default {
 			showArchive: false,
 			sessionsLoading: true,
 
+			// Session search (REQ-SSRCH-001): what is typed, the term the shown
+			// results are for, and those results. An empty appliedSearch means the
+			// grouped list shows.
+			searchTerm: '',
+			appliedSearch: '',
+			searchResults: [],
+			searchTruncated: false,
+			searchTimer: null,
+			searchSeq: 0,
+			// The turn a search result was opened at, highlighted briefly.
+			highlightTurn: '',
+
+			// Selection mode (REQ-SSRCH-002).
+			selecting: false,
+			selected: [],
+			bulkBusy: false,
+			showBulkDelete: false,
+
 			// The session whose participants dialog is open (chat-work-together-in-one-session).
 			participantsTarget: null,
+			// Chat-fork-and-share-link: the session whose share dialog is open, and the sessions shared with the reader.
+			shareTarget: null,
+			sharedSessions: [],
 
 			// Active thread
 			activeSession: null,
 			messages: [],
+			// Flows-hand-off-and-wait: the work agents started in this session.
+			handoffs: [],
 			messagesLoading: false,
 			currentAgent: null,
 
 			// Agent selector
 			agents: [],
+			// personal-preferences: the agent a new session starts with, or ''.
+			defaultAgentId: '',
 			agentsLoading: true,
 			agentsError: '',
 			startingId: '',
@@ -1078,6 +1340,16 @@ export default {
 
 	computed: {
 		/**
+		 * The session's handoffs under the message each one belongs to.
+		 *
+		 * @return {Object<string, Array<object>>} Message id → handoffs.
+		 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+		 */
+		handoffGroups() {
+			return handoffsByMessage(this.handoffs, this.messages)
+		},
+
+		/**
 		 * Whether "Fork from here" is offered: the owner of an open, unarchived session.
 		 *
 		 * @return {boolean}
@@ -1112,6 +1384,23 @@ export default {
 		},
 
 		/**
+		 * The tool steps drawn under the streaming answer: one per tool call,
+		 * and one per part of a parallel delegation, with its target agent
+		 * and state.
+		 *
+		 * @return {Array<object>} The steps.
+		 * @spec openspec/changes/delegation-runs-in-parallel/tasks.md#task-2-1
+		 */
+		streamingSteps() {
+			return chatToolSteps(this.streamingTools, (id) => {
+				const agent = this.agents.find(
+					(entry) => entry.id === id || entry.uuid === id,
+				)
+				return agent?.name || ''
+			})
+		},
+
+		/**
 		 * The speech controls the chat's agent allows (dictation, read aloud).
 		 *
 		 * @return {{dictate: boolean, readAloud: boolean}} The controls to show.
@@ -1133,7 +1422,30 @@ export default {
 		 * @spec openspec/specs/session-surface/spec.md#requirement-human-and-automated-sessions-must-be-listed-separately
 		 */
 		visibleSessions() {
+			if (this.searchActive) {
+				return this.searchResults
+			}
 			return this.showArchive ? this.archivedSessions : this.sessions
+		},
+
+		/**
+		 * Whether the list shows search results rather than the grouped sessions.
+		 *
+		 * @return {boolean}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 */
+		searchActive() {
+			return this.appliedSearch !== ''
+		},
+
+		/**
+		 * The shown sessions a person may select: their own, not ones they joined.
+		 *
+		 * @return {Array<object>}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		selectableShown() {
+			return this.visibleSessions.filter((session) => this.isSelectable(session))
 		},
 
 		/**
@@ -1152,6 +1464,15 @@ export default {
 		 * @spec openspec/specs/session-surface/spec.md#requirement-human-and-automated-sessions-must-be-listed-separately
 		 */
 		sessionGroups() {
+			if (this.searchActive) {
+				return [
+					{
+						key: 'results',
+						heading: this.t('hermiq', 'Results for "{term}"', { term: this.appliedSearch }),
+						sessions: this.visibleSessions,
+					},
+				]
+			}
 			if (this.showArchive) {
 				return [
 					{ key: 'archive', heading: '', sessions: this.visibleSessions },
@@ -1316,11 +1637,18 @@ export default {
 		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
 		this.loadSessions()
 		this.loadAgents()
+		this.loadDefaultAgent()
 		this.loadSpeechService()
 		this.loadImageAvailability()
 	},
 
+	/**
+	 * Stop a pending session search, and hand the shared page kind back.
+	 *
+	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+	 */
 	beforeUnmount() {
+		clearTimeout(this.searchTimer)
 		// The holder is shared across routes, so leaving it on 'chat' would
 		// suppress the companion on every page visited after the chat.
 		if (this.cnAiContext) {
@@ -1330,6 +1658,30 @@ export default {
 
 	methods: {
 		sourceFileId,
+		clockTime,
+		handoffLine,
+
+		/**
+		 * Read the session's handoffs; a failure leaves the lines out, never the thread.
+		 *
+		 * @param {string} uuid The session.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+		 */
+		async loadHandoffs(uuid) {
+			let handoffs
+			try {
+				handoffs = await listHandoffs(uuid)
+			} catch {
+				handoffs = []
+			}
+			if (this.activeSession?.uuid === uuid) {
+				this.handoffs = handoffs
+			}
+		},
+
+		scopeDisplay,
+		similarityText,
 		sourceName,
 		sourcePage,
 
@@ -1371,6 +1723,63 @@ export default {
 		 */
 		openParticipants(session) {
 			this.participantsTarget = session
+		},
+
+		/**
+		 * Whether the share dialog is offered for a session: to its owner.
+		 *
+		 * @param {object} session The session row.
+		 * @return {boolean}
+		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+		 */
+		canShare(session) {
+			return canShareSession(session)
+		},
+
+		/**
+		 * Open the share dialog for a session.
+		 *
+		 * @param {object} session The session row.
+		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+		 */
+		openShare(session) {
+			this.shareTarget = session
+		},
+
+		/**
+		 * Keep the row's share count in step after a share or a removal.
+		 *
+		 * @param {Array<object>} shares The shares now.
+		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+		 */
+		onSharesChanged(shares) {
+			if (this.shareTarget) {
+				this.shareTarget.shareCount = shares.length
+			}
+		},
+
+		/**
+		 * Open a session shared with the reader on its read-only page.
+		 *
+		 * @param {object} session The shared session row.
+		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+		 */
+		openShared(session) {
+			this.$router.push(`/chat/shared/${encodeURIComponent(session.uuid)}`)
+		},
+
+		/**
+		 * Load the sessions shared with the reader; a failure leaves the group out.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+		 */
+		async loadSharedSessions() {
+			try {
+				this.sharedSessions = await listSharedSessions()
+			} catch {
+				this.sharedSessions = []
+			}
 		},
 
 		/**
@@ -1534,6 +1943,7 @@ export default {
 			try {
 				const { results } = await listSessions({ archived: false })
 				this.sessions = results
+				this.loadSharedSessions()
 				if (this.showArchive) {
 					const archived = await listSessions({ archived: true })
 					this.archivedSessions = archived.results
@@ -1572,6 +1982,11 @@ export default {
 		 */
 		async setArchiveTab(archive) {
 			this.showArchive = archive
+			this.stopSelecting()
+			if (this.searchActive) {
+				await this.runSearch()
+				return
+			}
 			if (archive) {
 				this.sessionsLoading = true
 				try {
@@ -1661,6 +2076,37 @@ export default {
 		},
 
 		/**
+		 * The "New session" button: with a default agent the person can still
+		 * pick (personal-preferences), start a session with it at once; else
+		 * clear the thread and show the agent picker.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+		 */
+		onNewSessionClick() {
+			const agent = defaultAgentOf(this.agents, this.defaultAgentId)
+			if (agent && !this.startingId) {
+				this.startWithAgent(agent)
+				return
+			}
+			this.newSession()
+		},
+
+		/**
+		 * Read the person's default agent for new sessions; none on failure.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+		 */
+		async loadDefaultAgent() {
+			try {
+				this.defaultAgentId = await getPreference(PREFERENCE_KEYS.defaultAgent)
+			} catch {
+				this.defaultAgentId = ''
+			}
+		},
+
+		/**
 		 * Return to the start-a-session surface.
 		 *
 		 * Clearing the thread is only visible when there was a thread. With none
@@ -1704,6 +2150,7 @@ export default {
 			this.activeSession = session
 			this.loadGoalFor(session)
 			this.messages = []
+			this.handoffs = []
 			// Files queued in another session do not follow the person here.
 			this.pendingAttachments = []
 			this.sendError = ''
@@ -1716,8 +2163,9 @@ export default {
 					this.loadAgentFor(session),
 				])
 				this.messages = results
+				this.loadHandoffs(session.uuid)
 				this.settings = this.defaultSettingsFor(this.currentAgent)
-				this.scrollToBottom()
+				this.scrollToTurn(session.match?.turnUuid || '')
 			} catch (e) {
 				showError(this.t('hermiq', 'Could not load the session.'))
 			} finally {
@@ -2025,6 +2473,8 @@ export default {
 						onToolCall: (payload) => {
 							this.streamingTools.push({
 								toolId: payload.toolId || this.t('hermiq', 'tool'),
+								arguments: payload.arguments || {},
+								result: null,
 								done: false,
 							})
 						},
@@ -2034,6 +2484,7 @@ export default {
 									tool.toolId === payload.toolId && !tool.done,
 							)
 							if (entry) {
+								entry.result = payload.result ?? null
 								entry.done = true
 							}
 						},
@@ -2207,6 +2658,7 @@ export default {
 				if (this.activeSession?.uuid === uuid) {
 					this.messages = results
 					this.activeSession = session
+					this.loadHandoffs(uuid)
 				}
 				await this.loadSessions(true)
 			} catch (e) {
@@ -2393,6 +2845,314 @@ export default {
 		},
 
 		/**
+		 * Debounce typing in the search field, then search the current tab.
+		 *
+		 * A term shorter than two characters searches nothing (the server ignores
+		 * it too), so clearing or shortening the field brings the groups back.
+		 *
+		 * @param {string} value The field's value.
+		 * @return {void}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 */
+		onSearchInput(value) {
+			this.searchTerm = value ?? ''
+			clearTimeout(this.searchTimer)
+			if (this.searchTerm.trim().length < SEARCH_MIN_LENGTH) {
+				this.endSearch()
+				return
+			}
+			this.searchTimer = setTimeout(() => this.runSearch(), SEARCH_DEBOUNCE_MS)
+		},
+
+		/**
+		 * Search the current tab for the typed term; a slower earlier answer never
+		 * overwrites a newer one.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 */
+		async runSearch() {
+			const term = this.searchTerm.trim()
+			if (term.length < SEARCH_MIN_LENGTH) {
+				this.endSearch()
+				return
+			}
+			const seq = ++this.searchSeq
+			this.sessionsLoading = true
+			try {
+				const { results, truncated } = await listSessions({
+					archived: this.showArchive,
+					search: term,
+					limit: SEARCH_LIMIT,
+				})
+				if (seq !== this.searchSeq) {
+					return
+				}
+				this.searchResults = results
+				this.searchTruncated = truncated
+				this.appliedSearch = term
+				this.selected = this.selected.filter((uuid) => results.some((session) => session.uuid === uuid))
+			} catch {
+				if (seq === this.searchSeq) {
+					showError(this.t('hermiq', 'Could not search the sessions.'))
+				}
+			} finally {
+				if (seq === this.searchSeq) {
+					this.sessionsLoading = false
+				}
+			}
+		},
+
+		/**
+		 * Clear the search field and return to the grouped list.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 */
+		clearSearch() {
+			this.searchTerm = ''
+			clearTimeout(this.searchTimer)
+			this.endSearch()
+		},
+
+		/**
+		 * Drop the search results; a search still in flight is ignored when it lands.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 */
+		endSearch() {
+			this.searchSeq++
+			this.appliedSearch = ''
+			this.searchResults = []
+			this.searchTruncated = false
+			this.sessionsLoading = false
+		},
+
+		/**
+		 * Scroll the thread to one turn and highlight it briefly, or to the end
+		 * when there is no such turn among the loaded messages.
+		 *
+		 * @param {string} turnUuid The turn to show, or ''.
+		 * @return {void}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 */
+		scrollToTurn(turnUuid) {
+			if (!turnUuid) {
+				this.scrollToBottom()
+				return
+			}
+			this.$nextTick(() => {
+				const container = this.$refs.messagesContainer
+				const turn = container?.querySelector?.(`[data-turn-uuid="${CSS.escape(turnUuid)}"]`)
+				if (!turn) {
+					this.scrollToBottom()
+					return
+				}
+				turn.scrollIntoView?.({ block: 'center' })
+				this.highlightTurn = turnUuid
+				setTimeout(() => {
+					if (this.highlightTurn === turnUuid) {
+						this.highlightTurn = ''
+					}
+				}, HIGHLIGHT_MS)
+			})
+		},
+
+		/**
+		 * A row was clicked or Enter was pressed: open it, or in selection mode tick it.
+		 *
+		 * @param {object} session The row's session.
+		 * @return {void}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		onRowActivate(session) {
+			if (this.selecting) {
+				this.toggleSelected(session)
+				return
+			}
+			this.selectSession(session)
+		},
+
+		/**
+		 * Space on a focused row toggles its checkbox in selection mode.
+		 *
+		 * @param {object} session The row's session.
+		 * @return {void}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		onRowSpace(session) {
+			if (this.selecting) {
+				this.toggleSelected(session)
+			}
+		},
+
+		/**
+		 * Whether a person may select a session: their own, not one they were invited into.
+		 *
+		 * @param {object} session The session.
+		 * @return {boolean}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		isSelectable(session) {
+			return Boolean(session?.uuid) && session.role !== 'participant'
+		},
+
+		/**
+		 * Whether a session is ticked.
+		 *
+		 * @param {object} session The session.
+		 * @return {boolean}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		isSelected(session) {
+			return this.selected.includes(session?.uuid)
+		},
+
+		/**
+		 * Tick or untick one session.
+		 *
+		 * @param {object} session The session.
+		 * @return {void}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		toggleSelected(session) {
+			if (!this.isSelectable(session)) {
+				return
+			}
+			this.selected = this.isSelected(session)
+				? this.selected.filter((uuid) => uuid !== session.uuid)
+				: [...this.selected, session.uuid]
+		},
+
+		/**
+		 * Turn on selection mode with nothing ticked.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		startSelecting() {
+			this.selecting = true
+			this.selected = []
+		},
+
+		/**
+		 * Leave selection mode and untick everything.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		stopSelecting() {
+			this.selecting = false
+			this.selected = []
+			this.showBulkDelete = false
+		},
+
+		/**
+		 * Tick every selectable row currently shown, search results included.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		selectAllShown() {
+			this.selected = this.selectableShown.map((session) => session.uuid)
+		},
+
+		/**
+		 * Archive or restore the ticked sessions in one action.
+		 *
+		 * @param {'archive'|'restore'} action What to do.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		async runBulk(action) {
+			if (this.selected.length === 0 || this.bulkBusy) {
+				return
+			}
+			this.bulkBusy = true
+			try {
+				const results = await bulkSessions(action, [...this.selected])
+				await this.applyBulk(action, results)
+			} catch {
+				showError(this.t('hermiq', 'Could not change the selected sessions.'))
+			} finally {
+				this.bulkBusy = false
+			}
+		},
+
+		/**
+		 * The bulk delete modal finished: apply its per-session answer.
+		 *
+		 * @param {Array<{uuid: string, status: string}>} results The outcome per uuid.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		async onBulkDeleted(results) {
+			await this.applyBulk('delete', results)
+		},
+
+		/**
+		 * Take the sessions the server changed out of the shown lists, return the
+		 * thread to the start surface when the open one was among them, and say
+		 * how many were changed and how many were not.
+		 *
+		 * @param {'archive'|'restore'|'delete'} action The action that ran.
+		 * @param {Array<{uuid: string, status: string}>} results The outcome per uuid.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		async applyBulk(action, results) {
+			const done = new Set(results.filter((entry) => entry.status === 'ok').map((entry) => entry.uuid))
+			const failed = this.selected.filter((uuid) => !done.has(uuid)).length
+			const keep = (session) => !done.has(session.uuid)
+			this.sessions = this.sessions.filter(keep)
+			this.archivedSessions = this.archivedSessions.filter(keep)
+			this.searchResults = this.searchResults.filter(keep)
+			if (this.activeSession && done.has(this.activeSession.uuid)) {
+				this.newSession()
+			}
+			this.stopSelecting()
+			if (done.size > 0) {
+				showSuccess(this.bulkDoneMessage(action, done.size))
+			}
+			if (failed > 0) {
+				showError(this.n('hermiq', '%n session could not be changed.', '%n sessions could not be changed.', failed))
+			}
+			if (action !== 'delete') {
+				await this.loadSessions(true)
+			}
+		},
+
+		/**
+		 * The confirmation after a bulk action.
+		 *
+		 * @param {'archive'|'restore'|'delete'} action The action that ran.
+		 * @param {number} count How many sessions it changed.
+		 * @return {string}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		bulkDoneMessage(action, count) {
+			if (action === 'archive') {
+				return this.n('hermiq', '%n session archived', '%n sessions archived', count)
+			}
+			if (action === 'restore') {
+				return this.n('hermiq', '%n session restored', '%n sessions restored', count)
+			}
+			return this.n('hermiq', '%n session deleted', '%n sessions deleted', count)
+		},
+
+		/**
+		 * Take one session out of the shown search results after it left the tab.
+		 *
+		 * @param {object} session The session.
+		 * @return {void}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 */
+		dropFromSearch(session) {
+			this.searchResults = this.searchResults.filter((entry) => entry.uuid !== session.uuid)
+		},
+
+		/**
 		 * Archive (soft delete) a session.
 		 *
 		 * @param {object} session The session to archive.
@@ -2402,6 +3162,7 @@ export default {
 		async archive(session) {
 			try {
 				await archiveSession(session.uuid)
+				this.dropFromSearch(session)
 				if (this.isActive(session)) {
 					this.newSession()
 				}
@@ -2422,6 +3183,7 @@ export default {
 		async restore(session) {
 			try {
 				await restoreSession(session.uuid)
+				this.dropFromSearch(session)
 				this.archivedSessions = this.archivedSessions.filter(
 					(entry) => entry.uuid !== session.uuid,
 				)
@@ -2455,6 +3217,7 @@ export default {
 			this.archivedSessions = this.archivedSessions.filter(
 				(entry) => entry.uuid !== session.uuid,
 			)
+			this.dropFromSearch(session)
 			if (this.isActive(session)) {
 				this.newSession()
 			}
@@ -2675,6 +3438,43 @@ export default {
 	white-space: nowrap;
 }
 
+/* The matching words of a search result, under its title (REQ-SSRCH-001). */
+.chat-page__row-excerpt {
+	font-size: 12px;
+	color: var(--color-main-text);
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.chat-page__row--selected {
+	background-color: var(--color-primary-element-light);
+}
+
+.chat-page__row-check {
+	flex: 0 0 auto;
+}
+
+/* Selection bar (REQ-SSRCH-002). */
+.chat-page__bulk {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 0;
+}
+
+.chat-page__bulk-count {
+	flex: 1 1 100%;
+	font-weight: 600;
+}
+
+/* A turn opened from a search result, highlighted for a moment. */
+.chat-page__message--found .chat-page__bubble {
+	box-shadow: 0 0 0 2px var(--color-primary-element);
+}
+
 .chat-page__row-actions {
 	flex-shrink: 0;
 }
@@ -2893,6 +3693,42 @@ export default {
 	color: var(--color-main-text);
 }
 
+.chat-page__handoffs {
+	margin: 8px 0 0;
+	padding: 0;
+	list-style: none;
+	font-size: 13px;
+	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__handoff--waiting {
+	color: var(--color-main-text);
+}
+
+.chat-page__handoff--failed,
+.chat-page__handoff--expired {
+	color: var(--color-error-text);
+}
+
+.chat-page__scope {
+	margin-top: 10px;
+	font-size: 12px;
+	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__scope p {
+	margin: 0;
+}
+
+.chat-page__scope-abstained {
+	font-weight: 600;
+	color: var(--color-main-text);
+}
+
+.chat-page__scope-detail span + span::before {
+	content: ' ';
+}
+
 .chat-page__sources {
 	margin-top: 10px;
 	padding-top: 10px;
@@ -2996,6 +3832,16 @@ a.chat-page__source-name {
 	font-size: 12px;
 	color: var(--color-text-maxcontrast);
 	font-style: italic;
+}
+
+.chat-page__stream-tool--part {
+	font-style: normal;
+}
+
+.chat-page__stream-tool--refused,
+.chat-page__stream-tool--failed,
+.chat-page__stream-tool--timeout {
+	color: var(--color-error-text);
 }
 
 .chat-page__typing {

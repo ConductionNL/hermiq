@@ -26,6 +26,10 @@ $routes = [
         ['name' => 'settings#create', 'url' => '/api/settings', 'verb' => 'POST'],
         ['name' => 'settings#load',  'url' => '/api/settings/load', 'verb' => 'POST'],
 
+        // The ADR-023 action matrix, administrators only (action-matrix-screen).
+        ['name' => 'actionMatrix#index',  'url' => '/api/actions', 'verb' => 'GET'],
+        ['name' => 'actionMatrix#update', 'url' => '/api/actions/{action}', 'verb' => 'PUT'],
+
         // Admin LLM provider selection (SPECTR-NEXTCLOUD-PLAN.md §8 move 1 — makes the
         // `nextcloud` TaskProcessing driver, and the pre-existing openai/ollama/fireworks
         // drivers, selectable from the admin panel instead of only via `occ`).
@@ -40,6 +44,17 @@ $routes = [
         ['name' => 'Settings\TalkBridgeSettings#bindRoom',  'url' => '/api/settings/talk-bridge/room', 'verb' => 'PUT'],
         ['name' => 'Settings\WebResearchSettings#get',    'url' => '/api/settings/web-research', 'verb' => 'GET'],
         ['name' => 'Settings\WebResearchSettings#update', 'url' => '/api/settings/web-research', 'verb' => 'PATCH'],
+        // Admin-only computer targets (tools-browser-and-computer-use REQ-COMPUTER-001):
+        // the machines an agent may operate, each reached only through an integriq source.
+        ['name' => 'Settings\ComputerTarget#index',      'url' => '/api/settings/computer-targets', 'verb' => 'GET'],
+        ['name' => 'Settings\ComputerTarget#create',     'url' => '/api/settings/computer-targets', 'verb' => 'POST'],
+        ['name' => 'Settings\ComputerTarget#update',     'url' => '/api/settings/computer-targets/{id}', 'verb' => 'PUT'],
+        ['name' => 'Settings\ComputerTarget#destroy',    'url' => '/api/settings/computer-targets/{id}', 'verb' => 'DELETE'],
+        ['name' => 'Settings\ComputerTarget#screenshot', 'url' => '/api/settings/computer-targets/{id}/screenshot', 'verb' => 'POST'],
+        // Where code runs (tools-code-sandbox, Task 2): admin only.
+        ['name' => 'Settings\CodeSandboxSettings#get',    'url' => '/api/settings/code-sandbox', 'verb' => 'GET'],
+        ['name' => 'Settings\CodeSandboxSettings#update', 'url' => '/api/settings/code-sandbox', 'verb' => 'PATCH'],
+        ['name' => 'Settings\CodeSandboxSettings#test',   'url' => '/api/settings/code-sandbox/test', 'verb' => 'POST'],
 
         // Generic per-user preferences (used by shared nextcloud-vue widgets, e.g. CnSupportDialog).
         ['name' => 'preferences#getPreference', 'url' => '/api/preferences/{key}', 'verb' => 'GET'],
@@ -166,6 +181,19 @@ $routes = [
             'verb'         => 'POST',
             'requirements' => ['id' => '[^/]+'],
         ],
+        // flows-hand-off-and-wait (REQ-A2A-001): Admin settings, Remote agents.
+        ['name' => 'remoteAgent#index',   'url' => '/api/remote-agents',      'verb' => 'GET'],
+        ['name' => 'remoteAgent#create',  'url' => '/api/remote-agents',      'verb' => 'POST'],
+        ['name' => 'remoteAgent#update',  'url' => '/api/remote-agents/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'remoteAgent#destroy', 'url' => '/api/remote-agents/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '[^/]+']],
+        // flows-hand-off-and-wait (REQ-HANDOFF-004): the one-time address a webhook workflow
+        // posts its late result to. Public on purpose; the handoff's single-use token is the check.
+        [
+            'name'         => 'handoffResult#post',
+            'url'          => '/api/handoffs/{id}/result',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
 
         // Public web chat (delivery-public-web-chat): a visitor who has not signed in
         // asks a website channel, named by its token. PublicChatController carries
@@ -178,6 +206,9 @@ $routes = [
         // Agent's OpenRegister AuditTrail as a version timeline + diff, and owner-only
         // rollback. No new storage — reads/replays the SAME AuditTrail SaveObject
         // already writes on every Agent save.
+        // Whether an agent's declared acting user still resolves (agent-acting-identity-picker
+        // REQ-AGID-003): read-scoped, so the edit page can warn before a run is refused.
+        ['name' => 'agentActingUser#show', 'url' => '/api/agents/{id}/acting-user', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentVersion#index', 'url' => '/api/agents/{id}/versions', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentVersion#diff',  'url' => '/api/agents/{id}/versions/diff', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         [
@@ -199,6 +230,8 @@ $routes = [
         ['name' => 'approvalVerify#verify', 'url' => '/api/approvals/verify', 'verb' => 'POST'],
         ['name' => 'approval#index',   'url' => '/api/approvals', 'verb' => 'GET'],
         ['name' => 'approval#approve', 'url' => '/api/approvals/{approvalId}/approve', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
+        // tools-browser-and-computer-use: the machine's screen now, for the reviewer of a pending computer action.
+        ['name' => 'approval#screenshot', 'url' => '/api/approvals/{approvalId}/screenshot', 'verb' => 'GET', 'requirements' => ['approvalId' => '[^/]+']],
         ['name' => 'approval#deny',    'url' => '/api/approvals/{approvalId}/deny', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
         // One route for the chat's approval card: {decision: granted|refused}.
         ['name' => 'approval#resolve', 'url' => '/api/approvals/{approvalId}/resolve', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
@@ -412,6 +445,11 @@ $routes = [
         ['name' => 'skillVersion#rollback', 'url' => '/api/skills/{id}/rollback', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'skillVersion#republish', 'url' => '/api/skills/{id}/republish', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
 
+        // Skill merges (skills-curator-merges-duplicates): the curator's pending merge
+        // proposals, and approving or rejecting one (action skill.merge-duplicates).
+        ['name' => 'skillMerge#index',   'url' => '/api/skill-merges', 'verb' => 'GET'],
+        ['name' => 'skillMerge#approve', 'url' => '/api/skill-merges/{id}/approve', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'skillMerge#reject',  'url' => '/api/skill-merges/{id}/reject', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         // Skills marketplace (skills-marketplace): quarantine install-from-source, review-approve, hub publish.
         ['name' => 'skillMarketplace#installFromSource', 'url' => '/api/skills/install-from-source', 'verb' => 'POST'],
         ['name' => 'skillMarketplace#approve',           'url' => '/api/skills/{id}/approve', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
@@ -502,6 +540,9 @@ $routes = [
         // cleanup job last enforced it and how much it removed.
         ['name' => 'Settings\RunRetentionSettings#get', 'url' => '/api/settings/run-retention', 'verb' => 'GET'],
         ['name' => 'Settings\RunRetentionSettings#update', 'url' => '/api/settings/run-retention', 'verb' => 'PUT'],
+        // observability-export-traces: trace export settings, admin only (REQ-TREX-001).
+        ['name' => 'Settings\TraceExportSettings#get', 'url' => '/api/settings/trace-export', 'verb' => 'GET'],
+        ['name' => 'Settings\TraceExportSettings#update', 'url' => '/api/settings/trace-export', 'verb' => 'PUT'],
         // Working with AI (compliance-ai-literacy): the lessons and answer check for the
         // signed-in person, and the organisation report and requirement switch for its admin.
         ['name' => 'literacy#lessons', 'url' => '/api/literacy/lessons', 'verb' => 'GET'],
@@ -624,6 +665,10 @@ $routes = [
         // Agents-bound-to-their-app task 5: the record summary on the agent leaf.
         ['name' => 'recordSummary#show', 'url' => '/api/assistant/summary', 'verb' => 'GET'],
         ['name' => 'recordSummary#summarise', 'url' => '/api/assistant/summarise', 'verb' => 'POST'],
+        // reports-on-a-schedule 1.2: subscribe and cancel on each card of the Reports page.
+        ['name' => 'reportSubscription#index', 'url' => '/api/report-subscriptions', 'verb' => 'GET'],
+        ['name' => 'reportSubscription#subscribe', 'url' => '/api/report-subscriptions/{report}', 'verb' => 'POST'],
+        ['name' => 'reportSubscription#cancel', 'url' => '/api/report-subscriptions/{report}', 'verb' => 'DELETE'],
 
         // Structured PII/redaction-span detection surface (woo-llm-anonymisation):
         // stateless, tool-free, reuses the case-assistant-surface plumbing —
@@ -645,6 +690,8 @@ $routes = [
         // aliases rather than being removed with the rename.
         ['name' => 'session#index', 'url' => '/api/sessions', 'verb' => 'GET'],
         ['name' => 'session#create', 'url' => '/api/sessions', 'verb' => 'POST'],
+        // Archive, restore or delete several sessions at once (chat-session-search-and-bulk-delete, REQ-SSRCH-002).
+        ['name' => 'session#bulk', 'url' => '/api/sessions/bulk', 'verb' => 'POST'],
         ['name' => 'session#show', 'url' => '/api/sessions/{uuid}', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
         [
             'name'         => 'session#messages',
@@ -683,6 +730,20 @@ $routes = [
             'verb'         => 'DELETE',
             'requirements' => ['uuid' => '[^/]+', 'uid' => '[^/]+'],
         ],
+        // chat-fork-and-share-link: the owner shares a session read-only with users and groups.
+        ['name' => 'sessionShare#index', 'url' => '/api/sessions/{uuid}/shares', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'sessionShare#create', 'url' => '/api/sessions/{uuid}/shares', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
+        [
+            'name'         => 'sessionShare#destroy',
+            'url'          => '/api/sessions/{uuid}/shares/{type}/{id}',
+            'verb'         => 'DELETE',
+            'requirements' => ['uuid' => '[^/]+', 'type' => 'user|group', 'id' => '[^/]+'],
+        ],
+
+        // memory-knowledge-bases: the owner uploads documents into a knowledge base's folder in
+        // Files, and the detail page reads each source's indexing state and the only-you notice.
+        ['name' => 'knowledgeBase#upload', 'url' => '/api/knowledge-bases/{id}/documents', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'knowledgeBase#sources', 'url' => '/api/knowledge-bases/{id}/sources', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
 
         // DEPRECATED aliases. Same controller, same methods, same auth. Retire them on
         // traffic data (SessionController logs at info level when one is hit), not on
@@ -787,6 +848,10 @@ $routes = [
         ],
         ['name' => 'Settings\ReportSimilaritySettings#get',    'url' => '/api/settings/report-similarity', 'verb' => 'GET'],
         ['name' => 'Settings\ReportSimilaritySettings#update', 'url' => '/api/settings/report-similarity', 'verb' => 'PUT'],
+        // memory-retrieval-scope (REQ-RSCOPE-002): the Nextcloud tag that marks a document as validated.
+        ['name' => 'Settings\ValidatedTagSettings#get',    'url' => '/api/settings/validated-tag', 'verb' => 'GET'],
+        ['name' => 'Settings\ValidatedTagSettings#update', 'url' => '/api/settings/validated-tag', 'verb' => 'PUT'],
+        ['name' => 'Settings\ValidatedTagSettings#create', 'url' => '/api/settings/validated-tag', 'verb' => 'POST'],
 
         // A conversational intake that files for the citizen
         // (a-conversational-intake-that-files-for-the-citizen): one conversation per

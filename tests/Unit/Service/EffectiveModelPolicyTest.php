@@ -36,6 +36,8 @@ use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for the effective model policy and its check.
@@ -93,15 +95,16 @@ class EffectiveModelPolicyTest extends TestCase {
 
 			public function find(
 				int|string $id,
-				?array $_extend = [],
-				bool $files = false,
-				mixed $register = null,
-				mixed $schema = null,
+				?ObjectFindOptions $options = null,
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $_render = true,
-				bool $_audit = true,
+				bool $_multitenancy = true
 			): ?ObjectEntity {
+				$_extend = $options?->extend ?? [];
+				$files = $options?->files ?? false;
+				$register = $options?->register;
+				$schema = $options?->schema;
+				$_render = $options?->render ?? true;
+				$_audit = $options?->audit ?? true;
 				foreach ($this->policies as $policy) {
 					if ($policy instanceof ObjectEntity && $policy->getUuid() === $id) {
 						return $policy;
@@ -113,21 +116,22 @@ class EffectiveModelPolicyTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				bool $failIfExists = false,
-				bool $_unowned = false,
-				bool $_dedupOverride = false,
-				?string $_owner = null,
+				bool $_multitenancy = true
 			): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
+				$silent = $options->policy->silent ?? false;
+				$_validation = $options->policy->validation ?? true;
+				$uploadedFiles = $options->uploadedFiles;
+				$currentUser = $options->actor->currentUser;
+				$failIfExists = $options->policy->failIfExists ?? false;
+				$_unowned = $options->actor->unowned ?? false;
+				$_dedupOverride = $options->policy->dedupOverride ?? false;
+				$_owner = $options->actor->owner;
 				$this->saves[] = ['object' => $object, 'uuid' => $uuid];
 				$saved = new ObjectEntity();
 				$saved->setUuid($uuid ?? 'new-uuid');
@@ -199,6 +203,7 @@ class EffectiveModelPolicyTest extends TestCase {
 				'allowed' => [['provider' => 'ollama', 'models' => ['qwen']]],
 				'defaultModel' => ['provider' => 'ollama', 'model' => 'qwen'],
 				'requireNoTraining' => true,
+				'fallbackChain' => [],
 			],
 			$check->effectivePolicyFor(organisation: 'org-a')
 		);
@@ -234,7 +239,7 @@ class EffectiveModelPolicyTest extends TestCase {
 		$unconfigured = $this->check([], chatProvider: '');
 
 		$this->assertSame(
-			['source' => 'fallback', 'allowed' => [['provider' => 'ollama', 'models' => []]], 'defaultModel' => null, 'requireNoTraining' => false],
+			['source' => 'fallback', 'allowed' => [['provider' => 'ollama', 'models' => []]], 'defaultModel' => null, 'requireNoTraining' => false, 'fallbackChain' => []],
 			$configured->effectivePolicyFor(organisation: 'org-a')
 		);
 		$this->assertTrue($configured->isAllowed(organisation: 'org-a', provider: 'ollama', model: 'any'));
@@ -276,11 +281,11 @@ class EffectiveModelPolicyTest extends TestCase {
 		$updated = $service->update(uuid: 'p-org', payload: ['requireNoTraining' => false]);
 
 		$this->assertSame(
-			['id' => 'p-org', 'organisation' => 'org-a', 'source' => 'organisation', 'allowed' => [['provider' => 'openai', 'models' => ['gpt-4o']]], 'defaultModel' => ['provider' => 'openai', 'model' => 'gpt-4o'], 'requireNoTraining' => true],
+			['id' => 'p-org', 'organisation' => 'org-a', 'source' => 'organisation', 'allowed' => [['provider' => 'openai', 'models' => ['gpt-4o']]], 'defaultModel' => ['provider' => 'openai', 'model' => 'gpt-4o'], 'requireNoTraining' => true, 'fallbackChain' => []],
 			$upserted
 		);
-		$this->assertSame(['new-uuid', '', 'instance', [], null, false], array_values($instance));
-		$this->assertSame(['p-org', 'org-of-record', 'organisation', [], null, false], array_values($updated));
+		$this->assertSame(['new-uuid', '', 'instance', [], null, false, []], array_values($instance));
+		$this->assertSame(['p-org', 'org-of-record', 'organisation', [], null, false, []], array_values($updated));
 		$this->assertSame('p-org', $objects->saves[0]['uuid']);
 		$this->assertNull($objects->saves[1]['uuid']);
 	}//end testAWriteReturnsTheStoredShape()
@@ -304,4 +309,32 @@ class EffectiveModelPolicyTest extends TestCase {
 		$this->expectExceptionMessage("ModelPolicy 'missing' does not exist");
 		$service->update(uuid: 'missing', payload: []);
 	}//end testAWriteOutsideTheRulesIsRefused()
+
+	/**
+	 * The service hands the effective chain to the turn: the organisation's own, else the
+	 * instance default's, and nothing malformed.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-3-the-fallback-loop-with-the-same-gates-per-hop
+	 */
+	public function testTheServiceHandsTheEffectiveChainToTheTurn(): void {
+		$objects = $this->objectService(
+			[
+				$this->policy('p-instance', '', ['allowed' => [['provider' => 'ollama', 'models' => []]], 'fallbackChain' => [['provider' => 'ollama', 'model' => 'qwen2.5']]]),
+				$this->policy(
+					'p-org',
+					'org-a',
+					[
+						'allowed' => [['provider' => 'fireworks', 'models' => []], ['provider' => 'ollama', 'models' => []]],
+						'fallbackChain' => [['provider' => 'fireworks', 'model' => 'llama'], ['model' => 'no-provider']],
+					]
+				),
+			]
+		);
+		$service = $this->service(objects: $objects);
+
+		$this->assertSame([['provider' => 'fireworks', 'model' => 'llama']], $service->fallbackChainFor(organisation: 'org-a'));
+		$this->assertSame([['provider' => 'ollama', 'model' => 'qwen2.5']], $service->fallbackChainFor(organisation: 'org-b'));
+	}//end testTheServiceHandsTheEffectiveChainToTheTurn()
 }//end class

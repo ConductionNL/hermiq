@@ -120,3 +120,17 @@ export const usePublicChannelStore = createObjectStore('agentpublicchannel', {
 	register: 'hermiq',
 	schema: 'agentpublicchannel',
 })
+
+/**
+ * Canonical OpenRegister object store for the 'agentknowledgebase' schema
+ * (memory-knowledge-bases): the knowledge base pages and the agent form's
+ * knowledge base picker read and write knowledge bases through the generic
+ * object path. Uploads and the sources' state are Hermiq routes
+ * (src/api/knowledgeBases.js), because they touch Files.
+ *
+ * @spec openspec/changes/memory-knowledge-bases/specs/knowledge-bases/spec.md#requirement-an-owner-can-create-a-knowledge-base-and-fill-it-from-files-req-kb-001
+ */
+export const useKnowledgeBaseStore = createObjectStore('agentknowledgebase', {
+	register: 'hermiq',
+	schema: 'agentknowledgebase',
+})

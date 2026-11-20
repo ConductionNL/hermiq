@@ -142,6 +142,11 @@ final class ListenerRegistrar {
 		// its origins are origins, and a new channel gets its random token.
 		$context->registerEventListener(event: ObjectCreatingEvent::class, listener: PublicChannelGuardListener::class);
 		$context->registerEventListener(event: ObjectUpdatingEvent::class, listener: PublicChannelGuardListener::class);
+
+		// An agent's reference models stay inside the model policy, on every
+		// write path (models-several-models-per-turn, REQ-MENS-001).
+		$context->registerEventListener(event: ObjectCreatingEvent::class, listener: AgentEnsembleGuardListener::class);
+		$context->registerEventListener(event: ObjectUpdatingEvent::class, listener: AgentEnsembleGuardListener::class);
 	}//end registerAgentObjectListeners()
 
 	/**
@@ -284,6 +289,14 @@ final class ListenerRegistrar {
 		$context->registerEventListener(
 			event: \OCA\Hermiq\Listener\TaskTerminalListener::EVENT_TASK_TERMINAL,
 			listener: \OCA\Hermiq\Listener\TaskTerminalListener::class
+		);
+
+		// Flows-hand-off-and-wait: a flow an agent started closes its handoff
+		// when OpenRegister persists the run in a terminal status. By event
+		// name for the same reason as the task listener above.
+		$context->registerEventListener(
+			event: \OCA\Hermiq\Service\Handoff\FlowHandoffs::EVENT_CLASS,
+			listener: \OCA\Hermiq\Listener\FlowRunTerminalListener::class
 		);
 
 		// Approvals decided by reaction (talk-approval-reactions): spreed

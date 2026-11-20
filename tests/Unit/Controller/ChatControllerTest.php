@@ -39,6 +39,9 @@ use OCP\IUserSession;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for the agent-engine-port ChatController.
@@ -348,6 +351,7 @@ class ChatControllerTest extends TestCase {
 		$args = null;
 		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$passed = LegacyObjectArgs::positional(method: 'saveObject', args: $passed);
 				$args = $passed;
 				return $this->entity('conv-new', $passed[0]);
 			}
@@ -388,6 +392,7 @@ class ChatControllerTest extends TestCase {
 		$this->engine->method('processMessage')->willReturn(['message' => 'hello', 'messageId' => 'msg-1']);
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$saved): ObjectEntity {
+				$passed = LegacyObjectArgs::positional(method: 'saveObject', args: $passed);
 				$saved[] = $passed[0];
 				return $this->entity('conv-new', $passed[0]);
 			}
@@ -715,7 +720,11 @@ class ChatControllerTest extends TestCase {
 	public function testSendFeedbackChecksMessageBelongsToConversation(): void {
 		$this->stubParams(['type' => 'positive']);
 		$this->objectService->method('find')->willReturnCallback(
-			function (int|string $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schema = null): ?ObjectEntity {
+			function (int|string $id, ?ObjectFindOptions $options = null): ?ObjectEntity {
+				$_extend = $options?->extend ?? [];
+				$files = $options?->files ?? false;
+				$register = $options?->register;
+				$schema = $options?->schema;
 				if ($schema === 'agentsession') {
 					return $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);
 				}
@@ -743,7 +752,11 @@ class ChatControllerTest extends TestCase {
 	public function testSendFeedbackCreatesFeedbackObject(): void {
 		$this->stubParams(['type' => 'negative', 'comment' => 'wrong answer']);
 		$this->objectService->method('find')->willReturnCallback(
-			function (int|string $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schema = null): ?ObjectEntity {
+			function (int|string $id, ?ObjectFindOptions $options = null): ?ObjectEntity {
+				$_extend = $options?->extend ?? [];
+				$files = $options?->files ?? false;
+				$register = $options?->register;
+				$schema = $options?->schema;
 				if ($schema === 'agentsession') {
 					return $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);
 				}
@@ -759,7 +772,11 @@ class ChatControllerTest extends TestCase {
 		$savedUuid = 'unset';
 		$savedRbac = null;
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null, ?string $uuid = null, bool $_rbac = true) use (&$saved, &$savedUuid, &$savedRbac): ObjectEntity {
+			function (mixed $object, ObjectSaveOptions $options = new ObjectSaveOptions(), bool $_rbac = true) use (&$saved, &$savedUuid, &$savedRbac): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$saved = $object;
 				$savedUuid = $uuid;
 				$savedRbac = $_rbac;
@@ -802,7 +819,11 @@ class ChatControllerTest extends TestCase {
 	public function testSendFeedbackUpdatesExistingFeedback(): void {
 		$this->stubParams(['type' => 'positive', 'comment' => 'better now']);
 		$this->objectService->method('find')->willReturnCallback(
-			function (int|string $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schema = null): ?ObjectEntity {
+			function (int|string $id, ?ObjectFindOptions $options = null): ?ObjectEntity {
+				$_extend = $options?->extend ?? [];
+				$files = $options?->files ?? false;
+				$register = $options?->register;
+				$schema = $options?->schema;
 				if ($schema === 'agentsession') {
 					return $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);
 				}
@@ -827,7 +848,11 @@ class ChatControllerTest extends TestCase {
 		$saved = null;
 		$savedUuid = null;
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$saved, &$savedUuid): ObjectEntity {
+			function (mixed $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$saved, &$savedUuid): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$saved = $object;
 				$savedUuid = $uuid;
 				$entity = new ObjectEntity();

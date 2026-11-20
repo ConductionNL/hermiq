@@ -47,6 +47,9 @@ use OCA\Hermiq\Kernel\Contracts\AgentVersionServiceInterface;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use RuntimeException;
 use Throwable;
@@ -218,8 +221,7 @@ class AgentVersionService implements AgentVersionServiceInterface {
 
 		$agent = $this->objectService->find(
 			id: $agentUuid,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 		);
 		if (($agent instanceof ObjectEntity) === false) {
 			throw new RuntimeException('Agent not found.');
@@ -235,9 +237,10 @@ class AgentVersionService implements AgentVersionServiceInterface {
 
 		return $this->objectService->saveObject(
 			object: $payload,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
-			uuid: $agentUuid
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+				uuid: $agentUuid
+			)
 		);
 
 	}//end rollback()
@@ -354,8 +357,7 @@ class AgentVersionService implements AgentVersionServiceInterface {
 	private function liveAgentData(string $agentUuid): array {
 		$agent = $this->objectService->find(
 			id: $agentUuid,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 		);
 		if (($agent instanceof ObjectEntity) === false) {
 			throw new RuntimeException('Agent not found.');
