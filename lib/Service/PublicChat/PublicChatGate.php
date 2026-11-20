@@ -158,9 +158,9 @@ class PublicChatGate {
 			return false;
 		}
 
-		$data = $agent;
+		$data = (array)$agent;
 		if ($agent instanceof ObjectEntity) {
-			$data = $agent->getObject();
+			$data = (array)$agent->getObject();
 		}
 
 		$grants = array_filter(
