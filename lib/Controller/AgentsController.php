@@ -40,9 +40,11 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use Exception;
+use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\AgentCatalogInterface;
+use OCA\Hermiq\Service\Agent\ReferenceModelSettings;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
@@ -147,6 +149,7 @@ class AgentsController extends Controller {
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param AgentAccessServiceInterface $agentAccess The one per-agent access predicate.
 	 * @param AgentCatalogInterface $catalog The agent list and row by who asks (agents-sharing-and-catalog-columns).
+	 * @param ReferenceModelSettings $referenceModels Checks an agent's ensemble against the model policy (models-several-models-per-turn).
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
@@ -158,6 +161,7 @@ class AgentsController extends Controller {
 		private readonly LoggerInterface $logger,
 		private readonly AgentAccessServiceInterface $agentAccess,
 		private readonly AgentCatalogInterface $catalog,
+		private readonly ReferenceModelSettings $referenceModels,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
@@ -317,6 +321,20 @@ class AgentsController extends Controller {
 				$data['searchObjects'] = true;
 			}
 
+			// An ensemble names only models the organisation's policy allows
+			// (models-several-models-per-turn REQ-MENS-001).
+			if (array_key_exists('ensemble', $data) === true) {
+				$uid = (string)$this->userSession->getUser()?->getUID();
+				try {
+					$data['ensemble'] = $this->referenceModels->normalise(
+						raw: $data['ensemble'],
+						organisation: $this->referenceModels->organisationOf(uid: $uid)
+					);
+				} catch (InvalidArgumentException $e) {
+					return new JSONResponse(data: ['error' => $e->getMessage()], statusCode: Http::STATUS_BAD_REQUEST);
+				}
+			}
+
 			// Give a new agent the capability meta-tools so it can build up from
 			// there. Only when `tools` was not supplied at all — an explicit
 			// empty array is a deliberate "no tools" and is respected.
@@ -359,7 +377,7 @@ class AgentsController extends Controller {
 
 			return new JSONResponse(
 				data: ['error' => 'Failed to create agent: ' . $e->getMessage()],
-				statusCode: Http::STATUS_BAD_REQUEST
+				statusCode: $this->failureStatus(exception: $e)
 			);
 		}//end try
 	}//end create()
@@ -406,6 +424,19 @@ class AgentsController extends Controller {
 
 			$data = $this->stripProtectedKeys(data: $this->request->getParams());
 
+			// The agent's own organisation's policy decides its reference
+			// models; a refused one leaves the agent unchanged (REQ-MENS-001).
+			if (array_key_exists('ensemble', $data) === true) {
+				try {
+					$data['ensemble'] = $this->referenceModels->normalise(
+						raw: $data['ensemble'],
+						organisation: (string)($agent->getOrganisation() ?? '')
+					);
+				} catch (InvalidArgumentException $e) {
+					return new JSONResponse(data: ['error' => $e->getMessage()], statusCode: Http::STATUS_BAD_REQUEST);
+				}
+			}
+
 			// Update agent properties via merge (hydrate semantics: partial
 			// update over the existing payload).
 			$payload = array_merge($agent->getObject(), $data);
@@ -444,7 +475,7 @@ class AgentsController extends Controller {
 
 			return new JSONResponse(
 				data: ['error' => 'Failed to update agent: ' . $e->getMessage()],
-				statusCode: Http::STATUS_BAD_REQUEST
+				statusCode: $this->failureStatus(exception: $e)
 			);
 		}//end try
 	}//end update()
@@ -662,6 +693,25 @@ class AgentsController extends Controller {
 			);
 		}//end try
 	}//end tools()
+
+	/**
+	 * The status for a failed save: 403 when OpenRegister refused the caller, 400 otherwise.
+	 *
+	 * OpenRegister's NotAuthorizedException carries 403 as its code.
+	 *
+	 * @param Exception $exception The exception the save threw.
+	 *
+	 * @return int The HTTP status.
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md
+	 */
+	private function failureStatus(Exception $exception): int {
+		if ((int)$exception->getCode() === Http::STATUS_FORBIDDEN) {
+			return Http::STATUS_FORBIDDEN;
+		}
+
+		return Http::STATUS_BAD_REQUEST;
+	}//end failureStatus()
 
 	/**
 	 * Strip routing internals, identity fields, and the owner/organisation

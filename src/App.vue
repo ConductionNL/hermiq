@@ -146,7 +146,7 @@ import {
 	CnObjectSidebar,
 	CnSetupWizard,
 } from '@conduction/nextcloud-vue'
-import { translate as ncT } from '@nextcloud/l10n'
+import { translatePlural as ncN, translate as ncT } from '@nextcloud/l10n'
 import { NcAppSettingsSection, NcButton } from '@nextcloud/vue'
 import { reactive } from 'vue'
 import PersonalPreferences from './components/PersonalPreferences.vue'
@@ -158,6 +158,7 @@ import SkillMaturityDots from './widgets/SkillMaturityDots.vue'
 // Lives beside the manifest (not inside it): the app-manifest v2 schema has no
 // root `credentials` block, and the declaration is consumed only by this shell.
 import credentialDeclarations from './credentials.json'
+import { ensembleSummary } from './utils/agentEnsemble.js'
 import { agentCatalogFormatters } from './utils/agentSharing.js'
 
 export default {
@@ -276,7 +277,12 @@ export default {
 		 * @return {object} Map of formatter id to function.
 		 */
 		formatters() {
-			return agentCatalogFormatters(ncT)
+			return {
+				...agentCatalogFormatters(ncT),
+				// The agent's Configuration card: "Ensemble: 2 reference models"
+				// (models-several-models-per-turn REQ-MENS-001).
+				agentEnsemble: (value) => ensembleSummary(value, ncN, ncT),
+			}
 		},
 
 		/**

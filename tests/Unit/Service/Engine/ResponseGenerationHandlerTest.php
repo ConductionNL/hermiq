@@ -481,8 +481,8 @@ class ResponseGenerationHandlerTest extends TestCase {
 			}
 		}
 
-		$this->assertSame([[], null, null, '', null, null, null, [], []], $seen[0]);
-		$this->assertSame([[], null, null, null, null, null, null, [], []], $seen[1]);
+		$this->assertSame([[], null, null, '', null, null, null, [], [], null, null], $seen[0]);
+		$this->assertSame([[], null, null, null, null, null, null, [], [], null, null], $seen[1]);
 
 	}//end testUnsetAgentSettingsReachTheFactoryAsNull()
 
@@ -707,4 +707,49 @@ class ResponseGenerationHandlerTest extends TestCase {
 		$this->assertSame(50, ($handler->lastUsage['completionTokens'] ?? null));
 		$this->assertArrayHasKey('llmSeconds', $handler->lastUsage);
 	}//end testAnOpenAiTurnRecordsTheTokensOfTheCall()
+
+	/**
+	 * A rate-limited first provider: the handler resolves the chain's hop through
+	 * createChatDriver with the hop as override, answers from it, and records both attempts.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-3-the-fallback-loop-with-the-same-gates-per-hop
+	 */
+	public function testARateLimitedTurnIsAnsweredByTheNextHop(): void {
+		$overrides = [];
+		$factory = $this->createMock(ProviderFactory::class);
+		$factory->method('getLlmConfig')->willReturn(['chatProvider' => 'fireworks']);
+		$factory->method('fallbackChainFor')->willReturn([['provider' => 'fireworks', 'model' => 'llama-small']]);
+		$factory->method('createChatDriver')->willReturnCallback(
+			function (array $llmConfig, ...$rest) use (&$overrides): ChatDriver {
+				$args = func_get_args();
+				$overrides[] = [($args[9] ?? null), ($args[10] ?? null)];
+				return new ChatDriver(provider: 'fireworks', chat: null, model: (string)($args[10] ?? 'llama-big'), credentialId: 'c', baseUrl: 'https://x');
+			}
+		);
+		$factory->method('callFireworksChat')->willReturnCallback(
+			static function (string $credentialId, string $model): string {
+				if ($model === 'llama-big') {
+					throw \OCA\Hermiq\Service\Llm\ProviderCallFailedException::fromHttpStatus(status: 429, message: 'Too many requests');
+				}
+
+				return 'Answer from '.$model;
+			}
+		);
+		$trace = new \OCA\Hermiq\Service\Engine\RunTraceCollector();
+
+		$response = (new ResponseGenerationHandler($factory, $this->toollessLoop(), new NullLogger()))->generateResponse(
+			userMessage: 'Hi',
+			context: ['text' => '', 'sources' => []],
+			messageHistory: [],
+			agent: null,
+			trace: $trace
+		);
+
+		$this->assertSame('Answer from llama-small', $response);
+		$this->assertSame([[null, null], ['fireworks', 'llama-small']], $overrides);
+		$this->assertSame(['failed', 'answered'], array_column($trace->providerAttempts(), 'outcome'));
+		$this->assertSame('Fireworks was rate limited. Answered by fireworks llama-small.', $trace->toArray()[0]['name']);
+	}//end testARateLimitedTurnIsAnsweredByTheNextHop()
 }//end class

@@ -80,6 +80,8 @@ import AnalyticsBreakdownWidget from './widgets/AnalyticsBreakdownWidget.vue'
 import ChatHealthBlock from './widgets/ChatHealthBlock.vue'
 import ComplianceOperations from './widgets/ComplianceOperations.vue'
 import EvalRunPanelWidget from './widgets/EvalRunPanelWidget.vue'
+// memory-knowledge-bases: the KnowledgeBaseDetail page's sources section.
+import KnowledgeBaseSources from './widgets/KnowledgeBaseSources.vue'
 // skill-self-improvement: the SkillDetail draft review surface (side-by-side
 // diff, provenance, verdicts, Accept/Edit/Reject) and the version history +
 // rollback + republish widget.
@@ -95,6 +97,9 @@ import SkillLinkPanel from './widgets/SkillLinkPanel.vue'
 // skill-maturity: the SkillDetail page's durable maturity scorecard widget
 // (per-level pass/fail + reasons + Qualify + action-gated Attest-L4).
 import SkillMaturityScorecard from './widgets/SkillMaturityScorecard.vue'
+// skills-curator-merges-duplicates: the curator's merge proposals on the Skills
+// index page's below-header slot.
+import SkillMergeProposals from './widgets/SkillMergeProposals.vue'
 // skill-install-idempotency: the SkillDetail page's origin + review-status card
 // (where the skill came from, when it was last refreshed, why it is quarantined,
 // and whether local learnings are ahead of the source).
@@ -544,6 +549,24 @@ export default {
 	},
 
 	/**
+	 * Skill merge proposals (skills-curator-merges-duplicates) — the curator's
+	 * pending merges of duplicate skills, with Merge and Keep both, resolved via
+	 * the SkillsCatalog index page's `page.slots.below-header`.
+	 *
+	 * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
+	 */
+	'skill-merge-proposals': {
+		kind: 'widget',
+		component: SkillMergeProposals,
+		defaultSize: { w: 12, h: 4 },
+		minSize: { w: 6, h: 3 },
+		maxSize: { w: 12, h: 8 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'Approving a merge archives the duplicate and moves its agents to the survivor across two objects and the agents that use them, behind the skill.merge-duplicates action (SkillMergeController); a declared object-table/object-op over the skill schema cannot express that two-object decision or its action gate (ADR-049).',
+	},
+
+	/**
 	 * Chat health (spec-coverage-built-rows, row op-health) — whether chat
 	 * works, the AI provider, the default model and each connection's state
 	 * and check time, resolved via the Integrations index page's
@@ -594,6 +617,18 @@ export default {
 		allowedSlots: ['body'],
 		propsSchema: { type: 'object', properties: {} },
 		_note: 'Running a dataset against an agent is a governed, non-delivering Hermiq action (EvalRunController) with no OpenRegister object-trigger equivalent — object-list/object-op cannot express it (ADR-049).',
+	},
+
+	'knowledge-base-sources': {
+		// @custom-widget-ratchet exclude uploads into Files, the Nextcloud file picker and per-source state from a Hermiq route (indexing state, only-you notice) — no built-in widget writes to Files or reads a computed per-row state, so this stays a custom widget.
+		kind: 'widget',
+		component: KnowledgeBaseSources,
+		defaultSize: { w: 12, h: 6 },
+		minSize: { w: 6, h: 4 },
+		maxSize: { w: 12, h: 12 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'memory-knowledge-bases: sources of a KnowledgeBase with upload, add from Files, add a folder and remove; the list scrolls inside its cell.',
 	},
 
 	/**

@@ -1,0 +1,579 @@
+{
+  "info": {
+    "_postman_id": "5b0e7c41-2f9a-4c3e-8d21-202611170004",
+    "name": "Hermiq computer targets (tools-browser-and-computer-use)",
+    "description": "Contract tests for the admin-only computer-target routes (REQ-COMPUTER-001): an admin lists targets; a target without a name or an integriq source is refused with its reason; a user who is not an admin gets 403 on list, add, test screenshot and delete; an unknown target is 404. Seeds and removes its own non-admin user. The test screenshot itself needs a registered machine behind an integriq source and is live-only. @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "item": [
+    {
+      "name": "Setup: create a user who is not an admin",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{admin_user}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{admin_password}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "OCS-APIRequest",
+            "value": "true"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/x-www-form-urlencoded"
+          }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "userid",
+              "value": "{{member_user}}"
+            },
+            {
+              "key": "password",
+              "value": "{{member_password}}"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/ocs/v2.php/cloud/users?format=json"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// 200 = created; OCS statuscode 102 = already exists (idempotent re-run).",
+              "pm.test('member available', () => {",
+              "    if (pm.response.code === 200) { return; }",
+              "    pm.expect(pm.response.json()?.ocs?.meta?.statuscode).to.eql(102);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin lists the computer targets",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{admin_user}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{admin_password}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "OCS-APIRequest",
+            "value": "true"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 for an admin', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "const rows = Array.isArray(body) ? body : (body.results ?? body.targets ?? []);",
+              "pm.test('an array of targets', () => pm.expect(rows).to.be.an('array'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin adding a target without an integriq source is refused",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{admin_user}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{admin_password}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "OCS-APIRequest",
+            "value": "true"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Newman werkplek\",\n  \"source\": \"\",\n  \"os\": \"windows\",\n  \"enabled\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('400 without a source', () => pm.response.to.have.status(400));",
+              "pm.test('the refusal names the source', () => pm.expect(pm.response.text()).to.include('Choose an integriq source that reaches the machine.'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin adding a target without a name is refused",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{admin_user}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{admin_password}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "OCS-APIRequest",
+            "value": "true"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"\",\n  \"source\": \"00000000-0000-0000-0000-000000000000\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('400 without a name', () => pm.response.to.have.status(400));",
+              "pm.test('the refusal names the name', () => pm.expect(pm.response.text()).to.include('A computer target needs a name.'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "A user who is not an admin cannot list targets",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{member_user}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{member_password}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "OCS-APIRequest",
+            "value": "true"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('403 for a user who is not an admin', () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "A user who is not an admin cannot add a target",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{member_user}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{member_password}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "OCS-APIRequest",
+            "value": "true"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"x\",\n  \"source\": \"y\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('403 for a user who is not an admin', () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "A user who is not an admin cannot take a test screenshot",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{member_user}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{member_password}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "OCS-APIRequest",
+            "value": "true"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets/00000000-0000-0000-0000-000000000000/screenshot"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('403 for a user who is not an admin', () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "A user who is not an admin cannot delete a target",
+      "request": {
+        "method": "DELETE",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{member_user}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{member_password}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "OCS-APIRequest",
+            "value": "true"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets/00000000-0000-0000-0000-000000000000"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('403 for a user who is not an admin', () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin: an unknown target is a 404",
+      "request": {
+        "method": "DELETE",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{admin_user}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{admin_password}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "OCS-APIRequest",
+            "value": "true"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets/00000000-0000-0000-0000-000000000000"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('404 for an unknown target', () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Teardown: delete the user",
+      "request": {
+        "method": "DELETE",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{admin_user}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{admin_password}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "OCS-APIRequest",
+            "value": "true"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/ocs/v2.php/cloud/users/{{member_user}}?format=json"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('user removed', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "admin_user",
+      "value": "admin"
+    },
+    {
+      "key": "admin_password",
+      "value": "admin"
+    },
+    {
+      "key": "member_user",
+      "value": "hermiq-computer-member"
+    },
+    {
+      "key": "member_password",
+      "value": "CHANGE_ME_newman_pw_0000"
+    }
+  ]
+}

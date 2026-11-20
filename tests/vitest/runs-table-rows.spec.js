@@ -209,4 +209,33 @@ describe('the Runs table', () => {
 
 		expect(w.find('aside.note-error').text()).toBe('Forbidden')
 	})
+
+	it('lists the computer actions a run recorded, with the approval and the screen\'s hash, never an image', async () => {
+		analytics.listRuns.mockResolvedValue({
+			results: [{
+				id: 'r9',
+				agentId: 'a1',
+				agentName: 'Samenvatter',
+				status: 'ok',
+				summary: 'Formulier opgeslagen',
+				computerActions: [
+					{ target: 'Werkplek 03', action: 'screenshot', screenshot: { sha256: 'abcdef0123456789', bytes: 2048 } },
+					{ target: 'Werkplek 03', action: 'click', x: 412, y: 230, approvalId: 'ap-1' },
+					{ target: 'Werkplek 03', action: 'type', text: '[redacted]' },
+					{ target: 'Werkplek 03', action: 'key', keys: 'ctrl+s' },
+				],
+			}],
+			total: 1,
+		})
+		const { w } = await page()
+
+		const items = w.findAll('[data-testid="run-computer-actions"] li').map((li) => li.text().replace(/\s+/g, ' '))
+		expect(items).toEqual([
+			'Screenshot of Werkplek 03 Screen abcdef012345, 2048 bytes, not kept',
+			'Clicked at 412, 230 on Werkplek 03 Approval ap-1',
+			'Typed "[redacted]" on Werkplek 03',
+			'Pressed ctrl+s on Werkplek 03',
+		])
+		expect(w.find('[data-testid="run-computer-actions"] img').exists()).toBe(false)
+	})
 })
