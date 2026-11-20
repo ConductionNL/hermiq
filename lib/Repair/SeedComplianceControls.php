@@ -131,6 +131,8 @@ class SeedComplianceControls implements IRepairStep {
 	 * @param IOutput $output Progress reporting.
 	 *
 	 * @return void
+	 *
+	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
 	 */
 	private function seedPacks(object $objectService, IOutput $output): void {
 		$frameworksSeeded = 0;
@@ -154,7 +156,7 @@ class SeedComplianceControls implements IRepairStep {
 		}//end foreach
 
 		$controlsSeeded = 0;
-		foreach ($this->seedControls() as $control) {
+		foreach ([...$this->seedControls(), ...$this->biasTestingControls()] as $control) {
 			try {
 				$exists = $this->controlExists(
 					objectService: $objectService,
@@ -220,13 +222,9 @@ class SeedComplianceControls implements IRepairStep {
 
 	/**
 	 * The seed Control rows (design.md Seed Data): 3 EU AI Act + 3 ISO/IEC 42001 + 4
-	 * NIST AI RMF, each mapped to exactly one of the seven evidenceSource seams, plus the
-	 * two bias-testing controls (ISO/IEC 42001 A.6.2.4, NIST AI RMF MEASURE 2.11) on
-	 * bias-eval-recency (reuse-scheduled-bias-evals).
+	 * NIST AI RMF, each mapped to exactly one of the seven evidenceSource seams.
 	 *
 	 * @return array<int, array<string, mixed>> The seed objects.
-	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) One literal seed row per spec'd
 	 *   compliance control (design.md Seed Data) — the length tracks the control
@@ -355,6 +353,22 @@ class SeedComplianceControls implements IRepairStep {
 				'evidenceDescription' => 'Satisfied when the organisation has a provisioned stop mechanism '
 					. '(kill-switch), regardless of whether it is currently engaged.',
 			],
+		];
+
+	}//end seedControls()
+
+	/**
+	 * The two bias-testing controls (reuse-scheduled-bias-evals): ISO/IEC 42001
+	 * A.6.2.4 and NIST AI RMF MEASURE 2.11, both on `bias-eval-recency`.
+	 *
+	 * @return array<int, array<string, mixed>> The seed objects.
+	 *
+	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
+	 */
+	private function biasTestingControls(): array {
+		$evidence = 'Satisfied when every agent with a scheduled bias check had a completed bias check in the last 45 days.';
+
+		return [
 			[
 				'frameworkSlug' => 'iso-42001',
 				'controlId' => 'A.6.2.4',
@@ -363,8 +377,7 @@ class SeedComplianceControls implements IRepairStep {
 					. 'measures for the AI system, including the test data and the criteria used.',
 				'sourceUrl' => 'https://www.iso.org/standard/81230.html',
 				'evidenceSource' => 'bias-eval-recency',
-				'evidenceDescription' => 'Satisfied when every agent with a scheduled bias check had a completed '
-					. 'bias check in the last 45 days.',
+				'evidenceDescription' => $evidence,
 			],
 			[
 				'frameworkSlug' => 'nist-ai-rmf',
@@ -374,12 +387,10 @@ class SeedComplianceControls implements IRepairStep {
 					. 'the results are documented.',
 				'sourceUrl' => 'https://www.nist.gov/itl/ai-risk-management-framework',
 				'evidenceSource' => 'bias-eval-recency',
-				'evidenceDescription' => 'Satisfied when every agent with a scheduled bias check had a completed '
-					. 'bias check in the last 45 days.',
+				'evidenceDescription' => $evidence,
 			],
 		];
-
-	}//end seedControls()
+	}//end biasTestingControls()
 
 	/**
 	 * Whether a ControlFramework with the given slug already exists (system context,

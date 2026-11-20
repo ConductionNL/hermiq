@@ -46,19 +46,23 @@ class EvalTemplateGuardListenerTest extends TestCase {
 	 * @return EvalTemplateGuardListener
 	 */
 	private function listener(string $register = 'hermiq'): EvalTemplateGuardListener {
-		$dataset = $this->createMock(Schema::class);
+		$dataset = $this->createMock(originalClassName: Schema::class);
 		$dataset->method('getSlug')->willReturn('evaldataset');
-		$other = $this->createMock(Schema::class);
+		$other = $this->createMock(originalClassName: Schema::class);
 		$other->method('getSlug')->willReturn('agent');
-		$schemas = $this->createMock(SchemaMapper::class);
-		$schemas->method('find')->willReturnCallback(fn (int $id): Schema => ($id === 7 ? $dataset : $other));
+		$schemas = $this->createMock(originalClassName: SchemaMapper::class);
+		$schemas->method('find')->willReturnMap([[7, $dataset], [8, $other]]);
 
-		$registerEntity = $this->createMock(Register::class);
+		$registerEntity = $this->createMock(originalClassName: Register::class);
 		$registerEntity->method('getSlug')->willReturn($register);
-		$registers = $this->createMock(RegisterMapper::class);
+		$registers = $this->createMock(originalClassName: RegisterMapper::class);
 		$registers->method('find')->willReturn($registerEntity);
 
-		return new EvalTemplateGuardListener($schemas, $registers, $this->createMock(LoggerInterface::class));
+		return new EvalTemplateGuardListener(
+			schemaMapper: $schemas,
+			registerMapper: $registers,
+			logger: $this->createMock(originalClassName: LoggerInterface::class)
+		);
 	}//end listener()
 
 	/**
@@ -84,12 +88,12 @@ class EvalTemplateGuardListenerTest extends TestCase {
 	 * @return void
 	 */
 	public function testAnEditOfATemplateIsRefused(): void {
-		$event = new ObjectUpdatingEvent(self::dataset(['template' => true, 'name' => 'Renamed']), self::dataset(['template' => true]));
+		$event = new ObjectUpdatingEvent(self::dataset(data: ['template' => true, 'name' => 'Renamed']), self::dataset(data: ['template' => true]));
 
 		$this->listener()->handle($event);
 
-		self::assertTrue($event->isPropagationStopped());
-		self::assertSame(['template' => EvalTemplateGuardListener::REFUSED], $event->getErrors());
+		self::assertTrue(condition: $event->isPropagationStopped());
+		self::assertSame(expected: ['template' => EvalTemplateGuardListener::REFUSED], actual: $event->getErrors());
 	}//end testAnEditOfATemplateIsRefused()
 
 	/**
@@ -98,11 +102,11 @@ class EvalTemplateGuardListenerTest extends TestCase {
 	 * @return void
 	 */
 	public function testUnmarkingATemplateIsRefused(): void {
-		$event = new ObjectUpdatingEvent(self::dataset(['template' => false]), self::dataset(['template' => true]));
+		$event = new ObjectUpdatingEvent(self::dataset(data: ['template' => false]), self::dataset(data: ['template' => true]));
 
 		$this->listener()->handle($event);
 
-		self::assertTrue($event->isPropagationStopped());
+		self::assertTrue(condition: $event->isPropagationStopped());
 	}//end testUnmarkingATemplateIsRefused()
 
 	/**
@@ -112,12 +116,12 @@ class EvalTemplateGuardListenerTest extends TestCase {
 	 */
 	public function testAnOrdinaryDatasetStaysEditable(): void {
 		$copy  = ['template' => false, 'templateKey' => 'bias-public-services'];
-		$event = new ObjectUpdatingEvent(self::dataset($copy + ['name' => 'Mine']), self::dataset($copy));
+		$event = new ObjectUpdatingEvent(self::dataset(data: $copy + ['name' => 'Mine']), self::dataset(data: $copy));
 
 		$this->listener()->handle($event);
 
-		self::assertFalse($event->isPropagationStopped());
-		self::assertSame([], $event->getErrors());
+		self::assertFalse(condition: $event->isPropagationStopped());
+		self::assertSame(expected: [], actual: $event->getErrors());
 	}//end testAnOrdinaryDatasetStaysEditable()
 
 	/**
@@ -126,11 +130,11 @@ class EvalTemplateGuardListenerTest extends TestCase {
 	 * @return void
 	 */
 	public function testAnotherSchemasObjectIsLeftAlone(): void {
-		$event = new ObjectUpdatingEvent(self::dataset(['template' => true], schema: '8'), self::dataset(['template' => true], schema: '8'));
+		$event = new ObjectUpdatingEvent(self::dataset(data: ['template' => true], schema: '8'), self::dataset(data: ['template' => true], schema: '8'));
 
 		$this->listener()->handle($event);
 
-		self::assertFalse($event->isPropagationStopped());
+		self::assertFalse(condition: $event->isPropagationStopped());
 	}//end testAnotherSchemasObjectIsLeftAlone()
 
 	/**
@@ -139,11 +143,11 @@ class EvalTemplateGuardListenerTest extends TestCase {
 	 * @return void
 	 */
 	public function testAnotherRegistersDatasetIsLeftAlone(): void {
-		$event = new ObjectUpdatingEvent(self::dataset(['template' => true]), self::dataset(['template' => true]));
+		$event = new ObjectUpdatingEvent(self::dataset(data: ['template' => true]), self::dataset(data: ['template' => true]));
 
 		$this->listener(register: 'otherapp')->handle($event);
 
-		self::assertFalse($event->isPropagationStopped());
+		self::assertFalse(condition: $event->isPropagationStopped());
 	}//end testAnotherRegistersDatasetIsLeftAlone()
 
 	/**
@@ -152,10 +156,10 @@ class EvalTemplateGuardListenerTest extends TestCase {
 	 * @return void
 	 */
 	public function testACreateIsNotRefused(): void {
-		$event = new ObjectCreatingEvent(self::dataset(['template' => true]));
+		$event = new ObjectCreatingEvent(self::dataset(data: ['template' => true]));
 
 		$this->listener()->handle($event);
 
-		self::assertFalse($event->isPropagationStopped());
+		self::assertFalse(condition: $event->isPropagationStopped());
 	}//end testACreateIsNotRefused()
 }//end class

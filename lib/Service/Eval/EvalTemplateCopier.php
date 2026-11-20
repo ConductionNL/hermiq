@@ -35,15 +35,15 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Eval;
 
-use InvalidArgumentException;
-use OCA\Hermiq\Kernel\Contracts\SeedCustodyServiceInterface;
+use OCA\OpenRegister\Service\ObjectService;
+use OCA\OpenRegister\Mcp\Db\AgentMapper;
+use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
-use OCA\OpenRegister\Mcp\Db\Agent;
-use OCA\OpenRegister\Mcp\Db\AgentMapper;
-use OCA\OpenRegister\Service\ObjectService;
+use OCA\Hermiq\Kernel\Contracts\SeedCustodyServiceInterface;
+use InvalidArgumentException;
 use Throwable;
 
 /**
@@ -211,17 +211,17 @@ class EvalTemplateCopier {
 	 * @return Agent|null
 	 */
 	private function ownedAgent(string $agentId, string $uid): ?Agent {
-		if ($agentId === '') {
-			return null;
+		$agent = null;
+		if ($agentId !== '') {
+			try {
+				$agent = $this->agentMapper->findByUuid(uuid: $agentId);
+			} catch (Throwable $e) {
+				$agent = null;
+			}
 		}
 
-		try {
-			$agent = $this->agentMapper->findByUuid($agentId);
-		} catch (Throwable $e) {
-			return null;
-		}
-
-		if ($this->seedCustody->actsAsOwner(owner: $agent->getOwner(), uid: $uid) === false) {
+		$owns = ($agent !== null && $this->seedCustody->actsAsOwner(owner: $agent->getOwner(), uid: $uid) === true);
+		if ($owns === false) {
 			return null;
 		}
 

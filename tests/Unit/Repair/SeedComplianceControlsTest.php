@@ -173,7 +173,7 @@ class SeedComplianceControlsTest extends TestCase {
 		$controls = array_filter($objectService->saved, static fn (array $s) => $s['schema'] === 'agentcompliancecontrol');
 
 		$this->assertCount(3, $frameworks, 'EU AI Act, ISO/IEC 42001, and NIST AI RMF must all be seeded.');
-		$this->assertCount(13, $controls, 'All 13 seeded controls must be created.');
+		$this->assertCount(expectedCount: 13, haystack: $controls, message: 'All 13 seeded controls must be created.');
 
 		$slugs = array_map(static fn (array $s) => $s['object']['slug'], $frameworks);
 		$this->assertSame(['eu-ai-act', 'iso-42001', 'nist-ai-rmf'], array_values($slugs));
@@ -212,7 +212,7 @@ class SeedComplianceControlsTest extends TestCase {
 		// The eu-ai-act framework and its art.12 control are skipped (already exist);
 		// the remaining 2 frameworks and 12 controls are still created.
 		$this->assertCount(2, $frameworks);
-		$this->assertCount(12, $controls);
+		$this->assertCount(expectedCount: 12, haystack: $controls);
 
 		$newFrameworkSlugs = array_map(static fn (array $s) => $s['object']['slug'], $frameworks);
 		$this->assertNotContains('eu-ai-act', $newFrameworkSlugs);
@@ -259,7 +259,7 @@ class SeedComplianceControlsTest extends TestCase {
 			$warnings
 		);
 		$controls = array_filter($objectService->saved, static fn (array $s) => $s['schema'] === 'agentcompliancecontrol');
-		$this->assertCount(13, $controls, 'An array row is not a stored control, so art.12 is still seeded.');
+		$this->assertCount(expectedCount: 13, haystack: $controls, message: 'An array row is not a stored control, so art.12 is still seeded.');
 
 		$objectService->failSchema = 'agentcompliancecontrol';
 		$objectService->saved = [];
@@ -267,7 +267,7 @@ class SeedComplianceControlsTest extends TestCase {
 		$quiet = new SeedComplianceControls(container: $this->container(objectService: $objectService), logger: $this->createMock(LoggerInterface::class));
 		$quiet->run(output: $output);
 
-		$this->assertCount(13, $warnings);
+		$this->assertCount(expectedCount: 13, haystack: $warnings);
 		$this->assertContains('Could not seed control "eu-ai-act/art.12": register is read-only', $warnings);
 	}//end testFailedSavesAreWarnedAndNonObjectRowsIgnored()
 }//end class

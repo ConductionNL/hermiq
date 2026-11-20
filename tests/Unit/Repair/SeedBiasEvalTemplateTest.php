@@ -47,6 +47,11 @@ class SeedBiasEvalTemplateTest extends TestCase {
 	 */
 	private function objectService(array $bySchema, bool $failWrites = false): ObjectService {
 		return new class($bySchema, $failWrites) extends ObjectService {
+			/**
+			 * The schema the next read is for.
+			 *
+			 * @var string|null
+			 */
 			private ?string $schema = null;
 
 			/**
@@ -96,19 +101,52 @@ class SeedBiasEvalTemplateTest extends TestCase {
 				}
 			}
 
+			/**
+			 * Ignore the register: every row is hermiq's.
+			 *
+			 * @param mixed $register The register.
+			 *
+			 * @return static
+			 */
 			public function setRegister(mixed $register): static {
 				return $this;
 			}
 
+			/**
+			 * Remember the schema the next read is for.
+			 *
+			 * @param mixed $schema The schema slug.
+			 *
+			 * @return static
+			 */
 			public function setSchema(mixed $schema): static {
 				$this->schema = (string)$schema;
 				return $this;
 			}
 
+			/**
+			 * The rows of the remembered schema.
+			 *
+			 * @param array $config        Ignored.
+			 * @param bool  $_rbac         Ignored.
+			 * @param bool  $_multitenancy Ignored.
+			 *
+			 * @return array
+			 */
 			public function findAll(array $config = [], bool $_rbac = true, bool $_multitenancy = true): array {
 				return ($this->bySchema[$this->schema] ?? []);
 			}
 
+			/**
+			 * Record the save, or fail it.
+			 *
+			 * @param array|ObjectEntity $object        The payload.
+			 * @param ObjectSaveOptions  $options       The target.
+			 * @param bool               $_rbac         Ignored.
+			 * @param bool               $_multitenancy Ignored.
+			 *
+			 * @return ObjectEntity
+			 */
 			public function saveObject(
 				array|ObjectEntity $object,
 				ObjectSaveOptions $options = new ObjectSaveOptions(),
@@ -131,7 +169,11 @@ class SeedBiasEvalTemplateTest extends TestCase {
 					throw new RuntimeException('register unavailable');
 				}
 
-				$payload = is_array($object) ? $object : $object->getObject();
+				$payload = $object;
+				if ($object instanceof ObjectEntity) {
+					$payload = $object->getObject();
+				}
+
 				$this->saved[] = [
 					'schema' => (string)$schema,
 					'object' => $payload,
@@ -155,7 +197,7 @@ class SeedBiasEvalTemplateTest extends TestCase {
 	 * @return SeedBiasEvalTemplate
 	 */
 	private function step(ObjectService $objectService): SeedBiasEvalTemplate {
-		$container = $this->createMock(ContainerInterface::class);
+		$container = $this->createMock(originalClassName: ContainerInterface::class);
 		$container->method('get')->willReturnCallback(
 			static fn (string $class) => match ($class) {
 				ObjectService::class => $objectService,
@@ -163,7 +205,7 @@ class SeedBiasEvalTemplateTest extends TestCase {
 			}
 		);
 
-		return new SeedBiasEvalTemplate(container: $container, logger: $this->createMock(LoggerInterface::class));
+		return new SeedBiasEvalTemplate(container: $container, logger: $this->createMock(originalClassName: LoggerInterface::class));
 	}//end step()
 
 	/**
@@ -172,17 +214,17 @@ class SeedBiasEvalTemplateTest extends TestCase {
 	 * @return void
 	 */
 	public function testAFreshInstallGetsOneTemplatePerLanguage(): void {
-		$objectService = $this->objectService(['evaldataset' => []]);
+		$objectService = $this->objectService(bySchema: ['evaldataset' => []]);
 
-		$this->step(objectService: $objectService)->run(output: $this->createMock(IOutput::class));
+		$this->step(objectService: $objectService)->run(output: $this->createMock(originalClassName: IOutput::class));
 
-		self::assertCount(2, $objectService->saved);
-		self::assertSame(['en', 'nl'], array_map(static fn (array $row): string => $row['object']['language'], $objectService->saved));
+		self::assertCount(expectedCount: 2, haystack: $objectService->saved);
+		self::assertSame(expected: ['en', 'nl'], actual: array_map(static fn (array $row): string => $row['object']['language'], $objectService->saved));
 		foreach ($objectService->saved as $row) {
-			self::assertSame('evaldataset', $row['schema']);
-			self::assertTrue($row['elevated']);
-			self::assertTrue($row['object']['template']);
-			self::assertSame(SeedBiasEvalTemplate::TEMPLATE_KEY, $row['object']['templateKey']);
+			self::assertSame(expected: 'evaldataset', actual: $row['schema']);
+			self::assertTrue(condition: $row['elevated']);
+			self::assertTrue(condition: $row['object']['template']);
+			self::assertSame(expected: SeedBiasEvalTemplate::TEMPLATE_KEY, actual: $row['object']['templateKey']);
 		}
 	}//end testAFreshInstallGetsOneTemplatePerLanguage()
 
@@ -201,11 +243,11 @@ class SeedBiasEvalTemplateTest extends TestCase {
 			},
 			SeedBiasEvalTemplate::templates()
 		);
-		$objectService = $this->objectService(['evaldataset' => $stored]);
+		$objectService = $this->objectService(bySchema: ['evaldataset' => $stored]);
 
-		$this->step(objectService: $objectService)->run(output: $this->createMock(IOutput::class));
+		$this->step(objectService: $objectService)->run(output: $this->createMock(originalClassName: IOutput::class));
 
-		self::assertSame([], $objectService->saved);
+		self::assertSame(expected: [], actual: $objectService->saved);
 	}//end testSeedingTwiceKeepsOneTemplatePerLanguage()
 
 	/**
@@ -214,10 +256,10 @@ class SeedBiasEvalTemplateTest extends TestCase {
 	 * @return void
 	 */
 	public function testAWriteFailureIsReportedNotThrown(): void {
-		$output = $this->createMock(IOutput::class);
-		$output->expects($this->exactly(2))->method('warning');
+		$output = $this->createMock(originalClassName: IOutput::class);
+		$output->expects($this->exactly(count: 2))->method('warning');
 
-		$this->step(objectService: $this->objectService(['evaldataset' => []], failWrites: true))->run(output: $output);
+		$this->step(objectService: $this->objectService(bySchema: ['evaldataset' => []], failWrites: true))->run(output: $output);
 	}//end testAWriteFailureIsReportedNotThrown()
 
 	/**
@@ -227,20 +269,20 @@ class SeedBiasEvalTemplateTest extends TestCase {
 	 */
 	public function testEachTemplateHoldsTwentyPairsOverTheFiveAttributes(): void {
 		$templates = SeedBiasEvalTemplate::templates();
-		self::assertCount(2, $templates);
+		self::assertCount(expectedCount: 2, haystack: $templates);
 
 		foreach ($templates as $template) {
-			self::assertCount(20, $template['cases']);
+			self::assertCount(expectedCount: 20, haystack: $template['cases']);
 			$perAttribute = [];
 			foreach ($template['cases'] as $case) {
-				self::assertSame('counterfactualPair', $case['expectationType']);
-				self::assertSame($case['inputA'], $case['prompt']);
-				self::assertNotSame($case['inputA'], $case['inputB']);
+				self::assertSame(expected: 'counterfactualPair', actual: $case['expectationType']);
+				self::assertSame(expected: $case['inputA'], actual: $case['prompt']);
+				self::assertNotSame(expected: $case['inputA'], actual: $case['inputB']);
 				$perAttribute[$case['attribute']] = (($perAttribute[$case['attribute']] ?? 0) + 1);
 			}
 
 			ksort($perAttribute);
-			self::assertSame(['age' => 4, 'disability' => 4, 'gender' => 4, 'name' => 4, 'origin' => 4], $perAttribute);
+			self::assertSame(expected: ['age' => 4, 'disability' => 4, 'gender' => 4, 'name' => 4, 'origin' => 4], actual: $perAttribute);
 		}
 	}//end testEachTemplateHoldsTwentyPairsOverTheFiveAttributes()
 
@@ -250,6 +292,6 @@ class SeedBiasEvalTemplateTest extends TestCase {
 	 * @return void
 	 */
 	public function testTheEnglishTemplateHasTheSpecifiedName(): void {
-		self::assertSame('Bias check: public services (template)', SeedBiasEvalTemplate::templates()[0]['name']);
+		self::assertSame(expected: 'Bias check: public services (template)', actual: SeedBiasEvalTemplate::templates()[0]['name']);
 	}//end testTheEnglishTemplateHasTheSpecifiedName()
 }//end class

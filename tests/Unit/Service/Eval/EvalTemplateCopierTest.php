@@ -51,6 +51,21 @@ class EvalTemplateCopierTest extends TestCase {
 	}//end template()
 
 	/**
+	 * The copier over the given object service.
+	 *
+	 * @param ObjectService $service The object service double.
+	 *
+	 * @return EvalTemplateCopier
+	 */
+	private function copier(ObjectService $service): EvalTemplateCopier {
+		return new EvalTemplateCopier(
+			objectService: $service,
+			agentMapper: $this->createMock(originalClassName: AgentMapper::class),
+			seedCustody: $this->createMock(originalClassName: SeedCustodyServiceInterface::class)
+		);
+	}//end copier()
+
+	/**
 	 * The copy keeps all twenty pairs and the key, names the agent, links it, and is not a template.
 	 *
 	 * @return void
@@ -58,13 +73,13 @@ class EvalTemplateCopierTest extends TestCase {
 	public function testTheCopyIsAnEditableDatasetForTheAgent(): void {
 		$copy = EvalTemplateCopier::copyOf(template: self::template()->getObject(), agentId: 'agent-1', agentName: 'Permit intake helper');
 
-		self::assertSame('Bias check: public services — Permit intake helper', $copy['name']);
-		self::assertCount(20, $copy['cases']);
-		self::assertSame(self::template()->getObject()['cases'], $copy['cases']);
-		self::assertSame('bias-public-services', $copy['templateKey']);
-		self::assertSame('agent-1', $copy['agentId']);
-		self::assertSame('en', $copy['language']);
-		self::assertFalse($copy['template']);
+		self::assertSame(expected: 'Bias check: public services — Permit intake helper', actual: $copy['name']);
+		self::assertCount(expectedCount: 20, haystack: $copy['cases']);
+		self::assertSame(expected: self::template()->getObject()['cases'], actual: $copy['cases']);
+		self::assertSame(expected: 'bias-public-services', actual: $copy['templateKey']);
+		self::assertSame(expected: 'agent-1', actual: $copy['agentId']);
+		self::assertSame(expected: 'en', actual: $copy['language']);
+		self::assertFalse(condition: $copy['template']);
 	}//end testTheCopyIsAnEditableDatasetForTheAgent()
 
 	/**
@@ -75,7 +90,7 @@ class EvalTemplateCopierTest extends TestCase {
 	public function testTheTitleDropsTheTemplateSuffix(): void {
 		$copy = EvalTemplateCopier::copyOf(template: ['name' => 'Biascheck: publieke dienstverlening (sjabloon)'], agentId: 'a', agentName: '');
 
-		self::assertSame('Biascheck: publieke dienstverlening', $copy['name']);
+		self::assertSame(expected: 'Biascheck: publieke dienstverlening', actual: $copy['name']);
 	}//end testTheTitleDropsTheTemplateSuffix()
 
 	/**
@@ -84,10 +99,15 @@ class EvalTemplateCopierTest extends TestCase {
 	 * @return void
 	 */
 	public function testTheCopyIsStoredAsTheCaller(): void {
-		$service = $this->createMock(ObjectService::class);
+		$service = $this->createMock(originalClassName: ObjectService::class);
 		$service->expects($this->once())->method('saveObject')->with(
-			$this->callback(static fn (array $object): bool => $object['agentId'] === 'agent-1' && $object['template'] === false),
-			$this->callback(static fn (ObjectSaveOptions $options): bool => $options->target->register === 'hermiq' && $options->target->schema === 'evaldataset'),
+			$this->callback(
+				callback: static fn (array $object): bool => $object['agentId'] === 'agent-1' && $object['template'] === false
+			),
+			$this->callback(
+				callback: static fn (ObjectSaveOptions $options): bool => $options->target->register === 'hermiq'
+					&& $options->target->schema === 'evaldataset'
+			),
 		)->willReturnCallback(static function (array $object): ObjectEntity {
 			$saved = new ObjectEntity();
 			$saved->setUuid('copy-1');
@@ -95,9 +115,9 @@ class EvalTemplateCopierTest extends TestCase {
 			return $saved;
 		});
 
-		$copy = (new EvalTemplateCopier($service, $this->createMock(AgentMapper::class), $this->createMock(SeedCustodyServiceInterface::class)))->copy(template: self::template(), agentId: 'agent-1', agentName: 'Helper');
+		$copy = $this->copier(service: $service)->copy(template: self::template(), agentId: 'agent-1', agentName: 'Helper');
 
-		self::assertSame('copy-1', $copy->getUuid());
+		self::assertSame(expected: 'copy-1', actual: $copy->getUuid());
 	}//end testTheCopyIsStoredAsTheCaller()
 
 	/**
@@ -106,12 +126,12 @@ class EvalTemplateCopierTest extends TestCase {
 	 * @return void
 	 */
 	public function testANonTemplateIsRefused(): void {
-		$service = $this->createMock(ObjectService::class);
+		$service = $this->createMock(originalClassName: ObjectService::class);
 		$service->expects($this->never())->method('saveObject');
 		$dataset = new ObjectEntity();
 		$dataset->setObject(['name' => 'Mine', 'templateKey' => 'bias-public-services', 'template' => false]);
 
-		$this->expectException(InvalidArgumentException::class);
-		(new EvalTemplateCopier($service, $this->createMock(AgentMapper::class), $this->createMock(SeedCustodyServiceInterface::class)))->copy(template: $dataset, agentId: 'agent-1', agentName: 'Helper');
+		$this->expectException(exception: InvalidArgumentException::class);
+		$this->copier(service: $service)->copy(template: $dataset, agentId: 'agent-1', agentName: 'Helper');
 	}//end testANonTemplateIsRefused()
 }//end class

@@ -32,13 +32,13 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
-use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
-use OCA\OpenRegister\Service\ObjectService;
-use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
-use Psr\Container\ContainerInterface;
+use OCP\Migration\IOutput;
+use OCA\OpenRegister\Service\ObjectService;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
 use Psr\Log\LoggerInterface;
+use Psr\Container\ContainerInterface;
 use Throwable;
 
 /**

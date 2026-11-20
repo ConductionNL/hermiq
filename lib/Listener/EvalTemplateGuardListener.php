@@ -125,20 +125,21 @@ class EvalTemplateGuardListener implements IEventListener {
 	 * @return bool
 	 */
 	private function isDataset(ObjectEntity $object): bool {
-		$schema = (string)$object->getSchema();
-		if ($schema === self::SCHEMA) {
-			return true;
-		}
-
-		if ($schema === '' || ctype_digit($schema) === false) {
-			return false;
+		$schemaId = (string)$object->getSchema();
+		if ($schemaId === self::SCHEMA || ctype_digit($schemaId) === false) {
+			// A slug is matched as is; anything else that is not an id is not ours.
+			return $schemaId === self::SCHEMA;
 		}
 
 		try {
-			return (string)$this->schemaMapper->find((int)$schema)->getSlug() === self::SCHEMA
-				&& (string)$this->registerMapper->find((int)$object->getRegister())->getSlug() === self::REGISTER;
+			$slugs = [
+				(string)$this->schemaMapper->find((int)$schemaId)->getSlug(),
+				(string)$this->registerMapper->find((int)$object->getRegister())->getSlug(),
+			];
 		} catch (Throwable $e) {
 			return false;
 		}
+
+		return $slugs === [self::SCHEMA, self::REGISTER];
 	}//end isDataset()
 }//end class

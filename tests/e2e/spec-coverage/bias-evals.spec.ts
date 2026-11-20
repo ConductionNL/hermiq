@@ -19,6 +19,9 @@
  *
  * Not run when written: it needs a live instance with the repair step applied.
  *
+ * @e2e agent-evals::an-owner-adds-the-bias-check-to-an-agent
+ * @e2e agent-evals::a-compliance-officer-reads-the-factsheet
+ *
  * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md
  */
 

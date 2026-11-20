@@ -45,6 +45,11 @@ class BiasCheckEvidenceTest extends TestCase {
 	 */
 	private function evidence(array $bySchema, bool $fail = false): BiasCheckEvidence {
 		$objects = new class($bySchema, $fail) extends ObjectService {
+			/**
+			 * The schema the next read is for.
+			 *
+			 * @var string
+			 */
 			private string $schema = '';
 
 			/**
@@ -54,29 +59,51 @@ class BiasCheckEvidenceTest extends TestCase {
 			public function __construct(private array $bySchema, private bool $fail) {
 			}
 
+			/**
+			 * Ignore the register: every row is hermiq's.
+			 *
+			 * @param mixed $register The register.
+			 *
+			 * @return static
+			 */
 			public function setRegister(mixed $register): static {
 				return $this;
 			}
 
+			/**
+			 * Remember the schema the next read is for.
+			 *
+			 * @param mixed $schema The schema slug.
+			 *
+			 * @return static
+			 */
 			public function setSchema(mixed $schema): static {
 				$this->schema = (string)$schema;
 				return $this;
 			}
 
+			/**
+			 * The rows of the remembered schema, or a failed read.
+			 *
+			 * @param array $config        Ignored: the filters narrow the read, the rows are filtered again after it.
+			 * @param bool  $_rbac         Ignored.
+			 * @param bool  $_multitenancy Ignored.
+			 *
+			 * @return array
+			 */
 			public function findAll(array $config = [], bool $_rbac = true, bool $_multitenancy = true): array {
 				if ($this->fail === true) {
 					throw new RuntimeException('register unavailable');
 				}
 
-				// The filters narrow the read; the rows are filtered again after it.
 				return ($this->bySchema[$this->schema] ?? []);
 			}
 		};
 
-		$time = $this->createMock(ITimeFactory::class);
+		$time = $this->createMock(originalClassName: ITimeFactory::class);
 		$time->method('getTime')->willReturn((new DateTimeImmutable('2026-10-15T12:00:00Z'))->getTimestamp());
 
-		return new BiasCheckEvidence($objects, $time);
+		return new BiasCheckEvidence(objectService: $objects, time: $time);
 	}//end evidence()
 
 	/**
@@ -101,8 +128,8 @@ class BiasCheckEvidenceTest extends TestCase {
 	 */
 	private static function datasets(): array {
 		return [
-			self::row('bias-1', ['name' => 'Bias check: public services — Helper', 'templateKey' => 'bias-public-services']),
-			self::row('plain-1', ['name' => 'Smoke test']),
+			self::row(uuid: 'bias-1', data: ['name' => 'Bias check: public services — Helper', 'templateKey' => 'bias-public-services']),
+			self::row(uuid: 'plain-1', data: ['name' => 'Smoke test']),
 		];
 	}//end datasets()
 
@@ -118,8 +145,17 @@ class BiasCheckEvidenceTest extends TestCase {
 	 *
 	 * @return ObjectEntity
 	 */
-	private static function evalRun(string $uuid, string $agentId, string $datasetId, string $startedAt, float $passRate, string $status = 'completed'): ObjectEntity {
-		return self::row($uuid, ['agentId' => $agentId, 'datasetId' => $datasetId, 'startedAt' => $startedAt, 'passRate' => $passRate, 'status' => $status]);
+	private static function evalRun(
+		string $uuid,
+		string $agentId,
+		string $datasetId,
+		string $startedAt,
+		float $passRate,
+		string $status = 'completed'
+	): ObjectEntity {
+		$data = ['agentId' => $agentId, 'datasetId' => $datasetId, 'startedAt' => $startedAt, 'passRate' => $passRate, 'status' => $status];
+
+		return self::row(uuid: $uuid, data: $data);
 	}//end evalRun()
 
 	/**
@@ -129,24 +165,24 @@ class BiasCheckEvidenceTest extends TestCase {
 	 */
 	public function testTheLatestCompletedBiasRunIsTheFactsheetLine(): void {
 		$evidence = $this->evidence(
-			[
+			bySchema: [
 				'evaldataset' => self::datasets(),
 				'evalrun'     => [
-					self::evalRun('r-old', 'agent-1', 'bias-1', '2026-08-01T06:00:00Z', 0.9),
-					self::evalRun('r-new', 'agent-1', 'bias-1', '2026-09-01T06:00:00Z', 0.95),
-					self::evalRun('r-plain', 'agent-1', 'plain-1', '2026-09-20T06:00:00Z', 0.5),
-					self::evalRun('r-failed', 'agent-1', 'bias-1', '2026-09-25T06:00:00Z', 0.0, 'failed'),
-					self::evalRun('r-other', 'agent-2', 'bias-1', '2026-09-30T06:00:00Z', 0.7),
+					self::evalRun(uuid: 'r-old', agentId: 'agent-1', datasetId: 'bias-1', startedAt: '2026-08-01T06:00:00Z', passRate: 0.9),
+					self::evalRun(uuid: 'r-new', agentId: 'agent-1', datasetId: 'bias-1', startedAt: '2026-09-01T06:00:00Z', passRate: 0.95),
+					self::evalRun(uuid: 'r-plain', agentId: 'agent-1', datasetId: 'plain-1', startedAt: '2026-09-20T06:00:00Z', passRate: 0.5),
+					self::evalRun(uuid: 'r-failed', agentId: 'agent-1', datasetId: 'bias-1', startedAt: '2026-09-25T06:00:00Z', passRate: 0.0, status: 'failed'),
+					self::evalRun(uuid: 'r-other', agentId: 'agent-2', datasetId: 'bias-1', startedAt: '2026-09-30T06:00:00Z', passRate: 0.7),
 				],
 			]
 		);
 
 		$latest = $evidence->latestFor(agentId: 'agent-1');
 
-		self::assertSame('r-new', $latest['runId']);
-		self::assertSame('bias-1', $latest['datasetId']);
-		self::assertSame(0.95, $latest['passRate']);
-		self::assertSame('2026-09-01', $latest['date']);
+		self::assertSame(expected: 'r-new', actual: $latest['runId']);
+		self::assertSame(expected: 'bias-1', actual: $latest['datasetId']);
+		self::assertSame(expected: 0.95, actual: $latest['passRate']);
+		self::assertSame(expected: '2026-09-01', actual: $latest['date']);
 	}//end testTheLatestCompletedBiasRunIsTheFactsheetLine()
 
 	/**
@@ -155,10 +191,11 @@ class BiasCheckEvidenceTest extends TestCase {
 	 * @return void
 	 */
 	public function testAnAgentWithoutABiasRunHasNone(): void {
-		$evidence = $this->evidence(['evaldataset' => self::datasets(), 'evalrun' => [self::evalRun('r-plain', 'agent-1', 'plain-1', '2026-09-20T06:00:00Z', 1.0)]]);
+		$run      = self::evalRun(uuid: 'r-plain', agentId: 'agent-1', datasetId: 'plain-1', startedAt: '2026-09-20T06:00:00Z', passRate: 1.0);
+		$evidence = $this->evidence(bySchema: ['evaldataset' => self::datasets(), 'evalrun' => [$run]]);
 
-		self::assertNull($evidence->latestFor(agentId: 'agent-1'));
-		self::assertNull($evidence->latestFor(agentId: ''));
+		self::assertNull(actual: $evidence->latestFor(agentId: 'agent-1'));
+		self::assertNull(actual: $evidence->latestFor(agentId: ''));
 	}//end testAnAgentWithoutABiasRunHasNone()
 
 	/**
@@ -168,14 +205,14 @@ class BiasCheckEvidenceTest extends TestCase {
 	 */
 	public function testEveryScheduledAgentCheckedRecentlyIsSatisfied(): void {
 		$evidence = $this->evidence(
-			[
+			bySchema: [
 				'evaldataset'  => self::datasets(),
-				'evalschedule' => [self::row('s-1', ['agentId' => 'agent-1', 'datasetId' => 'bias-1', 'enabled' => true])],
-				'evalrun'      => [self::evalRun('r-1', 'agent-1', 'bias-1', '2026-10-01T06:00:00Z', 0.95)],
+				'evalschedule' => [self::row(uuid: 's-1', data: ['agentId' => 'agent-1', 'datasetId' => 'bias-1', 'enabled' => true])],
+				'evalrun'      => [self::evalRun(uuid: 'r-1', agentId: 'agent-1', datasetId: 'bias-1', startedAt: '2026-10-01T06:00:00Z', passRate: 0.95)],
 			]
 		);
 
-		self::assertSame('satisfied', $evidence->evidence()['status']);
+		self::assertSame(expected: 'satisfied', actual: $evidence->evidence()['status']);
 	}//end testEveryScheduledAgentCheckedRecentlyIsSatisfied()
 
 	/**
@@ -185,22 +222,22 @@ class BiasCheckEvidenceTest extends TestCase {
 	 */
 	public function testSomeScheduledAgentsCheckedRecentlyIsPartial(): void {
 		$evidence = $this->evidence(
-			[
+			bySchema: [
 				'evaldataset'  => self::datasets(),
 				'evalschedule' => [
-					self::row('s-1', ['agentId' => 'agent-1', 'datasetId' => 'bias-1', 'enabled' => true]),
-					self::row('s-2', ['agentId' => 'agent-2', 'datasetId' => 'bias-1', 'enabled' => true]),
+					self::row(uuid: 's-1', data: ['agentId' => 'agent-1', 'datasetId' => 'bias-1', 'enabled' => true]),
+					self::row(uuid: 's-2', data: ['agentId' => 'agent-2', 'datasetId' => 'bias-1', 'enabled' => true]),
 				],
 				'evalrun'      => [
-					self::evalRun('r-1', 'agent-1', 'bias-1', '2026-10-01T06:00:00Z', 0.95),
-					self::evalRun('r-2', 'agent-2', 'bias-1', '2026-08-01T06:00:00Z', 0.95),
+					self::evalRun(uuid: 'r-1', agentId: 'agent-1', datasetId: 'bias-1', startedAt: '2026-10-01T06:00:00Z', passRate: 0.95),
+					self::evalRun(uuid: 'r-2', agentId: 'agent-2', datasetId: 'bias-1', startedAt: '2026-08-01T06:00:00Z', passRate: 0.95),
 				],
 			]
 		);
 
 		$status = $evidence->evidence();
-		self::assertSame('partial', $status['status']);
-		self::assertSame('1 of 2 agent(s) with a scheduled bias check had one in the last 45 days.', $status['detail']);
+		self::assertSame(expected: 'partial', actual: $status['status']);
+		self::assertSame(expected: '1 of 2 agent(s) with a scheduled bias check had one in the last 45 days.', actual: $status['detail']);
 	}//end testSomeScheduledAgentsCheckedRecentlyIsPartial()
 
 	/**
@@ -210,24 +247,24 @@ class BiasCheckEvidenceTest extends TestCase {
 	 */
 	public function testNoRecentCheckOrNoScheduleIsUnevidenced(): void {
 		$stale = $this->evidence(
-			[
+			bySchema: [
 				'evaldataset'  => self::datasets(),
-				'evalschedule' => [self::row('s-1', ['agentId' => 'agent-1', 'datasetId' => 'bias-1', 'enabled' => true])],
-				'evalrun'      => [self::evalRun('r-1', 'agent-1', 'bias-1', '2026-08-30T06:00:00Z', 0.95)],
+				'evalschedule' => [self::row(uuid: 's-1', data: ['agentId' => 'agent-1', 'datasetId' => 'bias-1', 'enabled' => true])],
+				'evalrun'      => [self::evalRun(uuid: 'r-1', agentId: 'agent-1', datasetId: 'bias-1', startedAt: '2026-08-30T06:00:00Z', passRate: 0.95)],
 			]
 		);
-		self::assertSame('unevidenced', $stale->evidence()['status']);
+		self::assertSame(expected: 'unevidenced', actual: $stale->evidence()['status']);
 
 		$unscheduled = $this->evidence(
-			[
+			bySchema: [
 				'evaldataset'  => self::datasets(),
 				'evalschedule' => [
-					self::row('s-plain', ['agentId' => 'agent-1', 'datasetId' => 'plain-1', 'enabled' => true]),
-					self::row('s-off', ['agentId' => 'agent-2', 'datasetId' => 'bias-1', 'enabled' => false]),
+					self::row(uuid: 's-plain', data: ['agentId' => 'agent-1', 'datasetId' => 'plain-1', 'enabled' => true]),
+					self::row(uuid: 's-off', data: ['agentId' => 'agent-2', 'datasetId' => 'bias-1', 'enabled' => false]),
 				],
 			]
 		);
-		self::assertSame(['status' => 'unevidenced', 'detail' => 'No agent has a scheduled bias check yet.'], $unscheduled->evidence());
+		self::assertSame(expected: ['status' => 'unevidenced', 'detail' => 'No agent has a scheduled bias check yet.'], actual: $unscheduled->evidence());
 	}//end testNoRecentCheckOrNoScheduleIsUnevidenced()
 
 	/**
@@ -236,9 +273,9 @@ class BiasCheckEvidenceTest extends TestCase {
 	 * @return void
 	 */
 	public function testAnUnreadableRegisterGivesNothing(): void {
-		$evidence = $this->evidence([], fail: true);
+		$evidence = $this->evidence(bySchema: [], fail: true);
 
-		self::assertSame('unevidenced', $evidence->evidence()['status']);
-		self::assertNull($evidence->latestFor(agentId: 'agent-1'));
+		self::assertSame(expected: 'unevidenced', actual: $evidence->evidence()['status']);
+		self::assertNull(actual: $evidence->latestFor(agentId: 'agent-1'));
 	}//end testAnUnreadableRegisterGivesNothing()
 }//end class

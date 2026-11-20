@@ -62,19 +62,19 @@ class EvalTemplateControllerTest extends TestCase {
 	 * @return EvalTemplateController
 	 */
 	private function controller(?string $uid, ?ObjectEntity $dataset, ?Agent $agent): EvalTemplateController {
-		$request = $this->createMock(IRequest::class);
-		$request->method('getParam')->willReturnCallback(static fn (string $key, mixed $default = null): mixed => ($key === 'agentId' ? 'agent-1' : $default));
+		$request = $this->createMock(originalClassName: IRequest::class);
+		$request->method('getParam')->willReturnMap([['agentId', '', 'agent-1']]);
 
-		$session = $this->createMock(IUserSession::class);
+		$session = $this->createMock(originalClassName: IUserSession::class);
 		$user    = null;
 		if ($uid !== null) {
-			$user = $this->createMock(IUser::class);
+			$user = $this->createMock(originalClassName: IUser::class);
 			$user->method('getUID')->willReturn($uid);
 		}
 
 		$session->method('getUser')->willReturn($user);
 
-		$objects = $this->createMock(ObjectService::class);
+		$objects = $this->createMock(originalClassName: ObjectService::class);
 		if ($dataset === null) {
 			$objects->method('find')->willThrowException(new DoesNotExistException('no such object'));
 		} else {
@@ -89,22 +89,21 @@ class EvalTemplateControllerTest extends TestCase {
 			return $copy;
 		});
 
-		$agents = $this->createMock(AgentMapper::class);
+		$agents = $this->createMock(originalClassName: AgentMapper::class);
 		if ($agent === null) {
 			$agents->method('findByUuid')->willThrowException(new DoesNotExistException('no such agent'));
 		} else {
 			$agents->method('findByUuid')->willReturn($agent);
 		}
 
-		$groups = $this->createMock(IGroupManager::class);
+		$groups = $this->createMock(originalClassName: IGroupManager::class);
 		$groups->method('isAdmin')->willReturn(false);
 
 		return new EvalTemplateController(
 			request: $request,
 			userSession: $session,
-			copier: new EvalTemplateCopier($objects, $agents, new SeedCustodyService(groupManager: $groups)),
-			logger: $this->createMock(LoggerInterface::class),
-		);
+			copier: new EvalTemplateCopier(objectService: $objects, agentMapper: $agents, seedCustody: new SeedCustodyService(groupManager: $groups)),
+			logger: $this->createMock(originalClassName: LoggerInterface::class));
 	}//end controller()
 
 	/**
@@ -150,13 +149,13 @@ class EvalTemplateControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testTheOwnerGetsAnEditableCopyForTheirAgent(): void {
-		$response = $this->controller('alice', self::dataset(), self::agent('alice'))->use('tpl-1');
+		$response = $this->controller(uid: 'alice', dataset: self::dataset(), agent: self::agent(owner: 'alice'))->use('tpl-1');
 
-		self::assertSame(Http::STATUS_CREATED, $response->getStatus());
-		self::assertSame(['id' => 'copy-1', 'name' => 'Bias check: public services — Permit intake helper'], $response->getData());
-		self::assertCount(1, $this->saved);
-		self::assertSame('agent-1', $this->saved[0]['agentId']);
-		self::assertFalse($this->saved[0]['template']);
+		self::assertSame(expected: Http::STATUS_CREATED, actual: $response->getStatus());
+		self::assertSame(expected: ['id' => 'copy-1', 'name' => 'Bias check: public services — Permit intake helper'], actual: $response->getData());
+		self::assertCount(expectedCount: 1, haystack: $this->saved);
+		self::assertSame(expected: 'agent-1', actual: $this->saved[0]['agentId']);
+		self::assertFalse(condition: $this->saved[0]['template']);
 	}//end testTheOwnerGetsAnEditableCopyForTheirAgent()
 
 	/**
@@ -165,10 +164,10 @@ class EvalTemplateControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testSomeoneElsesAgentIs404(): void {
-		$response = $this->controller('alice', self::dataset(), self::agent('bob'))->use('tpl-1');
+		$response = $this->controller(uid: 'alice', dataset: self::dataset(), agent: self::agent(owner: 'bob'))->use('tpl-1');
 
-		self::assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
-		self::assertSame([], $this->saved);
+		self::assertSame(expected: Http::STATUS_NOT_FOUND, actual: $response->getStatus());
+		self::assertSame(expected: [], actual: $this->saved);
 	}//end testSomeoneElsesAgentIs404()
 
 	/**
@@ -177,7 +176,9 @@ class EvalTemplateControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testAMissingAgentIs404(): void {
-		self::assertSame(Http::STATUS_NOT_FOUND, $this->controller('alice', self::dataset(), null)->use('tpl-1')->getStatus());
+		$response = $this->controller(uid: 'alice', dataset: self::dataset(), agent: null)->use('tpl-1');
+
+		self::assertSame(expected: Http::STATUS_NOT_FOUND, actual: $response->getStatus());
 	}//end testAMissingAgentIs404()
 
 	/**
@@ -186,7 +187,9 @@ class EvalTemplateControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testAnUnreadableDatasetIs404(): void {
-		self::assertSame(Http::STATUS_NOT_FOUND, $this->controller('alice', null, self::agent('alice'))->use('tpl-1')->getStatus());
+		$response = $this->controller(uid: 'alice', dataset: null, agent: self::agent(owner: 'alice'))->use('tpl-1');
+
+		self::assertSame(expected: Http::STATUS_NOT_FOUND, actual: $response->getStatus());
 	}//end testAnUnreadableDatasetIs404()
 
 	/**
@@ -195,10 +198,10 @@ class EvalTemplateControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testANonTemplateIs400(): void {
-		$response = $this->controller('alice', self::dataset(template: false), self::agent('alice'))->use('tpl-1');
+		$response = $this->controller(uid: 'alice', dataset: self::dataset(template: false), agent: self::agent(owner: 'alice'))->use('tpl-1');
 
-		self::assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
-		self::assertSame([], $this->saved);
+		self::assertSame(expected: Http::STATUS_BAD_REQUEST, actual: $response->getStatus());
+		self::assertSame(expected: [], actual: $this->saved);
 	}//end testANonTemplateIs400()
 
 	/**
@@ -207,6 +210,8 @@ class EvalTemplateControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testNobodySignedInIs401(): void {
-		self::assertSame(Http::STATUS_UNAUTHORIZED, $this->controller(null, self::dataset(), self::agent('alice'))->use('tpl-1')->getStatus());
+		$response = $this->controller(uid: null, dataset: self::dataset(), agent: self::agent(owner: 'alice'))->use('tpl-1');
+
+		self::assertSame(expected: Http::STATUS_UNAUTHORIZED, actual: $response->getStatus());
 	}//end testNobodySignedInIs401()
 }//end class
