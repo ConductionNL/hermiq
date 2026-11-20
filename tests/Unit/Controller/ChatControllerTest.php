@@ -565,8 +565,8 @@ class ChatControllerTest extends TestCase {
 
 		$this->controller()->sendMessage();
 
-		// Positional, in the order of Engine::processMessage(): answerCacheBypass is the 15th.
-		$this->assertSame($expected, $seen[14] ?? null);
+		// Positional, in the order of Engine::processMessage(): answerCacheBypass is the 16th, after turnChannel.
+		$this->assertSame($expected, $seen[15] ?? null);
 
 	}//end testAskingTheModelAgainBypassesTheAnswerCache()
 

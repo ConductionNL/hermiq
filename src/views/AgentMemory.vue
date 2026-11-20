@@ -17,6 +17,10 @@
   @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-4-1
   @spec openspec/specs/agent-memory/spec.md
   @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+  @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+
+  memory-project-scopes: an agent with projects gets a tab per layer, "Shared"
+  first; the panel below shows the chosen layer and moves entries between them.
 -->
 <template>
 	<div class="agent-memory">
@@ -34,6 +38,10 @@
 					label="label"
 					trackBy="value" />
 			</div>
+			<!-- memory-knowledge-bases: knowledge bases are reached from here, not from the menu (design.md D6). -->
+			<router-link :to="{ name: 'KnowledgeBases' }" class="agent-memory__knowledge-bases">
+				{{ t('hermiq', 'Knowledge bases') }}
+			</router-link>
 		</div>
 
 		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Memory error')">
@@ -58,14 +66,37 @@
 			</template>
 		</NcEmptyContent>
 
-		<AgentMemoryPanel v-else :agentId="selectedAgent.value" />
+		<template v-else>
+			<div
+				v-if="projects.length > 0"
+				class="agent-memory__layers"
+				role="tablist"
+				:aria-label="t('hermiq', 'Memory layers')"
+				data-testid="memory-layers">
+				<NcButton
+					v-for="layerTab in layerTabs"
+					:key="layerTab.key || 'shared'"
+					role="tab"
+					:aria-selected="layerTab.key === layer ? 'true' : 'false'"
+					:variant="layerTab.key === layer ? 'primary' : 'tertiary'"
+					@click="layer = layerTab.key">
+					{{ layerTab.label }}
+				</NcButton>
+			</div>
+			<AgentMemoryPanel
+				:agentId="selectedAgent.value"
+				:project="layer"
+				:projects="projects"
+				@moved="loadProjects" />
+		</template>
 	</div>
 </template>
 
 <script>
-import { NcEmptyContent, NcLoadingIcon, NcNoteCard, NcSelect } from '@nextcloud/vue'
+import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcSelect } from '@nextcloud/vue'
 import BrainIcon from 'vue-material-design-icons/Brain.vue'
 import AgentMemoryPanel from '../components/AgentMemoryPanel.vue'
+import { listMemoryProjects } from '../api/memory.js'
 import { useAgentStore } from '../store/store.js'
 import { errorMessage } from '../utils/errorMessage.js'
 import { agentPickerOptions } from '../widgets/evalRunLabels.js'
@@ -76,6 +107,7 @@ export default {
 	components: {
 		AgentMemoryPanel,
 		BrainIcon,
+		NcButton,
 		NcEmptyContent,
 		NcLoadingIcon,
 		NcNoteCard,
@@ -88,6 +120,8 @@ export default {
 			selectedAgent: null,
 			loading: true,
 			error: '',
+			projects: [],
+			layer: '',
 		}
 	},
 
@@ -101,6 +135,35 @@ export default {
 		agentOptions() {
 			return agentPickerOptions(this.agents)
 		},
+
+		/**
+		 * The tabs: "Shared", then one per project.
+		 *
+		 * @return {Array<{key: string, label: string}>} The tabs; key '' is the shared memory.
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+		 */
+		layerTabs() {
+			return [
+				{ key: '', label: this.t('hermiq', 'Shared') },
+				...this.projects.map((project) => ({
+					key: project.projectKey,
+					label: project.projectName || project.projectKey,
+				})),
+			]
+		},
+	},
+
+	watch: {
+		/**
+		 * Back to the shared layer and reload the projects when another agent is chosen.
+		 *
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+		 */
+		selectedAgent() {
+			this.layer = ''
+			this.projects = []
+			this.loadProjects()
+		},
 	},
 
 	/**
@@ -113,6 +176,28 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * Load the selected agent's projects. Non-fatal: without them the page
+		 * shows the shared memory only.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+		 */
+		async loadProjects() {
+			const agentId = this.selectedAgent?.value
+			if (!agentId) {
+				return
+			}
+			try {
+				const projects = await listMemoryProjects(agentId)
+				if (this.selectedAgent?.value === agentId) {
+					this.projects = projects
+				}
+			} catch {
+				this.projects = []
+			}
+		},
+
 		/**
 		 * Load the agents (createObjectStore, hermiq register) and select the
 		 * first one.
@@ -151,6 +236,12 @@ export default {
 	margin: 0 auto;
 }
 
+.agent-memory__knowledge-bases {
+	align-self: center;
+	color: var(--color-primary-element);
+	text-decoration: underline;
+}
+
 .agent-memory__header {
 	display: flex;
 	align-items: flex-start;
@@ -168,6 +259,13 @@ export default {
 
 .agent-memory__picker {
 	min-width: 260px;
+}
+
+.agent-memory__layers {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-bottom: 16px;
 }
 
 .agent-memory__loading {

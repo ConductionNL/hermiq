@@ -141,6 +141,16 @@ class EgressAuthorizeController extends Controller {
 			return new JSONResponse(['error' => 'invalid_request'], Http::STATUS_BAD_REQUEST);
 		}
 
+		// A sign-in token reaches its vendor's sign-in hosts and nothing else
+		// (models-provider-connections D5): no allowlist, no governance origin.
+		if (isset($binding['egressHosts']) === true) {
+			return $this->signInVerdict(
+				host: $destination['host'],
+				port: $destination['port'],
+				hosts: $binding['egressHosts']
+			);
+		}
+
 		$forgeRefusal = $this->forgeRefusal(host: $destination['host'], agentId: (string)$binding['agentId']);
 		if ($forgeRefusal !== null) {
 			return $forgeRefusal;
@@ -178,6 +188,31 @@ class EgressAuthorizeController extends Controller {
 			]
 		);
 	}//end forgeRefusal()
+
+	/**
+	 * The verdict for a sign-in token: one of its own hosts on 443, or denied.
+	 *
+	 * @param string             $host  The requested host.
+	 * @param int                $port  The requested port.
+	 * @param array<int, string> $hosts The hosts the sign-in may reach.
+	 *
+	 * @return JSONResponse The verdict.
+	 *
+	 * @spec openspec/changes/models-provider-connections
+	 */
+	private function signInVerdict(string $host, int $port, array $hosts): JSONResponse {
+		if ($port === 443 && in_array(strtolower($host), $hosts, true) === true) {
+			return new JSONResponse(['allowed' => true, 'code' => 'allowed', 'message' => '']);
+		}
+
+		return new JSONResponse(
+			[
+				'allowed' => false,
+				'code' => 'egress_denied',
+				'message' => 'A sign-in may reach only its own sign-in hosts.',
+			]
+		);
+	}//end signInVerdict()
 
 	/**
 	 * The host and port the request body names, or null when the body is not a JSON

@@ -46,6 +46,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T14:43:20+00:00"
@@ -66,6 +68,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": null
@@ -104,6 +108,8 @@
                 "summary": "Checked the cases",
                 "attempt": 1,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T14:43:20+00:00",
@@ -195,6 +201,8 @@
                 "summary": "Checked the cases",
                 "attempt": "3",
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": "2026-09-21T15:13:20+00:00",
@@ -232,6 +240,8 @@
                 "summary": "",
                 "attempt": null,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": null,
@@ -265,6 +275,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:13:20+00:00"
@@ -285,6 +297,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": null
@@ -305,6 +319,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": null
@@ -329,6 +345,8 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": null
@@ -355,6 +373,8 @@
                     "model": null,
                     "location": ""
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": "2026-09-21T16:13:20+00:00",
@@ -396,6 +416,8 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": null,
@@ -449,6 +471,8 @@
                     "summary": 7,
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:43:20+00:00"
@@ -523,6 +547,8 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:43:20+00:00"
@@ -543,6 +569,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:43:20+00:00"
@@ -560,6 +588,8 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T15:13:20+00:00"
@@ -584,6 +614,8 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T14:43:20+00:00"
@@ -605,6 +637,8 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:13:20+00:00"
@@ -629,6 +663,8 @@
                 "summary": null,
                 "attempt": null,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T16:43:20+00:00",
@@ -674,6 +710,8 @@
                     "model": null,
                     "location": ""
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": "2026-09-21T14:43:20+00:00",
@@ -717,6 +755,8 @@
                 "summary": null,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": "2026-09-21T16:43:20+00:00",
@@ -754,6 +794,8 @@
                     "model": null,
                     "location": ""
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": "2026-09-21T16:43:20+00:00",
@@ -788,6 +830,8 @@
                 "summary": null,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T14:43:20+00:00",
@@ -809,6 +853,8 @@
                 "summary": null,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T14:43:20+00:00",
@@ -844,6 +890,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:43:20+00:00"
@@ -870,6 +918,8 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": "2026-09-21T15:43:20+00:00",
@@ -902,6 +952,8 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": null,
@@ -942,6 +994,8 @@
                 "summary": null,
                 "attempt": "3",
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": "2026-09-21T14:13:20+00:00",
@@ -982,6 +1036,8 @@
                 "summary": null,
                 "attempt": 1,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": null,
@@ -1044,6 +1100,8 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": null,
@@ -1070,6 +1128,8 @@
                     "model": null,
                     "location": ""
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": null,
@@ -1111,6 +1171,8 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": null,
@@ -1186,6 +1248,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:43:20+00:00"
@@ -1203,6 +1267,8 @@
                     "summary": "",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T14:13:20+00:00"
@@ -1220,6 +1286,8 @@
                     "summary": "Checked the cases",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": null
@@ -1244,6 +1312,8 @@
                 "summary": "Checked the cases",
                 "attempt": null,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": null,
@@ -1288,6 +1358,8 @@
                     "summary": null,
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:43:20+00:00"
@@ -1311,6 +1383,8 @@
                 "summary": null,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": "2026-09-21T15:43:20+00:00",
@@ -1340,6 +1414,8 @@
                 "summary": "",
                 "attempt": "3",
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": "2026-09-21T16:43:20+00:00",
@@ -1385,6 +1461,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:43:20+00:00"
@@ -1402,6 +1480,8 @@
                     "summary": 7,
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T15:13:20+00:00"
@@ -1422,6 +1502,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:43:20+00:00"
@@ -1444,6 +1526,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": null
@@ -1464,6 +1548,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": null
@@ -1484,6 +1570,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": null
@@ -1507,6 +1595,8 @@
                 "summary": 7,
                 "attempt": 1,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T15:13:20+00:00",
@@ -1546,6 +1636,8 @@
                     "summary": null,
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:13:20+00:00"
@@ -1563,6 +1655,8 @@
                     "summary": null,
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:13:20+00:00"
@@ -1616,6 +1710,8 @@
                 "summary": 7,
                 "attempt": null,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": "2026-09-21T16:43:20+00:00",
@@ -1661,6 +1757,8 @@
                     "summary": 7,
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:13:20+00:00"
@@ -1681,6 +1779,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:13:20+00:00"
@@ -1698,6 +1798,8 @@
                     "summary": null,
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:43:20+00:00"
@@ -1724,6 +1826,8 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T14:13:20+00:00"
@@ -1744,6 +1848,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T14:13:20+00:00"
@@ -1761,6 +1867,8 @@
                     "summary": "",
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": null
@@ -1803,6 +1911,8 @@
                 "summary": 7,
                 "attempt": null,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T16:13:20+00:00",
@@ -1840,6 +1950,8 @@
                     "model": null,
                     "location": ""
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": "2026-09-21T16:13:20+00:00",
@@ -1870,6 +1982,8 @@
                     "summary": "",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:13:20+00:00"
@@ -1922,6 +2036,8 @@
                 "summary": null,
                 "attempt": "3",
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": "2026-09-21T14:13:20+00:00",
@@ -1978,6 +2094,8 @@
                 "summary": null,
                 "attempt": "3",
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": null,
@@ -2022,6 +2140,8 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:43:20+00:00"
@@ -2039,6 +2159,8 @@
                     "summary": null,
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": null
@@ -2102,6 +2224,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:13:20+00:00"
@@ -2122,6 +2246,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:13:20+00:00"
@@ -2148,6 +2274,8 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": "2026-09-21T14:13:20+00:00",
@@ -2176,6 +2304,8 @@
                 "summary": null,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": null,
@@ -2243,6 +2373,8 @@
                     "summary": "Checked the cases",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:43:20+00:00"
@@ -2260,6 +2392,8 @@
                     "summary": "Checked the cases",
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:43:20+00:00"
@@ -2310,6 +2444,8 @@
                     "summary": "",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T14:43:20+00:00"
@@ -2338,6 +2474,8 @@
                 "summary": "",
                 "attempt": null,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": "2026-09-21T14:43:20+00:00",
@@ -2368,6 +2506,8 @@
                     "summary": "Checked the cases",
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T15:13:20+00:00"
@@ -2401,6 +2541,8 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": "2026-09-21T14:43:20+00:00",
@@ -2447,6 +2589,8 @@
                     "summary": 7,
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:13:20+00:00"
@@ -2469,6 +2613,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T14:43:20+00:00"
@@ -2512,6 +2658,8 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": null,
@@ -2546,6 +2694,8 @@
                 "summary": "",
                 "attempt": 1,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": "2026-09-21T16:43:20+00:00",
@@ -2591,6 +2741,8 @@
                     "model": null,
                     "location": ""
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": null,
@@ -2621,6 +2773,8 @@
                     "summary": "",
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:43:20+00:00"
@@ -2661,6 +2815,8 @@
                     "model": null,
                     "location": ""
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": "2026-09-21T14:13:20+00:00",
@@ -2708,6 +2864,8 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": "2026-09-21T16:13:20+00:00",
@@ -2736,6 +2894,8 @@
                     "summary": "",
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:13:20+00:00"
@@ -2753,6 +2913,8 @@
                     "summary": null,
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:43:20+00:00"
@@ -2777,6 +2939,8 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": null
@@ -2797,6 +2961,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": null
@@ -2820,6 +2986,8 @@
                 "summary": null,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": "2026-09-21T14:43:20+00:00",
@@ -2867,6 +3035,8 @@
                     "summary": "",
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:43:20+00:00"
@@ -2884,6 +3054,8 @@
                     "summary": "Checked the cases",
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": null
@@ -2916,6 +3088,8 @@
                     "summary": "Checked the cases",
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
@@ -2933,6 +3107,8 @@
                     "summary": "",
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:43:20+00:00"
@@ -2952,6 +3128,8 @@
                     "summary": "",
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T14:43:20+00:00"
@@ -2976,6 +3154,8 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": null
@@ -2993,6 +3173,8 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": null
@@ -3037,6 +3219,8 @@
                     "model": null,
                     "location": ""
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T15:13:20+00:00",
@@ -3074,6 +3258,8 @@
                     "summary": null,
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:13:20+00:00"
@@ -3091,6 +3277,8 @@
                     "summary": 7,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T15:13:20+00:00"
@@ -3115,6 +3303,8 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": null
@@ -3175,6 +3365,8 @@
                     "summary": "Checked the cases",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:13:20+00:00"
@@ -3199,6 +3391,8 @@
                 "summary": 7,
                 "attempt": 1,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": "2026-09-21T15:13:20+00:00",
@@ -3256,6 +3450,8 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": "2026-09-21T14:13:20+00:00",
@@ -3306,6 +3502,8 @@
                     "summary": null,
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:43:20+00:00"
@@ -3332,6 +3530,8 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T14:43:20+00:00"
@@ -3369,6 +3569,8 @@
                 "summary": null,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T15:43:20+00:00",
@@ -3402,6 +3604,8 @@
                     "summary": 7,
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
@@ -3442,6 +3646,8 @@
                     "model": null,
                     "location": ""
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": null,
@@ -3496,6 +3702,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:43:20+00:00"
@@ -3530,6 +3738,8 @@
                     "summary": "Checked the cases",
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
@@ -3549,6 +3759,8 @@
                     "summary": 7,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:13:20+00:00"
@@ -3566,6 +3778,8 @@
                     "summary": "",
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": null
@@ -3605,6 +3819,8 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:43:20+00:00"
@@ -3625,6 +3841,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": null
@@ -3646,6 +3864,8 @@
                     "summary": "",
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": null
@@ -3677,6 +3897,8 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": "2026-09-21T15:43:20+00:00",
@@ -3707,6 +3929,8 @@
                     "summary": "Checked the cases",
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:43:20+00:00"
@@ -3729,6 +3953,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T14:43:20+00:00"
@@ -3748,6 +3974,8 @@
                     "summary": "Checked the cases",
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:43:20+00:00"
@@ -3765,6 +3993,8 @@
                     "summary": null,
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T14:43:20+00:00"
@@ -3802,6 +4032,8 @@
                 "summary": "Checked the cases",
                 "attempt": "3",
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": "2026-09-21T14:13:20+00:00",
@@ -3825,6 +4057,8 @@
                 "summary": "Checked the cases",
                 "attempt": "3",
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": "2026-09-21T14:13:20+00:00",
@@ -3877,6 +4111,8 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:43:20+00:00"
@@ -3897,6 +4133,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:43:20+00:00"
@@ -3919,6 +4157,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:13:20+00:00"
@@ -3953,6 +4193,8 @@
                     "summary": "",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T14:43:20+00:00"
@@ -3990,6 +4232,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:43:20+00:00"
@@ -4010,6 +4254,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T15:43:20+00:00"
@@ -4032,6 +4278,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:43:20+00:00"
@@ -4049,6 +4297,8 @@
                     "summary": null,
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": null
@@ -4086,6 +4336,8 @@
                 "summary": "Checked the cases",
                 "attempt": null,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": "2026-09-21T16:13:20+00:00",
@@ -4123,6 +4375,8 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": "2026-09-21T16:13:20+00:00",
@@ -4172,6 +4426,8 @@
                 "summary": 7,
                 "attempt": "3",
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": null,
@@ -4215,6 +4471,8 @@
                 "summary": "Checked the cases",
                 "attempt": "3",
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T16:43:20+00:00",
@@ -4249,6 +4507,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": null
@@ -4276,6 +4536,8 @@
                     "model": null,
                     "location": ""
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": null,
@@ -4317,6 +4579,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": null
@@ -4365,6 +4629,8 @@
                     "summary": 7,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:43:20+00:00"
@@ -4382,6 +4648,8 @@
                     "summary": 7,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:13:20+00:00"
@@ -4408,6 +4676,8 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T14:43:20+00:00"
@@ -4459,6 +4729,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
@@ -4483,6 +4755,8 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T14:43:20+00:00"
@@ -4522,6 +4796,8 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:43:20+00:00"
@@ -4539,6 +4815,8 @@
                     "summary": 7,
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:13:20+00:00"
@@ -4563,6 +4841,8 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": null
@@ -4580,6 +4860,8 @@
                     "summary": 7,
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": null
@@ -4610,6 +4892,8 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": null,
@@ -4638,6 +4922,8 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": null,
@@ -4675,6 +4961,8 @@
                 "summary": null,
                 "attempt": "3",
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": null,
@@ -4730,6 +5018,8 @@
                 "summary": "Checked the cases",
                 "attempt": null,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": null,
@@ -4768,6 +5058,8 @@
                     "summary": null,
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T14:43:20+00:00"
@@ -4800,6 +5092,8 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T16:13:20+00:00",
@@ -4843,6 +5137,8 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": "2026-09-21T16:13:20+00:00",
@@ -4889,6 +5185,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:43:20+00:00"
@@ -4909,6 +5207,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
@@ -4926,6 +5226,8 @@
                     "summary": null,
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
@@ -4943,6 +5245,8 @@
                     "summary": "",
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T14:43:20+00:00"
@@ -4970,6 +5274,8 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": "2026-09-21T16:13:20+00:00",
@@ -5025,6 +5331,8 @@
                 "summary": null,
                 "attempt": null,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": null,
@@ -5053,6 +5361,8 @@
                     "summary": null,
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:13:20+00:00"
@@ -5078,6 +5388,8 @@
                 "summary": null,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": null,
@@ -5102,6 +5414,8 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": "2026-09-21T15:13:20+00:00",
@@ -5171,6 +5485,8 @@
                 "summary": null,
                 "attempt": 1,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T14:43:20+00:00",
@@ -5205,6 +5521,8 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T14:43:20+00:00",
@@ -5249,6 +5567,8 @@
                     "summary": "",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
@@ -5281,6 +5601,8 @@
                     "summary": "",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:43:20+00:00"
@@ -5301,6 +5623,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": null
@@ -5327,6 +5651,8 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": null,
@@ -5361,6 +5687,8 @@
                 "summary": null,
                 "attempt": null,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": null,
@@ -5382,6 +5710,8 @@
                 "summary": null,
                 "attempt": null,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": null,
@@ -5428,6 +5758,8 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T15:43:20+00:00",
@@ -5463,6 +5795,8 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T14:43:20+00:00",
@@ -5522,6 +5856,8 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": null
@@ -5541,6 +5877,8 @@
                     "summary": "",
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": null
@@ -5567,6 +5905,8 @@
                     "model": null,
                     "location": ""
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": "2026-09-21T16:13:20+00:00",
@@ -5609,6 +5949,8 @@
                 "summary": "",
                 "attempt": null,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": "2026-09-21T15:43:20+00:00",
@@ -5642,6 +5984,8 @@
                 "summary": 7,
                 "attempt": 1,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": null,
@@ -5689,6 +6033,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:43:20+00:00"
@@ -5715,6 +6061,8 @@
                 "summary": "Checked the cases",
                 "attempt": "3",
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T15:43:20+00:00",
@@ -5752,6 +6100,8 @@
                     "summary": 7,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
@@ -5774,6 +6124,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T15:43:20+00:00"
@@ -5794,6 +6146,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T14:13:20+00:00"
@@ -5833,6 +6187,8 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:43:20+00:00"
@@ -5850,6 +6206,8 @@
                     "summary": "Checked the cases",
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:13:20+00:00"
@@ -5869,6 +6227,8 @@
                     "summary": 7,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:13:20+00:00"
@@ -5886,6 +6246,8 @@
                     "summary": 7,
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": null
@@ -5903,6 +6265,8 @@
                     "summary": 7,
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": null
@@ -5926,6 +6290,8 @@
                 "summary": 7,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": null,
@@ -5965,6 +6331,8 @@
                     "summary": "",
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T14:43:20+00:00"
@@ -6007,6 +6375,8 @@
                     "model": null,
                     "location": ""
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": "2026-09-21T16:43:20+00:00",
@@ -6050,6 +6420,8 @@
                 "summary": null,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": "2026-09-21T16:13:20+00:00",
@@ -6090,6 +6462,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": null
@@ -6113,6 +6487,8 @@
                 "summary": null,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": null,
@@ -6146,6 +6522,8 @@
                     "summary": "",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:43:20+00:00"
@@ -6165,6 +6543,8 @@
                     "summary": "Checked the cases",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:13:20+00:00"
@@ -6182,6 +6562,8 @@
                     "summary": "Checked the cases",
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T14:43:20+00:00"
@@ -6199,6 +6581,8 @@
                     "summary": 7,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:13:20+00:00"
@@ -6216,6 +6600,8 @@
                     "summary": null,
                     "attempt": 1,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": null
@@ -6239,6 +6625,8 @@
                 "summary": "Checked the cases",
                 "attempt": 2,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T14:43:20+00:00",
@@ -6270,6 +6658,8 @@
                     "summary": "",
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:13:20+00:00"
@@ -6287,6 +6677,8 @@
                     "summary": 7,
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": null
@@ -6322,6 +6714,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:43:20+00:00"
@@ -6356,6 +6750,8 @@
                     "summary": 7,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T16:43:20+00:00"
@@ -6382,6 +6778,8 @@
                     "model": null,
                     "location": ""
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": null,
@@ -6406,6 +6804,8 @@
                     "model": null,
                     "location": ""
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": null,
@@ -6441,6 +6841,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T14:13:20+00:00"
@@ -6473,6 +6875,8 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:43:20+00:00"
@@ -6497,6 +6901,8 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
@@ -6517,6 +6923,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T15:13:20+00:00"
@@ -6534,6 +6942,8 @@
                     "summary": "Checked the cases",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:13:20+00:00"
@@ -6558,6 +6968,8 @@
                 "summary": null,
                 "attempt": null,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": "2026-09-21T16:43:20+00:00",
@@ -6590,6 +7002,8 @@
                     "summary": "Checked the cases",
                     "attempt": "3",
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:43:20+00:00"
@@ -6616,6 +7030,8 @@
                 "summary": "Checked the cases",
                 "attempt": "3",
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": "2026-09-21T14:43:20+00:00",
@@ -6668,6 +7084,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:13:20+00:00"
@@ -6694,6 +7112,8 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:13:20+00:00"
@@ -6726,6 +7146,8 @@
                     "summary": 7,
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:43:20+00:00"
@@ -6754,6 +7176,8 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T14:13:20+00:00",
@@ -6798,6 +7222,8 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:13:20+00:00"
@@ -6828,6 +7254,8 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": "2026-09-21T14:13:20+00:00",
@@ -6878,6 +7306,8 @@
                 "summary": "Checked the cases",
                 "attempt": null,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T16:13:20+00:00",
@@ -6909,6 +7339,8 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": "2026-09-21T15:43:20+00:00",
@@ -6965,6 +7397,8 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:43:20+00:00"
@@ -6988,6 +7422,8 @@
                 "summary": "",
                 "attempt": 2,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": "2026-09-21T14:13:20+00:00",
@@ -7038,6 +7474,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:13:20+00:00"
@@ -7073,6 +7511,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:43:20+00:00"
@@ -7093,6 +7533,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:43:20+00:00"
@@ -7110,6 +7552,8 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:43:20+00:00"
@@ -7136,6 +7580,8 @@
                     "provider": "openai",
                     "dataUse": "training"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": "2026-09-21T16:43:20+00:00",
@@ -7178,6 +7624,8 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": "2026-09-21T16:13:20+00:00",
@@ -7217,6 +7665,8 @@
                         "provider": "openai",
                         "dataUse": "training"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
@@ -7241,6 +7691,8 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": null
@@ -7278,6 +7730,8 @@
                 "summary": null,
                 "attempt": 2,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T14:13:20+00:00",
@@ -7333,6 +7787,8 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T16:13:20+00:00",
@@ -7369,6 +7825,8 @@
                     "dataUse": "none",
                     "termsReference": "t-1"
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T16:13:20+00:00",
@@ -7428,6 +7886,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": null
@@ -7456,6 +7916,8 @@
                     "model": null,
                     "location": ""
                 },
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T15:13:20+00:00",
@@ -7484,6 +7946,8 @@
                 "summary": "",
                 "attempt": null,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": null,
                 "created": null,
@@ -7543,6 +8007,8 @@
                 "summary": null,
                 "attempt": null,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": "2026-09-21T15:13:20+00:00",
@@ -7584,6 +8050,8 @@
                 "summary": null,
                 "attempt": "3",
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": null,
@@ -7656,6 +8124,8 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:43:20+00:00"
@@ -7693,6 +8163,8 @@
                 "summary": "Checked the cases",
                 "attempt": "3",
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T14:13:20+00:00",
@@ -7730,6 +8202,8 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:43:20+00:00"
@@ -7756,6 +8230,8 @@
                         "dataUse": "none",
                         "termsReference": "t-1"
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:43:20+00:00"
@@ -7773,6 +8249,8 @@
                     "summary": 7,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T16:13:20+00:00"
@@ -7793,6 +8271,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "",
                     "created": "2026-09-21T15:43:20+00:00"
@@ -7810,6 +8290,8 @@
                     "summary": "",
                     "attempt": 2,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": "alice",
                     "created": "2026-09-21T15:43:20+00:00"
@@ -7830,6 +8312,8 @@
                         "model": null,
                         "location": ""
                     },
+                    "providerAttempts": [],
+                    "receivedBy": [],
                     "usage": [],
                     "user": null,
                     "created": null
@@ -7853,6 +8337,8 @@
                 "summary": "",
                 "attempt": 2,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "alice",
                 "created": "2026-09-21T15:43:20+00:00",
@@ -7881,6 +8367,8 @@
                 "summary": 7,
                 "attempt": null,
                 "providerDisclosure": [],
+                "providerAttempts": [],
+                "receivedBy": [],
                 "usage": [],
                 "user": "",
                 "created": "2026-09-21T16:13:20+00:00",

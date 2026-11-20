@@ -30,6 +30,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Connection;
 
+use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
 use Throwable;
@@ -51,7 +52,8 @@ class LlmConnectionReport {
 		'ollama'    => 'Ollama',
 		'fireworks' => 'Fireworks AI',
 		'anthropic' => 'Anthropic',
-		'nextcloud' => 'Nextcloud Assistant',
+		'nextcloud' => 'Nextcloud AI',
+		'openai-compatible' => 'OpenAI-compatible endpoint',
 	];
 
 	/**
@@ -91,12 +93,13 @@ class LlmConnectionReport {
 	 * @return array{0: string, 1: string} The status and the message.
 	 */
 	private function describeProvider(array $config): array {
+		// Use-nextcloud-ai-settings: no hermiq-specific provider means Nextcloud AI.
 		$provider = (string)($config['chatProvider'] ?? '');
-		if ($provider === '') {
-			return ['unconfigured', 'No chat provider is chosen. Chat answers 503 until one is.'];
+		if (trim($provider) === '') {
+			$provider = LlmSettingsHandler::DEFAULT_CHAT_PROVIDER;
 		}
 
-		$name = (self::PROVIDER_NAMES[$provider] ?? $provider);
+		$name = $this->providerName(provider: $provider, config: $config);
 
 		try {
 			$this->providerFactory->createChatDriver(llmConfig: $config);
@@ -108,13 +111,30 @@ class LlmConnectionReport {
 
 		if ($provider === 'nextcloud') {
 			return [
-				'limited',
-				'Nextcloud Assistant runs background work, such as titles and summaries. Chat cannot run on it. Saved, not tested.',
+				'configured',
+				'Chat uses Nextcloud AI, the provider set up under Administration settings > Artificial intelligence. Saved, not tested.',
 			];
 		}
 
 		return ['configured', 'Chat uses ' . $name . '. Saved, not tested.'];
 	}//end describeProvider()
+
+	/**
+	 * The name a message uses for the saved provider: an OpenAI-compatible endpoint
+	 * goes by its admin's label, as "vLLM Rekencentrum (OpenAI-compatible)".
+	 * @param string               $provider The `chatProvider` value.
+	 * @param array<string, mixed> $config   The saved configuration.
+	 * @return string The name.
+	 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-an-admin-can-connect-an-openai-compatible-endpoint-by-name-req-pconn-001
+	 */
+	private function providerName(string $provider, array $config): string {
+		$label = trim((string)(($config['openaiCompatibleConfig'] ?? [])['label'] ?? ''));
+		if ($provider === 'openai-compatible' && $label !== '') {
+			return $label . ' (OpenAI-compatible)';
+		}
+
+		return (self::PROVIDER_NAMES[$provider] ?? $provider);
+	}//end providerName()
 
 	/**
 	 * What the saved configuration means for the `llm-runner` row.

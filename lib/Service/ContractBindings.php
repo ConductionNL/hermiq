@@ -54,6 +54,7 @@ use OCA\Hermiq\Kernel\Contracts\AttachmentStoreInterface;
 use OCA\Hermiq\Kernel\Contracts\BudgetHardCapInterface;
 use OCA\Hermiq\Kernel\Contracts\BudgetServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\ComplianceServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\ComputerUseServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\ConnectionReporterInterface;
 use OCA\Hermiq\Kernel\Contracts\ContextAgentInteractionServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\ConversationTitleWriterInterface;
@@ -141,6 +142,7 @@ use OCA\Hermiq\Kernel\Contracts\TalkRoomBindingInterface;
 use OCA\Hermiq\Kernel\Contracts\TalkRoomGroupingInterface;
 use OCA\Hermiq\Kernel\Contracts\TalkSessionRoomInterface;
 use OCA\Hermiq\Kernel\Contracts\TalkTurnDispatcherInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkTurnMirrorInterface;
 use OCA\Hermiq\Kernel\Contracts\TalkTurnServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\TaskWriteServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\TalkMessageToolInterface;
@@ -179,6 +181,7 @@ use OCA\Hermiq\Service\Assistant\RecordSummaryService;
 use OCA\Hermiq\Service\Chat\AttachmentStore;
 use OCA\Hermiq\Service\Chat\ImageGenerationService;
 use OCA\Hermiq\Service\Chat\SessionPendingApprovals;
+use OCA\Hermiq\Service\ComputerUse\ComputerUseService;
 use OCA\Hermiq\Service\Connection\ConnectionReporter;
 use OCA\Hermiq\Service\Engine\ConversationTitleWriter;
 use OCA\Hermiq\Service\TraceExport\TraceExportDelivery;
@@ -218,6 +221,7 @@ use OCA\Hermiq\Service\Talk\TalkRoomBinding;
 use OCA\Hermiq\Service\Talk\TalkRoomGrouping;
 use OCA\Hermiq\Service\Talk\TalkSessionRoom;
 use OCA\Hermiq\Service\Talk\TalkTurnDispatcher;
+use OCA\Hermiq\Service\Talk\TalkTurnMirror;
 use OCA\Hermiq\Service\Talk\TalkTurnService;
 use OCA\Hermiq\Service\WebResearch\WebFetchService;
 use OCA\Hermiq\Service\WebResearch\WebResearchEgressGuard;
@@ -226,6 +230,10 @@ use OCA\Hermiq\Service\WebResearch\WebSearchClient;
 use OCA\Hermiq\Service\Workspace\ForgeEgressPolicy;
 use OCA\Hermiq\Service\Workspace\ServerSideWorkspaceProvider;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
+use OCA\Hermiq\Kernel\Contracts\KnowledgeBaseServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SourceSharingInspectorInterface;
+use OCA\Hermiq\Service\KnowledgeBase\KnowledgeBaseService;
+use OCA\Hermiq\Service\KnowledgeBase\SourceSharingInspector;
 
 /**
  * Nextcloud autowires concrete classes but not interfaces, so every contract
@@ -264,6 +272,8 @@ final class ContractBindings {
 		$context->registerServiceAlias(AgentCatalogInterface::class, AgentCatalog::class);
 		$context->registerServiceAlias(AgentContextBuilderInterface::class, AgentContextBuilder::class);
 		$context->registerServiceAlias(AgentDraftServiceInterface::class, AgentDraftService::class);
+		$context->registerServiceAlias(KnowledgeBaseServiceInterface::class, KnowledgeBaseService::class);
+		$context->registerServiceAlias(SourceSharingInspectorInterface::class, SourceSharingInspector::class);
 		$context->registerServiceAlias(AgentGitServiceInterface::class, AgentGitService::class);
 		$context->registerServiceAlias(AgentObjectMatcherInterface::class, AgentObjectMatcher::class);
 		$context->registerServiceAlias(AgentTemplateServiceInterface::class, AgentTemplateService::class);
@@ -285,6 +295,7 @@ final class ContractBindings {
 		$context->registerServiceAlias(AttachmentStoreInterface::class, AttachmentStore::class);
 		$context->registerServiceAlias(BudgetServiceInterface::class, BudgetService::class);
 		$context->registerServiceAlias(ComplianceServiceInterface::class, ComplianceService::class);
+		$context->registerServiceAlias(ComputerUseServiceInterface::class, ComputerUseService::class);
 		$context->registerServiceAlias(ConnectionReporterInterface::class, ConnectionReporter::class);
 		$context->registerServiceAlias(ContextAgentInteractionServiceInterface::class, ContextAgentInteractionService::class);
 		$context->registerServiceAlias(ConversationTitleWriterInterface::class, ConversationTitleWriter::class);
@@ -370,6 +381,7 @@ final class ContractBindings {
 		$context->registerServiceAlias(TalkRoomGroupingInterface::class, TalkRoomGrouping::class);
 		$context->registerServiceAlias(TalkSessionRoomInterface::class, TalkSessionRoom::class);
 		$context->registerServiceAlias(TalkTurnDispatcherInterface::class, TalkTurnDispatcher::class);
+		$context->registerServiceAlias(TalkTurnMirrorInterface::class, TalkTurnMirror::class);
 		$context->registerServiceAlias(TalkTurnServiceInterface::class, TalkTurnService::class);
 		$context->registerServiceAlias(TaskWriteServiceInterface::class, TaskWriteService::class);
 		$context->registerServiceAlias(TalkMessageToolInterface::class, TalkMessageTool::class);

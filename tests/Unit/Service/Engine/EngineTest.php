@@ -795,7 +795,7 @@ class EngineTest extends TestCase {
 			$historyHandler = $this->createMock(MessageHistoryHandler::class);
 			$recorded = [];
 			$historyHandler->method('storeMessage')->willReturnCallback(
-				function (string $conversationId, string $role, string $content, ?array $sources = null, ?array $context = null, ?string $authorId = null, ?string $authorDisplayName = null, array $attachments = [], ?array $provenance = null, ?array $retrievalScope = null, ?array $answerCache = null) use (&$recorded): ObjectEntity {
+				function (string $conversationId, string $role, string $content, ?array $sources = null, ?array $context = null, ?string $authorId = null, ?string $authorDisplayName = null, array $attachments = [], ?array $provenance = null, ?array $retrievalScope = null, ?array $translation = null, ?string $channel = null, ?array $answerCache = null) use (&$recorded): ObjectEntity {
 					$recorded[$role] = $answerCache;
 					return $this->entity('msg-' . $role, ['role' => $role, 'content' => $content]);
 				}
@@ -837,7 +837,7 @@ class EngineTest extends TestCase {
 		$responseHandler = $this->createMock(ResponseGenerationHandler::class);
 		$responseHandler->method('generateResponse')->willReturnCallback(
 			static function (...$arguments) use (&$received): string {
-				$received[] = ($arguments['answerCacheBypass'] ?? $arguments[14] ?? null);
+				$received[] = ($arguments['answerCacheBypass'] ?? $arguments[15] ?? null);
 				return 'Hi there!';
 			}
 		);

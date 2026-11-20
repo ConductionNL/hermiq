@@ -277,7 +277,7 @@ class HermiqToolProviderTest extends TestCase {
 		$this->assertNotContains('hermiq.completeTask', $ids);
 		$this->assertContains('hermiq.listTasks', $ids);
 		$this->assertContains('hermiq.createTask', $ids);
-		$this->assertCount(47, $ids);
+		$this->assertCount(61, $ids);
 
 	}//end testCompleteTaskIsAbsentWithoutAReplacePath()
 
@@ -490,12 +490,17 @@ class HermiqToolProviderTest extends TestCase {
 		//   (hermiq-runner-git-capability),
 		// + hermiq.graphNeighbors/graphPath (knowledge-graph),
 		// + hermiq.listTasks/createTask/completeTask (tools-nextcloud-tasks),
+		// + hermiq.askPerson (oversight-ask-and-hold),
+		// + hermiq.listAgents/getAgentStatus/listPendingApprovals/runAgentNow/searchSkills
+		//   (hermiq-domain-mcp-tools),
 		// + hermiq.askRemoteAgent (flows-hand-off-and-wait),
+		// + hermiq.computerScreenshot/Click/Type/Key (tools-browser-and-computer-use),
+		// + hermiq.browserOpen/Read/Click/Fill (tools-browser-and-computer-use),
 		// + hermiq.createFile/moveFile (spec-coverage-built-rows),
 		// + hermiq.sendTalkMessage (tools-post-a-talk-message),
 		// + hermiq.runCode (tools-code-sandbox),
 		// all registered through this same provider.
-		$this->assertCount(48, $tools);
+		$this->assertCount(62, $tools);
 
 		$ids = array_column($tools, 'id');
 		$this->assertContains('hermiq.listFiles', $ids);
@@ -547,6 +552,8 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.sendMail' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'create'],
 			'hermiq.listDeckBoards' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.searchTools' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			// oversight-ask-and-hold: handled in the engine, which records the question and ends the turn.
+			'hermiq.askPerson' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			// Discovery reads the catalogue and writes nothing.
 			'hermiq.listAvailableTools' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			// `scope: write` and `readOnlyHint: false` — raising a request PERSISTS a
@@ -595,6 +602,12 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.workspacePush' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
 			'hermiq.graphNeighbors' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.graphPath' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			// hermiq-domain-mcp-tools: four reads, and a run that does whatever the agent's tools do.
+			'hermiq.listAgents' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.getAgentStatus' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.listPendingApprovals' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.runAgentNow' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'create'],
+			'hermiq.searchSkills' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			// tools-nextcloud-tasks: completing is not destructive (one click reopens it).
 			'hermiq.listTasks' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.createTask' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
@@ -603,10 +616,20 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.sendTalkMessage' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
 			// tools-code-sandbox: write-classified so it is default-denied.
 			'hermiq.runCode' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
+			// tools-browser-and-computer-use: a screenshot only reads; every action changes the machine.
+			'hermiq.computerScreenshot' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.computerClick' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
+			'hermiq.computerType' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
+			'hermiq.computerKey' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
+			// tools-browser-and-computer-use: opening and reading only read; a click or a fill can submit a form.
+			'hermiq.browserOpen' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.browserRead' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.browserClick' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
+			'hermiq.browserFill' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
 		];
 
 		$tools = $this->provider('alice')->getTools();
-		$this->assertCount(48, $tools, 'This test must be updated if a tool is added or removed.');
+		$this->assertCount(62, $tools, 'This test must be updated if a tool is added or removed.');
 
 		$seen = [];
 		foreach ($tools as $tool) {
@@ -648,6 +671,7 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.sendMail' => ToolReachResolver::REACH_EXTERNAL,
 			'hermiq.listDeckBoards' => ToolReachResolver::REACH_USER,
 			'hermiq.searchTools' => ToolReachResolver::REACH_SELF,
+			'hermiq.askPerson' => ToolReachResolver::REACH_SELF,
 			// `self`: reads the instance catalogue and this agent's own grants, and
 			// returns metadata only — nothing dispatchable, nothing outside the agent.
 			'hermiq.listAvailableTools' => ToolReachResolver::REACH_SELF,
@@ -695,6 +719,11 @@ class HermiqToolProviderTest extends TestCase {
 			// `user`: reads the graph as the acting user and returns pointers only.
 			'hermiq.graphNeighbors' => ToolReachResolver::REACH_USER,
 			'hermiq.graphPath' => ToolReachResolver::REACH_USER,
+			'hermiq.listAgents' => ToolReachResolver::REACH_USER,
+			'hermiq.getAgentStatus' => ToolReachResolver::REACH_USER,
+			'hermiq.listPendingApprovals' => ToolReachResolver::REACH_USER,
+			'hermiq.runAgentNow' => ToolReachResolver::REACH_USER,
+			'hermiq.searchSkills' => ToolReachResolver::REACH_USER,
 			// `instance`: a list the user owns can be shared with colleagues, who see the change.
 			'hermiq.listTasks' => ToolReachResolver::REACH_USER,
 			'hermiq.createTask' => ToolReachResolver::REACH_INSTANCE,
@@ -703,6 +732,16 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.sendTalkMessage' => ToolReachResolver::REACH_INSTANCE,
 			// tools-code-sandbox: the own sandbox when no setting can be read.
 			'hermiq.runCode' => ToolReachResolver::REACH_SELF,
+			// `external`: the screen's content goes to the model provider.
+			'hermiq.computerScreenshot' => ToolReachResolver::REACH_EXTERNAL,
+			'hermiq.computerClick' => ToolReachResolver::REACH_EXTERNAL,
+			'hermiq.computerType' => ToolReachResolver::REACH_EXTERNAL,
+			'hermiq.computerKey' => ToolReachResolver::REACH_EXTERNAL,
+			// `external`: the page comes from someone else's site.
+			'hermiq.browserOpen' => ToolReachResolver::REACH_EXTERNAL,
+			'hermiq.browserRead' => ToolReachResolver::REACH_EXTERNAL,
+			'hermiq.browserClick' => ToolReachResolver::REACH_EXTERNAL,
+			'hermiq.browserFill' => ToolReachResolver::REACH_EXTERNAL,
 		];
 
 		$tools = $this->provider('alice')->getTools();
@@ -765,6 +804,7 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.sendMail' => ['mail', 'send'],
 			'hermiq.listDeckBoards' => ['deckBoard', 'list'],
 			'hermiq.searchTools' => ['tool', 'search'],
+			'hermiq.askPerson' => ['question', 'ask'],
 			'hermiq.listAvailableTools' => ['tool', 'list'],
 			// `request`: this one asks a HUMAN for a grant.
 			'hermiq.requestToolAccess' => ['toolAccess', 'request'],
@@ -805,11 +845,24 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.workspacePush' => ['workspace', 'push'],
 			'hermiq.graphNeighbors' => ['graphEntity', 'list'],
 			'hermiq.graphPath' => ['graphEntity', 'get'],
+			'hermiq.listAgents' => ['agent', 'list'],
+			'hermiq.getAgentStatus' => ['agent', 'get'],
+			'hermiq.listPendingApprovals' => ['approval', 'list'],
+			'hermiq.runAgentNow' => ['schedule', 'run'],
+			'hermiq.searchSkills' => ['skill', 'search'],
 			'hermiq.listTasks' => ['task', 'list'],
 			'hermiq.createTask' => ['task', 'create'],
 			'hermiq.completeTask' => ['task', 'complete'],
 			'hermiq.sendTalkMessage' => ['talkMessage', 'create'],
 			'hermiq.runCode' => ['codeRun', 'create'],
+			'hermiq.computerScreenshot' => ['computer', 'get'],
+			'hermiq.computerClick' => ['computer', 'click'],
+			'hermiq.computerType' => ['computer', 'type'],
+			'hermiq.computerKey' => ['computer', 'key'],
+			'hermiq.browserOpen' => ['browser', 'open'],
+			'hermiq.browserRead' => ['browser', 'get'],
+			'hermiq.browserClick' => ['browser', 'click'],
+			'hermiq.browserFill' => ['browser', 'fill'],
 		];
 
 		$tools = $this->provider('alice')->getTools();

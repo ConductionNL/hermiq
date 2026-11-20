@@ -205,6 +205,50 @@ final class EgressAuthorizeControllerTest extends TestCase {
 	}//end tokens()
 
 	/**
+	 * A token service that recognises one SIGN-IN token for claude.ai.
+	 *
+	 * @return RunTokenService
+	 */
+	private function signInTokens(): RunTokenService {
+		$tokens = $this->createMock(RunTokenService::class);
+		$tokens->method('verify')->willReturnCallback(
+			static function (string $token): ?array {
+				if ($token === 'sign-in') {
+					return ['runId' => 'sign-in:x', 'agentId' => '', 'userId' => 'alice', 'conversationId' => '', 'egressHosts' => ['claude.ai']];
+				}
+				return null;
+			}
+		);
+		return $tokens;
+	}//end signInTokens()
+
+	/**
+	 * A sign-in token reaches its own host on 443, and nothing the allowlist
+	 * admits for a run: not an allowlisted host, not its own host on another port.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/agent-credentials/spec.md#requirement-a-user-can-sign-in-with-a-claude-subscription-req-signin-001
+	 */
+	public function testASignInTokenReachesOnlyItsOwnHostsOn443(): void {
+		$settings = ['fetchAllowlist' => ['api.anthropic.com'], 'fetchDenylist' => [], 'allowInsecureHttp' => false];
+		$verdict = function (string $body) use ($settings): array {
+			$controller = $this->controller($this->signInTokens(), $this->settings($settings), 'Bearer sign-in', $body);
+			return $controller->authorize()->getData();
+		};
+
+		$this->assertSame(['allowed' => true, 'code' => 'allowed', 'message' => ''], $verdict('{"host":"Claude.AI","port":443}'));
+		$this->assertSame(false, $verdict('{"host":"api.anthropic.com","port":443}')['allowed']);
+		$this->assertSame('egress_denied', $verdict('{"host":"api.anthropic.com","port":443}')['code']);
+		$this->assertSame(false, $verdict('{"host":"claude.ai","port":80}')['allowed']);
+
+		// The same allowlisted host IS reachable for an ordinary run token.
+		$run = $this->controller($this->tokens('good'), $this->settings($settings), 'Bearer good', '{"host":"api.anthropic.com","port":443}');
+		$this->assertTrue($run->authorize()->getData()['allowed']);
+
+	}//end testASignInTokenReachesOnlyItsOwnHostsOn443()
+
+	/**
 	 * No/invalid token → 401 before any policy evaluation.
 	 *
 	 * @return void
@@ -445,6 +489,43 @@ final class EgressAuthorizeControllerTest extends TestCase {
 		$this->assertNull($data['code']);
 
 	}//end testAllowlistedHostIsAllowed()
+
+	/**
+	 * The browser of the code sandbox app presents a run token minted for one
+	 * conversation (tools-browser-and-computer-use): the PDP accepts it and judges
+	 * its destinations by the same policy, so a private address is refused and an
+	 * allowed host is reached.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/browser-use/spec.md#requirement-the-browser-reaches-only-what-the-egress-policy-allows-req-browse-001
+	 */
+	public function testTheBrowsersRunTokenIsJudgedByTheSamePolicy(): void {
+		$tokens = $this->createMock(RunTokenService::class);
+		$tokens->method('verify')->willReturnCallback(
+			static fn (string $token): ?array => $token === 'browser-token'
+				? ['runId' => 'browser:conv-1', 'agentId' => 'agent-1', 'userId' => 'alice', 'conversationId' => 'conv-1']
+				: null
+		);
+		$settings = ['fetchAllowlist' => [], 'fetchDenylist' => [], 'allowInsecureHttp' => true];
+
+		$public = $this->resolvedAddress;
+		$this->resolvedAddress = '10.0.0.5';
+		$private = $this->controller($tokens, $this->settings($settings), 'Bearer browser-token', '{"host":"10.0.0.5","port":80}')->authorize();
+		$this->assertSame(200, $private->getStatus());
+		$this->assertFalse($private->getData()['allowed']);
+		$this->assertNotEmpty($private->getData()['code']);
+
+		$this->resolvedAddress = $public;
+		$public = $this->controller(
+			$tokens,
+			$this->settings(['fetchAllowlist' => ['api.anthropic.com']] + $settings),
+			'Bearer browser-token',
+			'{"host":"api.anthropic.com","port":443}'
+		)->authorize();
+		$this->assertTrue($public->getData()['allowed']);
+
+	}//end testTheBrowsersRunTokenIsJudgedByTheSamePolicy()
 
 	/**
 	 * The forge host is denied, as egress_denied, to a run whose agent holds no forge tool grant,

@@ -26,8 +26,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Chat;
 
+use OCA\Hermiq\Service\Files\UserFolders;
 use OCP\Files\File;
-use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
 
 /**
@@ -89,21 +89,12 @@ class GeneratedImageFiles {
 	 * @return File The new file.
 	 *
 	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) UserFolders is used through its static API (a pure helper or
+	 * named constructor) with no state to inject.
 	 */
 	public function save(string $uid, string $bytes): File {
-		$folder = $this->rootFolder->getUserFolder($uid);
-		foreach (explode('/', self::FOLDER) as $segment) {
-			$next = null;
-			if ($folder->nodeExists($segment) === true) {
-				$next = $folder->get($segment);
-			}
-
-			if ($next instanceof Folder === false) {
-				$next = $folder->newFolder($segment);
-			}
-
-			$folder = $next;
-		}
+		$folder = UserFolders::open(folder: $this->rootFolder->getUserFolder($uid), path: self::FOLDER);
 
 		$name = $folder->getNonExistingName('image-' . gmdate('Y-m-d-His') . '.png');
 		return $folder->newFile($name, $bytes);

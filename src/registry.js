@@ -37,6 +37,7 @@
 //
 // See: https://github.com/ConductionNL/hydra → openspec/architecture/adr-036-universal-widget-manifest.md
 import { CnFlowSidebar } from '@conduction/nextcloud-vue'
+import AgentBuildsPanel from './components/AgentBuildsPanel.vue'
 import AgentAnswerCacheClearDialog from './dialogs/AgentAnswerCacheClearDialog.vue'
 import AgentAvailabilityDialog from './dialogs/AgentAvailabilityDialog.vue'
 import AgentFactsheetDialog from './dialogs/AgentFactsheetDialog.vue'
@@ -81,6 +82,8 @@ import AnalyticsBreakdownWidget from './widgets/AnalyticsBreakdownWidget.vue'
 import ChatHealthBlock from './widgets/ChatHealthBlock.vue'
 import ComplianceOperations from './widgets/ComplianceOperations.vue'
 import EvalRunPanelWidget from './widgets/EvalRunPanelWidget.vue'
+// memory-knowledge-bases: the KnowledgeBaseDetail page's sources section.
+import KnowledgeBaseSources from './widgets/KnowledgeBaseSources.vue'
 // skill-self-improvement: the SkillDetail draft review surface (side-by-side
 // diff, provenance, verdicts, Accept/Edit/Reject) and the version history +
 // rollback + republish widget.
@@ -629,6 +632,18 @@ export default {
 		_note: 'Running a dataset against an agent is a governed, non-delivering Hermiq action (EvalRunController) with no OpenRegister object-trigger equivalent — object-list/object-op cannot express it (ADR-049).',
 	},
 
+	'knowledge-base-sources': {
+		// @custom-widget-ratchet exclude uploads into Files, the Nextcloud file picker and per-source state from a Hermiq route (indexing state, only-you notice) — no built-in widget writes to Files or reads a computed per-row state, so this stays a custom widget.
+		kind: 'widget',
+		component: KnowledgeBaseSources,
+		defaultSize: { w: 12, h: 6 },
+		minSize: { w: 6, h: 4 },
+		maxSize: { w: 12, h: 12 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'memory-knowledge-bases: sources of a KnowledgeBase with upload, add from Files, add a folder and remove; the list scrolls inside its cell.',
+	},
+
 	/**
 	 * Skill link/unlink panel on EvalDatasetDetail (skill-evals): plain
 	 * `skillRefs` object writes through the generic store — the picker offers
@@ -772,6 +787,24 @@ export default {
 		allowedSlots: ['body'],
 		propsSchema: { type: 'object', properties: {} },
 		_note: 'An aggregate (share rated helpful plus counts) and an author-stripped comment list behind an agent read-access guard; neither the stat nor the object-table widget can express it.',
+	},
+
+	/**
+	 * The published builds of an agent on AgentDetail
+	 * (tools-agent-workspace-and-installed-tools): number, publisher, date, note,
+	 * files and tools per build, the pinned one marked, the unpublished-changes
+	 * note, and "Publish build" for someone who may modify the agent.
+	 */
+	'agent-builds': {
+		// @custom-widget-ratchet exclude a list of builds read from a guarded per-agent endpoint with a pin marker, a computed unpublished-changes note and a publish action opening a modal — object-table binds OR collections (AgentBuild is admin-only through the object API) and has no per-row pin or header action.
+		kind: 'widget',
+		component: AgentBuildsPanel,
+		defaultSize: { w: 12, h: 4 },
+		minSize: { w: 6, h: 3 },
+		maxSize: { w: 12, h: 8 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'AgentBuild objects are read only through GET /api/agents/{id}/builds, which checks access to the agent and adds the pin and the unpublished-changes state; no built-in widget reads that endpoint shape or offers the publish action.',
 	},
 
 	// -------------------------------------------------------------------------

@@ -266,6 +266,9 @@ class Engine implements EngineInterface {
 	 *                           ({fileId} or {path}). Resolved in the speaker's Files
 	 *                           before the turn is stored or any model is called, and
 	 *                           kept on the user turn as references only.
+	 * @param string|null $turnChannel Where the human turn was typed, `talk` or `hermiq`, stored
+	 *                                 on the user turn (chat-carry-a-conversation-across-channels).
+	 *                                 Null leaves it unset, which reads as `hermiq`.
 	 * @param bool $answerCacheBypass True when the person asked the model again: the answer
 	 *                                cache is neither read nor written for this turn.
 	 *
@@ -309,6 +312,7 @@ class Engine implements EngineInterface {
 		?string $authorId = null,
 		?string $authorDisplayName = null,
 		array $attachments = [],
+		?string $turnChannel = null,
 		bool $answerCacheBypass = false,
 	): array {
 		$this->logger->info(
@@ -340,6 +344,7 @@ class Engine implements EngineInterface {
 				// The CnAiContext snapshot, kept apart from the RAG context of the turn.
 				'cnAiContext' => $context,
 				'channel' => $channel,
+				'turnChannel' => $turnChannel,
 				'trace' => $trace,
 				'dryRun' => $dryRun,
 				'answerCacheBypass' => $answerCacheBypass,
@@ -671,6 +676,7 @@ class Engine implements EngineInterface {
 				),
 				attachments: $turn['resolvedAttachments'],
 				speaker: ($turn['authorId'] ?? $turn['userId']),
+				projectKey: (string)($turn['conversationData']['projectKey'] ?? ''),
 				answerCacheBypass: ($turn['answerCacheBypass'] ?? false)
 			);
 		} catch (Exception $e) {
@@ -796,7 +802,8 @@ class Engine implements EngineInterface {
 			context: $turn['cnAiContext'],
 			authorId: $turn['authorId'],
 			authorDisplayName: $turn['authorDisplayName'],
-			attachments: $turn['resolvedAttachments']
+			attachments: $turn['resolvedAttachments'],
+			channel: ($turn['turnChannel'] ?? null)
 		);
 
 		$this->conversationHandler->checkAndSummarize(conversation: $turn['conversation']);

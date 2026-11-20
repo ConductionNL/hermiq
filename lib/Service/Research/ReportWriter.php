@@ -29,6 +29,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Research;
 
 use DateTimeInterface;
+use OCA\Hermiq\Service\Files\UserFolders;
 use OCA\Hermiq\Service\NcNative\AgentArtefactMarker;
 use OCP\Files\File;
 use OCP\Files\Folder;
@@ -134,21 +135,12 @@ class ReportWriter {
 	 * @param string $userId The user.
 	 *
 	 * @return Folder
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) UserFolders is used through its static API (a pure helper or
+	 * named constructor) with no state to inject.
 	 */
 	private function folderOf(string $userId): Folder {
-		$folder = $this->rootFolder->getUserFolder($userId);
-		foreach (explode('/', self::FOLDER) as $segment) {
-			$next = null;
-			if ($folder->nodeExists($segment) === true) {
-				$next = $folder->get($segment);
-			}
-
-			if ($next instanceof Folder === false) {
-				$next = $folder->newFolder($segment);
-			}
-
-			$folder = $next;
-		}
+		$folder = UserFolders::open(folder: $this->rootFolder->getUserFolder($userId), path: self::FOLDER);
 
 		return $folder;
 	}//end folderOf()

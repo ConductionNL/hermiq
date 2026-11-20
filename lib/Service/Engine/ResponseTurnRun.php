@@ -98,6 +98,13 @@ final class ResponseTurnRun {
 	public string $conversationId = '';
 
 	/**
+	 * The session's project (memory-project-scopes); '' outside a project.
+	 *
+	 * @var string
+	 */
+	public string $projectKey = '';
+
+	/**
 	 * Placeholder values for the agent's instructions.
 	 *
 	 * @var array<string, string>
@@ -110,6 +117,14 @@ final class ResponseTurnRun {
 	 * @var array<int, array<string, mixed>>
 	 */
 	public array $attachments = [];
+
+	/**
+	 * The reference models' answers the agent's own model merges, in an
+	 * ensemble turn (models-several-models-per-turn); empty otherwise.
+	 *
+	 * @var array<int, array{provider: string, model: string, text: string}>
+	 */
+	public array $referenceAnswers = [];
 
 	/**
 	 * Whether this turn skips the answer cache, read and write: the person asked

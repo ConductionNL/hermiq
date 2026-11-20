@@ -64,7 +64,98 @@
 						{{ t('hermiq', 'Archive') }}
 					</NcCheckboxRadioSwitch>
 				</div>
+				<NcTextField
+					:modelValue="searchTerm"
+					class="chat-page__search"
+					data-testid="chat-session-search"
+					:label="t('hermiq', 'Search sessions')"
+					trailingButtonIcon="close"
+					:trailingButtonLabel="t('hermiq', 'Clear search')"
+					:showTrailingButton="searchTerm !== ''"
+					@update:modelValue="onSearchInput"
+					@trailingButtonClick="clearSearch" />
+				<NcButton
+					v-if="!selecting"
+					variant="tertiary"
+					wide
+					data-testid="chat-session-select"
+					:disabled="selectableShown.length === 0"
+					@click="startSelecting">
+					<template #icon>
+						<CheckboxMultipleMarkedOutline :size="20" />
+					</template>
+					{{ t('hermiq', 'Select') }}
+				</NcButton>
 			</div>
+
+			<!--
+				Selection mode (REQ-SSRCH-002): the bar names how many rows are ticked and
+				acts on all of them in one request per 100. Its buttons follow the row
+				checkboxes in tab order; space toggles the focused row.
+			-->
+			<div
+				v-if="selecting"
+				class="chat-page__bulk"
+				role="toolbar"
+				data-testid="chat-session-bulk-bar"
+				:aria-label="t('hermiq', 'Selected sessions')">
+				<span class="chat-page__bulk-count" data-testid="chat-session-bulk-count">
+					{{ n('hermiq', '%n selected', '%n selected', selected.length) }}
+				</span>
+				<NcButton
+					variant="tertiary"
+					data-testid="chat-session-select-all"
+					:disabled="bulkBusy"
+					@click="selectAllShown">
+					{{ t('hermiq', 'Select all shown') }}
+				</NcButton>
+				<NcButton
+					v-if="!showArchive"
+					data-testid="chat-session-bulk-archive"
+					:disabled="bulkBusy || selected.length === 0"
+					@click="runBulk('archive')">
+					<template #icon>
+						<NcLoadingIcon v-if="bulkBusy" :size="20" />
+						<Archive v-else :size="20" />
+					</template>
+					{{ t('hermiq', 'Archive selected') }}
+				</NcButton>
+				<NcButton
+					v-else
+					data-testid="chat-session-bulk-restore"
+					:disabled="bulkBusy || selected.length === 0"
+					@click="runBulk('restore')">
+					<template #icon>
+						<NcLoadingIcon v-if="bulkBusy" :size="20" />
+						<Restore v-else :size="20" />
+					</template>
+					{{ t('hermiq', 'Restore selected') }}
+				</NcButton>
+				<NcButton
+					variant="error"
+					data-testid="chat-session-bulk-delete"
+					:disabled="bulkBusy || selected.length === 0"
+					@click="showBulkDelete = true">
+					<template #icon>
+						<Delete :size="20" />
+					</template>
+					{{ t('hermiq', 'Delete selected') }}
+				</NcButton>
+				<NcButton
+					variant="tertiary"
+					data-testid="chat-session-bulk-cancel"
+					:disabled="bulkBusy"
+					@click="stopSelecting">
+					{{ t('hermiq', 'Cancel') }}
+				</NcButton>
+			</div>
+
+			<NcNoteCard
+				v-if="searchActive && searchTruncated"
+				type="info"
+				data-testid="chat-session-search-truncated">
+				{{ t('hermiq', 'Only your 1000 most recent sessions were searched.') }}
+			</NcNoteCard>
 
 			<div v-if="sessionsLoading" class="chat-page__list-state">
 				<NcLoadingIcon :size="28" />
@@ -72,7 +163,9 @@
 
 			<NcNoteCard v-else-if="visibleSessions.length === 0" type="info">
 				{{
-					showArchive
+					searchActive
+						? t('hermiq', 'No sessions match {term}.', { term: appliedSearch })
+						: showArchive
 						? t('hermiq', 'No archived sessions.')
 						: t(
 								'hermiq',
@@ -101,14 +194,26 @@
 						:key="session.uuid"
 						class="chat-page__row"
 						:data-testid="`chat-session-row-${group.key}`"
-						:class="{ 'chat-page__row--active': isActive(session) }">
+						:class="{
+							'chat-page__row--active': isActive(session),
+							'chat-page__row--selected': selecting && isSelected(session),
+						}">
+						<NcCheckboxRadioSwitch
+							v-if="selecting && isSelectable(session)"
+							class="chat-page__row-check"
+							data-testid="chat-session-row-check"
+							type="checkbox"
+							:modelValue="isSelected(session)"
+							:aria-label="t('hermiq', 'Select {title}', { title: session.title || t('hermiq', 'New session') })"
+							@update:modelValue="toggleSelected(session)" />
 						<div
 							class="chat-page__row-main"
 							data-testid="chat-session-row"
 							role="button"
 							tabindex="0"
-							@click="selectSession(session)"
-							@keydown.enter="selectSession(session)">
+							@click="onRowActivate(session)"
+							@keydown.enter="onRowActivate(session)"
+							@keydown.space.prevent="onRowSpace(session)">
 							<span class="chat-page__row-icon">
 								<component :is="originIcon(session)" :size="20" />
 							</span>
@@ -119,6 +224,10 @@
 								<span class="chat-page__row-meta">{{
 									rowMeta(session)
 								}}</span>
+								<span
+									v-if="session.match && session.match.excerpt"
+									class="chat-page__row-excerpt"
+									data-testid="chat-session-row-excerpt">{{ session.match.excerpt }}</span>
 							</span>
 						</div>
 						<NcActions
@@ -131,6 +240,15 @@
 									<MessageText :size="20" />
 								</template>
 								{{ t('hermiq', 'Continue') }}
+							</NcActionButton>
+							<NcActionButton
+								v-if="talkUrl(session)"
+								data-testid="chat-session-open-in-talk"
+								@click="openInTalk(session)">
+								<template #icon>
+									<Forum :size="20" />
+								</template>
+								{{ t('hermiq', 'Open in Talk') }}
 							</NcActionButton>
 							<NcActionButton
 								v-if="canInvite(session)"
@@ -281,11 +399,18 @@
 				</NcButton>
 			</div>
 			<p
+				v-if="activeSession && sessionProjectName"
+				class="chat-page__start-values"
+				data-testid="chat-project">
+				{{ t('hermiq', 'Project: {project}', { project: sessionProjectName }) }}
+			</p>
+			<p
 				v-if="activeSession && sessionStartValues.length > 0"
 				class="chat-page__start-values"
 				data-testid="chat-start-values">
 				{{ sessionStartValues.join(' · ') }}
 			</p>
+			<WorkspaceFilesPanel v-if="activeSession && activeSession.uuid" :sessionId="activeSession.uuid" />
 
 			<div v-if="!activeSession" ref="startSurface" class="chat-page__empty">
 				<div class="chat-page__empty-inner" data-testid="chat-start-surface">
@@ -307,12 +432,28 @@
 						class="chat-page__start-error">
 						<p>{{ startError }}</p>
 					</NcNoteCard>
+					<NcTextField
+						v-model="newProjectName"
+						class="chat-page__new-project"
+						data-testid="chat-new-project"
+						:label="t('hermiq', 'New project (optional)')"
+						:helperText="
+							t(
+								'hermiq',
+								'Name a project to keep what the agent remembers in it apart.',
+							)
+						" />
 					<AgentSelector
 						:agents="agents"
 						:loading="agentsLoading"
 						:error="agentsError"
 						:startingId="startingId"
 						@start="startWithAgent" />
+					<ProjectPickerDialog
+						v-if="projectPicker"
+						:projects="projectPicker.projects"
+						@close="projectPicker = null"
+						@start="onProjectChosen" />
 				</div>
 			</div>
 
@@ -330,7 +471,11 @@
 						v-for="message in messages"
 						:key="message.uuid || message.id"
 						class="chat-page__message"
-						:class="`chat-page__message--${message.role}`">
+						:data-turn-uuid="message.uuid || message.id"
+						:class="[
+							`chat-page__message--${message.role}`,
+							{ 'chat-page__message--found': highlightTurn !== '' && (message.uuid || message.id) === highlightTurn },
+						]">
 						<div class="chat-page__avatar">
 							<NcAvatar
 								v-if="message.role === 'user'"
@@ -353,6 +498,12 @@
 								<span class="chat-page__time">{{
 									formatTime(message.created)
 								}}</span>
+								<span
+									v-if="typedInTalk(message)"
+									class="chat-page__via"
+									data-testid="chat-message-via-talk">
+									{{ t('hermiq', 'via Talk') }}
+								</span>
 							</div>
 							<!-- What happened to the attachments the model could not read
 								natively, above the answer they belong to (chat-attachments-and-images D6). -->
@@ -381,6 +532,23 @@
 							<div
 								class="chat-page__text"
 								v-html="renderMarkdown(message.content)" />
+
+							<!-- A translated recording: the player and what was used (chat-translate-a-recording). -->
+							<div
+								v-if="message.translation"
+								class="chat-page__translation"
+								data-testid="chat-message-translation">
+								<audio
+									v-if="message.translation.audioPath"
+									class="chat-page__translation-player"
+									controls
+									preload="none"
+									:src="translationAudioUrl(message.translation)"
+									:aria-label="t('hermiq', 'Spoken translation')" />
+								<p class="chat-page__translation-line">
+									{{ translationLine(message.translation, locale) }}
+								</p>
+							</div>
 
 							<!-- Files attached to this turn (chat-attachments-and-images). -->
 							<ul
@@ -445,6 +613,19 @@
 								</ul>
 							</details>
 
+							<!-- The question the agent asked with hermiq.askPerson
+							     (oversight-ask-and-hold D1): a button per suggested answer;
+							     the chosen one is sent as the next message. -->
+							<AgentQuestionCard
+								v-if="
+									message.role !== 'user'
+									&& pendingQuestion
+									&& (message.uuid || message.id)
+										=== pendingQuestionFor
+								"
+								:question="pendingQuestion"
+								:disabled="sending"
+								@answer="answerQuestion" />
 							<!-- The scope the answer was given (memory-retrieval-scope D5). -->
 							<div
 								v-if="message.role === 'assistant' && scopeDisplay(message.retrievalScope)"
@@ -792,6 +973,16 @@
 								</template>
 								{{ t('hermiq', 'Create an image') }}
 							</NcActionButton>
+							<!-- Shown while the on-instance speech service answers (chat-translate-a-recording D5). -->
+							<NcActionButton
+								v-if="speechService && speechService.available && activeSession"
+								data-testid="chat-translate-recording"
+								@click="showTranslateForm = true">
+								<template #icon>
+									<Translate :size="20" />
+								</template>
+								{{ t('hermiq', 'Translate a recording') }}
+							</NcActionButton>
 						</NcActions>
 						<!-- Same reason as the feedback box: the placeholder is a hint,
 						     not a name, and it is gone as soon as there is a message. -->
@@ -854,6 +1045,11 @@
 			:session="activeSession"
 			@close="showImageForm = false"
 			@created="onImageCreated" />
+		<TranslateRecordingModal
+			:show="showTranslateForm"
+			:session="activeSession"
+			@close="showTranslateForm = false"
+			@translated="onRecordingTranslated" />
 		<GoalFormModal
 			:show="showGoalForm"
 			:session="activeSession"
@@ -869,6 +1065,11 @@
 			:session="deleteTarget"
 			@close="showDelete = false"
 			@deleted="onDeleted" />
+		<SessionBulkDeleteModal
+			:show="showBulkDelete"
+			:uuids="selected"
+			@close="showBulkDelete = false"
+			@deleted="onBulkDeleted" />
 		<ChatSettingsModal
 			:show="showSettings"
 			:availableViews="availableViews"
@@ -909,7 +1110,8 @@
 import { SAFE_MARKDOWN_DOMPURIFY_CONFIG } from '@conduction/nextcloud-vue'
 import { getCurrentUser } from '@nextcloud/auth'
 import { getFilePickerBuilder, showError, showSuccess } from '@nextcloud/dialogs'
-import { generateUrl } from '@nextcloud/router'
+import { getLanguage } from '@nextcloud/l10n'
+import { generateRemoteUrl, generateUrl } from '@nextcloud/router'
 import {
 	NcActionButton,
 	NcActions,
@@ -918,11 +1120,13 @@ import {
 	NcCheckboxRadioSwitch,
 	NcLoadingIcon,
 	NcNoteCard,
+	NcTextField,
 } from '@nextcloud/vue'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import AccountMultiplePlus from 'vue-material-design-icons/AccountMultiplePlus.vue'
 import Archive from 'vue-material-design-icons/Archive.vue'
+import CheckboxMultipleMarkedOutline from 'vue-material-design-icons/CheckboxMultipleMarkedOutline.vue'
 // One icon per session row, chosen by what started the session. A row that
 // always drew the same mark would leave the human/automated split visible only
 // in the group headings, which scroll away; the agent itself is named in the
@@ -941,6 +1145,7 @@ import FileDocumentOutline from 'vue-material-design-icons/FileDocumentOutline.v
 import FlagCheckered from 'vue-material-design-icons/FlagCheckered.vue'
 import FlashOutline from 'vue-material-design-icons/FlashOutline.vue'
 import FolderOutline from 'vue-material-design-icons/FolderOutline.vue'
+import Forum from 'vue-material-design-icons/Forum.vue'
 import ImageOutline from 'vue-material-design-icons/ImageOutline.vue'
 import MessageText from 'vue-material-design-icons/MessageText.vue'
 import Paperclip from 'vue-material-design-icons/Paperclip.vue'
@@ -956,25 +1161,32 @@ import SourceBranch from 'vue-material-design-icons/SourceBranch.vue'
 import StopCircleOutline from 'vue-material-design-icons/StopCircleOutline.vue'
 import ThumbDown from 'vue-material-design-icons/ThumbDown.vue'
 import ThumbUp from 'vue-material-design-icons/ThumbUp.vue'
+import Translate from 'vue-material-design-icons/Translate.vue'
 import Upload from 'vue-material-design-icons/Upload.vue'
+import AgentQuestionCard from '../components/AgentQuestionCard.vue'
 import AgentSelector from '../components/AgentSelector.vue'
 import DictateButton from '../components/DictateButton.vue'
 import ReadAloudButton from '../components/ReadAloudButton.vue'
 import StartFieldsForm from '../components/StartFieldsForm.vue'
+import WorkspaceFilesPanel from '../components/WorkspaceFilesPanel.vue'
+import ProjectPickerDialog from '../dialogs/ProjectPickerDialog.vue'
 import AgentFormModal from '../modals/AgentFormModal.vue'
 import ChatSettingsModal from '../modals/ChatSettingsModal.vue'
 import GenerateImageModal from '../modals/GenerateImageModal.vue'
 import GoalFormModal from '../modals/GoalFormModal.vue'
 import ScheduleFormModal from '../modals/ScheduleFormModal.vue'
+import SessionBulkDeleteModal from '../modals/SessionBulkDeleteModal.vue'
 import SessionDeleteModal from '../modals/SessionDeleteModal.vue'
 import SessionParticipantsModal from '../modals/SessionParticipantsModal.vue'
 import SessionRenameModal from '../modals/SessionRenameModal.vue'
 import SessionShareModal from '../modals/SessionShareModal.vue'
 import SkillFormModal from '../modals/SkillFormModal.vue'
+import TranslateRecordingModal from '../modals/TranslateRecordingModal.vue'
 import { checkAgentDraft } from '../api/agents.js'
 import {
 	answerStartFields,
 	archiveSession,
+	bulkSessions,
 	ChatStreamError,
 	createSession,
 	forkSession,
@@ -993,8 +1205,10 @@ import {
 	uploadChatAttachment,
 	warmChat,
 } from '../api/chat.js'
+import { listMemoryProjects } from '../api/memory.js'
 import { getPreference, PREFERENCE_KEYS } from '../api/preferences.js'
 import { speechCapabilities } from '../api/speech.js'
+import { isTypedInTalk, talkRoomUrl } from '../services/sessionChannel.js'
 import { useAgentStore } from '../store/store.js'
 import {
 	agentFromDraft,
@@ -1012,7 +1226,9 @@ import {
 	startFieldsOf,
 	startValueSummary,
 } from '../utils/instructionVariables.js'
+import { projectNameOf } from '../utils/memoryProjects.js'
 import { defaultAgentOf } from '../utils/personalPreferences.js'
+import { translationLine } from '../utils/recordingTranslation.js'
 import { scopeDisplay, similarityText } from '../utils/retrievalScope.js'
 import { canForkSession, forkedSessionToOpen } from '../utils/sessionFork.js'
 import { canShareSession } from '../utils/sessionShare.js'
@@ -1032,6 +1248,16 @@ import { chatToolSteps } from './chatToolSteps.js'
  */
 const AUTOMATED_ORIGINS = ['cron', 'event', 'flow']
 
+/**
+ * Session search (REQ-SSRCH-001): the shortest term searched (the server ignores
+ * shorter ones), the pause after typing before it searches, how many results one
+ * search shows, and how long a found turn stays highlighted.
+ */
+const SEARCH_MIN_LENGTH = 2
+const SEARCH_DEBOUNCE_MS = 300
+const SEARCH_LIMIT = 100
+const HIGHLIGHT_MS = 2000
+
 /** The row icon for each trigger origin; anything else uses the agent mark. */
 const ORIGIN_ICONS = {
 	cron: 'ClockOutline',
@@ -1045,18 +1271,24 @@ export default {
 
 	components: {
 		AccountMultiplePlus,
+		AgentQuestionCard,
 		AgentSelector,
+		ProjectPickerDialog,
 		Archive,
 		ChatSettingsModal,
+		CheckboxMultipleMarkedOutline,
 		Close,
 		ClockOutline,
 		CogOutline,
+		SessionBulkDeleteModal,
 		SessionDeleteModal,
 		SessionParticipantsModal,
 		SessionRenameModal,
 		SessionShareModal,
 		ShareVariant,
 		GenerateImageModal,
+		TranslateRecordingModal,
+		Translate,
 		GoalFormModal,
 		ImageOutline,
 		FlagCheckered,
@@ -1068,6 +1300,7 @@ export default {
 		FileDocumentOutline,
 		FlashOutline,
 		FolderOutline,
+		Forum,
 		MessageText,
 		NcActionButton,
 		NcActions,
@@ -1076,6 +1309,7 @@ export default {
 		NcCheckboxRadioSwitch,
 		NcLoadingIcon,
 		NcNoteCard,
+		NcTextField,
 		Paperclip,
 		Pencil,
 		Plus,
@@ -1094,6 +1328,7 @@ export default {
 		ThumbDown,
 		ThumbUp,
 		Upload,
+		WorkspaceFilesPanel,
 	},
 
 	// nc-vue's floating AI companion self-gates on the injected `cnAiContext`
@@ -1121,6 +1356,24 @@ export default {
 			showArchive: false,
 			sessionsLoading: true,
 
+			// Session search (REQ-SSRCH-001): what is typed, the term the shown
+			// results are for, and those results. An empty appliedSearch means the
+			// grouped list shows.
+			searchTerm: '',
+			appliedSearch: '',
+			searchResults: [],
+			searchTruncated: false,
+			searchTimer: null,
+			searchSeq: 0,
+			// The turn a search result was opened at, highlighted briefly.
+			highlightTurn: '',
+
+			// Selection mode (REQ-SSRCH-002).
+			selecting: false,
+			selected: [],
+			bulkBusy: false,
+			showBulkDelete: false,
+
 			// The session whose participants dialog is open (chat-work-together-in-one-session).
 			participantsTarget: null,
 			// Chat-fork-and-share-link: the session whose share dialog is open, and the sessions shared with the reader.
@@ -1142,6 +1395,11 @@ export default {
 			agentsLoading: true,
 			agentsError: '',
 			startingId: '',
+			// Memory-project-scopes: the picker for an agent with projects, the
+			// name typed for a new project, and the active agent's projects.
+			projectPicker: null,
+			newProjectName: '',
+			sessionProjects: [],
 			startError: '',
 
 			// Agents-instruction-variables: the answers to the agent's start
@@ -1166,9 +1424,15 @@ export default {
 			// assistant message they belong to (chat-attachments-and-images D6).
 			attachmentNotices: [],
 			attachmentNoticesFor: '',
+			// The question the agent asked in the last turn (hermiq.askPerson), and
+			// the id of the answer it belongs under (oversight-ask-and-hold).
+			pendingQuestion: null,
+			pendingQuestionFor: '',
 			// "Create an image" (chat-attachments-and-images D7).
 			imageAvailable: false,
 			showImageForm: false,
+			// "Translate a recording" (chat-translate-a-recording D5).
+			showTranslateForm: false,
 
 			// Per-session settings (rides on POST /api/chat/send)
 			settings: this.defaultSettings(),
@@ -1202,6 +1466,20 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * The reader's language, for naming the languages of a translated recording.
+		 *
+		 * @return {string} The language code.
+		 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#scenario-a-reviewer-can-see-what-was-used
+		 */
+		locale() {
+			try {
+				return getLanguage() || 'en'
+			} catch {
+				return 'en'
+			}
+		},
+
 		/**
 		 * The session's handoffs under the message each one belongs to.
 		 *
@@ -1285,7 +1563,30 @@ export default {
 		 * @spec openspec/specs/session-surface/spec.md#requirement-human-and-automated-sessions-must-be-listed-separately
 		 */
 		visibleSessions() {
+			if (this.searchActive) {
+				return this.searchResults
+			}
 			return this.showArchive ? this.archivedSessions : this.sessions
+		},
+
+		/**
+		 * Whether the list shows search results rather than the grouped sessions.
+		 *
+		 * @return {boolean}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 */
+		searchActive() {
+			return this.appliedSearch !== ''
+		},
+
+		/**
+		 * The shown sessions a person may select: their own, not ones they joined.
+		 *
+		 * @return {Array<object>}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		selectableShown() {
+			return this.visibleSessions.filter((session) => this.isSelectable(session))
 		},
 
 		/**
@@ -1304,6 +1605,15 @@ export default {
 		 * @spec openspec/specs/session-surface/spec.md#requirement-human-and-automated-sessions-must-be-listed-separately
 		 */
 		sessionGroups() {
+			if (this.searchActive) {
+				return [
+					{
+						key: 'results',
+						heading: this.t('hermiq', 'Results for "{term}"', { term: this.appliedSearch }),
+						sessions: this.visibleSessions,
+					},
+				]
+			}
 			if (this.showArchive) {
 				return [
 					{ key: 'archive', heading: '', sessions: this.visibleSessions },
@@ -1429,6 +1739,16 @@ export default {
 		},
 
 		/**
+		 * The readable name of the active session's project, or '' outside one.
+		 *
+		 * @return {string}
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 */
+		sessionProjectName() {
+			return projectNameOf(this.activeSession?.projectKey || '', this.sessionProjects)
+		},
+
+		/**
 		 * "Label: answer" for each answered start field, for the session header.
 		 *
 		 * @return {string[]}
@@ -1473,7 +1793,13 @@ export default {
 		this.loadImageAvailability()
 	},
 
+	/**
+	 * Stop a pending session search, and hand the shared page kind back.
+	 *
+	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+	 */
 	beforeUnmount() {
+		clearTimeout(this.searchTimer)
 		// The holder is shared across routes, so leaving it on 'chat' would
 		// suppress the companion on every page visited after the chat.
 		if (this.cnAiContext) {
@@ -1661,6 +1987,41 @@ export default {
 			await this.refreshThread(uuid)
 		},
 
+		translationLine,
+
+		/**
+		 * Show the request and the translated recording in the thread, then re-sync.
+		 *
+		 * @param {{userTurn: object, assistantTurn: object}} turns The two stored turns.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#scenario-a-front-office-employee-translates-a-voicemail
+		 */
+		async onRecordingTranslated(turns) {
+			this.showTranslateForm = false
+			const uuid = this.activeSession?.uuid
+			if (!uuid || !turns?.userTurn || !turns?.assistantTurn) {
+				return
+			}
+			this.messages.push(turns.userTurn, turns.assistantTurn)
+			this.scrollToBottom()
+			await this.refreshThread(uuid)
+		},
+
+		/**
+		 * The spoken translation's WebDAV URL in the signed-in person's Files.
+		 *
+		 * @param {object} translation The translation record.
+		 * @return {string} The URL.
+		 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-a-person-can-translate-a-recording-and-hear-the-result-req-strn-001
+		 */
+		translationAudioUrl(translation) {
+			const path = String(translation?.audioPath || '')
+				.split('/')
+				.map(encodeURIComponent)
+				.join('/')
+			return `${generateRemoteUrl('dav')}/files/${encodeURIComponent(this.currentUserId)}/${path}`
+		},
+
 		/**
 		 * Whether an attachment is an image, shown as a thumbnail.
 		 *
@@ -1807,6 +2168,11 @@ export default {
 		 */
 		async setArchiveTab(archive) {
 			this.showArchive = archive
+			this.stopSelecting()
+			if (this.searchActive) {
+				await this.runSearch()
+				return
+			}
 			if (archive) {
 				this.sessionsLoading = true
 				try {
@@ -1854,7 +2220,45 @@ export default {
 		 * @spec openspec/specs/session-surface/spec.md#requirement-a-session-row-must-identify-its-agent-and-its-time
 		 */
 		originIcon(session) {
+			if (session?.talkRoomToken) {
+				return 'Forum'
+			}
 			return ORIGIN_ICONS[session?.triggerOrigin] || 'Creation'
+		},
+
+		/**
+		 * The session's Talk room, or an empty string for a session without one.
+		 *
+		 * @param {object} session The session row.
+		 * @return {string}
+		 * @spec openspec/changes/chat-carry-a-conversation-across-channels/tasks.md#task-4-the-doors-on-the-chat-page-and-in-the-room
+		 */
+		talkUrl(session) {
+			return talkRoomUrl(session)
+		},
+
+		/**
+		 * Open the session's Talk room.
+		 *
+		 * @param {object} session The session row.
+		 * @spec openspec/changes/chat-carry-a-conversation-across-channels/tasks.md#task-4-the-doors-on-the-chat-page-and-in-the-room
+		 */
+		openInTalk(session) {
+			const url = talkRoomUrl(session)
+			if (url) {
+				window.location.assign(url)
+			}
+		},
+
+		/**
+		 * Whether a person's turn was typed in Talk.
+		 *
+		 * @param {object} message The turn.
+		 * @return {boolean}
+		 * @spec openspec/changes/chat-carry-a-conversation-across-channels/tasks.md#task-4-the-doors-on-the-chat-page-and-in-the-room
+		 */
+		typedInTalk(message) {
+			return isTypedInTalk(message)
 		},
 
 		/**
@@ -1976,6 +2380,8 @@ export default {
 			this.sendError = ''
 			this.attachmentNotices = []
 			this.attachmentNoticesFor = ''
+			this.pendingQuestion = null
+			this.pendingQuestionFor = ''
 			this.messagesLoading = true
 			try {
 				const [{ results }] = await Promise.all([
@@ -1985,7 +2391,7 @@ export default {
 				this.messages = results
 				this.loadHandoffs(session.uuid)
 				this.settings = this.defaultSettingsFor(this.currentAgent)
-				this.scrollToBottom()
+				this.scrollToTurn(session.match?.turnUuid || '')
 			} catch (e) {
 				showError(this.t('hermiq', 'Could not load the session.'))
 			} finally {
@@ -2063,24 +2469,109 @@ export default {
 			// Start the agent's CLI process while the person reads and types, not
 			// inside their first question. Fire and forget: it never throws.
 			warmChat(session.agentId, session.uuid)
+			this.loadSessionProjects(session)
 			const agent = await this.agentStore.fetchObject('agent', session.agentId)
 			this.currentAgent = agent || null
 		},
 
 		/**
-		 * Create a session with the picked agent and activate it.
+		 * The agent's projects, for the name in a project session's header.
+		 * Non-fatal: the header falls back to the key.
+		 *
+		 * @param {object} session The session.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 */
+		async loadSessionProjects(session) {
+			this.sessionProjects = []
+			if (!session?.projectKey || !session.agentId) {
+				return
+			}
+			try {
+				this.sessionProjects = await listMemoryProjects(session.agentId)
+			} catch {
+				this.sessionProjects = []
+			}
+		},
+
+		/**
+		 * The agent's projects, or none when they cannot be read.
+		 *
+		 * @param {string} agentUuid The agent.
+		 * @return {Promise<Array<object>>}
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 */
+		async projectsOf(agentUuid) {
+			try {
+				return await listMemoryProjects(agentUuid)
+			} catch {
+				return []
+			}
+		},
+
+		/**
+		 * The person chose the project in the picker: start the session in it.
+		 *
+		 * @param {{projectKey?: string, projectName?: string}|null} project The project, or null for none.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 */
+		async onProjectChosen(project) {
+			const picker = this.projectPicker
+			this.projectPicker = null
+			if (picker) {
+				await this.startSession(picker.agent, project, picker.projects)
+			}
+		},
+
+		/**
+		 * The person picked an agent: start right away, in the new project they
+		 * named, or ask which project when the agent already has some
+		 * (memory-project-scopes, design D2).
 		 *
 		 * @param {object} agent The agent to start with.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-starting-a-new-session-must-produce-a-visible-result
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 		 */
 		async startWithAgent(agent) {
+			const agentUuid = agent.uuid || agent.id
+			const newName = this.newProjectName.trim()
+			if (newName) {
+				await this.startSession(agent, { projectName: newName }, [])
+				return
+			}
+			const projects = await this.projectsOf(agentUuid)
+			if (projects.length > 0) {
+				this.projectPicker = { agent, projects }
+				return
+			}
+			await this.startSession(agent, null, [])
+		},
+
+		/**
+		 * Create a session with the picked agent, in a project or none, and activate it.
+		 *
+		 * @param {object} agent The agent to start with.
+		 * @param {{projectKey?: string, projectName?: string}|null} project The project, or null.
+		 * @param {Array<object>} projects The agent's known projects, for the header.
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/session-surface/spec.md#requirement-starting-a-new-session-must-produce-a-visible-result
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 */
+		async startSession(agent, project, projects) {
 			const agentUuid = agent.uuid || agent.id
 			this.startingId = agentUuid
 			this.startError = ''
 			try {
-				const session = await createSession(agentUuid)
+				const session = project
+					? await createSession(agentUuid, undefined, project)
+					: await createSession(agentUuid)
 				warmChat(agentUuid, session?.uuid)
+				this.sessionProjects = project?.projectName && session?.projectKey
+					? [{ projectKey: session.projectKey, projectName: project.projectName }]
+					: projects
+				this.newProjectName = ''
 				this.currentAgent = agent
 				this.activeSession = session
 				this.messages = []
@@ -2237,6 +2728,8 @@ export default {
 			this.sendError = ''
 			this.attachmentNotices = []
 			this.attachmentNoticesFor = ''
+			this.pendingQuestion = null
+			this.pendingQuestionFor = ''
 			this.sending = true
 			return attached
 		},
@@ -2343,6 +2836,7 @@ export default {
 				)
 				this.attachmentNotices = finalPayload?.attachmentNotices || []
 				this.attachmentNoticesFor = finalPayload?.messageId || ''
+				this.takeQuestion(finalPayload)
 			} catch (e) {
 				if (e instanceof ChatStreamError && e.transport) {
 					// ADR-034 fallback ladder: degrade to the synchronous endpoint.
@@ -2367,7 +2861,7 @@ export default {
 		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 */
 		async sendViaPost(text, uuid, attachments = [], answerCacheBypass = false) {
-			await sendChatMessage({
+			const result = await sendChatMessage({
 				message: text,
 				sessionUuid: uuid,
 				attachments,
@@ -2381,6 +2875,46 @@ export default {
 					numSourcesFiles: this.settings.numSourcesFiles,
 				},
 			})
+			this.takeQuestion(result)
+		},
+
+		/**
+		 * Keep the question a turn's result carries (hermiq.askPerson), under the
+		 * answer it came with. A turn without one clears the previous question.
+		 *
+		 * @param {object|null|undefined} result The stream's final payload or the POST result.
+		 * @return {void}
+		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
+		 */
+		takeQuestion(result) {
+			const question = result?.question
+			if (!question || typeof question.text !== 'string' || question.text.trim() === '') {
+				this.pendingQuestion = null
+				this.pendingQuestionFor = ''
+				return
+			}
+			this.pendingQuestion = {
+				text: question.text,
+				options: Array.isArray(question.options) ? question.options : [],
+				allowOther: question.allowOther === true,
+			}
+			this.pendingQuestionFor = String(result?.messageId || '')
+		},
+
+		/**
+		 * Send the person's answer to the agent's question as the next message.
+		 *
+		 * @param {string} answer The chosen or typed answer.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
+		 */
+		async answerQuestion(answer) {
+			const text = String(answer ?? '').trim()
+			if (text === '' || this.sending) {
+				return
+			}
+			this.currentMessage = text
+			await this.handleSend()
 		},
 
 		/**
@@ -2698,6 +3232,314 @@ export default {
 		},
 
 		/**
+		 * Debounce typing in the search field, then search the current tab.
+		 *
+		 * A term shorter than two characters searches nothing (the server ignores
+		 * it too), so clearing or shortening the field brings the groups back.
+		 *
+		 * @param {string} value The field's value.
+		 * @return {void}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 */
+		onSearchInput(value) {
+			this.searchTerm = value ?? ''
+			clearTimeout(this.searchTimer)
+			if (this.searchTerm.trim().length < SEARCH_MIN_LENGTH) {
+				this.endSearch()
+				return
+			}
+			this.searchTimer = setTimeout(() => this.runSearch(), SEARCH_DEBOUNCE_MS)
+		},
+
+		/**
+		 * Search the current tab for the typed term; a slower earlier answer never
+		 * overwrites a newer one.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 */
+		async runSearch() {
+			const term = this.searchTerm.trim()
+			if (term.length < SEARCH_MIN_LENGTH) {
+				this.endSearch()
+				return
+			}
+			const seq = ++this.searchSeq
+			this.sessionsLoading = true
+			try {
+				const { results, truncated } = await listSessions({
+					archived: this.showArchive,
+					search: term,
+					limit: SEARCH_LIMIT,
+				})
+				if (seq !== this.searchSeq) {
+					return
+				}
+				this.searchResults = results
+				this.searchTruncated = truncated
+				this.appliedSearch = term
+				this.selected = this.selected.filter((uuid) => results.some((session) => session.uuid === uuid))
+			} catch {
+				if (seq === this.searchSeq) {
+					showError(this.t('hermiq', 'Could not search the sessions.'))
+				}
+			} finally {
+				if (seq === this.searchSeq) {
+					this.sessionsLoading = false
+				}
+			}
+		},
+
+		/**
+		 * Clear the search field and return to the grouped list.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 */
+		clearSearch() {
+			this.searchTerm = ''
+			clearTimeout(this.searchTimer)
+			this.endSearch()
+		},
+
+		/**
+		 * Drop the search results; a search still in flight is ignored when it lands.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 */
+		endSearch() {
+			this.searchSeq++
+			this.appliedSearch = ''
+			this.searchResults = []
+			this.searchTruncated = false
+			this.sessionsLoading = false
+		},
+
+		/**
+		 * Scroll the thread to one turn and highlight it briefly, or to the end
+		 * when there is no such turn among the loaded messages.
+		 *
+		 * @param {string} turnUuid The turn to show, or ''.
+		 * @return {void}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 */
+		scrollToTurn(turnUuid) {
+			if (!turnUuid) {
+				this.scrollToBottom()
+				return
+			}
+			this.$nextTick(() => {
+				const container = this.$refs.messagesContainer
+				const turn = container?.querySelector?.(`[data-turn-uuid="${CSS.escape(turnUuid)}"]`)
+				if (!turn) {
+					this.scrollToBottom()
+					return
+				}
+				turn.scrollIntoView?.({ block: 'center' })
+				this.highlightTurn = turnUuid
+				setTimeout(() => {
+					if (this.highlightTurn === turnUuid) {
+						this.highlightTurn = ''
+					}
+				}, HIGHLIGHT_MS)
+			})
+		},
+
+		/**
+		 * A row was clicked or Enter was pressed: open it, or in selection mode tick it.
+		 *
+		 * @param {object} session The row's session.
+		 * @return {void}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		onRowActivate(session) {
+			if (this.selecting) {
+				this.toggleSelected(session)
+				return
+			}
+			this.selectSession(session)
+		},
+
+		/**
+		 * Space on a focused row toggles its checkbox in selection mode.
+		 *
+		 * @param {object} session The row's session.
+		 * @return {void}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		onRowSpace(session) {
+			if (this.selecting) {
+				this.toggleSelected(session)
+			}
+		},
+
+		/**
+		 * Whether a person may select a session: their own, not one they were invited into.
+		 *
+		 * @param {object} session The session.
+		 * @return {boolean}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		isSelectable(session) {
+			return Boolean(session?.uuid) && session.role !== 'participant'
+		},
+
+		/**
+		 * Whether a session is ticked.
+		 *
+		 * @param {object} session The session.
+		 * @return {boolean}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		isSelected(session) {
+			return this.selected.includes(session?.uuid)
+		},
+
+		/**
+		 * Tick or untick one session.
+		 *
+		 * @param {object} session The session.
+		 * @return {void}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		toggleSelected(session) {
+			if (!this.isSelectable(session)) {
+				return
+			}
+			this.selected = this.isSelected(session)
+				? this.selected.filter((uuid) => uuid !== session.uuid)
+				: [...this.selected, session.uuid]
+		},
+
+		/**
+		 * Turn on selection mode with nothing ticked.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		startSelecting() {
+			this.selecting = true
+			this.selected = []
+		},
+
+		/**
+		 * Leave selection mode and untick everything.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		stopSelecting() {
+			this.selecting = false
+			this.selected = []
+			this.showBulkDelete = false
+		},
+
+		/**
+		 * Tick every selectable row currently shown, search results included.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		selectAllShown() {
+			this.selected = this.selectableShown.map((session) => session.uuid)
+		},
+
+		/**
+		 * Archive or restore the ticked sessions in one action.
+		 *
+		 * @param {'archive'|'restore'} action What to do.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		async runBulk(action) {
+			if (this.selected.length === 0 || this.bulkBusy) {
+				return
+			}
+			this.bulkBusy = true
+			try {
+				const results = await bulkSessions(action, [...this.selected])
+				await this.applyBulk(action, results)
+			} catch {
+				showError(this.t('hermiq', 'Could not change the selected sessions.'))
+			} finally {
+				this.bulkBusy = false
+			}
+		},
+
+		/**
+		 * The bulk delete modal finished: apply its per-session answer.
+		 *
+		 * @param {Array<{uuid: string, status: string}>} results The outcome per uuid.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		async onBulkDeleted(results) {
+			await this.applyBulk('delete', results)
+		},
+
+		/**
+		 * Take the sessions the server changed out of the shown lists, return the
+		 * thread to the start surface when the open one was among them, and say
+		 * how many were changed and how many were not.
+		 *
+		 * @param {'archive'|'restore'|'delete'} action The action that ran.
+		 * @param {Array<{uuid: string, status: string}>} results The outcome per uuid.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		async applyBulk(action, results) {
+			const done = new Set(results.filter((entry) => entry.status === 'ok').map((entry) => entry.uuid))
+			const failed = this.selected.filter((uuid) => !done.has(uuid)).length
+			const keep = (session) => !done.has(session.uuid)
+			this.sessions = this.sessions.filter(keep)
+			this.archivedSessions = this.archivedSessions.filter(keep)
+			this.searchResults = this.searchResults.filter(keep)
+			if (this.activeSession && done.has(this.activeSession.uuid)) {
+				this.newSession()
+			}
+			this.stopSelecting()
+			if (done.size > 0) {
+				showSuccess(this.bulkDoneMessage(action, done.size))
+			}
+			if (failed > 0) {
+				showError(this.n('hermiq', '%n session could not be changed.', '%n sessions could not be changed.', failed))
+			}
+			if (action !== 'delete') {
+				await this.loadSessions(true)
+			}
+		},
+
+		/**
+		 * The confirmation after a bulk action.
+		 *
+		 * @param {'archive'|'restore'|'delete'} action The action that ran.
+		 * @param {number} count How many sessions it changed.
+		 * @return {string}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		bulkDoneMessage(action, count) {
+			if (action === 'archive') {
+				return this.n('hermiq', '%n session archived', '%n sessions archived', count)
+			}
+			if (action === 'restore') {
+				return this.n('hermiq', '%n session restored', '%n sessions restored', count)
+			}
+			return this.n('hermiq', '%n session deleted', '%n sessions deleted', count)
+		},
+
+		/**
+		 * Take one session out of the shown search results after it left the tab.
+		 *
+		 * @param {object} session The session.
+		 * @return {void}
+		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 */
+		dropFromSearch(session) {
+			this.searchResults = this.searchResults.filter((entry) => entry.uuid !== session.uuid)
+		},
+
+		/**
 		 * Archive (soft delete) a session.
 		 *
 		 * @param {object} session The session to archive.
@@ -2707,6 +3549,7 @@ export default {
 		async archive(session) {
 			try {
 				await archiveSession(session.uuid)
+				this.dropFromSearch(session)
 				if (this.isActive(session)) {
 					this.newSession()
 				}
@@ -2727,6 +3570,7 @@ export default {
 		async restore(session) {
 			try {
 				await restoreSession(session.uuid)
+				this.dropFromSearch(session)
 				this.archivedSessions = this.archivedSessions.filter(
 					(entry) => entry.uuid !== session.uuid,
 				)
@@ -2760,6 +3604,7 @@ export default {
 			this.archivedSessions = this.archivedSessions.filter(
 				(entry) => entry.uuid !== session.uuid,
 			)
+			this.dropFromSearch(session)
 			if (this.isActive(session)) {
 				this.newSession()
 			}
@@ -2980,6 +3825,43 @@ export default {
 	white-space: nowrap;
 }
 
+/* The matching words of a search result, under its title (REQ-SSRCH-001). */
+.chat-page__row-excerpt {
+	font-size: 12px;
+	color: var(--color-main-text);
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.chat-page__row--selected {
+	background-color: var(--color-primary-element-light);
+}
+
+.chat-page__row-check {
+	flex: 0 0 auto;
+}
+
+/* Selection bar (REQ-SSRCH-002). */
+.chat-page__bulk {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 0;
+}
+
+.chat-page__bulk-count {
+	flex: 1 1 100%;
+	font-weight: 600;
+}
+
+/* A turn opened from a search result, highlighted for a moment. */
+.chat-page__message--found .chat-page__bubble {
+	box-shadow: 0 0 0 2px var(--color-primary-element);
+}
+
 .chat-page__row-actions {
 	flex-shrink: 0;
 }
@@ -3020,6 +3902,11 @@ export default {
 	margin: 0;
 	padding: 4px 16px;
 	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__new-project {
+	max-width: 420px;
+	margin: 0 auto 16px;
 }
 
 .chat-page__heading {
@@ -3410,6 +4297,23 @@ a.chat-page__source-name {
 	margin-top: 4px;
 	font-weight: bold;
 	text-decoration: underline;
+}
+
+.chat-page__translation {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin-top: 8px;
+}
+
+.chat-page__translation-player {
+	max-width: 100%;
+}
+
+.chat-page__translation-line {
+	margin: 0;
+	font-size: 0.9em;
+	color: var(--color-text-maxcontrast);
 }
 
 .chat-page__attachments {

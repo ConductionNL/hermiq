@@ -75,4 +75,20 @@ final class TalkInvocation {
 	public function roomToken(): string {
 		return $this->turn['roomToken'];
 	}//end roomToken()
+
+	/**
+	 * The Talk message id of the invoking message, or '' when the payload has none.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-turns-execute-immediately-with-claim-based-exactly-once-semantics
+	 */
+	public function messageId(): string {
+		$id = ($this->payload['object']['id'] ?? '');
+		if (is_int($id) === true || is_string($id) === true) {
+			return (string)$id;
+		}
+
+		return '';
+	}//end messageId()
 }//end class

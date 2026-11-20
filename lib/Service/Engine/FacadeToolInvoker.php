@@ -136,11 +136,17 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Engine;
 
 use Closure;
+use DateTimeImmutable;
+use OCA\Hermiq\Mcp\BrowserToolDescriptors;
+use OCA\Hermiq\Mcp\ComputerToolDescriptors;
+use OCA\Hermiq\Mcp\CustomToolDescriptors;
+use OCA\Hermiq\Service\Approval\DraftRelease;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Mcp\CodeSandboxToolDescriptors;
 use OCA\Hermiq\Service\CodeSandbox\CodeRunTrace;
 use OCA\Hermiq\Service\Handoff\FlowTurn;
 use OCA\Hermiq\Service\Handoff\TurnHandoffs;
+use OCA\Hermiq\Service\ComputerUse\ComputerActionRecord;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ToolClassificationService;
 use OCA\Hermiq\Service\ToolSearchService;
@@ -184,6 +190,19 @@ class FacadeToolInvoker {
 	 * @var array<int, string>
 	 */
 	private const SEARCH_TOOLS_NAMES = ['hermiq.searchTools', 'hermiq_searchTools'];
+
+	/**
+	 * The `hermiq.askPerson` tool's registry id and LLPhant-safe name (oversight-ask-and-hold).
+	 *
+	 * @var array<int, string>
+	 */
+	private const ASK_PERSON_NAMES = ['hermiq.askPerson', 'hermiq_askPerson'];
+
+	/**
+	 * Message tools an agent's `holdOutput` holds as drafts (oversight-ask-and-hold),
+	 * next to any tool whose descriptor declares `sendsMessage`.
+	 */
+	private const HELD_MESSAGE_TOOLS = ['hermiq.sendMail'];
 
 	/**
 	 * The three agent-memory-tools registry ids that need to know which agent is
@@ -437,9 +456,16 @@ class FacadeToolInvoker {
 	 * @param array<int,string> $askFirst Registry ids the person who started the run asks to
 	 *                                    approve first (personal-preferences, ask before sending);
 	 *                                    empty, every pre-existing caller, asks nothing extra.
+	 * @param bool $holdOutput Whether the agent's owner holds its outbound messages as drafts
+	 *                         for review (oversight-ask-and-hold); false sends as before.
 	 * @param TurnHandoffs|null $handoffs Opens the handoff of work a tool started and did not wait
 	 *                                    for (flows-hand-off-and-wait); null opens none.
 	 * @param string            $conversationId The conversation of this turn; '' opens no handoff.
+	 * @param string $runId The run a computer action's approval is scoped to (tools-browser-and-computer-use);
+	 *                      empty, every pre-existing caller, offers no run-scoped pre-authorisation.
+	 * @param string|null  $projectKey The session's project (memory-project-scopes), injected
+	 *                                 into the memory tools; null, every pre-existing caller,
+	 *                                 is a session without a project (shared memory only).
 	 *
 	 * @return void
 	 *
@@ -475,8 +501,11 @@ class FacadeToolInvoker {
 		?int $maxToolCalls = null,
 		?Closure $agentStillOn = null,
 		private readonly array $askFirst = [],
+		private readonly bool $holdOutput = false,
 		private readonly ?TurnHandoffs $handoffs = null,
 		private readonly string $conversationId = '',
+		private readonly string $runId = '',
+		private readonly ?string $projectKey = null,
 	) {
 		$this->turnGuard = new TurnGuard(maxToolCalls: $maxToolCalls, agentStillOn: $agentStillOn);
 	}//end __construct()
@@ -553,6 +582,10 @@ class FacadeToolInvoker {
 			return $this->handleSearchTools(arguments: $arguments);
 		}
 
+		if (in_array($name, self::ASK_PERSON_NAMES, true) === true) {
+			return (new AskPersonCall(turnGuard: $this->turnGuard, trace: $this->trace, channel: $this->channel))->answer(arguments: $arguments);
+		}
+
 		// Agent-guardrails: the GuardrailPolicy's per-tool classification is
 		// checked BEFORE the pre-existing grant/approval-gate check below — a
 		// `deny`/`confirm` classification takes precedence over whatever the
@@ -563,6 +596,95 @@ class FacadeToolInvoker {
 
 		return $this->routeUndenied(name: $name, arguments: $arguments);
 	}//end route()
+
+	/**
+	 * Whether this call sends a message that the agent's `holdOutput` holds:
+	 * `hermiq.sendMail`, or a tool whose descriptor declares `sendsMessage`.
+	 *
+	 * @param string $name The tool function name the LLM called.
+	 *
+	 * @return bool True when the call is held.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	private function holdsMessage(string $name): bool {
+		if ($this->holdOutput === false) {
+			return false;
+		}
+
+		if (in_array($this->resolveToolId(name: $name), self::HELD_MESSAGE_TOOLS, true) === true) {
+			return true;
+		}
+
+		return (($this->descriptorFor(name: $name)['sendsMessage'] ?? false) === true);
+	}//end holdsMessage()
+
+	/**
+	 * Hold a message tool call as a draft Approval; it runs on release.
+	 *
+	 * Without an approval service or agent it is refused, never sent: holding
+	 * is the owner's instruction, so it fails closed.
+	 *
+	 * @param string $name The tool function name the LLM called.
+	 * @param array<string, mixed> $arguments Decoded arguments object.
+	 *
+	 * @return string JSON-encoded outcome for the follow-up LLM turn.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	private function holdMessageDraft(string $name, array $arguments): string {
+		$call = new ToolCall(toolId: $this->resolveToolId(name: $name), arguments: $arguments);
+		if ($this->approvalService === null || $this->agentId === null) {
+			return $this->refusals()->unavailable(call: $call);
+		}
+
+		$approval = $this->approvalService->ensurePendingToolDraft(
+			agentId: $this->agentId,
+			toolId: $call->toolId,
+			arguments: $arguments,
+			editable: $this->editableArguments(name: $name)
+		);
+
+		return $this->refusals()->confirm(call: $call, confirm: self::heldDraft(approvalId: (string)$approval->getUuid()));
+	}//end holdMessageDraft()
+
+	/**
+	 * The arguments of a message tool a reviewer may edit, from its descriptor.
+	 *
+	 * @param string $name The tool function name the LLM called.
+	 *
+	 * @return list<string> The editable argument names.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	private function editableArguments(string $name): array {
+		$editable = $this->descriptorFor(name: $name)['editable'] ?? DraftRelease::DEFAULT_EDITABLE;
+		if (is_array($editable) === false) {
+			$editable = DraftRelease::DEFAULT_EDITABLE;
+		}
+
+		return array_values(array_filter($editable, 'is_string'));
+	}//end editableArguments()
+
+	/**
+	 * The `held` outcome the model reads after its message was held as a draft.
+	 *
+	 * @param string $approvalId The draft Approval.
+	 *
+	 * @return ConfirmRefusal The outcome.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	private static function heldDraft(string $approvalId): ConfirmRefusal {
+		$held = new ConfirmRefusal(
+			status: 'held',
+			message: 'Draft held for review. A reviewer reads it before it is sent; do not send it again.'
+		);
+		$held->approvalId = $approvalId;
+		$held->outcome = 'held';
+
+		return $held;
+	}//end heldDraft()
 
 	/**
 	 * Whether a call is the tool-search tool and tool search is available.
@@ -626,7 +748,7 @@ class FacadeToolInvoker {
 	 * @return string JSON-encoded tool result for the follow-up LLM turn.
 	 */
 	private function routeGranted(string $name, array $arguments): string {
-		if ($this->classifyTool(name: $name) === 'confirm' && $this->isWaived(name: $name, arguments: $arguments) === false) {
+		if ($this->classifyTool(name: $name) === 'confirm' && $this->waivable(name: $name, arguments: $arguments) === false) {
 			return $this->handleConfirmClassifiedInvocation(name: $name, arguments: $arguments);
 		}
 
@@ -644,6 +766,25 @@ class FacadeToolInvoker {
 		return $this->dispatchToFacade(name: $name, call: new FacadeCall(arguments: $arguments));
 
 	}//end routeGranted()
+
+	/**
+	 * Whether an owner's `#noapproval` waiver answers this confirmation. A computer
+	 * action is never waived: every one meets a person (tools-browser-and-computer-use D5).
+	 *
+	 * @param string $name The tool function name the LLM called.
+	 * @param array<string, mixed> $arguments Decoded arguments object.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	private function waivable(string $name, array $arguments): bool {
+		if (in_array($this->resolveToolId(name: $name), ComputerToolDescriptors::ACTION_IDS, true) === true) {
+			return false;
+		}
+
+		return $this->isWaived(name: $name, arguments: $arguments);
+	}//end waivable()
 
 	/**
 	 * The argument constraint this call violates, if any (hydra-console-agent-leaves).
@@ -798,14 +939,22 @@ class FacadeToolInvoker {
 	 * @return array<string, mixed> Arguments, with the owner set when applicable.
 	 *
 	 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#scenario-an-agent-queued-flow-run-names-the-acting-owner
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) CustomToolDescriptors is used through its static API (a pure
+	 * helper or named constructor) with no state to inject.
 	 */
 	private function withFlowOwner(string $name, array $arguments): array {
-		if ($this->queuesFlowRun(name: $name) === false) {
+		// A custom tool may run a flow, so it carries the owner too; its invoker
+		// refuses a flow target without one (tools-custom-tools-without-code D4).
+		$custom = (CustomToolDescriptors::slugOf(toolId: $this->resolveToolId(name: $name)) !== null);
+		if ($this->queuesFlowRun(name: $name) === false && $custom === false) {
 			return $arguments;
 		}
 
 		$owner = trim((string)$this->ownerUid);
 		if ($owner === '') {
+			// Never let a model-supplied owner stand in for a missing one.
+			unset($arguments[self::FLOW_OWNER_ARGUMENT]);
 			return $arguments;
 		}
 
@@ -823,15 +972,19 @@ class FacadeToolInvoker {
 	 * @return string One of `auto`, `confirm`, `deny`.
 	 *
 	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
 	 */
 	private function classifyTool(string $name): string {
-		if ($this->toolPolicy === []) {
-			return 'auto';
+		$toolId = $this->resolveToolId(name: $name);
+		$classification = ($this->toolPolicy[$toolId] ?? 'auto');
+
+		// Tools-browser-and-computer-use D5: a computer action is `confirm` whatever
+		// the policy says. A policy may still refuse it outright, never lower it.
+		if (in_array($toolId, ComputerToolDescriptors::ACTION_IDS, true) === true && $classification !== 'deny') {
+			return 'confirm';
 		}
 
-		$toolId = $this->resolveToolId(name: $name);
-
-		return ($this->toolPolicy[$toolId] ?? 'auto');
+		return $classification;
 	}//end classifyTool()
 
 	/**
@@ -900,16 +1053,9 @@ class FacadeToolInvoker {
 
 		$correlationId = $this->toolCallCorrelationId(agentId: $this->agentId, toolId: $call->toolId, arguments: $arguments);
 
-		$approvedUnconsumed = $this->approvalService->findApprovedUnconsumedToolCallApproval(correlationId: $correlationId);
-		if ($approvedUnconsumed !== null) {
-			$this->approvalService->markToolCallApprovalConsumed(approval: $approvedUnconsumed);
-			return $this->dispatchToFacade(
-				name: $name,
-				call: new FacadeCall(
-					arguments: $arguments,
-					outcomeOverride: 'invoked_after_approval'
-				)
-			);
+		$authorised = $this->authorisedCall(approvals: $this->approvalService, toolId: $call->toolId, arguments: $arguments, correlationId: $correlationId);
+		if ($authorised !== null) {
+			return $this->dispatchToFacade(name: $name, call: $authorised);
 		}
 
 		$pending = $this->approvalService->findPendingApprovalForToolCall(correlationId: $correlationId);
@@ -924,7 +1070,8 @@ class FacadeToolInvoker {
 			agentId: $this->agentId,
 			toolId: $call->toolId,
 			arguments: $arguments,
-			correlationId: $correlationId
+			correlationId: $correlationId,
+			runId: $this->runIdFor(toolId: $call->toolId)
 		);
 
 		return $this->refusals()->confirm(
@@ -933,6 +1080,83 @@ class FacadeToolInvoker {
 		);
 
 	}//end handleConfirmClassifiedInvocation()
+
+	/**
+	 * The call to dispatch when a person already authorised it: under the run's
+	 * computer pre-authorisation, or under an approved, unconsumed approval of
+	 * this exact call (which is consumed here). Null when nothing authorises it.
+	 *
+	 * @param ApprovalService      $approvals     The approval store.
+	 * @param string               $toolId        The dotted tool id.
+	 * @param array<string, mixed> $arguments     The call's arguments.
+	 * @param string               $correlationId The call's approval correlation id.
+	 *
+	 * @return FacadeCall|null
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	private function authorisedCall(ApprovalService $approvals, string $toolId, array $arguments, string $correlationId): ?FacadeCall {
+		$preauthorised = $this->computerRunPreAuthorisation(toolId: $toolId, arguments: $arguments);
+		if ($preauthorised !== null) {
+			return new FacadeCall(
+				arguments: $arguments,
+				outcomeOverride: 'invoked_under_preauthorisation',
+				approvalId: $preauthorised['uuid']
+			);
+		}
+
+		$approvedUnconsumed = $approvals->findApprovedUnconsumedToolCallApproval(correlationId: $correlationId);
+		if ($approvedUnconsumed === null) {
+			return null;
+		}
+
+		$approvals->markToolCallApprovalConsumed(approval: $approvedUnconsumed);
+		return new FacadeCall(
+			arguments: $arguments,
+			outcomeOverride: 'invoked_after_approval',
+			approvalId: (string)$approvedUnconsumed->getUuid()
+		);
+	}//end authorisedCall()
+
+	/**
+	 * The reviewer's pre-authorisation of the actions on this call's machine for
+	 * this run, when it is approved and has not ended; null for any other call.
+	 *
+	 * @param string               $toolId    The dotted tool id.
+	 * @param array<string, mixed> $arguments The call's arguments, naming its `target`.
+	 *
+	 * @return array{uuid: string, decidedBy: string, expiresAt: string}|null
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	private function computerRunPreAuthorisation(string $toolId, array $arguments): ?array {
+		$runId = $this->runIdFor(toolId: $toolId);
+		if ($runId === '' || $this->approvalService === null || $this->agentId === null) {
+			return null;
+		}
+
+		return $this->approvalService->computerRunPreAuthorisation(
+			agentId: $this->agentId,
+			runId: $runId,
+			target: (string)($arguments['target'] ?? ''),
+			now: new DateTimeImmutable()
+		);
+	}//end computerRunPreAuthorisation()
+
+	/**
+	 * The run a computer action's approval is scoped to; '' for every other tool.
+	 *
+	 * @param string $toolId The dotted tool id.
+	 *
+	 * @return string
+	 */
+	private function runIdFor(string $toolId): string {
+		if (in_array($toolId, ComputerToolDescriptors::ACTION_IDS, true) === false) {
+			return '';
+		}
+
+		return $this->runId;
+	}//end runIdFor()
 
 	/**
 	 * Compute the `confirm`-classified tool call's idempotency/authorization
@@ -1218,8 +1442,42 @@ class FacadeToolInvoker {
 
 		$arguments['agentId'] = $this->agentId;
 
+		// A browser tool also gets its conversation: each conversation has its own
+		// browser context (tools-browser-and-computer-use D1).
+		if (in_array($this->resolveToolId(name: $name), BrowserToolDescriptors::IDS, true) === true) {
+			$arguments['conversationId'] = $this->conversationId;
+		}
+
 		return $arguments;
 	}//end withAgentId()
+
+	/**
+	 * Set this run's own project key on the three memory tool calls, or remove
+	 * one the caller supplied when the session has no project: which project's
+	 * memory a call reads or writes is server-side session state, never a tool
+	 * argument the model chooses (memory-project-scopes, design D4). Every other
+	 * tool's arguments pass through unchanged.
+	 *
+	 * @param string               $name      The LLPhant-side function name.
+	 * @param array<string, mixed> $arguments Decoded arguments object.
+	 *
+	 * @return array<string, mixed> Arguments, with `projectKey` set or removed for a memory tool.
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	private function withProjectKey(string $name, array $arguments): array {
+		if (in_array($this->resolveToolId(name: $name), self::MEMORY_TOOL_IDS, true) === false) {
+			return $arguments;
+		}
+
+		unset($arguments['projectKey']);
+		$key = trim((string)$this->projectKey);
+		if ($key !== '') {
+			$arguments['projectKey'] = $key;
+		}
+
+		return $arguments;
+	}//end withProjectKey()
 
 	/**
 	 * Whether a tool acts for the run's agent: the memory, artefact-write and integriq
@@ -1230,11 +1488,15 @@ class FacadeToolInvoker {
 	 * @return bool True when the tool receives the agent id.
 	 */
 	private function needsAgentId(string $toolId): bool {
-		return in_array($toolId, self::MEMORY_TOOL_IDS, true) === true
-			|| in_array($toolId, self::ARTEFACT_WRITE_TOOL_IDS, true) === true
-			|| in_array($toolId, self::INTEGRIQ_AGENT_TOOL_IDS, true) === true
-			|| $toolId === self::DELEGATE_AGENT_TOOL_ID
-			|| $toolId === self::DELEGATE_AGENTS_TOOL_ID;
+		$agentTools = array_merge(
+			self::MEMORY_TOOL_IDS,
+			self::ARTEFACT_WRITE_TOOL_IDS,
+			self::INTEGRIQ_AGENT_TOOL_IDS,
+			[self::DELEGATE_AGENT_TOOL_ID, self::DELEGATE_AGENTS_TOOL_ID],
+			BrowserToolDescriptors::IDS
+		);
+
+		return in_array($toolId, $agentTools, true) === true;
 
 	}//end needsAgentId()
 
@@ -1252,6 +1514,14 @@ class FacadeToolInvoker {
 	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
 	 */
 	private function dispatchToFacade(string $name, FacadeCall $call): string {
+		// Oversight-ask-and-hold: an agent whose owner holds its output writes a
+		// message as a draft for review instead of sending it. Checked at the one
+		// place a tool is actually invoked, so every gate before it still applies,
+		// and never in a dry run, which sends nothing anyway.
+		if ($this->dryRun === false && $this->holdsMessage(name: $name) === true) {
+			return $this->holdMessageDraft(name: $name, arguments: $call->arguments);
+		}
+
 		$arguments = $call->arguments;
 		$outcomeOverride = $call->outcomeOverride;
 		$dispatch = new ToolDispatch(name: $name, arguments: $arguments);
@@ -1281,7 +1551,10 @@ class FacadeToolInvoker {
 			toolId: $name,
 			arguments: $this->withFlowOwner(
 				name: $name,
-				arguments: $this->withAgentId(name: $name, arguments: $arguments)
+				arguments: $this->withProjectKey(
+					name: $name,
+					arguments: $this->withAgentId(name: $name, arguments: $arguments)
+				)
 			)
 		);
 		$dispatch->envelope['result'] = $this->withStagedBatchApproval(
@@ -1297,7 +1570,7 @@ class FacadeToolInvoker {
 
 		$reporter->finished(
 			dispatch: $dispatch,
-			traceExtra: $this->traceExtraFor(name: $name, arguments: $arguments, result: $dispatch->envelope['result'])
+			traceExtra: $this->traceExtraFor(name: $name, arguments: $arguments, result: $dispatch->envelope['result'], approvalId: $call->approvalId)
 		);
 
 		return $dispatch->encodedResult();
@@ -1385,13 +1658,31 @@ class FacadeToolInvoker {
 	 *                      `artefact` descriptor is lifted when the tool produced
 	 *                      one (ADR-088) — read from the RESULT because a newly
 	 *                      created artefact has no id until the write returns.
+	 * @param string|null $approvalId The approval the call ran under, if any.
 	 *
 	 * @return array<string, mixed> `['target' => string]` and/or `['artefact' => ...]`, or `[]`.
 	 *
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-the-run-records-actions-and-never-stores-screenshots-req-computer-004
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) CustomToolDescriptors is used through its static API (a pure
+	 * helper or named constructor) with no state to inject.
 	 */
-	private function traceExtraFor(string $name, array $arguments, mixed $result = null): array {
+	private function traceExtraFor(string $name, array $arguments, mixed $result = null, ?string $approvalId = null): array {
 		$toolId = $this->resolveToolId(name: $name);
+
+		// Tools-browser-and-computer-use D6: machine, action, coordinates, redacted
+		// text and approval id; a screenshot only as its hash and size.
+		$computer = ComputerActionRecord::traceExtra(
+			toolId: $toolId,
+			arguments: $arguments,
+			result: $result,
+			approvalId: $approvalId,
+			redact: $this->redactText(...)
+		);
+		if ($computer !== []) {
+			return array_merge($this->resolveArtefactDescriptor(result: $result), $computer);
+		}
 
 		// ADR-088 §3: a write must be recorded with the identity of the artefact
 		// it produced, or the oversight surface can say a tool succeeded without
@@ -1406,11 +1697,31 @@ class FacadeToolInvoker {
 		// each tool to omit content.
 		$artefact = $this->resolveArtefactDescriptor(result: $result);
 
+		// A custom tool's step names the tool, its version and what it called
+		// (tools-custom-tools-without-code REQ-CUSTOOL-004).
+		if (CustomToolDescriptors::slugOf(toolId: $toolId) !== null) {
+			return array_merge($artefact, self::customToolTrace(toolId: $toolId, result: $result));
+		}
+
 		// The tools-code-sandbox D6 record: the code, its limits and outcome, outputs capped and redacted.
 		if ($toolId === CodeSandboxToolDescriptors::RUN_CODE) {
 			return array_merge($artefact, CodeRunTrace::extra(arguments: $arguments, result: $result, redaction: $this->redactionService));
 		}
 
+		return $this->withWebResearchTarget(toolId: $toolId, arguments: $arguments, artefact: $artefact);
+	}//end traceExtraFor()
+
+	/**
+	 * The trace extra with a web-research tool's target added; unchanged for any other tool,
+	 * or when the target cannot be resolved.
+	 *
+	 * @param string               $toolId    The dotted tool id.
+	 * @param array<string, mixed> $arguments The call's arguments.
+	 * @param array<string, mixed> $artefact  The trace extra so far.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function withWebResearchTarget(string $toolId, array $arguments, array $artefact): array {
 		if (in_array($toolId, self::WEB_RESEARCH_TOOL_IDS, true) === false) {
 			return $artefact;
 		}
@@ -1421,7 +1732,51 @@ class FacadeToolInvoker {
 		}
 
 		return array_merge($artefact, ['target' => $target]);
-	}//end traceExtraFor()
+	}//end withWebResearchTarget()
+
+	/**
+	 * A computer action's typed text, redacted; a placeholder without a redaction service.
+	 *
+	 * @param string $text The typed text.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-the-run-records-actions-and-never-stores-screenshots-req-computer-004
+	 */
+	private function redactText(string $text): string {
+		return ($this->redactionService?->redact($text) ?? '«redacted»');
+	}//end redactText()
+
+	/**
+	 * The trace fragment of a custom tool call: its id, name, version and target, scalars only.
+	 *
+	 * @param string $toolId The `hermiq.custom_<slug>` id.
+	 * @param mixed  $result The tool's decoded result.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-passes-the-same-governance-as-every-tool-req-custool-004
+	 */
+	private static function customToolTrace(string $toolId, mixed $result): array {
+		$meta = [];
+		if (is_array($result) === true && is_array($result['customTool'] ?? null) === true) {
+			$meta = $result['customTool'];
+		}
+
+		$trace = ['id' => $toolId, 'name' => '', 'version' => '', 'target' => ''];
+		foreach (['name', 'version', 'target'] as $key) {
+			if (is_scalar($meta[$key] ?? null) === true) {
+				$trace[$key] = (string)$meta[$key];
+			}
+		}
+
+		$fragment = ['customTool' => $trace];
+		if ($trace['target'] !== '') {
+			$fragment['target'] = $trace['target'];
+		}
+
+		return $fragment;
+	}//end customToolTrace()
 
 	/**
 	 * Lift an `artefact` descriptor out of a tool result for the audit record.

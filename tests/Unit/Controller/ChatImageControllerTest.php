@@ -30,6 +30,7 @@ use OCA\Hermiq\Controller\ChatImageController;
 use OCA\Hermiq\Service\Chat\ImageGenerationException;
 use OCA\Hermiq\Service\Chat\ImageGenerationService;
 use OCA\Hermiq\Service\Engine\MessageHistoryHandler;
+use OCA\Hermiq\Service\Chat\SessionTurns;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -136,9 +137,7 @@ class ChatImageControllerTest extends TestCase {
 			request: $this->createMock(IRequest::class),
 			userSession: $session,
 			images: $images,
-			objectService: $objects,
-			history: $history,
-			participation: new ConversationParticipation(),
+			turns: new SessionTurns(objectService: $objects, history: $history, participation: new ConversationParticipation(), l10n: $l10n),
 			l10n: $l10n,
 			logger: new NullLogger()
 		);

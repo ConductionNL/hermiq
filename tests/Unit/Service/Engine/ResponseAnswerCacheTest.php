@@ -79,7 +79,7 @@ class ResponseAnswerCacheTest extends TestCase {
 			->with($this->callback(static fn (ResponseTurnRun $run): bool => count($run->messageHistory) === 2 && $run->progress->driver->provider === 'fireworks'))
 			->willReturn(['answer' => 'From the cache.', 'entryId' => 'entry-1', 'layer' => 'exact']);
 		$cache->expects($this->never())->method('store');
-		$handler = new ResponseGenerationHandler($this->factory($calls), $this->loop(), new NullLogger(), null, null, $cache);
+		$handler = new ResponseGenerationHandler($this->factory($calls), $this->loop(), new NullLogger(), null, null, answerCache: $cache);
 
 		$this->assertSame('From the cache.', $handler->generateResponse(userMessage: 'Q', context: ['text' => '', 'sources' => []], messageHistory: [], agent: $this->agent()));
 		$this->assertSame(0, $calls);
@@ -92,7 +92,7 @@ class ResponseAnswerCacheTest extends TestCase {
 		$calls = 0;
 		$cache = $this->createMock(AnswerCacheService::class);
 		$cache->method('lookup')->willReturn(['answer' => 'From a similar question.', 'entryId' => 'entry-2', 'layer' => 'similar', 'similarity' => 0.97]);
-		$handler = new ResponseGenerationHandler($this->factory($calls), $this->loop(), new NullLogger(), null, null, $cache);
+		$handler = new ResponseGenerationHandler($this->factory($calls), $this->loop(), new NullLogger(), null, null, answerCache: $cache);
 
 		$this->assertSame('From a similar question.', $handler->generateResponse(userMessage: 'Q', context: ['text' => '', 'sources' => []], messageHistory: [], agent: $this->agent()));
 		$this->assertSame(0, $calls);
@@ -104,7 +104,7 @@ class ResponseAnswerCacheTest extends TestCase {
 		$cache = $this->createMock(AnswerCacheService::class);
 		$cache->method('lookup')->willReturn(null);
 		$cache->expects($this->once())->method('store')->with($this->isInstanceOf(ResponseTurnRun::class), 'From the model.');
-		$handler = new ResponseGenerationHandler($this->factory($calls), $this->loop(), new NullLogger(), null, null, $cache);
+		$handler = new ResponseGenerationHandler($this->factory($calls), $this->loop(), new NullLogger(), null, null, answerCache: $cache);
 
 		$this->assertSame('From the model.', $handler->generateResponse(userMessage: 'Q', context: ['text' => '', 'sources' => []], messageHistory: [], agent: $this->agent()));
 		$this->assertSame(1, $calls);
@@ -131,7 +131,7 @@ class ResponseAnswerCacheTest extends TestCase {
 				return null;
 			}
 		);
-		$handler = new ResponseGenerationHandler($this->factory($calls), $this->loop(), new NullLogger(), null, null, $cache);
+		$handler = new ResponseGenerationHandler($this->factory($calls), $this->loop(), new NullLogger(), null, null, answerCache: $cache);
 
 		$handler->generateResponse(userMessage: 'Q', context: ['text' => '', 'sources' => []], messageHistory: [], agent: $this->agent(), answerCacheBypass: true);
 		$handler->generateResponse(userMessage: 'Q', context: ['text' => '', 'sources' => []], messageHistory: [], agent: $this->agent());

@@ -42,6 +42,7 @@ use OCA\Hermiq\Kernel\Contracts\TalkRoomGroupingInterface;
 use OCA\Hermiq\Kernel\Contracts\TalkTurnDispatcherInterface;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\Hermiq\Service\Talk\TalkBridge;
+use OCA\Hermiq\Service\Talk\TalkTurnId;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use Psr\Log\LoggerInterface;
@@ -55,6 +56,9 @@ use Throwable;
  * @psalm-api
  *
  * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-bot-listener-never-runs-an-agent-turn-inline
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with instant-talk; splitting it is follow-up
+ * work, not part of this merge.
  */
 class TalkBotInvokeListener implements IEventListener {
 
@@ -183,7 +187,7 @@ class TalkBotInvokeListener implements IEventListener {
 	 * @return bool True when an agent is bound and addressed.
 	 */
 	private function bindAgent(TalkInvocation $invocation): bool {
-		$agentId = $this->agentBinding->agentForRoom(roomToken: $invocation->roomToken());
+		$agentId = $this->invokedAgent(invocation: $invocation);
 		if ($agentId === null) {
 			// No opted-in agent is bound to this room — both opt-ins are
 			// required, so this is the default state and not an error.
@@ -195,20 +199,63 @@ class TalkBotInvokeListener implements IEventListener {
 	}//end bindAgent()
 
 	/**
+	 * The agent this invocation is for.
+	 *
+	 * Spreed invokes every bot enabled in the room separately, so a per-agent
+	 * bot's invocation names its agent in its own URL: that is how a room holds
+	 * several agents, with Talk's bot management deciding which ones are in it.
+	 * The shared bot keeps the single-agent binding (`talk_room_agents`, then
+	 * `talk_default_agent`), so rooms bound before per-agent bots keep working.
+	 *
+	 * @param TalkInvocation $invocation The invocation.
+	 *
+	 * @return string|null The opted-in agent's uuid, or null.
+	 *
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-a-room-may-host-several-agents-managed-by-talk-moderators
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) TalkBridge's URL helpers are pure functions; see readPayload().
+	 */
+	private function invokedAgent(TalkInvocation $invocation): ?string {
+		$event = $invocation->event;
+		$botUrl = '';
+		if (method_exists($event, 'getBotUrl') === true) {
+			$botUrl = (string)$event->getBotUrl();
+		}
+
+		$agentId = TalkBridge::agentIdFromBotUrl($botUrl);
+		if ($agentId === null) {
+			return $this->agentBinding->agentForRoom(roomToken: $invocation->roomToken());
+		}
+
+		if ($this->agentBinding->isAgentTalkEnabled(agentId: $agentId) === false) {
+			return null;
+		}
+
+		return $agentId;
+	}//end invokedAgent()
+
+	/**
 	 * Hand the turn off to run out of request, and log the path it took.
 	 *
 	 * @param TalkInvocation $invocation The admitted invocation.
 	 *
 	 * @return void
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) TalkTurnId is a pure derivation of a turn's identity from room,
+	 * message and agent; it holds no state to inject.
 	 */
 	private function handOff(TalkInvocation $invocation): void {
 		$turn = $invocation->turn;
 		$conversationUuid = (string)$invocation->conversation?->getUuid();
+		$messageId = $invocation->messageId();
 		$path = $this->dispatcher->dispatch(
 			conversationUuid: $conversationUuid,
 			speakerUid: $turn['speakerUid'],
 			message: $turn['content'],
-			roomToken: $turn['roomToken']
+			roomToken: $turn['roomToken'],
+			turnId: TalkTurnId::derive(roomToken: $turn['roomToken'], messageId: $messageId, agentId: $invocation->agentId),
+			agentId: $invocation->agentId,
+			messageId: $messageId
 		);
 
 		$this->logger->info(
@@ -321,6 +368,13 @@ class TalkBotInvokeListener implements IEventListener {
 		$speakerUid = (string)($payload['actor']['id'] ?? '');
 		$content = (new TalkMessageText())->plainText(raw: (string)($payload['object']['content'] ?? ''));
 
+		// A bot's own message is never a turn: a question mirrored from the Chat
+		// page is posted by the agent's bot and is already a stored turn
+		// (chat-carry-a-conversation-across-channels D2).
+		if (str_starts_with($speakerUid, 'bots/') === true) {
+			return null;
+		}
+
 		// Spreed prefixes user actors with `users/`.
 		if (str_starts_with($speakerUid, 'users/') === true) {
 			$speakerUid = substr($speakerUid, strlen('users/'));
@@ -339,7 +393,11 @@ class TalkBotInvokeListener implements IEventListener {
 	}//end readTurn()
 
 	/**
-	 * Resolve the conversation bound to the room, opening one on first contact.
+	 * Resolve this agent's conversation in the room, opening one on first contact.
+	 *
+	 * Sessions are per (room, agent): each agent in a room keeps its own thread,
+	 * and a room's session from before that is adopted by the agent that takes
+	 * the next turn there.
 	 *
 	 * @param TalkInvocation $invocation The invocation, with its agent: the room, and the uid
 	 *                                   opening the session when it is new.
@@ -347,10 +405,11 @@ class TalkBotInvokeListener implements IEventListener {
 	 * @return bool True when the room is bound to a conversation, now on the invocation.
 	 *
 	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-sessions-are-per-room-per-agent-and-ordered
 	 */
 	private function bindConversation(TalkInvocation $invocation): bool {
 		$roomToken = $invocation->roomToken();
-		$conversation = $this->roomBinding->findByRoomToken(roomToken: $roomToken);
+		$conversation = $this->roomBinding->findByRoomAndAgent(roomToken: $roomToken, agentId: $invocation->agentId);
 		if ($conversation !== null) {
 			// A late joiner needs their own Hermiq tag too — tags are PER USER
 			// (the row carries a user_id and the room joins through the
@@ -379,7 +438,8 @@ class TalkBotInvokeListener implements IEventListener {
 			roomToken: $roomToken,
 			agentId: $invocation->agentId,
 			ownerUid: $invocation->turn['speakerUid'],
-			participants: $this->bridge->roomUserIds(roomToken: $roomToken)
+			participants: $this->bridge->roomUserIds(roomToken: $roomToken),
+			roomName: $this->bridge->roomName(roomToken: $roomToken)
 		);
 
 		// Newly bound: file the room under each participant's own Hermiq tag so
@@ -413,14 +473,21 @@ class TalkBotInvokeListener implements IEventListener {
 	 * current shape — inferring it (say, "owner plus one bot") would silently
 	 * flip this behaviour the moment somebody invites a second person.
 	 *
+	 * Once a Talk moderator enables a second agent's bot in a Hermiq-created
+	 * room, every-message-is-a-turn would have every agent answer every
+	 * message, so that room takes the mention-or-reply rule too.
+	 *
 	 * @param TalkInvocation $invocation The invocation, with the agent bound to its room.
 	 *
 	 * @return bool True when the agent should take the turn.
 	 *
 	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-group-room
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-a-room-may-host-several-agents-managed-by-talk-moderators
 	 */
 	private function isAddressed(TalkInvocation $invocation): bool {
-		if ($this->roomBinding->isCreatedRoom(roomToken: $invocation->roomToken()) === true) {
+		if ($this->roomBinding->isCreatedRoom(roomToken: $invocation->roomToken()) === true
+			&& count($this->agentBinding->agentsForRoom(roomToken: $invocation->roomToken())) <= 1
+		) {
 			return true;
 		}
 

@@ -90,6 +90,13 @@ final class AnthropicChatRun {
 	public string $conversationId = '';
 
 	/**
+	 * The session's project (memory-project-scopes), or ''.
+	 *
+	 * @var string
+	 */
+	public string $projectKey = '';
+
+	/**
 	 * The tool calls this turn may make, or null for the default.
 	 *
 	 * @var int|null

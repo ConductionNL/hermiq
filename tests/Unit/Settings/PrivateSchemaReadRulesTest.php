@@ -310,7 +310,8 @@ class PrivateSchemaReadRulesTest extends TestCase {
 	}//end testAProfileIsReadByItsSubjectOnly()
 
 	/**
-	 * Write actions stay omitted on all eight, which is what keeps writes owner-only.
+	 * Write actions stay omitted on all eight, which is what keeps writes owner-only;
+	 * the one exception is create on Agent, which makes a new agent its creator owns.
 	 *
 	 * @return void
 	 */
@@ -318,6 +319,11 @@ class PrivateSchemaReadRulesTest extends TestCase {
 		foreach (self::PRIVATE_SCHEMAS as $schema) {
 			$block = $this->authorization(schema: $schema);
 			foreach (['create', 'update', 'delete', 'scope'] as $key) {
+				if ($schema === 'Agent' && $key === 'create') {
+					// Every signed-in user creates their own agent; see AgentAuthorizationTest.
+					continue;
+				}
+
 				$this->assertArrayNotHasKey($key, $block, $schema . ' must not list ' . $key . '; see AgentAuthorizationTest.');
 			}
 		}

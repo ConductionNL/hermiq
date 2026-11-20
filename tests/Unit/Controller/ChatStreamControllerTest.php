@@ -472,7 +472,7 @@ class ChatStreamControllerTest extends TestCase {
 		$this->engine->method('processMessage')->willReturnCallback(
 			static function (...$args) use (&$seen): array {
 				// Positional, in the order of Engine::processMessage(): answerCacheBypass is the 15th.
-				$seen[] = ($args[14] ?? null);
+				$seen[] = ($args[15] ?? null);
 				return ['message' => 'Op maandag.', 'messageId' => 'msg-46', 'sources' => []];
 			}
 		);

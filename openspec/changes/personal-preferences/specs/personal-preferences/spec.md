@@ -51,6 +51,8 @@ Rows: `op-preferences`. Board: `hermiq/HmMijnInstellingen`.
 - **WHEN** that person starts a run in which the agent sends a mail
 - **THEN** the run asks the person for approval before the mail is sent
 
+@e2e exclude needs an agent that really runs against a model and calls a mail tool; covered by FacadeToolInvokerAskBeforeSendTest::testSwitchedOnAMailAsksFirst and ::testTheLoopReadsThePersonsPreference.
+
 #### Scenario: Switching the preference off keeps required approvals
 - **GIVEN** a tool that an administrator set to always need approval
 - **AND** a person who switched "Vragen voordat een agent namens mij mailt of iets verstuurt" off
@@ -63,3 +65,5 @@ Rows: `op-preferences`. Board: `hermiq/HmMijnInstellingen`.
 - **GIVEN** a person who switched on "Melding als een run klaar is"
 - **WHEN** a run they started finishes
 - **THEN** they receive a Nextcloud notification naming the agent and the result
+
+@e2e exclude needs a run that really finishes against a model; covered by RunDoneNotifierTest::testTheOwnerWhoAskedIsToldTheAgentAndTheResult and ::testNobodyWhoLeftItOffIsNotified.
