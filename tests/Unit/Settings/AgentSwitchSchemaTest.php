@@ -59,8 +59,9 @@ class AgentSwitchSchemaTest extends TestCase {
 		$this->assertSame('CASCADE', $schemas->Schedule->properties->agentId->onDelete ?? null);
 		$this->assertSame('agent', $schemas->Goal->properties->agentId->{'$ref'});
 		$this->assertSame('CASCADE', $schemas->Goal->properties->agentId->onDelete ?? null);
-		$this->assertSame('agent', $schemas->EvalSchedule->properties->agentId->{'$ref'});
-		$this->assertSame('CASCADE', $schemas->EvalSchedule->properties->agentId->onDelete ?? null);
+		$evalScheduleAgent = ((array)$schemas)['EvalSchedule']->properties->agentId;
+		$this->assertSame(expected: 'agent', actual: $evalScheduleAgent->{'$ref'});
+		$this->assertSame(expected: 'CASCADE', actual: ($evalScheduleAgent->onDelete ?? null));
 
 		foreach ((array)$schemas as $name => $schema) {
 			if (in_array($name, ['Schedule', 'EvalSchedule', 'Goal'], true) === true) {

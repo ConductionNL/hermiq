@@ -53,13 +53,17 @@ class EvalRegressionNotifier {
 	 *
 	 * @param string               $owner      The schedule's owner.
 	 * @param string               $runId      The EvalRun uuid.
-	 * @param array<string, mixed> $parameters The subject parameters: name, dataset, datasetId, previous, current.
+	 * @param array<string, mixed> $parameters The subject parameters: name, dataset, datasetId, and the 0–1 pass
+	 *                                         rates previous and current, stored as whole percentages.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#scenario-the-monthly-bias-check-drops-and-the-owner-is-told
 	 */
 	public function notify(string $owner, string $runId, array $parameters): void {
+		$parameters['previous'] = $this->percent(passRate: ($parameters['previous'] ?? null));
+		$parameters['current']  = $this->percent(passRate: ($parameters['current'] ?? null));
+
 		$notification = $this->notifications->createNotification();
 		$notification->setApp(app: 'hermiq')
 			->setUser(user: $owner)
@@ -75,10 +79,8 @@ class EvalRegressionNotifier {
 	 * @param mixed $passRate The pass rate.
 	 *
 	 * @return int|null The percentage.
-	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#scenario-the-monthly-bias-check-drops-and-the-owner-is-told
 	 */
-	public static function percent(mixed $passRate): ?int {
+	private function percent(mixed $passRate): ?int {
 		if (is_numeric(value: $passRate) === false) {
 			return null;
 		}

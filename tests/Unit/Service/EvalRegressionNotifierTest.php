@@ -52,22 +52,41 @@ class EvalRegressionNotifierTest extends TestCase {
 		$manager->method('createNotification')->willReturn($notification);
 		$manager->expects($this->once())->method('notify')->with($notification);
 
-		(new EvalRegressionNotifier(notifications: $manager))->notify(owner: 'fenna', runId: 'run-7', parameters: ['current' => 80]);
+		(new EvalRegressionNotifier(notifications: $manager))->notify(
+			owner: 'fenna',
+			runId: 'run-7',
+			parameters: ['name' => 'Helper', 'previous' => 0.95, 'current' => 2 / 3]
+		);
 
 		$this->assertSame(expected: ['hermiq'], actual: $recorded['setApp']);
 		$this->assertSame(expected: ['fenna'], actual: $recorded['setUser']);
 		$this->assertSame(expected: ['evalrun', 'run-7'], actual: $recorded['setObject']);
-		$this->assertSame(expected: ['eval_regression', ['current' => 80]], actual: $recorded['setSubject']);
+		$this->assertSame(expected: ['eval_regression', ['name' => 'Helper', 'previous' => 95, 'current' => 67]], actual: $recorded['setSubject']);
 	}//end testTheOwnerIsToldAboutTheRun()
 
 	/**
-	 * A 0–1 pass rate becomes a whole percentage; no rate stays null.
+	 * Without a previous run there is no previous percentage.
 	 *
 	 * @return void
 	 */
-	public function testAPassRateBecomesAWholePercentage(): void {
-		$this->assertSame(expected: 95, actual: EvalRegressionNotifier::percent(passRate: 0.95));
-		$this->assertSame(expected: 67, actual: EvalRegressionNotifier::percent(passRate: 2 / 3));
-		$this->assertNull(actual: EvalRegressionNotifier::percent(passRate: null));
-	}//end testAPassRateBecomesAWholePercentage()
+	public function testWithoutAPreviousRunThereIsNoPreviousPercentage(): void {
+		$recorded = [];
+		$notification = $this->createMock(originalClassName: INotification::class);
+		$notification->method('setSubject')->willReturnCallback(
+			function (string $subject, array $parameters) use (&$recorded, $notification): INotification {
+				$recorded = $parameters;
+				return $notification;
+			}
+		);
+		foreach (['setApp', 'setUser', 'setDateTime', 'setObject'] as $setter) {
+			$notification->method($setter)->willReturnSelf();
+		}
+
+		$manager = $this->createMock(originalClassName: IManager::class);
+		$manager->method('createNotification')->willReturn($notification);
+
+		(new EvalRegressionNotifier(notifications: $manager))->notify(owner: 'fenna', runId: 'run-7', parameters: ['previous' => null, 'current' => 0.4]);
+
+		$this->assertSame(expected: ['previous' => null, 'current' => 40], actual: $recorded);
+	}//end testWithoutAPreviousRunThereIsNoPreviousPercentage()
 }//end class

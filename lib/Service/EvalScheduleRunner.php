@@ -184,8 +184,8 @@ class EvalScheduleRunner {
 				'name'      => (string)$targets['agent']->getName(),
 				'dataset'   => (string)($targets['dataset']->getObject()['name'] ?? ''),
 				'datasetId' => (string)$targets['dataset']->getUuid(),
-				'previous'  => EvalRegressionNotifier::percent(passRate: $result['previousPassRate']),
-				'current'   => EvalRegressionNotifier::percent(passRate: $result['passRate']),
+				'previous'  => $result['previousPassRate'],
+				'current'   => $result['passRate'],
 			]
 		);
 	}//end warnOnRegression()
