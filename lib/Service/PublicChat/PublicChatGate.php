@@ -163,6 +163,7 @@ class PublicChatGate {
 			$data = $agent->getObject();
 		}
 
+		/** @var array<string, mixed> $data */
 		$grants = array_filter(
 			(array)($data['tools'] ?? []),
 			static fn (mixed $tool): bool => is_string($tool) === true && trim($tool) !== '' && trim($tool) !== '__none__'
