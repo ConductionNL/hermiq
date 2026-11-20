@@ -40,7 +40,7 @@ use Psr\Log\LoggerInterface;
  * audit trail stays in one place; they do not share the service, because they
  * are the same fact at different times and only one of them can say no.
  *
- * @spec openspec/changes/ai-oversight-advisory-approvals/specs/ai-oversight/spec.md
+ * @spec openspec/specs/ai-oversight/spec.md
  */
 class AiOversightService implements AiOversightServiceInterface {
 
@@ -124,7 +124,7 @@ class AiOversightService implements AiOversightServiceInterface {
      *
      * @return string|null The written Approval's uuid, or null when the record was refused.
      *
-     * @spec openspec/changes/ai-oversight-advisory-approvals/specs/ai-oversight/spec.md
+     * @spec openspec/specs/ai-oversight/spec.md
      */
     public function record(array $record): ?string {
         if ($this->accepts(record: $record) === false) {
