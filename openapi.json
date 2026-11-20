@@ -7478,6 +7478,24 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "linkedType",
+                        "in": "query",
+                        "required": false,
+                        "description": "Only sessions linked to an entity of this kind (file, object, ...); use with linkedId. The response then carries `scope` with the label to head the list with.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "linkedId",
+                        "in": "query",
+                        "required": false,
+                        "description": "The id of the linked entity; use with linkedType.",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ]
             },
@@ -7751,6 +7769,66 @@
                     },
                     "404": {
                         "$ref": "#/components/responses/Problem404"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
+        },
+        "/sessions/{uuid}/links": {
+            "delete": {
+                "operationId": "session-remove-link",
+                "summary": "Remove a link from a session",
+                "description": "Remove one link from a session: what the session says it is about (session-entity-links). A link is recorded automatically when a turn is sent from a page that shows a file or a record, so the owner can remove it here; afterwards the session no longer appears in that entity's scoped list. Only the owner may. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "session"
+                ],
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "description": "Session UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "required": true,
+                        "description": "The kind of the linked entity, for example file or object.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "id",
+                        "in": "query",
+                        "required": true,
+                        "description": "The id of the linked entity.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
                     },
                     "500": {
                         "$ref": "#/components/responses/Problem500"
