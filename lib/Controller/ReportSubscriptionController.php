@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/reports-on-a-schedule/tasks.md#1.2
+ * @spec openspec/changes/archive/2026-11-20-reports-on-a-schedule/tasks.md#1.2
  */
 
 declare(strict_types=1);
@@ -41,7 +41,7 @@ use Throwable;
 /**
  * The session user's report subscriptions.
  *
- * @spec openspec/changes/reports-on-a-schedule/tasks.md#1.2
+ * @spec openspec/changes/archive/2026-11-20-reports-on-a-schedule/tasks.md#1.2
  */
 class ReportSubscriptionController extends Controller {
 
@@ -65,7 +65,7 @@ class ReportSubscriptionController extends Controller {
 	 *
 	 * @return JSONResponse A list of `{id, report, frequency, status}`, or 401.
 	 *
-	 * @spec openspec/changes/reports-on-a-schedule/tasks.md#1.2
+	 * @spec openspec/changes/archive/2026-11-20-reports-on-a-schedule/tasks.md#1.2
 	 */
 	#[NoAdminRequired]
 	public function index(): JSONResponse {
@@ -84,7 +84,7 @@ class ReportSubscriptionController extends Controller {
 	 *
 	 * @return JSONResponse The subscription, or 400, 401 or 500.
 	 *
-	 * @spec openspec/changes/reports-on-a-schedule/tasks.md#1.2
+	 * @spec openspec/changes/archive/2026-11-20-reports-on-a-schedule/tasks.md#1.2
 	 */
 	#[NoAdminRequired]
 	public function subscribe(string $report): JSONResponse {
@@ -105,7 +105,7 @@ class ReportSubscriptionController extends Controller {
 	 *
 	 * @return JSONResponse `{cancelled}`, or 401 or 500.
 	 *
-	 * @spec openspec/changes/reports-on-a-schedule/tasks.md#1.2
+	 * @spec openspec/changes/archive/2026-11-20-reports-on-a-schedule/tasks.md#1.2
 	 */
 	#[NoAdminRequired]
 	public function cancel(string $report): JSONResponse {

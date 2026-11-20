@@ -4,7 +4,7 @@
  *
  * personal-preferences, in a browser (gate 19).
  *
- * Covers the scenarios of openspec/changes/personal-preferences without an
+ * Covers the scenarios of openspec/changes/archive/2026-11-20-personal-preferences without an
  * `@e2e exclude`:
  *
  * - the preferences open in the settings dialog, and hermiq registers no
@@ -20,8 +20,8 @@
  * The config supplies `use.storageState`, so specs start signed in.
  */
 
-// @e2e openspec/changes/personal-preferences/specs/personal-preferences/spec.md#the-preferences-open-in-the-settings-dialog
-// @e2e openspec/changes/personal-preferences/specs/personal-preferences/spec.md#a-chosen-default-agent-opens-the-chat
+// @e2e openspec/specs/personal-preferences/spec.md#the-preferences-open-in-the-settings-dialog
+// @e2e openspec/specs/personal-preferences/spec.md#a-chosen-default-agent-opens-the-chat
 
 import type { Page } from '@playwright/test'
 

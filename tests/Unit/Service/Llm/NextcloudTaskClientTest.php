@@ -17,7 +17,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-6-1
+ * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-6-1
  */
 
 declare(strict_types=1);
@@ -38,7 +38,7 @@ use Psr\Log\NullLogger;
 /**
  * Tests for NextcloudTaskClient.
  *
- * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-6-1
+ * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-6-1
  */
 class NextcloudTaskClientTest extends TestCase {
 	/**
@@ -80,7 +80,7 @@ class NextcloudTaskClientTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-2
 	 */
 	public function testChatRunsTheChatTaskAsTheUser(): void {
 		$manager = $this->manager(['core:text2text:chat']);
@@ -126,7 +126,7 @@ class NextcloudTaskClientTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-2
 	 */
 	public function testTheUsersTurnIsSentOnce(): void {
 		$split = (new \OCA\Hermiq\Service\Llm\NextcloudChatMapper())->splitHistory(
@@ -153,7 +153,7 @@ class NextcloudTaskClientTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-2
 	 */
 	public function testToolsMapBothWays(): void {
 		$manager = $this->manager(['core:text2text:chatwithtools', 'core:text2text:chat']);
@@ -214,7 +214,7 @@ class NextcloudTaskClientTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-2
 	 */
 	public function testToolsWithoutAChatWithToolsProviderFailLoudly(): void {
 		$manager = $this->manager(['core:text2text:chat']);
@@ -237,7 +237,7 @@ class NextcloudTaskClientTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-3-1
 	 */
 	public function testMissingProviderGivesTheAdminMessage(): void {
 		$manager = $this->manager([]);
@@ -257,7 +257,7 @@ class NextcloudTaskClientTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-4-2
 	 */
 	public function testHermiqAsPreferredProviderIsRefused(): void {
 		$manager = $this->manager(['core:text2text'], 'hermiq:text2text');
@@ -276,7 +276,7 @@ class NextcloudTaskClientTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-1
 	 */
 	public function testAsyncProviderTimesOutAndCancels(): void {
 		$provider = $this->createMock(IProvider::class);
@@ -331,7 +331,7 @@ class NextcloudTaskClientTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-1
 	 */
 	public function testFailedTaskSurfacesItsError(): void {
 		$manager = $this->manager(['core:text2text']);

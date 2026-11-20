@@ -57,7 +57,7 @@ interface ContextAgentInteractionServiceInterface {
 	 * @throws ProcessingException When there is no user context, no available agent, the
 	 *                             org kill-switch is engaged, or the turn fails.
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-2
 	 */
 	public function interact(?string $userId, string $input, ?int $confirmation, string $conversationToken): array;
 }//end interface

@@ -70,7 +70,7 @@ class SkillCuratorTask extends TimedJob {
 	 * @phpstan-param mixed $argument
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#task-3-1
-	 * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
 	 */
 	public function run(mixed $argument): void {
 		$this->marketplaceService->curate();

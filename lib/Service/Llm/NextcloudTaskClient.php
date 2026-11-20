@@ -30,7 +30,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-1
  */
 
 declare(strict_types=1);
@@ -49,7 +49,7 @@ use Throwable;
 /**
  * Runs hermiq's LLM calls as Nextcloud TaskProcessing tasks.
  *
- * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-1
  */
 class NextcloudTaskClient {
 
@@ -138,7 +138,7 @@ class NextcloudTaskClient {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-1
 	 */
 	public function __construct(
 		private readonly IManager $taskManager,
@@ -155,7 +155,7 @@ class NextcloudTaskClient {
 	 *
 	 * @return string The message.
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-3-1
 	 */
 	public function adminMessage(): string {
 		if ($this->l10n === null) {
@@ -173,7 +173,7 @@ class NextcloudTaskClient {
 	 *
 	 * @return boolean True when a provider is available.
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-3-1
 	 */
 	public function isAvailable(string $taskTypeId, ?string $userId = null): bool {
 		try {
@@ -192,7 +192,7 @@ class NextcloudTaskClient {
 	 *
 	 * @return array<string, array{taskType: string, available: bool, provider: string}>
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-5-1
 	 */
 	public function availability(): array {
 		$result = [];
@@ -218,7 +218,7 @@ class NextcloudTaskClient {
 	 *
 	 * @return boolean
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-2
 	 */
 	public function lastCallHitToolCap(): bool {
 		return $this->lastCallHitToolCap;
@@ -237,7 +237,7 @@ class NextcloudTaskClient {
 	 * @throws ProviderUnavailableException When no provider serves the type, the task fails,
 	 *                                      or it returns no output.
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-3
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-3
 	 */
 	public function generate(string $prompt, ?string $userId, int $timeoutSeconds = self::TIMEOUT_BACKGROUND, string $customId = ''): string {
 		$output = $this->run(
@@ -275,7 +275,7 @@ class NextcloudTaskClient {
 	 * @throws ProviderUnavailableException When no provider serves the type, a task fails,
 	 *                                      or the wait runs out.
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-2
 	 */
 	public function chat(
 		array $messageHistory,
@@ -335,7 +335,7 @@ class NextcloudTaskClient {
 	 *
 	 * @return string The reply.
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-2
 	 */
 	private function chatWithTools(array $split, ?string $userId, string $tools, callable $toolExecutor, int $cap, int $timeoutSeconds): string {
 		$history = $split['history'];
@@ -398,7 +398,7 @@ class NextcloudTaskClient {
 	 *
 	 * @return list<array{tool_call_id: string, name: string, content: string}> The results.
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-2
 	 */
 	private function executeToolCalls(array $toolCalls, callable $toolExecutor, int &$executed, int $cap): array {
 		$results = [];
@@ -430,8 +430,8 @@ class NextcloudTaskClient {
 	 *                                      provider is hermiq's own, the task fails, or the
 	 *                                      wait runs out.
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-1
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-4-2
 	 */
 	public function run(string $taskTypeId, array $input, ?string $userId, int $timeoutSeconds, string $customId = ''): array {
 		if ($this->isAvailable(taskTypeId: $taskTypeId, userId: $userId) === false) {
@@ -485,7 +485,7 @@ class NextcloudTaskClient {
 	 *
 	 * @return Task The finished task.
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-1
 	 */
 	private function dispatch(Task $task, IProvider $provider, int $timeoutSeconds): Task {
 		if ($provider instanceof ISynchronousProvider) {
@@ -506,7 +506,7 @@ class NextcloudTaskClient {
 	 *
 	 * @throws ProviderUnavailableException When the bound runs out.
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-1
 	 */
 	private function waitFor(Task $task, int $timeoutSeconds): Task {
 		$taskId = (int)$task->getId();
@@ -544,7 +544,7 @@ class NextcloudTaskClient {
 	 *
 	 * @return integer
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-1
 	 */
 	protected function now(): int {
 		if ($this->timeFactory === null) {
@@ -559,7 +559,7 @@ class NextcloudTaskClient {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-2-1
 	 */
 	protected function pause(): void {
 		sleep(1);

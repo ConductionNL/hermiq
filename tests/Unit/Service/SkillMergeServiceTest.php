@@ -15,7 +15,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
+ * @spec openspec/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
  */
 
 declare(strict_types=1);

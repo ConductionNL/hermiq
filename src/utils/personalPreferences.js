@@ -6,7 +6,7 @@
  * the answer languages the settings dialog offers, how a switch is stored,
  * and which agent a new chat starts with.
  *
- * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+ * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
  */
 
 /**
@@ -29,7 +29,7 @@ const ON_VALUES = ['1', 'true', 'on', 'yes']
  *
  * @param {string} value The stored value.
  * @return {boolean} On or off.
- * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+ * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
  */
 export function switchIsOn(value) {
 	return ON_VALUES.includes(String(value ?? '').trim().toLowerCase())
@@ -40,7 +40,7 @@ export function switchIsOn(value) {
  *
  * @param {boolean} on The switch.
  * @return {string} The value to store.
- * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+ * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
  */
 export function switchValue(on) {
 	return on ? '1' : ''
@@ -51,7 +51,7 @@ export function switchValue(on) {
  *
  * @param {object} agent The agent.
  * @return {string} Its id, or `''`.
- * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+ * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
  */
 export function agentIdOf(agent) {
 	if (!agent || typeof agent !== 'object') {
@@ -67,7 +67,7 @@ export function agentIdOf(agent) {
  * @param {Array<object>} agents The agents the person can pick.
  * @param {string} defaultAgentId The stored default agent, or `''`.
  * @return {object|null} The agent, or null.
- * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+ * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
  */
 export function defaultAgentOf(agents, defaultAgentId) {
 	if (!defaultAgentId || !Array.isArray(agents)) {

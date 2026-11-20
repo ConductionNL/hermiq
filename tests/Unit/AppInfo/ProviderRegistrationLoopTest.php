@@ -17,7 +17,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-4-1
+ * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-4-1
  */
 
 declare(strict_types=1);
@@ -35,7 +35,7 @@ use ReflectionClass;
 /**
  * Tests the TaskProcessing provider registrations.
  *
- * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-4-1
+ * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-4-1
  */
 class ProviderRegistrationLoopTest extends TestCase {
 	/**
@@ -81,7 +81,7 @@ class ProviderRegistrationLoopTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-4-1
 	 */
 	public function testNoProviderForAConsumedTaskType(): void {
 		$types = $this->registeredTaskTypes();
@@ -100,7 +100,7 @@ class ProviderRegistrationLoopTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-4-1
 	 */
 	public function testContextAgentStaysAndIsNotConsumed(): void {
 		$this->assertContains(ContextAgentInteraction::ID, $this->registeredTaskTypes());

@@ -101,7 +101,7 @@ class ChatHealthController extends Controller {
 	 * the health check into the outage it was meant to detect.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-3-2
 	 * @spec openspec/changes/spec-coverage-built-rows/specs/observability/spec.md#REQ-SPCOV-012
 	 */
 	#[AnonRateLimit(limit: 240, period: 60)]

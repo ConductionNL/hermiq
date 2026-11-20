@@ -7,7 +7,7 @@
  * and "Keep both" rejects, and the decided proposal leaves the list; a person
  * without the action sees nothing, and with no proposal the section is not shown.
  *
- * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
+ * @spec openspec/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
  */
 
 import { flushPromises, mount } from '@vue/test-utils'

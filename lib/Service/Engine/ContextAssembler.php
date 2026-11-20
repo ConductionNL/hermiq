@@ -187,7 +187,7 @@ class ContextAssembler {
 	 *                attached context and the person chose no answer language.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-context-system/tasks.md#2-contextassembler
-	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 	 */
 	public function assembleForAgent(?ObjectEntity $agent, string $actingUserId): string {
 		$blocks = [];

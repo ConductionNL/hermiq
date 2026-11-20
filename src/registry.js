@@ -566,7 +566,7 @@ export default {
 	 * pending merges of duplicate skills, with Merge and Keep both, resolved via
 	 * the SkillsCatalog index page's `page.slots.below-header`.
 	 *
-	 * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
 	 */
 	'skill-merge-proposals': {
 		kind: 'widget',

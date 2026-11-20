@@ -39,3 +39,4 @@
 
 - [ ] 3.1 `@spec` tags on every new method (gate 16) and an e2e test in
       `tests/e2e/agent-acting-identity.spec.ts` for the scenarios without an `@e2e exclude` (gate 19).
+      - `tests/e2e/agent-acting-identity.spec.ts` written for the two scenarios without an exclude; not run here (needs a running Nextcloud).

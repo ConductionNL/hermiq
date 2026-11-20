@@ -12,7 +12,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+ * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
  */
 
 declare(strict_types=1);
@@ -29,7 +29,7 @@ use OCA\Hermiq\Service\PersonalPreferences;
  * stored value adds nothing, so the preference can never carry free text
  * into an agent's instructions.
  *
- * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+ * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
  */
 class AnswerLanguage {
 
@@ -51,7 +51,7 @@ class AnswerLanguage {
 	 *
 	 * @param PersonalPreferences $preferences The person's own preferences.
 	 *
-	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 	 */
 	public function __construct(
 		private readonly PersonalPreferences $preferences,
@@ -66,7 +66,7 @@ class AnswerLanguage {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/personal-preferences/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
 	 */
 	public function instructionFor(string $userId): string {
 		$code = strtolower($this->preferences->value(userId: $userId, key: PersonalPreferences::ANSWER_LANGUAGE));
