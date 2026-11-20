@@ -597,7 +597,6 @@ class ResponseGenerationHandler {
 		$run->progress->driver = $driver;
 		$run->messageHistory = $history;
 		$this->recordProviderDisclosure(run: $run);
-		$this->assertChatProvider(provider: $driver->provider);
 		// A hop to a model path that cannot read a screenshot drops the computer tools too.
 		$run->progress->functions = ComputerToolDescriptors::forDriver(
 			functions: $run->progress->functions,
