@@ -23,7 +23,7 @@ Kind: code. Size L. Rows `hermiq:me-kb-upload`, `me-external-kb`.
 - [x] Implement
   - `POST /api/knowledge-bases/{id}/documents` (`KnowledgeBaseController::upload`, multipart `files[]` or `file`): `KnowledgeBaseService` opens the knowledge base as the caller, answers 404 to anyone but its owner, writes each document into `folderPath` (default `Hermiq/Knowledge bases/<name>`, created when missing, `..` and empty segments dropped) in the owner's Files under a free name, and adds each as a `file` source. At most 20 documents of up to 100 MB per request. Documented in `openapi.json`.
 - [ ] Test (PHPUnit; Newman upload as owner and non-owner)
-  - PHPUnit done: `KnowledgeBaseServiceTest` (6), `KnowledgeBaseControllerTest` (5). Newman needs a live instance and is left open.
+  - PHPUnit done: `KnowledgeBaseServiceTest` (6), `KnowledgeBaseControllerTest` (5). Newman written: folder "Knowledge base upload" in `tests/integration/hermiq.postman_collection.json` (the owner uploads two PDFs into the default folder, reads them back as file sources; a second user gets 404 on upload and sources and adds nothing). Not run yet: it needs a live instance, so the box stays open.
 
 ### Task 3: Retrieval scoped to the knowledge bases
 - **spec_ref**: `openspec/changes/memory-knowledge-bases/specs/knowledge-bases/spec.md#requirement-an-agent-answers-from-its-attached-knowledge-bases-req-kb-002`
@@ -67,7 +67,7 @@ Kind: code. Size L. Rows `hermiq:me-kb-upload`, `me-external-kb`.
 - [x] Implement
   - `src/manifest.json`: `KnowledgeBases` (`/knowledge-bases`, index over `agentknowledgebase`, create and edit through the generic schema form) and `KnowledgeBaseDetail` (`/knowledge-bases/:id`, detail) with the `knowledge-base-sources` widget (`src/widgets/KnowledgeBaseSources.vue`): sources with their indexing state, the only-you notice, the source `label` (e.g. "Synced by integriq from SharePoint"), "Search is not available on this server…" when the facade has no file scope, and Upload documents / Add from Files / Add a folder / Remove (removing never deletes the file). The detail page is a widget on a manifest detail page rather than a `KnowledgeBaseDetail.vue` view, and no `KnowledgeBaseFormModal` was needed: the schema form covers name, description and folder. No menu item (D6): the Memory page links to the list. `AgentFormModal` gains the knowledge base picker (`knowledgeBaseRefs`). en/nl strings, including the schema's. The row names the outside system from the source's `label`; detecting an integriq-synced folder by itself is not built.
 - [ ] Test (Playwright under `tests/e2e/spec-coverage/knowledge-bases.spec.ts`)
-  - Not written: needs a running instance. Vitest: `tests/vitest/knowledge-base-sources.spec.js` (6); the agent form golden fixture gains `knowledgeBaseRefs`.
+  - Written: `tests/e2e/spec-coverage/knowledge-bases.spec.ts` (5: Memory page link to the list, upload on the detail page into the folder with its state and the only-you notice, the no-search notice, an integriq-labelled source, a non-owner refused from an empty-storage-state context, the agent form picker). Lints, type-checks and lists; not run yet (needs a running instance), so the box stays open. Vitest: `tests/vitest/knowledge-base-sources.spec.js` (6); the agent form golden fixture gains `knowledgeBaseRefs`.
 
 ## Verification
 - [ ] `openspec validate memory-knowledge-bases --type change --strict` passes

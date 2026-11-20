@@ -14,7 +14,8 @@
 
   A standard nav page — NOT a dashboard (dashboard-antipattern gate). The org
   kill-switch (KillSwitchToggle) sits in the header, shown only to org sub-admins /
-  instance admins via a backend capability flag.
+  instance admins via a backend capability flag. Below it, administrators see the
+  per-department switches (DepartmentSwitchList).
 
   @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
   @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/specs/human-approval-gate-ui/spec.md
@@ -27,6 +28,8 @@
 			</h2>
 			<KillSwitchToggle />
 		</div>
+
+		<DepartmentSwitchList />
 
 		<NcNoteCard
 			v-if="error"
@@ -50,7 +53,33 @@
 			</template>
 		</NcEmptyContent>
 
-		<table v-else class="approval-inbox__table">
+		<div
+			v-if="!loading && approvals.length > 0"
+			class="approval-inbox__filters"
+			role="group"
+			:aria-label="t('hermiq', 'Show')">
+			<NcButton
+				:variant="filter === 'all' ? 'primary' : 'tertiary'"
+				:aria-pressed="filter === 'all' ? 'true' : 'false'"
+				data-testid="approval-filter-all"
+				@click="filter = 'all'">
+				{{ t('hermiq', 'All') }}
+			</NcButton>
+			<NcButton
+				:variant="filter === 'drafts' ? 'primary' : 'tertiary'"
+				:aria-pressed="filter === 'drafts' ? 'true' : 'false'"
+				data-testid="approval-filter-drafts"
+				@click="filter = 'drafts'">
+				{{ t('hermiq', 'Drafts ({count})', { count: draftCount }) }}
+			</NcButton>
+		</div>
+
+		<NcEmptyContent
+			v-if="!loading && approvals.length > 0 && visibleApprovals.length === 0"
+			:name="t('hermiq', 'No drafts waiting')"
+			:description="t('hermiq', 'Text an agent wants to send is held here when its owner asked to check it first.')" />
+
+		<table v-else-if="!loading && visibleApprovals.length > 0" class="approval-inbox__table">
 			<thead>
 				<tr>
 					<th scope="col">
@@ -73,13 +102,25 @@
 				</tr>
 			</thead>
 			<tbody>
-				<tr v-for="approval in approvals" :key="approval.id">
+				<tr v-for="approval in visibleApprovals" :key="approval.id">
 					<td class="approval-inbox__name">
 						{{ scheduleName(approval) }}
 					</td>
 					<td>{{ agentName(approval) }}</td>
 					<td class="approval-inbox__prompt">
-						{{ approval.prompt || '—' }}
+						<!-- Oversight-ask-and-hold: a question is answered right here; the
+						     run continues with the answer. -->
+						<AgentQuestionCard
+							v-if="approval.sourceType === 'question' && approval.question"
+							:question="approval.question"
+							:disabled="actioningId === approval.id"
+							@answer="answer(approval, $event)" />
+						<span v-else-if="approval.sourceType === 'draft'" class="approval-inbox__draft">
+							{{ draftExcerpt(approval) }}
+						</span>
+						<template v-else>
+							{{ approval.prompt || '—' }}
+						</template>
 						<span
 							v-if="computerAction(approval)"
 							class="approval-inbox__computer"
@@ -117,6 +158,15 @@
 							{{ t('hermiq', 'Details') }}
 						</NcButton>
 						<NcButton
+							v-if="approval.sourceType === 'draft'"
+							variant="primary"
+							:disabled="actioningId === approval.id"
+							data-testid="approval-review-draft"
+							@click="draftTarget = approval">
+							{{ t('hermiq', 'Review') }}
+						</NcButton>
+						<NcButton
+							v-else-if="approval.sourceType !== 'question'"
 							variant="primary"
 							:disabled="actioningId === approval.id"
 							:aria-label="t('hermiq', 'Approve run')"
@@ -138,9 +188,9 @@
 						<NcButton
 							variant="error"
 							:disabled="actioningId === approval.id"
-							:aria-label="t('hermiq', 'Deny run')"
+							:aria-label="approval.sourceType === 'draft' ? t('hermiq', 'Discard draft') : t('hermiq', 'Deny run')"
 							@click="openDeny(approval)">
-							{{ t('hermiq', 'Deny') }}
+							{{ approval.sourceType === 'draft' ? t('hermiq', 'Discard') : t('hermiq', 'Deny') }}
 						</NcButton>
 					</td>
 				</tr>
@@ -153,6 +203,12 @@
 			@close="previewTarget = null"
 			@approve="approveFromPreview"
 			@deny="denyFromPreview" />
+		<DraftReviewModal
+			:show="draftTarget !== null"
+			:draft="draftTarget"
+			@close="draftTarget = null"
+			@released="onReleased"
+			@discard="discardFromReview" />
 		<ApprovalDenyModal
 			:show="showDeny"
 			:approval="denyTarget"
@@ -164,10 +220,13 @@
 <script>
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import CheckDecagram from 'vue-material-design-icons/CheckDecagram.vue'
+import AgentQuestionCard from '../components/AgentQuestionCard.vue'
+import DepartmentSwitchList from '../components/DepartmentSwitchList.vue'
 import KillSwitchToggle from '../components/KillSwitchToggle.vue'
 import ApprovalDenyModal from '../modals/ApprovalDenyModal.vue'
 import ApprovalPreviewModal from '../modals/ApprovalPreviewModal.vue'
-import { approvalScreenshot, approveApproval, listPendingApprovals } from '../api/approvals.js'
+import DraftReviewModal, { draftFields } from '../modals/DraftReviewModal.vue'
+import { answerApproval, approvalScreenshot, approveApproval, listPendingApprovals } from '../api/approvals.js'
 import { useAgentStore, useScheduleStore } from '../store/store.js'
 import { dateOrText } from '../utils/displayDate.js'
 import { errorMessage } from '../utils/errorMessage.js'
@@ -176,9 +235,12 @@ export default {
 	name: 'ApprovalInbox',
 
 	components: {
+		AgentQuestionCard,
 		ApprovalDenyModal,
 		ApprovalPreviewModal,
 		CheckDecagram,
+		DepartmentSwitchList,
+		DraftReviewModal,
 		KillSwitchToggle,
 		NcButton,
 		NcEmptyContent,
@@ -199,7 +261,35 @@ export default {
 			denyTarget: null,
 			actioningId: '',
 			previewTarget: null,
+			// Oversight-ask-and-hold: the "Drafts" filter and the draft under review.
+			filter: 'all',
+			draftTarget: null,
 		}
+	},
+
+	computed: {
+		/**
+		 * The approvals the current filter shows.
+		 *
+		 * @return {Array<object>}
+		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+		 */
+		visibleApprovals() {
+			if (this.filter === 'drafts') {
+				return this.approvals.filter((approval) => approval.sourceType === 'draft')
+			}
+			return this.approvals
+		},
+
+		/**
+		 * How many held drafts wait.
+		 *
+		 * @return {number}
+		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+		 */
+		draftCount() {
+			return this.approvals.filter((approval) => approval.sourceType === 'draft').length
+		},
 	},
 
 	/**
@@ -396,6 +486,63 @@ export default {
 		 * @return {void}
 		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
+		/**
+		 * Answer an agent's question; the run is dispatched again with the answer.
+		 *
+		 * @param {object} approval The question approval.
+		 * @param {string} answer The chosen or typed answer.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+		 */
+		async answer(approval, answer) {
+			this.actioningId = approval.id
+			this.error = ''
+			try {
+				await answerApproval(approval.id, answer)
+				await this.load()
+			} catch (e) {
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
+			} finally {
+				this.actioningId = ''
+			}
+		},
+
+		/**
+		 * The first line of a held draft, for its row.
+		 *
+		 * @param {object} approval The draft approval.
+		 * @return {string}
+		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+		 */
+		draftExcerpt(approval) {
+			const fields = draftFields(approval.draft)
+			const line = (fields.subject || fields.text).split('\n')[0].trim()
+			return line.length > 120 ? `${line.slice(0, 119)}…` : (line || '—')
+		},
+
+		/**
+		 * A draft was released: close the review and reload.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+		 */
+		async onReleased() {
+			this.draftTarget = null
+			await this.load()
+		},
+
+		/**
+		 * Discard from the review: ask for a reason in the deny dialog.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+		 */
+		discardFromReview() {
+			const approval = this.draftTarget
+			this.draftTarget = null
+			this.openDeny(approval)
+		},
+
 		openDeny(approval) {
 			this.denyTarget = approval
 			this.showDeny = true
@@ -433,6 +580,12 @@ export default {
 	margin: 0;
 	font-size: 22px;
 	font-weight: 600;
+}
+
+.approval-inbox__filters {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 12px;
 }
 
 .approval-inbox__loading {

@@ -36,11 +36,13 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Service\Chat\SessionLinks;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\EngineInterface;
 use OCA\Hermiq\Kernel\Contracts\LiteracyRequirementInterface;
 use OCA\Hermiq\Kernel\Contracts\RunStepBusInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkTurnMirrorInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Service\AppAssistantResolver;
 use OCA\Hermiq\Service\Chat\ChatRefusalFrame;
@@ -155,6 +157,8 @@ class ChatStreamController extends Controller {
 	 * @param AgentAccessServiceInterface $agentAccess The one per-agent access predicate.
 	 * @param LiteracyRequirementInterface|null $literacy The course requirement (compliance-ai-literacy).
 	 * @param AppAssistantResolver|null $assistants The agent for an app when a chat names none (agents-bound-to-their-app).
+	 * @param TalkTurnMirrorInterface|null $mirror Mirrors a turn into the session's Talk room.
+	 * @param SessionLinks|null $sessionLinks Records what the session is about when a turn is sent (session-entity-links).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
@@ -174,6 +178,8 @@ class ChatStreamController extends Controller {
 		private readonly AgentAccessServiceInterface $agentAccess,
 		private readonly ?LiteracyRequirementInterface $literacy = null,
 		private readonly ?AppAssistantResolver $assistants = null,
+		private readonly ?TalkTurnMirrorInterface $mirror = null,
+		private readonly ?SessionLinks $sessionLinks = null,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
@@ -235,6 +241,8 @@ class ChatStreamController extends Controller {
 			// Compliance-ai-literacy: an organisation may require the course first.
 			$this->literacy?->assertMayUseAgents(uid: $turn['userId']);
 
+			// The trace carries a question the agent asks the person (oversight-ask-and-hold).
+			$trace = new RunTraceCollector();
 			$result = $this->engine->processMessage(
 				conversationId: $turn['conversationId'],
 				userId: $turn['userId'],
@@ -246,11 +254,31 @@ class ChatStreamController extends Controller {
 				channel: $channel,
 				// Chat-how-an-answer-came-about D1: a trace on this path too, so a
 				// streamed answer gets the same provenance record as a sent one.
-				trace: new RunTraceCollector(),
-				attachments: $turn['attachments']
+				trace: $trace,
+				attachments: $turn['attachments'],
+				turnChannel: 'hermiq',
+				answerCacheBypass: $turn['answerCacheBypass']
 			);
 
+			// Session-entity-links D2: a SENT turn records what the page it came
+			// from shows; opening the panel records nothing.
+			$this->sessionLinks?->recordTurn(
+				sessionUuid: (string)$turn['conversationId'],
+				context: (array)$turn['contextArr'],
+				userId: (string)$turn['userId']
+			);
+			$result['question'] = $trace->question();
+
 			$this->replayRunSteps(conversationId: $turn['conversationId']);
+			// A session with a Talk room gets this turn in the room too, queued so
+			// the stream never waits on Talk (chat-carry-a-conversation-across-channels D2).
+			$this->mirror?->enqueue(
+				session: (array)$conversation->getObject(),
+				sessionId: $turn['conversationId'],
+				userId: $turn['userId'],
+				question: (string)$turn['message'],
+				answer: (string)($result['response'] ?? ($result['message'] ?? ''))
+			);
 			$this->emitAndExit(eventType: 'final', payload: $this->finalPayload(result: $result, turn: $turn));
 		} catch (ToolGrantResolutionException $e) {
 			$this->emitToolGrantsUnresolved(exception: $e);
@@ -279,9 +307,10 @@ class ChatStreamController extends Controller {
 	 * @param string $userId The session user.
 	 *
 	 * @return array{userId: string, message: string, agentUuid: string, conversationUuid: string, context: mixed,
-	 *     contextArr: array, attachments: array, ragSettings: array<string, mixed>}
+	 *     contextArr: array, attachments: array, answerCacheBypass: bool, ragSettings: array<string, mixed>}
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
 	 */
 	private function readTurn(string $userId): array {
 		$rawBody = $this->readRequestBody();
@@ -307,6 +336,8 @@ class ChatStreamController extends Controller {
 			'context' => ($body['context'] ?? null),
 			'contextArr' => [],
 			'attachments' => [],
+			// Models-prompt-and-answer-cache: "Ask the model again" bypasses the cache.
+			'answerCacheBypass' => (($body['answerCacheBypass'] ?? false) === true),
 		];
 		if (is_array($turn['context']) === true) {
 			$turn['contextArr'] = $turn['context'];
@@ -498,6 +529,8 @@ class ChatStreamController extends Controller {
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#scenario-a-streamed-answer-gets-the-same-record-as-a-sent-one
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
 	 */
 	private function finalPayload(array $result, array $turn): array {
 		return [
@@ -516,6 +549,8 @@ class ChatStreamController extends Controller {
 			// not read natively. On `final`, so no new SSE event type is added
 			// (hydra ADR-034 Decision 6).
 			'attachmentNotices' => array_values(array_map('strval', (array)($result['attachmentNotices'] ?? []))),
+			// Models-prompt-and-answer-cache: the answer came from the answer cache.
+			'fromCache' => (((array)($result['cache'] ?? [])) !== []),
 			// Chat-attachments-and-images D8: the answer's attachments, such as an
 			// image the agent created, so a client can show them without a reload.
 			'attachments' => array_values((array)($result['attachments'] ?? [])),
@@ -524,6 +559,16 @@ class ChatStreamController extends Controller {
 			'sources' => array_values((array)($result['sources'] ?? [])),
 			// Chat-how-an-answer-came-about: how the answer came about, as stored on it.
 			'provenance' => ($result['provenance'] ?? null),
+			// Chat-how-an-answer-came-about D3: the model's reasoning travels ONLY here,
+			// never as `token` events and never as a new event type: a companion appends
+			// every token delta to the answer (hydra ADR-034 Decision 6).
+			'reasoning' => ($result['reasoning'] ?? null),
+			'reasoningWithheld' => (($result['reasoningWithheld'] ?? false) === true),
+			// D4: how full the model's context is after this turn.
+			'contextUsage' => ($result['contextUsage'] ?? null),
+			// Oversight-ask-and-hold: the question the agent asked, with its suggested
+			// answers, or null. On `final`, so the six-event envelope is unchanged.
+			'question' => ($result['question'] ?? null),
 		];
 	}//end finalPayload()
 

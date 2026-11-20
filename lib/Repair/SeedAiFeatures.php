@@ -156,6 +156,7 @@ class SeedAiFeatures implements IRepairStep {
 	 * @return array<int, array<string, mixed>> The seed objects.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-5-1
+	 * @spec openspec/changes/chat-translate-a-recording/tasks.md#task-2-the-feature-its-residency-and-the-pre-start-notice
 	 */
 	private function seedFeatures(): array {
 		return [
@@ -216,6 +217,19 @@ class SeedAiFeatures implements IRepairStep {
 				'tenantId' => '',
 			],
 			[
+				// Chat-translate-a-recording D2: off until the organisation's DPO
+				// acknowledges it. Its binding and required residency govern the one
+				// step that may leave the instance, the translation of the transcript.
+				'slug' => 'speech-translation',
+				'name' => 'Translate a recording',
+				'description' => 'Transcribes a recording on this server, translates the text with the model bound to this '
+					. 'feature, and speaks the translation. The spoken result is saved in the requester\'s Files and '
+					. 'tagged Agent authored.',
+				'riskCategory' => 'limited',
+				'lifecycle' => 'disabled',
+				'tenantId' => '',
+			],
+			[
 				// Tools-browser-and-computer-use D4: a screen can show anything, and
 				// it goes to the model provider, so high-risk and off until the DPO
 				// acknowledges it. A tool grant alone never unlocks it.
@@ -223,6 +237,17 @@ class SeedAiFeatures implements IRepairStep {
 				'name' => 'Computer use',
 				'description' => 'An agent operates a desktop application on a registered machine by looking at its screen and clicking.',
 				'riskCategory' => 'high',
+				'lifecycle' => 'disabled',
+				'tenantId' => '',
+			],
+			[
+				// Delivery-public-web-chat D5: an organisation decides to go public,
+				// so the public chat channel stays off until the DPO acknowledges it.
+				'slug' => 'public-chat',
+				'name' => 'Public web chat',
+				'description' => 'An agent answers visitors of a public website or portal who have not signed in, '
+					. 'only from content the organisation declared public, without tools.',
+				'riskCategory' => 'limited',
 				'lifecycle' => 'disabled',
 				'tenantId' => '',
 			],

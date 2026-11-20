@@ -242,6 +242,15 @@
 								{{ t('hermiq', 'Continue') }}
 							</NcActionButton>
 							<NcActionButton
+								v-if="talkUrl(session)"
+								data-testid="chat-session-open-in-talk"
+								@click="openInTalk(session)">
+								<template #icon>
+									<Forum :size="20" />
+								</template>
+								{{ t('hermiq', 'Open in Talk') }}
+							</NcActionButton>
+							<NcActionButton
 								v-if="canInvite(session)"
 								@click="openParticipants(session)">
 								<template #icon>
@@ -390,11 +399,18 @@
 				</NcButton>
 			</div>
 			<p
+				v-if="activeSession && sessionProjectName"
+				class="chat-page__start-values"
+				data-testid="chat-project">
+				{{ t('hermiq', 'Project: {project}', { project: sessionProjectName }) }}
+			</p>
+			<p
 				v-if="activeSession && sessionStartValues.length > 0"
 				class="chat-page__start-values"
 				data-testid="chat-start-values">
 				{{ sessionStartValues.join(' · ') }}
 			</p>
+			<WorkspaceFilesPanel v-if="activeSession && activeSession.uuid" :sessionId="activeSession.uuid" />
 
 			<div v-if="!activeSession" ref="startSurface" class="chat-page__empty">
 				<div class="chat-page__empty-inner" data-testid="chat-start-surface">
@@ -416,12 +432,28 @@
 						class="chat-page__start-error">
 						<p>{{ startError }}</p>
 					</NcNoteCard>
+					<NcTextField
+						v-model="newProjectName"
+						class="chat-page__new-project"
+						data-testid="chat-new-project"
+						:label="t('hermiq', 'New project (optional)')"
+						:helperText="
+							t(
+								'hermiq',
+								'Name a project to keep what the agent remembers in it apart.',
+							)
+						" />
 					<AgentSelector
 						:agents="agents"
 						:loading="agentsLoading"
 						:error="agentsError"
 						:startingId="startingId"
 						@start="startWithAgent" />
+					<ProjectPickerDialog
+						v-if="projectPicker"
+						:projects="projectPicker.projects"
+						@close="projectPicker = null"
+						@start="onProjectChosen" />
 				</div>
 			</div>
 
@@ -466,6 +498,12 @@
 								<span class="chat-page__time">{{
 									formatTime(message.created)
 								}}</span>
+								<span
+									v-if="typedInTalk(message)"
+									class="chat-page__via"
+									data-testid="chat-message-via-talk">
+									{{ t('hermiq', 'via Talk') }}
+								</span>
 							</div>
 							<!-- What happened to the attachments the model could not read
 								natively, above the answer they belong to (chat-attachments-and-images D6). -->
@@ -494,6 +532,23 @@
 							<div
 								class="chat-page__text"
 								v-html="renderMarkdown(message.content)" />
+
+							<!-- A translated recording: the player and what was used (chat-translate-a-recording). -->
+							<div
+								v-if="message.translation"
+								class="chat-page__translation"
+								data-testid="chat-message-translation">
+								<audio
+									v-if="message.translation.audioPath"
+									class="chat-page__translation-player"
+									controls
+									preload="none"
+									:src="translationAudioUrl(message.translation)"
+									:aria-label="t('hermiq', 'Spoken translation')" />
+								<p class="chat-page__translation-line">
+									{{ translationLine(message.translation, locale) }}
+								</p>
+							</div>
 
 							<!-- Files attached to this turn (chat-attachments-and-images). -->
 							<ul
@@ -558,6 +613,42 @@
 								</ul>
 							</details>
 
+							<!-- The model's reasoning (chat-how-an-answer-came-about D5): only when the
+							     agent's owner asked for it and the provider returned it, filtered and
+							     redacted on the server; folded, keyboard operable. -->
+							<details
+								v-if="message.role === 'assistant' && message.reasoning"
+								class="chat-page__provenance chat-page__reasoning"
+								data-testid="chat-message-reasoning">
+								<summary class="chat-page__provenance-summary">
+									{{ t('hermiq', 'Model reasoning') }}
+								</summary>
+								<p class="chat-page__reasoning-note">
+									{{ t('hermiq', 'This is the model\'s own text. It can be wrong.') }}
+								</p>
+								<p class="chat-page__reasoning-text">
+									{{ message.reasoning }}
+								</p>
+							</details>
+							<p
+								v-else-if="message.role === 'assistant' && message.reasoningWithheld"
+								class="chat-page__reasoning-note"
+								data-testid="chat-message-reasoning-withheld">
+								{{ t('hermiq', 'The reasoning was withheld by the organisation\'s filter.') }}
+							</p>
+							<!-- The question the agent asked with hermiq.askPerson
+							     (oversight-ask-and-hold D1): a button per suggested answer;
+							     the chosen one is sent as the next message. -->
+							<AgentQuestionCard
+								v-if="
+									message.role !== 'user'
+									&& pendingQuestion
+									&& (message.uuid || message.id)
+										=== pendingQuestionFor
+								"
+								:question="pendingQuestion"
+								:disabled="sending"
+								@answer="answerQuestion" />
 							<!-- The scope the answer was given (memory-retrieval-scope D5). -->
 							<div
 								v-if="message.role === 'assistant' && scopeDisplay(message.retrievalScope)"
@@ -648,6 +739,21 @@
 									)
 								"
 								:text="message.content" />
+
+							<!-- Models-prompt-and-answer-cache: an answer the cache served says so -->
+							<div
+								v-if="message.role === 'assistant' && message.fromCache"
+								class="chat-page__from-cache">
+								<span class="chat-page__from-cache-note">
+									{{ t('hermiq', 'Answered from cache') }}
+								</span>
+								<NcButton
+									variant="tertiary"
+									:disabled="sending"
+									@click="askModelAgain(message)">
+									{{ t('hermiq', 'Ask the model again') }}
+								</NcButton>
+							</div>
 
 							<!-- Feedback (assistant messages with a persisted id) -->
 							<div
@@ -890,6 +996,16 @@
 								</template>
 								{{ t('hermiq', 'Create an image') }}
 							</NcActionButton>
+							<!-- Shown while the on-instance speech service answers (chat-translate-a-recording D5). -->
+							<NcActionButton
+								v-if="speechService && speechService.available && activeSession"
+								data-testid="chat-translate-recording"
+								@click="showTranslateForm = true">
+								<template #icon>
+									<Translate :size="20" />
+								</template>
+								{{ t('hermiq', 'Translate a recording') }}
+							</NcActionButton>
 						</NcActions>
 						<!-- Same reason as the feedback box: the placeholder is a hint,
 						     not a name, and it is gone as soon as there is a message. -->
@@ -932,6 +1048,20 @@
 							)
 						}}
 					</p>
+					<!-- How full the model's context is (chat-how-an-answer-came-about D4). -->
+					<p
+						v-if="contextReadout"
+						class="chat-page__context"
+						role="status"
+						data-testid="chat-context-usage">
+						{{ contextReadout.text }}
+						<strong
+							v-if="contextReadout.warning"
+							class="chat-page__context-warning"
+							data-testid="chat-context-warning">
+							{{ contextReadout.warning }}
+						</strong>
+					</p>
 				</div>
 			</template>
 		</section>
@@ -952,6 +1082,11 @@
 			:session="activeSession"
 			@close="showImageForm = false"
 			@created="onImageCreated" />
+		<TranslateRecordingModal
+			:show="showTranslateForm"
+			:session="activeSession"
+			@close="showTranslateForm = false"
+			@translated="onRecordingTranslated" />
 		<GoalFormModal
 			:show="showGoalForm"
 			:session="activeSession"
@@ -1012,7 +1147,8 @@
 import { SAFE_MARKDOWN_DOMPURIFY_CONFIG } from '@conduction/nextcloud-vue'
 import { getCurrentUser } from '@nextcloud/auth'
 import { getFilePickerBuilder, showError, showSuccess } from '@nextcloud/dialogs'
-import { generateUrl } from '@nextcloud/router'
+import { getLanguage } from '@nextcloud/l10n'
+import { generateRemoteUrl, generateUrl } from '@nextcloud/router'
 import {
 	NcActionButton,
 	NcActions,
@@ -1046,6 +1182,7 @@ import FileDocumentOutline from 'vue-material-design-icons/FileDocumentOutline.v
 import FlagCheckered from 'vue-material-design-icons/FlagCheckered.vue'
 import FlashOutline from 'vue-material-design-icons/FlashOutline.vue'
 import FolderOutline from 'vue-material-design-icons/FolderOutline.vue'
+import Forum from 'vue-material-design-icons/Forum.vue'
 import ImageOutline from 'vue-material-design-icons/ImageOutline.vue'
 import MessageText from 'vue-material-design-icons/MessageText.vue'
 import Paperclip from 'vue-material-design-icons/Paperclip.vue'
@@ -1061,11 +1198,15 @@ import SourceBranch from 'vue-material-design-icons/SourceBranch.vue'
 import StopCircleOutline from 'vue-material-design-icons/StopCircleOutline.vue'
 import ThumbDown from 'vue-material-design-icons/ThumbDown.vue'
 import ThumbUp from 'vue-material-design-icons/ThumbUp.vue'
+import Translate from 'vue-material-design-icons/Translate.vue'
 import Upload from 'vue-material-design-icons/Upload.vue'
+import AgentQuestionCard from '../components/AgentQuestionCard.vue'
 import AgentSelector from '../components/AgentSelector.vue'
 import DictateButton from '../components/DictateButton.vue'
 import ReadAloudButton from '../components/ReadAloudButton.vue'
 import StartFieldsForm from '../components/StartFieldsForm.vue'
+import WorkspaceFilesPanel from '../components/WorkspaceFilesPanel.vue'
+import ProjectPickerDialog from '../dialogs/ProjectPickerDialog.vue'
 import AgentFormModal from '../modals/AgentFormModal.vue'
 import ChatSettingsModal from '../modals/ChatSettingsModal.vue'
 import GenerateImageModal from '../modals/GenerateImageModal.vue'
@@ -1077,6 +1218,7 @@ import SessionParticipantsModal from '../modals/SessionParticipantsModal.vue'
 import SessionRenameModal from '../modals/SessionRenameModal.vue'
 import SessionShareModal from '../modals/SessionShareModal.vue'
 import SkillFormModal from '../modals/SkillFormModal.vue'
+import TranslateRecordingModal from '../modals/TranslateRecordingModal.vue'
 import { checkAgentDraft } from '../api/agents.js'
 import {
 	answerStartFields,
@@ -1100,8 +1242,10 @@ import {
 	uploadChatAttachment,
 	warmChat,
 } from '../api/chat.js'
+import { listMemoryProjects } from '../api/memory.js'
 import { getPreference, PREFERENCE_KEYS } from '../api/preferences.js'
 import { speechCapabilities } from '../api/speech.js'
+import { isTypedInTalk, talkRoomUrl } from '../services/sessionChannel.js'
 import { useAgentStore } from '../store/store.js'
 import {
 	agentFromDraft,
@@ -1109,7 +1253,9 @@ import {
 	findingsByField,
 	scheduleFromDraft,
 } from '../utils/agentDraft.js'
+import { questionBefore } from '../utils/answerCache.js'
 import { sourceFileId, sourceName, sourcePage } from '../utils/chatSources.js'
+import { contextReadout } from '../utils/contextUsage.js'
 import { clockTime, handoffLine, handoffsByMessage } from '../utils/handoffLines.js'
 import {
 	initialAnswers,
@@ -1118,7 +1264,9 @@ import {
 	startFieldsOf,
 	startValueSummary,
 } from '../utils/instructionVariables.js'
+import { projectNameOf } from '../utils/memoryProjects.js'
 import { defaultAgentOf } from '../utils/personalPreferences.js'
+import { translationLine } from '../utils/recordingTranslation.js'
 import { scopeDisplay, similarityText } from '../utils/retrievalScope.js'
 import { canForkSession, forkedSessionToOpen } from '../utils/sessionFork.js'
 import { canShareSession } from '../utils/sessionShare.js'
@@ -1161,7 +1309,9 @@ export default {
 
 	components: {
 		AccountMultiplePlus,
+		AgentQuestionCard,
 		AgentSelector,
+		ProjectPickerDialog,
 		Archive,
 		ChatSettingsModal,
 		CheckboxMultipleMarkedOutline,
@@ -1175,6 +1325,8 @@ export default {
 		SessionShareModal,
 		ShareVariant,
 		GenerateImageModal,
+		TranslateRecordingModal,
+		Translate,
 		GoalFormModal,
 		ImageOutline,
 		FlagCheckered,
@@ -1186,6 +1338,7 @@ export default {
 		FileDocumentOutline,
 		FlashOutline,
 		FolderOutline,
+		Forum,
 		MessageText,
 		NcActionButton,
 		NcActions,
@@ -1213,6 +1366,7 @@ export default {
 		ThumbDown,
 		ThumbUp,
 		Upload,
+		WorkspaceFilesPanel,
 	},
 
 	// nc-vue's floating AI companion self-gates on the injected `cnAiContext`
@@ -1279,6 +1433,11 @@ export default {
 			agentsLoading: true,
 			agentsError: '',
 			startingId: '',
+			// Memory-project-scopes: the picker for an agent with projects, the
+			// name typed for a new project, and the active agent's projects.
+			projectPicker: null,
+			newProjectName: '',
+			sessionProjects: [],
 			startError: '',
 
 			// Agents-instruction-variables: the answers to the agent's start
@@ -1303,9 +1462,18 @@ export default {
 			// assistant message they belong to (chat-attachments-and-images D6).
 			attachmentNotices: [],
 			attachmentNoticesFor: '',
+			// The context usage each session's last turn reported, by session uuid
+			// (chat-how-an-answer-came-about D4); the session's stored one otherwise.
+			contextUsageBySession: {},
+			// The question the agent asked in the last turn (hermiq.askPerson), and
+			// the id of the answer it belongs under (oversight-ask-and-hold).
+			pendingQuestion: null,
+			pendingQuestionFor: '',
 			// "Create an image" (chat-attachments-and-images D7).
 			imageAvailable: false,
 			showImageForm: false,
+			// "Translate a recording" (chat-translate-a-recording D5).
+			showTranslateForm: false,
 
 			// Per-session settings (rides on POST /api/chat/send)
 			settings: this.defaultSettings(),
@@ -1340,6 +1508,20 @@ export default {
 
 	computed: {
 		/**
+		 * The reader's language, for naming the languages of a translated recording.
+		 *
+		 * @return {string} The language code.
+		 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#scenario-a-reviewer-can-see-what-was-used
+		 */
+		locale() {
+			try {
+				return getLanguage() || 'en'
+			} catch {
+				return 'en'
+			}
+		},
+
+		/**
 		 * The session's handoffs under the message each one belongs to.
 		 *
 		 * @return {Object<string, Array<object>>} Message id → handoffs.
@@ -1347,6 +1529,21 @@ export default {
 		 */
 		handoffGroups() {
 			return handoffsByMessage(this.handoffs, this.messages)
+		},
+
+		/**
+		 * The context readout of the open session, or null without a usage record.
+		 *
+		 * @return {{text: string, warning: string}|null}
+		 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+		 */
+		contextReadout() {
+			const uuid = this.activeSession?.uuid || this.activeSession?.id
+			if (!uuid) {
+				return null
+			}
+			const usage = this.contextUsageBySession[uuid] || this.activeSession?.metadata?.contextUsage
+			return contextReadout(usage, this.t)
 		},
 
 		/**
@@ -1598,6 +1795,16 @@ export default {
 		},
 
 		/**
+		 * The readable name of the active session's project, or '' outside one.
+		 *
+		 * @return {string}
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 */
+		sessionProjectName() {
+			return projectNameOf(this.activeSession?.projectKey || '', this.sessionProjects)
+		},
+
+		/**
 		 * "Label: answer" for each answered start field, for the session header.
 		 *
 		 * @return {string[]}
@@ -1836,6 +2043,41 @@ export default {
 			await this.refreshThread(uuid)
 		},
 
+		translationLine,
+
+		/**
+		 * Show the request and the translated recording in the thread, then re-sync.
+		 *
+		 * @param {{userTurn: object, assistantTurn: object}} turns The two stored turns.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#scenario-a-front-office-employee-translates-a-voicemail
+		 */
+		async onRecordingTranslated(turns) {
+			this.showTranslateForm = false
+			const uuid = this.activeSession?.uuid
+			if (!uuid || !turns?.userTurn || !turns?.assistantTurn) {
+				return
+			}
+			this.messages.push(turns.userTurn, turns.assistantTurn)
+			this.scrollToBottom()
+			await this.refreshThread(uuid)
+		},
+
+		/**
+		 * The spoken translation's WebDAV URL in the signed-in person's Files.
+		 *
+		 * @param {object} translation The translation record.
+		 * @return {string} The URL.
+		 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-a-person-can-translate-a-recording-and-hear-the-result-req-strn-001
+		 */
+		translationAudioUrl(translation) {
+			const path = String(translation?.audioPath || '')
+				.split('/')
+				.map(encodeURIComponent)
+				.join('/')
+			return `${generateRemoteUrl('dav')}/files/${encodeURIComponent(this.currentUserId)}/${path}`
+		},
+
 		/**
 		 * Whether an attachment is an image, shown as a thumbnail.
 		 *
@@ -2034,7 +2276,45 @@ export default {
 		 * @spec openspec/specs/session-surface/spec.md#requirement-a-session-row-must-identify-its-agent-and-its-time
 		 */
 		originIcon(session) {
+			if (session?.talkRoomToken) {
+				return 'Forum'
+			}
 			return ORIGIN_ICONS[session?.triggerOrigin] || 'Creation'
+		},
+
+		/**
+		 * The session's Talk room, or an empty string for a session without one.
+		 *
+		 * @param {object} session The session row.
+		 * @return {string}
+		 * @spec openspec/changes/chat-carry-a-conversation-across-channels/tasks.md#task-4-the-doors-on-the-chat-page-and-in-the-room
+		 */
+		talkUrl(session) {
+			return talkRoomUrl(session)
+		},
+
+		/**
+		 * Open the session's Talk room.
+		 *
+		 * @param {object} session The session row.
+		 * @spec openspec/changes/chat-carry-a-conversation-across-channels/tasks.md#task-4-the-doors-on-the-chat-page-and-in-the-room
+		 */
+		openInTalk(session) {
+			const url = talkRoomUrl(session)
+			if (url) {
+				window.location.assign(url)
+			}
+		},
+
+		/**
+		 * Whether a person's turn was typed in Talk.
+		 *
+		 * @param {object} message The turn.
+		 * @return {boolean}
+		 * @spec openspec/changes/chat-carry-a-conversation-across-channels/tasks.md#task-4-the-doors-on-the-chat-page-and-in-the-room
+		 */
+		typedInTalk(message) {
+			return isTypedInTalk(message)
 		},
 
 		/**
@@ -2156,6 +2436,8 @@ export default {
 			this.sendError = ''
 			this.attachmentNotices = []
 			this.attachmentNoticesFor = ''
+			this.pendingQuestion = null
+			this.pendingQuestionFor = ''
 			this.messagesLoading = true
 			try {
 				const [{ results }] = await Promise.all([
@@ -2243,24 +2525,109 @@ export default {
 			// Start the agent's CLI process while the person reads and types, not
 			// inside their first question. Fire and forget: it never throws.
 			warmChat(session.agentId, session.uuid)
+			this.loadSessionProjects(session)
 			const agent = await this.agentStore.fetchObject('agent', session.agentId)
 			this.currentAgent = agent || null
 		},
 
 		/**
-		 * Create a session with the picked agent and activate it.
+		 * The agent's projects, for the name in a project session's header.
+		 * Non-fatal: the header falls back to the key.
+		 *
+		 * @param {object} session The session.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 */
+		async loadSessionProjects(session) {
+			this.sessionProjects = []
+			if (!session?.projectKey || !session.agentId) {
+				return
+			}
+			try {
+				this.sessionProjects = await listMemoryProjects(session.agentId)
+			} catch {
+				this.sessionProjects = []
+			}
+		},
+
+		/**
+		 * The agent's projects, or none when they cannot be read.
+		 *
+		 * @param {string} agentUuid The agent.
+		 * @return {Promise<Array<object>>}
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 */
+		async projectsOf(agentUuid) {
+			try {
+				return await listMemoryProjects(agentUuid)
+			} catch {
+				return []
+			}
+		},
+
+		/**
+		 * The person chose the project in the picker: start the session in it.
+		 *
+		 * @param {{projectKey?: string, projectName?: string}|null} project The project, or null for none.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 */
+		async onProjectChosen(project) {
+			const picker = this.projectPicker
+			this.projectPicker = null
+			if (picker) {
+				await this.startSession(picker.agent, project, picker.projects)
+			}
+		},
+
+		/**
+		 * The person picked an agent: start right away, in the new project they
+		 * named, or ask which project when the agent already has some
+		 * (memory-project-scopes, design D2).
 		 *
 		 * @param {object} agent The agent to start with.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-starting-a-new-session-must-produce-a-visible-result
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 		 */
 		async startWithAgent(agent) {
+			const agentUuid = agent.uuid || agent.id
+			const newName = this.newProjectName.trim()
+			if (newName) {
+				await this.startSession(agent, { projectName: newName }, [])
+				return
+			}
+			const projects = await this.projectsOf(agentUuid)
+			if (projects.length > 0) {
+				this.projectPicker = { agent, projects }
+				return
+			}
+			await this.startSession(agent, null, [])
+		},
+
+		/**
+		 * Create a session with the picked agent, in a project or none, and activate it.
+		 *
+		 * @param {object} agent The agent to start with.
+		 * @param {{projectKey?: string, projectName?: string}|null} project The project, or null.
+		 * @param {Array<object>} projects The agent's known projects, for the header.
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/session-surface/spec.md#requirement-starting-a-new-session-must-produce-a-visible-result
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 */
+		async startSession(agent, project, projects) {
 			const agentUuid = agent.uuid || agent.id
 			this.startingId = agentUuid
 			this.startError = ''
 			try {
-				const session = await createSession(agentUuid)
+				const session = project
+					? await createSession(agentUuid, undefined, project)
+					: await createSession(agentUuid)
 				warmChat(agentUuid, session?.uuid)
+				this.sessionProjects = project?.projectName && session?.projectKey
+					? [{ projectKey: session.projectKey, projectName: project.projectName }]
+					: projects
+				this.newProjectName = ''
 				this.currentAgent = agent
 				this.activeSession = session
 				this.messages = []
@@ -2350,6 +2717,36 @@ export default {
 		},
 
 		/**
+		 * "Ask the model again": resend the question a cached answer replied to,
+		 * with the answer cache bypassed, over the same path a typed turn takes.
+		 *
+		 * @param {object} message The assistant message the cache served.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+		 */
+		async askModelAgain(message) {
+			const text = questionBefore(this.messages, message)
+			if (!this.mayStartTurn(text)) {
+				return
+			}
+			this.sendError = ''
+			this.sending = true
+			this.showOptimisticTurn(text, [])
+			const uuid = this.activeSession.uuid
+			try {
+				if (this.settingsCustomised) {
+					await this.sendViaPost(text, uuid, [], true)
+				} else {
+					await this.sendViaStream(text, uuid, [], true)
+				}
+			} catch (e) {
+				this.showSendFailure(e)
+			} finally {
+				await this.finishTurn(uuid)
+			}
+		},
+
+		/**
 		 * Whether a turn can start: there is text, no turn in flight, and a session.
 		 *
 		 * @param {string} text The trimmed message.
@@ -2387,6 +2784,8 @@ export default {
 			this.sendError = ''
 			this.attachmentNotices = []
 			this.attachmentNoticesFor = ''
+			this.pendingQuestion = null
+			this.pendingQuestionFor = ''
 			this.sending = true
 			return attached
 		},
@@ -2453,18 +2852,19 @@ export default {
 		 * @param {string} text The user message.
 		 * @param {string} uuid The session UUID.
 		 * @param {Array<object>} [attachments] Files on the turn, by file id.
+		 * @param {boolean} [answerCacheBypass] True to ask the model again instead of the answer cache.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 * @spec openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port/spec.md#requirement-the-chat-page-streams-the-answer-as-the-agent-writes-it-req-chstrm-001
 		 */
-		async sendViaStream(text, uuid, attachments = []) {
+		async sendViaStream(text, uuid, attachments = [], answerCacheBypass = false) {
 			this.isStreaming = true
 			this.streamingText = ''
 			this.streamingTools = []
 			try {
 				const finalPayload = await streamChatMessage(
-					{ message: text, sessionUuid: uuid, attachments },
+					{ message: text, sessionUuid: uuid, attachments, ...(answerCacheBypass ? { answerCacheBypass: true } : {}) },
 					{
 						onToken: (delta) => {
 							this.streamingText += delta
@@ -2492,11 +2892,13 @@ export default {
 				)
 				this.attachmentNotices = finalPayload?.attachmentNotices || []
 				this.attachmentNoticesFor = finalPayload?.messageId || ''
+				this.rememberContextUsage(uuid, finalPayload?.contextUsage)
+				this.takeQuestion(finalPayload)
 			} catch (e) {
 				if (e instanceof ChatStreamError && e.transport) {
 					// ADR-034 fallback ladder: degrade to the synchronous endpoint.
 					this.isStreaming = false
-					await this.sendViaPost(text, uuid, attachments)
+					await this.sendViaPost(text, uuid, attachments, answerCacheBypass)
 					return
 				}
 				throw e
@@ -2510,15 +2912,17 @@ export default {
 		 * @param {string} text The user message.
 		 * @param {string} uuid The session UUID.
 		 * @param {Array<object>} [attachments] Files on the turn, by file id.
+		 * @param {boolean} [answerCacheBypass] True to ask the model again instead of the answer cache.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 */
-		async sendViaPost(text, uuid, attachments = []) {
-			await sendChatMessage({
+		async sendViaPost(text, uuid, attachments = [], answerCacheBypass = false) {
+			const result = await sendChatMessage({
 				message: text,
 				sessionUuid: uuid,
 				attachments,
+				...(answerCacheBypass ? { answerCacheBypass: true } : {}),
 				views: this.settings.views,
 				tools: this.settings.tools,
 				ragSettings: {
@@ -2528,6 +2932,62 @@ export default {
 					numSourcesFiles: this.settings.numSourcesFiles,
 				},
 			})
+			this.rememberContextUsage(uuid, result?.contextUsage)
+			this.takeQuestion(result)
+		},
+
+		/**
+		 * Keep the question a turn's result carries (hermiq.askPerson), under the
+		 * answer it came with. A turn without one clears the previous question.
+		 *
+		 * @param {object|null|undefined} result The stream's final payload or the POST result.
+		 * @return {void}
+		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
+		 */
+		takeQuestion(result) {
+			const question = result?.question
+			if (!question || typeof question.text !== 'string' || question.text.trim() === '') {
+				this.pendingQuestion = null
+				this.pendingQuestionFor = ''
+				return
+			}
+			this.pendingQuestion = {
+				text: question.text,
+				options: Array.isArray(question.options) ? question.options : [],
+				allowOther: question.allowOther === true,
+			}
+			this.pendingQuestionFor = String(result?.messageId || '')
+		},
+
+		/**
+		 * Send the person's answer to the agent's question as the next message.
+		 *
+		 * @param {string} answer The chosen or typed answer.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
+		 */
+		async answerQuestion(answer) {
+			const text = String(answer ?? '').trim()
+			if (text === '' || this.sending) {
+				return
+			}
+			this.currentMessage = text
+			await this.handleSend()
+		},
+
+		/**
+		 * Keep the context usage a turn reported for its session.
+		 *
+		 * @param {string} uuid The session UUID.
+		 * @param {object|null|undefined} usage The usage from the `final` frame or the send response.
+		 * @return {void}
+		 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+		 */
+		rememberContextUsage(uuid, usage) {
+			if (!uuid || !usage) {
+				return
+			}
+			this.contextUsageBySession = { ...this.contextUsageBySession, [uuid]: usage }
 		},
 
 		/**
@@ -3517,6 +3977,11 @@ export default {
 	color: var(--color-text-maxcontrast);
 }
 
+.chat-page__new-project {
+	max-width: 420px;
+	margin: 0 auto 16px;
+}
+
 .chat-page__heading {
 	display: flex;
 	align-items: center;
@@ -3693,6 +4158,29 @@ export default {
 	color: var(--color-main-text);
 }
 
+.chat-page__reasoning-note {
+	margin: 4px 0 0;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.9em;
+}
+
+.chat-page__reasoning-text {
+	margin: 4px 0 0;
+	white-space: pre-wrap;
+	color: var(--color-main-text);
+}
+
+.chat-page__context {
+	margin: 4px 0 0;
+	font-size: 0.85em;
+	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__context-warning {
+	display: block;
+	color: var(--color-warning-text, var(--color-main-text));
+}
+
 .chat-page__handoffs {
 	margin: 8px 0 0;
 	padding: 0;
@@ -3782,6 +4270,19 @@ a.chat-page__source-name {
 }
 
 /* ── Feedback ─────────────────────────────────────────────────────── */
+
+.chat-page__from-cache {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 6px;
+}
+
+.chat-page__from-cache-note {
+	color: var(--color-text-maxcontrast);
+	font-size: var(--font-size-small, 13px);
+}
 
 .chat-page__feedback {
 	display: flex;
@@ -3892,6 +4393,23 @@ a.chat-page__source-name {
 	margin-top: 4px;
 	font-weight: bold;
 	text-decoration: underline;
+}
+
+.chat-page__translation {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin-top: 8px;
+}
+
+.chat-page__translation-player {
+	max-width: 100%;
+}
+
+.chat-page__translation-line {
+	margin: 0;
+	font-size: 0.9em;
+	color: var(--color-text-maxcontrast);
 }
 
 .chat-page__attachments {

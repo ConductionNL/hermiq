@@ -151,6 +151,30 @@ class TurnGuardrail {
 	}//end screenOutput()
 
 	/**
+	 * Filter the model's reasoning as the answer is filtered: a masked reasoning
+	 * comes back masked, a blocked one as null. It records no trace step, so the
+	 * answer's account does not report a filter action on the answer itself.
+	 *
+	 * @param string $text The reasoning.
+	 *
+	 * @return string|null The filtered reasoning, or null when the filter blocked it.
+	 *
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+	 */
+	public function screenReasoning(string $text): ?string {
+		$filter = $this->policies?->filterOutput(policy: $this->policy, text: $text);
+		if ($filter === null) {
+			return $text;
+		}
+
+		if ($filter['blocked'] === true) {
+			return null;
+		}
+
+		return (string)$filter['text'];
+	}//end screenReasoning()
+
+	/**
 	 * Whether `screenOutput()` can change or withhold the answer under this policy:
 	 * true when the output PII action is anything but `off`.
 	 *

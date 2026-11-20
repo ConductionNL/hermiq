@@ -183,7 +183,8 @@ final class CliRunTokens {
 				agentId: (string)$turn->agentId,
 				userId: (string)$turn->uid,
 				conversationId: $turn->conversationId,
-				ttlSeconds: $this->governedTokenTtl(turn: $turn)
+				ttlSeconds: $this->governedTokenTtl(turn: $turn),
+				projectKey: $turn->projectKey
 			);
 		} catch (Throwable $e) {
 			$this->logger->error(

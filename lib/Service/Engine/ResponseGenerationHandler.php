@@ -17,11 +17,11 @@
  * is supplied (blocking callers, background workers) we keep the blocking
  * `generateChat()` call exactly as before.
  *
- * The `nextcloud` TaskProcessing driver is deliberately NOT accepted here: its
- * scope (plan §8 move 1) is background/non-interactive work only — conversation
- * titles and summaries, served by `ConversationManagementHandler` — never chat
- * generation. Selecting it as `chatProvider` and then chatting raises a clear
- * `ProviderUnavailableException` instead of a silent wrong-path call.
+ * The `nextcloud` driver (Nextcloud AI) is accepted for chat and agent turns since
+ * use-nextcloud-ai-settings: the turn runs as `core:text2text:chat` or, with tools,
+ * `core:text2text:chatwithtools` tasks, with hermiq running the tool loop through the
+ * same governed executor as the Anthropic branch. TaskProcessing has no streaming
+ * surface, so the SSE caller receives the whole answer at once.
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V.
  * SPDX-License-Identifier: EUPL-1.2
@@ -53,11 +53,13 @@ use OCA\Hermiq\Mcp\ComputerToolDescriptors;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Kernel\Contracts\BudgetHardCapInterface;
 use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
+use OCA\Hermiq\Service\AnswerCache\AnswerCacheService;
 use OCA\Hermiq\Service\Llm\AttachmentPartBuilder;
 use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\Llm\ProviderCooldown;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
+use OCA\Hermiq\Service\Llm\ReasoningOllamaChat;
 use OCA\OpenRegister\Db\ObjectEntity;
 use Psr\Log\LoggerInterface;
 
@@ -84,6 +86,9 @@ use Psr\Log\LoggerInterface;
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)
  *
  * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+ *
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength) carried in with models-prompt-and-answer-cache; splitting it
+ * is follow-up work, not part of this merge.
  */
 class ResponseGenerationHandler {
 
@@ -102,6 +107,24 @@ class ResponseGenerationHandler {
 	public array $lastUsage = [];
 
 	/**
+	 * The model's reasoning from the last generateResponse() call, unfiltered; ''
+	 * when the agent's owner did not ask for it or the provider returned none
+	 * (chat-how-an-answer-came-about D3). The Engine filters and redacts it.
+	 *
+	 * @var string
+	 */
+	public string $lastReasoning = '';
+
+	/**
+	 * What the model was given in the last generateResponse() call, for the context
+	 * meter (chat-how-an-answer-came-about D4): the provider and model that served it
+	 * and the characters of every message sent (system prompt, history and turn).
+	 *
+	 * @var array{provider: string, model: string, promptCharacters: int}|array{}
+	 */
+	public array $lastPrompt = [];
+
+	/**
 	 * The notices about attachments the last turn could not send natively, in the
 	 * person's language (chat-attachments-and-images D6). Read by the Engine onto
 	 * its result, and from there onto the stream's `final` frame.
@@ -109,6 +132,16 @@ class ResponseGenerationHandler {
 	 * @var list<string>
 	 */
 	public array $attachmentNotices = [];
+
+	/**
+	 * How the last turn's answer came from the answer cache, or [] when the model
+	 * gave it (models-prompt-and-answer-cache): `layer`, `entryId` and, for the
+	 * similar layer, `similarity`. Read by the Engine onto its result, and from
+	 * there onto the run and the `final` frame.
+	 *
+	 * @var array<string, string|float>
+	 */
+	public array $lastCache = [];
 
 	/**
 	 * Constructor.
@@ -132,6 +165,9 @@ class ResponseGenerationHandler {
 	 * @param BudgetHardCapInterface|null $budget The budget's hard cap, checked before each reference
 	 *                                   call of an ensemble turn (models-several-models-per-turn).
 	 *                                   Null checks none.
+	 * @param AnswerCacheService|null    $answerCache     The answer cache of turns without tools
+	 *                                                    (models-prompt-and-answer-cache). Null:
+	 *                                                    every turn calls the model.
 	 *
 	 * @return void
 	 *
@@ -145,6 +181,7 @@ class ResponseGenerationHandler {
 		private readonly ?AttachmentPartBuilder $attachmentParts = null,
 		private readonly ?ProviderCooldown $cooldown = null,
 		private readonly ?BudgetHardCapInterface $budget = null,
+		private readonly ?AnswerCacheService $answerCache = null,
 	) {
 	}//end __construct()
 
@@ -194,6 +231,11 @@ class ResponseGenerationHandler {
 	 *                                                      (TurnAttachmentResolver).
 	 * @param string $speaker The uid the attachments were resolved for; their bytes are
 	 *                        read as this person when the model reads them natively.
+	 * @param string $projectKey The session's project (memory-project-scopes): the memory
+	 *                           tools read and write that project's memory beside the
+	 *                           shared one. '' is a session without a project.
+	 * @param bool   $answerCacheBypass True when the person asked the model again: the
+	 *                                  answer cache is neither read nor written.
 	 *
 	 * @return string Generated response text.
 	 *
@@ -217,6 +259,7 @@ class ResponseGenerationHandler {
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
 	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
 	 */
 	public function generateResponse(
 		string $userMessage,
@@ -233,6 +276,8 @@ class ResponseGenerationHandler {
 		array $promptVariables = [],
 		array $attachments = [],
 		string $speaker = '',
+		string $projectKey = '',
+		bool $answerCacheBypass = false,
 	): string {
 		// Chat-about-a-document: a scoped turn with nothing in scope is answered
 		// with that fact, and the model is never asked to answer from general knowledge.
@@ -240,6 +285,8 @@ class ResponseGenerationHandler {
 		if ($noMatch !== null) {
 			$this->attachmentNotices = [];
 			$this->lastUsage = [];
+			$this->lastReasoning = '';
+			$this->lastPrompt = [];
 			return $noMatch;
 		}
 
@@ -252,9 +299,11 @@ class ResponseGenerationHandler {
 		$run->trace = $trace;
 		$run->dryRun = $dryRun;
 		$run->conversationId = $conversationId;
+		$run->projectKey = $projectKey;
 		$run->promptVariables = $promptVariables;
 		$run->attachments = $attachments;
 		$run->speaker = $speaker;
+		$run->answerCacheBypass = $answerCacheBypass;
 
 		return $this->runTurn(run: $run);
 	}//end generateResponse()
@@ -288,6 +337,8 @@ class ResponseGenerationHandler {
 	private function startTurn(ResponseTurnRun $run, ?ObjectEntity $agent): ResponseTurnRun {
 		$run->progress->startTime = microtime(true);
 		$this->attachmentNotices = [];
+		$this->lastReasoning = '';
+		$this->lastPrompt = [];
 		$run->agent = $agent;
 		return $run;
 	}//end startTurn()
@@ -315,9 +366,40 @@ class ResponseGenerationHandler {
 				provider: $run->progress->driver->provider,
 				executionMode: $run->progress->driver->executionMode
 			);
+			// Models-prompt-and-answer-cache: the lookup sits where the model call is,
+			// after every gate, so a blocked run stays blocked. The messages are built
+			// once for the key; the turn itself builds them again, with any reference
+			// answers, from the history as it was.
+			$history = $run->messageHistory;
+			$this->lastCache = [];
+			$cached = null;
+			if ($this->answerCache !== null) {
+				$this->buildMessages(run: $run);
+				$cached = $this->answerCache->lookup(run: $run);
+			}
+
+			if ($cached !== null) {
+				$this->lastCache = ['layer' => $cached['layer'], 'entryId' => $cached['entryId']];
+				if (isset($cached['similarity']) === true) {
+					$this->lastCache['similarity'] = $cached['similarity'];
+				}
+
+				$this->lastUsage = ['promptTokens' => 0, 'completionTokens' => 0, 'llmSeconds' => 0.0];
+				return $cached['answer'];
+			}
+
+			$keyed = $run->messageHistory;
+			$run->messageHistory = $history;
 			$references = $this->askReferenceModels(run: $run);
 			$response = $this->answerTurn(run: $run);
 			$this->addReferenceUsage(usages: $references, run: $run);
+			if ($references === [] && $this->answerCache !== null) {
+				// Only a single-model answer is stored, under the key it was looked up by.
+				$answered = $run->messageHistory;
+				$run->messageHistory = $keyed;
+				$this->answerCache->store(run: $run, answer: $response);
+				$run->messageHistory = $answered;
+			}
 			(new TurnPerformanceLog(logger: $this->logger))->record(run: $run, response: $response);
 			return $response;
 		} catch (TurnStoppedException $e) {
@@ -386,7 +468,7 @@ class ResponseGenerationHandler {
 
 	/**
 	 * Resolve the provider driver (agent model/temperature overrides applied),
-	 * record which model saw the turn, and refuse a driver that cannot chat.
+	 * and record which model saw the turn.
 	 *
 	 * @param ResponseTurnRun $run The turn.
 	 *
@@ -403,7 +485,6 @@ class ResponseGenerationHandler {
 		$run->progress->driver = $this->createDriver(llmConfig: $llmConfig, inputs: $inputs);
 
 		$this->recordProviderDisclosure(run: $run);
-		$this->assertChatProvider(provider: $run->progress->driver->provider);
 		$this->logProvider(run: $run);
 	}//end resolveDriver()
 
@@ -593,7 +674,6 @@ class ResponseGenerationHandler {
 		$run->progress->driver = $driver;
 		$run->messageHistory = $history;
 		$this->recordProviderDisclosure(run: $run);
-		$this->assertChatProvider(provider: $driver->provider);
 		// A hop to a model path that cannot read a screenshot drops the computer tools too.
 		$run->progress->functions = ComputerToolDescriptors::forDriver(
 			functions: $run->progress->functions,
@@ -654,27 +734,6 @@ class ResponseGenerationHandler {
 	}//end recordProviderDisclosure()
 
 	/**
-	 * Scope guard — see the class docblock: the nextcloud driver never chats.
-	 *
-	 * @param string $provider The resolved provider slug.
-	 *
-	 * @return void
-	 *
-	 * @throws ProviderUnavailableException For the nextcloud driver.
-	 */
-	private function assertChatProvider(string $provider): void {
-		if ($provider !== 'nextcloud') {
-			return;
-		}
-
-		throw new ProviderUnavailableException(
-			message: 'The nextcloud (TaskProcessing) chat provider serves background work only '
-			. '(titles, summaries) — select openai, ollama, or fireworks for chat.',
-			code: 503
-		);
-	}//end assertChatProvider()
-
-	/**
 	 * Log the provider and model the turn runs on.
 	 *
 	 * @param ResponseTurnRun $run The turn.
@@ -711,7 +770,16 @@ class ResponseGenerationHandler {
 	 * library's public API — there is no injectable seam.
 	 */
 	private function buildMessages(ResponseTurnRun $run): void {
-		array_unshift($run->messageHistory, LLPhantMessage::system((new TurnSystemPrompt())->compose(run: $run)));
+		// Models-prompt-and-answer-cache: the stable block first, the per-turn block
+		// as its own system message after it, so the cached prefix stays the same.
+		$prompt  = new TurnSystemPrompt();
+		$system  = [LLPhantMessage::system($prompt->stable(run: $run))];
+		$perTurn = $prompt->perTurn(run: $run);
+		if ($perTurn !== '') {
+			$system[] = LLPhantMessage::system($perTurn);
+		}
+
+		array_unshift($run->messageHistory, ...$system);
 		$turn = ($this->attachmentParts?->compose(
 			text: $run->userMessage,
 			driver: $run->progress->driver,
@@ -731,6 +799,11 @@ class ResponseGenerationHandler {
 	 */
 	private function callProvider(ResponseTurnRun $run): string {
 		$run->progress->llmStartTime = microtime(true);
+		$this->lastPrompt = [
+			'provider' => $run->progress->driver->provider,
+			'model' => $run->progress->driver->model,
+			'promptCharacters' => self::promptCharacters(messageHistory: $run->messageHistory),
+		];
 		if ($run->progress->driver->provider === 'fireworks') {
 			return $this->callFireworks(run: $run);
 		}
@@ -739,8 +812,105 @@ class ResponseGenerationHandler {
 			return $this->callAnthropic(run: $run);
 		}
 
+		if ($run->progress->driver->provider === 'nextcloud') {
+			return $this->callNextcloud(run: $run);
+		}
+
+		if ($run->progress->driver->apiMode === ProviderFactory::API_MODE_RESPONSES) {
+			return $this->callResponses(run: $run);
+		}
+
 		return $this->callLlphant(run: $run);
 	}//end callProvider()
+
+	/**
+	 * Nextcloud AI (use-nextcloud-ai-settings): the turn runs as TaskProcessing
+	 * tasks through the provider set up under Administration settings > Artificial
+	 * intelligence, as the session user (a scheduled run impersonates its acting
+	 * user). Tools go through the same governed executor as the Anthropic path;
+	 * without a chatwithtools provider a turn with tools fails loudly instead of
+	 * running without them. TaskProcessing reports no token usage, so only the
+	 * latency is recorded.
+	 *
+	 * @param ResponseTurnRun $run The turn.
+	 *
+	 * @return string The response text.
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-4
+	 */
+	private function callNextcloud(ResponseTurnRun $run): string {
+		$response = $this->providerFactory->callNextcloudChat(
+			messageHistory: $run->messageHistory,
+			functions: $run->progress->functions,
+			toolExecutor: $this->anthropicToolExecutor(run: $run),
+			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent)
+		);
+		$this->markLlmDone(run: $run);
+
+		$run->trace?->recordStopWhen(stopped: $this->providerFactory->lastCallHitToolCap(), reason: TurnGuard::LIMIT_REACHED);
+
+		$this->lastUsage = ['llmSeconds' => round($run->progress->llmTime, 2)];
+		return $response;
+	}//end callNextcloud()
+
+	/**
+	 * OpenAI and OpenAI-compatible in Responses API mode: direct HTTP
+	 * (ProviderFactory::callOpenAiResponses), every function call through the
+	 * same governed executor the Anthropic path uses (models-provider-connections D4).
+	 *
+	 * @param ResponseTurnRun $run The turn.
+	 *
+	 * @return string The response text.
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-a-provider-can-run-in-responses-api-mode-with-governed-tools-req-pconn-004
+	 */
+	private function callResponses(ResponseTurnRun $run): string {
+		$response = $this->providerFactory->callOpenAiResponses(
+			driver: $run->progress->driver,
+			messageHistory: $run->messageHistory,
+			functions: $run->progress->functions,
+			toolExecutor: $this->anthropicToolExecutor(run: $run),
+			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent)
+		);
+		$this->markLlmDone(run: $run);
+
+		$run->trace?->recordStopWhen(stopped: $this->providerFactory->lastCallHitToolCap(), reason: TurnGuard::LIMIT_REACHED);
+		$this->recordFactoryUsage(run: $run);
+		return $response;
+	}//end callResponses()
+
+	/**
+	 * The characters of every message the model is sent, for an estimated token count.
+	 *
+	 * @param array<int, mixed> $messageHistory The LLPhant messages of the turn.
+	 *
+	 * @return int The character count (multibyte-aware).
+	 *
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+	 */
+	public static function promptCharacters(array $messageHistory): int {
+		$characters = 0;
+		foreach ($messageHistory as $message) {
+			if (is_object($message) === true && is_string($message->content ?? null) === true) {
+				$characters += mb_strlen($message->content);
+			}
+		}
+
+		return $characters;
+	}//end promptCharacters()
+
+	/**
+	 * Whether the agent's owner switched on "Show the model's reasoning".
+	 *
+	 * @param ResponseTurnRun $run The turn.
+	 *
+	 * @return bool True only for a stored boolean true.
+	 *
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+	 */
+	public static function showsReasoning(ResponseTurnRun $run): bool {
+		return ($run->agentData()['showReasoning'] ?? false) === true;
+	}//end showsReasoning()
 
 	/**
 	 * Fireworks uses direct HTTP (ProviderFactory::callFireworksChat). Function
@@ -789,6 +959,7 @@ class ResponseGenerationHandler {
 		$this->markLlmDone(run: $run);
 
 		$run->trace?->recordStopWhen(stopped: $this->providerFactory->lastCallHitToolCap(), reason: TurnGuard::LIMIT_REACHED);
+		$this->lastReasoning = $this->providerFactory->lastCallReasoning();
 
 		// The input and output tokens of every request of the turn, tool loop
 		// included, which a token budget counts (hermiq#985).
@@ -817,12 +988,14 @@ class ResponseGenerationHandler {
 			agentId: $run->progress->cliAgentId,
 			maxTokens: $run->progress->driver->maxTokens,
 			conversationId: $run->conversationId,
-			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent)
+			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent),
+			projectKey: $run->projectKey,
+			showReasoning: self::showsReasoning(run: $run)
 		);
 	}//end requestAnthropic()
 
 	/**
-	 * The executor callAnthropicChat runs a requested tool with, by (name, input).
+	 * The executor callAnthropicChat and callNextcloudChat run a requested tool with, by (name, input).
 	 *
 	 * It runs the tool through the SAME governed FunctionInfo objects the LLPhant
 	 * path uses (ToolLoop::buildFunctionInfos — one shared FacadeToolInvoker,
@@ -878,7 +1051,8 @@ class ResponseGenerationHandler {
 			organisation: $run->progress->organisation,
 			dryRun: $run->dryRun,
 			conversationId: $run->conversationId,
-			runId: self::approvalRunOf(run: $run)
+			runId: self::approvalRunOf(run: $run),
+			projectKey: $run->projectKey
 		);
 	}//end functionInfosFor()
 
@@ -919,9 +1093,19 @@ class ResponseGenerationHandler {
 	 * @throws ProviderUnavailableException When the driver carries no chat instance.
 	 */
 	private function callLlphant(ResponseTurnRun $run): string {
-		$call = new LlphantChatCall(chat: $this->toolReadyChat(run: $run), logger: $this->logger);
+		$chat = $this->toolReadyChat(run: $run);
+		// Ollama returns reasoning when asked (`think: true`); OpenAI and Nextcloud are
+		// never asked (chat-how-an-answer-came-about D3).
+		if (($chat instanceof ReasoningOllamaChat) === true && self::showsReasoning(run: $run) === true) {
+			$chat->askForReasoning();
+		}
+
+		$call = new LlphantChatCall(chat: $chat, logger: $this->logger);
 		$response = $call->generate(run: $run);
 		$this->markLlmDone(run: $run);
+		if (($chat instanceof ReasoningOllamaChat) === true) {
+			$this->lastReasoning = $chat->lastThinking;
+		}
 
 		$this->lastUsage = $call->usage();
 		$this->lastUsage['llmSeconds'] = round($run->progress->llmTime, 2);

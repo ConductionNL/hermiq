@@ -114,6 +114,11 @@ interface EngineInterface {
 	 *                           ({fileId} or {path}). Resolved in the speaker's Files
 	 *                           before the turn is stored or any model is called, and
 	 *                           kept on the user turn as references only.
+	 * @param string|null $turnChannel Where the human turn was typed, `talk` or `hermiq`, stored
+	 *                                 on the user turn (chat-carry-a-conversation-across-channels).
+	 *                                 Null leaves it unset, which reads as `hermiq`.
+	 * @param bool $answerCacheBypass True when the person asked the model again: the answer
+	 *                                cache is neither read nor written for this turn.
 	 *
 	 * @return array The result envelope.
 	 *
@@ -138,6 +143,7 @@ interface EngineInterface {
 	 * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
 	 */
 	public function processMessage(
 		string $conversationId,
@@ -154,5 +160,7 @@ interface EngineInterface {
 		?string $authorId = null,
 		?string $authorDisplayName = null,
 		array $attachments = [],
+		?string $turnChannel = null,
+		bool $answerCacheBypass = false,
 	): array;
 }//end interface

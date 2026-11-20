@@ -21,6 +21,7 @@ namespace OCA\Hermiq\Tests\Unit\Listener;
 use OCA\Hermiq\Event\AiOversightRecordedEvent;
 use OCA\Hermiq\Flow\HermiqFlowNodeListener;
 use OCA\Hermiq\Listener\AgentActingUserGuardListener;
+use OCA\Hermiq\Listener\AgentDepartmentGuardListener;
 use OCA\Hermiq\Listener\AgentBotLifecycleListener;
 use OCA\Hermiq\Listener\AgentEnsembleGuardListener;
 use OCA\Hermiq\Listener\AgentRunRequestedListener;
@@ -29,10 +30,12 @@ use OCA\Hermiq\Listener\AiOversightRecordedListener;
 use OCA\Hermiq\Listener\FlowOversightRegistrationListener;
 use OCA\Hermiq\Listener\FlowRunTerminalListener;
 use OCA\Hermiq\Listener\ListenerRegistrar;
+use OCA\Hermiq\Listener\PublicChannelGuardListener;
 use OCA\Hermiq\Listener\RegisterAgentLeafListener;
 use OCA\Hermiq\Listener\ShareableConfigTypeListener;
 use OCA\Hermiq\Listener\TalkApprovalReactionListener;
 use OCA\Hermiq\Listener\TalkBotInvokeListener;
+use OCA\Hermiq\Listener\TalkRoomRenameListener;
 use OCA\Hermiq\Listener\TaskTerminalListener;
 use OCA\Hermiq\Listener\UserLifecycleListener;
 use OCA\OpenRegister\Event\AgentRunRequestedEvent;
@@ -97,6 +100,10 @@ class ListenerRegistrarTest extends TestCase {
 				[DraftUpdatedEvent::class, AgentWaiverChangeListener::class],
 				[ObjectCreatingEvent::class, AgentActingUserGuardListener::class],
 				[ObjectUpdatingEvent::class, AgentActingUserGuardListener::class],
+				[ObjectCreatingEvent::class, PublicChannelGuardListener::class],
+				[ObjectUpdatingEvent::class, PublicChannelGuardListener::class],
+				[ObjectCreatingEvent::class, AgentDepartmentGuardListener::class],
+				[ObjectUpdatingEvent::class, AgentDepartmentGuardListener::class],
 				[ObjectCreatingEvent::class, AgentEnsembleGuardListener::class],
 				[ObjectUpdatingEvent::class, AgentEnsembleGuardListener::class],
 				[RegisterFlowNodesEvent::class, HermiqFlowNodeListener::class],
@@ -109,6 +116,7 @@ class ListenerRegistrarTest extends TestCase {
 				['OCA\\OpenRegister\\Event\\TaskTerminalEvent', TaskTerminalListener::class],
 				['OCA\\OpenRegister\\Event\\FlowRunTerminalEvent', FlowRunTerminalListener::class],
 				['OCA\\Talk\\Events\\BotInvokeEvent', TalkApprovalReactionListener::class],
+				['OCA\\Talk\\Events\\RoomModifiedEvent', TalkRoomRenameListener::class],
 			],
 			$registered
 		);

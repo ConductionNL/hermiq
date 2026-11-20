@@ -61,6 +61,11 @@ use Throwable;
  * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-2
  * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-3
  * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-4
+ *
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength) carried in with this batch's feature work; splitting it is
+ * follow-up work, not part of this merge.
+ * @SuppressWarnings(PHPMD.TooManyMethods) carried in with this batch's feature work; splitting it is follow-
+ * up work, not part of this merge.
  */
 class MemoryService implements MemoryServiceInterface {
 
@@ -139,27 +144,47 @@ class MemoryService implements MemoryServiceInterface {
 	}//end __construct()
 
 	/**
+	 * The scope of an agent's shared memory.
+	 *
+	 * @var string
+	 */
+	public const SCOPE_SHARED = 'shared';
+
+	/**
+	 * The scope of an agent's memory for one project.
+	 *
+	 * @var string
+	 */
+	public const SCOPE_PROJECT = 'project';
+
+	/**
 	 * Get (or create) the Memory object for an agent, scoped to the caller's tenant.
+	 *
+	 * Without a project key this is the agent's shared memory, found by its
+	 * explicit `scope: shared`; with one it is that project's memory. Never the
+	 * first Memory that happens to carry the agent id.
 	 *
 	 * A caller OpenRegister will not let create one (a reader of a shared agent) gets
 	 * an empty, unsaved Memory instead, so reading never needs a write right.
 	 *
-	 * @param string $agentId The agent UUID.
+	 * @param string      $agentId    The agent UUID.
+	 * @param string|null $projectKey The project, or null for the shared memory.
 	 *
 	 * @return ObjectEntity The agent's Memory object.
 	 *
 	 * @throws Throwable When the create fails for any other reason.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-1
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 */
-	public function getMemory(string $agentId): ObjectEntity {
-		$existing = $this->findOne(schema: self::MEMORY_SCHEMA, filters: ['agentId' => $agentId]);
+	public function getMemory(string $agentId, ?string $projectKey = null): ObjectEntity {
+		$layer    = self::layerFilters(agentId: $agentId, projectKey: $projectKey);
+		$existing = $this->findOne(schema: self::MEMORY_SCHEMA, filters: $layer);
 		if ($existing !== null) {
 			return $existing;
 		}
 
-		$memory = [
-			'agentId' => $agentId,
+		$memory = $layer + [
 			'entries' => [],
 			'charBudget' => self::DEFAULT_MEMORY_BUDGET,
 			'needsConsolidation' => false,
@@ -182,6 +207,43 @@ class MemoryService implements MemoryServiceInterface {
 		}//end try
 
 	}//end getMemory()
+
+	/**
+	 * Whether a value is a well-formed project key: a short lower-case slug, as
+	 * the Memory schema's `projectKey` pattern declares.
+	 *
+	 * @param string $key The candidate key.
+	 *
+	 * @return bool True when it is one.
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 */
+	public static function isProjectKey(string $key): bool {
+		return preg_match('/^[a-z0-9][a-z0-9-]{0,63}$/', $key) === 1;
+	}//end isProjectKey()
+
+	/**
+	 * The filters that find exactly one layer of an agent's memory.
+	 *
+	 * The shared layer is matched on its explicit scope, not on a missing
+	 * project key, so OpenRegister's search never has to filter on an absent
+	 * property (design D1).
+	 *
+	 * @param string      $agentId    The agent UUID.
+	 * @param string|null $projectKey The project, or null/'' for the shared memory.
+	 *
+	 * @return array<string,string>
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 */
+	public static function layerFilters(string $agentId, ?string $projectKey): array {
+		$key = trim((string)$projectKey);
+		if ($key === '') {
+			return ['agentId' => $agentId, 'scope' => self::SCOPE_SHARED];
+		}
+
+		return ['agentId' => $agentId, 'scope' => self::SCOPE_PROJECT, 'projectKey' => $key];
+	}//end layerFilters()
 
 	/**
 	 * Get (or create) the UserProfile object for an agent + subject user.
@@ -225,15 +287,17 @@ class MemoryService implements MemoryServiceInterface {
 	 * `charBudget` the object is flagged `needsConsolidation=true` (a nudge to summarise)
 	 * — older entries are never dropped (the spec forbids silent truncation).
 	 *
-	 * @param string $agentId The agent UUID.
-	 * @param string $text The memory text to append.
+	 * @param string      $agentId    The agent UUID.
+	 * @param string      $text       The memory text to append.
+	 * @param string|null $projectKey The project whose memory gains the entry, or null for the shared memory.
 	 *
 	 * @return ObjectEntity The persisted Memory object.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-2
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
-	public function appendMemoryEntry(string $agentId, string $text): ObjectEntity {
-		$memory = $this->getMemory(agentId: $agentId);
+	public function appendMemoryEntry(string $agentId, string $text, ?string $projectKey = null): ObjectEntity {
+		$memory = $this->getMemory(agentId: $agentId, projectKey: $projectKey);
 		return $this->appendEntry(object: $memory, schema: self::MEMORY_SCHEMA, text: $text, defaultBudget: self::DEFAULT_MEMORY_BUDGET);
 	}//end appendMemoryEntry()
 
@@ -278,13 +342,7 @@ class MemoryService implements MemoryServiceInterface {
 		// STILL over budget (a no-op consolidation should not falsely clear it).
 		$data['needsConsolidation'] = ($this->countCharacters(entries: $normalised) > $budget);
 
-		return $this->objectService->saveObject(
-			object: $data,
-			options: new ObjectSaveOptions(
-				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MEMORY_SCHEMA),
-				uuid: (string)$memory->getUuid()
-			)
-		);
+		return $this->saveInPlace(data: $data, object: $memory, schema: self::MEMORY_SCHEMA);
 
 	}//end consolidateMemory()
 
@@ -437,17 +495,30 @@ class MemoryService implements MemoryServiceInterface {
 	 *                                searched, or null to search only the agent's Memory.
 	 * @param string $query The recall query.
 	 * @param int $limit Maximum objects to search per schema.
+	 * @param string|null $projectKey The session's project: its memory is searched beside the
+	 *                                shared one. Null searches the shared memory only. Another
+	 *                                project's memory is never read.
 	 *
 	 * @return array{memoryEntries: array<int, array<string, string>>, userProfileEntries: array<int, array<string, string>>}
 	 *
 	 * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-4
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
 	 */
-	public function recallEntries(string $agentId, ?string $subjectUid, string $query, int $limit = 20): array {
+	public function recallEntries(string $agentId, ?string $subjectUid, string $query, int $limit = 20, ?string $projectKey = null): array {
 		$lookup = new MemoryLookup(filters: ['agentId' => $agentId], limit: $limit);
 		$lookup->search = $query;
 
+		$memoryEntries = [];
+		foreach (self::layersOf(projectKey: $projectKey) as $layer => $key) {
+			$layerLookup = new MemoryLookup(filters: self::layerFilters(agentId: $agentId, projectKey: $key), limit: $limit);
+			$layerLookup->search = $query;
+			foreach ($this->recalledEntries(schema: self::MEMORY_SCHEMA, lookup: $layerLookup) as $entry) {
+				$memoryEntries[] = $entry + ['layer' => $layer];
+			}
+		}
+
 		return [
-			'memoryEntries' => $this->recalledEntries(schema: self::MEMORY_SCHEMA, lookup: $lookup),
+			'memoryEntries' => $memoryEntries,
 			'userProfileEntries' => $this->profileEntries(lookup: $lookup, subjectUid: $subjectUid),
 		];
 
@@ -508,47 +579,84 @@ class MemoryService implements MemoryServiceInterface {
 	 * @param string|null $subjectUid The acting user id whose own UserProfile may also
 	 *                                be searched, or null to search only the agent's Memory.
 	 * @param string $entryId The entry id to soft-delete.
+	 * @param string|null $projectKey The session's project: its memory is searched first,
+	 *                                then the shared memory. Null searches the shared memory only.
 	 *
 	 * @return array{found: bool, scope: (string|null)} Whether a match was found, and
 	 *                                                  in which object ('memory'|'userProfile') when it was.
 	 *
 	 * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-3
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
-	public function forgetEntry(string $agentId, ?string $subjectUid, string $entryId): array {
+	public function forgetEntry(string $agentId, ?string $subjectUid, string $entryId, ?string $projectKey = null): array {
 		if (trim($entryId) === '') {
 			return ['found' => false, 'scope' => null];
 		}
 
-		$memory = $this->getMemory(agentId: $agentId);
-		$memoryFound = $this->softDeleteEntry(
-			object: $memory,
-			entryRef: new MemoryEntryRef(
-				schema: self::MEMORY_SCHEMA,
-				entryId: $entryId,
-				defaultBudget: self::DEFAULT_MEMORY_BUDGET
-			)
-		);
-		if ($memoryFound === true) {
-			return ['found' => true, 'scope' => 'memory'];
-		}
-
-		if ($subjectUid !== null && $subjectUid !== '') {
-			$profile = $this->getUserProfile(agentId: $agentId, subjectUid: $subjectUid);
-			$profileFound = $this->softDeleteEntry(
-				object: $profile,
+		foreach (self::layersOf(projectKey: $projectKey) as $layerKey) {
+			$memoryFound = $this->softDeleteEntry(
+				object: $this->getMemory(agentId: $agentId, projectKey: $layerKey),
 				entryRef: new MemoryEntryRef(
-					schema: self::USER_PROFILE_SCHEMA,
+					schema: self::MEMORY_SCHEMA,
 					entryId: $entryId,
-					defaultBudget: self::DEFAULT_PROFILE_BUDGET
+					defaultBudget: self::DEFAULT_MEMORY_BUDGET
 				)
 			);
-			if ($profileFound === true) {
-				return ['found' => true, 'scope' => 'userProfile'];
+			if ($memoryFound === true) {
+				return ['found' => true, 'scope' => 'memory'];
 			}
+		}
+
+		if ($this->forgetProfileEntry(agentId: $agentId, subjectUid: $subjectUid, entryId: $entryId) === true) {
+			return ['found' => true, 'scope' => 'userProfile'];
 		}
 
 		return ['found' => false, 'scope' => null];
 	}//end forgetEntry()
+
+	/**
+	 * Soft-delete an entry in the acting user's own UserProfile for the agent.
+	 *
+	 * @param string      $agentId    The agent UUID.
+	 * @param string|null $subjectUid The acting user, or null: nothing is searched.
+	 * @param string      $entryId    The entry id.
+	 *
+	 * @return bool Whether the profile held the entry.
+	 *
+	 * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-3
+	 */
+	private function forgetProfileEntry(string $agentId, ?string $subjectUid, string $entryId): bool {
+		if ($subjectUid === null || $subjectUid === '') {
+			return false;
+		}
+
+		return $this->softDeleteEntry(
+			object: $this->getUserProfile(agentId: $agentId, subjectUid: $subjectUid),
+			entryRef: new MemoryEntryRef(
+				schema: self::USER_PROFILE_SCHEMA,
+				entryId: $entryId,
+				defaultBudget: self::DEFAULT_PROFILE_BUDGET
+			)
+		);
+	}//end forgetProfileEntry()
+
+	/**
+	 * The memory layers a session reads, project first: its project and the
+	 * shared memory, or the shared memory alone without a project.
+	 *
+	 * @param string|null $projectKey The session's project, or null.
+	 *
+	 * @return array<string, string|null> The project key of each layer, keyed by layer.
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
+	 */
+	private static function layersOf(?string $projectKey): array {
+		if (trim((string)$projectKey) === '') {
+			return [self::SCOPE_SHARED => null];
+		}
+
+		return [self::SCOPE_PROJECT => $projectKey, self::SCOPE_SHARED => null];
+	}//end layersOf()
 
 	/**
 	 * Correct one Memory entry: the old entry is soft-deleted and the new text is
@@ -560,18 +668,19 @@ class MemoryService implements MemoryServiceInterface {
 	 * @param string $agentId The agent UUID.
 	 * @param string $entryId The id of the entry to correct.
 	 * @param string $text The corrected text (non-empty; the caller checks).
+	 * @param string|null $projectKey The project memory the entry is in, or null for the shared memory.
 	 *
 	 * @return ObjectEntity|null The persisted Memory object, or null when no live
 	 *                           entry carries `$entryId`.
 	 *
 	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
 	 */
-	public function correctMemoryEntry(string $agentId, string $entryId, string $text): ?ObjectEntity {
+	public function correctMemoryEntry(string $agentId, string $entryId, string $text, ?string $projectKey = null): ?ObjectEntity {
 		if (trim($entryId) === '') {
 			return null;
 		}
 
-		$memory = $this->getMemory(agentId: $agentId);
+		$memory = $this->getMemory(agentId: $agentId, projectKey: $projectKey);
 		$data = $memory->getObject();
 		$entries = $this->withEntryIds(entries: $this->normaliseEntries(entries: ($data['entries'] ?? [])));
 
@@ -599,15 +708,131 @@ class MemoryService implements MemoryServiceInterface {
 		$data['entries'] = $entries;
 		$data['needsConsolidation'] = ($this->countCharacters(entries: $entries) > $budget);
 
-		return $this->objectService->saveObject(
-			object: $data,
-			options: new ObjectSaveOptions(
-				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MEMORY_SCHEMA),
-				uuid: (string)$memory->getUuid()
-			)
-		);
+		return $this->saveInPlace(data: $data, object: $memory, schema: self::MEMORY_SCHEMA);
 
 	}//end correctMemoryEntry()
+
+	/**
+	 * The projects an agent keeps a memory for, by key and readable name.
+	 *
+	 * A project without a stored name shows its key.
+	 *
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return array<int, array{projectKey: string, projectName: string}> The projects, by name.
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 */
+	public function listProjects(string $agentId): array {
+		$lookup  = new MemoryLookup(filters: ['agentId' => $agentId, 'scope' => self::SCOPE_PROJECT], limit: 200);
+		$byKey   = [];
+		foreach ($this->findMany(schema: self::MEMORY_SCHEMA, lookup: $lookup) as $memory) {
+			$data = $memory->getObject();
+			$key  = trim((string)($data['projectKey'] ?? ''));
+			if ($key === '' || isset($byKey[$key]) === true) {
+				continue;
+			}
+
+			$name = trim((string)($data['projectName'] ?? ''));
+			if ($name === '') {
+				$name = $key;
+			}
+
+			$byKey[$key] = ['projectKey' => $key, 'projectName' => $name];
+		}
+
+		$projects = array_values($byKey);
+		usort($projects, static fn (array $a, array $b): int => strcasecmp($a['projectName'], $b['projectName']));
+
+		return $projects;
+	}//end listProjects()
+
+	/**
+	 * Get (or create) a project's memory and record its readable name.
+	 *
+	 * @param string $agentId     The agent UUID.
+	 * @param string $projectKey  The project key.
+	 * @param string $projectName The project's readable name; '' keeps the stored one.
+	 *
+	 * @return ObjectEntity The project's Memory object.
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 */
+	public function ensureProjectMemory(string $agentId, string $projectKey, string $projectName): ObjectEntity {
+		$memory = $this->getMemory(agentId: $agentId, projectKey: $projectKey);
+		$name   = trim($projectName);
+		$data   = $memory->getObject();
+		if ($name === '' || ($data['projectName'] ?? '') === $name) {
+			return $memory;
+		}
+
+		$data['projectName'] = $name;
+
+		return $this->saveInPlace(data: $data, object: $memory, schema: self::MEMORY_SCHEMA);
+	}//end ensureProjectMemory()
+
+	/**
+	 * Move one live entry between the shared memory and a project memory.
+	 *
+	 * A move is a remove plus an append: the entry is soft-deleted in the source,
+	 * so the history keeps it, and its text is appended to the target through the
+	 * same funnel as every write, so it is redacted again and the target's budget
+	 * stays right (design D5).
+	 *
+	 * @param string      $agentId The agent UUID.
+	 * @param string      $entryId The entry to move.
+	 * @param string|null $from    The project the entry is in, or null for the shared memory.
+	 * @param string|null $to      The project to move it to, or null for the shared memory.
+	 *
+	 * @return ObjectEntity|null The memory the entry is now in, or null when the source holds no live entry with that id.
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 */
+	public function moveMemoryEntry(string $agentId, string $entryId, ?string $from, ?string $to): ?ObjectEntity {
+		$fromKey = trim((string)$from);
+		$toKey   = trim((string)$to);
+		if (trim($entryId) === '' || $fromKey === $toKey) {
+			return null;
+		}
+
+		$source = $this->getMemory(agentId: $agentId, projectKey: $fromKey);
+		$text   = $this->liveEntryText(object: $source, entryId: $entryId);
+		if ($text === null) {
+			return null;
+		}
+
+		$this->softDeleteEntry(
+			object: $source,
+			entryRef: new MemoryEntryRef(schema: self::MEMORY_SCHEMA, entryId: $entryId, defaultBudget: self::DEFAULT_MEMORY_BUDGET)
+		);
+
+		return $this->appendEntry(
+			object: $this->getMemory(agentId: $agentId, projectKey: $toKey),
+			schema: self::MEMORY_SCHEMA,
+			text: $text,
+			defaultBudget: self::DEFAULT_MEMORY_BUDGET
+		);
+	}//end moveMemoryEntry()
+
+	/**
+	 * The text of a live (not soft-deleted) entry, or null when the object holds none with that id.
+	 *
+	 * @param ObjectEntity $object  The Memory object.
+	 * @param string       $entryId The entry id.
+	 *
+	 * @return string|null
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 */
+	private function liveEntryText(ObjectEntity $object, string $entryId): ?string {
+		foreach ($this->normaliseEntries(entries: ($object->getObject()['entries'] ?? [])) as $entry) {
+			if (($entry['id'] ?? '') === $entryId && $this->isDeleted(entry: $entry) === false) {
+				return (string)($entry['text'] ?? '');
+			}
+		}
+
+		return null;
+	}//end liveEntryText()
 
 	/**
 	 * Give every entry that has no `id` a fresh one.
@@ -666,13 +891,7 @@ class MemoryService implements MemoryServiceInterface {
 		$data['entries'] = $entries;
 		$data['needsConsolidation'] = ($this->countCharacters(entries: $entries) > $budget);
 
-		return $this->objectService->saveObject(
-			object: $data,
-			options: new ObjectSaveOptions(
-				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: $schema),
-				uuid: (string)$object->getUuid()
-			)
-		);
+		return $this->saveInPlace(data: $data, object: $object, schema: $schema);
 
 	}//end appendEntry()
 
@@ -717,13 +936,7 @@ class MemoryService implements MemoryServiceInterface {
 		$data['entries'] = $entries;
 		$data['needsConsolidation'] = ($this->countCharacters(entries: $entries) > $budget);
 
-		$this->objectService->saveObject(
-			object: $data,
-			options: new ObjectSaveOptions(
-				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: $schema),
-				uuid: (string)$object->getUuid()
-			)
-		);
+		$this->saveInPlace(data: $data, object: $object, schema: $schema);
 
 		return true;
 	}//end softDeleteEntry()
@@ -891,4 +1104,25 @@ class MemoryService implements MemoryServiceInterface {
 	private function now(): string {
 		return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
 	}//end now()
+
+	/**
+	 * Save an object's changed data over itself.
+	 *
+	 * @param array<string, mixed> $data   The object's new data.
+	 * @param ObjectEntity         $object The stored object.
+	 * @param string               $schema Its schema slug.
+	 *
+	 * @return ObjectEntity The saved object.
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 */
+	private function saveInPlace(array $data, ObjectEntity $object, string $schema): ObjectEntity {
+		return $this->objectService->saveObject(
+			object: $data,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: $schema),
+				uuid: (string)$object->getUuid()
+			)
+		);
+	}//end saveInPlace()
 }//end class

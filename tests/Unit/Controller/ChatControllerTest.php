@@ -522,6 +522,55 @@ class ChatControllerTest extends TestCase {
 	}//end testARefusedAttachmentTellsThePersonWhy()
 
 	/**
+	 * The bypass values the send endpoint accepts as "ask the model again", and some it does not.
+	 *
+	 * @return array<string, array{0: mixed, 1: bool}>
+	 */
+	public static function answerCacheBypassValues(): array {
+		return [
+			'boolean true' => [true, true],
+			'form true' => ['true', true],
+			'form one' => ['1', true],
+			'absent' => [null, false],
+			'false' => ['false', false],
+			'anything else' => ['yes', false],
+		];
+
+	}//end answerCacheBypassValues()
+
+	/**
+	 * "Ask the model again" reaches the engine as the answer-cache bypass; only a true value counts.
+	 *
+	 * @param mixed $sent     The request value.
+	 * @param bool  $expected What the engine receives.
+	 *
+	 * @return void
+	 *
+	 * @dataProvider answerCacheBypassValues
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+	 */
+	public function testAskingTheModelAgainBypassesTheAnswerCache(mixed $sent, bool $expected): void {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'Wanneer?', 'answerCacheBypass' => $sent]);
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+		$seen = null;
+		$this->engine->method('processMessage')->willReturnCallback(
+			static function (...$args) use (&$seen): array {
+				$seen = $args;
+				return ['message' => 'Op maandag.', 'messageId' => 'msg-1', 'sources' => []];
+			}
+		);
+
+		$this->controller()->sendMessage();
+
+		// Positional, in the order of Engine::processMessage(): answerCacheBypass is the 16th, after turnChannel.
+		$this->assertSame($expected, $seen[15] ?? null);
+
+	}//end testAskingTheModelAgainBypassesTheAnswerCache()
+
+	/**
 	 * compliance-ai-literacy: with the course required and not done, the message
 	 * is refused before the engine runs, with the course message and a link.
 	 *

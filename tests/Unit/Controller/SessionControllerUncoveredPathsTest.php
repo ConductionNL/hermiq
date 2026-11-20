@@ -316,6 +316,31 @@ final class SessionControllerUncoveredPathsTest extends TestCase {
 	}//end testMessagesRenderProvenanceSentences()
 
 	/**
+	 * messages() says which answer the answer cache served, without exposing the entry.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-an-exact-repeat-within-one-organisation-gets-the-stored-answer-req-acache-002
+	 */
+	public function testMessagesSayWhichAnswerTheCacheServed(): void {
+		$this->objectService->method('find')->willReturn($this->session('s-1', ['userId' => 'alice']));
+		$this->objectService->method('findAll')->willReturn(
+			[
+				$this->session('t-1', ['sessionId' => 's-1', 'role' => 'user', 'content' => 'Wanneer?']),
+				$this->session('t-2', ['sessionId' => 's-1', 'role' => 'assistant', 'content' => 'Op maandag.', 'answerCache' => ['layer' => 'exact', 'entryId' => 'entry-7']]),
+				$this->session('t-3', ['sessionId' => 's-1', 'role' => 'assistant', 'content' => 'Op dinsdag.', 'answerCache' => ['layer' => 'exact', 'entryId' => '']]),
+			]
+		);
+		$this->objectService->method('searchObjectsPaginated')->willReturn(['total' => 3]);
+		$this->pendingApprovals->method('forSession')->willReturn([]);
+
+		$results = $this->controller([])->messages('s-1')->getData()['results'];
+
+		self::assertSame([false, true, false], array_column($results, 'fromCache'));
+		self::assertArrayNotHasKey('answerCache', $results[1]);
+	}//end testMessagesSayWhichAnswerTheCacheServed()
+
+	/**
 	 * messages() returns the scope each answer was given, and null on a turn without one.
 	 *
 	 * @return void

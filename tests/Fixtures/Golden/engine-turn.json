@@ -560,6 +560,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -593,6 +594,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -1565,6 +1573,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -1585,6 +1594,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -1835,6 +1851,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -1868,6 +1885,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -2339,6 +2363,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -2354,6 +2379,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -2599,6 +2631,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -2627,6 +2660,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -3430,6 +3470,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -3450,6 +3491,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -4123,6 +4171,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -4143,6 +4192,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -4638,6 +4694,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -4671,6 +4728,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -5042,6 +5106,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -5075,6 +5140,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -5646,6 +5718,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -5674,6 +5747,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -6324,6 +6404,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -6352,6 +6433,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -6755,6 +6843,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -6770,6 +6859,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -7184,6 +7280,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -7217,6 +7314,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -8421,6 +8525,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -8449,6 +8554,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -10761,6 +10873,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -10794,6 +10907,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -12016,6 +12136,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -12036,6 +12157,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -12945,6 +13073,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -12960,6 +13089,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -13181,6 +13317,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -13201,6 +13338,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -14304,6 +14448,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -14332,6 +14477,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -14649,6 +14801,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -14682,6 +14835,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -15449,6 +15609,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -15464,6 +15625,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -16425,6 +16593,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -16462,6 +16631,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -16988,6 +17164,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -17016,6 +17193,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -17572,6 +17756,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -17600,6 +17785,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -18284,6 +18476,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -18299,6 +18492,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -18807,6 +19007,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -18839,6 +19040,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -19716,6 +19924,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -19736,6 +19945,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -20053,6 +20269,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -20073,6 +20290,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -20928,6 +21152,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -20943,6 +21168,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -21256,6 +21488,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -21284,6 +21517,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -21986,6 +22226,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -22001,6 +22242,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -22731,6 +22979,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -22759,6 +23008,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -24233,6 +24489,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -24248,6 +24505,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -24481,6 +24745,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -24513,6 +24778,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -26068,6 +26340,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -26088,6 +26361,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -26663,6 +26943,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -26678,6 +26959,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -27076,6 +27364,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -27113,6 +27402,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -27615,6 +27911,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -27647,6 +27944,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -28641,6 +28945,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -28673,6 +28978,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -29416,6 +29728,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -29431,6 +29744,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -29674,6 +29994,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -29711,6 +30032,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -30034,6 +30362,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -30062,6 +30391,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -30928,6 +31264,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -30948,6 +31285,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -32380,6 +32724,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -32400,6 +32745,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -32924,6 +33276,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -32952,6 +33305,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -34440,6 +34800,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -34481,6 +34842,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -35176,6 +35544,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -35204,6 +35573,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -35916,6 +36292,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -35953,6 +36330,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -36841,6 +37225,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -36861,6 +37246,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -37105,6 +37497,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -37138,6 +37531,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -37949,6 +38349,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -37981,6 +38382,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -38178,6 +38586,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -38193,6 +38602,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -38788,6 +39204,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -38821,6 +39238,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -39548,6 +39972,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -39563,6 +39988,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -39842,6 +40274,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -39862,6 +40295,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -40493,6 +40933,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -40508,6 +40949,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -41150,6 +41598,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -41165,6 +41614,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -42501,6 +42957,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -42542,6 +42999,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -43213,6 +43677,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -43233,6 +43698,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -46364,6 +46836,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -46379,6 +46852,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -46636,6 +47116,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -46668,6 +47149,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -47182,6 +47670,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -47219,6 +47708,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -48491,6 +48987,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -48506,6 +49003,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -48833,6 +49337,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -48853,6 +49358,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -49644,6 +50156,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -49680,6 +50193,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -49877,6 +50397,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -49910,6 +50431,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -50268,6 +50796,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -50305,6 +50834,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -51170,6 +51706,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -51185,6 +51722,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -51481,6 +52025,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -51501,6 +52046,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -52114,6 +52666,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -52147,6 +52700,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []
@@ -52634,6 +53194,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -52662,6 +53223,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": [
@@ -52931,6 +53499,7 @@
             "usage": {
                 "promptTokens": 3
             },
+            "cache": [],
             "attachmentNotices": [
                 "notice-1"
             ],
@@ -52964,6 +53533,13 @@
                     }
                 ],
                 "steps": []
+            },
+            "reasoning": null,
+            "reasoningWithheld": false,
+            "contextUsage": {
+                "usedTokens": 3,
+                "windowTokens": null,
+                "estimated": false
             },
             "retrievalScope": null,
             "skillsUsed": []

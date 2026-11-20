@@ -1,0 +1,33 @@
+# Hermiq
+
+> Hermiq brings autonomous AI agents to Nextcloud: define an agent, give it tools, and run it on a schedule. Agents, their memory and skills are stored as objects in OpenRegister.
+
+Start with AGENTS.md for the build, test and lint commands. All paths below are relative to the repository root.
+
+## Docs
+
+- [AGENTS.md](AGENTS.md): setup, build, test, lint, OpenSpec flow and conventions
+- [README.md](README.md): what the app does, installation and development
+- [docs/intro.md](docs/intro.md): start page of the documentation site
+- [docs/features/README.md](docs/features/README.md): one page per feature
+- [docs/skills.md](docs/skills.md): skills
+- [docs/tool-grants.md](docs/tool-grants.md): tool grants
+- [docs/approvals.md](docs/approvals.md): approvals
+- [docs/exapp-runner.md](docs/exapp-runner.md): the runner sidecar
+- [docs/using-claude.md](docs/using-claude.md): using Claude (Anthropic) with Hermiq
+- [docs/Installation/demo-environment.md](docs/Installation/demo-environment.md): the demo environment
+- [CONTRIBUTING.md](CONTRIBUTING.md): contribution rules and commit format
+
+## API
+
+- [openapi.json](openapi.json): OpenAPI document for the app's JSON API
+- [appinfo/routes.php](appinfo/routes.php): route table
+
+## Specs
+
+- [openspec/specs/](openspec/specs/): one directory per capability, each with a spec.md of requirements and scenarios
+- [openspec/changes/](openspec/changes/): open change proposals
+- [openspec/architecture/](openspec/architecture/): architecture decision records
+- [openspec/README.md](openspec/README.md): how the openspec folder is organised
+- [openspec/config.yaml](openspec/config.yaml): rules for proposals, specs and designs
+- [lib/Settings/hermiq_register.json](lib/Settings/hermiq_register.json): the OpenRegister schemas the app installs

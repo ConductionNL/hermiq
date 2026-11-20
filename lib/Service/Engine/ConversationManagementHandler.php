@@ -47,6 +47,7 @@ use Exception;
 use LLPhant\Chat\Message as LLPhantMessage;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
@@ -57,6 +58,9 @@ use Throwable;
  * Handles conversation title generation, summarisation, and uniqueness.
  *
  * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with chat-how-an-answer-came-about; splitting it
+ * is follow-up work, not part of this merge.
  */
 class ConversationManagementHandler {
 	use SanitizesForSaveTrait;
@@ -280,6 +284,57 @@ class ConversationManagementHandler {
 
 		return $maxNumber;
 	}//end highestTitleSuffix()
+
+	/**
+	 * Keep the turn's context usage on the session as `metadata.contextUsage`
+	 * (chat-how-an-answer-came-about D4). It never writes `metadata.token_count`:
+	 * that key would switch on checkAndSummarize(), which has never run in
+	 * production (design D6). Never throws; a failure is logged.
+	 *
+	 * @param string                                                          $conversationId The session uuid.
+	 * @param array{usedTokens: int, windowTokens: int|null, estimated: bool} $contextUsage   The usage.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+	 */
+	public function recordContextUsage(string $conversationId, array $contextUsage): void {
+		try {
+			$conversation = $this->objectService->find(
+				id: $conversationId,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
+			);
+			if ($conversation === null) {
+				return;
+			}
+
+			$data = $conversation->getObject();
+			$metadata = $data['metadata'] ?? [];
+			if (is_array($metadata) === false) {
+				$metadata = [];
+			}
+
+			$metadata['contextUsage'] = $contextUsage;
+			$data['metadata'] = $metadata;
+			$this->objectService->saveObject(
+				object: $this->sanitizeForSave(data: $data),
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+					uuid: $conversationId
+				)
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				message: '[ConversationManagementHandler] Could not record the context usage',
+				context: [
+					'file' => __FILE__,
+					'line' => __LINE__,
+					'conversationId' => $conversationId,
+					'error' => $e->getMessage(),
+				]
+			);
+		}//end try
+	}//end recordContextUsage()
 
 	/**
 	 * Check whether a conversation needs summarisation and, if so, create one.
@@ -525,6 +580,11 @@ class ConversationManagementHandler {
 
 		if ($driver->provider === 'nextcloud') {
 			return $this->providerFactory->generateViaNextcloud(prompt: $prompt);
+		}
+
+		// OpenAI and OpenAI-compatible in Responses API mode (models-provider-connections D4).
+		if ($driver->apiMode === ProviderFactory::API_MODE_RESPONSES) {
+			return $this->providerFactory->callOpenAiResponses(driver: $driver, messageHistory: [LLPhantMessage::user($prompt)]);
 		}
 
 		// OpenAI / Ollama: driver->chat is a ready LLPhant chat instance.

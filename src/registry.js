@@ -37,6 +37,8 @@
 //
 // See: https://github.com/ConductionNL/hydra → openspec/architecture/adr-036-universal-widget-manifest.md
 import { CnFlowSidebar } from '@conduction/nextcloud-vue'
+import AgentBuildsPanel from './components/AgentBuildsPanel.vue'
+import AgentAnswerCacheClearDialog from './dialogs/AgentAnswerCacheClearDialog.vue'
 import AgentAvailabilityDialog from './dialogs/AgentAvailabilityDialog.vue'
 import AgentFactsheetDialog from './dialogs/AgentFactsheetDialog.vue'
 import AgentVersionHistoryDialog from './dialogs/agents/AgentVersionHistoryDialog.vue'
@@ -165,6 +167,17 @@ export default {
 	'agent-availability': {
 		kind: 'modal',
 		component: AgentAvailabilityDialog,
+		propsSchema: showOnlyProps(),
+	},
+
+	/**
+	 * Clear one agent's cached answers (models-prompt-and-answer-cache).
+	 * Self-resolves the agent id from the route when opened via AgentDetail's
+	 * "Clear cached answers" action; the server lets only the owner clear.
+	 */
+	'agent-answer-cache-clear': {
+		kind: 'modal',
+		component: AgentAnswerCacheClearDialog,
 		propsSchema: showOnlyProps(),
 	},
 
@@ -774,6 +787,24 @@ export default {
 		allowedSlots: ['body'],
 		propsSchema: { type: 'object', properties: {} },
 		_note: 'An aggregate (share rated helpful plus counts) and an author-stripped comment list behind an agent read-access guard; neither the stat nor the object-table widget can express it.',
+	},
+
+	/**
+	 * The published builds of an agent on AgentDetail
+	 * (tools-agent-workspace-and-installed-tools): number, publisher, date, note,
+	 * files and tools per build, the pinned one marked, the unpublished-changes
+	 * note, and "Publish build" for someone who may modify the agent.
+	 */
+	'agent-builds': {
+		// @custom-widget-ratchet exclude a list of builds read from a guarded per-agent endpoint with a pin marker, a computed unpublished-changes note and a publish action opening a modal — object-table binds OR collections (AgentBuild is admin-only through the object API) and has no per-row pin or header action.
+		kind: 'widget',
+		component: AgentBuildsPanel,
+		defaultSize: { w: 12, h: 4 },
+		minSize: { w: 6, h: 3 },
+		maxSize: { w: 12, h: 8 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'AgentBuild objects are read only through GET /api/agents/{id}/builds, which checks access to the agent and adds the pin and the unpublished-changes state; no built-in widget reads that endpoint shape or offers the publish action.',
 	},
 
 	// -------------------------------------------------------------------------

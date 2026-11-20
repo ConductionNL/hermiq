@@ -185,6 +185,11 @@
 						</td>
 						<td class="hermiq-runs__summary">
 							{{ run.summary || '—' }}
+							<div
+								v-if="cacheLine(run.usage)"
+								class="hermiq-runs__cache">
+								{{ cacheLine(run.usage) }}
+							</div>
 							<ul
 								v-if="run.computerActions && run.computerActions.length"
 								class="hermiq-runs__computer"
@@ -230,6 +235,7 @@ import { listRuns } from '../api/analytics.js'
 import { useAgentStore } from '../store/store.js'
 import { attemptOutcome, receivedByList } from '../utils/providerAttempts.js'
 import { toggleSelection } from '../utils/runCompare.js'
+import { cacheShare } from '../utils/runUsage.js'
 import { agentPickerOptions } from '../widgets/evalRunLabels.js'
 
 /** Page size. The server clamps anything above 200. */
@@ -640,6 +646,26 @@ export default {
 		},
 
 		/**
+		 * The line saying how many input tokens came from the provider's prompt cache, or ''.
+		 *
+		 * @param {object|Array|undefined} usage The run row's recorded token counts.
+		 * @return {string} The line, or '' when the run read nothing from the cache.
+		 *
+		 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-3
+		 */
+		cacheLine(usage) {
+			const share = cacheShare(usage)
+			if (share === null) {
+				return ''
+			}
+
+			return t('hermiq', '{cached} of {total} input tokens from the provider’s cache', {
+				cached: share.cached.toLocaleString(),
+				total: share.total.toLocaleString(),
+			})
+		},
+
+		/**
 		 * The plain label for the data-use term a run recorded, as it stood then.
 		 *
 		 * @param {string} dataUse The recorded term.
@@ -754,6 +780,12 @@ export default {
 .hermiq-runs__summary {
 	white-space: normal;
 	max-width: 40ch;
+}
+
+.hermiq-runs__cache {
+	margin-top: 4px;
+	color: var(--color-text-maxcontrast);
+	font-size: var(--font-size-small, 13px);
 }
 
 .hermiq-runs__status--ok {

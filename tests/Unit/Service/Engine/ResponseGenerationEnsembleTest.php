@@ -74,7 +74,7 @@ final class ResponseGenerationEnsembleTest extends TestCase {
 		$factory->method('callFireworksChat')->willReturnCallback(
 			function (string $credentialId, string $model, string $baseUrl, array $messageHistory, array $functions = []): string {
 				$this->lastModel = $model;
-				$this->calls[] = ['model' => $model, 'functions' => count($functions), 'system' => (string)$messageHistory[0]->content];
+				$this->calls[] = ['model' => $model, 'functions' => count($functions), 'system' => implode("\n\n", array_map(static fn ($message): string => (string)$message->content, array_filter($messageHistory, static fn ($message): bool => (string)$message->role->value === 'system')))];
 				return 'Answer from ' . $model;
 			}
 		);

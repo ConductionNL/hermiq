@@ -112,3 +112,48 @@ test('code cannot reach the internet', { skip: process.env.SANDBOX_IN_CONTAINER 
 })
 
 test.after(() => fs.rmSync(root, { recursive: true, force: true }))
+
+// Workspace runs (tools-agent-workspace-and-installed-tools D2).
+
+test('a workspace run changes one file and answers only that file', async () => {
+	const files = [
+		{ name: 'aanvragen.csv', content: 'id,dagen\n1,3\n2,5\n', encoding: 'utf-8' },
+		{ name: 'notities/leesmij.txt', content: 'blijft gelijk', encoding: 'utf-8' },
+	]
+	const code = [
+		'import csv',
+		'rows = list(csv.reader(open("aanvragen.csv")))',
+		'rows[0].append("doorlooptijd")',
+		'for r in rows[1:]: r.append(str(int(r[1]) * 24))',
+		'csv.writer(open("aanvragen.csv", "w", newline="")).writerows(rows)',
+	].join('\n')
+	const out = await run({ language: 'python', code, files, workspace: true })
+	assert.equal(out.exitCode, 0, out.stderr)
+	assert.deepEqual(out.files.map((f) => f.name), ['aanvragen.csv'])
+	assert.match(Buffer.from(out.files[0].content, 'base64').toString('utf8'), /^id,dagen,doorlooptijd\r?\n1,3,72/)
+	assert.equal(out.filesTruncated, false)
+	assert.deepEqual(left(), [])
+})
+
+test('a workspace run answers a file it created in a subfolder, and not its program', async () => {
+	const out = await run({ language: 'python', code: 'import os\nos.mkdir("uit")\nopen("uit/totaal.txt", "w").write("8")', files: [{ name: 'main.py', content: 'het eigen main.py van de workspace' }], workspace: true })
+	assert.equal(out.exitCode, 0, out.stderr)
+	assert.deepEqual(out.files.map((f) => f.name), ['uit/totaal.txt'])
+})
+
+test('a workspace run keeps a workspace file named like the program', async () => {
+	const out = await run({ language: 'python', code: 'print(open("main.py").read())', files: [{ name: 'main.py', content: 'workspace' }], workspace: true })
+	assert.equal(out.stdout, 'workspace\n')
+	assert.deepEqual(out.files, [])
+})
+
+test('a workspace path that leaves the work folder is refused before anything runs', async () => {
+	for (const name of ['../buiten.txt', '/etc/passwd', 'a/../../b', '.git/config', 'a//b', 'a\\b', '']) {
+		await assert.rejects(run({ language: 'python', code: 'print(1)', files: [{ name, content: 'x' }], workspace: true }), (error) => error.status === 400, name)
+	}
+	assert.deepEqual(left(), [])
+})
+
+test('outside a workspace run a relative path is still refused', async () => {
+	await assert.rejects(run({ language: 'python', code: 'print(1)', files: [{ name: 'map/bestand.txt', content: 'x' }] }), (error) => error.status === 400)
+})

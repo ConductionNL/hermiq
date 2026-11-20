@@ -126,6 +126,13 @@ final class ChatDriverRequest {
 		public readonly array $llmConfig,
 		public readonly ?string $organisation,
 	) {
-		$this->chatProvider = ($llmConfig['chatProvider'] ?? null);
+		// Use-nextcloud-ai-settings: with no hermiq-specific provider saved, hermiq runs
+		// on Nextcloud AI, the provider set up for the whole instance.
+		$chatProvider = ($llmConfig['chatProvider'] ?? null);
+		if (is_string($chatProvider) === false || trim($chatProvider) === '') {
+			$chatProvider = LlmSettingsHandler::DEFAULT_CHAT_PROVIDER;
+		}
+
+		$this->chatProvider = $chatProvider;
 	}//end __construct()
 }//end class

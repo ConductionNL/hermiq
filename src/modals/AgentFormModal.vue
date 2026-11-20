@@ -411,6 +411,25 @@
 					"
 					placeholder="10" />
 
+				<!-- chat-how-an-answer-came-about D3: the owner chooses whether the model's
+				     reasoning is asked for and shown next to the answer. -->
+				<div class="agent-form__field">
+					<NcCheckboxRadioSwitch
+						v-model="form.showReasoning"
+						type="switch"
+						data-testid="agent-form-show-reasoning"
+						:disabled="!reasoningAvailable">
+						{{ t('hermiq', 'Show the model\'s reasoning') }}
+					</NcCheckboxRadioSwitch>
+					<p class="agent-form__hint" data-testid="agent-form-show-reasoning-hint">
+						{{
+							reasoningAvailable
+								? t('hermiq', 'The answer shows the model\'s own reasoning next to it. Reasoning costs tokens.')
+								: t('hermiq', 'This provider does not return reasoning')
+						}}
+					</p>
+				</div>
+
 				<div class="agent-form__field">
 					<NcSelect
 						v-model="form.tools"
@@ -604,6 +623,44 @@
 					</template>
 				</template>
 
+				<!-- Answer cache (models-prompt-and-answer-cache): opt-in, for turns without tools. -->
+				<div class="agent-form__field">
+					<NcCheckboxRadioSwitch v-model="form.answerCacheEnabled">
+						{{ t('hermiq', 'Reuse answers to repeated questions') }}
+					</NcCheckboxRadioSwitch>
+					<p class="agent-form__hint">
+						{{
+							t(
+								'hermiq',
+								'Only for questions this agent answers without tools. Someone in your organisation who asks exactly the same gets the stored answer without a model call, marked as answered from cache.',
+							)
+						}}
+					</p>
+				</div>
+				<template v-if="form.answerCacheEnabled">
+					<NcTextField
+						v-model="form.answerCacheDays"
+						type="number"
+						min="1"
+						max="30"
+						:label="t('hermiq', 'Keep answers for (days)')" />
+					<div class="agent-form__field">
+						<NcSelect
+							v-model="answerCacheSimilarityOption"
+							:options="answerCacheSimilarityOptions"
+							:clearable="false"
+							:disabled="!vectorSearchAvailable"
+							label="label"
+							:inputLabel="t('hermiq', 'Similar questions')" />
+						<p v-if="!vectorSearchAvailable" class="agent-form__hint">
+							{{ t('hermiq', 'Similar questions are not matched: OpenRegister has no vector search here.') }}
+						</p>
+						<p v-else-if="form.enableRag" class="agent-form__hint">
+							{{ t('hermiq', 'Questions of anyone in the organisation can only be matched while the agent does not search your data.') }}
+						</p>
+					</div>
+				</template>
+
 				<!--
 			  Speech (speech-services). The engine choice is a PRIVACY choice, so
 			  the options say where the audio goes rather than naming an API —
@@ -725,6 +782,8 @@ import {
 } from '../utils/agentCredentials.js'
 import { ensembleOf, ensemblePayload, sendsEnsemble } from '../utils/agentEnsemble.js'
 import { sharingFields, sharingOf } from '../utils/agentSharing.js'
+import { answerCacheFields, answerCachePayload, organisationScopeAllowed } from '../utils/answerCache.js'
+import { providerReturnsReasoning } from '../utils/contextUsage.js'
 import { insertPlaceholder, startFieldsOf } from '../utils/instructionVariables.js'
 import {
 	DEFAULT_MIN_SIMILARITY,
@@ -753,6 +812,7 @@ function editableCopy(agent) {
  */
 function searchAndVoicePayload(form) {
 	return {
+		answerCache: answerCachePayload(form),
 		enableRag: form.enableRag,
 		searchObjects: form.searchObjects,
 		searchFiles: form.searchFiles,
@@ -859,6 +919,7 @@ function describingFields(source) {
 		maxTokens: source.maxTokens ?? '',
 		maxToolCalls: source.maxToolCalls ?? 10,
 		ensemble: ensembleOf(source.ensemble),
+		showReasoning: source.showReasoning === true,
 	}
 }
 
@@ -899,6 +960,7 @@ function accessFields(source) {
  */
 function searchAndVoiceFields(source) {
 	return {
+		...answerCacheFields(source),
 		enableRag: source.enableRag === true,
 		searchObjects: source.searchObjects !== false,
 		searchFiles: source.searchFiles !== false,
@@ -1061,6 +1123,72 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * Whether the agent's provider returns reasoning; an agent on the app's
+		 * default provider is not refused here, since that provider is not known.
+		 *
+		 * @return {boolean}
+		 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+		 */
+		reasoningAvailable() {
+			return !this.form.provider || providerReturnsReasoning(this.form.provider)
+		},
+
+		/**
+		 * Whether OpenRegister offers vector search here, as the page state says
+		 * (`vector_search_available`). Without it similar questions are not
+		 * matched and the choice is off.
+		 *
+		 * @return {boolean} True when the vector facade can answer.
+		 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-6
+		 */
+		vectorSearchAvailable() {
+			return loadState('hermiq', 'vector_search_available', false) === true
+		},
+
+		/**
+		 * The answer cache's similarity choices; organisation scope only with retrieval off.
+		 *
+		 * @return {Array<{value: string, label: string, $isDisabled?: boolean}>} The options.
+		 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-4
+		 */
+		answerCacheSimilarityOptions() {
+			return [
+				{ value: 'off', label: t('hermiq', 'Exact repeats only') },
+				{ value: 'user', label: t('hermiq', 'Similar questions of the same person') },
+				{
+					value: 'organisation',
+					label: t('hermiq', 'Similar questions of anyone in the organisation'),
+					$isDisabled: !organisationScopeAllowed(this.form),
+				},
+			]
+		},
+
+		/**
+		 * The similarity picker's selection over the plain value the form stores.
+		 *
+		 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-4
+		 */
+		answerCacheSimilarityOption: {
+			/**
+			 * @return {{value: string, label: string}} The selected option.
+			 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-4
+			 */
+			get() {
+				return this.answerCacheSimilarityOptions.find((option) => option.value === this.form.answerCacheSimilarity)
+					|| this.answerCacheSimilarityOptions[0]
+			},
+
+			/**
+			 * @param {{value: string}|null} option The picked choice.
+			 * @return {void}
+			 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-4
+			 */
+			set(option) {
+				this.form.answerCacheSimilarity = option ? option.value : 'off'
+			},
+		},
+
 		/**
 		 * Whether the stored service account no longer resolves, while it is
 		 * still the one chosen: the server's answer, never a guess here.
@@ -1574,6 +1702,7 @@ export default {
 				temperature: '',
 				maxTokens: '',
 				maxToolCalls: 10,
+				showReasoning: false,
 				applicationSlug: null,
 				appAssistant: false,
 				sharing: 'only-me',
@@ -1584,6 +1713,7 @@ export default {
 				tools: [],
 				delegationAllowlist: [],
 				knowledgeBaseRefs: [],
+				...answerCacheFields({}),
 				enableRag: false,
 				searchObjects: true,
 				searchFiles: true,
@@ -2111,6 +2241,8 @@ export default {
 				retrievalScopePayload(this.form, editableCopy(this.effectiveAgent)),
 			)
 			Object.assign(payload, actingUserField(this.form.actingChoice, this.form.actingUser))
+			// chat-how-an-answer-came-about D3: always sent, so switching it off is saved.
+			payload.showReasoning = this.form.showReasoning === true
 		},
 
 		appSlugOf,

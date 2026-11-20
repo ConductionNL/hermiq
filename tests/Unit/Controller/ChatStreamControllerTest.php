@@ -452,6 +452,40 @@ class ChatStreamControllerTest extends TestCase {
 	}//end testAFinalFrameWithoutNoticesCarriesAnEmptyList()
 
 	/**
+	 * "Ask the model again" reaches the engine as the answer-cache bypass; only a JSON true counts.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+	 */
+	public function testAskingTheModelAgainBypassesTheAnswerCache(): void {
+		$this->authenticate('alice');
+		$this->objectService->method('find')->willReturnCallback(
+			function (): ObjectEntity {
+				$conversation = new ObjectEntity();
+				$conversation->setUuid('conv-1');
+				$conversation->setObject(['userId' => 'alice', 'agentId' => 'agent-1']);
+				return $conversation;
+			}
+		);
+		$seen = [];
+		$this->engine->method('processMessage')->willReturnCallback(
+			static function (...$args) use (&$seen): array {
+				// Positional, in the order of Engine::processMessage(): answerCacheBypass is the 15th.
+				$seen[] = ($args[15] ?? null);
+				return ['message' => 'Op maandag.', 'messageId' => 'msg-46', 'sources' => []];
+			}
+		);
+
+		foreach (['{"message":"Wanneer?","conversationUuid":"conv-1","answerCacheBypass":true}', '{"message":"Wanneer?","conversationUuid":"conv-1","answerCacheBypass":"true"}', '{"message":"Wanneer?","conversationUuid":"conv-1"}'] as $body) {
+			$this->runStream($this->makeController($body));
+		}
+
+		$this->assertSame([true, false, false], $seen);
+
+	}//end testAskingTheModelAgainBypassesTheAnswerCache()
+
+	/**
 	 * The final frame carries the answer's attachments, such as an image the agent created; none is an empty list.
 	 *
 	 * @return void

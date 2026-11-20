@@ -346,6 +346,28 @@ class AnalyticsServiceTest extends TestCase {
 	}//end testListRunsIncludesFlowTriggeredRunsAndNamesTheChannel()
 
 	/**
+	 * A run by hand hangs on the agent and is listed with trigger `manual`.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+	 */
+	public function testListRunsNamesARunByHandManual(): void {
+		$schedules = [$this->schedule('s1', 'agentA')];
+
+		$manual = $this->runEntry('agentA', 'ok', 80, 'agentA');
+		$manual->setAction('manual-run');
+		$manual->setUuid('run-by-hand');
+		$manual->setCreated(new \DateTime('2026-09-03 09:00:00'));
+
+		$page = $this->service($schedules, [$manual])->listRuns();
+
+		$this->assertSame(1, $page['total']);
+		$this->assertSame(['run-by-hand', 'manual'], [$page['results'][0]['id'], $page['results'][0]['trigger']]);
+
+	}//end testListRunsNamesARunByHandManual()
+
+	/**
 	 * A run row carries the provider disclosure its record holds, data-use term
 	 * included, as it stood at run time; an older run without one reads empty.
 	 *
@@ -467,6 +489,43 @@ class AnalyticsServiceTest extends TestCase {
 		$this->assertArrayNotHasKey('computerActions', $byId['run-plain']);
 
 	}//end testARunRowListsItsComputerActions()
+
+	/**
+	 * A run row carries the run's token counts, cache counts included, and drops
+	 * anything that is not a whole count; a run without usage gets an empty list.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-3
+	 */
+	public function testARunRowCarriesTheRecordedTokenCounts(): void {
+		$schedules = [$this->schedule('s1', 'agentA')];
+
+		$cached = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$cached->setUuid('run-cached');
+		$cached->setChanged(
+			[
+				'status' => 'ok',
+				'agentId' => 'agentA',
+				'usage' => [
+					'promptTokens' => 2300,
+					'completionTokens' => 120,
+					'cacheReadTokens' => 1840,
+					'cacheWriteTokens' => -1,
+					'llmSeconds' => 1.5,
+					'other' => 'x',
+				],
+			]
+		);
+		$plain = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$plain->setUuid('run-plain');
+
+		$byId = array_column($this->service($schedules, [$cached, $plain])->listRuns()['results'], null, 'id');
+
+		$this->assertSame(['promptTokens' => 2300, 'completionTokens' => 120, 'cacheReadTokens' => 1840], $byId['run-cached']['usage']);
+		$this->assertSame([], $byId['run-plain']['usage']);
+
+	}//end testARunRowCarriesTheRecordedTokenCounts()
 
 	/**
 	 * The status filter narrows the rows, and `total` counts the filtered set.

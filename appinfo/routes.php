@@ -23,6 +23,10 @@ $routes = [
         // Dashboard + Settings.
         ['name' => 'dashboard#page', 'url' => '/', 'verb' => 'GET'],
         ['name' => 'settings#index', 'url' => '/api/settings', 'verb' => 'GET'],
+        // models-provider-connections: the session user's subscription sign-in.
+        ['name' => 'subscriptionLogin#index', 'url' => '/api/subscription-login', 'verb' => 'GET'],
+        ['name' => 'subscriptionLogin#start', 'url' => '/api/subscription-login', 'verb' => 'POST'],
+        ['name' => 'subscriptionLogin#code', 'url' => '/api/subscription-login/{id}/code', 'verb' => 'POST'],
         ['name' => 'settings#create', 'url' => '/api/settings', 'verb' => 'POST'],
         ['name' => 'settings#load',  'url' => '/api/settings/load', 'verb' => 'POST'],
 
@@ -67,6 +71,14 @@ $routes = [
         // The OpenAPI document, public (NL API Design Rules, /core/publish-openapi).
         ['name' => 'openApi#show', 'url' => '/api/openapi.json', 'verb' => 'GET'],
 
+        // Plain words to a schedule rule, with readback and the next three runs
+        // (scheduling-overview-and-start-choice D3). Before the {scheduleId} routes.
+        ['name' => 'scheduleWhen#parse', 'url' => '/api/schedules/parse-when', 'verb' => 'POST'],
+
+        // The Schedules page: every schedule the caller may see, filtered per row by
+        // owner, agent access and organisation admin (scheduling-overview-and-start-choice D1).
+        ['name' => 'scheduleList#index', 'url' => '/api/schedules', 'verb' => 'GET'],
+
         // Run history — owner-scoped audit read for a schedule (run-audit-log).
         ['name' => 'runHistory#index', 'url' => '/api/schedules/{scheduleId}/runs', 'verb' => 'GET', 'requirements' => ['scheduleId' => '[^/]+']],
 
@@ -96,6 +108,10 @@ $routes = [
             'verb'         => 'POST',
             'requirements' => ['id' => '[^/]+'],
         ],
+
+        // Run by hand — a run of an agent with a prompt and no schedule, for a user who
+        // may use the agent, through the scheduled-run gates (scheduling-overview-and-start-choice D2).
+        ['name' => 'manualRun#run', 'url' => '/api/agents/{id}/run', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
 
         // Replay — owner-scoped re-run of a past run's recorded prompt as a dry-run,
         // with a step-by-step diff against the original (run-replay-and-dry-run).
@@ -195,10 +211,19 @@ $routes = [
             'requirements' => ['id' => '[^/]+'],
         ],
 
+        // Public web chat (delivery-public-web-chat): a visitor who has not signed in
+        // asks a website channel, named by its token. PublicChatController carries
+        // #[PublicPage]; the channel's tool-free agent reads only anonymous content.
+        ['name' => 'publicChat#message',   'url' => '/api/public/{channelToken}/messages', 'verb' => 'POST',    'requirements' => ['channelToken' => '[A-Za-z0-9]{16,64}']],
+        ['name' => 'publicChat#preflight', 'url' => '/api/public/{channelToken}/messages', 'verb' => 'OPTIONS', 'requirements' => ['channelToken' => '[A-Za-z0-9]{16,64}']],
+        ['name' => 'publicChatPage#page',  'url' => '/public/{channelToken}',              'verb' => 'GET',     'requirements' => ['channelToken' => '[A-Za-z0-9]{16,64}']],
+
         // Agent version history (agent-versioning): owner/invited-scoped read of the
         // Agent's OpenRegister AuditTrail as a version timeline + diff, and owner-only
         // rollback. No new storage — reads/replays the SAME AuditTrail SaveObject
         // already writes on every Agent save.
+        // models-prompt-and-answer-cache: the owner clears the agent's cached answers.
+        ['name' => 'agentAnswerCache#clear', 'url' => '/api/agents/{id}/answer-cache', 'verb' => 'DELETE', 'requirements' => ['id' => '[^/]+']],
         // Whether an agent's declared acting user still resolves (agent-acting-identity-picker
         // REQ-AGID-003): read-scoped, so the edit page can warn before a run is refused.
         ['name' => 'agentActingUser#show', 'url' => '/api/agents/{id}/acting-user', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
@@ -210,6 +235,9 @@ $routes = [
             'verb'         => 'POST',
             'requirements' => ['id' => '[^/]+', 'versionId' => '[^/]+'],
         ],
+        // An agent's published builds (pinned files and tools), and publishing one (owner-only).
+        ['name' => 'agentVersion#builds', 'url' => '/api/agents/{id}/builds', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'agentVersion#publishBuild', 'url' => '/api/agents/{id}/builds', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
 
         // Advisory AI-oversight records about one subject, for whoever may open that subject.
         ['name' => 'aiOversight#subject', 'url' => '/api/ai-oversight/subject', 'verb' => 'GET'],
@@ -228,6 +256,9 @@ $routes = [
         ['name' => 'approval#deny',    'url' => '/api/approvals/{approvalId}/deny', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
         // One route for the chat's approval card: {decision: granted|refused}.
         ['name' => 'approval#resolve', 'url' => '/api/approvals/{approvalId}/resolve', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
+        // Oversight-ask-and-hold: answer an agent's question, release a held draft.
+        ['name' => 'approval#answer',  'url' => '/api/approvals/{approvalId}/answer', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
+        ['name' => 'approval#release', 'url' => '/api/approvals/{approvalId}/release', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
 
         // Per-organisation kill-switch (human-approval-gate-enforcement): read + toggle.
         [
@@ -241,6 +272,20 @@ $routes = [
             'url'          => '/api/tenant-control/{organisation}/toggle',
             'verb'         => 'POST',
             'requirements' => ['organisation' => '[^/]+'],
+        ],
+        // Per-department AI switch (oversight-switch-ai-off-per-department): admins only.
+        [
+            'name'         => 'departmentControl#toggle',
+            'url'          => '/api/department-control/{group}/toggle',
+            'verb'         => 'POST',
+            'requirements' => ['group' => '[^/]+'],
+        ],
+        ['name' => 'departmentControl#index', 'url' => '/api/department-control', 'verb' => 'GET'],
+        [
+            'name'         => 'departmentControl#evidence',
+            'url'          => '/api/department-control/{group}/evidence',
+            'verb'         => 'GET',
+            'requirements' => ['group' => '[^/]+'],
         ],
 
         // Agent memory (agent-memory): tenant-scoped memory, profiles, sessions, consolidate, recall.
@@ -258,6 +303,9 @@ $routes = [
         // memory-correct-and-forget: the owner corrects or forgets one entry.
         ['name' => 'memory#correctEntry',  'url' => '/api/agents/{agentId}/memory/entries/{entryId}', 'verb' => 'PUT', 'requirements' => ['agentId' => '[^/]+', 'entryId' => '[^/]+']],
         ['name' => 'memory#forgetEntry',   'url' => '/api/agents/{agentId}/memory/entries/{entryId}', 'verb' => 'DELETE', 'requirements' => ['agentId' => '[^/]+', 'entryId' => '[^/]+']],
+        // Memory-project-scopes: the projects of an agent's memory, and moving an entry between layers.
+        ['name' => 'memory#projects',      'url' => '/api/agents/{agentId}/memory/projects', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
+        ['name' => 'memory#moveEntry',     'url' => '/api/agents/{agentId}/memory/entries/{entryId}/move', 'verb' => 'POST', 'requirements' => ['agentId' => '[^/]+', 'entryId' => '[^/]+']],
 
         // Run analytics (run-analytics): tenant-scoped run metrics from OR AuditTrail (optional agentId).
         ['name' => 'analytics#index', 'url' => '/api/analytics', 'verb' => 'GET'],
@@ -362,6 +410,23 @@ $routes = [
             'url'          => '/api/guardrail-policies/{policyId}',
             'verb'         => 'PUT',
             'requirements' => ['policyId' => '[^/]+'],
+        ],
+
+        // tools-custom-tools-without-code (REQ-CUSTOOL-001): organisation admins and
+        // instance admins list, create and edit the organisation's custom tools.
+        ['name' => 'customTool#index',  'url' => '/api/custom-tools', 'verb' => 'GET'],
+        ['name' => 'customTool#create', 'url' => '/api/custom-tools', 'verb' => 'POST'],
+        [
+            'name'         => 'customTool#update',
+            'url'          => '/api/custom-tools/{id}',
+            'verb'         => 'PUT',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        [
+            'name'         => 'customTool#tryTool',
+            'url'          => '/api/custom-tools/{id}/try',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
         ],
 
         // Compliance control packs (compliance-control-packs): org-scoped dashboard,
@@ -533,6 +598,22 @@ $routes = [
         // cleanup job last enforced it and how much it removed.
         ['name' => 'Settings\RunRetentionSettings#get', 'url' => '/api/settings/run-retention', 'verb' => 'GET'],
         ['name' => 'Settings\RunRetentionSettings#update', 'url' => '/api/settings/run-retention', 'verb' => 'PUT'],
+        // Chat-translate-a-recording D3: the administrator's voice per language (admin only).
+        ['name' => 'Settings\SpeechVoiceSettings#get', 'url' => '/api/settings/speech-voices', 'verb' => 'GET'],
+        ['name' => 'Settings\SpeechVoiceSettings#update', 'url' => '/api/settings/speech-voices', 'verb' => 'PUT'],
+        // How many scheduled runs go at once, for the instance and per organisation (operations-parallel-run-workers).
+        ['name' => 'Settings\RunConcurrencySettings#get', 'url' => '/api/settings/run-concurrency', 'verb' => 'GET'],
+        ['name' => 'Settings\RunConcurrencySettings#update', 'url' => '/api/settings/run-concurrency', 'verb' => 'PUT'],
+        // Backup (operations-backup-and-restore): the admin-only backup settings and
+        // "Back up now", which queues BackupNowJob and returns at once.
+        ['name' => 'Settings\BackupSettings#get', 'url' => '/api/settings/backup', 'verb' => 'GET'],
+        ['name' => 'Settings\BackupSettings#update', 'url' => '/api/settings/backup', 'verb' => 'PUT'],
+        ['name' => 'Settings\BackupSettings#backupNow', 'url' => '/api/backup/now', 'verb' => 'POST'],
+        // Restore (operations-backup-and-restore 3-4): the backups in the folder, the
+        // preview that writes nothing, and the restore, queued as RestoreJob.
+        ['name' => 'backup#files', 'url' => '/api/backup/files', 'verb' => 'GET'],
+        ['name' => 'backup#preview', 'url' => '/api/backup/restore/preview', 'verb' => 'POST'],
+        ['name' => 'backup#restore', 'url' => '/api/backup/restore', 'verb' => 'POST'],
         // observability-export-traces: trace export settings, admin only (REQ-TREX-001).
         ['name' => 'Settings\TraceExportSettings#get', 'url' => '/api/settings/trace-export', 'verb' => 'GET'],
         ['name' => 'Settings\TraceExportSettings#update', 'url' => '/api/settings/trace-export', 'verb' => 'PUT'],
@@ -642,6 +723,10 @@ $routes = [
         ['name' => 'speech#transcribe',   'url' => '/api/speech/transcriptions', 'verb' => 'POST'],
         ['name' => 'speech#synthesise',   'url' => '/api/speech/speech', 'verb' => 'POST'],
         ['name' => 'speech#capabilities', 'url' => '/api/speech/capabilities', 'verb' => 'GET'],
+        // Chat-translate-a-recording: transcribe, translate and speak one recording, and
+        // where the translation step will run (shown before the person starts).
+        ['name' => 'speechTranslation#translate', 'url' => '/api/speech/translations', 'verb' => 'POST'],
+        ['name' => 'speechTranslation#where', 'url' => '/api/speech/translations/where', 'verb' => 'GET'],
 
         // SSE streaming chat endpoint (six-event envelope, hydra ADR-034 Decision 6).
         ['name' => 'chatStream#stream', 'url' => '/api/chat/stream', 'verb' => 'POST'],
@@ -658,6 +743,10 @@ $routes = [
         // Agents-bound-to-their-app task 5: the record summary on the agent leaf.
         ['name' => 'recordSummary#show', 'url' => '/api/assistant/summary', 'verb' => 'GET'],
         ['name' => 'recordSummary#summarise', 'url' => '/api/assistant/summarise', 'verb' => 'POST'],
+        // reports-on-a-schedule 1.2: subscribe and cancel on each card of the Reports page.
+        ['name' => 'reportSubscription#index', 'url' => '/api/report-subscriptions', 'verb' => 'GET'],
+        ['name' => 'reportSubscription#subscribe', 'url' => '/api/report-subscriptions/{report}', 'verb' => 'POST'],
+        ['name' => 'reportSubscription#cancel', 'url' => '/api/report-subscriptions/{report}', 'verb' => 'DELETE'],
 
         // Structured PII/redaction-span detection surface (woo-llm-anonymisation):
         // stateless, tool-free, reuses the case-assistant-surface plumbing —
@@ -679,6 +768,10 @@ $routes = [
         // aliases rather than being removed with the rename.
         ['name' => 'session#index', 'url' => '/api/sessions', 'verb' => 'GET'],
         ['name' => 'session#create', 'url' => '/api/sessions', 'verb' => 'POST'],
+        // The chat's Files panel over the caller's session workspace (tools-agent-workspace-and-installed-tools REQ-WKSP-003).
+        ['name' => 'workspaceFiles#index', 'url' => '/api/sessions/{sessionId}/workspace/files', 'verb' => 'GET', 'requirements' => ['sessionId' => '[^/]+']],
+        ['name' => 'workspaceFiles#download', 'url' => '/api/sessions/{sessionId}/workspace/download', 'verb' => 'GET', 'requirements' => ['sessionId' => '[^/]+']],
+        ['name' => 'workspaceFiles#save', 'url' => '/api/sessions/{sessionId}/workspace/save', 'verb' => 'POST', 'requirements' => ['sessionId' => '[^/]+']],
         // Archive, restore or delete several sessions at once (chat-session-search-and-bulk-delete, REQ-SSRCH-002).
         ['name' => 'session#bulk', 'url' => '/api/sessions/bulk', 'verb' => 'POST'],
         ['name' => 'session#show', 'url' => '/api/sessions/{uuid}', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
@@ -689,6 +782,8 @@ $routes = [
             'requirements' => ['uuid' => '[^/]+'],
         ],
         ['name' => 'session#update', 'url' => '/api/sessions/{uuid}', 'verb' => 'PATCH', 'requirements' => ['uuid' => '[^/]+']],
+        // Session-entity-links: the owner removes a link a sent turn recorded.
+        ['name' => 'session#removeLink', 'url' => '/api/sessions/{uuid}/links', 'verb' => 'DELETE', 'requirements' => ['uuid' => '[^/]+']],
         // Agents-instruction-variables: a person's answers to the agent's start fields, once per session.
         ['name' => 'instructionVariables#answer', 'url' => '/api/sessions/{uuid}/start-values', 'verb' => 'PUT', 'requirements' => ['uuid' => '[^/]+']],
         // Agents-standing-goal: read, set and stop a session's standing goal.

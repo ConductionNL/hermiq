@@ -277,7 +277,7 @@ class HermiqToolProviderTest extends TestCase {
 		$this->assertNotContains('hermiq.completeTask', $ids);
 		$this->assertContains('hermiq.listTasks', $ids);
 		$this->assertContains('hermiq.createTask', $ids);
-		$this->assertCount(60, $ids);
+		$this->assertCount(61, $ids);
 
 	}//end testCompleteTaskIsAbsentWithoutAReplacePath()
 
@@ -385,7 +385,7 @@ class HermiqToolProviderTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored-req-ailbl-001
+	 * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored-req-ailbl-001
 	 */
 	public function testRunInjectedAgentIdReachesTheMarkedWrites(): void {
 		$writeService = $this->createMock(NcNativeWriteService::class);
@@ -490,6 +490,7 @@ class HermiqToolProviderTest extends TestCase {
 		//   (hermiq-runner-git-capability),
 		// + hermiq.graphNeighbors/graphPath (knowledge-graph),
 		// + hermiq.listTasks/createTask/completeTask (tools-nextcloud-tasks),
+		// + hermiq.askPerson (oversight-ask-and-hold),
 		// + hermiq.listAgents/getAgentStatus/listPendingApprovals/runAgentNow/searchSkills
 		//   (hermiq-domain-mcp-tools),
 		// + hermiq.askRemoteAgent (flows-hand-off-and-wait),
@@ -499,7 +500,7 @@ class HermiqToolProviderTest extends TestCase {
 		// + hermiq.sendTalkMessage (tools-post-a-talk-message),
 		// + hermiq.runCode (tools-code-sandbox),
 		// all registered through this same provider.
-		$this->assertCount(61, $tools);
+		$this->assertCount(62, $tools);
 
 		$ids = array_column($tools, 'id');
 		$this->assertContains('hermiq.listFiles', $ids);
@@ -551,6 +552,8 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.sendMail' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'create'],
 			'hermiq.listDeckBoards' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.searchTools' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			// oversight-ask-and-hold: handled in the engine, which records the question and ends the turn.
+			'hermiq.askPerson' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			// Discovery reads the catalogue and writes nothing.
 			'hermiq.listAvailableTools' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			// `scope: write` and `readOnlyHint: false` — raising a request PERSISTS a
@@ -626,7 +629,7 @@ class HermiqToolProviderTest extends TestCase {
 		];
 
 		$tools = $this->provider('alice')->getTools();
-		$this->assertCount(61, $tools, 'This test must be updated if a tool is added or removed.');
+		$this->assertCount(62, $tools, 'This test must be updated if a tool is added or removed.');
 
 		$seen = [];
 		foreach ($tools as $tool) {
@@ -668,6 +671,7 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.sendMail' => ToolReachResolver::REACH_EXTERNAL,
 			'hermiq.listDeckBoards' => ToolReachResolver::REACH_USER,
 			'hermiq.searchTools' => ToolReachResolver::REACH_SELF,
+			'hermiq.askPerson' => ToolReachResolver::REACH_SELF,
 			// `self`: reads the instance catalogue and this agent's own grants, and
 			// returns metadata only — nothing dispatchable, nothing outside the agent.
 			'hermiq.listAvailableTools' => ToolReachResolver::REACH_SELF,
@@ -800,6 +804,7 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.sendMail' => ['mail', 'send'],
 			'hermiq.listDeckBoards' => ['deckBoard', 'list'],
 			'hermiq.searchTools' => ['tool', 'search'],
+			'hermiq.askPerson' => ['question', 'ask'],
 			'hermiq.listAvailableTools' => ['tool', 'list'],
 			// `request`: this one asks a HUMAN for a grant.
 			'hermiq.requestToolAccess' => ['toolAccess', 'request'],

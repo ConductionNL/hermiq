@@ -45,7 +45,7 @@ final class AnthropicMessageFormat {
 	 *
 	 * @param array $messageHistory Array of LLPhant Message objects.
 	 *
-	 * @return array{system: string, messages: array<int, array<string, mixed>>}
+	 * @return array{system: string|array<int, array{type: string, text: string}>, messages: array<int, array<string, mixed>>}
 	 *
 	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
 	 */
@@ -78,11 +78,33 @@ final class AnthropicMessageFormat {
 		}
 
 		return [
-			'system' => implode("\n\n", $systemParts),
+			'system' => $this->systemField(systemParts: $systemParts),
 			'messages' => $messages,
 		];
 
 	}//end mapHistoryToAnthropicMessages()
+
+	/**
+	 * The `system` field: one system turn as a string, several as text blocks in order.
+	 *
+	 * Models-prompt-and-answer-cache: the turn sends its stable block and its
+	 * per-turn block as two system turns; as separate text blocks the cache
+	 * breakpoint sits on the stable one, and the per-turn one changes freely.
+	 *
+	 * @param array<int, string> $systemParts The system turns' text, in order.
+	 *
+	 * @return string|array<int, array{type: string, text: string}>
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-2
+	 */
+	private function systemField(array $systemParts): string|array {
+		$systemParts = array_values(array_filter($systemParts, static fn (string $part): bool => $part !== ''));
+		if (count($systemParts) <= 1) {
+			return (string)($systemParts[0] ?? '');
+		}
+
+		return array_map(static fn (string $part): array => ['type' => 'text', 'text' => $part], $systemParts);
+	}//end systemField()
 
 	/**
 	 * Map OpenAI-style function definitions to Anthropic `tools`.
@@ -146,8 +168,13 @@ final class AnthropicMessageFormat {
 	 *
 	 * @param array $data Decoded Anthropic Messages API response.
 	 *
+	 * Every `type: "thinking"` block (extended thinking, chat-how-an-answer-came-about D3)
+	 * is concatenated into `reasoning`, apart from the answer text; a `redacted_thinking`
+	 * block carries no readable text and is left out.
+	 *
 	 * @return array{text: string, toolCalls: array<int, array<string, mixed>>,
-	 *     stopReason: string, content: array<int, mixed>, usage: array<string, int>}
+	 *     stopReason: string, content: array<int, mixed>, usage: array<string, int>,
+	 *     reasoning: string}
 	 *
 	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
 	 */
@@ -163,9 +190,33 @@ final class AnthropicMessageFormat {
 			'stopReason' => (string)($data['stop_reason'] ?? ''),
 			'content' => $content,
 			'usage' => $this->anthropicUsage(data: $data),
+			'reasoning' => $this->anthropicThinking(content: $content),
 		];
 
 	}//end parseAnthropicResponse()
+
+	/**
+	 * The concatenated text of every `thinking` block, blocks separated by a blank line.
+	 *
+	 * @param array<int, mixed> $content The response's content blocks.
+	 *
+	 * @return string The reasoning, or '' when the response has none.
+	 *
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+	 */
+	private function anthropicThinking(array $content): string {
+		$parts = [];
+		foreach ($content as $block) {
+			if (is_array($block) === true && ($block['type'] ?? '') === 'thinking') {
+				$thinking = trim((string)($block['thinking'] ?? ''));
+				if ($thinking !== '') {
+					$parts[] = $thinking;
+				}
+			}
+		}
+
+		return implode("\n\n", $parts);
+	}//end anthropicThinking()
 
 	/**
 	 * The concatenated text of every `text` block.
