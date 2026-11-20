@@ -533,6 +533,16 @@ $routes = [
         // cleanup job last enforced it and how much it removed.
         ['name' => 'Settings\RunRetentionSettings#get', 'url' => '/api/settings/run-retention', 'verb' => 'GET'],
         ['name' => 'Settings\RunRetentionSettings#update', 'url' => '/api/settings/run-retention', 'verb' => 'PUT'],
+        // Backup (operations-backup-and-restore): the admin-only backup settings and
+        // "Back up now", which queues BackupNowJob and returns at once.
+        ['name' => 'Settings\BackupSettings#get', 'url' => '/api/settings/backup', 'verb' => 'GET'],
+        ['name' => 'Settings\BackupSettings#update', 'url' => '/api/settings/backup', 'verb' => 'PUT'],
+        ['name' => 'Settings\BackupSettings#backupNow', 'url' => '/api/backup/now', 'verb' => 'POST'],
+        // Restore (operations-backup-and-restore 3-4): the backups in the folder, the
+        // preview that writes nothing, and the restore, queued as RestoreJob.
+        ['name' => 'backup#files', 'url' => '/api/backup/files', 'verb' => 'GET'],
+        ['name' => 'backup#preview', 'url' => '/api/backup/restore/preview', 'verb' => 'POST'],
+        ['name' => 'backup#restore', 'url' => '/api/backup/restore', 'verb' => 'POST'],
         // observability-export-traces: trace export settings, admin only (REQ-TREX-001).
         ['name' => 'Settings\TraceExportSettings#get', 'url' => '/api/settings/trace-export', 'verb' => 'GET'],
         ['name' => 'Settings\TraceExportSettings#update', 'url' => '/api/settings/trace-export', 'verb' => 'PUT'],

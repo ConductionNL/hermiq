@@ -179,6 +179,41 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			id="section-backups"
+			:name="t('hermiq', 'Backups')"
+			:description="
+				t(
+					'hermiq',
+					'Back up every organisation\'s hermiq data into a folder in your Files every night: agents, skills, memories, schedules, policies and the other hermiq objects, one file per organisation. Only an administrator sees this section.',
+				)
+			">
+			<p class="hermiq-admin-settings__provider" data-testid="backup-summary">
+				{{ backupSummary }}
+			</p>
+			<NcButton variant="primary" @click="showBackupModal = true">
+				<template #icon>
+					<Cog :size="20" />
+				</template>
+				{{ t('hermiq', 'Configure backups') }}
+			</NcButton>
+			<NcButton :disabled="!backup || !backup.ownerUid || backupQueued" @click="onBackupNow">
+				{{ backupQueued ? t('hermiq', 'Backup queued') : t('hermiq', 'Back up now') }}
+			</NcButton>
+			<NcButton data-testid="restore-open" @click="showRestoreDialog = true">
+				{{ t('hermiq', 'Restore') }}
+			</NcButton>
+
+			<BackupSettingsModal
+				:show="showBackupModal"
+				:settings="backup"
+				@close="showBackupModal = false"
+				@saved="backup = $event" />
+			<RestoreDialog
+				:show="showRestoreDialog"
+				@close="showRestoreDialog = false" />
+		</NcSettingsSection>
+
+		<NcSettingsSection
 			:name="t('hermiq', 'Code sandbox')"
 			:description="
 				t(
@@ -267,9 +302,12 @@ import RunRetentionSettings from '../components/settings/RunRetentionSettings.vu
 import TalkBridgeSettings from '../components/settings/TalkBridgeSettings.vue'
 import TraceExportSettings from '../components/settings/TraceExportSettings.vue'
 import ValidatedTagSettings from '../components/settings/ValidatedTagSettings.vue'
+import BackupSettingsModal from '../modals/BackupSettingsModal.vue'
 import LlmProviderModal from '../modals/LlmProviderModal.vue'
+import RestoreDialog from '../modals/RestoreDialog.vue'
 import WebResearchSettingsModal from '../modals/WebResearchSettingsModal.vue'
 import AiFeatureRegister from './AiFeatureRegister.vue'
+import { backupNow, getBackupSettings } from '../api/backup.js'
 import { getLlmSettings } from '../api/llm.js'
 import { getRetrievalTier } from '../api/retrievalTier.js'
 import { getWebResearchSettings } from '../api/webResearch.js'
@@ -310,9 +348,11 @@ export default {
 	components: {
 		AiFeatureRegister,
 		AssistantPromptLibrary,
+		BackupSettingsModal,
 		CnCredentials,
 		Cog,
 		LlmProviderModal,
+		RestoreDialog,
 		NcButton,
 		CodeSandboxSettings,
 		IntakeSettings,
@@ -333,6 +373,11 @@ export default {
 			chatProvider: null,
 			showWebResearchModal: false,
 			searchProvider: null,
+			// operations-backup-and-restore: the stored backup settings, null until read.
+			backup: null,
+			showBackupModal: false,
+			showRestoreDialog: false,
+			backupQueued: false,
 			// Which tier semantic and hybrid RAG run on (vector-rag), read-only.
 			retrievalTier: null,
 			// The app's own manifest.json — read-only, for CnCredentials'
@@ -342,6 +387,23 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * One line on the backup: off, or when, where and how many are kept.
+		 *
+		 * @return {string} The line.
+		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+		 */
+		backupSummary() {
+			if (!this.backup || !this.backup.enabled) {
+				return this.t('hermiq', 'Nightly backups are off.')
+			}
+			return this.t('hermiq', 'Every night at {hour}:00 into "{folder}", keeping {keep} per organisation.', {
+				hour: String(this.backup.hour).padStart(2, '0'),
+				folder: this.backup.folder,
+				keep: this.backup.keep,
+			})
+		},
+
 		/**
 		 * Human-readable name of the current provider, or a "not configured" hint.
 		 *
@@ -387,10 +449,40 @@ export default {
 	mounted() {
 		this.refresh()
 		this.refreshWebResearch()
+		this.refreshBackup()
 		this.refreshRetrievalTier()
 	},
 
 	methods: {
+		/**
+		 * Read the backup settings; a failure leaves the section saying backups are off.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+		 */
+		async refreshBackup() {
+			try {
+				this.backup = await getBackupSettings()
+			} catch {
+				this.backup = null
+			}
+		},
+
+		/**
+		 * Queue a backup now.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+		 */
+		async onBackupNow() {
+			try {
+				await backupNow()
+				this.backupQueued = true
+			} catch {
+				this.backupQueued = false
+			}
+		},
+
 		/**
 		 * Fetch the current provider selection for display.
 		 *
