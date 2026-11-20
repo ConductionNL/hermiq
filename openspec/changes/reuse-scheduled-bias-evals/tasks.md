@@ -25,8 +25,10 @@ Kind: code. Size M. Row `hermiq:td-bias-test`.
 - **files**: `lib/Settings/hermiq_register.json`, `lib/BackgroundJob/EvalScheduleTask.php`, `appinfo/info.xml`, `lib/Notification/Notifier.php`
 - **acceptance_criteria**:
   - GIVEN a due schedule WHEN the job runs THEN one run as the owner with gates applied, nextRun advanced first; a failed gate notifies the owner
-- [ ] Implement
-- [ ] Test (PHPUnit for due selection, commit-before-run and the notification)
+- [x] Implement
+  - `EvalSchedule` (register v0.79.0, app version raised so the import runs), `lib/BackgroundJob/EvalScheduleTask.php` (hourly, never parallel, in `appinfo/info.xml`) over `lib/Service/EvalScheduleRunner.php`, with `EvalSchedules` (storage and the owner rule), `EvalScheduleClock` (due selection, the next run) and `EvalRegressionNotifier`; `Notifier` renders `eval_regression`, linking to the dataset page with the run. The run goes through `EvalRunService::run()`, so the kill switch and budget gates apply; a schedule runs only while its owner owns both the dataset and the agent.
+- [x] Test (PHPUnit for due selection, commit-before-run and the notification)
+  - `EvalScheduleRunnerTest`, `EvalSchedulesTest`, `EvalScheduleClockTest`, `EvalRegressionNotifierTest`, `EvalScheduleTaskTest`, `NotifierEvalRegressionTest`, `EvalScheduleSchemaTest`; `AgentSwitchSchemaTest` admits `EvalSchedule.agentId` to the cascading references.
 
 ### Task 4: Run on a schedule in the UI
 - **spec_ref**: `openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003`
