@@ -43,7 +43,10 @@ final class WorkspaceRunScopeTest extends TestCase {
 		$scope = new WorkspaceRunScope();
 		$scope->enter(runId: 'run-1', agentId: 'agent-1', userId: 'alice');
 
-		self::assertSame(['runId' => 'run-1', 'agentId' => 'agent-1', 'userId' => 'alice'], $scope->current());
+		self::assertSame(
+			['runId' => 'run-1', 'agentId' => 'agent-1', 'userId' => 'alice', 'conversationId' => '', 'workspaceKey' => 'run-1'],
+			$scope->current()
+		);
 	}//end testTheEnteredBindingIsReturned()
 
 	/**
@@ -56,7 +59,10 @@ final class WorkspaceRunScopeTest extends TestCase {
 		$scope->enter(runId: 'run-1', agentId: 'agent-1', userId: 'alice');
 		$scope->enter(runId: 'run-2', agentId: 'agent-2', userId: 'bob');
 
-		self::assertSame(['runId' => 'run-2', 'agentId' => 'agent-2', 'userId' => 'bob'], $scope->current());
+		self::assertSame(
+			['runId' => 'run-2', 'agentId' => 'agent-2', 'userId' => 'bob', 'conversationId' => '', 'workspaceKey' => 'run-2'],
+			$scope->current()
+		);
 	}//end testASecondEnterReplacesTheBinding()
 
 	/**

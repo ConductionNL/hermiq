@@ -66,11 +66,14 @@ describe('LlmProviderModal as rendered', () => {
 		expect(w.vm.form.ollamaConfig).toMatchObject({ url: 'http://ollama:11434', chatModel: 'llama3' })
 	})
 
-	it('writes the Fireworks address and model', async () => {
+	it('writes the Fireworks API path and model, and shows the host read-only', async () => {
 		const w = await open('fireworks')
-		fields(w, 'Base URL')[0].vm.pick('https://api.fireworks.ai')
+		fields(w, 'API path')[0].vm.pick('/inference/v1')
 		fields(w, 'Model')[0].vm.pick('fw-1')
-		expect(w.vm.form.fireworksConfig).toMatchObject({ baseUrl: 'https://api.fireworks.ai', chatModel: 'fw-1' })
+		expect(w.vm.form.fireworksConfig).toMatchObject({ baseUrl: '/inference/v1', chatModel: 'fw-1' })
+		expect(fields(w, 'Host')).toHaveLength(1)
+		expect(w.vm.fireworksHost).toBe('api.fireworks.ai')
+		expect(fields(w, 'Base URL')).toHaveLength(0)
 	})
 
 	it('writes the Anthropic model', async () => {

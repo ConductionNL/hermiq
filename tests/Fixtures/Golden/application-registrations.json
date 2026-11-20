@@ -49,6 +49,42 @@
         ],
         [
             "registerEventListener",
+            "OCA\\OpenRegister\\Event\\ObjectCreatingEvent",
+            "OCA\\Hermiq\\Listener\\PublicChannelGuardListener",
+            0
+        ],
+        [
+            "registerEventListener",
+            "OCA\\OpenRegister\\Event\\ObjectUpdatingEvent",
+            "OCA\\Hermiq\\Listener\\PublicChannelGuardListener",
+            0
+        ],
+        [
+            "registerEventListener",
+            "OCA\\OpenRegister\\Event\\ObjectCreatingEvent",
+            "OCA\\Hermiq\\Listener\\AgentDepartmentGuardListener",
+            0
+        ],
+        [
+            "registerEventListener",
+            "OCA\\OpenRegister\\Event\\ObjectUpdatingEvent",
+            "OCA\\Hermiq\\Listener\\AgentDepartmentGuardListener",
+            0
+        ],
+        [
+            "registerEventListener",
+            "OCA\\OpenRegister\\Event\\ObjectCreatingEvent",
+            "OCA\\Hermiq\\Listener\\AgentEnsembleGuardListener",
+            0
+        ],
+        [
+            "registerEventListener",
+            "OCA\\OpenRegister\\Event\\ObjectUpdatingEvent",
+            "OCA\\Hermiq\\Listener\\AgentEnsembleGuardListener",
+            0
+        ],
+        [
+            "registerEventListener",
             "OCA\\OpenRegister\\Service\\Flow\\RegisterFlowNodesEvent",
             "OCA\\Hermiq\\Flow\\HermiqFlowNodeListener",
             0
@@ -113,6 +149,12 @@
             "registerEventListener",
             "OCA\\Talk\\Events\\BotInvokeEvent",
             "OCA\\Hermiq\\Listener\\TalkApprovalReactionListener",
+            0
+        ],
+        [
+            "registerEventListener",
+            "OCA\\Talk\\Events\\RoomModifiedEvent",
+            "OCA\\Hermiq\\Listener\\TalkRoomRenameListener",
             0
         ],
         [
@@ -278,6 +320,11 @@
             "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\ComplianceServiceInterface",
             "OCA\\Hermiq\\Service\\ComplianceService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\ComputerUseServiceInterface",
+            "OCA\\Hermiq\\Service\\ComputerUse\\ComputerUseService"
         ],
         [
             "registerServiceAlias",
@@ -706,6 +753,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\TalkTurnMirrorInterface",
+            "OCA\\Hermiq\\Service\\Talk\\TalkTurnMirror"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\TalkTurnServiceInterface",
             "OCA\\Hermiq\\Service\\Talk\\TalkTurnService"
         ],
@@ -824,18 +876,6 @@
         ],
         [
             "registerTaskProcessingProvider",
-            "OCA\\Hermiq\\TaskProcessing\\Text2TextProvider"
-        ],
-        [
-            "registerTaskProcessingProvider",
-            "OCA\\Hermiq\\TaskProcessing\\Text2TextSummaryProvider"
-        ],
-        [
-            "registerTaskProcessingProvider",
-            "OCA\\Hermiq\\TaskProcessing\\Text2TextHeadlineProvider"
-        ],
-        [
-            "registerTaskProcessingProvider",
             "OCA\\Hermiq\\TaskProcessing\\Text2TextReformulationProvider"
         ],
         [
@@ -845,6 +885,10 @@
         [
             "registerTaskProcessingProvider",
             "OCA\\Hermiq\\TaskProcessing\\ContextAgentProvider"
+        ],
+        [
+            "registerTaskProcessingProvider",
+            "OCA\\Hermiq\\TaskProcessing\\AudioToAudioTranslateProvider"
         ],
         [
             "registerMiddleware",

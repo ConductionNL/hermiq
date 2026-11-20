@@ -12,7 +12,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { h } from 'vue'
 
-vi.mock('../../src/api/approvals.js', () => ({ answerApproval: vi.fn(), approveApproval: vi.fn(), listPendingApprovals: vi.fn(), releaseApproval: vi.fn() }))
+vi.mock('../../src/api/approvals.js', () => ({ answerApproval: vi.fn(), approvalScreenshot: vi.fn(), approveApproval: vi.fn(), listPendingApprovals: vi.fn(), releaseApproval: vi.fn() }))
 
 const agentStore = { registerObjectType: vi.fn(), fetchCollection: vi.fn() }
 const scheduleStore = { registerObjectType: vi.fn(), fetchCollection: vi.fn() }
@@ -81,6 +81,7 @@ async function page() {
 				NcEmptyContent: { props: ['name'], render() { return h('p', { class: 'empty' }, this.name) } },
 				NcLoadingIcon: true,
 				KillSwitchToggle: true,
+				DepartmentSwitchList: true,
 				CheckDecagram: true,
 				ApprovalPreviewModal: modal('ApprovalPreviewModal', ['close', 'approve', 'deny']),
 				ApprovalDenyModal: modal('ApprovalDenyModal', ['close', 'denied']),
@@ -176,6 +177,45 @@ describe('the Approvals page rows', () => {
 		await wrapper.vm.load()
 		await flushPromises()
 		expect(wrapper.find('aside').text()).toBe('Inbox down')
+	})
+
+	it('shows a held computer action\'s machine and point, and approves that machine for the run for 15 minutes', async () => {
+		approvals.listPendingApprovals.mockResolvedValue([
+			{ id: 'c1', agentId: 'a1', prompt: '', toolId: 'hermiq.computerClick', toolArguments: { target: 'werkplek-03', x: 412, y: 230 } },
+			{ id: 'p3', scheduleId: 's1', agentId: 'a1', prompt: 'Vat de week samen' },
+		])
+		approvals.approveApproval.mockResolvedValue({})
+		const wrapper = await page()
+
+		const rows = wrapper.findAll('tbody tr')
+		const action = rows[0].find('[data-testid="approval-computer-action"]').findAll('span').map((span) => span.text())
+		expect(action.slice(0, 2)).toEqual(['Machine: werkplek-03', 'Click at 412, 230'])
+		expect(rows[1].find('[data-testid="approval-computer-action"]').exists()).toBe(false)
+		expect(rows[1].find('[data-testid="approval-machine-run"]').exists()).toBe(false)
+
+		await rows[0].find('[data-testid="approval-machine-run"]').trigger('click')
+		await flushPromises()
+
+		expect(approvals.approveApproval).toHaveBeenCalledWith('c1', 'machine-run')
+		expect(approvals.listPendingApprovals).toHaveBeenCalledTimes(2)
+	})
+
+	it('shows the machine\'s screen now with the click point marked, when the reviewer asks', async () => {
+		approvals.listPendingApprovals.mockResolvedValue([
+			{ id: 'c1', agentId: 'a1', prompt: '', toolId: 'hermiq.computerClick', toolArguments: { target: 'werkplek-03', x: 320, y: 200 } },
+		])
+		approvals.approvalScreenshot.mockResolvedValue({ image: 'UE5H', mimeType: 'image/png', width: 1280, height: 800, x: 320, y: 200 })
+		const wrapper = await page()
+		expect(wrapper.find('[data-testid="approval-screen"]').exists()).toBe(false)
+
+		await wrapper.find('[data-testid="approval-show-screen"]').trigger('click')
+		await flushPromises()
+
+		expect(approvals.approvalScreenshot).toHaveBeenCalledWith('c1')
+		const img = wrapper.find('[data-testid="approval-screen"] img')
+		expect(img.attributes('src')).toBe('data:image/png;base64,UE5H')
+		expect(img.attributes('alt')).toBe('Screen of werkplek-03')
+		expect(wrapper.find('[data-testid="approval-screen-point"]').attributes('style')).toContain('left: 25%; top: 25%;')
 	})
 
 	describe('questions and held drafts (oversight-ask-and-hold)', () => {

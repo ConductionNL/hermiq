@@ -30,6 +30,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
+use OCA\Hermiq\Service\AgentBuildService;
 use OCA\Hermiq\Service\AgentVersionService;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\BudgetService;
@@ -341,9 +342,11 @@ class ScheduleServiceTest extends TestCase {
 	/**
 	 * Build a ScheduleService wired to the current mocks.
 	 *
+	 * @param AgentBuildService|null $agentBuilds The build service, when the test needs it.
+	 *
 	 * @return ScheduleService
 	 */
-	private function makeService(): ScheduleService {
+	private function makeService(?AgentBuildService $agentBuilds = null): ScheduleService {
 		return new ScheduleService(
 			objectService: $this->objectService,
 			agentMapper: $this->agentMapper,
@@ -366,6 +369,7 @@ class ScheduleServiceTest extends TestCase {
 			delegationContext: $this->delegationContext,
 			jobList: $this->createMock(IJobList::class),
 			traceExportQueue: $this->traceExportQueue,
+			agentBuilds: $agentBuilds,
 		);
 
 	}//end makeService()
@@ -1084,6 +1088,42 @@ class ScheduleServiceTest extends TestCase {
 		$this->assertSame('version-1', $context['agentVersion'], 'agent-versioning: the executing agent version must be pinned.');
 
 	}//end testSuccessfulRunWritesRunAuditEntry()
+
+	/**
+	 * The run entry names the build the agent pinned, next to the version, and
+	 * null when the agent pins none.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning/spec.md#requirement-runs-of-a-published-agent-start-from-its-pinned-build-req-build-002
+	 */
+	public function testTheRunEntryNamesThePinnedBuild(): void {
+		$this->objectService->method('findAll')->willReturn(
+			[
+				$this->schedule(
+					[
+						'kind' => 'interval',
+						'intervalMinutes' => 60,
+						'agentId' => 'agent-uuid',
+						'prompt' => 'go',
+						'deliver' => 'none',
+						'enabled' => true,
+						'nextRun' => '2020-01-01T00:00:00+00:00',
+						'repeat' => ['times' => 0, 'completed' => 0],
+					]
+				),
+			]
+		);
+		$this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+		$builds = $this->createMock(AgentBuildService::class);
+		$builds->expects($this->once())->method('pinnedBuildIdOf')->with('agent-uuid')->willReturn('build-3');
+
+		$this->makeService(agentBuilds: $builds)->run();
+
+		$this->assertCount(1, $this->auditCalls);
+		$this->assertSame('build-3', $this->auditCalls[0]['context']['buildId']);
+		$this->assertSame('version-1', $this->auditCalls[0]['context']['agentVersion']);
+	}//end testTheRunEntryNamesThePinnedBuild()
 
 	/**
 	 * agent-versioning: the pinned agentVersion is looked up for the SCHEDULE's

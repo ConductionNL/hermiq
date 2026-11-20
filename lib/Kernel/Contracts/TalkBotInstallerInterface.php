@@ -106,4 +106,18 @@ interface TalkBotInstallerInterface {
 	 * @SuppressWarnings(PHPMD.StaticAccess) See installForAgent().
 	 */
 	public function uninstallForAgent(string $agentId): bool;
+
+	/**
+	 * The agents whose own bot a Talk moderator has enabled in a room.
+	 *
+	 * Read from spreed's bot state, so Talk's bot management is the room's
+	 * membership list. Empty when Talk is absent or cannot be read.
+	 *
+	 * @param string $roomToken The Talk room token.
+	 *
+	 * @return array<int, string> The agent uuids, in spreed's order.
+	 *
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-a-room-may-host-several-agents-managed-by-talk-moderators
+	 */
+	public function enabledAgentIds(string $roomToken): array;
 }//end interface

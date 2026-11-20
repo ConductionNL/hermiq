@@ -203,6 +203,7 @@ class EffectiveModelPolicyTest extends TestCase {
 				'allowed' => [['provider' => 'ollama', 'models' => ['qwen']]],
 				'defaultModel' => ['provider' => 'ollama', 'model' => 'qwen'],
 				'requireNoTraining' => true,
+				'fallbackChain' => [],
 			],
 			$check->effectivePolicyFor(organisation: 'org-a')
 		);
@@ -229,7 +230,8 @@ class EffectiveModelPolicyTest extends TestCase {
 
 	/**
 	 * With no policy stored, only the configured chat provider is allowed; with none
-	 * configured, nothing is.
+	 * configured, only Nextcloud AI, the provider hermiq then runs on
+	 * (use-nextcloud-ai-settings).
 	 *
 	 * @return void
 	 */
@@ -238,12 +240,13 @@ class EffectiveModelPolicyTest extends TestCase {
 		$unconfigured = $this->check([], chatProvider: '');
 
 		$this->assertSame(
-			['source' => 'fallback', 'allowed' => [['provider' => 'ollama', 'models' => []]], 'defaultModel' => null, 'requireNoTraining' => false],
+			['source' => 'fallback', 'allowed' => [['provider' => 'ollama', 'models' => []]], 'defaultModel' => null, 'requireNoTraining' => false, 'fallbackChain' => []],
 			$configured->effectivePolicyFor(organisation: 'org-a')
 		);
 		$this->assertTrue($configured->isAllowed(organisation: 'org-a', provider: 'ollama', model: 'any'));
 		$this->assertFalse($configured->isAllowed(organisation: 'org-a', provider: 'openai', model: 'gpt-4o'));
-		$this->assertSame([], $unconfigured->effectivePolicyFor(organisation: 'org-a')['allowed']);
+		$this->assertSame([['provider' => 'nextcloud', 'models' => []]], $unconfigured->effectivePolicyFor(organisation: 'org-a')['allowed']);
+		$this->assertTrue($unconfigured->isAllowed(organisation: 'org-a', provider: 'nextcloud', model: 'any'));
 		$this->assertFalse($unconfigured->isAllowed(organisation: 'org-a', provider: 'ollama', model: 'any'));
 		$this->assertFalse($unconfigured->requiresNoTraining(organisation: 'org-a'));
 	}//end testTheFallbackIsFailClosed()
@@ -280,11 +283,11 @@ class EffectiveModelPolicyTest extends TestCase {
 		$updated = $service->update(uuid: 'p-org', payload: ['requireNoTraining' => false]);
 
 		$this->assertSame(
-			['id' => 'p-org', 'organisation' => 'org-a', 'source' => 'organisation', 'allowed' => [['provider' => 'openai', 'models' => ['gpt-4o']]], 'defaultModel' => ['provider' => 'openai', 'model' => 'gpt-4o'], 'requireNoTraining' => true],
+			['id' => 'p-org', 'organisation' => 'org-a', 'source' => 'organisation', 'allowed' => [['provider' => 'openai', 'models' => ['gpt-4o']]], 'defaultModel' => ['provider' => 'openai', 'model' => 'gpt-4o'], 'requireNoTraining' => true, 'fallbackChain' => []],
 			$upserted
 		);
-		$this->assertSame(['new-uuid', '', 'instance', [], null, false], array_values($instance));
-		$this->assertSame(['p-org', 'org-of-record', 'organisation', [], null, false], array_values($updated));
+		$this->assertSame(['new-uuid', '', 'instance', [], null, false, []], array_values($instance));
+		$this->assertSame(['p-org', 'org-of-record', 'organisation', [], null, false, []], array_values($updated));
 		$this->assertSame('p-org', $objects->saves[0]['uuid']);
 		$this->assertNull($objects->saves[1]['uuid']);
 	}//end testAWriteReturnsTheStoredShape()
@@ -308,4 +311,32 @@ class EffectiveModelPolicyTest extends TestCase {
 		$this->expectExceptionMessage("ModelPolicy 'missing' does not exist");
 		$service->update(uuid: 'missing', payload: []);
 	}//end testAWriteOutsideTheRulesIsRefused()
+
+	/**
+	 * The service hands the effective chain to the turn: the organisation's own, else the
+	 * instance default's, and nothing malformed.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-3-the-fallback-loop-with-the-same-gates-per-hop
+	 */
+	public function testTheServiceHandsTheEffectiveChainToTheTurn(): void {
+		$objects = $this->objectService(
+			[
+				$this->policy('p-instance', '', ['allowed' => [['provider' => 'ollama', 'models' => []]], 'fallbackChain' => [['provider' => 'ollama', 'model' => 'qwen2.5']]]),
+				$this->policy(
+					'p-org',
+					'org-a',
+					[
+						'allowed' => [['provider' => 'fireworks', 'models' => []], ['provider' => 'ollama', 'models' => []]],
+						'fallbackChain' => [['provider' => 'fireworks', 'model' => 'llama'], ['model' => 'no-provider']],
+					]
+				),
+			]
+		);
+		$service = $this->service(objects: $objects);
+
+		$this->assertSame([['provider' => 'fireworks', 'model' => 'llama']], $service->fallbackChainFor(organisation: 'org-a'));
+		$this->assertSame([['provider' => 'ollama', 'model' => 'qwen2.5']], $service->fallbackChainFor(organisation: 'org-b'));
+	}//end testTheServiceHandsTheEffectiveChainToTheTurn()
 }//end class

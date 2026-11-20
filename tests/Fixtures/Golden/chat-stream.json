@@ -81,7 +81,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -556,7 +557,8 @@
                         "page": "p1"
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -671,7 +673,8 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -852,7 +855,8 @@
                         "page": "p1"
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -953,7 +957,8 @@
                         {
                             "fileId": 9
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -1624,7 +1629,8 @@
                     "userId": "alice",
                     "userMessage": "answer me",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -2004,7 +2010,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -2183,7 +2190,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -2657,7 +2665,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -2990,7 +2999,8 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -3270,7 +3280,8 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             "bus.drain:conv-new",
@@ -3502,7 +3513,8 @@
                         "page": "p1"
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -3571,7 +3583,8 @@
                         "page": "p1"
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             "bus.drain:conv-new",
@@ -3825,7 +3838,8 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -4028,7 +4042,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -4321,7 +4336,8 @@
                         {
                             "fileId": 9
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -4483,7 +4499,8 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             "bus.drain:conv-new",
@@ -5566,7 +5583,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             "bus.drain:conv-alice",
@@ -5764,7 +5782,8 @@
                         "page": "p1"
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -6017,7 +6036,8 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -6228,7 +6248,8 @@
                         {
                             "fileId": 9
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -6272,7 +6293,8 @@
                     "userId": "alice",
                     "userMessage": "42",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -6384,7 +6406,8 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             "bus.drain:conv-alice",
@@ -6528,7 +6551,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -6708,7 +6732,8 @@
                         "page": "p1"
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -6933,7 +6958,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             "bus.drain:conv-alice",
@@ -7664,7 +7690,8 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -7902,7 +7929,8 @@
                         {
                             "fileId": 9
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             "bus.drain:conv-new",
@@ -8170,7 +8198,8 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -8302,7 +8331,8 @@
                     "userId": "alice",
                     "userMessage": "answer me",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -8467,7 +8497,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -8526,7 +8557,8 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -8981,7 +9013,8 @@
                         "page": "p1"
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -9111,7 +9144,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -9401,7 +9435,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -9784,7 +9819,8 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -9912,7 +9948,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -10093,7 +10130,8 @@
                     "userId": "alice",
                     "userMessage": "answer me",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -10210,7 +10248,8 @@
                     "userId": "alice",
                     "userMessage": "42",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -10462,7 +10501,8 @@
                     "userId": "alice",
                     "userMessage": "answer me",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -10937,7 +10977,8 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             "bus.drain:conv-alice",
@@ -11084,7 +11125,8 @@
                         "page": "p1"
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -11268,7 +11310,8 @@
                         {
                             "fileId": 9
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -11366,7 +11409,8 @@
                         {
                             "fileId": 9
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -11627,7 +11671,8 @@
                         {
                             "fileId": 9
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -12091,7 +12136,8 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -12192,7 +12238,8 @@
                         "page": "p1"
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             "bus.drain:conv-new",
@@ -12316,7 +12363,8 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -12683,7 +12731,8 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -12822,7 +12871,8 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -13055,7 +13105,8 @@
                         {
                             "fileId": 9
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -13148,7 +13199,8 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -13431,7 +13483,8 @@
                     "userId": "alice",
                     "userMessage": "answer me",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             "bus.drain:conv-new",
@@ -13553,7 +13606,8 @@
                         "page": "p1"
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -13762,7 +13816,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -13855,7 +13910,8 @@
                         "page": "p1"
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -14285,7 +14341,8 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -14617,7 +14674,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -14945,7 +15003,8 @@
                         {
                             "fileId": 9
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -15239,7 +15298,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -15358,7 +15418,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             "bus.drain:conv-alice",
@@ -15489,7 +15550,8 @@
                         {
                             "fileId": 9
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             "bus.drain:conv-alice",
@@ -15758,7 +15820,8 @@
                         {
                             "fileId": 9
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -15906,7 +15969,8 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -16686,7 +16750,8 @@
                         {
                             "fileId": 9
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -16990,7 +17055,8 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -17147,7 +17213,8 @@
                         {
                             "fileId": 9
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -17549,7 +17616,8 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -17753,7 +17821,8 @@
                     "userId": "alice",
                     "userMessage": "answer me",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -18038,7 +18107,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -18249,7 +18319,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -18599,7 +18670,8 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -18734,7 +18806,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -18892,7 +18965,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -19347,7 +19421,8 @@
                         {
                             "fileId": 9
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -19776,7 +19851,8 @@
                         "page": "p1"
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -19833,7 +19909,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -20529,7 +20606,8 @@
                         {
                             "fileId": 9
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -20754,7 +20832,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -21124,7 +21203,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             "bus.drain:conv-new",
@@ -21396,7 +21476,8 @@
                     "userId": "alice",
                     "userMessage": "answer me",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             "bus.drain:conv-new",
@@ -21481,7 +21562,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -21717,7 +21799,8 @@
                         {
                             "fileId": 9
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             "bus.drain:conv-alice",
@@ -21836,7 +21919,8 @@
                         "page": "p1"
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -21989,7 +22073,8 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -22199,7 +22284,8 @@
                         "page": "p1"
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -22244,7 +22330,8 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -22453,7 +22540,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -22704,7 +22792,8 @@
                     "userId": "alice",
                     "userMessage": "42",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -22796,7 +22885,8 @@
                     "userId": "alice",
                     "userMessage": "answer me",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             "bus.drain:conv-new",
@@ -23156,7 +23246,8 @@
                         "page": "p1"
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -23305,7 +23396,8 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -23456,7 +23548,8 @@
                         {
                             "fileId": 9
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -24258,7 +24351,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -24331,7 +24425,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -24396,7 +24491,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -24522,7 +24618,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             "bus.drain:conv-alice",
@@ -24791,7 +24888,8 @@
                         {
                             "fileId": 9
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -25373,7 +25471,8 @@
                         {
                             "fileId": 9
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -25515,7 +25614,8 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -25883,7 +25983,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -26061,7 +26162,8 @@
                     "userId": "alice",
                     "userMessage": "answer me",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             "bus.drain:conv-new",
@@ -26239,7 +26341,8 @@
                     "userId": "bob",
                     "userMessage": "42",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -26455,7 +26558,8 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -26610,7 +26714,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             "bus.drain:conv-new",
@@ -26996,7 +27101,8 @@
                     "userId": "alice",
                     "userMessage": "answer me",
                     "channel": "channel",
-                    "trace": []
+                    "trace": [],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -27120,7 +27226,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -27181,7 +27288,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {
@@ -27422,7 +27530,8 @@
                         {
                             "fileId": 7
                         }
-                    ]
+                    ],
+                    "turnChannel": "hermiq"
                 }
             },
             {

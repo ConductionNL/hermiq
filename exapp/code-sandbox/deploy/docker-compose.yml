@@ -34,9 +34,60 @@ services:
     environment:
       APP_ID: hermiq-code-sandbox
       APP_PORT: "9000"
+      BROWSER_CONTROL_URL: "http://hermiq-code-sandbox-browser:9100"
     networks:
       - sandbox-internal
+      - browser-control
+
+  # The browser service (tools-browser-and-computer-use D1): its own container,
+  # sharing no network with code runs' egress. It reaches the internet only
+  # through the browser egress proxy, which asks Hermiq's egress PDP about every
+  # connection with the run's token, and the controller asks the same PDP before
+  # Chromium may open a request at all. No volumes, no profile kept.
+  hermiq-code-sandbox-browser:
+    image: ghcr.io/conductionnl/hermiq-code-sandbox-browser:latest
+    build:
+      context: ..
+      dockerfile: Dockerfile.browser
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 2g
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=512m
+    environment:
+      APP_ID: hermiq-code-sandbox
+      BROWSER_PORT: "9100"
+      BROWSER_EGRESS_PROXY: "http://browser-egress-proxy:3128"
+      EGRESS_PDP_URL: ${EGRESS_PDP_URL:?set to e.g. http://nextcloud/apps/hermiq/api/egress/authorize}
+    networks:
+      - browser-control
+      - browser-jail
+
+  browser-egress-proxy:
+    build: ./browser-egress-proxy
+    image: ghcr.io/conductionnl/hermiq-browser-egress-proxy:latest
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      PROXY_PORT: "3128"
+      EGRESS_PDP_URL: ${EGRESS_PDP_URL:?set to e.g. http://nextcloud/apps/hermiq/api/egress/authorize}
+      EGRESS_PDP_TIMEOUT_MS: "15000"
+    networks:
+      - browser-jail
+      - browser-out
 
 networks:
   sandbox-internal:
     internal: true
+  browser-control:
+    internal: true
+  browser-jail:
+    internal: true
+  browser-out: {}

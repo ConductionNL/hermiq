@@ -14,7 +14,8 @@
 
   A standard nav page — NOT a dashboard (dashboard-antipattern gate). The org
   kill-switch (KillSwitchToggle) sits in the header, shown only to org sub-admins /
-  instance admins via a backend capability flag.
+  instance admins via a backend capability flag. Below it, administrators see the
+  per-department switches (DepartmentSwitchList).
 
   @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
   @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/specs/human-approval-gate-ui/spec.md
@@ -27,6 +28,8 @@
 			</h2>
 			<KillSwitchToggle />
 		</div>
+
+		<DepartmentSwitchList />
 
 		<NcNoteCard
 			v-if="error"
@@ -118,6 +121,33 @@
 						<template v-else>
 							{{ approval.prompt || '—' }}
 						</template>
+						<span
+							v-if="computerAction(approval)"
+							class="approval-inbox__computer"
+							data-testid="approval-computer-action">
+							<span>{{ t('hermiq', 'Machine: {target}', { target: computerAction(approval).target }) }}</span>
+							<span>{{ computerAction(approval).label }}</span>
+							<NcButton
+								variant="tertiary"
+								:aria-label="t('hermiq', 'Show the screen of this machine')"
+								data-testid="approval-show-screen"
+								@click="showScreen(approval)">
+								{{ t('hermiq', 'Show the screen') }}
+							</NcButton>
+							<span
+								v-if="screens[approval.id]"
+								class="approval-inbox__screen"
+								data-testid="approval-screen">
+								<img
+									:src="`data:${screens[approval.id].mimeType};base64,${screens[approval.id].image}`"
+									:alt="t('hermiq', 'Screen of {target}', { target: computerAction(approval).target })">
+								<span
+									v-if="pointStyle(screens[approval.id])"
+									class="approval-inbox__point"
+									data-testid="approval-screen-point"
+									:style="pointStyle(screens[approval.id])" />
+							</span>
+						</span>
 					</td>
 					<td>{{ formatDate(approval.requestedAt) }}</td>
 					<td class="approval-inbox__row-actions">
@@ -145,6 +175,15 @@
 								<NcLoadingIcon :size="20" />
 							</template>
 							{{ t('hermiq', 'Approve') }}
+						</NcButton>
+						<NcButton
+							v-if="computerAction(approval)"
+							variant="secondary"
+							:disabled="actioningId === approval.id"
+							:aria-label="t('hermiq', 'Approve the actions on this machine in this run for 15 minutes')"
+							data-testid="approval-machine-run"
+							@click="approve(approval, 'machine-run')">
+							{{ t('hermiq', 'Approve for 15 minutes') }}
 						</NcButton>
 						<NcButton
 							variant="error"
@@ -182,11 +221,12 @@
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import CheckDecagram from 'vue-material-design-icons/CheckDecagram.vue'
 import AgentQuestionCard from '../components/AgentQuestionCard.vue'
+import DepartmentSwitchList from '../components/DepartmentSwitchList.vue'
 import KillSwitchToggle from '../components/KillSwitchToggle.vue'
 import ApprovalDenyModal from '../modals/ApprovalDenyModal.vue'
 import ApprovalPreviewModal from '../modals/ApprovalPreviewModal.vue'
 import DraftReviewModal, { draftFields } from '../modals/DraftReviewModal.vue'
-import { answerApproval, approveApproval, listPendingApprovals } from '../api/approvals.js'
+import { answerApproval, approvalScreenshot, approveApproval, listPendingApprovals } from '../api/approvals.js'
 import { useAgentStore, useScheduleStore } from '../store/store.js'
 import { dateOrText } from '../utils/displayDate.js'
 import { errorMessage } from '../utils/errorMessage.js'
@@ -199,6 +239,7 @@ export default {
 		ApprovalDenyModal,
 		ApprovalPreviewModal,
 		CheckDecagram,
+		DepartmentSwitchList,
 		DraftReviewModal,
 		KillSwitchToggle,
 		NcButton,
@@ -209,6 +250,8 @@ export default {
 
 	data() {
 		return {
+			// The live screens a reviewer asked for, by approval id; never stored.
+			screens: {},
 			approvals: [],
 			scheduleMap: {},
 			agentMap: {},
@@ -367,20 +410,73 @@ export default {
 		 * Approve an approval (runs the gated agent server-side) and reload.
 		 *
 		 * @param {object} approval The approval record.
+		 * @param {string} [scope] `machine-run` also approves a computer action's machine for its run for 15 minutes.
 		 * @return {Promise<void>}
 		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
-		async approve(approval) {
+		async approve(approval, scope = '') {
 			this.actioningId = approval.id
 			this.error = ''
 			try {
-				await approveApproval(approval.id)
+				await (scope ? approveApproval(approval.id, scope) : approveApproval(approval.id))
 				await this.load()
 			} catch (e) {
 				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.actioningId = ''
 			}
+		},
+
+		/**
+		 * What a held computer action does, for the reviewer: the machine and the
+		 * action with its point; null for any other approval.
+		 *
+		 * @param {object} approval The approval record.
+		 * @return {{target: string, label: string}|null} The machine and the action.
+		 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+		 */
+		computerAction(approval) {
+			const args = approval?.toolArguments || {}
+			const labels = {
+				'hermiq.computerClick': () => this.t('hermiq', 'Click at {x}, {y}', { x: String(args.x ?? ''), y: String(args.y ?? '') }),
+				'hermiq.computerType': () => this.t('hermiq', 'Type text'),
+				'hermiq.computerKey': () => this.t('hermiq', 'Press keys'),
+			}
+			const label = labels[approval?.toolId]
+			if (!label) {
+				return null
+			}
+			return { target: String(args.target || ''), label: label() }
+		},
+
+		/**
+		 * Read the machine's screen now for a held computer action.
+		 *
+		 * @param {object} approval The approval record.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+		 */
+		async showScreen(approval) {
+			this.error = ''
+			try {
+				this.screens = { ...this.screens, [approval.id]: await approvalScreenshot(approval.id) }
+			} catch (e) {
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
+			}
+		},
+
+		/**
+		 * Where the action's point sits on the screen, as a share of its size.
+		 *
+		 * @param {{width: number, height: number, x: number|null, y: number|null}} screen The screen.
+		 * @return {object|null} The point's position, or null without one.
+		 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+		 */
+		pointStyle(screen) {
+			if (!screen?.width || !screen?.height || screen.x === null || screen.y === null || screen.x === undefined || screen.y === undefined) {
+				return null
+			}
+			return { left: `${(screen.x / screen.width) * 100}%`, top: `${(screen.y / screen.height) * 100}%` }
 		},
 
 		/**
@@ -535,5 +631,36 @@ export default {
 	height: 1px;
 	overflow: hidden;
 	clip-path: inset(50%);
+}
+
+.approval-inbox__screen {
+	position: relative;
+	display: inline-block;
+	max-width: 480px;
+	margin-top: 4px;
+}
+
+.approval-inbox__screen img {
+	display: block;
+	width: 100%;
+	height: auto;
+	border: 1px solid var(--color-border);
+}
+
+.approval-inbox__point {
+	position: absolute;
+	width: 16px;
+	height: 16px;
+	margin: -8px 0 0 -8px;
+	border: 3px solid var(--color-error);
+	border-radius: 50%;
+	pointer-events: none;
+}
+
+.approval-inbox__computer {
+	display: flex;
+	flex-direction: column;
+	margin-top: 4px;
+	color: var(--color-text-maxcontrast);
 }
 </style>

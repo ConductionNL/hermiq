@@ -36,6 +36,27 @@ use DateTimeImmutable;
 final class DispatchOptions {
 
 	/**
+	 * Run the occurrence in this process (runNow, an engine-fired or approved run).
+	 *
+	 * @var string
+	 */
+	public const MODE_INLINE = 'inline';
+
+	/**
+	 * Commit the occurrence and queue it for a background worker (the tick).
+	 *
+	 * @var string
+	 */
+	public const MODE_QUEUE = 'queue';
+
+	/**
+	 * Run an occurrence the tick already committed and this worker claimed.
+	 *
+	 * @var string
+	 */
+	public const MODE_CLAIMED = 'claimed';
+
+	/**
 	 * Constructor.
 	 *
 	 * @param DateTimeImmutable $now The current UTC moment.
@@ -44,6 +65,7 @@ final class DispatchOptions {
 	 *                                 (an approved occurrence running via approve()).
 	 * @param string|null $prompt The prompt for this occurrence instead of the schedule's own,
 	 *                            e.g. with a person's answer to the run's question.
+	 * @param string $mode Where the occurrence runs: one of the MODE_ constants.
 	 *
 	 * @spec exclude Parameter object, no functional requirement of its own.
 	 *
@@ -55,6 +77,7 @@ final class DispatchOptions {
 		public readonly array $engagedOrganisations = [],
 		public readonly bool $bypassApprovalGate = false,
 		public readonly ?string $prompt = null,
+		public readonly string $mode = self::MODE_INLINE,
 	) {
 	}//end __construct()
 }//end class

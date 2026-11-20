@@ -49,6 +49,9 @@ use Throwable;
  * @psalm-api
  *
  * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
+ *
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) carried in with instant-talk; splitting it is follow-up
+ * work, not part of this merge.
  */
 class TalkBridge {
 
@@ -118,6 +121,27 @@ class TalkBridge {
 	 * @var string
 	 */
 	private const TALK_BOT_SERVICE = 'OCA\\Talk\\Service\\BotService';
+
+	/**
+	 * Fully-qualified spreed reaction manager, resolved lazily.
+	 *
+	 * @var string
+	 */
+	private const TALK_REACTION_MANAGER = 'OCA\\Talk\\Chat\\ReactionManager';
+
+	/**
+	 * Fully-qualified spreed participant, built for a bot edit.
+	 *
+	 * @var string
+	 */
+	private const TALK_PARTICIPANT = 'OCA\\Talk\\Participant';
+
+	/**
+	 * Fully-qualified spreed attendee entity, built for a bot edit.
+	 *
+	 * @var string
+	 */
+	private const TALK_ATTENDEE = 'OCA\\Talk\\Model\\Attendee';
 
 	/**
 	 * Constructor.
@@ -299,6 +323,106 @@ class TalkBridge {
 	}//end postToRoomReturningId()
 
 	/**
+	 * Whether this Talk can edit a bot's own message (the progressive-reply probe).
+	 *
+	 * @return bool True when spreed exposes message editing and the bot actor shape.
+	 *
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-replies-stream-progressively-where-talk-supports-message-editing
+	 */
+	public function supportsEditing(): bool {
+		return $this->isAvailable() === true
+			&& method_exists(self::TALK_CHAT_MANAGER, 'editMessage') === true
+			&& method_exists(self::TALK_CHAT_MANAGER, 'getComment') === true
+			&& class_exists(self::TALK_PARTICIPANT) === true
+			&& class_exists(self::TALK_ATTENDEE) === true;
+	}//end supportsEditing()
+
+	/**
+	 * Replace the text of a message the bot posted.
+	 *
+	 * Guarded like the posts: false, never an exception, when Talk is absent,
+	 * cannot edit, or refuses. The edit runs as the same bot actor that posted
+	 * the message, so the message's author never changes.
+	 *
+	 * @param string      $roomToken The Talk room token.
+	 * @param string      $messageId The bot's message to edit.
+	 * @param string      $newText   The new full text.
+	 * @param string|null $agentId   The agent whose bot posted it; null for the shared bot.
+	 *
+	 * @return bool True when the edit landed.
+	 *
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-replies-stream-progressively-where-talk-supports-message-editing
+	 */
+	public function editMessage(string $roomToken, string $messageId, string $newText, ?string $agentId = null): bool {
+		if ($this->supportsEditing() === false || $roomToken === '' || $messageId === '' || trim($newText) === '') {
+			return false;
+		}
+
+		try {
+			$room = $this->container->get(self::TALK_MANAGER)->getRoomByToken($roomToken);
+			$chatManager = $this->container->get(self::TALK_CHAT_MANAGER);
+			$comment = $chatManager->getComment($room, $messageId);
+
+			$attendeeClass = self::TALK_ATTENDEE;
+			$attendee = new $attendeeClass();
+			$attendee->setActorType(self::ACTOR_BOTS);
+			$attendee->setActorId($this->botActorId(agentId: $agentId));
+			$participantClass = self::TALK_PARTICIPANT;
+			$participant = new $participantClass($room, $attendee, null);
+
+			$chatManager->editMessage($room, $comment, $participant, new DateTime(), $newText);
+			return true;
+		} catch (Throwable $e) {
+			$this->logger->info(
+				message: '[TalkBridge] Could not edit the bot message; delivery falls back to a whole message',
+				context: $this->roomFailure(roomToken: $roomToken, error: $e)
+			);
+			return false;
+		}//end try
+	}//end editMessage()
+
+	/**
+	 * Remove a reaction the bot put on a message — how the ⏳ acknowledgement is
+	 * resolved once the answer or the failure notice lands.
+	 *
+	 * @param string      $roomToken The Talk room token.
+	 * @param string      $messageId The message the reaction is on.
+	 * @param string      $reaction  The reaction emoji.
+	 * @param string|null $agentId   The agent whose bot reacted; null for the shared bot.
+	 *
+	 * @return bool True when the reaction was removed.
+	 *
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-acknowledgement-is-immediate-and-resolves-with-the-answer
+	 */
+	public function removeReaction(string $roomToken, string $messageId, string $reaction, ?string $agentId = null): bool {
+		if ($this->isAvailable() === false || class_exists(self::TALK_REACTION_MANAGER) === false) {
+			return false;
+		}
+
+		if ($roomToken === '' || ctype_digit($messageId) === false) {
+			return false;
+		}
+
+		try {
+			$room = $this->container->get(self::TALK_MANAGER)->getRoomByToken($roomToken);
+			$this->container->get(self::TALK_REACTION_MANAGER)->deleteReactionMessage(
+				$room,
+				self::ACTOR_BOTS,
+				$this->botActorId(agentId: $agentId),
+				(int)$messageId,
+				$reaction
+			);
+			return true;
+		} catch (Throwable $e) {
+			$this->logger->debug(
+				message: '[TalkBridge] Could not remove the acknowledging reaction',
+				context: $this->roomFailure(roomToken: $roomToken, error: $e)
+			);
+			return false;
+		}
+	}//end removeReaction()
+
+	/**
 	 * Whether the given room is a one-to-one conversation.
 	 *
 	 * Drives mention gating: in a one-to-one room with the bot every message is
@@ -362,6 +486,37 @@ class TalkBridge {
 		}//end try
 
 	}//end roomUserIds()
+
+	/**
+	 * A room's display name, or null when Talk is absent or the room cannot be read.
+	 *
+	 * @param string $roomToken The room token.
+	 *
+	 * @return string|null The room's name, trimmed, or null.
+	 *
+	 * @spec openspec/changes/chat-carry-a-conversation-across-channels/specs/session-channel-continuity/spec.md#requirement-a-session-begun-in-talk-can-be-continued-on-the-chat-page-req-schan-001
+	 */
+	public function roomName(string $roomToken): ?string {
+		if ($this->isAvailable() === false || $roomToken === '') {
+			return null;
+		}
+
+		try {
+			$name = trim((string)$this->container->get(self::TALK_MANAGER)->getRoomByToken($roomToken)->getName());
+		} catch (Throwable $e) {
+			$this->logger->debug(
+				message: '[TalkBridge] Could not resolve the room name',
+				context: $this->roomFailure(roomToken: $roomToken, error: $e)
+			);
+			return null;
+		}
+
+		if ($name === '') {
+			return null;
+		}
+
+		return $name;
+	}//end roomName()
 
 	/**
 	 * Whether an agent's own bot is a member of a room: enabled in it.

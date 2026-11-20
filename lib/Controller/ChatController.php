@@ -38,12 +38,14 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Service\Chat\SessionLinks;
 use Exception;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\EngineInterface;
 use OCA\Hermiq\Kernel\Contracts\LiteracyRequirementInterface;
 use OCA\Hermiq\Kernel\Contracts\ProviderFactoryInterface;
 use OCA\Hermiq\Kernel\Contracts\RunStepBusInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkTurnMirrorInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
 use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
@@ -153,6 +155,8 @@ class ChatController extends Controller {
 	 *                                                 existing caller constructs unchanged.
 	 * @param LiteracyRequirementInterface|null $literacy The course requirement (compliance-ai-literacy).
 	 * @param AppAssistantResolver|null $assistants The agent for an app when a chat names none (agents-bound-to-their-app).
+	 * @param TalkTurnMirrorInterface|null $mirror Mirrors a turn into the session's Talk room.
+	 * @param SessionLinks|null $sessionLinks Records what the session is about when a turn is sent (session-entity-links).
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
@@ -169,6 +173,8 @@ class ChatController extends Controller {
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
 		private readonly ?LiteracyRequirementInterface $literacy = null,
 		private readonly ?AppAssistantResolver $assistants = null,
+		private readonly ?TalkTurnMirrorInterface $mirror = null,
+		private readonly ?SessionLinks $sessionLinks = null,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
@@ -278,6 +284,9 @@ class ChatController extends Controller {
 	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) carried in with session-entity-links; splitting it is
+	 * follow-up work, not part of this merge.
 	 */
 	public function sendMessage(): JSONResponse {
 		try {
@@ -343,7 +352,8 @@ class ChatController extends Controller {
 				ragSettings: $params['ragSettings'],
 				context: $params['context'],
 				trace: $trace,
-				attachments: $params['attachments']
+				attachments: $params['attachments'],
+				turnChannel: 'hermiq'
 			);
 
 			// Add conversation UUID to result for frontend.
@@ -351,6 +361,24 @@ class ChatController extends Controller {
 
 			// Oversight-ask-and-hold: the question the agent asked the person, or null.
 			$result['question'] = $trace->question();
+
+			// A session with a Talk room gets this turn in the room too, queued so
+			// the answer here never waits on Talk (chat-carry-a-conversation-across-channels D2).
+			$this->mirror?->enqueue(
+				session: (array)$conversation->getObject(),
+				sessionId: (string)$conversation->getUuid(),
+				userId: $userId,
+				question: (string)$params['message'],
+				answer: (string)($result['message'] ?? '')
+			);
+
+			// Session-entity-links D2: a SENT turn records what the page it came
+			// from shows; opening the panel records nothing.
+			$this->sessionLinks?->recordTurn(
+				sessionUuid: (string)$conversation->getUuid(),
+				context: (array)$params['context'],
+				userId: $userId
+			);
 
 			// The tool calls this turn made over the governed MCP transport.
 			// `CnAiMessageList` already renders `message.toolCalls` with
