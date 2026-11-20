@@ -54,7 +54,8 @@ final class BackupSettings {
 	 * @param bool   $includeSessions Whether chat sessions and turns are in the backup.
 	 * @param string $ownerUid        The administrator in whose Files the folder is.
 	 *
-	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) the flag is an option of the backup or restore, carried as data; it switches no behaviour of this constructor.
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) the flag is an option of the backup or restore, carried as
+	 * data; it switches no behaviour of this constructor.
 	 */
 	public function __construct(
 		public readonly bool $enabled=false,

@@ -67,7 +67,8 @@ class RestoreJob extends QueuedJob {
 	 *
 	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) RestorePoint is a value object; the static call is its named constructor, with nothing to inject.
+	 * @SuppressWarnings(PHPMD.StaticAccess) RestorePoint is a value object; the static call is its named
+	 * constructor, with nothing to inject.
 	 */
 	protected function run($argument): void {
 		$argument = (array)$argument;
