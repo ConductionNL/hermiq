@@ -70,6 +70,7 @@ class Notifier implements INotifier {
 		'session_shared',
 		'goal_reached',
 		'goal_exhausted',
+		'report_due',
 		'handoff_result',
 	];
 
@@ -183,6 +184,7 @@ class Notifier implements INotifier {
 			'session_shared' => $this->sessionSharedText(owner: (string)($subjectRaw['owner'] ?? ''), name: $name, l: $l),
 			'goal_reached' => $this->goalText(reached: true, name: $name, l: $l),
 			'goal_exhausted' => $this->goalText(reached: false, name: $name, l: $l),
+			'report_due' => $this->reportDueText(subjectRaw: $subjectRaw, l: $l),
 			'handoff_result' => $this->handoffResultText(name: $name, l: $l),
 			default => $this->runCompleteText(name: $name, l: $l),
 		};
@@ -424,6 +426,32 @@ class Notifier implements INotifier {
 			$l->t('The agent used every turn without reaching the goal. Open the session to see how far it got.'),
 		];
 	}//end goalText()
+
+	/**
+	 * Text for `report_due`: a subscribed report is ready for its week or month (reports-on-a-schedule).
+	 *
+	 * @param array<string,mixed> $subjectRaw The stored subject parameters (`report`, `from`, `to`).
+	 * @param IL10N               $l          The recipient's localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/changes/reports-on-a-schedule/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
+	 */
+	private function reportDueText(array $subjectRaw, IL10N $l): array {
+		$report = (string)($subjectRaw['report'] ?? '');
+		$label  = $report;
+		if ($report === 'AiOversight') {
+			$label = $l->t('AI oversight');
+		}
+
+		return [
+			$l->t('Your report is ready: %s', [$label]),
+			$l->t(
+				'It covers %1$s to %2$s. Open it to read what happened in that period.',
+				[(string)($subjectRaw['from'] ?? ''), (string)($subjectRaw['to'] ?? '')]
+			),
+		];
+	}//end reportDueText()
 
 	/**
 	 * The `handoff_result` wording: work an agent started has come back (flows-hand-off-and-wait).

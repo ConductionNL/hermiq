@@ -36,8 +36,10 @@ Kind: code. Size M. Row `hermiq:dm-standing-goal`.
 - **acceptance_criteria**:
   - GIVEN a session WHEN a goal is set THEN the header shows it; GIVEN another user WHEN they stop it THEN 404
 - [x] Implement
-- [ ] Test (PHPUnit on the controller guards: done, GoalControllerTest; Playwright for set and stop: tests/e2e/spec-coverage/agents-standing-goal.spec.ts written, needs a run on the live instance)
+- [x] Test (PHPUnit on the controller guards: done, GoalControllerTest; Playwright for set and stop: tests/e2e/spec-coverage/agents-standing-goal.spec.ts written, needs a run on the live instance)
+  - Live 2026-11-17: agents-standing-goal.spec.ts passed on a clean NC 34 + OpenRegister main (three runs).
 
 ## Verification
 - [x] `openspec validate agents-standing-goal --type change --strict` passes
-- [ ] A live check: a goal with an objectCount check reaches its target on a test register
+- [x] A live check: a goal with an objectCount check reaches its target on a test register
+  - Live 2026-11-17: a goal counting two seeded objects with target 0; both deleted, the goal made due, ScheduleTask run once: `lastCheckResult` "0 left, target 0", status `reached`, one turn used. A second goal on the same session answered 409. Note: the turn's agent run itself failed, because `hermiq.engine.enabled` is off by default and the legacy path cannot find a register agent; the check does not depend on it.

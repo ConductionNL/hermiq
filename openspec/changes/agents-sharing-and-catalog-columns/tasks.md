@@ -54,7 +54,8 @@ Kind: code. Size M. Rows `hermiq:ag-visibility`, `hermiq:ag-list`.
 - **acceptance_criteria**:
   - GIVEN a private agent WHEN a non-invited colleague reads `/apps/openregister/api/objects/hermiq/agent/{id}` THEN either 404, or the PR names the OpenRegister issue filed because object-level authorization cannot express it
 - [x] Implement (the Agent read rule, hermiq#976, closes the object API; pinned by `AgentReadRuleTest`)
-- [ ] Test (a live call with two users: not run here)
+- [x] Test (a live call with two users: not run here)
+  - Live 2026-11-17: as a non-invited user, `GET /apps/openregister/api/objects/hermiq/agent/{id}` and `GET /apps/hermiq/api/agents/{id}` of a private agent both answer 404; the owner gets 200; a member of the group the agent is shared with gets it (Playwright).
 
 ## Verification
 - [x] `openspec validate agents-sharing-and-catalog-columns --type change --strict` passes

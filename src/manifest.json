@@ -357,8 +357,16 @@
 								"prompt",
 								"temperature",
 								"maxTokens",
-								"maxToolCalls"
-							]
+								"maxToolCalls",
+								"ensemble"
+							],
+							"overrides": {
+								"ensemble": {
+									"label": "Answer with several models",
+									"formatter": "agentEnsemble",
+									"editable": false
+								}
+							}
 						}
 					},
 					{
@@ -829,6 +837,63 @@
 			},
 			"slots": {
 				"form-dialog": "ContextFormModal"
+			}
+		},
+		{
+			"id": "KnowledgeBases",
+			"route": "/knowledge-bases",
+			"type": "index",
+			"title": "Knowledge bases",
+			"config": {
+				"register": "hermiq",
+				"schema": "agentknowledgebase",
+				"_note": "memory-knowledge-bases: knowledge bases are documents an agent searches per question. Reached from the Memory page and the agent form's picker, not from the menu (design.md D6). Create and edit go through the generic schema form (name, description, folder); sources are managed on the detail page.",
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "description",
+						"label": "Description"
+					}
+				],
+				"rowRoute": "KnowledgeBaseDetail"
+			}
+		},
+		{
+			"id": "KnowledgeBaseDetail",
+			"route": "/knowledge-bases/:id",
+			"type": "detail",
+			"title": "Knowledge base",
+			"config": {
+				"register": "hermiq",
+				"schema": "agentknowledgebase",
+				"widgets": [
+					{
+						"id": "knowledge-base-sources",
+						"type": "custom",
+						"title": "Sources",
+						"icon": "BookOpenVariantOutline",
+						"_note": "Sources with their indexing state, the only-you notice and where an outside source comes from; upload, add from Files, add a folder, remove. Resolved via page.slots.widget-knowledge-base-sources -> knowledge-base-sources."
+					}
+				],
+				"layout": [
+					{
+						"id": "1",
+						"widgetId": "knowledge-base-sources",
+						"gridX": 0,
+						"gridY": 0,
+						"gridWidth": 12,
+						"gridHeight": 6
+					}
+				],
+				"sidebar": {
+					"enabled": false
+				}
+			},
+			"slots": {
+				"widget-knowledge-base-sources": "knowledge-base-sources"
 			}
 		},
 		{
@@ -1642,6 +1707,57 @@
 						"description": "What the agents did, and what a human still has to answer for.",
 						"icon": "ShieldCheckOutline",
 						"route": "AiOversight"
+					}
+				],
+				"cardState": {
+					"url": "/apps/hermiq/api/report-subscriptions",
+					"keyField": "report"
+				},
+				"cardActions": [
+					{
+						"id": "send-weekly",
+						"label": "Send me this weekly",
+						"type": "api-call",
+						"method": "POST",
+						"url": "/apps/hermiq/api/report-subscriptions/@objectId",
+						"payload": {
+							"frequency": "weekly"
+						},
+						"successMessage": "You will get this report every week.",
+						"visibleWhen": {
+							"field": "state.status",
+							"op": "neq",
+							"value": "active"
+						}
+					},
+					{
+						"id": "send-monthly",
+						"label": "Send me this monthly",
+						"type": "api-call",
+						"method": "POST",
+						"url": "/apps/hermiq/api/report-subscriptions/@objectId",
+						"payload": {
+							"frequency": "monthly"
+						},
+						"successMessage": "You will get this report every month.",
+						"visibleWhen": {
+							"field": "state.status",
+							"op": "neq",
+							"value": "active"
+						}
+					},
+					{
+						"id": "stop-sending",
+						"label": "Stop sending",
+						"type": "api-call",
+						"method": "DELETE",
+						"url": "/apps/hermiq/api/report-subscriptions/@objectId",
+						"successMessage": "This report is no longer sent to you.",
+						"visibleWhen": {
+							"field": "state.status",
+							"op": "eq",
+							"value": "active"
+						}
 					}
 				]
 			},

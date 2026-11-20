@@ -112,6 +112,14 @@ final class ResponseTurnRun {
 	public array $attachments = [];
 
 	/**
+	 * The reference models' answers the agent's own model merges, in an
+	 * ensemble turn (models-several-models-per-turn); empty otherwise.
+	 *
+	 * @var array<int, array{provider: string, model: string, text: string}>
+	 */
+	public array $referenceAnswers = [];
+
+	/**
 	 * The uid the attachments were resolved for.
 	 *
 	 * @var string

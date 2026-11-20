@@ -20,6 +20,12 @@
   ragNumSources, searchFiles, searchObjects). Every NcSelect carries an
   `inputLabel` for the nc-input-labels accessibility gate (WCAG 2.1 AA).
 
+  The people and group pickers (sharing, service account, file owners) keep
+  their option list inside the dialog (`appendToBody` false). Appended to
+  the page body, the list sat outside the modal's focus trap and outside its
+  aria-modal subtree, so screen readers could not reach the options and the
+  keyboard lost them (WCAG 2.2 AA 2.1.1, 4.1.2).
+
   Icon (agent-icon-picker): a Material Design Icon name (e.g. "Creation"),
   picked via the shared `CnIconPicker` in searchable+clearable mode (the full
   MDI range via @mdi/js, not the small curated dashboard-widget icon set) —
@@ -125,6 +131,7 @@
 						<NcSelect
 							v-model="form.invitedUsers"
 							data-testid="agent-form-sharing-people"
+							:appendToBody="false"
 							:inputLabel="t('hermiq', 'People')"
 							:options="peopleOptions"
 							:multiple="true"
@@ -135,6 +142,7 @@
 						<NcSelect
 							v-model="form.groups"
 							data-testid="agent-form-sharing-groups"
+							:appendToBody="false"
 							:inputLabel="t('hermiq', 'Groups')"
 							:options="groupOptions"
 							:multiple="true"
@@ -189,6 +197,7 @@
 						<NcSelect
 							v-model="form.actingUser"
 							data-testid="agent-form-acting-user"
+							:appendToBody="false"
 							:inputLabel="t('hermiq', 'Service account')"
 							:options="actingUserOptions"
 							:filterable="false"
@@ -277,6 +286,15 @@
 						{{ findingText(finding) }}
 					</p>
 				</div>
+
+				<!-- Several models per answer (models-several-models-per-turn): the
+			     reference models are offered from the same policy-filtered lists as
+			     the agent's own model; the server refuses one the policy does not
+			     allow, and that refusal shows as the form's error. -->
+				<EnsembleEditor
+					v-model="form.ensemble"
+					:providerOptions="providerOptions"
+					:modelsFor="ensembleModelsFor" />
 
 				<!-- The agent's own key per provider (operations-a-credential-per-agent).
 			     Only a reference is stored; the broker keeps the secret. When the
@@ -447,6 +465,29 @@
 					</p>
 				</div>
 
+				<!-- memory-knowledge-bases: the knowledge bases this agent searches per
+			     question. Each person only gets passages from documents they may read. -->
+				<div class="agent-form__field">
+					<NcSelect
+						v-model="form.knowledgeBaseRefs"
+						:inputLabel="t('hermiq', 'Knowledge bases')"
+						:options="knowledgeBaseOptions"
+						:loading="knowledgeBasesLoading"
+						:multiple="true"
+						:keepOpen="true"
+						label="label"
+						trackBy="value"
+						:placeholder="t('hermiq', 'Select knowledge bases this agent searches')" />
+					<p class="agent-form__hint">
+						{{
+							t(
+								'hermiq',
+								'The agent searches these on every question. Each person only gets answers from documents they may read.',
+							)
+						}}
+					</p>
+				</div>
+
 				<div class="agent-form__field">
 					<!-- v9 NcCheckboxRadioSwitch is modelValue-based; the old
 				     :checked/@update:checked pair no longer round-trips. -->
@@ -480,6 +521,7 @@
 						<NcSelect
 							v-model="form.fileOwnerUsers"
 							data-testid="agent-form-file-owner-users"
+							:appendToBody="false"
 							:inputLabel="t('hermiq', 'Files owned by these people')"
 							:options="peopleOptions"
 							:multiple="true"
@@ -490,6 +532,7 @@
 						<NcSelect
 							v-model="form.fileOwnerGroups"
 							data-testid="agent-form-file-owner-groups"
+							:appendToBody="false"
 							:inputLabel="t('hermiq', 'Files owned by members of these groups')"
 							:options="groupOptions"
 							:multiple="true"
@@ -661,6 +704,7 @@ import {
 	NcTextArea,
 	NcTextField,
 } from '@nextcloud/vue'
+import EnsembleEditor from '../components/EnsembleEditor.vue'
 import PromptPlaceholderTools from '../components/PromptPlaceholderTools.vue'
 import StartFieldsEditor from '../components/StartFieldsEditor.vue'
 import { getActingUserStatus } from '../api/actingUser.js'
@@ -671,7 +715,7 @@ import { updateToolGrants } from '../api/toolOversight.js'
 import { flattenGrants } from '../api/toolTaxonomy.js'
 import { OPEN_GEMEENTEN_ICONS } from '../icons/openGemeentenIcons.js'
 import { KNOWN_MODELS, knownModelsFor } from '../llm/knownModels.js'
-import { useAgentStore } from '../store/store.js'
+import { useAgentStore, useKnowledgeBaseStore } from '../store/store.js'
 import { actingChoiceOf, actingUserField, actingUserOf } from '../utils/agentActingUser.js'
 import { answersInItsApp, appOptions, appSlugOf } from '../utils/agentApp.js'
 import {
@@ -679,6 +723,7 @@ import {
 	PINNABLE_PROVIDERS,
 	setPin,
 } from '../utils/agentCredentials.js'
+import { ensembleOf, ensemblePayload, sendsEnsemble } from '../utils/agentEnsemble.js'
 import { sharingFields, sharingOf } from '../utils/agentSharing.js'
 import { insertPlaceholder, startFieldsOf } from '../utils/instructionVariables.js'
 import {
@@ -813,6 +858,7 @@ function describingFields(source) {
 		temperature: source.temperature ?? '',
 		maxTokens: source.maxTokens ?? '',
 		maxToolCalls: source.maxToolCalls ?? 10,
+		ensemble: ensembleOf(source.ensemble),
 	}
 }
 
@@ -918,6 +964,7 @@ export default {
 
 	components: {
 		CnIconPicker,
+		EnsembleEditor,
 		PromptPlaceholderTools,
 		StartFieldsEditor,
 		NcButton,
@@ -994,6 +1041,9 @@ export default {
 			// ids to human-readable names.
 			agentCatalog: [],
 			agentCatalogLoading: false,
+			// memory-knowledge-bases: the knowledge bases the picker offers.
+			knowledgeBases: [],
+			knowledgeBasesLoading: false,
 			// manifest-driven-pages: when opened as the registry `agent-form`
 			// open-modal target from AgentDetail's "Edit agent" header action,
 			// no `agent` prop is available (open-modal action props are static
@@ -1339,6 +1389,18 @@ export default {
 			)
 		},
 
+		/**
+		 * The visible knowledge bases as picker options.
+		 *
+		 * @return {Array<object>} The { label, value } options.
+		 * @spec openspec/changes/memory-knowledge-bases/specs/knowledge-bases/spec.md#requirement-an-agent-answers-from-its-attached-knowledge-bases-req-kb-002
+		 */
+		knowledgeBaseOptions() {
+			return this.mapKnowledgeBaseRefsToOptions(
+				this.knowledgeBases.map((knowledgeBase) => knowledgeBase.uuid || knowledgeBase.id),
+			)
+		},
+
 		delegationAllowlistOptions() {
 			const editingId =
 				this.effectiveAgent?.uuid || this.effectiveAgent?.id || null
@@ -1386,6 +1448,7 @@ export default {
 				this.loadPolicy()
 				this.loadCredentials()
 				this.loadAgentCatalog()
+				this.loadKnowledgeBases()
 			},
 		},
 	},
@@ -1520,6 +1583,7 @@ export default {
 				actingUser: null,
 				tools: [],
 				delegationAllowlist: [],
+				knowledgeBaseRefs: [],
 				enableRag: false,
 				searchObjects: true,
 				searchFiles: true,
@@ -1529,6 +1593,7 @@ export default {
 				voiceSilenceTimeout: '',
 				voiceConversationEnabled: false,
 				credentialIds: {},
+				ensemble: ensembleOf(undefined),
 				...retrievalScopeFields({}),
 			}
 		},
@@ -1681,6 +1746,10 @@ export default {
 				delegationAllowlist:
 					this.mapDelegationAllowlistToOptions(delegationAllowlist),
 
+				knowledgeBaseRefs: this.mapKnowledgeBaseRefsToOptions(
+					Array.isArray(source.knowledgeBaseRefs) ? source.knowledgeBaseRefs : [],
+				),
+
 				...searchAndVoiceFields(source),
 				...retrievalScopeFields(source),
 			}
@@ -1777,6 +1846,49 @@ export default {
 		},
 
 		/**
+		 * Load the visible knowledge bases for the picker, then re-resolve the
+		 * selected ones' names.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/memory-knowledge-bases/specs/knowledge-bases/spec.md#requirement-an-agent-answers-from-its-attached-knowledge-bases-req-kb-002
+		 */
+		async loadKnowledgeBases() {
+			this.knowledgeBasesLoading = true
+			try {
+				const store = useKnowledgeBaseStore()
+				store.registerObjectType('agentknowledgebase', 'agentknowledgebase', 'hermiq')
+				const found = await store.fetchCollection('agentknowledgebase')
+				this.knowledgeBases = Array.isArray(found) ? found : []
+			} catch {
+				this.knowledgeBases = []
+			} finally {
+				this.knowledgeBasesLoading = false
+			}
+			if (this.show) {
+				this.form.knowledgeBaseRefs = this.mapKnowledgeBaseRefsToOptions(
+					(this.form.knowledgeBaseRefs || []).map((option) => option.value),
+				)
+			}
+		},
+
+		/**
+		 * Map knowledge base uuids to NcSelect options, named from the loaded
+		 * knowledge bases when available (the uuid before they arrive).
+		 *
+		 * @param {Array<string>} ids The knowledge base uuids.
+		 * @return {Array<object>} The { label, value } options.
+		 * @spec openspec/changes/memory-knowledge-bases/specs/knowledge-bases/spec.md#requirement-an-agent-answers-from-its-attached-knowledge-bases-req-kb-002
+		 */
+		mapKnowledgeBaseRefsToOptions(ids) {
+			return (ids || []).map((id) => {
+				const match = this.knowledgeBases.find(
+					(candidate) => (candidate.uuid || candidate.id) === id,
+				)
+				return { label: match?.name || id, value: id }
+			})
+		},
+
+		/**
 		 * Map delegation-allowlist agent ids to NcSelect options, resolving each
 		 * id's human name from the loaded agent catalog when available (falls
 		 * back to the bare id before the catalog has loaded).
@@ -1792,6 +1904,24 @@ export default {
 				)
 				return { label: match?.name || id, value: id }
 			})
+		},
+
+		/**
+		 * The models offered for one reference model's provider: the policy's
+		 * allowed models when it names any, the provider's known ones otherwise.
+		 *
+		 * @param {string} provider The reference model's provider.
+		 * @return {Array<string>} The model ids.
+		 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+		 */
+		ensembleModelsFor(provider) {
+			const entry = (this.policy?.allowed || []).find(
+				(candidate) => candidate.provider === provider,
+			)
+			if (Array.isArray(entry?.models) && entry.models.length > 0) {
+				return entry.models
+			}
+			return knownModelsFor(provider)
 		},
 
 		/**
@@ -1911,6 +2041,14 @@ export default {
 
 			this.applyOptionalFields(payload)
 
+			// The ensemble is sent when it is on, or when the agent had one, so
+			// an agent that never used it is saved without the field.
+			if (sendsEnsemble(this.form.ensemble, base.ensemble)) {
+				payload.ensemble = ensemblePayload(this.form.ensemble)
+			} else {
+				delete payload.ensemble
+			}
+
 			// Preserve the object id on edit so saveObject issues a PUT.
 			if (this.effectiveAgent && this.effectiveAgent.id) {
 				payload.id = this.effectiveAgent.id
@@ -1941,6 +2079,7 @@ export default {
 					: this.selectedGrants(),
 
 				delegationAllowlist: optionValues(this.form.delegationAllowlist),
+				knowledgeBaseRefs: optionValues(this.form.knowledgeBaseRefs),
 
 				applicationSlug: appSlugOf(this.form.applicationSlug),
 
