@@ -99,19 +99,19 @@ class AnalyticsService implements AnalyticsServiceInterface
      * The audit actions that represent an agent run, as ONE comma-joined filter value.
      *
      * AuditTrailMapper::findAll() turns a comma-bearing filter value into a SQL `IN`
-     * (see its filter loop), so both run channels come back from a single query rather
+     * (see its filter loop), so every run channel (schedule, flow, by hand) comes back from a single query rather
      * than two passes that would then need merging and re-sorting.
      *
      * @var string
      */
-    private const RUN_ACTIONS = 'run,agent-run';
+    private const RUN_ACTIONS = 'run,agent-run,manual-run';
 
     /**
      * The trigger a run row shows per audit action; any other action is a flow run.
      *
      * @var array<string, string>
      */
-    private const RUN_TRIGGERS = ['run' => 'schedule'];
+    private const RUN_TRIGGERS = ['run' => 'schedule', 'manual-run' => 'manual'];
 
     /**
      * The provider-disclosure labels a run row carries; anything else on the record is dropped.

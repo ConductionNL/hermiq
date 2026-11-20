@@ -333,7 +333,7 @@ class LlmSettingsController extends Controller {
 	 * @return array The sanitised patch.
 	 */
 	private function dropBlankCredentials(array $data): array {
-		foreach (['openaiConfig', 'fireworksConfig', 'anthropicConfig'] as $block) {
+		foreach (['openaiConfig', 'fireworksConfig', 'anthropicConfig', 'openaiCompatibleConfig'] as $block) {
 			if (isset($data[$block]['credentialId']) === true && $data[$block]['credentialId'] === '') {
 				unset($data[$block]['credentialId']);
 			}

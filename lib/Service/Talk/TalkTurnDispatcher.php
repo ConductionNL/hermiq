@@ -46,6 +46,7 @@ namespace OCA\Hermiq\Service\Talk;
 use OCA\Hermiq\BackgroundJob\TalkTurnJob;
 use OCA\Hermiq\Kernel\Contracts\TalkTurnDispatcherInterface;
 use OCP\BackgroundJob\IJobList;
+use OCP\IAppConfig;
 use OCP\TaskProcessing\IManager as ITaskProcessingManager;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -83,51 +84,164 @@ class TalkTurnDispatcher implements TalkTurnDispatcherInterface {
 	 * @param IJobList $jobList The background job list (fallback path).
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param ITaskProcessingManager|null $taskManager Core TaskProcessing manager (fast path).
+	 * @param TalkTurnExecutor|null $executor Claims and runs a turn (instant path).
+	 * @param TalkTurnClaims|null $claims The claim store (instant path).
+	 * @param TalkPostResponseRunner|null $postResponse Runs work after the response (instant path).
+	 * @param IAppConfig|null $appConfig Reads the instant-path switch and cap.
 	 */
 	public function __construct(
 		private readonly IJobList $jobList,
 		private readonly LoggerInterface $logger,
 		private readonly ?ITaskProcessingManager $taskManager = null,
+		private readonly ?TalkTurnExecutor $executor = null,
+		private readonly ?TalkTurnClaims $claims = null,
+		private readonly ?TalkPostResponseRunner $postResponse = null,
+		private readonly ?IAppConfig $appConfig = null,
 	) {
 	}//end __construct()
 
 	/**
 	 * Hand the turn off for execution outside this request.
 	 *
+	 * The durable enqueue always comes first. Then the immediate path: a
+	 * registered triggerable runner is nudged (path A); otherwise the turn is
+	 * run in this process once the sender's response is out (path B). Neither
+	 * path holds the sender's request, and the queued job stays behind as the
+	 * safety net either way — the turn's claim keeps the two from both running it.
+	 *
 	 * @param string $conversationUuid The bound conversation.
 	 * @param string $speakerUid The uid whose turn this is.
 	 * @param string $message The message text.
 	 * @param string $roomToken The room to answer in.
+	 * @param string $turnId The turn id (`TalkTurnId::derive()`); '' runs it unclaimed.
+	 * @param string $agentId The addressed agent; '' resolves it from the room's session.
+	 * @param string $messageId The Talk message that addressed the agent.
+	 * @param array $chain The agent-to-agent chain descriptor; empty for a human-rooted turn.
 	 *
-	 * @return string The path taken: `triggered` or `queued`.
+	 * @return string The path taken: `triggered`, `instant` or `queued`.
 	 *
 	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-turns-execute-immediately-with-claim-based-exactly-once-semantics
 	 */
-	public function dispatch(string $conversationUuid, string $speakerUid, string $message, string $roomToken): string {
+	public function dispatch(
+		string $conversationUuid,
+		string $speakerUid,
+		string $message,
+		string $roomToken,
+		string $turnId = '',
+		string $agentId = '',
+		string $messageId = '',
+		array $chain = [],
+	): string {
 		$argument = [
 			'conversationUuid' => $conversationUuid,
 			'speakerUid' => $speakerUid,
 			'message' => $message,
 			'roomToken' => $roomToken,
 		];
+		$extra = ['turnId' => $turnId, 'agentId' => $agentId, 'messageId' => $messageId];
+		foreach ($extra as $key => $value) {
+			if ($value !== '') {
+				$argument[$key] = $value;
+			}
+		}
 
-		// The queued job is the durable hand-off and today it is the ONLY one
-		// that actually executes a turn: the fast path needs a registered
-		// ITriggerableProvider that pulls Hermiq turns, and no such runner
-		// ships yet (hermiq's existing TaskProcessing providers are all
-		// ISynchronousProvider, which core runs on the same cron tick).
-		//
-		// `triggerFastPath()` is the seam that activates when one does. It is
-		// deliberately a nudge only — the queued job stays the durable record
-		// either way, so a turn can never be lost between the two mechanisms.
+		if ($chain !== []) {
+			$argument['chain'] = $chain;
+		}
+
+		// The queued job is the durable hand-off: it is enqueued for EVERY turn,
+		// whatever path runs it, so a turn can never be lost between mechanisms.
 		$this->jobList->add(TalkTurnJob::class, $argument);
 
 		if ($this->triggerFastPath() === true) {
 			return 'triggered';
 		}
 
+		if ($this->deferInstant(argument: $argument) === true) {
+			return 'instant';
+		}
+
 		return 'queued';
 	}//end dispatch()
+
+	/**
+	 * Schedule the turn to run in this process after the response (path B).
+	 *
+	 * Only with a turn id and atomic claims: without them the instant run and
+	 * the queued job could both answer. At run time a slot of the concurrent
+	 * instant-turns cap is taken; with the cap full the turn simply stays on the
+	 * queue, which is logged.
+	 *
+	 * @param array $argument The hand-off argument, as enqueued.
+	 *
+	 * @return bool True when the turn was scheduled to run after the response.
+	 *
+	 * @spec openspec/changes/instant-talk/tasks.md#2-immediate-execution-paths
+	 */
+	private function deferInstant(array $argument): bool {
+		if ($this->executor === null || $this->claims === null || $this->postResponse === null) {
+			return false;
+		}
+
+		if (($argument['turnId'] ?? '') === '' || $this->claims->isAtomic() === false || $this->instantEnabled() === false) {
+			return false;
+		}
+
+		$executor = $this->executor;
+		$claims = $this->claims;
+		$cap = $this->instantCap();
+		$this->postResponse->defer(
+			work: function () use ($executor, $claims, $cap, $argument): void {
+				if ($claims->takeSlot(cap: $cap) === false) {
+					$this->logger->info(
+						message: '[TalkTurnDispatcher] Instant-turn cap reached; the turn stays on the queue',
+						context: ['file' => __FILE__, 'line' => __LINE__, 'roomToken' => $argument['roomToken'], 'cap' => $cap]
+					);
+					return;
+				}
+
+				try {
+					$executor->execute(argument: $argument);
+				} finally {
+					$claims->releaseSlot();
+				}
+			},
+			budgetSeconds: $claims->timeoutSeconds()
+		);
+
+		return true;
+	}//end deferInstant()
+
+	/**
+	 * Whether post-response instant execution is switched on (default on).
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/instant-talk/tasks.md#2-immediate-execution-paths
+	 */
+	private function instantEnabled(): bool {
+		if ($this->appConfig === null) {
+			return true;
+		}
+
+		return $this->appConfig->getValueBool('hermiq', 'talk.instantTurns', true);
+	}//end instantEnabled()
+
+	/**
+	 * The most instant turns one instance runs at once (default 2).
+	 *
+	 * @return int
+	 *
+	 * @spec openspec/changes/instant-talk/tasks.md#2-immediate-execution-paths
+	 */
+	private function instantCap(): int {
+		if ($this->appConfig === null) {
+			return 2;
+		}
+
+		return $this->appConfig->getValueInt('hermiq', 'talk.instantTurnsMax', 2);
+	}//end instantCap()
 
 	/**
 	 * Nudge a triggerable runner so the queued turn is picked up immediately.

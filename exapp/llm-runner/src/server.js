@@ -28,6 +28,7 @@ const { getProvider } = require('./providers')
 const { run } = require('./runner')
 const { runStage } = require('./stage')
 const jobs = require('./jobs')
+const login = require('./login')
 
 const HOST = process.env.RUNNER_HOST || '0.0.0.0'
 const PORT = Number(process.env.RUNNER_PORT || process.env.APP_PORT || '9000')
@@ -605,6 +606,182 @@ function answerPoll(res, jobId) {
 }
 
 /**
+ * Whether a provider's pinned CLI offers its sign-in. A provider whose login
+ * names a probe asks the CLI's own help for the flag, once; one without a probe
+ * always has it.
+ *
+ * @type {Map<string, Promise<boolean>>}
+ */
+const loginSupport = new Map()
+
+/**
+ * Whether a provider offers a subscription sign-in on this runner.
+ *
+ * @param {string} id The provider id.
+ * @returns {Promise<boolean>} True when the sign-in can be offered.
+ */
+function loginSupported(id) {
+	const provider = getProvider(id)
+	if (provider === null || !provider.login) {
+		return Promise.resolve(false)
+	}
+	if (!Array.isArray(provider.login.probeArgs)) {
+		return Promise.resolve(true)
+	}
+	if (!loginSupport.has(id)) {
+		loginSupport.set(id, probeHelp(provider))
+	}
+	return loginSupport.get(id)
+}
+
+/**
+ * Run the CLI's help for its login command and look for the sign-in flag.
+ *
+ * @param {object} provider The provider adapter.
+ * @returns {Promise<boolean>} True when the help names the flag.
+ */
+function probeHelp(provider) {
+	return new Promise((resolve) => {
+		let out = ''
+		let child
+		try {
+			child = require('child_process').spawn(provider.bin, provider.login.probeArgs, {
+				env: { PATH: process.env.PATH, HOME: require('os').tmpdir() },
+				stdio: ['ignore', 'pipe', 'pipe'],
+			})
+		} catch (err) {
+			resolve(false)
+			return
+		}
+		const timer = setTimeout(() => child.kill('SIGKILL'), 10000)
+		child.stdout.on('data', (c) => { out += c.toString('utf8') })
+		child.stderr.on('data', (c) => { out += c.toString('utf8') })
+		child.on('error', () => { clearTimeout(timer); resolve(false) })
+		child.on('close', () => {
+			clearTimeout(timer)
+			resolve(out.includes(provider.login.probeFlag))
+		})
+	})
+}
+
+/**
+ * Authenticate a sign-in request; answers the refusal itself.
+ *
+ * @param {http.IncomingMessage} req The request.
+ * @param {http.ServerResponse} res The response.
+ * @param {Buffer} rawBody The raw body.
+ * @param {string} route The route, for the log line.
+ * @returns {boolean} True when authenticated.
+ */
+function loginAuthenticated(req, res, rawBody, route) {
+	const verdict = auth.verify(lowerHeaders(req.headers), rawBody)
+	if (!verdict.ok) {
+		log('warn', `${route} rejected: ${verdict.reason}`)
+		sendJson(res, verdict.status, { error: 'unauthorised' })
+		return false
+	}
+	return true
+}
+
+/**
+ * Answer a sign-in failure with its status and code; never with a token.
+ *
+ * @param {http.ServerResponse} res The response.
+ * @param {Error} err The failure.
+ * @returns {void}
+ */
+function sendLoginFailure(res, err) {
+	const status = err instanceof login.LoginError ? err.status : 500
+	const code = err instanceof login.LoginError ? err.code : 'login_failed'
+	log('warn', `sign-in failed (${code})`)
+	sendJson(res, status, { error: err.message, code })
+}
+
+/**
+ * Handle `GET /login`: which providers offer a sign-in on this runner.
+ *
+ * @param {http.IncomingMessage} req The request.
+ * @param {http.ServerResponse} res The response.
+ * @returns {Promise<void>} Resolves when answered.
+ */
+async function handleLoginProviders(req, res) {
+	if (!loginAuthenticated(req, res, Buffer.alloc(0), 'GET /login')) {
+		return
+	}
+	const providers = []
+	for (const id of ['anthropic', 'openai']) {
+		if (await loginSupported(id)) {
+			const provider = getProvider(id)
+			providers.push({ provider: id, mode: provider.login.mode, hosts: provider.login.hosts })
+		}
+	}
+	sendJson(res, 200, { providers })
+}
+
+/**
+ * Handle `POST /login`: start a sign-in, answer its id and the sign-in URL.
+ *
+ * @param {http.IncomingMessage} req The request.
+ * @param {http.ServerResponse} res The response.
+ * @param {Buffer} rawBody The raw body: `{provider, runToken}`.
+ * @returns {Promise<void>} Resolves when answered.
+ */
+async function handleLoginStart(req, res, rawBody) {
+	if (!loginAuthenticated(req, res, rawBody, 'POST /login')) {
+		return
+	}
+	const body = parseJsonBody(res, rawBody)
+	if (body === undefined) {
+		return
+	}
+	const id = typeof body.provider === 'string' ? body.provider : ''
+	if (!(await loginSupported(id))) {
+		sendJson(res, 400, { error: 'this provider offers no sign-in on this runner', code: 'unsupported' })
+		return
+	}
+	try {
+		const started = await login.start(getProvider(id), typeof body.runToken === 'string' ? body.runToken : '')
+		log('info', `sign-in started provider=${id} login=${started.loginId}`)
+		sendJson(res, 200, started)
+	} catch (err) {
+		sendLoginFailure(res, err)
+	}
+}
+
+/**
+ * Handle `POST /login/{id}/code`: finish a sign-in and return its token once.
+ *
+ * @param {http.IncomingMessage} req The request.
+ * @param {http.ServerResponse} res The response.
+ * @param {Buffer} rawBody The raw body: `{code}` (omitted for a device sign-in).
+ * @returns {Promise<void>} Resolves when answered.
+ */
+async function handleLoginCode(req, res, rawBody) {
+	if (!loginAuthenticated(req, res, rawBody, 'POST /login/code')) {
+		return
+	}
+	const body = parseJsonBody(res, rawBody)
+	if (body === undefined) {
+		return
+	}
+	const loginId = LOGIN_CODE_PATH.exec(req.url.split('?')[0])[1]
+	try {
+		const { token } = await login.finish(loginId, typeof body.code === 'string' ? body.code : '')
+		log('info', `sign-in completed login=${loginId}`)
+		sendJson(res, 200, { token })
+	} catch (err) {
+		sendLoginFailure(res, err)
+	}
+}
+
+/**
+ * The path of `POST /login/{id}/code`; the id is a UUID.
+ *
+ * @type {RegExp}
+ */
+const LOGIN_CODE_PATH = /^\/login\/([0-9a-f-]{36})\/code$/
+
+/**
  * Wrap a body-reading handler: read the body up to `limit`, then hand it on;
  * a body that cannot be read is answered 413 unless a response already went out.
  *
@@ -653,6 +830,9 @@ function pathOnly(path) {
  * - `POST /stage`: run a stage (body may carry a tool tree, so its own cap).
  * - `GET /stage`: collect an async stage.
  * - `POST /run`: one CLI turn.
+ * - `GET /login`: the providers that offer a subscription sign-in.
+ * - `POST /login`: start a sign-in.
+ * - `POST /login/{id}/code`: finish a sign-in, the token returned once.
  *
  * @type {Array<{method: string, matches: function(string): boolean, handle: function(http.IncomingMessage, http.ServerResponse): void}>}
  */
@@ -666,6 +846,13 @@ const ROUTES = [
 	},
 	{ method: 'GET', matches: pathOnly('/stage'), handle: handleStagePoll },
 	{ method: 'POST', matches: exactUrl('/run'), handle: withBody(handleRun) },
+	{ method: 'GET', matches: exactUrl('/login'), handle: handleLoginProviders },
+	{ method: 'POST', matches: exactUrl('/login'), handle: withBody(handleLoginStart) },
+	{
+		method: 'POST',
+		matches: (url) => LOGIN_CODE_PATH.test(url.split('?')[0]),
+		handle: withBody(handleLoginCode),
+	},
 ]
 
 const server = http.createServer((req, res) => {

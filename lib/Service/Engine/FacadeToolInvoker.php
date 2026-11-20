@@ -139,6 +139,7 @@ use Closure;
 use DateTimeImmutable;
 use OCA\Hermiq\Mcp\BrowserToolDescriptors;
 use OCA\Hermiq\Mcp\ComputerToolDescriptors;
+use OCA\Hermiq\Mcp\CustomToolDescriptors;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Mcp\CodeSandboxToolDescriptors;
 use OCA\Hermiq\Service\CodeSandbox\CodeRunTrace;
@@ -830,12 +831,17 @@ class FacadeToolInvoker {
 	 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#scenario-an-agent-queued-flow-run-names-the-acting-owner
 	 */
 	private function withFlowOwner(string $name, array $arguments): array {
-		if ($this->queuesFlowRun(name: $name) === false) {
+		// A custom tool may run a flow, so it carries the owner too; its invoker
+		// refuses a flow target without one (tools-custom-tools-without-code D4).
+		$custom = (CustomToolDescriptors::slugOf(toolId: $this->resolveToolId(name: $name)) !== null);
+		if ($this->queuesFlowRun(name: $name) === false && $custom === false) {
 			return $arguments;
 		}
 
 		$owner = trim((string)$this->ownerUid);
 		if ($owner === '') {
+			// Never let a model-supplied owner stand in for a missing one.
+			unset($arguments[self::FLOW_OWNER_ARGUMENT]);
 			return $arguments;
 		}
 
@@ -1567,6 +1573,12 @@ class FacadeToolInvoker {
 		// each tool to omit content.
 		$artefact = $this->resolveArtefactDescriptor(result: $result);
 
+		// A custom tool's step names the tool, its version and what it called
+		// (tools-custom-tools-without-code REQ-CUSTOOL-004).
+		if (CustomToolDescriptors::slugOf(toolId: $toolId) !== null) {
+			return array_merge($artefact, self::customToolTrace(toolId: $toolId, result: $result));
+		}
+
 		// The tools-code-sandbox D6 record: the code, its limits and outcome, outputs capped and redacted.
 		if ($toolId === CodeSandboxToolDescriptors::RUN_CODE) {
 			return array_merge($artefact, CodeRunTrace::extra(arguments: $arguments, result: $result, redaction: $this->redactionService));
@@ -1610,6 +1622,37 @@ class FacadeToolInvoker {
 	private function redactText(string $text): string {
 		return ($this->redactionService?->redact($text) ?? '«redacted»');
 	}//end redactText()
+
+	/**
+	 * The trace fragment of a custom tool call: its id, name, version and target, scalars only.
+	 *
+	 * @param string $toolId The `hermiq.custom_<slug>` id.
+	 * @param mixed  $result The tool's decoded result.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-passes-the-same-governance-as-every-tool-req-custool-004
+	 */
+	private static function customToolTrace(string $toolId, mixed $result): array {
+		$meta = [];
+		if (is_array($result) === true && is_array($result['customTool'] ?? null) === true) {
+			$meta = $result['customTool'];
+		}
+
+		$trace = ['id' => $toolId, 'name' => '', 'version' => '', 'target' => ''];
+		foreach (['name', 'version', 'target'] as $key) {
+			if (is_scalar($meta[$key] ?? null) === true) {
+				$trace[$key] = (string)$meta[$key];
+			}
+		}
+
+		$fragment = ['customTool' => $trace];
+		if ($trace['target'] !== '') {
+			$fragment['target'] = $trace['target'];
+		}
+
+		return $fragment;
+	}//end customToolTrace()
 
 	/**
 	 * Lift an `artefact` descriptor out of a tool result for the audit record.

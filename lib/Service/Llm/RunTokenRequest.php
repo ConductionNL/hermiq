@@ -62,6 +62,16 @@ final class RunTokenRequest {
 	public ?int $ttlSeconds = null;
 
 	/**
+	 * The only hosts a SIGN-IN token may reach through the egress proxy, on port
+	 * 443 (models-provider-connections D5). Empty for a run token: a token that
+	 * names hosts is a sign-in token, the PDP admits it to these hosts and nothing
+	 * else, and the governed MCP endpoint refuses it.
+	 *
+	 * @var array<int, string>
+	 */
+	public array $egressHosts = [];
+
+	/**
 	 * Build the request.
 	 *
 	 * @param string $runId   The run UUID.

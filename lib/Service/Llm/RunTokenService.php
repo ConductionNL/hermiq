@@ -232,6 +232,12 @@ class RunTokenService implements RunTokenServiceInterface {
 			$record['projectKey'] = $request->projectKey;
 		}
 
+		// A sign-in token carries the hosts it may reach; a run token carries none,
+		// so its stored record is unchanged.
+		if ($request->egressHosts !== []) {
+			$record['egressHosts'] = array_values(array_map('strval', $request->egressHosts));
+		}
+
 		$encoded = json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 		if (is_string($encoded) === false) {
 			// Never mint a token whose record could not be stored — a token that
@@ -266,7 +272,7 @@ class RunTokenService implements RunTokenServiceInterface {
 	 *
 	 * @param string $token The presented bearer token.
 	 *
-	 * @return array{runId: string, agentId: string, userId: string, conversationId: string, projectKey?: string}|null
+	 * @return array{runId: string, agentId: string, userId: string, conversationId: string, projectKey?: string, egressHosts?: list<string>}|null
 	 *                                                                                            The binding, or null when the token is not valid.
 	 *                                                                                            `projectKey` is present only for a run in a project.
 	 *
@@ -292,11 +298,11 @@ class RunTokenService implements RunTokenServiceInterface {
 	}//end verify()
 
 	/**
-	 * The run binding a live token record carries; `projectKey` only when the run has a project.
+	 * The run binding a live token record carries; `projectKey` only when the run has a project, `egressHosts` only for a sign-in token.
 	 *
 	 * @param array<string, mixed> $record The token record.
 	 *
-	 * @return array{runId: string, agentId: string, userId: string, conversationId: string, projectKey?: string}
+	 * @return array{runId: string, agentId: string, userId: string, conversationId: string, projectKey?: string, egressHosts?: list<string>}
 	 *
 	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
@@ -310,6 +316,13 @@ class RunTokenService implements RunTokenServiceInterface {
 		$projectKey = (string)($record['projectKey'] ?? '');
 		if ($projectKey !== '') {
 			$binding['projectKey'] = $projectKey;
+		}
+
+		// Only a sign-in token names hosts (models-provider-connections D5).
+		if (isset($record['egressHosts']) === true && is_array($record['egressHosts']) === true
+			&& $record['egressHosts'] !== []
+		) {
+			$binding['egressHosts'] = array_values(array_map('strval', $record['egressHosts']));
 		}
 
 		return $binding;
