@@ -56,6 +56,8 @@ use Throwable;
  * @psalm-api
  *
  * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-bot-listener-never-runs-an-agent-turn-inline
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with instant-talk; splitting it is follow-up work, not part of this merge.
  */
 class TalkBotInvokeListener implements IEventListener {
 
@@ -237,6 +239,8 @@ class TalkBotInvokeListener implements IEventListener {
 	 * @param TalkInvocation $invocation The admitted invocation.
 	 *
 	 * @return void
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) TalkTurnId is a pure derivation of a turn's identity from room, message and agent; it holds no state to inject.
 	 */
 	private function handOff(TalkInvocation $invocation): void {
 		$turn = $invocation->turn;

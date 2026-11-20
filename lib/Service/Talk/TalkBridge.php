@@ -49,6 +49,8 @@ use Throwable;
  * @psalm-api
  *
  * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
+ *
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) carried in with instant-talk; splitting it is follow-up work, not part of this merge.
  */
 class TalkBridge {
 

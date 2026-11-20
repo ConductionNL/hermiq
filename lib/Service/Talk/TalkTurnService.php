@@ -51,6 +51,8 @@ use Throwable;
  * @psalm-api
  *
  * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with instant-talk; splitting it is follow-up work, not part of this merge.
  */
 class TalkTurnService implements TalkTurnServiceInterface {
 
