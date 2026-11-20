@@ -51,6 +51,9 @@ use Throwable;
  * Publish, list and start from agent builds.
  *
  * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning/spec.md
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with this batch's feature work; splitting it is
+ * follow-up work, not part of this merge.
  */
 class AgentBuildService {
 
@@ -126,6 +129,9 @@ class AgentBuildService {
 	 * @throws WorkspaceException When the conversation has no workspace, or it cannot be archived.
 	 *
 	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning/spec.md#requirement-an-agent-owner-can-publish-a-build-that-pins-files-and-installed-tools-req-build-001
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) SessionWorkspaceKey is used through its static API (a pure helper
+	 * or named constructor) with no state to inject.
 	 */
 	public function publish(ObjectEntity $agent, string $sessionId, string $userId, string $note): array {
 		$agentUuid = (string)$agent->getUuid();
@@ -242,6 +248,9 @@ class AgentBuildService {
 	 * @return string|null The build the workspace was started from, or null.
 	 *
 	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning/spec.md#requirement-runs-of-a-published-agent-start-from-its-pinned-build-req-build-002
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) SessionWorkspaceKey is used through its static API (a pure helper
+	 * or named constructor) with no state to inject.
 	 */
 	public function startWorkspace(ObjectEntity $agent, string $workspaceKey): ?string {
 		$buildId = (string)($agent->getObject()['pinnedBuildId'] ?? '');

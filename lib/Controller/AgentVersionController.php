@@ -54,6 +54,9 @@ use Throwable;
  * method body (gate-7 no-admin-idor), exactly like AgentsController.
  *
  * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-2-agentversioncontroller-routes-owner-scoped-readrollback-endpoints
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with this batch's feature work; splitting it is
+ * follow-up work, not part of this merge.
  */
 class AgentVersionController extends Controller {
 

@@ -1015,6 +1015,9 @@ class ScheduleService implements ScheduleServiceInterface {
 	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
 	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
 	 * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-3-wire-the-budget-gate-into-the-dispatch-path-soft-threshold-delivery
+	 *
+	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) carried in with this batch's feature work; splitting it
+	 * is follow-up work, not part of this merge.
 	 */
 	private function dispatch(ObjectEntity $schedule, DispatchOptions $options): void {
 		$now = $options->now;

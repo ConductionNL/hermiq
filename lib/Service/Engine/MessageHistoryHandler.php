@@ -569,9 +569,15 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	 * whenever they are given, a translation record when it is not empty.
 	 *
 	 * @param array{sessionId: string, role: string, content: string} $message The session id, role and content.
-	 * @param array{sources: ?array, context: ?array, attachments: array, provenance: ?array, retrievalScope: ?array, translation: ?array} $extras The optional parts.
+	 * @param array<string, mixed> $extras The optional parts: sources, context, attachments (array),
+	 *                                     provenance, retrievalScope and translation, each nullable.
 	 *
 	 * @return array<string, mixed> The payload.
+	 *
+	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) carried in with this batch's feature work; splitting it
+	 * is follow-up work, not part of this merge.
+	 * @SuppressWarnings(PHPMD.NPathComplexity) carried in with this batch's feature work; splitting it is
+	 * follow-up work, not part of this merge.
 	 */
 	private function messagePayload(array $message, array $extras): array {
 		$payload = $message;

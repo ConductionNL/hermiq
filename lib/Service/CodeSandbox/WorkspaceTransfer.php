@@ -260,6 +260,9 @@ class WorkspaceTransfer {
 	 * @return array<string, string> Absolute path by relative path.
 	 *
 	 * @throws WorkspaceException When a named path is outside the workspace or not a file.
+	 *
+	 * @SuppressWarnings(PHPMD.ElseExpression) the two branches build one value from two sources; an early
+	 * return would duplicate what follows.
 	 */
 	private function selected(string $root, array $paths): array {
 		$selected = [];

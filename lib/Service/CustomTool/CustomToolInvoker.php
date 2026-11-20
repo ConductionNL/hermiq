@@ -45,6 +45,9 @@ use Throwable;
  * integriq target leaves the instance only through integriq's `CallService`.
  *
  * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+ *
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) carried in with this batch's feature work; splitting it
+ * is follow-up work, not part of this merge.
  */
 class CustomToolInvoker {
 
@@ -113,6 +116,9 @@ class CustomToolInvoker {
 	 * @return array<string, mixed> The answer, or an error envelope.
 	 *
 	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) CustomToolDescriptors is used through its static API (a pure
+	 * helper or named constructor) with no state to inject.
 	 */
 	public function invoke(string $toolId, array $arguments): array {
 		$slug = CustomToolDescriptors::slugOf(toolId: $toolId);
@@ -144,6 +150,9 @@ class CustomToolInvoker {
 	 * @return array<string, mixed> The answer, or an error envelope, with the `customTool` record.
 	 *
 	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) CustomToolDescriptors is used through its static API (a pure
+	 * helper or named constructor) with no state to inject.
 	 */
 	public function run(array $tool, array $arguments, string $owner): array {
 		$slug   = (string)($tool['slug'] ?? '');

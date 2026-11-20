@@ -51,6 +51,9 @@ use Throwable;
  * List, download and save the files of the caller's own session workspace.
  *
  * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-the-user-sees-the-workspace-and-can-keep-a-file-req-wksp-003
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with this batch's feature work; splitting it is
+ * follow-up work, not part of this merge.
  */
 class WorkspaceFilesController extends Controller {
 
@@ -182,6 +185,9 @@ class WorkspaceFilesController extends Controller {
 	 * @return string|null The key.
 	 *
 	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-the-user-sees-the-workspace-and-can-keep-a-file-req-wksp-003
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) SessionWorkspaceKey is used through its static API (a pure helper
+	 * or named constructor) with no state to inject.
 	 */
 	private function workspaceKey(string $sessionId): ?string {
 		$user = $this->userSession->getUser();

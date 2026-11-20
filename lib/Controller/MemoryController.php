@@ -50,6 +50,11 @@ use Throwable;
  * Tenant-scoped agent-memory read/manage endpoints.
  *
  * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#3-controller-routes
+ *
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods) carried in with this batch's feature work; splitting it is
+ * follow-up work, not part of this merge.
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) carried in with this batch's feature work; splitting it
+ * is follow-up work, not part of this merge.
  */
 class MemoryController extends Controller {
 

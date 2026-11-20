@@ -153,6 +153,9 @@ class AudioToTextProvider implements ISynchronousProvider {
 	 * @throws RuntimeException When the sidecar is unavailable.
 	 *
 	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-remote-systems-route-through-openconnector
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) TaskAudioInput is used through its static API (a pure helper or
+	 * named constructor) with no state to inject.
 	 */
 	public function process(?string $userId, array $input, callable $reportProgress): array {
 		// 🔴 NEXTCLOUD HANDS AN `OCP\Files\File` NODE, NOT A RESOURCE AND NOT BYTES.

@@ -82,6 +82,9 @@ class WorkspaceExpiryJob extends TimedJob {
 	 * @return void
 	 *
 	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-can-keep-a-workspace-for-the-whole-conversation-req-wksp-001
+	 *
+	 * @SuppressWarnings(PHPMD.UnusedFormalParameter) $argument is part of the background job signature; this
+	 * job takes no argument.
 	 */
 	protected function run($argument): void {
 		try {

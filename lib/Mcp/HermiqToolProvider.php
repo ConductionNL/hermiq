@@ -899,6 +899,9 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @return array<string, mixed>|null The result, or null when not routed here.
 	 *
 	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-exposed-as-governed-agent-tools
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) CustomToolDescriptors is used through its static API (a pure
+	 * helper or named constructor) with no state to inject.
 	 */
 	private function routed(string $toolId, NativeToolCall $call): ?array {
 		// A custom tool of the acting user's organisation (tools-custom-tools-without-code).

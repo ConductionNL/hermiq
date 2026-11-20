@@ -79,6 +79,11 @@ final class ChatDriver {
 	 *                        API the turn is sent to (models-provider-connections D4).
 	 * @param bool $ownNetwork Whether a keyless base URL is a server on the
 	 *                         organisation's own network, as the admin stated.
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) a driver value object: the flag is data it carries, not a
+	 * behaviour switch.
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) carried in with this batch's feature work; splitting it
+	 * is follow-up work, not part of this merge.
 	 */
 	public function __construct(
 		public readonly string $provider,

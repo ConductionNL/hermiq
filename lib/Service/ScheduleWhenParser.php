@@ -40,6 +40,11 @@ use DateTimeZone;
  * Anything else answers null, and the caller may ask a model instead.
  *
  * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003
+ *
+ * @SuppressWarnings(PHPMD.TooManyMethods) carried in with this batch's feature work; splitting it is follow-
+ * up work, not part of this merge.
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) carried in with this batch's feature work; splitting it
+ * is follow-up work, not part of this merge.
  */
 class ScheduleWhenParser {
 
@@ -149,21 +154,21 @@ class ScheduleWhenParser {
 	 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003
 	 */
 	public function readback(array $rule, string $lang): string {
-		$nl = ($lang === 'nl');
+		$dutch = ($lang === 'nl');
 		if (($rule['kind'] ?? '') === 'interval') {
-			return $this->intervalReadback(minutes: (int)$rule['intervalMinutes'], dutch: $nl);
+			return $this->intervalReadback(minutes: (int)$rule['intervalMinutes'], dutch: $dutch);
 		}
 
 		if (($rule['kind'] ?? '') === 'once') {
 			$at = new DateTimeImmutable((string)$rule['runAt']);
-			if ($nl === true) {
+			if ($dutch === true) {
 				return 'Eenmalig op ' . $at->format('Y-m-d') . ' om ' . $at->format('H:i');
 			}
 
 			return 'Once on ' . $at->format('Y-m-d') . ' at ' . $at->format('H:i');
 		}
 
-		return $this->cronReadback(cron: (string)($rule['cronExpr'] ?? ''), dutch: $nl);
+		return $this->cronReadback(cron: (string)($rule['cronExpr'] ?? ''), dutch: $dutch);
 	}//end readback()
 
 	/**
@@ -231,16 +236,16 @@ class ScheduleWhenParser {
 	 * @return int|null
 	 */
 	private function countedInterval(string $phrase): ?int {
-		if (preg_match('/^(?:every|each|elke|iedere|elk|ieder) (\S+) (minutes?|mins?|minuten|minuut|hours?|uur|uren)$/u', $phrase, $m) !== 1) {
+		if (preg_match('/^(?:every|each|elke|iedere|elk|ieder) (\S+) (minutes?|mins?|minuten|minuut|hours?|uur|uren)$/u', $phrase, $match) !== 1) {
 			return null;
 		}
 
-		$count = $this->number(word: $m[1]);
+		$count = $this->number(word: $match[1]);
 		if ($count === null || $count < 1) {
 			return null;
 		}
 
-		if (in_array($m[2], ['hour', 'hours', 'uur', 'uren'], true) === true) {
+		if (in_array($match[2], ['hour', 'hours', 'uur', 'uren'], true) === true) {
 			$count *= 60;
 		}
 
@@ -255,16 +260,16 @@ class ScheduleWhenParser {
 	 * @return array{kind: string, cronExpr: string}|null
 	 */
 	private function weekly(string $phrase): ?array {
-		$m = self::firstMatch(
+		$match = self::firstMatch(
 			patterns: ['/^(?:(?:every|each|on) (.+?)|(daily)) at (.+)$/u', '/^(?:(?:elke|iedere|op) (.+?)|(dagelijks)) om (.+)$/u'],
 			phrase: $phrase
 		);
-		if ($m === null) {
+		if ($match === null) {
 			return null;
 		}
 
-		$days = $this->daysField(days: ($m[1] . $m[2]));
-		$time = $this->time(text: $m[3]);
+		$days = $this->daysField(days: ($match[1] . $match[2]));
+		$time = $this->time(text: $match[3]);
 		if ($days === null || $time === null) {
 			return null;
 		}
@@ -282,8 +287,8 @@ class ScheduleWhenParser {
 	 */
 	private static function firstMatch(array $patterns, string $phrase): ?array {
 		foreach ($patterns as $pattern) {
-			if (preg_match($pattern, $phrase, $m) === 1) {
-				return $m;
+			if (preg_match($pattern, $phrase, $match) === 1) {
+				return $match;
 			}
 		}
 
@@ -357,13 +362,13 @@ class ScheduleWhenParser {
 			'/^maandelijks(?: om (.+))?$/u',
 		];
 		foreach ($patterns as $pattern) {
-			if (preg_match($pattern, $phrase, $m) !== 1) {
+			if (preg_match($pattern, $phrase, $match) !== 1) {
 				continue;
 			}
 
 			$time = [0, 0];
-			if (($m[1] ?? '') !== '') {
-				$time = $this->time(text: $m[1]);
+			if (($match[1] ?? '') !== '') {
+				$time = $this->time(text: $match[1]);
 			}
 
 			if ($time === null) {
@@ -387,12 +392,12 @@ class ScheduleWhenParser {
 	private function once(string $phrase, DateTimeImmutable $now): ?array {
 		$date = null;
 		$time = null;
-		if (preg_match('/^(?:tomorrow at|morgen om) (.+)$/u', $phrase, $m) === 1) {
+		if (preg_match('/^(?:tomorrow at|morgen om) (.+)$/u', $phrase, $match) === 1) {
 			$date = $now->modify('+1 day');
-			$time = $this->time(text: $m[1]);
-		} elseif (preg_match('/^(?:once |eenmalig )?(?:on|op) (.+?) (?:at|om) (.+)$/u', $phrase, $m) === 1) {
-			$date = $this->date(text: $m[1], now: $now);
-			$time = $this->time(text: $m[2]);
+			$time = $this->time(text: $match[1]);
+		} elseif (preg_match('/^(?:once |eenmalig )?(?:on|op) (.+?) (?:at|om) (.+)$/u', $phrase, $match) === 1) {
+			$date = $this->date(text: $match[1], now: $now);
+			$time = $this->time(text: $match[2]);
 		}
 
 		if ($date === null || $time === null) {
@@ -440,8 +445,8 @@ class ScheduleWhenParser {
 	 * @return array{0: int|null, 1: int, 2: int}|null
 	 */
 	private static function dateParts(string $text): ?array {
-		if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/', $text, $m) === 1) {
-			return [(int)$m[1], (int)$m[2], (int)$m[3]];
+		if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/', $text, $match) === 1) {
+			return [(int)$match[1], (int)$match[2], (int)$match[3]];
 		}
 
 		// `1 december [2026]`, then `december 1[, 2026]`: [pattern, day group, month group].
@@ -450,8 +455,8 @@ class ScheduleWhenParser {
 			['/^([a-z]+) (\d{1,2})(?:,? (\d{4}))?$/u', 2, 1],
 		];
 		foreach ($named as [$pattern, $dayGroup, $monthGroup]) {
-			if (preg_match($pattern, $text, $m) === 1) {
-				return self::namedDate(month: $m[$monthGroup], day: (int)$m[$dayGroup], year: ($m[3] ?? ''));
+			if (preg_match($pattern, $text, $match) === 1) {
+				return self::namedDate(month: $match[$monthGroup], day: (int)$match[$dayGroup], year: ($match[3] ?? ''));
 			}
 		}
 
@@ -519,8 +524,8 @@ class ScheduleWhenParser {
 			'/^half (\S+)$/u' => [-1, 30],
 		];
 		foreach ($relative as $pattern => [$shift, $minute]) {
-			if (preg_match($pattern, $text, $m) === 1) {
-				$hour = $this->number(word: $m[1]);
+			if (preg_match($pattern, $text, $match) === 1) {
+				$hour = $this->number(word: $match[1]);
 				if ($hour === null || $hour > 24) {
 					return null;
 				}
@@ -540,17 +545,17 @@ class ScheduleWhenParser {
 	 * @return array{0: int, 1: int}|null
 	 */
 	private function clockTime(string $text): ?array {
-		if (preg_match('/^(\d{1,2}|[a-zé]+)(?:[:.](\d{2}))?\s*(am|pm|a\.m\.?|p\.m\.?)?$/u', $text, $m) !== 1) {
+		if (preg_match('/^(\d{1,2}|[a-zé]+)(?:[:.](\d{2}))?\s*(am|pm|a\.m\.?|p\.m\.?)?$/u', $text, $match) !== 1) {
 			return null;
 		}
 
-		$hour   = $this->number(word: $m[1]);
-		$minute = (int)($m[2] ?? 0);
+		$hour   = $this->number(word: $match[1]);
+		$minute = (int)($match[2] ?? 0);
 		if (self::onTheClock(hour: $hour, minute: $minute) === false) {
 			return null;
 		}
 
-		$hour = self::withMeridiem(hour: $hour, meridiem: str_replace('.', '', ($m[3] ?? '')));
+		$hour = self::withMeridiem(hour: $hour, meridiem: str_replace('.', '', ($match[3] ?? '')));
 		if ($hour === null) {
 			return null;
 		}

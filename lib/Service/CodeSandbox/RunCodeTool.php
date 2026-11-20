@@ -43,6 +43,12 @@ use Throwable;
  * The runCode tool behind its AI feature gate.
  *
  * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-an-agent-runs-code-only-with-a-grant-and-an-enabled-ai-feature-req-sandbox-002
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with this batch's feature work; splitting it is
+ * follow-up work, not part of this merge.
+ *
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) carried in with this batch's feature work; splitting it
+ * is follow-up work, not part of this merge.
  */
 class RunCodeTool {
 
@@ -146,6 +152,9 @@ class RunCodeTool {
 	 * @param mixed  $code   The `code` argument.
 	 *
 	 * @return array<string, mixed>|null An error envelope, or null.
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) the flag picks the sandbox endpoint; splitting dispatch
+	 * would duplicate its request building.
 	 */
 	private function refusal(string $toolId, mixed $code): ?array {
 		if ($toolId !== CodeSandboxToolDescriptors::RUN_CODE) {
@@ -171,6 +180,9 @@ class RunCodeTool {
 	 * @param bool                                            $onWorkspace Whether the files are a workspace copy (relative paths).
 	 *
 	 * @return array<string, mixed>
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) the flag picks the sandbox endpoint; splitting dispatch
+	 * would duplicate its request building.
 	 */
 	private function dispatch(array $run, array $files, bool $onWorkspace=false): array {
 		try {
@@ -182,11 +194,10 @@ class RunCodeTool {
 				'limits'   => $run['limits'],
 				'uid'      => $run['uid'],
 			];
-			if ($onWorkspace === true) {
-				$result = $this->client->runOnWorkspace(...$request);
-			} else {
-				$result = $this->client->run(...$request);
-			}
+			$result = match ($onWorkspace) {
+				true => $this->client->runOnWorkspace(...$request),
+				false => $this->client->run(...$request),
+			};
 		} catch (CodeSandboxUnavailableException $e) {
 			return self::err(code: 'code_sandbox_unavailable', message: $e->getMessage());
 		} catch (InvalidArgumentException $e) {

@@ -64,6 +64,9 @@ class WorkspaceRunScope {
 	 *
 	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
 	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-can-keep-a-workspace-for-the-whole-conversation-req-wksp-001
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) SessionWorkspaceKey is used through its static API (a pure helper
+	 * or named constructor) with no state to inject.
 	 */
 	public function enter(string $runId, string $agentId, string $userId, array $context=[]): void {
 		$conversationId = (string)($context['conversationId'] ?? '');

@@ -89,6 +89,9 @@ class GeneratedImageFiles {
 	 * @return File The new file.
 	 *
 	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) UserFolders is used through its static API (a pure helper or
+	 * named constructor) with no state to inject.
 	 */
 	public function save(string $uid, string $bytes): File {
 		$folder = UserFolders::open(folder: $this->rootFolder->getUserFolder($uid), path: self::FOLDER);

@@ -122,6 +122,9 @@ class CustomToolService {
 	 * @throws InvalidArgumentException When the payload is invalid or the slug is taken.
 	 *
 	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) CustomToolDefinition is used through its static API (a pure
+	 * helper or named constructor) with no state to inject.
 	 */
 	public function save(string $organisation, array $payload, ?string $uuid=null): array {
 		$data = CustomToolDefinition::normalise(payload: $payload);
@@ -185,6 +188,9 @@ class CustomToolService {
 	 * @return list<array<string, mixed>>
 	 *
 	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-is-offered-under-a-two-segment-id-and-only-by-exact-grant-req-custool-002
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) CustomToolDescriptors is used through its static API (a pure
+	 * helper or named constructor) with no state to inject.
 	 */
 	public function descriptors(): array {
 		try {
@@ -227,6 +233,9 @@ class CustomToolService {
 	 * @param ObjectEntity $entity The stored tool.
 	 *
 	 * @return array<string, mixed>
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) CustomToolDescriptors is used through its static API (a pure
+	 * helper or named constructor) with no state to inject.
 	 */
 	private function shape(ObjectEntity $entity): array {
 		$data = $entity->getObject();

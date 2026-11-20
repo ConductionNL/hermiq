@@ -3580,7 +3580,8 @@ OC.L10N.register(
         "The uuid of the agent this build belongs to.": "De uuid van de agent waartoe deze build behoort.",
         "When the build was published.": "Wanneer de build werd gepubliceerd.",
         "Workspace archive": "Werkruimtearchief",
-        "Workspace lifetime": "Levensduur van de werkruimte"
+        "Workspace lifetime": "Levensduur van de werkruimte",
+        "Custom tools": "Eigen tools"
     },
     "nplurals=2; plural=(n != 1);"
 )

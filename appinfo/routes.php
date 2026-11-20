@@ -24,9 +24,9 @@ $routes = [
         ['name' => 'dashboard#page', 'url' => '/', 'verb' => 'GET'],
         ['name' => 'settings#index', 'url' => '/api/settings', 'verb' => 'GET'],
         // models-provider-connections: the session user's subscription sign-in.
-        ['name' => 'subscription_login#index', 'url' => '/api/subscription-login', 'verb' => 'GET'],
-        ['name' => 'subscription_login#start', 'url' => '/api/subscription-login', 'verb' => 'POST'],
-        ['name' => 'subscription_login#code', 'url' => '/api/subscription-login/{id}/code', 'verb' => 'POST'],
+        ['name' => 'subscriptionLogin#index', 'url' => '/api/subscription-login', 'verb' => 'GET'],
+        ['name' => 'subscriptionLogin#start', 'url' => '/api/subscription-login', 'verb' => 'POST'],
+        ['name' => 'subscriptionLogin#code', 'url' => '/api/subscription-login/{id}/code', 'verb' => 'POST'],
         ['name' => 'settings#create', 'url' => '/api/settings', 'verb' => 'POST'],
         ['name' => 'settings#load',  'url' => '/api/settings/load', 'verb' => 'POST'],
 

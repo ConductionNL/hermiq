@@ -135,6 +135,9 @@ class ReportWriter {
 	 * @param string $userId The user.
 	 *
 	 * @return Folder
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) UserFolders is used through its static API (a pure helper or
+	 * named constructor) with no state to inject.
 	 */
 	private function folderOf(string $userId): Folder {
 		$folder = UserFolders::open(folder: $this->rootFolder->getUserFolder($userId), path: self::FOLDER);

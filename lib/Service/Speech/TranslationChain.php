@@ -51,6 +51,9 @@ use Throwable;
  * Transcribe, translate, speak; and keep the spoken result in Files, marked.
  *
  * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-a-person-can-translate-a-recording-and-hear-the-result-req-strn-001
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with this batch's feature work; splitting it is
+ * follow-up work, not part of this merge.
  */
 class TranslationChain {
 

@@ -6598,6 +6598,7 @@
 				"version": "0.1.0",
 				"title": "Public chat channel",
 				"description": "A website or an app that may put a question to an agent without the asker signing in. The channel declares which agent answers, which origins may embed it, which registers and schemas the answers may come from, the AI disclosure shown above the input and a daily question limit. The agent must have no tool grants. Off until an organisation admin enables it.",
+				"x-openregister-demo-data": "A public channel opens an unauthenticated chat to the agent it names; a sample channel would be a live public entry point with a token nobody chose.",
 				"type": "object",
 				"required": [
 					"name",
@@ -6718,6 +6719,7 @@
 				"version": "0.1.0",
 				"title": "Public chat conversation",
 				"description": "One conversation on a public chat channel, kept under its conversation token with the retention of the public-chat AI feature. It carries no identity and no IP address: the channel and the token are all it knows of the asker.",
+				"x-openregister-demo-data": "Written by the public chat as a visitor's anonymous conversation on a real channel; a sample row would hang off a channel that does not exist.",
 				"type": "object",
 				"required": [
 					"channelId",

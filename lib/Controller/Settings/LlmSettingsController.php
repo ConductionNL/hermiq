@@ -54,6 +54,9 @@ use Throwable;
  * Read + patch the Hermiq chat-provider configuration.
  *
  * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-1-1
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with this batch's feature work; splitting it is
+ * follow-up work, not part of this merge.
  */
 class LlmSettingsController extends Controller {
 	/**

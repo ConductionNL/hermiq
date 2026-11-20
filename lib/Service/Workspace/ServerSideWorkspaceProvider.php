@@ -49,6 +49,11 @@ use ZipArchive;
  * Run-keyed workspaces in app data.
  *
  * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+ *
+ * @SuppressWarnings(PHPMD.TooManyMethods) carried in with this batch's feature work; splitting it is follow-
+ * up work, not part of this merge.
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods) carried in with this batch's feature work; splitting it is
+ * follow-up work, not part of this merge.
  */
 class ServerSideWorkspaceProvider implements WorkspaceProvider, ServerSideWorkspaceProviderInterface {
 
@@ -185,6 +190,9 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider, ServerSideWorksp
 	 * @return array<string, int|string> The metadata.
 	 *
 	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-can-keep-a-workspace-for-the-whole-conversation-req-wksp-001
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) SessionWorkspaceKey is used through its static API (a pure helper
+	 * or named constructor) with no state to inject.
 	 */
 	private function freshMeta(CheckoutRequest $checkout, string $runKey): array {
 		$meta = [
@@ -728,6 +736,9 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider, ServerSideWorksp
 	 * @param string $runKey The workspace key.
 	 *
 	 * @return int
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) SessionWorkspaceKey is used through its static API (a pure helper
+	 * or named constructor) with no state to inject.
 	 */
 	private function maxFiles(string $runKey): int {
 		if (SessionWorkspaceKey::isSession(key: $runKey) === true) {

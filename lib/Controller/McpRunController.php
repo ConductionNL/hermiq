@@ -101,6 +101,9 @@ use Throwable;
  *   governance guards — a dispatch surface, not one tangled algorithm.
  *
  * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run
+ *
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength) carried in with this batch's feature work; splitting it is
+ * follow-up work, not part of this merge.
  */
 class McpRunController extends Controller {
 

@@ -103,6 +103,9 @@ class TranslatedAudioFiles {
 	 * @return File The new file.
 	 *
 	 * @spec openspec/changes/chat-translate-a-recording/tasks.md#task-3-the-route-the-saved-file-and-its-mark
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) UserFolders is used through its static API (a pure helper or
+	 * named constructor) with no state to inject.
 	 */
 	public function save(string $uid, string $bytes, string $sourceLanguage, string $targetLanguage): File {
 		$folder = UserFolders::open(folder: $this->rootFolder->getUserFolder($uid), path: self::FOLDER);

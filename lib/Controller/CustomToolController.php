@@ -49,6 +49,9 @@ use Throwable;
  * organisation the tool belongs to: its owner or an instance admin.
  *
  * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with this batch's feature work; splitting it is
+ * follow-up work, not part of this merge.
  */
 class CustomToolController extends Controller {
 

@@ -829,6 +829,9 @@ class FacadeToolInvoker {
 	 * @return array<string, mixed> Arguments, with the owner set when applicable.
 	 *
 	 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#scenario-an-agent-queued-flow-run-names-the-acting-owner
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) CustomToolDescriptors is used through its static API (a pure
+	 * helper or named constructor) with no state to inject.
 	 */
 	private function withFlowOwner(string $name, array $arguments): array {
 		// A custom tool may run a flow, so it carries the owner too; its invoker
@@ -1543,6 +1546,9 @@ class FacadeToolInvoker {
 	 *
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
 	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-the-run-records-actions-and-never-stores-screenshots-req-computer-004
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) CustomToolDescriptors is used through its static API (a pure
+	 * helper or named constructor) with no state to inject.
 	 */
 	private function traceExtraFor(string $name, array $arguments, mixed $result = null, ?string $approvalId = null): array {
 		$toolId = $this->resolveToolId(name: $name);
