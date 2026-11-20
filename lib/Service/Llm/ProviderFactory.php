@@ -29,11 +29,12 @@
  *   per the port contract) but is not wired anywhere — LLPhant 0.9.x's
  *   `OpenAIChat` has no organization-header hook to give it.
  *
- * The `nextcloud` driver (plan §8 move 1) is additive: `OCP\TaskProcessing\IManager`-
- * backed, guarded by `hasProviders()` (verified against the real OCP 31.0 interface —
- * exact method name, not assumed), non-streaming, background/non-interactive use only
- * (conversation titles/summaries). It never returns an LLPhant chat instance because
- * TaskProcessing has no streaming surface; callers needing SSE chat MUST NOT select it.
+ * The `nextcloud` driver (Nextcloud AI) is the default when no hermiq-specific provider
+ * is configured (use-nextcloud-ai-settings). It sends chat, agent turns with tools and
+ * plain generation as TaskProcessing tasks through `NextcloudTaskClient`, as the acting
+ * user, to the provider set up under Administration settings > Artificial intelligence.
+ * It never returns an LLPhant chat instance: TaskProcessing has no streaming surface, so
+ * an SSE caller receives the whole answer at once, as it does on the Anthropic path.
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V.
  * SPDX-License-Identifier: EUPL-1.2
@@ -55,6 +56,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Llm;
 
+use Closure;
 use Exception;
 use GuzzleHttp\Psr7\Request;
 use LLPhant\Chat\Message as LLPhantMessage;
@@ -63,18 +65,20 @@ use LLPhant\Chat\OpenAIChat;
 use LLPhant\OllamaConfig;
 use LLPhant\OpenAIConfig;
 use OCA\Hermiq\Kernel\Contracts\ProviderFactoryInterface;
+use OCA\Hermiq\Kernel\Contracts\WebResearchEgressGuardInterface;
 use OCA\Hermiq\Service\AiFeature\DataUseGate;
 use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
 use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCP\App\IAppManager;
+use OCP\Http\Client\IClient;
+use OCP\Http\Client\IClientService;
 use OCP\Http\Client\IResponse;
 use OCP\IAppConfig;
 use OCP\IURLGenerator;
 use OCP\IUserSession;
 use OCP\TaskProcessing\IManager;
-use OCP\TaskProcessing\Task;
 use OCP\TaskProcessing\TaskTypes\TextToText;
 use OpenAI;
 use Psr\Container\ContainerInterface;
@@ -140,6 +144,29 @@ class ProviderFactory implements ProviderFactoryInterface {
 	private const POOL_PROCESS_LIFETIME_SECONDS = 600;
 
 	/**
+	 * The api key the openai-php client is given for a keyless endpoint. Not a
+	 * secret: the client refuses to build without one, and a server without
+	 * authentication ignores it (models-provider-connections D3).
+	 *
+	 * @var string
+	 */
+	private const KEYLESS_API_KEY = 'hermiq-keyless';
+
+	/**
+	 * The OpenAI API base when the admin set none (models-provider-connections D2).
+	 *
+	 * @var string
+	 */
+	private const OPENAI_BASE_URL = 'https://api.openai.com/v1';
+
+	/**
+	 * The apiMode that sends a turn to the Responses API (models-provider-connections D4).
+	 *
+	 * @var string
+	 */
+	public const API_MODE_RESPONSES = 'responses';
+
+	/**
 	 * The gates a resolved chat driver passes, built on first use.
 	 *
 	 * @var ChatDriverGates|null
@@ -180,6 +207,13 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @var boolean
 	 */
 	private bool $lastCallHitToolCap = false;
+
+	/**
+	 * The Nextcloud AI client built on first use when none was injected.
+	 *
+	 * @var NextcloudTaskClient|null
+	 */
+	private ?NextcloudTaskClient $builtNcClient = null;
 
 	/**
 	 * The run tokens of `cli` turns, built on first use.
@@ -297,6 +331,9 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 *                                                      call site unchanged.
 	 * @param DataUseGate|null $dataUseGate The data-use step on the path without an AI
 	 *                                      feature (models-no-training-guarantee).
+	 * @param NextcloudTaskClient|null $nextcloudClient Runs Nextcloud AI tasks
+	 *                                                  (use-nextcloud-ai-settings). Null
+	 *                                                  builds one over `$taskManager`.
 	 *
 	 * @return void
 	 *
@@ -324,10 +361,30 @@ class ProviderFactory implements ProviderFactoryInterface {
 		private readonly ?ContainerInterface $container = null,
 		private readonly ?FeatureProviderResolver $featureResolver = null,
 		private readonly ?DataUseGate $dataUseGate = null,
+		private readonly ?NextcloudTaskClient $nextcloudClient = null,
 	) {
 	}//end __construct()
 
 	/**
+	 * The Nextcloud AI client: the injected one, or one built over the task manager when
+	 * the factory was built by hand (unit tests build it with four collaborators).
+	 *
+	 * @return NextcloudTaskClient The client.
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-1
+	 */
+	private function nextcloudClient(): NextcloudTaskClient {
+		if ($this->nextcloudClient !== null) {
+			return $this->nextcloudClient;
+		}
+
+		if ($this->builtNcClient === null) {
+			$this->builtNcClient = new NextcloudTaskClient(taskManager: $this->taskManager, logger: $this->logger, appName: $this->appName);
+		}
+
+		return $this->builtNcClient;
+	}//end nextcloudClient()
+
 	/**
 	 * The run tokens of `cli` turns and warm-ups.
 	 *
@@ -513,6 +570,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 			'openai' => $this->createOpenAiDriver(openaiConfig: $llmConfig['openaiConfig'] ?? [], request: $request),
 			'fireworks' => $this->createFireworksDriver(fireworksConfig: $llmConfig['fireworksConfig'] ?? [], request: $request),
 			'anthropic' => $this->createAnthropicDriver(anthropicConfig: $llmConfig['anthropicConfig'] ?? [], request: $request),
+			'openai-compatible' => $this->createOpenAiCompatibleDriver(compatibleConfig: $llmConfig['openaiCompatibleConfig'] ?? [], request: $request),
 			'nextcloud' => $this->createNextcloudDriver(),
 			default => throw new ProviderUnavailableException("Unsupported chat provider: {$request->chatProvider}"),
 		};// End match.
@@ -791,6 +849,163 @@ class ProviderFactory implements ProviderFactoryInterface {
 	}//end callFireworksChat()
 
 	/**
+	 * One turn on the OpenAI Responses API, for an OpenAI or OpenAI-compatible
+	 * driver in `apiMode: responses` (models-provider-connections D4).
+	 *
+	 * The request goes to `{base}/responses` with `store: false`, through the
+	 * broker when the driver has a credential and straight to the base URL when
+	 * it has none, as the driver's chat completions calls do. Each function call
+	 * runs through `$toolExecutor`, the turn's governed executor.
+	 *
+	 * @param ChatDriver    $driver         The driver: model, credential, base URL, ceiling.
+	 * @param array         $messageHistory The LLPhant messages, system prompt first.
+	 * @param array         $functions      The turn's tools.
+	 * @param Closure|null  $toolExecutor   Runs a requested tool, or null for a text-only turn.
+	 * @param int|null      $maxToolCalls   The agent's tool call cap, or null for the default.
+	 *
+	 * @return string The answer text.
+	 *
+	 * @throws ProviderCallFailedException When the endpoint answers with an error status.
+	 * @throws ProviderUnavailableException When the answer asks for something Hermiq does not run.
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-a-provider-can-run-in-responses-api-mode-with-governed-tools-req-pconn-004
+	 */
+	public function callOpenAiResponses(
+		ChatDriver $driver,
+		array $messageHistory,
+		array $functions = [],
+		?Closure $toolExecutor = null,
+		?int $maxToolCalls = null,
+	): string {
+		$this->lastCallUsage = [];
+		$this->lastCallHitToolCap = false;
+		$url = rtrim((string)$driver->baseUrl, '/') . '/responses';
+		$post = function (array $payload) use ($driver, $url): array {
+			return $this->postResponses(driver: $driver, url: $url, payload: $payload);
+		};
+
+		$loop = new OpenAiResponsesLoop(post: $post, toolExecutor: $toolExecutor, maxToolCalls: ($maxToolCalls ?? self::MAX_TOOL_ITERATIONS));
+		try {
+			return $loop->run(
+				payload: $loop->payload(model: $driver->model, messageHistory: $messageHistory, functions: $functions, maxTokens: $driver->maxTokens)
+			);
+		} finally {
+			$this->lastCallUsage = $loop->usage();
+			$this->lastCallHitToolCap = $loop->hitToolCap();
+		}
+	}//end callOpenAiResponses()
+
+	/**
+	 * Post one Responses API request and return the decoded body.
+	 *
+	 * @param ChatDriver          $driver  The driver.
+	 * @param string              $url     The `/responses` address.
+	 * @param array<string,mixed> $payload The request.
+	 *
+	 * @return array<string,mixed>
+	 *
+	 * @throws ProviderCallFailedException When the endpoint answers with an error status.
+	 * @throws ProviderUnavailableException When it cannot be reached or answers with no JSON object.
+	 */
+	private function postResponses(ChatDriver $driver, string $url, array $payload): array {
+		$body = (string)json_encode($payload);
+		if ((string)$driver->credentialId !== '') {
+			try {
+				$response = (new BrokerHttpClient(
+					credentialId: (string)$driver->credentialId,
+					logger: $this->logger,
+					actingUserId: $this->currentUid(),
+					container: $this->container
+				))->sendRequest(new Request('POST', $url, ['Content-Type' => 'application/json'], $body));
+			} catch (Throwable $e) {
+				throw self::transportFailure(prefix: 'Responses API request failed: ', failure: $e);
+			}
+
+			return $this->responsesBody(
+				status: $response->getStatusCode(),
+				body: (string)$response->getBody(),
+				retryAfter: $response->getHeaderLine('retry-after')
+			);
+		}
+
+		try {
+			$response = $this->keylessClient()->post(
+				$url,
+				[
+					'body' => $body,
+					'headers' => ['Content-Type' => 'application/json'],
+					'http_errors' => false,
+					'timeout' => 120,
+					'nextcloud' => ['allow_local_address' => $driver->ownNetwork],
+				]
+			);
+		} catch (Throwable $e) {
+			throw self::transportFailure(prefix: 'Responses API request failed: ', failure: $e);
+		}
+
+		return $this->responsesBody(
+			status: $response->getStatusCode(),
+			body: (string)$response->getBody(),
+			retryAfter: (string)$response->getHeader('retry-after')
+		);
+	}//end postResponses()
+
+	/**
+	 * A Responses API answer as an array, or the failure its status names.
+	 *
+	 * @param int    $status     The HTTP status.
+	 * @param string $body       The body.
+	 * @param string $retryAfter The retry-after header.
+	 *
+	 * @return array<string,mixed>
+	 *
+	 * @throws ProviderCallFailedException When the status is not 200.
+	 * @throws ProviderUnavailableException When the body is not a JSON object.
+	 */
+	private function responsesBody(int $status, string $body, string $retryAfter): array {
+		$decoded = json_decode($body, true);
+		if ($status !== 200) {
+			$message = 'no message';
+			if (is_array($decoded) === true && (string)($decoded['error']['message'] ?? '') !== '') {
+				$message = (string)$decoded['error']['message'];
+			}
+
+			throw ProviderCallFailedException::fromHttpStatus(
+				status: $status,
+				message: 'Responses API error (HTTP ' . $status . '): ' . $message,
+				retryAfter: $retryAfter
+			);
+		}
+
+		if (is_array($decoded) === false) {
+			throw new ProviderUnavailableException('The Responses API answered with no JSON object.', 502);
+		}
+
+		return $decoded;
+	}//end responsesBody()
+
+	/**
+	 * The Nextcloud HTTP client a keyless base URL is called with.
+	 *
+	 * @return IClient
+	 *
+	 * @throws ProviderUnavailableException When the container cannot give one.
+	 */
+	private function keylessClient(): IClient {
+		try {
+			$service = $this->container?->get(IClientService::class);
+		} catch (Throwable $e) {
+			$service = null;
+		}
+
+		if ($service instanceof IClientService === false) {
+			throw new ProviderUnavailableException('No HTTP client is available on this instance.', 503);
+		}
+
+		return $service->newClient();
+	}//end keylessClient()
+
+	/**
 	 * Function calling is not supported for Fireworks AI: say so when a turn
 	 * brings tools, which are then ignored.
 	 *
@@ -993,7 +1208,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 *                              behaviour. On `cli`, a text-only turn runs
 	 *                              directly and a tool-requiring turn is served
 	 *                              over Hermiq's governed MCP endpoint —
-	 *                              {@see callAnthropicCli()}.
+	 *                              {@see answerCliTurn()}.
 	 * @param string|null $agentId The acting agent's UUID (cli-runner-governed-mcp-and-egress).
 	 *                             Required to govern a tool-requiring `cli` turn: it
 	 *                             binds the per-run token and lets the governed MCP
@@ -1006,6 +1221,9 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @param int|null $maxToolCalls The tool calls this turn may make (Agent.maxToolCalls);
 	 *                               null is the default of 10. Past it no tool runs and
 	 *                               the turn ends with the model's last answer.
+	 * @param string $projectKey The session's project (memory-project-scopes); on `cli` it
+	 *                           is bound into the run token for the memory tools. '' outside
+	 *                           a project.
 	 *
 	 * @return string Generated response text (the final assistant turn).
 	 *
@@ -1029,6 +1247,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 		?string $agentId = null,
 		string $conversationId = '',
 		?int $maxToolCalls = null,
+		string $projectKey = '',
 	): string {
 		$this->resetCallState();
 		$run = new AnthropicChatRun(credentialId: $credentialId, model: $model);
@@ -1041,6 +1260,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 		$run->agentId = $agentId;
 		$run->conversationId = $conversationId;
 		$run->maxToolCalls = $maxToolCalls;
+		$run->projectKey = $projectKey;
 
 		// `cli` routes the turn through the hermiq-llm-runner ExApp instead of the direct
 		// Messages API. Branch BEFORE any HTTP assembly: the two transports share nothing
@@ -1064,21 +1284,57 @@ class ProviderFactory implements ProviderFactoryInterface {
 	}//end resetCallState()
 
 	/**
-	 * Hand the turn to the `cli` transport, {@see callAnthropicCli()}.
+	 * Run ONE Anthropic turn through the `hermiq-llm-runner` ExApp's `claude` CLI.
 	 *
-	 * @param AnthropicChatRun $run The turn.
+	 * The `cli` sibling of the `http` path above, under the same seam: the Engine, the
+	 * handlers and the SSE controller never learn which transport ran — this returns the
+	 * completion as a plain string exactly as `callAnthropicChat()` does.
+	 *
+	 * It exists because Anthropic categorically refuses a Claude Max/Pro subscription OAuth
+	 * token on the raw Messages API (HTTP 429 `rate_limit_error` carrying no rate-limit
+	 * counters — see the 429 handler below); the official CLI is the ToS-sanctioned path for
+	 * a subscription.
+	 *
+	 * **Text-only turns run directly; tool-requiring turns are GOVERNED, never refused.**
+	 * `claude -p` accepts no tool schema, so custom tools reach it only via MCP. When
+	 * `$functions` is non-empty this method mints a per-run token, assembles the governed
+	 * MCP server config (Hermiq's own `POST /api/mcp/run`, bearer-authenticated by that
+	 * token), and hands both to the runner in the `/run` payload — so every tool call the
+	 * CLI makes lands back in Hermiq's `FacadeToolInvoker`. It is the exact inverse of the
+	 * link-2 refusal: instead of failing a tool-using agent, it governs it.
+	 *
+	 * It still FAILS LOUD — `ProviderUnavailableException` (503), never a text-only
+	 * downgrade — when a tool-requiring turn cannot be governed: no agent identity to bind
+	 * the run to, no user context, the token cannot be minted, or the MCP endpoint URL
+	 * cannot be resolved (so the config cannot be written). This deliberately does NOT copy
+	 * the `http` path's fail-open (tools + no executor → warn → run text-only): a tool-less
+	 * agent looks completely healthy and simply never calls a tool.
+	 *
+	 * Order is load-bearing — availability and the run token are established BEFORE the
+	 * subscription credential is resolved, so a doomed turn pulls no secret from the vault
+	 * and spends no subscription quota. The run token is consumed in a `finally` so it never
+	 * outlives the turn.
+	 *
+	 * @param AnthropicChatRun $run The turn: credential, model, history, tools, agent, conversation and project.
 	 *
 	 * @return string The completion text.
+	 *
+	 * @throws ProviderUnavailableException When a tool-requiring turn cannot be governed (503),
+	 *                                      the runner or AppAPI is unavailable (503), the
+	 *                                      credential cannot be resolved or is organisation-scope
+	 *                                      (503), or the dispatch fails (503).
+	 *
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-cli-completion-is-mapped-back-into-the-driver-response-and-the-sse-envelope
 	 */
 	private function callAnthropicCliTurn(AnthropicChatRun $run): string {
-		return $this->callAnthropicCli(
-			credentialId: $run->credentialId,
-			model: $run->model,
-			messageHistory: $run->messageHistory,
-			functions: $run->functions,
-			agentId: $run->agentId,
-			conversationId: $run->conversationId
-		);
+		$turn = new CliTurn(model: $run->model, agentId: $run->agentId);
+		$turn->credentialId   = $run->credentialId;
+		$turn->messageHistory = $run->messageHistory;
+		$turn->functions      = $run->functions;
+		$turn->conversationId = $run->conversationId;
+		$turn->projectKey     = $run->projectKey;
+		return $this->answerCliTurn(turn: $turn);
 	}//end callAnthropicCliTurn()
 
 	/**
@@ -1327,73 +1583,6 @@ class ProviderFactory implements ProviderFactoryInterface {
 
 		return $this->cliRunner;
 	}//end cliRunner()
-
-	/**
-	 * Run ONE Anthropic turn through the `hermiq-llm-runner` ExApp's `claude` CLI.
-	 *
-	 * The `cli` sibling of the `http` path above, under the same seam: the Engine, the
-	 * handlers and the SSE controller never learn which transport ran — this returns the
-	 * completion as a plain string exactly as `callAnthropicChat()` does.
-	 *
-	 * It exists because Anthropic categorically refuses a Claude Max/Pro subscription OAuth
-	 * token on the raw Messages API (HTTP 429 `rate_limit_error` carrying no rate-limit
-	 * counters — see the 429 handler below); the official CLI is the ToS-sanctioned path for
-	 * a subscription.
-	 *
-	 * **Text-only turns run directly; tool-requiring turns are GOVERNED, never refused.**
-	 * `claude -p` accepts no tool schema, so custom tools reach it only via MCP. When
-	 * `$functions` is non-empty this method mints a per-run token, assembles the governed
-	 * MCP server config (Hermiq's own `POST /api/mcp/run`, bearer-authenticated by that
-	 * token), and hands both to the runner in the `/run` payload — so every tool call the
-	 * CLI makes lands back in Hermiq's `FacadeToolInvoker`. It is the exact inverse of the
-	 * link-2 refusal: instead of failing a tool-using agent, it governs it.
-	 *
-	 * It still FAILS LOUD — `ProviderUnavailableException` (503), never a text-only
-	 * downgrade — when a tool-requiring turn cannot be governed: no agent identity to bind
-	 * the run to, no user context, the token cannot be minted, or the MCP endpoint URL
-	 * cannot be resolved (so the config cannot be written). This deliberately does NOT copy
-	 * the `http` path's fail-open (tools + no executor → warn → run text-only): a tool-less
-	 * agent looks completely healthy and simply never calls a tool.
-	 *
-	 * Order is load-bearing — availability and the run token are established BEFORE the
-	 * subscription credential is resolved, so a doomed turn pulls no secret from the vault
-	 * and spends no subscription quota. The run token is consumed in a `finally` so it never
-	 * outlives the turn.
-	 *
-	 * @param string $credentialId Broker credential UUID — NOT a secret.
-	 * @param string $model Model identifier; empty ⇒ the CLI's own default.
-	 * @param array $messageHistory Array of LLPhant Message objects.
-	 * @param array $functions OpenAI-style tool definitions. Non-empty ⇒ governed MCP turn.
-	 * @param string|null $agentId The acting agent's UUID (binds the per-run token). Required
-	 *                             for a tool-requiring turn; unused for a text-only one.
-	 * @param string $conversationId The conversation this turn belongs to, so a tool step
-	 *                               published on the run-step bus reaches the right stream.
-	 *
-	 * @return string The completion text.
-	 *
-	 * @throws ProviderUnavailableException When a tool-requiring turn cannot be governed (503),
-	 *                                      the runner or AppAPI is unavailable (503), the
-	 *                                      credential cannot be resolved or is organisation-scope
-	 *                                      (503), or the dispatch fails (503).
-	 *
-	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
-	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-cli-completion-is-mapped-back-into-the-driver-response-and-the-sse-envelope
-	 */
-	private function callAnthropicCli(
-		string $credentialId,
-		string $model,
-		array $messageHistory,
-		array $functions = [],
-		?string $agentId = null,
-		string $conversationId = '',
-	): string {
-		$turn = new CliTurn(model: $model, agentId: $agentId);
-		$turn->credentialId = $credentialId;
-		$turn->messageHistory = $messageHistory;
-		$turn->functions = $functions;
-		$turn->conversationId = $conversationId;
-		return $this->answerCliTurn(turn: $turn);
-	}//end callAnthropicCli()
 
 	/**
 	 * Serve one `cli` turn: the pool key, the runner check, the turn's run token
@@ -1880,12 +2069,12 @@ class ProviderFactory implements ProviderFactoryInterface {
 	/**
 	 * Generate text via the `nextcloud` TaskProcessing driver.
 	 *
-	 * Non-streaming, background/non-interactive only (conversation titles,
-	 * summaries) — never call this for SSE chat. Runs the `core:text2text` task
-	 * type synchronously via `IManager::runTask()`.
+	 * Runs a `core:text2text` task as the acting user through `NextcloudTaskClient`:
+	 * inline for a synchronous provider, scheduled with a bounded wait otherwise.
 	 *
 	 * @param string $prompt The prompt text.
-	 * @param string|null $userId The user id scheduling the task (optional).
+	 * @param string|null $userId The user hermiq works for; null uses the session user
+	 *                            (a scheduled run impersonates its acting user).
 	 * @param string|null $customId Optional custom task id for correlation.
 	 *
 	 * @return string The generated text.
@@ -1894,35 +2083,59 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 *                                      or the task fails/returns no output.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-2
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-3
 	 */
 	public function generateViaNextcloud(string $prompt, ?string $userId = null, ?string $customId = null): string {
-		if ($this->taskManager->hasProviders() === false) {
-			throw new ProviderUnavailableException('No Nextcloud Assistant (TaskProcessing) provider is installed.', 503);
-		}
-
-		$task = new Task(TextToText::ID, ['input' => $prompt], $this->appName, $userId, ($customId ?? ''));
-
-		try {
-			$result = $this->taskManager->runTask($task);
-		} catch (\Throwable $e) {
-			$this->logger->warning(
-				message: '[ProviderFactory] Nextcloud Assistant task failed',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'error' => $e->getMessage(),
-				]
-			);
-			throw new ProviderUnavailableException('Nextcloud Assistant task failed: ' . $e->getMessage(), 0, $e);
-		}
-
-		$output = $result->getOutput()['output'] ?? null;
-		if (is_string($output) === false || $output === '') {
-			throw new ProviderUnavailableException('Nextcloud Assistant returned no output.', 503);
-		}
-
-		return $output;
+		return $this->nextcloudClient()->generate(
+			prompt: $prompt,
+			userId: ($userId ?? $this->currentUid()),
+			timeoutSeconds: NextcloudTaskClient::TIMEOUT_BACKGROUND,
+			customId: ($customId ?? '')
+		);
 	}//end generateViaNextcloud()
+
+	/**
+	 * Run one chat or agent turn on Nextcloud AI.
+	 *
+	 * `core:text2text:chat` without tools, `core:text2text:chatwithtools` with tools and
+	 * an executor; each tool call runs through the governed executor the caller built.
+	 * The task runs as the given user, else the session user.
+	 *
+	 * @param array $messageHistory LLPhant messages, system first and the user turn last.
+	 * @param array $functions OpenAI-style function definitions.
+	 * @param callable|null $toolExecutor Runs one tool: fn(string $name, array $args): string.
+	 * @param integer|null $maxToolCalls The agent's tool-call cap.
+	 * @param string|null $userId The user hermiq works for.
+	 *
+	 * @return string The reply.
+	 *
+	 * @throws ProviderUnavailableException When no Nextcloud provider serves the turn, a
+	 *                                      task fails, or the wait runs out.
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-4
+	 */
+	public function callNextcloudChat(
+		array $messageHistory,
+		array $functions = [],
+		?callable $toolExecutor = null,
+		?int $maxToolCalls = null,
+		?string $userId = null,
+	): string {
+		$this->lastCallUsage = [];
+		$this->lastCallHitToolCap = false;
+
+		$client = $this->nextcloudClient();
+		$reply = $client->chat(
+			messageHistory: $messageHistory,
+			userId: ($userId ?? $this->currentUid()),
+			functions: $functions,
+			toolExecutor: $toolExecutor,
+			maxToolCalls: $maxToolCalls
+		);
+		$this->lastCallHitToolCap = $client->lastCallHitToolCap();
+
+		return $reply;
+	}//end callNextcloudChat()
 
 	/**
 	 * Generate free text against whichever chat provider `hermiq.llm` currently
@@ -2057,6 +2270,10 @@ class ProviderFactory implements ProviderFactoryInterface {
 			);
 		}
 
+		if ($driver->apiMode === self::API_MODE_RESPONSES) {
+			return $this->callOpenAiResponses(driver: $driver, messageHistory: [LLPhantMessage::user($prompt)]);
+		}
+
 		// OpenAI / Ollama: driver->chat is a ready LLPhant chat instance.
 		return $driver->chat->generateText($prompt);
 	}//end generateWithDriver()
@@ -2113,9 +2330,17 @@ class ProviderFactory implements ProviderFactoryInterface {
 			config: $openaiConfig,
 			override: $this->resolveCredentialOverride(provider: 'openai', organisation: $request->organisation, pinned: $request->agentCredentialIds)
 		);
-		$this->assertBrokerCredential(credentialId: $credentialId, label: 'OpenAI');
 
-		$config = $this->brokeredOpenAiConfig(credentialId: $credentialId);
+		// A base URL with no credential is a keyless server the admin chose, called
+		// directly; everything else keeps the broker path (models-provider-connections D2).
+		$baseUrl = trim((string)($openaiConfig['baseUrl'] ?? ''));
+		if ($baseUrl !== '' && $credentialId === '') {
+			$config = $this->keylessOpenAiConfig(baseUrl: $baseUrl, ownNetwork: (($openaiConfig['ownNetwork'] ?? false) === true), label: 'OpenAI');
+		} else {
+			$this->assertBrokerCredential(credentialId: $credentialId, label: 'OpenAI');
+			$config = $this->brokeredOpenAiConfig(credentialId: $credentialId);
+		}
+
 		$config->model = $this->agentModelOr(configured: ($openaiConfig['chatModel'] ?? 'gpt-4o-mini'), request: $request);
 
 		// The agent's own ceiling, wired the same way temperature already was.
@@ -2130,8 +2355,179 @@ class ProviderFactory implements ProviderFactoryInterface {
 		// credential a personal/organisation override actually resolved to
 		// (agent-credentials). Nothing reads `$driver->credentialId` on the openai path
 		// today; this is metadata only, not a behaviour change.
-		return new ChatDriver(provider: 'openai', chat: $chat, model: $config->model, credentialId: $credentialId, maxTokens: $request->agentMaxTokens);
+		$driverBaseUrl = self::OPENAI_BASE_URL;
+		if ($baseUrl !== '') {
+			$driverBaseUrl = $baseUrl;
+		}
+
+		return new ChatDriver(
+			provider: 'openai',
+			chat: $chat,
+			model: $config->model,
+			credentialId: $credentialId,
+			baseUrl: $driverBaseUrl,
+			maxTokens: $request->agentMaxTokens,
+			apiMode: $this->apiModeOf(config: $openaiConfig),
+			ownNetwork: (($openaiConfig['ownNetwork'] ?? false) === true)
+		);
 	}//end createOpenAiDriver()
+
+	/**
+	 * Build the `openai-compatible` driver: an OpenAI-compatible endpoint the admin
+	 * named and gave a base URL.
+	 *
+	 * With no credential the base URL is called directly, as Ollama's URL is, after
+	 * the egress check. With a credential the call goes through the broker, which
+	 * sends it to the host locked to that credential; hermiq holds no key either way.
+	 *
+	 * @param array             $compatibleConfig The `openaiCompatibleConfig` sub-block.
+	 * @param ChatDriverRequest $request          The agent's model, temperature and ceiling,
+	 *                                            organisation and pinned credentials.
+	 *
+	 * @return ChatDriver
+	 *
+	 * @throws ProviderUnavailableException When no base URL or model is configured, or the base URL is refused.
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-an-admin-can-connect-an-openai-compatible-endpoint-by-name-req-pconn-001
+	 */
+	private function createOpenAiCompatibleDriver(array $compatibleConfig, ChatDriverRequest $request): ChatDriver {
+		$label = $this->compatibleLabel(compatibleConfig: $compatibleConfig);
+		$baseUrl = trim((string)($compatibleConfig['baseUrl'] ?? ''));
+		if ($baseUrl === '') {
+			throw new ProviderUnavailableException($label . ' has no base URL. Enter it in the Hermiq LLM settings.', 503);
+		}
+
+		$model = $this->agentModelOr(configured: ($compatibleConfig['chatModel'] ?? null), request: $request);
+		if (empty($model) === true) {
+			throw new ProviderUnavailableException($label . ' has no model. Enter the model name the endpoint serves.', 503);
+		}
+
+		$credentialId = $this->overriddenCredentialId(
+			config: $compatibleConfig,
+			override: $this->resolveCredentialOverride(
+				provider: 'openai-compatible',
+				organisation: $request->organisation,
+				pinned: $request->agentCredentialIds
+			)
+		);
+
+		$driverCredential = null;
+		if ($credentialId === '') {
+			$config = $this->keylessOpenAiConfig(baseUrl: $baseUrl, ownNetwork: (($compatibleConfig['ownNetwork'] ?? false) === true), label: $label);
+		} else {
+			$this->assertBrokerCredential(credentialId: $credentialId, label: $label);
+			$config = $this->brokeredOpenAiConfig(credentialId: $credentialId);
+			$driverCredential = $credentialId;
+		}
+
+		$config->model = (string)$model;
+		$config->modelOptions = array_merge($config->modelOptions, $this->agentModelOptions(request: $request, ceilingKey: 'max_tokens'));
+
+		return new ChatDriver(
+			provider: 'openai-compatible',
+			chat: new OpenAIChat($config),
+			model: $config->model,
+			credentialId: $driverCredential,
+			maxTokens: $request->agentMaxTokens,
+			baseUrl: $baseUrl,
+			apiMode: $this->apiModeOf(config: $compatibleConfig),
+			ownNetwork: (($compatibleConfig['ownNetwork'] ?? false) === true)
+		);
+	}//end createOpenAiCompatibleDriver()
+
+	/**
+	 * The OpenAI API a provider block asks for: `responses`, else `chat_completions`.
+	 *
+	 * @param array $config The provider's settings block.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-a-provider-can-run-in-responses-api-mode-with-governed-tools-req-pconn-004
+	 */
+	private function apiModeOf(array $config): string {
+		if (($config['apiMode'] ?? '') === self::API_MODE_RESPONSES) {
+			return self::API_MODE_RESPONSES;
+		}
+
+		return 'chat_completions';
+	}//end apiModeOf()
+
+	/**
+	 * The name an OpenAI-compatible endpoint goes by in a message.
+	 *
+	 * @param array $compatibleConfig The `openaiCompatibleConfig` sub-block.
+	 *
+	 * @return string The admin's label, else "OpenAI-compatible endpoint".
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-an-admin-can-connect-an-openai-compatible-endpoint-by-name-req-pconn-001
+	 */
+	private function compatibleLabel(array $compatibleConfig): string {
+		$label = trim((string)($compatibleConfig['label'] ?? ''));
+		if ($label === '') {
+			return 'OpenAI-compatible endpoint';
+		}
+
+		return $label;
+	}//end compatibleLabel()
+
+	/**
+	 * An OpenAI client configuration that calls an admin-chosen base URL directly,
+	 * without a key.
+	 *
+	 * The base URL is checked before any call: never a cloud metadata address, and
+	 * a private address or plain HTTP only when the admin stated it is a server on
+	 * their own network. The openai-php client insists on an api key, so it gets a
+	 * fixed placeholder that is not a secret; a keyless server ignores it.
+	 *
+	 * @param string $baseUrl    The base URL, up to and including the API version path.
+	 * @param bool   $ownNetwork Whether the admin stated the server is on their own network.
+	 * @param string $label      The provider's name in a refusal.
+	 *
+	 * @return OpenAIConfig
+	 *
+	 * @throws ProviderUnavailableException When the base URL cannot be checked or is refused.
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-a-chosen-host-is-reached-without-hermiq-holding-a-key-req-pconn-002
+	 */
+	private function keylessOpenAiConfig(string $baseUrl, bool $ownNetwork, string $label): OpenAIConfig {
+		$guard = $this->egressGuard();
+		if ($guard === null) {
+			throw new ProviderUnavailableException($label . ' cannot be used: its base URL cannot be checked on this instance.', 503);
+		}
+
+		$verdict = $guard->assertSafe(url: $baseUrl, isAdminConfiguredEndpoint: $ownNetwork, allowInsecureHttp: $ownNetwork);
+		if (($verdict['allowed'] ?? false) !== true) {
+			throw new ProviderUnavailableException(
+				$label . ' cannot be used: its base URL is refused. ' . (string)($verdict['message'] ?? ''),
+				503
+			);
+		}
+
+		$config = new OpenAIConfig();
+		$config->url = rtrim($baseUrl, '/');
+		$config->apiKey = self::KEYLESS_API_KEY;
+
+		return $config;
+	}//end keylessOpenAiConfig()
+
+	/**
+	 * The egress guard, or null when the container cannot give one.
+	 *
+	 * @return WebResearchEgressGuardInterface|null
+	 */
+	private function egressGuard(): ?WebResearchEgressGuardInterface {
+		try {
+			$guard = $this->container?->get(WebResearchEgressGuardInterface::class);
+		} catch (Throwable $e) {
+			return null;
+		}
+
+		if ($guard instanceof WebResearchEgressGuardInterface === false) {
+			return null;
+		}
+
+		return $guard;
+	}//end egressGuard()
 
 	/**
 	 * An OpenAI client configuration whose requests go through the credential broker.
@@ -2425,16 +2821,19 @@ class ProviderFactory implements ProviderFactoryInterface {
 	}//end currentUid()
 
 	/**
-	 * Build the `nextcloud` driver descriptor. No LLPhant chat instance — the
-	 * caller must use `generateViaNextcloud()` instead of `$driver->chat`.
+	 * Build the `nextcloud` driver descriptor. No LLPhant chat instance: the caller uses
+	 * `callNextcloudChat()` or `generateViaNextcloud()` instead of `$driver->chat`.
 	 *
 	 * @return ChatDriver
 	 *
-	 * @throws ProviderUnavailableException When no TaskProcessing provider is installed.
+	 * @throws ProviderUnavailableException When Nextcloud has no AI provider at all, with
+	 *                                      the admin message saying where to set one up.
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-3-1
 	 */
 	private function createNextcloudDriver(): ChatDriver {
 		if ($this->taskManager->hasProviders() === false) {
-			throw new ProviderUnavailableException('No Nextcloud Assistant (TaskProcessing) provider is installed.', 503);
+			throw new ProviderUnavailableException($this->nextcloudClient()->adminMessage(), 503);
 		}
 
 		return new ChatDriver(provider: 'nextcloud', chat: null, model: TextToText::ID);

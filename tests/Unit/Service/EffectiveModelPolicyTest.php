@@ -230,7 +230,8 @@ class EffectiveModelPolicyTest extends TestCase {
 
 	/**
 	 * With no policy stored, only the configured chat provider is allowed; with none
-	 * configured, nothing is.
+	 * configured, only Nextcloud AI, the provider hermiq then runs on
+	 * (use-nextcloud-ai-settings).
 	 *
 	 * @return void
 	 */
@@ -244,7 +245,8 @@ class EffectiveModelPolicyTest extends TestCase {
 		);
 		$this->assertTrue($configured->isAllowed(organisation: 'org-a', provider: 'ollama', model: 'any'));
 		$this->assertFalse($configured->isAllowed(organisation: 'org-a', provider: 'openai', model: 'gpt-4o'));
-		$this->assertSame([], $unconfigured->effectivePolicyFor(organisation: 'org-a')['allowed']);
+		$this->assertSame([['provider' => 'nextcloud', 'models' => []]], $unconfigured->effectivePolicyFor(organisation: 'org-a')['allowed']);
+		$this->assertTrue($unconfigured->isAllowed(organisation: 'org-a', provider: 'nextcloud', model: 'any'));
 		$this->assertFalse($unconfigured->isAllowed(organisation: 'org-a', provider: 'ollama', model: 'any'));
 		$this->assertFalse($unconfigured->requiresNoTraining(organisation: 'org-a'));
 	}//end testTheFallbackIsFailClosed()

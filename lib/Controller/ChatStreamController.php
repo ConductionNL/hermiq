@@ -36,6 +36,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Service\Chat\SessionLinks;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\EngineInterface;
@@ -155,6 +156,7 @@ class ChatStreamController extends Controller {
 	 * @param AgentAccessServiceInterface $agentAccess The one per-agent access predicate.
 	 * @param LiteracyRequirementInterface|null $literacy The course requirement (compliance-ai-literacy).
 	 * @param AppAssistantResolver|null $assistants The agent for an app when a chat names none (agents-bound-to-their-app).
+	 * @param SessionLinks|null $sessionLinks Records what the session is about when a turn is sent (session-entity-links).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
@@ -174,6 +176,7 @@ class ChatStreamController extends Controller {
 		private readonly AgentAccessServiceInterface $agentAccess,
 		private readonly ?LiteracyRequirementInterface $literacy = null,
 		private readonly ?AppAssistantResolver $assistants = null,
+		private readonly ?SessionLinks $sessionLinks = null,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
@@ -248,6 +251,14 @@ class ChatStreamController extends Controller {
 				// streamed answer gets the same provenance record as a sent one.
 				trace: new RunTraceCollector(),
 				attachments: $turn['attachments']
+			);
+
+			// Session-entity-links D2: a SENT turn records what the page it came
+			// from shows; opening the panel records nothing.
+			$this->sessionLinks?->recordTurn(
+				sessionUuid: (string)$turn['conversationId'],
+				context: (array)$turn['contextArr'],
+				userId: (string)$turn['userId']
 			);
 
 			$this->replayRunSteps(conversationId: $turn['conversationId']);

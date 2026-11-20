@@ -47,11 +47,29 @@ final class RunTokenRequest {
 	public string $conversationId = '';
 
 	/**
+	 * The session's project (memory-project-scopes), or '' outside a project: the
+	 * governed MCP endpoint hands it to the memory tools.
+	 *
+	 * @var string
+	 */
+	public string $projectKey = '';
+
+	/**
 	 * A lifetime override in seconds (the workload plane's own ceiling), or null for the turn default.
 	 *
 	 * @var int|null
 	 */
 	public ?int $ttlSeconds = null;
+
+	/**
+	 * The only hosts a SIGN-IN token may reach through the egress proxy, on port
+	 * 443 (models-provider-connections D5). Empty for a run token: a token that
+	 * names hosts is a sign-in token, the PDP admits it to these hosts and nothing
+	 * else, and the governed MCP endpoint refuses it.
+	 *
+	 * @var array<int, string>
+	 */
+	public array $egressHosts = [];
 
 	/**
 	 * Build the request.

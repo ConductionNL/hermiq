@@ -249,7 +249,7 @@ class OrganisationPolicyControllersGoldenTest extends TestCase {
 						static fn (string $org): array => ['for' => $org, 'id' => $ids[$org], 'organisation' => $org, 'source' => $org === '' ? 'instance' : 'organisation'],
 						$organisations
 					),
-					'dataUse' => ['openai' => 'undeclared', 'ollama' => 'undeclared', 'fireworks' => 'undeclared', 'nextcloud' => 'undeclared', 'anthropic' => 'undeclared'],
+					'dataUse' => ['openai' => 'undeclared', 'ollama' => 'undeclared', 'fireworks' => 'undeclared', 'nextcloud' => 'undeclared', 'anthropic' => 'undeclared', 'openai-compatible' => 'undeclared'],
 				],
 				'model ' . $uid
 			);
