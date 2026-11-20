@@ -7,3 +7,4 @@
 - [ ] 1.2 Add an e2e test `tests/e2e/chat-stream-and-feedback.spec.ts` that sends a message,
       sees the answer bubble grow before the turn ends, rates the answer with a thumbs down
       and a comment, reloads and sees the thumbs down still marked (gate 19).
+      - Written, not run here: needs an instance with a streaming model; it skips with that reason where none answers.
