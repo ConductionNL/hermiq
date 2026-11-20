@@ -3265,7 +3265,11 @@ OC.L10N.register(
         "Stop sending": "Niet meer sturen",
         "You will get this report every week.": "Je krijgt dit rapport elke week.",
         "You will get this report every month.": "Je krijgt dit rapport elke maand.",
-        "This report is no longer sent to you.": "Dit rapport wordt je niet meer gestuurd."
+        "This report is no longer sent to you.": "Dit rapport wordt je niet meer gestuurd.",
+        "Semantic search": "Semantisch zoeken",
+        "Vector search through Open Register": "Vectorzoeken via Open Register",
+        "Keyword search: Open Register has no embedding provider configured": "Zoeken op trefwoord: in Open Register is geen embeddingprovider ingesteld",
+        "Keyword search: this Open Register has no vector search": "Zoeken op trefwoord: deze Open Register heeft geen vectorzoeken"
     },
     "nplurals=2; plural=(n != 1);"
 )

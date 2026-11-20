@@ -3240,7 +3240,11 @@ OC.L10N.register(
         "Stop sending": "Stop sending",
         "You will get this report every week.": "You will get this report every week.",
         "You will get this report every month.": "You will get this report every month.",
-        "This report is no longer sent to you.": "This report is no longer sent to you."
+        "This report is no longer sent to you.": "This report is no longer sent to you.",
+        "Semantic search": "Semantic search",
+        "Vector search through Open Register": "Vector search through Open Register",
+        "Keyword search: Open Register has no embedding provider configured": "Keyword search: Open Register has no embedding provider configured",
+        "Keyword search: this Open Register has no vector search": "Keyword search: this Open Register has no vector search"
     },
     "nplurals=2; plural=(n != 1);"
 )
