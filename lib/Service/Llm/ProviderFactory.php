@@ -1266,6 +1266,9 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 *
 	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
 	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-execution-mode-selects-the-anthropic-transport-and-defaults-to-http
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) showReasoning is the agent's stored setting, passed on as
+	 * a request option.
 	 */
 	public function callAnthropicChat(
 		string $credentialId,

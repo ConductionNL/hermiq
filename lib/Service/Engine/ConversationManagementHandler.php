@@ -58,6 +58,9 @@ use Throwable;
  * Handles conversation title generation, summarisation, and uniqueness.
  *
  * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with chat-how-an-answer-came-about; splitting it
+ * is follow-up work, not part of this merge.
  */
 class ConversationManagementHandler {
 	use SanitizesForSaveTrait;

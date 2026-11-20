@@ -553,6 +553,9 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	 * @spec openspec/changes/chat-carry-a-conversation-across-channels/specs/session-channel-continuity/spec.md#requirement-each-turn-records-where-it-was-typed-req-schan-004
 	 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-the-languages-and-engines-used-are-recorded-req-strn-002
 	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) reasoningWithheld is a stored fact of the turn, written as
+	 * data, not a behaviour switch.
 	 */
 	public function storeMessage(
 		string $conversationId,
