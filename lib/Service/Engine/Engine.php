@@ -296,6 +296,9 @@ class Engine implements EngineInterface {
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
 	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) each parameter it threads adds a line; splitting the
+	 * turn set-up is follow-up work, not part of this merge.
 	 */
 	public function processMessage(
 		string $conversationId,

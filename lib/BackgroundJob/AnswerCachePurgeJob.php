@@ -60,6 +60,9 @@ class AnswerCachePurgeJob extends TimedJob {
 	 * @return void
 	 *
 	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+	 *
+	 * @SuppressWarnings(PHPMD.UnusedFormalParameter) $argument is part of the background job signature; this
+	 * job takes no argument.
 	 */
 	protected function run($argument): void {
 		try {

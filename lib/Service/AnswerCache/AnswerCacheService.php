@@ -49,6 +49,11 @@ use Throwable;
  * Looks up and stores the answers of eligible turns.
  *
  * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-an-exact-repeat-within-one-organisation-gets-the-stored-answer-req-acache-002
+ *
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) carried in with models-prompt-and-answer-cache; splitting
+ * it is follow-up work, not part of this merge.
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with models-prompt-and-answer-cache; splitting
+ * it is follow-up work, not part of this merge.
  */
 class AnswerCacheService {
 
@@ -293,7 +298,8 @@ class AnswerCacheService {
 			}
 
 			$offset += self::PURGE_PAGE;
-		} while (count($page) === self::PURGE_PAGE);
+			$fullPage = (count($page) === self::PURGE_PAGE);
+		} while ($fullPage === true);
 
 		$removed = 0;
 		foreach ($expired as $entryId) {
@@ -338,7 +344,8 @@ class AnswerCacheService {
 			}
 
 			$offset += self::PURGE_PAGE;
-		} while (count($page) === self::PURGE_PAGE);
+			$fullPage = (count($page) === self::PURGE_PAGE);
+		} while ($fullPage === true);
 
 		$removed = 0;
 		foreach ($entryIds as $entryId) {
@@ -476,6 +483,9 @@ class AnswerCacheService {
 	 * @return array{entry: ObjectEntity, similarity: float}|null
 	 *
 	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-similar-questions-match-only-through-openregisters-vector-facade-req-acache-003
+	 *
+	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) carried in with models-prompt-and-answer-cache; splitting
+	 * it is follow-up work, not part of this merge.
 	 */
 	private function findSimilar(ResponseTurnRun $run, ?string $versionId): ?array {
 		$scope = $this->similarityScope(run: $run);
@@ -513,6 +523,11 @@ class AnswerCacheService {
 	 * @param string          $scope     `user` or `organisation`.
 	 *
 	 * @return ObjectEntity|null
+	 *
+	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) carried in with models-prompt-and-answer-cache; splitting
+	 * it is follow-up work, not part of this merge.
+	 * @SuppressWarnings(PHPMD.NPathComplexity) carried in with models-prompt-and-answer-cache; splitting it
+	 * is follow-up work, not part of this merge.
 	 */
 	private function similarEntry(ResponseTurnRun $run, mixed $entityId, ?string $versionId, string $scope): ?ObjectEntity {
 		if ((is_string($entityId) === false || $entityId === '') && is_int($entityId) === false) {

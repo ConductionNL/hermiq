@@ -1140,6 +1140,7 @@ export default {
 		answerCacheSimilarityOption: {
 			/**
 			 * @return {{value: string, label: string}} The selected option.
+			 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-4
 			 */
 			get() {
 				return this.answerCacheSimilarityOptions.find((option) => option.value === this.form.answerCacheSimilarity)
@@ -1149,6 +1150,7 @@ export default {
 			/**
 			 * @param {{value: string}|null} option The picked choice.
 			 * @return {void}
+			 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-4
 			 */
 			set(option) {
 				this.form.answerCacheSimilarity = option ? option.value : 'off'

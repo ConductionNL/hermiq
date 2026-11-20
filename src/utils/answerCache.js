@@ -72,6 +72,7 @@ export function answerCachePayload(form) {
  *
  * @param {object} form The form.
  * @return {boolean} True when it can.
+ * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-4
  */
 export function organisationScopeAllowed(form) {
 	return form.enableRag !== true

@@ -2697,10 +2697,14 @@
 						"description": "The answer-cache entry that served this assistant answer (models-prompt-and-answer-cache): its layer and entry id. Absent when the model gave the answer. A thumbs down on the answer deletes that entry.",
 						"properties": {
 							"layer": {
-								"type": "string"
+								"type": "string",
+								"title": "Cache layer",
+								"description": "Which layer served the answer: the exact repeat or a similar question."
 							},
 							"entryId": {
-								"type": "string"
+								"type": "string",
+								"title": "Cache entry",
+								"description": "The answer-cache entry that served the answer."
 							}
 						}
 					}
@@ -4168,14 +4172,16 @@
 							"enabled": {
 								"type": "boolean",
 								"default": false,
-								"title": "Reuse answers to repeated questions"
+								"title": "Reuse answers to repeated questions",
+								"description": "Whether repeated questions to this agent may be answered from the answer cache."
 							},
 							"ttlMinutes": {
 								"type": "integer",
 								"default": 1440,
 								"minimum": 1,
 								"maximum": 43200,
-								"title": "Lifetime in minutes"
+								"title": "Lifetime in minutes",
+								"description": "How long a cached answer is kept, in minutes."
 							},
 							"similarity": {
 								"type": "string",
@@ -6981,6 +6987,7 @@
 				"version": "0.1.0",
 				"title": "Cached answer",
 				"description": "A stored answer to a repeated question for one agent version in one organisation (models-prompt-and-answer-cache). keyHash is a SHA-256 over the organisation, agent, agent version, provider, model, temperature and the full assembled input; the prompt itself is never stored. question is kept, redacted, only when the agent's similarity layer is on. Only an admin reads or writes it through the object API; AnswerCacheService is the one reader for everyone else.",
+				"x-openregister-demo-data": "Written by the answer cache from a real question and its answer; a sample entry would be served as the answer to anyone asking that question.",
 				"type": "object",
 				"required": [
 					"agentId",
@@ -7063,13 +7070,15 @@
 						"type": "integer",
 						"default": 0,
 						"minimum": 0,
-						"title": "Times served"
+						"title": "Times served",
+						"description": "How many times this entry served an answer."
 					},
 					"lastHitAt": {
 						"type": "string",
 						"format": "date-time",
 						"title": "Last served at",
-						"nullable": true
+						"nullable": true,
+						"description": "When this entry last served an answer."
 					}
 				}
 			}

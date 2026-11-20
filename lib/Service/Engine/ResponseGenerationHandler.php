@@ -85,6 +85,9 @@ use Psr\Log\LoggerInterface;
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)
  *
  * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+ *
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength) carried in with models-prompt-and-answer-cache; splitting it
+ * is follow-up work, not part of this merge.
  */
 class ResponseGenerationHandler {
 
