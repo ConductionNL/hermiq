@@ -43,6 +43,7 @@ class SessionCollaborators {
 	 * @param AgentAccessService      $agentAccess      Decides whether the caller may use an agent.
 	 * @param SessionSubject          $subject          Reads and filters on the record a session is about.
 	 * @param SessionPendingApprovals $pendingApprovals The approvals a session's agent waits on.
+	 * @param SessionLinks|null       $links            What a session is about, and removing a link (session-entity-links).
 	 *
 	 * @spec openspec/changes/archive/2026-11-12-session-about-a-subject/tasks.md
 	 */
@@ -51,6 +52,7 @@ class SessionCollaborators {
 		public readonly AgentAccessService $agentAccess,
 		public readonly SessionSubject $subject,
 		public readonly SessionPendingApprovals $pendingApprovals,
+		public readonly ?SessionLinks $links = null,
 	) {
 	}//end __construct()
 }//end class
