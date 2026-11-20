@@ -3378,7 +3378,25 @@ OC.L10N.register(
         "This agent is switched off, so it did not run.": "Deze agent staat uit, dus hij is niet uitgevoerd.",
         "The emergency stop is on for this organisation, so the agent did not run.": "De noodstop staat aan voor deze organisatie, dus de agent is niet uitgevoerd.",
         "The budget for this period is used up, so the agent did not run.": "Het budget voor deze periode is op, dus de agent is niet uitgevoerd.",
-        "Could not create the draft flow.": "De conceptflow kon niet worden aangemaakt."
+        "Could not create the draft flow.": "De conceptflow kon niet worden aangemaakt.",
+        "AI off": "AI uit",
+        "Department": "Afdeling",
+        "Department control": "Afdelingsschakelaar",
+        "The Nextcloud group id marked as a department.": "De id van de Nextcloud-groep die als afdeling is gemarkeerd.",
+        "The Nextcloud group id of the department this agent runs for. Only a group an administrator marked as a department counts; while that department's AI switch is off, the agent's runs are refused.": "De id van de Nextcloud-groep van de afdeling waarvoor deze agent werkt. Alleen een groep die een beheerder als afdeling heeft gemarkeerd telt mee; zolang AI voor die afdeling uit staat, worden de runs van de agent geweigerd.",
+        "The administrator who last switched the department on or off.": "De beheerder die de afdeling het laatst aan- of uitzette.",
+        "The department's name as people know it, such as Sociaal domein.": "De naam van de afdeling zoals mensen die kennen, bijvoorbeeld Sociaal domein.",
+        "When the department was last switched on or off.": "Wanneer de afdeling het laatst is aan- of uitgezet.",
+        "When true, runs of this department's agents are refused.": "Als dit aan staat, worden runs van de agents van deze afdeling geweigerd.",
+        "Why the department was switched off.": "Waarom de afdeling is uitgezet.",
+        "Per department": "Per afdeling",
+        "Department switch error": "Fout bij de afdelingsschakelaar",
+        "AI switch": "AI-schakelaar",
+        "Refused runs": "Geweigerde uitvoeringen",
+        "AI for {department}": "AI voor {department}",
+        "{user} at {time}": "{user} op {time}",
+        "Download evidence for {department}": "Bewijs downloaden voor {department}",
+        "Download evidence": "Bewijs downloaden"
     },
     "nplurals=2; plural=(n != 1);"
 )
