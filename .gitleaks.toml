@@ -22,3 +22,15 @@ paths = [
   '''(^|/)tests/Unit/Service/RedactionServiceTest\.php$''',
   '''(^|/)tests/Unit/Service/ScheduleServiceTest\.php$''',
 ]
+
+[[allowlists]]
+description = "Public chat test fixtures: channel and conversation tokens made of a word plus 0123456789 (Chan0123..., Tok0123..., Conv0123...), not credentials."
+targetRules = ["generic-api-key"]
+paths = [
+  '''(^|/)tests/Unit/Controller/PublicChatControllerTest\.php$''',
+  '''(^|/)tests/Unit/Controller/PublicChatPageControllerTest\.php$''',
+  '''(^|/)tests/Unit/Listener/PublicChannelGuardListenerTest\.php$''',
+  '''(^|/)tests/Unit/Service/PublicChat/PublicChannelStoreTest\.php$''',
+  '''(^|/)tests/vitest/public\-channel\-settings\.spec\.js$''',
+  '''(^|/)tests/vitest/public\-chat\.spec\.js$''',
+]

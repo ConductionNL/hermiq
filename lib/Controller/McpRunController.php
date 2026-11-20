@@ -64,6 +64,7 @@ use OCA\Hermiq\Kernel\Contracts\RunTokenServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolLoopInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolSearchServiceInterface;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
+use OCA\Hermiq\Service\AgentBuildService;
 use OCA\Hermiq\Service\Engine\RunToolCallCounter;
 use OCA\Hermiq\Service\Engine\TurnGuard;
 use OCA\Hermiq\Service\Workspace\RepoEffectingGrants;
@@ -100,6 +101,9 @@ use Throwable;
  *   governance guards — a dispatch surface, not one tangled algorithm.
  *
  * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run
+ *
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength) carried in with this batch's feature work; splitting it is
+ * follow-up work, not part of this merge.
  */
 class McpRunController extends Controller {
 
@@ -179,6 +183,8 @@ class McpRunController extends Controller {
 	 *                                                 for the agent's tool call cap.
 	 * @param GuardrailPolicyServiceInterface|null $guardrailService Applies the output filters to
 	 *                                                      the steps shown in the chat.
+	 * @param AgentBuildService|null $agentBuilds Starts a new session workspace from the
+	 *                                            agent's pinned build.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
@@ -199,6 +205,7 @@ class McpRunController extends Controller {
 		private readonly ?WorkspaceRunScope $workspaceScope = null,
 		private readonly ?RunToolCallCounter $toolCallCounter = null,
 		private readonly ?GuardrailPolicyServiceInterface $guardrailService = null,
+		private readonly ?AgentBuildService $agentBuilds = null,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
@@ -230,6 +237,11 @@ class McpRunController extends Controller {
 		$binding = $this->runTokenService->verify(token: $token);
 		if ($binding === null) {
 			return $this->refuseToken(token: $token);
+		}
+
+		// A sign-in token reaches no tools (models-provider-connections D5).
+		if (isset($binding['egressHosts']) === true) {
+			return new JSONResponse(['error' => 'invalid_token'], Http::STATUS_UNAUTHORIZED);
 		}
 
 		$body = json_decode($this->readRawBody(), true);
@@ -346,7 +358,8 @@ class McpRunController extends Controller {
 				method: (string)$body['method'],
 				params: $this->requestParams(body: $body),
 				agentId: $binding['agentId'],
-				conversationId: $binding['conversationId']
+				conversationId: $binding['conversationId'],
+				projectKey: (string)($binding['projectKey'] ?? '')
 			);
 		} finally {
 			$this->workspaceScope?->leave();
@@ -364,11 +377,29 @@ class McpRunController extends Controller {
 	 */
 	private function enterRunWorkspace(array $binding): void {
 		$this->runId = (string)$binding['runId'];
-		$this->workspaceScope?->enter(
+		if ($this->workspaceScope === null) {
+			return;
+		}
+
+		// The lifetime is the AGENT's setting, read from the stored agent; the
+		// conversation comes from the verified token. Neither is taken from the
+		// request body.
+		$agent = $this->loadAgent(agentId: (string)$binding['agentId']);
+		$this->workspaceScope->enter(
 			runId: $binding['runId'],
 			agentId: $binding['agentId'],
-			userId: $binding['userId']
+			userId: $binding['userId'],
+			context: [
+				'conversationId' => (string)($binding['conversationId'] ?? ''),
+				'workspaceMode'  => (string)($agent?->getObject()['workspaceMode'] ?? ''),
+			]
 		);
+
+		// A new conversation of an agent with a pinned build starts its workspace
+		// as a copy of that build; an open workspace is left as it is.
+		if ($agent !== null && $this->agentBuilds !== null && (string)$binding['runId'] !== '') {
+			$this->agentBuilds->startWorkspace(agent: $agent, workspaceKey: (string)$this->workspaceScope->current()['workspaceKey']);
+		}
 
 	}//end enterRunWorkspace()
 
@@ -449,12 +480,21 @@ class McpRunController extends Controller {
 	 * @param string $agentId The run's agent UUID (from the token).
 	 * @param string $conversationId The conversation this run belongs to, so a step
 	 *                               published on the bus reaches the right stream.
+	 * @param string $projectKey The run's project, from the token (memory-project-scopes).
 	 *
 	 * @return Response The JSON-RPC response.
 	 *
 	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-tool-call-is-governed-not-passed-through
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
-	private function dispatch(mixed $id, string $method, array $params, string $agentId, string $conversationId = ''): Response {
+	private function dispatch(
+		mixed $id,
+		string $method,
+		array $params,
+		string $agentId,
+		string $conversationId = '',
+		string $projectKey = '',
+	): Response {
 		if ($method === 'tools/list') {
 			return $this->jsonRpcSuccess(id: $id, result: ['tools' => $this->resolveMcpTools(agentId: $agentId)]);
 		}
@@ -465,7 +505,8 @@ class McpRunController extends Controller {
 				call: new ToolCallRequest(
 					params: $params,
 					agentId: $agentId,
-					conversationId: $conversationId
+					conversationId: $conversationId,
+					projectKey: $projectKey
 				)
 			);
 		}
@@ -586,10 +627,14 @@ class McpRunController extends Controller {
 		// FacadeToolInvoker the http path builds.
 		$this->toolSearchService->registerResolved(descriptors: $descriptors);
 
+		// The project key comes from the verified token, never from the model:
+		// the invoker sets it on the memory tool calls (memory-project-scopes).
 		$functionInfos = $this->toolLoop->buildFunctionInfos(
 			functions: $descriptors,
 			agent: $agent,
-			organisation: $this->organisationOf(agent: $agent)
+			organisation: $this->organisationOf(agent: $agent),
+			runId: $this->runId,
+			projectKey: $call->projectKey
 		);
 
 		foreach ($functionInfos as $functionInfo) {

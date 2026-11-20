@@ -377,3 +377,51 @@ describe('starting a new session', () => {
 		expect(vm.messages).toEqual([])
 	})
 })
+
+describe('how an answer came about: reasoning and context (chat-how-an-answer-came-about)', () => {
+	it('folds the model reasoning under an answer that has it, with the warning line', async () => {
+		const w = await mountWithSession([
+			{ id: 'm1', role: 'user', content: 'Compare A and B' },
+			{ id: 'm2', role: 'assistant', content: 'A pays more.', reasoning: 'A has the higher rate.' },
+		])
+		const section = w.find('[data-testid="chat-message-reasoning"]')
+		expect(section.exists()).toBe(true)
+		expect(section.element.tagName).toBe('DETAILS')
+		expect(section.text()).toContain('Model reasoning')
+		expect(section.text()).toContain('This is the model\'s own text. It can be wrong.')
+		expect(section.text()).toContain('A has the higher rate.')
+		expect(w.findAll('[data-testid="chat-message-reasoning"]')).toHaveLength(1)
+	})
+
+	it('says a withheld reasoning was withheld, and shows nothing without one', async () => {
+		const w = await mountWithSession([
+			{ id: 'm1', role: 'assistant', content: 'One.', reasoningWithheld: true },
+			{ id: 'm2', role: 'assistant', content: 'Two.' },
+		])
+		expect(w.find('[data-testid="chat-message-reasoning"]').exists()).toBe(false)
+		const withheld = w.findAll('[data-testid="chat-message-reasoning-withheld"]')
+		expect(withheld).toHaveLength(1)
+		expect(withheld[0].text()).toBe('The reasoning was withheld by the organisation\'s filter.')
+	})
+
+	it('shows the stored context usage under the message box and the last turn\'s once it reports one', async () => {
+		const w = await mountWithSession([])
+		expect(w.find('[data-testid="chat-context-usage"]').exists()).toBe(false)
+
+		w.vm.activeSession = { uuid: 's1', title: 'Budget', metadata: { contextUsage: { usedTokens: 12400, windowTokens: null, estimated: true } } }
+		await flushPromises()
+		expect(w.find('[data-testid="chat-context-usage"]').text()).toContain('Context: about')
+		expect(w.find('[data-testid="chat-context-warning"]').exists()).toBe(false)
+
+		w.vm.rememberContextUsage('s1', { usedTokens: 106300, windowTokens: 128000, estimated: false })
+		await flushPromises()
+		expect(w.find('[data-testid="chat-context-usage"]').text()).toContain('(83%)')
+		expect(w.find('[data-testid="chat-context-warning"]').text()).toContain('close to the model\'s limit')
+
+		// Another session's usage is not shown on this one.
+		w.vm.rememberContextUsage('s2', { usedTokens: 5, windowTokens: null, estimated: false })
+		w.vm.rememberContextUsage('', { usedTokens: 5 })
+		await flushPromises()
+		expect(w.find('[data-testid="chat-context-usage"]').text()).toContain('(83%)')
+	})
+})

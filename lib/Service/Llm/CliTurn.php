@@ -48,6 +48,13 @@ final class CliTurn {
 	public string $conversationId = '';
 
 	/**
+	 * The session's project (memory-project-scopes), or ''.
+	 *
+	 * @var string
+	 */
+	public string $projectKey = '';
+
+	/**
 	 * The turn's message history (empty for a warm-up).
 	 *
 	 * @var array<int, mixed>

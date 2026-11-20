@@ -244,6 +244,57 @@
 								</li>
 							</ul>
 						</NcNoteCard>
+						<fieldset class="tenant-ops__fallbacks">
+							<legend>{{ t('hermiq', 'Fallback models') }}</legend>
+							<p class="tenant-ops__note">
+								{{
+									t(
+										'hermiq',
+										'Tried in this order when the provider is temporarily unavailable. Each fallback must be allowed by this policy.',
+									)
+								}}
+							</p>
+							<div
+								v-for="(row, index) in policyDraft.fallbacks"
+								:key="index"
+								class="tenant-ops__fallback">
+								<NcTextField
+									v-model="row.provider"
+									:label="t('hermiq', 'Provider')" />
+								<NcTextField
+									v-model="row.model"
+									:label="t('hermiq', 'Model')" />
+								<NcButton
+									variant="tertiary"
+									:aria-label="t('hermiq', 'Move fallback up')"
+									:disabled="index === 0"
+									@click="moveDraftFallback(index, -1)">
+									↑
+								</NcButton>
+								<NcButton
+									variant="tertiary"
+									:aria-label="t('hermiq', 'Move fallback down')"
+									:disabled="index === policyDraft.fallbacks.length - 1"
+									@click="moveDraftFallback(index, 1)">
+									↓
+								</NcButton>
+								<NcButton
+									variant="tertiary"
+									:aria-label="t('hermiq', 'Remove fallback')"
+									@click="removeDraftFallback(index)">
+									{{ t('hermiq', 'Remove') }}
+								</NcButton>
+							</div>
+							<NcButton
+								variant="secondary"
+								:disabled="policyDraft.fallbacks.length >= maxFallbacks"
+								@click="addDraftFallback">
+								{{ t('hermiq', 'Add fallback') }}
+							</NcButton>
+						</fieldset>
+						<NcNoteCard v-if="policyRefusal" type="error">
+							{{ policyRefusal }}
+						</NcNoteCard>
 						<div class="tenant-ops__card-actions">
 							<NcButton
 								variant="primary"
@@ -325,6 +376,10 @@
 			</section>
 		</template>
 
+		<!-- Rechten per actie (action-matrix-screen): Nextcloud administrators only;
+			the matrix is instance-wide, so it sits outside the organisation sections. -->
+		<ActionMatrixSection v-if="isAdmin" class="tenant-ops__section" />
+
 		<BudgetFormModal
 			:show="showBudgetForm"
 			:organisation="selectedOrg"
@@ -349,6 +404,7 @@ import {
 	NcTextField,
 } from '@nextcloud/vue'
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
+import ActionMatrixSection from '../components/ActionMatrixSection.vue'
 import BudgetFormModal from '../modals/BudgetFormModal.vue'
 import { deleteBudget, getBudgetStatus, listBudgets } from '../api/budgets.js'
 import {
@@ -357,6 +413,15 @@ import {
 } from '../api/modelPolicy.js'
 import { attestReviewed, getAccessReview, reassignAgent } from '../api/tenantOps.js'
 import { dateOrDash } from '../utils/displayDate.js'
+import {
+	addFallback,
+	fallbackPayload,
+	fallbackRows,
+	fallbackSummary,
+	MAX_FALLBACKS,
+	moveFallback,
+	removeFallback,
+} from '../utils/fallbackChain.js'
 import { organisationLabel } from '../utils/organisationLabel.js'
 import { organisationPicker } from '../utils/organisationPicker.js'
 
@@ -364,6 +429,7 @@ export default {
 	name: 'TenantOps',
 
 	components: {
+		ActionMatrixSection,
 		BudgetFormModal,
 		CnDataTable,
 		NcButton,
@@ -385,6 +451,9 @@ export default {
 		const organisations = loadState('hermiq', 'managed_organisations', [])
 		return {
 			canManage: loadState('hermiq', 'can_manage_killswitch', false) === true,
+			// Nextcloud administrators edit the action matrix (action-matrix-screen);
+			// the endpoints refuse anyone else, this only hides the section.
+			isAdmin: loadState('hermiq', 'is_admin', false) === true,
 			// Cost-guardrails (cost-guardrails): budgets are org-scoped, so admins who
 			// manage more than one organisation need an org picker (mirrors KillSwitchToggle).
 			organisations: Array.isArray(organisations) ? organisations : [],
@@ -402,7 +471,12 @@ export default {
 				allowedText: '',
 				defaultModel: '',
 				requireNoTraining: false,
+				fallbacks: [],
 			},
+
+			// The server's refusal of the last save, shown under the editor (models-several-models-per-turn).
+			policyRefusal: '',
+			maxFallbacks: MAX_FALLBACKS,
 
 			// What each provider declared about training (models-no-training-guarantee).
 			providerDataUse: {},
@@ -642,7 +716,11 @@ export default {
 				policy.requireNoTraining === true
 					? ` · ${this.t('hermiq', 'only providers that never train on our data')}`
 					: ''
-			return parts.join(' · ') + suffix + training
+			const chain = fallbackSummary(policy.fallbackChain)
+			const fallbacks = chain
+				? ` · ${this.t('hermiq', 'fallbacks')}: ${chain}`
+				: ''
+			return parts.join(' · ') + suffix + training + fallbacks
 		},
 
 		/**
@@ -671,8 +749,43 @@ export default {
 
 				defaultModel: policy.defaultModel || '',
 				requireNoTraining: policy.requireNoTraining === true,
+				fallbacks: fallbackRows(policy.fallbackChain),
 			}
+			this.policyRefusal = ''
 			this.editingPolicyId = policy.id
+		},
+
+		/**
+		 * Add an empty fallback row to the draft (models-several-models-per-turn).
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
+		 */
+		addDraftFallback() {
+			this.policyDraft.fallbacks = addFallback(this.policyDraft.fallbacks)
+		},
+
+		/**
+		 * Move a draft fallback row up or down.
+		 *
+		 * @param {number} index The row.
+		 * @param {number} delta -1 for up, 1 for down.
+		 * @return {void}
+		 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
+		 */
+		moveDraftFallback(index, delta) {
+			this.policyDraft.fallbacks = moveFallback(this.policyDraft.fallbacks, index, delta)
+		},
+
+		/**
+		 * Remove a draft fallback row.
+		 *
+		 * @param {number} index The row.
+		 * @return {void}
+		 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
+		 */
+		removeDraftFallback(index) {
+			this.policyDraft.fallbacks = removeFallback(this.policyDraft.fallbacks, index)
 		},
 
 		/**
@@ -700,16 +813,19 @@ export default {
 					}
 				})
 			this.policySaving = true
+			this.policyRefusal = ''
 			try {
 				await updateModelPolicy(policy.id, {
 					allowed,
 					defaultModel: this.policyDraft.defaultModel || null,
 					requireNoTraining: this.policyDraft.requireNoTraining,
+					fallbackChain: fallbackPayload(this.policyDraft.fallbacks),
 				})
 				showSuccess(this.t('hermiq', 'Model policy saved.'))
 				this.editingPolicyId = null
 				await this.loadModelPolicies()
 			} catch (e) {
+				this.policyRefusal = e?.response?.data?.error || ''
 				showError(
 					e?.response?.data?.error
 						|| this.t('hermiq', 'Could not save the model policy.'),
@@ -971,5 +1087,19 @@ export default {
 
 .tenant-ops__reassign-input {
 	max-width: 180px;
+}
+.tenant-ops__fallbacks {
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-large);
+	padding: 8px 12px;
+	margin: 8px 0;
+}
+
+.tenant-ops__fallback {
+	display: flex;
+	gap: 8px;
+	align-items: flex-end;
+	flex-wrap: wrap;
+	margin-bottom: 8px;
 }
 </style>

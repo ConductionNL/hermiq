@@ -73,7 +73,7 @@ class WorkspaceWrites {
 		try {
 			$run = $this->scope->current();
 			if (isset($arguments['workspaceId']) === true
-				&& (string)$arguments['workspaceId'] !== $this->provider->workspaceId(runKey: $run['runId'])
+				&& (string)$arguments['workspaceId'] !== $this->provider->workspaceId(runKey: $run['workspaceKey'])
 			) {
 				throw new WorkspaceException(
 					errorCode: WorkspaceException::WORKSPACE_MISMATCH,
@@ -82,7 +82,7 @@ class WorkspaceWrites {
 			}
 
 			$write = new WorkspaceWrite(toolId: $toolId, run: $run);
-			$write->root = $this->provider->root(runKey: $run['runId']);
+			$write->root = $this->provider->root(runKey: $run['workspaceKey']);
 			$write->arguments = $arguments;
 
 			return $this->governed(write: $write);
@@ -109,7 +109,7 @@ class WorkspaceWrites {
 			$write->approval = $this->authoriser->assertAuthorised(
 				run: $write->run,
 				toolId: $write->toolId,
-				workspace: $this->provider->describe(runKey: $write->run['runId'])
+				workspace: $this->provider->describe(runKey: $write->run['workspaceKey'])
 			);
 			$write->result = $this->dispatch(write: $write);
 		} catch (WorkspaceException $e) {
@@ -137,9 +137,17 @@ class WorkspaceWrites {
 	 */
 	private function dispatch(WorkspaceWrite $write): array {
 		return match ($write->toolId) {
-			WorkspaceToolDescriptors::WRITE_FILE => $this->editor->writeFile(runKey: $write->run['runId'], root: $write->root, arguments: $write->arguments),
+			WorkspaceToolDescriptors::WRITE_FILE => $this->editor->writeFile(
+				runKey: $write->run['workspaceKey'],
+				root: $write->root,
+				arguments: $write->arguments
+			),
 			WorkspaceToolDescriptors::DELETE_FILE => $this->editor->deleteFile(root: $write->root, arguments: $write->arguments),
-			WorkspaceToolDescriptors::APPLY_PATCH => $this->editor->applyPatch(runKey: $write->run['runId'], root: $write->root, arguments: $write->arguments),
+			WorkspaceToolDescriptors::APPLY_PATCH => $this->editor->applyPatch(
+				runKey: $write->run['workspaceKey'],
+				root: $write->root,
+				arguments: $write->arguments
+			),
 			WorkspaceToolDescriptors::CREATE_BRANCH => $this->editor->createBranch(root: $write->root, branch: $this->branch(arguments: $write->arguments)),
 			WorkspaceToolDescriptors::CHECKOUT_BRANCH => $this->editor->checkoutBranch(
 				root: $write->root,
@@ -148,7 +156,7 @@ class WorkspaceWrites {
 			WorkspaceToolDescriptors::PUSH => $this->pusher->push(
 				run: $write->run,
 				root: $write->root,
-				repository: $this->provider->describe(runKey: $write->run['runId'])['repository'],
+				repository: $this->provider->describe(runKey: $write->run['workspaceKey'])['repository'],
 				branch: $this->branch(arguments: $write->arguments),
 				arguments: $write->arguments
 			),

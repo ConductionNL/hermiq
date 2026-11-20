@@ -187,7 +187,22 @@ class ApprovalInbox {
 			'preview' => $previews?->build(approval: $data),
 		];
 
-		return array_merge($this->requestFields(approval: $approval), $toolFields);
+		$record = array_merge($this->requestFields(approval: $approval), $toolFields);
+
+		// Oversight-ask-and-hold: a question carries its suggested answers, a
+		// draft its text and recipients, so the inbox can answer or release it.
+		// Only on those two source types: every other record keeps its shape.
+		$sourceType = (string)($data['sourceType'] ?? '');
+		$held = $data['draftPayload'] ?? [];
+		if (is_array($held) === true && $sourceType === 'question') {
+			$record['question'] = (array)($held['question'] ?? []);
+		}
+
+		if (is_array($held) === true && $sourceType === 'draft') {
+			$record['draft'] = $held;
+		}
+
+		return $record;
 	}//end inboxRecord()
 
 	/**

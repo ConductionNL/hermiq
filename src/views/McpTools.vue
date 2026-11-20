@@ -22,6 +22,9 @@
 			<h2 class="mcp-tools__heading">
 				{{ t('hermiq', 'MCP tools') }}
 			</h2>
+			<NcButton @click="openCustomTools">
+				{{ t('hermiq', 'Add a custom tool') }}
+			</NcButton>
 		</div>
 
 		<p class="mcp-tools__intro">
@@ -70,7 +73,7 @@
 
 <script>
 import { CnDataTable } from '@conduction/nextcloud-vue'
-import { NcEmptyContent, NcNoteCard } from '@nextcloud/vue'
+import { NcButton, NcEmptyContent, NcNoteCard } from '@nextcloud/vue'
 import ToolboxIcon from 'vue-material-design-icons/ToolboxOutline.vue'
 import { listTools } from '../api/agents.js'
 import { errorMessage } from '../utils/errorMessage.js'
@@ -80,6 +83,7 @@ export default {
 
 	components: {
 		CnDataTable,
+		NcButton,
 		NcEmptyContent,
 		NcNoteCard,
 		ToolboxIcon,
@@ -130,6 +134,16 @@ export default {
 
 	methods: {
 		/**
+		 * Open the Custom tools page, where an organisation admin adds a tool of their own.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+		 */
+		openCustomTools() {
+			this.$router.push({ path: '/custom-tools' }).catch(() => {})
+		},
+
+		/**
 		 * Load the MCP tools available to agents (RBAC-scoped server-side).
 		 *
 		 * @return {Promise<void>}
@@ -154,6 +168,13 @@ export default {
 	padding: 20px;
 	max-width: 960px;
 	margin: 0 auto;
+}
+
+.mcp-tools__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
 }
 
 .mcp-tools__heading {

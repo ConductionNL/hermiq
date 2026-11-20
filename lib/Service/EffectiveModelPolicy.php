@@ -110,7 +110,7 @@ class EffectiveModelPolicy implements EffectiveModelPolicyInterface {
 	 *
 	 * @param string $organisation The organisation identifier (may be '').
 	 *
-	 * @return array{source:string,allowed:list<array{provider:string,models:list<string>}>,defaultModel:array{provider:string,model:string}|null}
+	 * @return array{source:string,allowed:list<array{provider:string,models:list<string>}>,defaultModel:array{provider:string,model:string}|null,fallbackChain?:list<array{provider:string,model:string}>}
 	 *                                                                                                                                             The effective, shaped policy.
 	 *
 	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
@@ -134,26 +134,30 @@ class EffectiveModelPolicy implements EffectiveModelPolicyInterface {
 	/**
 	 * The fail-closed synthetic policy used when no ModelPolicy exists anywhere
 	 * (organisation-specific or instance-wide): the single provider currently
-	 * configured in `hermiq.llm.chatProvider`, or nothing when even that is unset
-	 * — never "every provider is allowed".
+	 * configured in `hermiq.llm.chatProvider`, never "every provider is allowed".
+	 * An unset chatProvider resolves to Nextcloud AI, the provider hermiq then
+	 * actually runs on (use-nextcloud-ai-settings); allowing nothing there would
+	 * refuse every default run.
 	 *
 	 * @return array{source: string, allowed: array<int, array{provider: string, models: array<int, string>}>, defaultModel: null}
 	 *
 	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-1-1
 	 */
 	private function fallbackPolicy(): array {
 		$chatProvider = $this->settingsHandler->getLLMSettingsOnly()['chatProvider'] ?? null;
-
-		$allowed = [];
-		if (is_string($chatProvider) === true && $chatProvider !== '') {
-			$allowed[] = ['provider' => $chatProvider, 'models' => []];
+		if (is_string($chatProvider) === false || trim($chatProvider) === '') {
+			$chatProvider = LlmSettingsHandler::DEFAULT_CHAT_PROVIDER;
 		}
+
+		$allowed = [['provider' => $chatProvider, 'models' => []]];
 
 		return [
 			'source' => 'fallback',
 			'allowed' => $allowed,
 			'defaultModel' => null,
 			'requireNoTraining' => false,
+			'fallbackChain' => [],
 		];
 
 	}//end fallbackPolicy()
@@ -243,6 +247,8 @@ class EffectiveModelPolicy implements EffectiveModelPolicyInterface {
 			'allowed' => $data['allowed'] ?? [],
 			'defaultModel' => $data['defaultModel'] ?? null,
 			'requireNoTraining' => (($data['requireNoTraining'] ?? false) === true),
+			// The providers a turn moves to when its own fails (models-several-models-per-turn).
+			'fallbackChain' => array_values((array)($data['fallbackChain'] ?? [])),
 		];
 
 	}//end shape()

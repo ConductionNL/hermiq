@@ -59,6 +59,7 @@ vi.mock('../../src/api/chat.js', async (orig) => {
 		ChatStreamError: real.ChatStreamError,
 		answerStartFields: vi.fn(),
 		archiveSession: vi.fn(async () => ({})),
+		bulkSessions: vi.fn(async () => []),
 		createSession: vi.fn(),
 		getImageAvailability: vi.fn(async () => true),
 		getSession: vi.fn(async (uuid) => ({ uuid, title: 'Fresh' })),
@@ -364,11 +365,15 @@ describe('sending', () => {
 			handlers.onToolResult({ toolId: 'search' })
 			handlers.onToolResult({ toolId: 'missing' })
 			seen.push([w.vm.streamingText, JSON.parse(JSON.stringify(w.vm.streamingTools))])
+			seen.push(w.vm.streamingSteps.map((step) => step.label))
 			return { attachmentNotices: ['skipped a.zip'], messageId: 'm9' }
 		})
 		await w.vm.handleSend()
 		expect(api.streamChatMessage.mock.calls[0][0]).toEqual({ message: 'Hello', sessionUuid: 's1', attachments: [] })
-		expect(seen).toEqual([['Hi there', [{ toolId: 'search', done: true }, { toolId: 'tool', done: false }]]])
+		expect(seen).toEqual([['Hi there', [
+			{ toolId: 'search', arguments: {}, result: null, done: true },
+			{ toolId: 'tool', arguments: {}, result: null, done: false },
+		]], ['Used tool: search', 'Using tool: tool…']])
 		expect(w.vm.attachmentNotices).toEqual(['skipped a.zip'])
 		expect(w.vm.attachmentNoticesFor).toBe('m9')
 		expect(api.getSession).toHaveBeenCalledWith('s1')
@@ -388,6 +393,39 @@ describe('sending', () => {
 		await w.vm.handleSend()
 		expect(api.sendChatMessage).toHaveBeenCalledTimes(1)
 		expect(w.vm.sendError).toBe('No access')
+	})
+
+	it('asks the model again: resends the question a cached answer replied to, with the cache bypassed', async () => {
+		const w = await ready()
+		const question = { role: 'user', content: 'Wanneer wordt het oud papier opgehaald?' }
+		const answer = { role: 'assistant', content: 'Op maandag.', fromCache: true }
+		w.vm.messages = [question, answer]
+		w.vm.currentMessage = 'a draft the person is still typing'
+		api.streamChatMessage.mockResolvedValueOnce({ messageId: 'm10' })
+
+		await w.vm.askModelAgain(answer)
+
+		expect(api.streamChatMessage.mock.calls[0][0]).toEqual({ message: 'Wanneer wordt het oud papier opgehaald?', sessionUuid: 's1', attachments: [], answerCacheBypass: true })
+		expect(w.vm.currentMessage).toBe('a draft the person is still typing')
+		expect(w.vm.sending).toBe(false)
+
+		// The turn re-read the thread from the server; put the cached answer back.
+		w.vm.messages = [question, answer]
+		w.vm.settings = { ...w.vm.settings, includeFiles: false }
+		await w.vm.askModelAgain(answer)
+		expect(api.sendChatMessage.mock.calls[0][0]).toMatchObject({ message: 'Wanneer wordt het oud papier opgehaald?', answerCacheBypass: true })
+	})
+
+	it('does not ask again without a question before the answer or while a turn runs', async () => {
+		const w = await ready()
+		const answer = { role: 'assistant', content: 'Op maandag.', fromCache: true }
+		w.vm.messages = [answer]
+		await w.vm.askModelAgain(answer)
+		w.vm.messages = [{ role: 'user', content: 'Wanneer?' }, answer]
+		w.vm.sending = true
+		await w.vm.askModelAgain(answer)
+		expect(api.streamChatMessage).not.toHaveBeenCalled()
+		expect(api.sendChatMessage).not.toHaveBeenCalled()
 	})
 
 	it('posts the turn directly when the settings are customised', async () => {
@@ -648,5 +686,76 @@ describe('presentation', () => {
 		const w = await mountChat()
 		w.vm.currentAgent = {}
 		expect(w.vm.speechControls).toEqual({ dictate: false, readAloud: true })
+	})
+})
+
+const axios = (await import('@nextcloud/axios')).default
+
+describe('starting in a project (memory-project-scopes)', () => {
+	const projects = [{ projectKey: 'omgevingsvisie-2040', projectName: 'Omgevingsvisie 2040' }]
+
+	afterEach(() => {
+		vi.restoreAllMocks()
+	})
+
+	it('asks which project when the agent already has some, and starts nothing yet', async () => {
+		vi.spyOn(axios, 'get').mockImplementation(async (url) => ({ data: url.endsWith('/memory/projects') ? { projects } : {} }))
+		const w = await mountChat()
+		await w.vm.startWithAgent({ uuid: 'a1', name: 'Beleidsondersteuner' })
+		expect(api.createSession).not.toHaveBeenCalled()
+		expect(w.vm.projectPicker).toEqual({ agent: { uuid: 'a1', name: 'Beleidsondersteuner' }, projects })
+	})
+
+	it('starts in the chosen project and shows it in the header', async () => {
+		vi.spyOn(axios, 'get').mockImplementation(async (url) => ({ data: url.endsWith('/memory/projects') ? { projects } : {} }))
+		api.createSession.mockResolvedValueOnce({ uuid: 'new', projectKey: 'omgevingsvisie-2040' })
+		const w = await mountChat()
+		await w.vm.startWithAgent({ uuid: 'a1' })
+		await w.vm.onProjectChosen({ projectKey: 'omgevingsvisie-2040' })
+		expect(api.createSession).toHaveBeenCalledWith('a1', undefined, { projectKey: 'omgevingsvisie-2040' })
+		expect(w.vm.projectPicker).toBeNull()
+		expect(w.vm.sessionProjectName).toBe('Omgevingsvisie 2040')
+	})
+
+	it('starts without a project when the person chooses none', async () => {
+		vi.spyOn(axios, 'get').mockImplementation(async (url) => ({ data: url.endsWith('/memory/projects') ? { projects } : {} }))
+		api.createSession.mockResolvedValueOnce({ uuid: 'new' })
+		const w = await mountChat()
+		await w.vm.startWithAgent({ uuid: 'a1' })
+		await w.vm.onProjectChosen(null)
+		expect(api.createSession).toHaveBeenCalledWith('a1')
+		expect(w.vm.sessionProjectName).toBe('')
+	})
+
+	it('starts a named new project directly, for an agent without projects too', async () => {
+		api.createSession.mockResolvedValueOnce({ uuid: 'new', projectKey: 'begroting-wijk-oost' })
+		const w = await mountChat()
+		w.vm.newProjectName = '  Begroting 2027 '
+		await w.vm.startWithAgent({ uuid: 'a1' })
+		expect(api.createSession).toHaveBeenCalledWith('a1', undefined, { projectName: 'Begroting 2027' })
+		expect(w.vm.newProjectName).toBe('')
+		expect(w.vm.sessionProjectName).toBe('Begroting 2027')
+	})
+
+	it('names a reopened project session from the agent\'s projects, else by its key', async () => {
+		const get = vi.spyOn(axios, 'get').mockResolvedValue({ data: { projects } })
+		const w = await mountChat()
+		w.vm.activeSession = { uuid: 's1', agentId: 'a1', projectKey: 'omgevingsvisie-2040' }
+		await w.vm.loadSessionProjects(w.vm.activeSession)
+		expect(w.vm.sessionProjectName).toBe('Omgevingsvisie 2040')
+
+		get.mockRejectedValueOnce(new Error('down'))
+		await w.vm.loadSessionProjects(w.vm.activeSession)
+		expect(w.vm.sessionProjectName).toBe('omgevingsvisie-2040')
+
+		get.mockClear()
+		await w.vm.loadSessionProjects({ uuid: 's2', agentId: 'a1' })
+		expect(get).not.toHaveBeenCalled()
+	})
+
+	it('ignores a choice after the picker was closed', async () => {
+		const w = await mountChat()
+		await w.vm.onProjectChosen({ projectKey: 'x' })
+		expect(api.createSession).not.toHaveBeenCalled()
 	})
 })

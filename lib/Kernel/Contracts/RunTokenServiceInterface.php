@@ -66,7 +66,7 @@ interface RunTokenServiceInterface {
 	 *
 	 * @param string $token The presented bearer token.
 	 *
-	 * @return array{runId: string, agentId: string, userId: string, conversationId: string}|null
+	 * @return array{runId: string, agentId: string, userId: string, conversationId: string, projectKey?: string, egressHosts?: list<string>}|null
 	 *                                                                                            The binding, or null when the token is not valid.
 	 *
 	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work

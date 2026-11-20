@@ -30,10 +30,14 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service\Talk;
 
 use OCA\Hermiq\BackgroundJob\TalkTurnJob;
+use OCA\Hermiq\Service\Talk\TalkTurnClaims;
 use OCA\Hermiq\Service\Talk\TalkTurnDispatcher;
+use OCA\Hermiq\Service\Talk\TalkTurnExecutor;
 use OCA\Hermiq\Service\Talk\TalkTurnService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJobList;
+use OCP\IAppConfig;
+use OCP\ICacheFactory;
 use OCP\TaskProcessing\IManager as ITaskProcessingManager;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -43,6 +47,8 @@ use Psr\Log\LoggerInterface;
  *
  * @covers \OCA\Hermiq\Service\Talk\TalkTurnDispatcher
  * @covers \OCA\Hermiq\BackgroundJob\TalkTurnJob
+ * @uses \OCA\Hermiq\Service\Talk\TalkTurnExecutor
+ * @uses \OCA\Hermiq\Service\Talk\TalkTurnClaims
  *
  * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
  */
@@ -211,7 +217,7 @@ class TalkTurnHandOffTest extends TestCase {
 			}
 		);
 
-		$job = new TalkTurnJob($this->createMock(ITimeFactory::class), $service);
+		$job = new TalkTurnJob($this->createMock(ITimeFactory::class), $this->executorFor($service));
 
 		// `run()` is protected — it is core's entry point, not ours. No
 		// setAccessible(): it has been a no-op since PHP 8.1 and is deprecated
@@ -232,10 +238,26 @@ class TalkTurnHandOffTest extends TestCase {
 		$service = $this->createMock(TalkTurnService::class);
 		$service->expects($this->never())->method('runTurn');
 
-		$job = new TalkTurnJob($this->createMock(ITimeFactory::class), $service);
+		$job = new TalkTurnJob($this->createMock(ITimeFactory::class), $this->executorFor($service));
 
 		$run = new \ReflectionMethod(TalkTurnJob::class, 'run');
 		$run->invoke($job, ['conversationUuid' => 'conv-1', 'speakerUid' => '', 'message' => 'hi', 'roomToken' => 'room-1']);
 
 	}//end testAnIncompleteTurnIsNotHandedToTheService()
+
+	/**
+	 * The executor the job runs through, over a claim store without a cache
+	 * (every claim granted, as on an instance with no distributed cache).
+	 *
+	 * @param TalkTurnService $service The service double.
+	 *
+	 * @return TalkTurnExecutor
+	 */
+	private function executorFor(TalkTurnService $service): TalkTurnExecutor {
+		$cacheFactory = $this->createMock(ICacheFactory::class);
+		$cacheFactory->method('isAvailable')->willReturn(false);
+		$claims = new TalkTurnClaims($cacheFactory, $this->createMock(IAppConfig::class), $this->createMock(LoggerInterface::class));
+
+		return new TalkTurnExecutor($claims, $service);
+	}//end executorFor()
 }//end class

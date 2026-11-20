@@ -131,10 +131,13 @@ class ResponseGenerationHandlerTest extends TestCase {
 		$this->assertNotNull($capturedHistory);
 		$system = $capturedHistory[0];
 		$this->assertSame(ChatRole::System, $system->role);
-		$this->assertStringContainsString('You are the meeting assistant.', $system->content);
-		$this->assertStringContainsString('CURRENT APP CONTEXT', $system->content);
-		$this->assertStringContainsString('- app: decidesk', $system->content);
-		$this->assertStringContainsString("CONTEXT:\nDoc excerpt.", $system->content);
+		$this->assertSame('You are the meeting assistant.', $system->content);
+		// The app context and the retrieved context are the per-turn system block.
+		$perTurn = $capturedHistory[1];
+		$this->assertSame(ChatRole::System, $perTurn->role);
+		$this->assertStringContainsString('CURRENT APP CONTEXT', $perTurn->content);
+		$this->assertStringContainsString('- app: decidesk', $perTurn->content);
+		$this->assertStringContainsString("CONTEXT:\nDoc excerpt.", $perTurn->content);
 
 		$last = $capturedHistory[count($capturedHistory) - 1];
 		$this->assertSame(ChatRole::User, $last->role);
@@ -223,32 +226,125 @@ class ResponseGenerationHandlerTest extends TestCase {
 	}//end testAnthropicPathWiresGovernedToolExecutor()
 
 	/**
-	 * Selecting the nextcloud TaskProcessing driver for CHAT is refused (its
-	 * scope is background titles/summaries only) with a clear wrapped error.
+	 * The agent's "Show the model's reasoning" reaches the Anthropic call only when it
+	 * is a stored true, and the reasoning and the size of the prompt are exposed after it.
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
 	 */
-	public function testNextcloudDriverIsRefusedForChat(): void {
+	public function testTheReasoningSwitchReachesAnthropicAndTheReasoningIsExposed(): void {
+		foreach ([[true, true], ['yes', false], [null, false]] as [$stored, $expected]) {
+			$asked = null;
+			$factory = $this->createMock(ProviderFactory::class);
+			$factory->method('getLlmConfig')->willReturn(['chatProvider' => 'anthropic']);
+			$factory->method('createChatDriver')->willReturn(
+				new ChatDriver(provider: 'anthropic', chat: null, model: 'claude-x', credentialId: 'cred', baseUrl: 'https://api.anthropic.com/v1', authMode: 'api_key')
+			);
+			$factory->method('callAnthropicChat')->willReturnCallback(
+				function (...$args) use (&$asked): string {
+					$asked = $args['showReasoning'] ?? $args[13] ?? null;
+					return 'answer.';
+				}
+			);
+			$factory->method('lastCallReasoning')->willReturn('thought');
+			$factory->method('lastCallUsage')->willReturn([]);
+
+			$agentData = ['prompt' => 'Be brief.'];
+			if ($stored !== null) {
+				$agentData['showReasoning'] = $stored;
+			}
+
+			$handler = new ResponseGenerationHandler($factory, $this->toollessLoop(), new NullLogger());
+			$handler->generateResponse(
+				userMessage: 'Compare A and B',
+				context: ['text' => '', 'sources' => []],
+				messageHistory: [],
+				agent: $this->agent($agentData),
+				cnAiContext: []
+			);
+
+			$this->assertSame($expected, $asked, 'stored ' . json_encode($stored));
+			$this->assertSame('thought', $handler->lastReasoning);
+			$this->assertSame('anthropic', $handler->lastPrompt['provider']);
+			$this->assertSame('claude-x', $handler->lastPrompt['model']);
+			$this->assertGreaterThan(mb_strlen('Compare A and B'), $handler->lastPrompt['promptCharacters']);
+		}//end foreach
+	}//end testTheReasoningSwitchReachesAnthropicAndTheReasoningIsExposed()
+
+	/**
+	 * The prompt size counts the characters of every message, multibyte-aware.
+	 *
+	 * @return void
+	 */
+	public function testThePromptCharactersCountEveryMessage(): void {
+		$this->assertSame(
+			8,
+			ResponseGenerationHandler::promptCharacters(
+				messageHistory: [\LLPhant\Chat\Message::system('ééé'), \LLPhant\Chat\Message::user('hello'), 'not a message']
+			)
+		);
+	}//end testThePromptCharactersCountEveryMessage()
+
+	/**
+	 * Nextcloud AI runs chat and agent turns (use-nextcloud-ai-settings): the turn goes
+	 * to callNextcloudChat with the full history, the agent's functions and a governed
+	 * tool executor, and its reply is the answer. On the old code this driver was
+	 * refused with "background work only".
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-4
+	 */
+	public function testNextcloudDriverRunsChatWithGovernedTools(): void {
+		$captured = [];
 		$factory = $this->createMock(ProviderFactory::class);
-		$factory->method('getLlmConfig')->willReturn(['chatProvider' => 'nextcloud']);
+		$factory->method('getLlmConfig')->willReturn(['chatProvider' => null]);
 		$factory->method('createChatDriver')->willReturn(
 			new ChatDriver(provider: 'nextcloud', chat: null, model: 'core:text2text')
 		);
-
-		$handler = new ResponseGenerationHandler($factory, $this->toollessLoop(), new NullLogger());
-
-		$this->expectException(Exception::class);
-		$this->expectExceptionMessage('background work only');
-		$handler->generateResponse(
-			userMessage: 'Hi',
-			context: ['text' => '', 'sources' => []],
-			messageHistory: [],
-			agent: null
+		$factory->expects($this->once())->method('callNextcloudChat')->willReturnCallback(
+			function (array $messageHistory, array $functions, ?callable $toolExecutor, ?int $maxToolCalls) use (&$captured): string {
+				$captured = ['history' => $messageHistory, 'functions' => $functions, 'executor' => $toolExecutor];
+				return 'Nextcloud AI answer';
+			}
 		);
 
-	}//end testNextcloudDriverIsRefusedForChat()
+		$toolInstance = new class {
+			/**
+			 * @param string $name Tool name.
+			 * @param array<string, mixed> $args Named arguments.
+			 *
+			 * @return string
+			 */
+			public function __call(string $name, array $args): string {
+				return 'weather:' . ((string)($args['city'] ?? '?'));
+			}//end __call()
+		};
+		$functionInfo = new \LLPhant\Chat\FunctionInfo\FunctionInfo('get_weather', $toolInstance, 'Get weather', []);
+
+		$loop = $this->createMock(ToolLoop::class);
+		$loop->method('listAgentFunctions')->willReturn(
+			[['name' => 'get_weather', 'description' => 'Get weather', 'parameters' => ['type' => 'object', 'properties' => []]]]
+		);
+		$loop->method('buildFunctionInfos')->willReturn([$functionInfo]);
+
+		$handler = new ResponseGenerationHandler($factory, $loop, new NullLogger());
+		$reply = $handler->generateResponse(
+			userMessage: 'weather in Paris?',
+			context: ['text' => '', 'sources' => []],
+			messageHistory: [],
+			agent: $this->agent(['prompt' => 'You are helpful.'])
+		);
+
+		$this->assertSame('Nextcloud AI answer', $reply);
+		$this->assertSame(ChatRole::System, $captured['history'][0]->role);
+		$this->assertSame('weather in Paris?', end($captured['history'])->content);
+		$this->assertSame('get_weather', $captured['functions'][0]['name']);
+		$this->assertIsCallable($captured['executor']);
+		$this->assertSame('weather:Paris', ($captured['executor'])('get_weather', ['city' => 'Paris']));
+
+	}//end testNextcloudDriverRunsChatWithGovernedTools()
 
 	/**
 	 * Provider unavailability surfaces as a wrapped, catchable Exception (the
@@ -449,8 +545,8 @@ class ResponseGenerationHandlerTest extends TestCase {
 			}
 		}
 
-		$this->assertSame([[], null, null, '', null, null, null, [], []], $seen[0]);
-		$this->assertSame([[], null, null, null, null, null, null, [], []], $seen[1]);
+		$this->assertSame([[], null, null, '', null, null, null, [], [], null, null], $seen[0]);
+		$this->assertSame([[], null, null, null, null, null, null, [], [], null, null], $seen[1]);
 
 	}//end testUnsetAgentSettingsReachTheFactoryAsNull()
 
@@ -519,15 +615,16 @@ class ResponseGenerationHandlerTest extends TestCase {
 			contextPreamble: 'PREAMBLE'
 		);
 
-		$this->assertCount(4, $captured);
+		$this->assertCount(5, $captured);
+		$this->assertSame("Base.\n\nPREAMBLE", $captured[0]->content);
 		$this->assertSame(
-			"Base.\n\nPREAMBLE\n\nCURRENT APP CONTEXT (this is where the user is RIGHT NOW — prefer tools that match this app):\n"
+			"CURRENT APP CONTEXT (this is where the user is RIGHT NOW — prefer tools that match this app):\n"
 			. "- app: decidesk\n- filters: {\"a\":\"/b\"}\n",
-			$captured[0]->content
+			$captured[1]->content
 		);
-		$this->assertSame('Before', $captured[1]->content);
-		$this->assertSame('Reply', $captured[2]->content);
-		$this->assertSame('Now?', $captured[3]->content);
+		$this->assertSame('Before', $captured[2]->content);
+		$this->assertSame('Reply', $captured[3]->content);
+		$this->assertSame('Now?', $captured[4]->content);
 
 	}//end testThePreambleAndSnapshotFieldsJoinTheSystemPrompt()
 
@@ -675,4 +772,49 @@ class ResponseGenerationHandlerTest extends TestCase {
 		$this->assertSame(50, ($handler->lastUsage['completionTokens'] ?? null));
 		$this->assertArrayHasKey('llmSeconds', $handler->lastUsage);
 	}//end testAnOpenAiTurnRecordsTheTokensOfTheCall()
+
+	/**
+	 * A rate-limited first provider: the handler resolves the chain's hop through
+	 * createChatDriver with the hop as override, answers from it, and records both attempts.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-3-the-fallback-loop-with-the-same-gates-per-hop
+	 */
+	public function testARateLimitedTurnIsAnsweredByTheNextHop(): void {
+		$overrides = [];
+		$factory = $this->createMock(ProviderFactory::class);
+		$factory->method('getLlmConfig')->willReturn(['chatProvider' => 'fireworks']);
+		$factory->method('fallbackChainFor')->willReturn([['provider' => 'fireworks', 'model' => 'llama-small']]);
+		$factory->method('createChatDriver')->willReturnCallback(
+			function (array $llmConfig, ...$rest) use (&$overrides): ChatDriver {
+				$args = func_get_args();
+				$overrides[] = [($args[9] ?? null), ($args[10] ?? null)];
+				return new ChatDriver(provider: 'fireworks', chat: null, model: (string)($args[10] ?? 'llama-big'), credentialId: 'c', baseUrl: 'https://x');
+			}
+		);
+		$factory->method('callFireworksChat')->willReturnCallback(
+			static function (string $credentialId, string $model): string {
+				if ($model === 'llama-big') {
+					throw \OCA\Hermiq\Service\Llm\ProviderCallFailedException::fromHttpStatus(status: 429, message: 'Too many requests');
+				}
+
+				return 'Answer from '.$model;
+			}
+		);
+		$trace = new \OCA\Hermiq\Service\Engine\RunTraceCollector();
+
+		$response = (new ResponseGenerationHandler($factory, $this->toollessLoop(), new NullLogger()))->generateResponse(
+			userMessage: 'Hi',
+			context: ['text' => '', 'sources' => []],
+			messageHistory: [],
+			agent: null,
+			trace: $trace
+		);
+
+		$this->assertSame('Answer from llama-small', $response);
+		$this->assertSame([[null, null], ['fireworks', 'llama-small']], $overrides);
+		$this->assertSame(['failed', 'answered'], array_column($trace->providerAttempts(), 'outcome'));
+		$this->assertSame('Fireworks was rate limited. Answered by fireworks llama-small.', $trace->toArray()[0]['name']);
+	}//end testARateLimitedTurnIsAnsweredByTheNextHop()
 }//end class

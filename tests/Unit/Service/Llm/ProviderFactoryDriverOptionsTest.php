@@ -196,7 +196,7 @@ class ProviderFactoryDriverOptionsTest extends TestCase {
 	 */
 	public static function refusals(): array {
 		return [
-			'no provider' => [[], 'Chat provider is not configured. Please configure OpenAI, Anthropic, Fireworks AI, Ollama, or Nextcloud Assistant in settings.'],
+			'no provider, so Nextcloud AI, which has none' => [[], 'Configure an AI provider under Administration settings > Artificial intelligence.'],
 			'openai without credential' => [['chatProvider' => 'openai'], 'OpenAI has no credential. Select one from the credential broker in the Hermiq LLM settings.'],
 			'fireworks without credential' => [['chatProvider' => 'fireworks'], 'Fireworks AI has no credential. Select one from the credential broker in the Hermiq LLM settings.'],
 			'anthropic without credential' => [['chatProvider' => 'anthropic'], 'Anthropic has no credential. Select one from the credential broker in the Hermiq LLM settings.'],

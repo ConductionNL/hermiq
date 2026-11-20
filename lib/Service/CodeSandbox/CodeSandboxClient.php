@@ -33,8 +33,9 @@ use Throwable;
  *
  * The own sandbox is the `hermiq-code-sandbox` ExApp, reached through AppAPI's
  * `POST /run` with `{language, code, stdin, files, limits}`. The hosted backend
- * goes through integriq's CallService and nowhere else; until that path is
- * wired, a hosted choice refuses every run rather than sending code anywhere.
+ * goes through integriq's CallService on the admin's chosen source and
+ * nowhere else (HostedSandboxDispatch); without integriq or that source, a
+ * hosted choice refuses every run rather than sending code anywhere.
  *
  * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-the-admin-chooses-where-code-runs-req-sandbox-004
  */
@@ -78,11 +79,6 @@ class CodeSandboxClient {
 	private const TRANSPORT_SLACK_SECONDS = 15;
 
 	/**
-	 * The refusal while the hosted path is not wired.
-	 */
-	public const HOSTED_NOT_WIRED = 'The hosted code sandbox cannot take runs yet. Choose the own sandbox in Admin settings, Code sandbox.';
-
-	/**
 	 * Constructor.
 	 *
 	 * @param CodeSandboxSettings     $settings  Where code runs.
@@ -106,8 +102,8 @@ class CodeSandboxClient {
 	 * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-the-admin-chooses-where-code-runs-req-sandbox-004
 	 */
 	public function isAvailable(): bool {
-		if ($this->settings->backend() !== CodeSandboxSettings::BACKEND_EXAPP) {
-			return false;
+		if ($this->settings->backend() === CodeSandboxSettings::BACKEND_HOSTED) {
+			return ($this->hosted()?->isAvailable(sourceId: (string)$this->settings->hostedSource()) === true);
 		}
 
 		return $this->appApi() !== null;
@@ -140,32 +136,114 @@ class CodeSandboxClient {
 		array $limits=[],
 		?string $uid=null,
 	): array {
+		$payload = self::payload(language: $language, code: $code, stdin: $stdin, files: $files, limits: $limits);
+
+		return $this->send(payload: $payload, uid: $uid);
+	}//end run()
+
+	/**
+	 * Run code over a workspace copy: the files carry relative paths, and the run
+	 * answers the files it created or changed.
+	 *
+	 * @param string                                           $language `python` or `node`.
+	 * @param string                                           $code     The code.
+	 * @param string                                           $stdin    What the code reads on stdin.
+	 * @param array<int, array{name: string, content: string}> $files    The workspace files.
+	 * @param array<string, mixed>                             $limits   `wallSeconds` and `memoryMb`; clamped to the ceilings.
+	 * @param string|null                                      $uid      The acting user, passed to AppAPI.
+	 *
+	 * @return array<string, mixed> The run result and the limits it ran under.
+	 *
+	 * @throws InvalidArgumentException       When the language is not one the sandbox carries.
+	 * @throws CodeSandboxUnavailableException When no sandbox can take the run; nothing was sent.
+	 * @throws RuntimeException               When the sandbox could not carry the run out or answered malformed.
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-sandbox-runs-work-on-the-workspace-and-write-back-what-they-change-req-wksp-002
+	 */
+	public function runOnWorkspace(
+		string $language,
+		string $code,
+		string $stdin,
+		array $files,
+		array $limits,
+		?string $uid,
+	): array {
+		$payload = self::payload(language: $language, code: $code, stdin: $stdin, files: $files, limits: $limits);
+		$payload['workspace'] = true;
+
+		return $this->send(payload: $payload, uid: $uid);
+	}//end runOnWorkspace()
+
+	/**
+	 * The run contract's request, its limits clamped.
+	 *
+	 * @param string                                           $language `python` or `node`.
+	 * @param string                                           $code     The code.
+	 * @param string                                           $stdin    What the code reads on stdin.
+	 * @param array<int, array{name: string, content: string}> $files    Input files.
+	 * @param array<string, mixed>                             $limits   The requested limits.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @throws InvalidArgumentException When the language is not one the sandbox carries.
+	 */
+	private static function payload(string $language, string $code, string $stdin, array $files, array $limits): array {
 		if (in_array($language, self::LANGUAGES, true) === false) {
 			throw new InvalidArgumentException('The sandbox runs python or node.');
 		}
 
+		return [
+			'language' => $language,
+			'code'     => $code,
+			'stdin'    => $stdin,
+			'files'    => array_values($files),
+			'limits'   => self::clampLimits(limits: $limits),
+		];
+	}//end payload()
+
+	/**
+	 * Send one run request to the chosen sandbox.
+	 *
+	 * @param array<string, mixed> $payload The run contract's request, its limits clamped.
+	 * @param string|null          $uid     The acting user, passed to AppAPI.
+	 *
+	 * @return array<string, mixed> The run result and the limits it ran under.
+	 *
+	 * @throws CodeSandboxUnavailableException When no sandbox can take the run; nothing was sent.
+	 * @throws RuntimeException               When the sandbox could not carry the run out or answered malformed.
+	 */
+	private function send(array $payload, ?string $uid): array {
 		if ($this->settings->backend() === CodeSandboxSettings::BACKEND_HOSTED) {
-			throw new CodeSandboxUnavailableException(self::HOSTED_NOT_WIRED);
+			return $this->runHosted(payload: $payload, limits: $payload['limits']);
 		}
 
+		return $this->runOnExApp(payload: $payload, uid: $uid);
+	}//end send()
+
+	/**
+	 * Run at the sandbox ExApp through AppAPI.
+	 *
+	 * @param array<string, mixed> $payload The run contract's request, its limits clamped.
+	 * @param string|null          $uid     The acting user, passed to AppAPI.
+	 *
+	 * @return array<string, mixed> The run result and the limits it ran under.
+	 *
+	 * @throws CodeSandboxUnavailableException When the ExApp is not there; nothing was sent.
+	 * @throws RuntimeException               When the sandbox refused the run or answered malformed.
+	 */
+	private function runOnExApp(array $payload, ?string $uid): array {
+		$clamped = $payload['limits'];
 		$appApi = $this->appApi();
 		if ($appApi === null) {
 			throw new CodeSandboxUnavailableException(CodeSandboxUnavailableException::NOT_INSTALLED);
 		}
 
-		$clamped = self::clampLimits(limits: $limits);
-		$result  = $appApi->exAppRequest(
+		$result = $appApi->exAppRequest(
 			self::EXAPP_ID,
 			self::RUN_ROUTE,
 			$uid,
 			'POST',
-			[
-				'language' => $language,
-				'code' => $code,
-				'stdin' => $stdin,
-				'files' => array_values($files),
-				'limits' => $clamped,
-			],
+			$payload,
 			['timeout' => ($clamped['wallSeconds'] + self::TRANSPORT_SLACK_SECONDS)]
 		);
 
@@ -185,7 +263,47 @@ class CodeSandboxClient {
 		}
 
 		return self::mapResult(body: (string)$result->getBody()) + ['limits' => $clamped];
-	}//end run()
+	}//end runOnExApp()
+
+	/**
+	 * Run at the hosted sandbox through integriq.
+	 *
+	 * @param array<string, mixed>                  $payload The run contract's request.
+	 * @param array{wallSeconds: int, memoryMb: int} $limits  The clamped limits.
+	 *
+	 * @return array{exitCode: int, stdout: string, stderr: string, durationMs: int, timedOut: bool,
+	 *   files: array<int, mixed>, limits: array{wallSeconds: int, memoryMb: int}}
+	 *
+	 * @throws CodeSandboxUnavailableException When integriq or the source is not there; nothing was sent.
+	 * @throws RuntimeException               When the run could not be carried out or answered malformed.
+	 */
+	private function runHosted(array $payload, array $limits): array {
+		$hosted = $this->hosted();
+		if ($hosted === null) {
+			throw new CodeSandboxUnavailableException(HostedSandboxDispatch::SOURCE_MISSING);
+		}
+
+		$body = $hosted->run(
+			sourceId: (string)$this->settings->hostedSource(),
+			payload: $payload,
+			timeoutSeconds: ($limits['wallSeconds'] + self::TRANSPORT_SLACK_SECONDS)
+		);
+
+		return self::mapResult(body: $body) + ['limits' => $limits];
+	}//end runHosted()
+
+	/**
+	 * The hosted dispatch, or null without a container to reach integriq through.
+	 *
+	 * @return HostedSandboxDispatch|null
+	 */
+	private function hosted(): ?HostedSandboxDispatch {
+		if ($this->container === null) {
+			return null;
+		}
+
+		return new HostedSandboxDispatch(container: $this->container, logger: $this->logger);
+	}//end hosted()
 
 	/**
 	 * The limits a run is sent with: defaults filled in, each clamped to 1..ceiling.

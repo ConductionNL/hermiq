@@ -138,6 +138,19 @@ final class ListenerRegistrar {
 		// on every write path (agent-acting-identity-picker, REQ-AGID-002).
 		$context->registerEventListener(event: ObjectCreatingEvent::class, listener: AgentActingUserGuardListener::class);
 		$context->registerEventListener(event: ObjectUpdatingEvent::class, listener: AgentActingUserGuardListener::class);
+		// Public web chat (delivery-public-web-chat): a channel's agent holds no tools,
+		// its origins are origins, and a new channel gets its random token.
+		$context->registerEventListener(event: ObjectCreatingEvent::class, listener: PublicChannelGuardListener::class);
+		$context->registerEventListener(event: ObjectUpdatingEvent::class, listener: PublicChannelGuardListener::class);
+
+		// Changing the department an agent runs for is for administrators only, on
+		// every write path (oversight-switch-ai-off-per-department).
+		$context->registerEventListener(event: ObjectCreatingEvent::class, listener: AgentDepartmentGuardListener::class);
+		$context->registerEventListener(event: ObjectUpdatingEvent::class, listener: AgentDepartmentGuardListener::class);
+		// An agent's reference models stay inside the model policy, on every
+		// write path (models-several-models-per-turn, REQ-MENS-001).
+		$context->registerEventListener(event: ObjectCreatingEvent::class, listener: AgentEnsembleGuardListener::class);
+		$context->registerEventListener(event: ObjectUpdatingEvent::class, listener: AgentEnsembleGuardListener::class);
 	}//end registerAgentObjectListeners()
 
 	/**
@@ -282,6 +295,14 @@ final class ListenerRegistrar {
 			listener: \OCA\Hermiq\Listener\TaskTerminalListener::class
 		);
 
+		// Flows-hand-off-and-wait: a flow an agent started closes its handoff
+		// when OpenRegister persists the run in a terminal status. By event
+		// name for the same reason as the task listener above.
+		$context->registerEventListener(
+			event: \OCA\Hermiq\Service\Handoff\FlowHandoffs::EVENT_CLASS,
+			listener: \OCA\Hermiq\Listener\FlowRunTerminalListener::class
+		);
+
 		// Approvals decided by reaction (talk-approval-reactions): spreed
 		// invokes bots on reactions with the SAME BotInvokeEvent, so this is a
 		// second listener on the same event — each ignores the invocation types
@@ -290,6 +311,14 @@ final class ListenerRegistrar {
 		$context->registerEventListener(
 			event: 'OCA\\Talk\\Events\\BotInvokeEvent',
 			listener: TalkApprovalReactionListener::class
+		);
+
+		// A renamed room renames the session bound to it, unless its owner
+		// named the session (chat-carry-a-conversation-across-channels). By
+		// event name, for the same reason as the bot listeners above.
+		$context->registerEventListener(
+			event: TalkRoomRenameListener::EVENT_ROOM_MODIFIED,
+			listener: TalkRoomRenameListener::class
 		);
 	}//end registerUserAndTalkListeners()
 }//end class

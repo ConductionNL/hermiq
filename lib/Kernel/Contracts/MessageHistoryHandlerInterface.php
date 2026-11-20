@@ -53,6 +53,14 @@ interface MessageHistoryHandlerInterface {
 	 *                           size, origin), resolved as the speaker; never bytes or text.
 	 * @param array|null $provenance How an assistant answer came about: model, sources and step
 	 *                               outcomes, never content (chat-how-an-answer-came-about).
+	 * @param array|null $retrievalScope The scope an answer was given (memory-retrieval-scope), stored on the turn.
+	 * @param array|null $translation The record of a translated recording: the languages and
+	 *                                the engines used (chat-translate-a-recording).
+	 * @param string|null $channel Where a human turn was typed: `talk` or `hermiq`; stored on
+	 *                             role=user turns only (chat-carry-a-conversation-across-channels).
+	 * @param array|null $answerCache The answer-cache entry that served an assistant answer,
+	 *                                `{layer, entryId}`; null when the model gave it
+	 *                                (models-prompt-and-answer-cache).
 	 *
 	 * @return ObjectEntity The persisted Message object.
 	 *
@@ -61,6 +69,11 @@ interface MessageHistoryHandlerInterface {
 	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+	 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-the-languages-and-engines-used-are-recorded-req-strn-002
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) carried in with this batch's feature work; splitting it
+	 * is follow-up work, not part of this merge.
 	 */
 	public function storeMessage(
 		string $conversationId,
@@ -72,5 +85,9 @@ interface MessageHistoryHandlerInterface {
 		?string $authorDisplayName = null,
 		array $attachments = [],
 		?array $provenance = null,
+		?array $retrievalScope = null,
+		?array $translation = null,
+		?string $channel = null,
+		?array $answerCache = null,
 	): ObjectEntity;
 }//end interface

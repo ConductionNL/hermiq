@@ -89,7 +89,20 @@ final class WorkspaceToolsetReadTest extends TestCase {
 		self::assertStringContainsString('WorkspaceToolset::class', $source);
 
 		$routes = (string)file_get_contents(__DIR__ . '/../../../../appinfo/routes.php');
-		self::assertStringNotContainsStringIgnoringCase('workspace', $routes, 'A workspace route would be a second path to the workspace.');
+		// The one exception: the chat's Files panel (tools-agent-workspace-and-installed-tools
+		// REQ-WKSP-003) lets the session user list, download and copy out their own session
+		// workspace's files. It offers no tool, no git and no write into the workspace.
+		$panel = array_filter(
+			explode("\n", $routes),
+			static fn (string $line): bool => preg_match('/workspaceFiles#|Files panel over the caller\'s session workspace/', $line) === 1
+		);
+		self::assertCount(4, $panel, 'The Files panel declares three routes and their comment.');
+		foreach ($panel as $line) {
+			self::assertMatchesRegularExpression('#workspaceFiles\#(index|download|save)\'.*/workspace/(files|download|save)\'|^\s*//#', $line);
+		}
+
+		$others = implode("\n", array_diff(explode("\n", $routes), $panel));
+		self::assertStringNotContainsStringIgnoringCase('workspace', $others, 'A workspace route would be a second path to the workspace.');
 	}//end testTheToolsAreInTheOneCatalogueTheGovernedInvokerDispatches()
 
 	public function testTheRepositoryIsASlugNeverAUrl(): void {

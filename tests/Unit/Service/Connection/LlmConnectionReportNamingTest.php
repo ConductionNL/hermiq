@@ -96,6 +96,7 @@ class LlmConnectionReportNamingTest extends TestCase {
 			'ollama' => ['ollama', 'Ollama'],
 			'fireworks' => ['fireworks', 'Fireworks AI'],
 			'anthropic' => ['anthropic', 'Anthropic'],
+			'an unlabelled openai-compatible endpoint' => ['openai-compatible', 'OpenAI-compatible endpoint'],
 			'an unknown id' => ['mistral', 'mistral'],
 		];
 	}//end providers()
@@ -119,6 +120,21 @@ class LlmConnectionReportNamingTest extends TestCase {
 
 		$this->assertSame(['configured', 'Chat uses ' . $name . '. Saved, not tested.'], $this->reports['llm']);
 	}//end testTheProviderIsNamed()
+
+	/**
+	 * An OpenAI-compatible endpoint is named by its admin's label.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-an-admin-can-connect-an-openai-compatible-endpoint-by-name-req-pconn-001
+	 */
+	public function testAnOpenAiCompatibleEndpointIsNamedByItsLabel(): void {
+		$config = ['chatProvider' => 'openai-compatible', 'openaiCompatibleConfig' => ['label' => ' vLLM Rekencentrum ']];
+		$this->factory->method('createChatDriver')->willReturn(new ChatDriver(provider: 'openai-compatible', chat: null, model: 'm'));
+		$this->reportSaved(config: $config);
+
+		$this->assertSame(['configured', 'Chat uses vLLM Rekencentrum (OpenAI-compatible). Saved, not tested.'], $this->reports['llm']);
+	}//end testAnOpenAiCompatibleEndpointIsNamedByItsLabel()
 
 	/**
 	 * A refusal and a failure are prefixed with the provider's display name.

@@ -99,6 +99,24 @@ final class ChatDriverRequest {
 	public array $attachmentReferences = [];
 
 	/**
+	 * A fallback hop's provider, used instead of the configured or bound one.
+	 *
+	 * @var string|null
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	public ?string $providerOverride = null;
+
+	/**
+	 * A fallback hop's model, used with $providerOverride.
+	 *
+	 * @var string|null
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	public ?string $modelOverride = null;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param array<string, mixed> $llmConfig    The `hermiq.llm` configuration.
@@ -108,6 +126,13 @@ final class ChatDriverRequest {
 		public readonly array $llmConfig,
 		public readonly ?string $organisation,
 	) {
-		$this->chatProvider = ($llmConfig['chatProvider'] ?? null);
+		// Use-nextcloud-ai-settings: with no hermiq-specific provider saved, hermiq runs
+		// on Nextcloud AI, the provider set up for the whole instance.
+		$chatProvider = ($llmConfig['chatProvider'] ?? null);
+		if (is_string($chatProvider) === false || trim($chatProvider) === '') {
+			$chatProvider = LlmSettingsHandler::DEFAULT_CHAT_PROVIDER;
+		}
+
+		$this->chatProvider = $chatProvider;
 	}//end __construct()
 }//end class

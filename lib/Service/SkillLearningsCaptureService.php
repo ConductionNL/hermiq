@@ -340,10 +340,12 @@ class SkillLearningsCaptureService implements SkillLearningsCaptureServiceInterf
 
 		$parsedCandidates = $this->mergeCandidates(
 			candidates: $parsedCandidates,
-			confirmations: $confirmations,
-			observations: $observations,
-			runId: $runId,
-			evalFail: $source->evalFail
+			run: [
+				'confirmations' => $confirmations,
+				'observations' => $observations,
+				'runId' => $runId,
+				'evalFail' => $source->evalFail,
+			]
 		);
 
 		$this->persistCandidates(skill: $skill, data: $data, files: $files, candidates: $parsedCandidates);
@@ -450,26 +452,21 @@ class SkillLearningsCaptureService implements SkillLearningsCaptureServiceInterf
 	 * run marks every candidate it touched that carries no marker yet; new
 	 * observations are appended as dated lines for this run.
 	 *
-	 * @param array<int, array<string, mixed>>                $candidates    The parsed candidates.
-	 * @param array<int, int>                                 $confirmations Valid candidate indexes.
-	 * @param array<int, array{section: string, text: string}> $observations The sanitized observations.
-	 * @param string                                          $runId         The originating run's id.
-	 * @param string                                          $evalFail      Failed-eval marker ref (`''` = none).
+	 * @param array<int, array<string, mixed>> $candidates The parsed candidates.
+	 * @param array<string, mixed>             $run        The run: `confirmations` (valid candidate indexes),
+	 *                                                     `observations` (sanitized `{section, text}`), `runId`
+	 *                                                     and `evalFail` (failed-eval marker ref, `''` = none).
 	 *
 	 * @return array<int, array<string, mixed>> The merged candidates.
 	 *
 	 * @spec openspec/specs/skill-learnings/spec.md#requirement-a-post-run-capture-pass-appends-dated-atomic-candidates-per-exercised-skill
 	 */
-	private function mergeCandidates(
-		array $candidates,
-		array $confirmations,
-		array $observations,
-		string $runId,
-		string $evalFail,
-	): array {
+	private function mergeCandidates(array $candidates, array $run): array {
 		$today = $this->today();
+		$runId = $run['runId'];
+		$evalFail = $run['evalFail'];
 
-		foreach ($confirmations as $index) {
+		foreach ($run['confirmations'] as $index) {
 			$candidate = $candidates[$index];
 			if (in_array($runId, $candidate['runs'], true) === false) {
 				$candidate['runs'][] = $runId;
@@ -484,7 +481,7 @@ class SkillLearningsCaptureService implements SkillLearningsCaptureServiceInterf
 			$candidates[$index] = $candidate;
 		}
 
-		foreach ($observations as $observation) {
+		foreach ($run['observations'] as $observation) {
 			$candidates[] = [
 				'date' => $today,
 				'section' => $observation['section'],

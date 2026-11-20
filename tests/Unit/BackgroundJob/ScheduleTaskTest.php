@@ -139,4 +139,27 @@ class ScheduleTaskTest extends TestCase {
 		$this->assertSame(['dispatch', 'goals'], $order);
 
 	}//end testTheTickTakesGoalTurnsAfterTheSchedules()
+	/**
+	 * The dispatcher never starts a tick while the previous one still runs, so a
+	 * schedule whose run is still going is not started a second time: parallel
+	 * runs are off, on a five-minute, time-sensitive tick (spec-coverage-built-rows).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-schedule/spec.md#requirement-a-schedule-does-not-start-a-new-run-while-its-last-run-is-still-going-req-spcov-014
+	 */
+	public function testATickNeverStartsWhileTheLastOneRuns(): void {
+		$task = new ScheduleTask(
+			time: $this->createMock(ITimeFactory::class),
+			scheduleService: $this->createMock(ScheduleService::class),
+			flowBridge: $this->createMock(ScheduleFlowBridge::class),
+			goals: $this->createMock(GoalService::class),
+			logger: $this->createMock(LoggerInterface::class),
+		);
+
+		$this->assertFalse($task->getAllowParallelRuns());
+		$this->assertSame(300, $task->getInterval());
+		$this->assertTrue($task->isTimeSensitive());
+
+	}//end testATickNeverStartsWhileTheLastOneRuns()
 }//end class

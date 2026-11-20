@@ -79,7 +79,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -156,7 +156,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -365,7 +365,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -441,7 +441,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -821,7 +821,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -897,7 +897,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -971,7 +971,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -1017,6 +1017,9 @@
                     "summary": "s7",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
                 },
@@ -1033,6 +1036,12 @@
                     "summary": "s0",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 503,
+                        "completionTokens": 305
+                    },
                     "user": null,
                     "created": "2026-09-21T15:13:20+00:00"
                 },
@@ -1049,6 +1058,11 @@
                     "summary": "s0",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 44
+                    },
                     "user": null,
                     "created": "2026-09-21T14:13:20+00:00"
                 }
@@ -1083,7 +1097,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -1177,7 +1191,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -1253,7 +1267,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -1349,7 +1363,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 11
@@ -1425,7 +1439,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 11
@@ -1518,7 +1532,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 5
@@ -1564,6 +1578,9 @@
                     "summary": "s1",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:13:20+00:00"
                 }
@@ -1611,7 +1628,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 5
@@ -1683,7 +1700,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -1746,7 +1763,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -1827,7 +1844,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -1890,7 +1907,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -2070,7 +2087,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 8
@@ -2116,6 +2133,9 @@
                     "summary": "s5",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T17:13:20+00:00"
                 },
@@ -2132,6 +2152,9 @@
                     "summary": "s2",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T17:13:20+00:00"
                 },
@@ -2148,6 +2171,11 @@
                     "summary": "s1",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 32
+                    },
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
                 }
@@ -2195,7 +2223,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 8
@@ -2281,7 +2309,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 8
@@ -2358,7 +2386,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 8
@@ -2430,7 +2458,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 6
@@ -2477,6 +2505,12 @@
                     "summary": "s5",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 678,
+                        "completionTokens": 828
+                    },
                     "user": null,
                     "created": null
                 }
@@ -2511,7 +2545,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 6
@@ -2700,7 +2734,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -2746,6 +2780,9 @@
                     "summary": "s0",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T17:13:20+00:00"
                 },
@@ -2762,6 +2799,11 @@
                     "summary": "s9",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 5
+                    },
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
                 },
@@ -2778,6 +2820,12 @@
                     "summary": "s7",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 613,
+                        "completionTokens": 628
+                    },
                     "user": null,
                     "created": null
                 }
@@ -2825,7 +2873,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -3084,7 +3132,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -3147,7 +3195,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -3344,7 +3392,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -3421,7 +3469,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -3580,7 +3628,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -3627,6 +3675,9 @@
                     "summary": "s1",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T14:13:20+00:00"
                 }
@@ -3661,7 +3712,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -3832,7 +3883,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -3909,7 +3960,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -4082,7 +4133,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 3
@@ -4146,7 +4197,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 3
@@ -4305,7 +4356,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -4352,6 +4403,9 @@
                     "summary": "s9",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T17:13:20+00:00"
                 },
@@ -4368,6 +4422,12 @@
                     "summary": "s1",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 598,
+                        "completionTokens": 149
+                    },
                     "user": null,
                     "created": "2026-09-21T17:13:20+00:00"
                 },
@@ -4384,6 +4444,9 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:13:20+00:00"
                 }
@@ -4418,7 +4481,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -4492,7 +4555,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -4539,6 +4602,9 @@
                     "summary": "s9",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": null
                 }
@@ -4573,7 +4639,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -4767,7 +4833,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -4830,7 +4896,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -4904,7 +4970,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -4981,7 +5047,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -5167,7 +5233,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 0
@@ -5243,7 +5309,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 0
@@ -5304,7 +5370,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -5368,7 +5434,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -5453,7 +5519,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -5529,7 +5595,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -5615,7 +5681,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -5692,7 +5758,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -5964,7 +6030,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 5
@@ -6041,7 +6107,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 5
@@ -6135,7 +6201,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -6211,7 +6277,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -6305,7 +6371,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -6351,6 +6417,12 @@
                     "summary": "s6",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 522,
+                        "completionTokens": 175
+                    },
                     "user": null,
                     "created": "2026-09-21T14:13:20+00:00"
                 }
@@ -6398,7 +6470,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -6484,7 +6556,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -6531,6 +6603,9 @@
                     "summary": "s9",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T17:13:20+00:00"
                 },
@@ -6547,6 +6622,9 @@
                     "summary": "s4",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": null
                 }
@@ -6594,7 +6672,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -6655,7 +6733,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 3
@@ -6718,7 +6796,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 3
@@ -6874,7 +6952,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 1
@@ -6937,7 +7015,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 1
@@ -6998,7 +7076,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -7062,7 +7140,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -7222,7 +7300,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -7299,7 +7377,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -7382,7 +7460,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -7459,7 +7537,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -7560,7 +7638,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 3
@@ -7636,7 +7714,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 3
@@ -7721,7 +7799,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 6
@@ -7768,6 +7846,9 @@
                     "summary": "s6",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": null
                 }
@@ -7815,7 +7896,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 6
@@ -8001,7 +8082,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 0
@@ -8078,7 +8159,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 0
@@ -8161,7 +8242,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -8237,7 +8318,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -8339,7 +8420,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -8385,6 +8466,9 @@
                     "summary": "s2",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:13:20+00:00"
                 }
@@ -8432,7 +8516,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -8515,7 +8599,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -8592,7 +8676,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -8665,7 +8749,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -8729,7 +8813,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -8909,7 +8993,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 6
@@ -8985,7 +9069,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 6
@@ -9055,7 +9139,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 0
@@ -9119,7 +9203,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 0
@@ -9296,7 +9380,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 8
@@ -9342,6 +9426,11 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 34
+                    },
                     "user": null,
                     "created": "2026-09-21T17:13:20+00:00"
                 }
@@ -9376,7 +9465,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 8
@@ -9536,7 +9625,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 11
@@ -9600,7 +9689,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 11
@@ -9686,7 +9775,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -9763,7 +9852,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -9858,7 +9947,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -9934,7 +10023,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -10424,7 +10513,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -10500,7 +10589,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -10585,7 +10674,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 3
@@ -10661,7 +10750,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 3
@@ -10733,7 +10822,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 8
@@ -10797,7 +10886,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 8
@@ -10858,7 +10947,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 0
@@ -10922,7 +11011,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 0
@@ -11034,7 +11123,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -11080,6 +11169,9 @@
                     "summary": "s0",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:13:20+00:00"
                 }
@@ -11127,7 +11219,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -11311,7 +11403,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -11375,7 +11467,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 4
@@ -11576,7 +11668,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -11622,6 +11714,9 @@
                     "summary": "s5",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T17:13:20+00:00"
                 }
@@ -11656,7 +11751,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -11752,7 +11847,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -11828,7 +11923,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -11988,7 +12083,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -12065,7 +12160,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -12225,7 +12320,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -12272,6 +12367,9 @@
                     "summary": "s7",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T17:13:20+00:00"
                 }
@@ -12306,7 +12404,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -12391,7 +12489,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -12468,7 +12566,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -12542,7 +12640,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -12619,7 +12717,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -12891,7 +12989,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -12967,7 +13065,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -13047,7 +13145,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -13093,6 +13191,12 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 786,
+                        "completionTokens": 842
+                    },
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
                 }
@@ -13127,7 +13231,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -13213,7 +13317,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -13259,6 +13363,9 @@
                     "summary": "s5",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": null
                 }
@@ -13306,7 +13413,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -13391,7 +13498,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 8
@@ -13437,6 +13544,9 @@
                     "summary": "s5",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:13:20+00:00"
                 }
@@ -13484,7 +13594,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 8
@@ -13569,7 +13679,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -13616,6 +13726,11 @@
                     "summary": "s2",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 16
+                    },
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
                 }
@@ -13663,7 +13778,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -13736,7 +13851,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -13783,6 +13898,9 @@
                     "summary": "s8",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T17:13:20+00:00"
                 },
@@ -13799,6 +13917,12 @@
                     "summary": "s0",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": {
+                        "promptTokens": 820,
+                        "completionTokens": 690
+                    },
                     "user": null,
                     "created": "2026-09-21T16:13:20+00:00"
                 }
@@ -13833,7 +13957,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -13894,7 +14018,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -13957,7 +14081,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 2
@@ -14031,7 +14155,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -14108,7 +14232,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 7
@@ -14202,7 +14326,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -14278,7 +14402,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -14376,7 +14500,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -14439,7 +14563,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -14685,7 +14809,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -14762,7 +14886,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 13
@@ -15032,7 +15156,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 5
@@ -15078,6 +15202,9 @@
                     "summary": "s5",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": null
                 }
@@ -15112,7 +15239,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 5
@@ -15356,7 +15483,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -15419,7 +15546,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -15621,7 +15748,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -15684,7 +15811,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 12
@@ -15769,7 +15896,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -15816,6 +15943,9 @@
                     "summary": "s9",
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T17:13:20+00:00"
                 }
@@ -15863,7 +15993,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -15948,7 +16078,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 11
@@ -16024,7 +16154,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 11
@@ -16110,7 +16240,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -16186,7 +16316,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 14
@@ -16280,7 +16410,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -16326,6 +16456,9 @@
                     "summary": null,
                     "attempt": null,
                     "providerDisclosure": [],
+                    "providerAttempts": [],
+                    "receivedBy": [],
+                    "usage": [],
                     "user": null,
                     "created": "2026-09-21T15:13:20+00:00"
                 }
@@ -16373,7 +16506,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 10
@@ -16454,7 +16587,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -16517,7 +16650,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 9
@@ -16602,7 +16735,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 3
@@ -16678,7 +16811,7 @@
                 "findAll",
                 {
                     "filters": {
-                        "action": "run,agent-run"
+                        "action": "run,agent-run,manual-run"
                     }
                 },
                 3

@@ -90,11 +90,26 @@ final class AnthropicChatRun {
 	public string $conversationId = '';
 
 	/**
+	 * The session's project (memory-project-scopes), or ''.
+	 *
+	 * @var string
+	 */
+	public string $projectKey = '';
+
+	/**
 	 * The tool calls this turn may make, or null for the default.
 	 *
 	 * @var int|null
 	 */
 	public ?int $maxToolCalls = null;
+
+	/**
+	 * Whether the agent's owner asked for the model's reasoning (Agent.showReasoning):
+	 * the request then asks for extended thinking (chat-how-an-answer-came-about D3).
+	 *
+	 * @var boolean
+	 */
+	public bool $showReasoning = false;
 
 	/**
 	 * Constructor.
