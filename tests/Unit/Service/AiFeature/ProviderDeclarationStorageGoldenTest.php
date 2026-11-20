@@ -172,7 +172,7 @@ class ProviderDeclarationStorageGoldenTest extends TestCase {
 			}
 		}
 
-		$providers = 'openai, ollama, fireworks, nextcloud, anthropic';
+		$providers = 'openai, ollama, fireworks, nextcloud, anthropic, openai-compatible';
 		$this->assertSame(
 			expected: [
 				"Unsupported provider 'mystery', must be one of: " . $providers,

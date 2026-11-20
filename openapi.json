@@ -336,6 +336,10 @@
             "description": "Synchronous speech-to-text and text-to-speech for the AI composer."
         },
         {
+            "name": "subscription-login",
+            "description": "Signs the session user in with a model subscription."
+        },
+        {
             "name": "tool-oversight",
             "description": "Tool-catalog / tool-grants / tool-invocations endpoints."
         },
@@ -11108,6 +11112,136 @@
                         "$ref": "#/components/responses/Problem502"
                     }
                 }
+            }
+        },
+        "/subscription-login": {
+            "get": {
+                "description": "Which subscription sign-ins this instance offers, and whether the Hermiq LLM runner app is there. Needs a signed-in Nextcloud user.",
+                "operationId": "subscription-login-index",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        },
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                },
+                "summary": "Which subscription sign-ins are offered",
+                "tags": [
+                    "subscription-login"
+                ]
+            },
+            "post": {
+                "description": "Start a sign-in with the session user's Claude or ChatGPT subscription through the vendor's own CLI; answers the sign-in URL. Needs a signed-in Nextcloud user.",
+                "operationId": "subscription-login-start",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        },
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                },
+                "summary": "Start a subscription sign-in",
+                "tags": [
+                    "subscription-login"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "additionalProperties": true,
+                                "type": "object"
+                            }
+                        }
+                    },
+                    "required": false
+                }
+            }
+        },
+        "/subscription-login/{id}/code": {
+            "post": {
+                "description": "Finish the session user's sign-in with the code the vendor's page showed. The token is stored in the credential broker as a personal credential; the answer holds its id and label only. Needs a signed-in Nextcloud user.",
+                "operationId": "subscription-login-code",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        },
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                },
+                "summary": "Finish a subscription sign-in",
+                "tags": [
+                    "subscription-login"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "additionalProperties": true,
+                                "type": "object"
+                            }
+                        }
+                    },
+                    "required": false
+                },
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The login id the start answered.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
             }
         },
         "/tenant-control/{organisation}": {

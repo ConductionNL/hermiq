@@ -74,6 +74,11 @@ final class ChatDriver {
 	 *                            call site rather than on a chat object,
 	 *                            so it has nowhere else to read it from.
 	 *                            Null means "use the provider default".
+	 * @param string $apiMode `chat_completions` (default) or `responses`
+	 *                        (openai / openai-compatible only): which OpenAI
+	 *                        API the turn is sent to (models-provider-connections D4).
+	 * @param bool $ownNetwork Whether a keyless base URL is a server on the
+	 *                         organisation's own network, as the admin stated.
 	 */
 	public function __construct(
 		public readonly string $provider,
@@ -84,6 +89,8 @@ final class ChatDriver {
 		public readonly ?string $authMode = null,
 		public readonly string $executionMode = 'http',
 		public readonly ?int $maxTokens = null,
+		public readonly string $apiMode = 'chat_completions',
+		public readonly bool $ownNetwork = false,
 	) {
 	}//end __construct()
 }//end class

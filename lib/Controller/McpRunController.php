@@ -232,6 +232,11 @@ class McpRunController extends Controller {
 			return $this->refuseToken(token: $token);
 		}
 
+		// A sign-in token reaches no tools (models-provider-connections D5).
+		if (isset($binding['egressHosts']) === true) {
+			return new JSONResponse(['error' => 'invalid_token'], Http::STATUS_UNAUTHORIZED);
+		}
+
 		$body = json_decode($this->readRawBody(), true);
 		$refusal = $this->jsonRpcRefusal(body: $body);
 		if ($refusal !== null) {
