@@ -455,7 +455,8 @@ class HandoffServiceTest extends TestCase {
 				return $this->entity(uuid: 'r-1', data: $object);
 			});
 
-		$this->assertTrue(condition: $this->service->update(handoffId: 'r-1', fields: ['stopRequested' => true, 'status' => 'done', 'requestedBy' => 'eve']));
+		$fields = ['stopRequested' => true, 'status' => 'done', 'requestedBy' => 'eve'];
+		$this->assertTrue(condition: $this->service->update(handoffId: 'r-1', fields: $fields));
 		$this->assertFalse(condition: $this->service->update(handoffId: 'r-2', fields: ['stopRequested' => true]));
 		$this->assertFalse(condition: $this->service->update(handoffId: 'gone', fields: ['stopRequested' => true]));
 
