@@ -23,7 +23,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Listener;
 
 use OCA\Hermiq\Kernel\Contracts\AgentObjectMatcherInterface;
-use OCA\Hermiq\Listener\AgentFieldChange;
+use OCA\Hermiq\Listener\AgentFieldChanges;
 use OCA\Hermiq\Listener\AgentTemperatureGuardListener;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Event\ObjectCreatedEvent;
@@ -38,7 +38,7 @@ use Psr\Log\NullLogger;
  * In range, out of range, unchanged, and the writes the guard leaves alone.
  */
 #[CoversClass(AgentTemperatureGuardListener::class)]
-#[CoversClass(AgentFieldChange::class)]
+#[CoversClass(AgentFieldChanges::class)]
 final class AgentTemperatureGuardListenerTest extends TestCase {
 
 	/**
@@ -50,7 +50,7 @@ final class AgentTemperatureGuardListenerTest extends TestCase {
 		$agents = $this->createMock(originalClassName: AgentObjectMatcherInterface::class);
 		$agents->method('isAgent')->willReturnCallback(static fn (ObjectEntity $o): bool => (string)$o->getSchema() === 'agent');
 
-		return new AgentTemperatureGuardListener(agents: $agents, logger: new NullLogger());
+		return new AgentTemperatureGuardListener(changes: new AgentFieldChanges(agents: $agents), logger: new NullLogger());
 	}//end guard()
 
 	/**

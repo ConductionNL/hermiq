@@ -27,7 +27,6 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Listener;
 
-use OCA\Hermiq\Kernel\Contracts\AgentObjectMatcherInterface;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use Psr\Log\LoggerInterface;
@@ -65,11 +64,11 @@ class AgentTemperatureGuardListener implements IEventListener {
 	/**
 	 * Constructor.
 	 *
-	 * @param AgentObjectMatcherInterface $agents Tells a hermiq agent object apart.
-	 * @param LoggerInterface             $logger Logger.
+	 * @param AgentFieldChanges $changes Reads the changed temperature of a pending agent write.
+	 * @param LoggerInterface   $logger  Logger.
 	 */
 	public function __construct(
-		private readonly AgentObjectMatcherInterface $agents,
+		private readonly AgentFieldChanges $changes,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()
@@ -84,15 +83,15 @@ class AgentTemperatureGuardListener implements IEventListener {
 	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
 	 */
 	public function handle(Event $event): void {
-		$change = AgentFieldChange::of(event: $event, agents: $this->agents, field: self::FIELD);
-		if ($change === null || self::withinRange(value: $change->value) === true) {
+		$change = $this->changes->changedValue(event: $event, field: self::FIELD);
+		if ($change === null || self::withinRange(value: $change['value']) === true) {
 			return;
 		}
 
-		$change->refuse(field: self::FIELD, message: self::OUT_OF_RANGE);
+		$this->changes->refuse(event: $event, field: self::FIELD, message: self::OUT_OF_RANGE);
 		$this->logger->info(
 			'[AgentTemperatureGuardListener] Refused a temperature outside 0 to 2 on agent {agent}',
-			['agent' => $change->agentUuid]
+			['agent' => $change['agentUuid']]
 		);
 	}//end handle()
 

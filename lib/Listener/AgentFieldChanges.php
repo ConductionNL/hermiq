@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Hermiq AgentFieldChange.
+ * Hermiq AgentFieldChanges.
  *
  * One field of an agent that a pre-save write changes. A guard on
  * OpenRegister's creating and updating events only has to judge the new
@@ -34,23 +34,19 @@ use OCA\OpenRegister\Event\ObjectUpdatingEvent;
 use OCP\EventDispatcher\Event;
 
 /**
- * The new value of one agent field on a pending write, when the write changes it.
+ * Reads the new value of one agent field on a pending write, when the write changes it.
  *
  * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
  */
-final class AgentFieldChange {
+class AgentFieldChanges {
 
 	/**
 	 * Constructor.
 	 *
-	 * @param ObjectCreatingEvent|ObjectUpdatingEvent $event     The pending write.
-	 * @param string                                  $agentUuid The agent's uuid, '' on a create.
-	 * @param mixed                                   $value     The field's new value.
+	 * @param AgentObjectMatcherInterface $agents Tells a hermiq agent object apart.
 	 */
-	private function __construct(
-		public readonly ObjectCreatingEvent|ObjectUpdatingEvent $event,
-		public readonly string $agentUuid,
-		public readonly mixed $value,
+	public function __construct(
+		private readonly AgentObjectMatcherInterface $agents,
 	) {
 	}//end __construct()
 
@@ -60,15 +56,14 @@ final class AgentFieldChange {
 	 * Null for another event, a write an earlier guard already refused, an object
 	 * that is not an agent, a write without the field, and an unchanged value.
 	 *
-	 * @param Event                       $event  Any dispatched event.
-	 * @param AgentObjectMatcherInterface $agents Tells a hermiq agent object apart.
-	 * @param string                      $field  The agent field.
+	 * @param Event  $event Any dispatched event.
+	 * @param string $field The agent field.
 	 *
-	 * @return self|null
+	 * @return array{agentUuid: string, value: mixed}|null
 	 *
 	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
 	 */
-	public static function of(Event $event, AgentObjectMatcherInterface $agents, string $field): ?self {
+	public function changedValue(Event $event, string $field): ?array {
 		if (($event instanceof ObjectUpdatingEvent) === false && ($event instanceof ObjectCreatingEvent) === false) {
 			return null;
 		}
@@ -77,13 +72,13 @@ final class AgentFieldChange {
 			return null;
 		}
 
-		$object = self::written(event: $event);
+		$object = $this->written(event: $event);
 		$before = null;
 		if ($event instanceof ObjectUpdatingEvent) {
 			$before = ($event->getOldObject()?->getObject()[$field] ?? null);
 		}
 
-		if ($agents->isAgent(object: $object) === false) {
+		if ($this->agents->isAgent(object: $object) === false) {
 			return null;
 		}
 
@@ -92,29 +87,13 @@ final class AgentFieldChange {
 			return null;
 		}
 
-		return new self(event: $event, agentUuid: (string)$object->getUuid(), value: $written[$field]);
-	}//end of()
+		return ['agentUuid' => (string)$object->getUuid(), 'value' => $written[$field]];
+	}//end changedValue()
 
 	/**
-	 * The object a pending write saves: the new object on an update.
+	 * Refuse a pending write with a message for the field, so nothing is saved.
 	 *
-	 * @param ObjectCreatingEvent|ObjectUpdatingEvent $event The pending write.
-	 *
-	 * @return \OCA\OpenRegister\Db\ObjectEntity
-	 *
-	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
-	 */
-	private static function written(ObjectCreatingEvent|ObjectUpdatingEvent $event): \OCA\OpenRegister\Db\ObjectEntity {
-		if ($event instanceof ObjectUpdatingEvent) {
-			return $event->getNewObject();
-		}
-
-		return $event->getObject();
-	}//end written()
-
-	/**
-	 * Refuse the write with a message for the field, so nothing is saved.
-	 *
+	 * @param Event  $event   The pending write.
 	 * @param string $field   The agent field.
 	 * @param string $message What the form shows under the field.
 	 *
@@ -122,8 +101,27 @@ final class AgentFieldChange {
 	 *
 	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
 	 */
-	public function refuse(string $field, string $message): void {
-		$this->event->setErrors([$field => $message]);
-		$this->event->stopPropagation();
+	public function refuse(Event $event, string $field, string $message): void {
+		if (($event instanceof ObjectUpdatingEvent) === false && ($event instanceof ObjectCreatingEvent) === false) {
+			return;
+		}
+
+		$event->setErrors([$field => $message]);
+		$event->stopPropagation();
 	}//end refuse()
+
+	/**
+	 * The object a pending write saves: the new object on an update.
+	 *
+	 * @param ObjectCreatingEvent|ObjectUpdatingEvent $event The pending write.
+	 *
+	 * @return \OCA\OpenRegister\Db\ObjectEntity
+	 */
+	private function written(ObjectCreatingEvent|ObjectUpdatingEvent $event): \OCA\OpenRegister\Db\ObjectEntity {
+		if ($event instanceof ObjectUpdatingEvent) {
+			return $event->getNewObject();
+		}
+
+		return $event->getObject();
+	}//end written()
 }//end class
