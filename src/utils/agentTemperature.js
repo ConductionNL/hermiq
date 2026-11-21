@@ -23,5 +23,7 @@ export function temperatureInRange(raw) {
 		return true
 	}
 	const value = Number(raw)
-	return !Number.isNaN(value) && value >= MIN_TEMPERATURE && value <= MAX_TEMPERATURE
+	return (
+		!Number.isNaN(value) && value >= MIN_TEMPERATURE && value <= MAX_TEMPERATURE
+	)
 }

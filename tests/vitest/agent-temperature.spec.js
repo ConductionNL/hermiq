@@ -6,7 +6,11 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { MAX_TEMPERATURE, MIN_TEMPERATURE, temperatureInRange } from '../../src/utils/agentTemperature.js'
+import {
+	MAX_TEMPERATURE,
+	MIN_TEMPERATURE,
+	temperatureInRange,
+} from '../../src/utils/agentTemperature.js'
 
 describe('temperatureInRange', () => {
 	it('accepts a blank field, so an agent may leave the temperature to the provider', () => {
