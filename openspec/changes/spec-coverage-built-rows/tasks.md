@@ -20,3 +20,10 @@
       (`src/widgets/ChatHealthBlock.vue` as the Integrations page's `below-header` slot, view built by
       `src/services/chatHealth.js`; `tests/vitest/chat-health-block.spec.js`, seen failing with
       `unavailable` dropped from the not-answering states.)
+- [x] 1.6 Refuse a temperature outside 0 to 2 (REQ-SPCOV-002, scenario "A value out of range is refused"):
+      the agent form says "The temperature must be between 0 and 2." and does not save, and every
+      write path refuses a changed temperature outside the range before it is stored. Verify: a
+      unit test refuses 3 on a create and on an update, and leaves an unchanged one alone.
+      (`Listener/AgentTemperatureGuardListener` over `Listener/AgentFieldChange`;
+      `AgentTemperatureGuardListenerTest`, vitest `agent-temperature.spec.js` and the save refusal in
+      `agent-form-helpers.spec.js`.)

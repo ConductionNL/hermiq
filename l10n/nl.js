@@ -1281,6 +1281,7 @@ OC.L10N.register(
         "Task text passed to the agent run": "Taaktekst die aan de agentrun wordt doorgegeven",
         "Temperature": "Temperatuur",
         "Temperature (0–2)": "Temperatuur (0–2)",
+        "The temperature must be between 0 and 2.": "De temperatuur moet tussen 0 en 2 liggen.",
         "Template package": "Template-pakket",
         "Templates": "Templates",
         "Templates imported from another organisation start quarantined and must be approved before they can be used.": "Templates die zijn geïmporteerd vanuit een andere organisatie starten in quarantaine en moeten worden goedgekeurd voordat ze gebruikt kunnen worden.",
