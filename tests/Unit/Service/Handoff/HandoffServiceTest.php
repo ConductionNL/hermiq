@@ -403,13 +403,13 @@ class HandoffServiceTest extends TestCase {
 			] + $this->request()
 		);
 
-		$this->assertSame('research', $saved['kind']);
-		$this->assertSame('quick', $saved['depth']);
-		$this->assertSame('org-1', $saved['organisation']);
-		$this->assertSame(['sources' => 10], $saved['caps']);
-		$this->assertFalse($saved['stopRequested']);
-		$this->assertSame('waiting', $saved['status']);
-		$this->assertArrayNotHasKey('injected', $saved);
+		$this->assertSame(expected: 'research', actual: $saved['kind']);
+		$this->assertSame(expected: 'quick', actual: $saved['depth']);
+		$this->assertSame(expected: 'org-1', actual: $saved['organisation']);
+		$this->assertSame(expected: ['sources' => 10], actual: $saved['caps']);
+		$this->assertFalse(condition: $saved['stopRequested']);
+		$this->assertSame(expected: 'waiting', actual: $saved['status']);
+		$this->assertArrayNotHasKey(key: 'injected', array: $saved);
 	}//end testAResearchHandoffKeepsItsResearchFields()
 
 	/**
@@ -428,8 +428,8 @@ class HandoffServiceTest extends TestCase {
 
 		$this->service->open(handoff: ['plan' => ['a'], 'stopRequested' => true] + $this->request());
 
-		$this->assertArrayNotHasKey('plan', $saved);
-		$this->assertArrayNotHasKey('stopRequested', $saved);
+		$this->assertArrayNotHasKey(key: 'plan', array: $saved);
+		$this->assertArrayNotHasKey(key: 'stopRequested', array: $saved);
 	}//end testAFlowHandoffCarriesNoResearchFields()
 
 	/**
@@ -455,14 +455,14 @@ class HandoffServiceTest extends TestCase {
 				return $this->entity(uuid: 'r-1', data: $object);
 			});
 
-		$this->assertTrue($this->service->update(handoffId: 'r-1', fields: ['stopRequested' => true, 'status' => 'done', 'requestedBy' => 'eve']));
-		$this->assertFalse($this->service->update(handoffId: 'r-2', fields: ['stopRequested' => true]));
-		$this->assertFalse($this->service->update(handoffId: 'gone', fields: ['stopRequested' => true]));
+		$this->assertTrue(condition: $this->service->update(handoffId: 'r-1', fields: ['stopRequested' => true, 'status' => 'done', 'requestedBy' => 'eve']));
+		$this->assertFalse(condition: $this->service->update(handoffId: 'r-2', fields: ['stopRequested' => true]));
+		$this->assertFalse(condition: $this->service->update(handoffId: 'gone', fields: ['stopRequested' => true]));
 
-		$this->assertSame('r-1', $stored['uuid']);
-		$this->assertTrue($stored['object']['stopRequested']);
-		$this->assertSame('waiting', $stored['object']['status']);
-		$this->assertSame('anne', $stored['object']['requestedBy']);
+		$this->assertSame(expected: 'r-1', actual: $stored['uuid']);
+		$this->assertTrue(condition: $stored['object']['stopRequested']);
+		$this->assertSame(expected: 'waiting', actual: $stored['object']['status']);
+		$this->assertSame(expected: 'anne', actual: $stored['object']['requestedBy']);
 	}//end testUpdateWritesOnlyResearchFieldsWhileWaiting()
 
 	/**

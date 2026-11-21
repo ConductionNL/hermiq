@@ -296,9 +296,9 @@ class HandoffDeliveryTest extends TestCase {
 		$this->schedules->expects($this->never())->method('runAgentAsOwner');
 		$this->messages->expects($this->never())->method('storeMessage');
 
-		$this->assertSame('skipped', $this->delivery->deliver(handoffId: 'r-1'));
-		$this->assertSame('skipped', $this->delivery->deliver(handoffId: 'r-2'));
-		$this->assertSame([], $this->sent);
+		$this->assertSame(expected: 'skipped', actual: $this->delivery->deliver(handoffId: 'r-1'));
+		$this->assertSame(expected: 'skipped', actual: $this->delivery->deliver(handoffId: 'r-2'));
+		$this->assertSame(expected: [], actual: $this->sent);
 	}//end testAClosedResearchRunRunsNoFollowUpTurn()
 
 	/**

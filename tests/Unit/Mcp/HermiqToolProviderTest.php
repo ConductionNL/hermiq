@@ -277,7 +277,7 @@ class HermiqToolProviderTest extends TestCase {
 		$this->assertNotContains('hermiq.completeTask', $ids);
 		$this->assertContains('hermiq.listTasks', $ids);
 		$this->assertContains('hermiq.createTask', $ids);
-		$this->assertCount(62, $ids);
+		$this->assertCount(expectedCount: 62, haystack: $ids);
 
 	}//end testCompleteTaskIsAbsentWithoutAReplacePath()
 
@@ -501,7 +501,7 @@ class HermiqToolProviderTest extends TestCase {
 		// + hermiq.runCode (tools-code-sandbox),
 		// + hermiq.startResearch (tools-deep-research-report),
 		// all registered through this same provider.
-		$this->assertCount(63, $tools);
+		$this->assertCount(expectedCount: 63, haystack: $tools);
 
 		$ids = array_column($tools, 'id');
 		$this->assertContains('hermiq.listFiles', $ids);
@@ -631,7 +631,7 @@ class HermiqToolProviderTest extends TestCase {
 		];
 
 		$tools = $this->provider('alice')->getTools();
-		$this->assertCount(63, $tools, 'This test must be updated if a tool is added or removed.');
+		$this->assertCount(expectedCount: 63, haystack: $tools, message: 'This test must be updated if a tool is added or removed.');
 
 		$seen = [];
 		foreach ($tools as $tool) {

@@ -195,8 +195,8 @@ class FacadeToolInvokerRoutingGoldenTest extends TestCase {
 		$invoker->hermiq_startResearch(question: 'Q', agentId: 'other', conversationId: 'elsewhere');
 
 		$this->assertSame(
-			[['hermiq_startResearch', ['question' => 'Q', 'agentId' => 'agent-1', 'conversationId' => 'conv-1']]],
-			$this->calls
+			expected: [['hermiq_startResearch', ['question' => 'Q', 'agentId' => 'agent-1', 'conversationId' => 'conv-1']]],
+			actual: $this->calls
 		);
 	}//end testStartResearchReceivesTheRunsAgentAndConversation()
 
