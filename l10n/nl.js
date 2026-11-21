@@ -3675,7 +3675,10 @@ OC.L10N.register(
         "Planning the research…": "Het onderzoek wordt gepland…",
         "The research could not be started.": "Het onderzoek kon niet worden gestart.",
         "The research could not be stopped.": "Het onderzoek kon niet worden gestopt.",
-        "{label} (OpenAI-compatible)": "{label} (OpenAI-compatibel)"
+        "{label} (OpenAI-compatible)": "{label} (OpenAI-compatibel)",
+        "_Answer cache: on, {count} day_::_Answer cache: on, {count} days_": ["Antwoordcache: aan, {count} dag","Antwoordcache: aan, {count} dagen"],
+        "Answer cache: on, {count} day": "Antwoordcache: aan, {count} dag",
+        "Answer cache: on, {count} days": "Antwoordcache: aan, {count} dagen"
     },
     "nplurals=2; plural=(n != 1);"
 )

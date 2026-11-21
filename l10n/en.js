@@ -3648,7 +3648,10 @@ OC.L10N.register(
         "The research could not be started.": "The research could not be started.",
         "The research could not be stopped.": "The research could not be stopped.",
         "Writing the report from {sources} sources…": "Writing the report from {sources} sources…",
-        "{label} (OpenAI-compatible)": "{label} (OpenAI-compatible)"
+        "{label} (OpenAI-compatible)": "{label} (OpenAI-compatible)",
+        "_Answer cache: on, {count} day_::_Answer cache: on, {count} days_": ["Answer cache: on, {count} day","Answer cache: on, {count} days"],
+        "Answer cache: on, {count} day": "Answer cache: on, {count} day",
+        "Answer cache: on, {count} days": "Answer cache: on, {count} days"
     },
     "nplurals=2; plural=(n != 1);"
 )
