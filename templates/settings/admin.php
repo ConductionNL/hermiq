@@ -9,7 +9,7 @@ $appId = Application::APP_ID;
 // Inject the app version via Nextcloud's IInitialState API so the Vue settings
 // app can read it with loadState('hermiq', 'version') — the NC-standard
 // CSP-compliant approach (replaces the prior data-version DOM attribute).
-\OC::$server->get(\OCP\IInitialStateService::class)
+\OCP\Server::get(\OCP\IInitialStateService::class)
     ->provideInitialState($appId, 'version', $_['version'] ?? '');
 
 // webpack splitChunks emits shared chunks that every entry-point depends on

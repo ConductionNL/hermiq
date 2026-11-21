@@ -37,7 +37,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -51,6 +52,8 @@ use Throwable;
  * @spec openspec/specs/agent-evals/spec.md#requirement-an-evaldataset-links-skills-via-skillrefs-per-the-relation-dialect
  */
 class SeedPairedEvalDataset implements IRepairStep {
+
+	use FindsSeedObjectByName;
 	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
 
 	/**
@@ -169,8 +172,7 @@ class SeedPairedEvalDataset implements IRepairStep {
 
 			$objectService->saveObject(
 				object: $this->seedDataset(linkedSkillUuid: (string)$skill->getUuid()),
-				register: self::REGISTER_SLUG,
-				schema: self::DATASET_SCHEMA,
+				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::DATASET_SCHEMA)),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -234,37 +236,4 @@ class SeedPairedEvalDataset implements IRepairStep {
 		];
 
 	}//end seedDataset()
-
-	/**
-	 * Find an object by exact name in the given schema (system context, no RBAC),
-	 * or null when absent.
-	 *
-	 * @param ObjectService $objectService The OpenRegister object service.
-	 * @param string $schema The schema slug to search.
-	 * @param string $name The exact object name.
-	 *
-	 * @return ObjectEntity|null The matching object, or null.
-	 */
-	private function findByName(ObjectService $objectService, string $schema, string $name): ?ObjectEntity {
-		$objects = $objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema($schema)
-			->findAll(
-				config: ['filters' => ['name' => $name], 'limit' => 50],
-				_rbac: false,
-				_multitenancy: false
-			);
-
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ((string)($object->getObject()['name'] ?? '') === $name) {
-				return $object;
-			}
-		}
-
-		return null;
-	}//end findByName()
 }//end class

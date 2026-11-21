@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Conduction B.V.
 //
 // Plain (non-Pinia) API helper for the human-approval-gate-ui surfaces. These
-// endpoints are thin Hermiq controllers (ApprovalController / TenantControlController)
+// endpoints are thin Hermiq controllers (ApprovalController / OrganisationControlController)
 // that do NOT map onto the generic createObjectStore object path — the reviewer
 // inbox is reviewer-scoped (not owner-scoped) and the decision/kill-switch actions
 // are guarded server-side — so we hit the resources directly.
@@ -15,31 +15,12 @@
 
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
+import { listOrNestedResults as toList } from './listEnvelope.js'
 
 /** Hermiq approvals base path. */
 const APPROVALS_BASE = '/apps/hermiq/api/approvals'
 /** Hermiq per-organisation kill-switch base path. */
 const TENANT_CONTROL_BASE = '/apps/hermiq/api/tenant-control'
-
-/**
- * Normalise the various Hermiq list envelopes to a plain array.
- * Handles `{ results: [] }`, `{ data: { results: [] } }`, and a bare array.
- *
- * @param {object} data The response body.
- * @return {Array<object>} The extracted list (empty array on miss).
- */
-function toList(data) {
-	if (Array.isArray(data)) {
-		return data
-	}
-	if (Array.isArray(data?.results)) {
-		return data.results
-	}
-	if (Array.isArray(data?.data?.results)) {
-		return data.data.results
-	}
-	return []
-}
 
 /**
  * List the pending approvals routed to the current user as reviewer.
@@ -55,11 +36,26 @@ export async function listPendingApprovals() {
  * Approve a pending approval and execute the gated run (reviewer/admin-guarded).
  *
  * @param {string} approvalId The Approval object UUID.
+ * @param {string} [scope] `machine-run` also approves the actions on that machine for that run for 15 minutes (a computer action only).
  * @return {Promise<object>} The decision outcome ({ approvalId, status, ran }).
  */
-export async function approveApproval(approvalId) {
+export async function approveApproval(approvalId, scope = '') {
 	const response = await axios.post(
 		generateUrl(`${APPROVALS_BASE}/${approvalId}/approve`),
+		...(scope ? [{ scope }] : []),
+	)
+	return response.data
+}
+
+/**
+ * The machine's screen now, for the reviewer of a pending computer action; shown, never stored.
+ *
+ * @param {string} approvalId The Approval object UUID.
+ * @return {Promise<{image: string, mimeType: string, width: number, height: number, x: number|null, y: number|null}>} The screen and the action's point.
+ */
+export async function approvalScreenshot(approvalId) {
+	const response = await axios.get(
+		generateUrl(`${APPROVALS_BASE}/${approvalId}/screenshot`),
 	)
 	return response.data
 }
@@ -85,6 +81,40 @@ export async function denyApproval(approvalId, reason) {
  * @param {string} organisation The organisation identifier (NC group id).
  * @return {Promise<object>} The control state ({ organisation, engaged, reason, … }).
  */
+/**
+ * Answer a question an agent asked in an unattended run (oversight-ask-and-hold).
+ * The server dispatches the run again with the answer; a refused answer is 422.
+ *
+ * @param {string} approvalId The question Approval's id.
+ * @param {string} answer The chosen or typed answer.
+ * @return {Promise<object>} `{approvalId, status, ran}`.
+ * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+ */
+export async function answerApproval(approvalId, answer) {
+	const response = await axios.post(
+		generateUrl(`${APPROVALS_BASE}/${approvalId}/answer`),
+		{ answer },
+	)
+	return response.data
+}
+
+/**
+ * Release a held draft, as written (no edits) or with edits to its text.
+ * A changed recipient is refused by the server with 422.
+ *
+ * @param {string} approvalId The draft Approval's id.
+ * @param {object} [edits] The edited fields: `output`, or `subject`/`body`.
+ * @return {Promise<object>} `{approvalId, status, ran}`.
+ * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+ */
+export async function releaseApproval(approvalId, edits = {}) {
+	const response = await axios.post(
+		generateUrl(`${APPROVALS_BASE}/${approvalId}/release`),
+		{ edits },
+	)
+	return response.data
+}
+
 export async function getKillSwitch(organisation) {
 	const response = await axios.get(
 		generateUrl(`${TENANT_CONTROL_BASE}/${organisation}`),

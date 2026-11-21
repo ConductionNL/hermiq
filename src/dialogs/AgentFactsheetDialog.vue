@@ -12,8 +12,8 @@
   neither the agent's owner/actingUser nor holds compliance.view-factsheet) renders a
   clear "not available" state, not a raw error (tasks.md Task 7).
 
-  @spec openspec/changes/compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
-  @spec openspec/changes/compliance-control-packs/specs/compliance-control-packs/spec.md#requirement-an-ai-factsheet-summarises-an-agents-governance-lifecycle
+  @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
+  @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-ai-factsheet-summarises-an-agents-governance-lifecycle
 -->
 <template>
 	<NcDialog
@@ -70,6 +70,15 @@
 						<dd>{{ factsheet.agent.actingUser || '—' }}</dd>
 						<dt>{{ t('hermiq', 'Last access review') }}</dt>
 						<dd>{{ formatDate(factsheet.lastReviewedAt) }}</dd>
+						<dt>{{ t('hermiq', 'Bias check') }}</dt>
+						<dd>
+							<router-link
+								v-if="factsheet.biasCheck"
+								:to="{ name: 'EvalDatasetDetail', params: { id: factsheet.biasCheck.datasetId } }">
+								{{ biasCheckLabel(factsheet.biasCheck) }}
+							</router-link>
+							<span v-else>{{ t('hermiq', 'No bias check run') }}</span>
+						</dd>
 					</dl>
 				</section>
 
@@ -89,7 +98,7 @@
 							— {{ t('hermiq', 'DPO-acknowledged by') }}
 							{{ factsheet.aiFeature.dpoAckBy }} ({{
 								/**
-								 * @spec openspec/changes/compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
+								 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
 								 */
 								formatDate(factsheet.aiFeature.dpoAckAt)
 							}})
@@ -157,6 +166,8 @@ import {
 } from '@nextcloud/vue'
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
 import { getAgentFactsheet } from '../api/compliance.js'
+import { dateOrDash } from '../utils/displayDate.js'
+import { agentModalTarget, loadWhenShown } from './agentModalTarget.js'
 
 export default {
 	name: 'AgentFactsheetDialog',
@@ -170,26 +181,7 @@ export default {
 		ShieldIcon,
 	},
 
-	props: {
-		/** Whether the dialog is visible. */
-		show: {
-			type: Boolean,
-			default: false,
-		},
-
-		/**
-		 * The agent UUID to load a factsheet for. Optional — when opened as
-		 * the registry `agent-factsheet` open-modal target
-		 * (manifest-driven-pages), no prop is available (open-modal action
-		 * props are static JSON, not resolved against the current object),
-		 * so it self-resolves from the route's `:id` param instead (see
-		 * `resolvedAgentId`).
-		 */
-		agentId: {
-			type: String,
-			default: '',
-		},
-	},
+	mixins: [agentModalTarget, loadWhenShown],
 
 	emits: ['close'],
 
@@ -202,37 +194,6 @@ export default {
 		}
 	},
 
-	computed: {
-		/**
-		 * The agent uuid — the `agentId` prop when explicitly supplied, else
-		 * the current route's `:id` param.
-		 *
-		 * @return {string} The resolved agent uuid.
-		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
-		 */
-		resolvedAgentId() {
-			return this.agentId || this.$route?.params?.id || ''
-		},
-	},
-
-	watch: {
-		// `immediate: true`: when opened via the registry `agent-factsheet`
-		// open-modal action, CnAppRoot mounts this component FRESH with
-		// `show` already `true` — a plain watcher only fires on a CHANGE, so
-		// it would never run for that mount path without `immediate`.
-		show: {
-			immediate: true,
-			/**
-			 * @spec openspec/changes/compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
-			 */
-			handler(open) {
-				if (open) {
-					this.load()
-				}
-			},
-		},
-	},
-
 	methods: {
 		/**
 		 * Load the agent's factsheet; a 404 (not-owner/not-authorized, or the
@@ -240,7 +201,7 @@ export default {
 		 * than a raw error.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
+		 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
 		 */
 		async load() {
 			if (!this.resolvedAgentId) {
@@ -271,14 +232,20 @@ export default {
 		 *
 		 * @param {string} value An ISO-8601 timestamp.
 		 * @return {string} The formatted date.
-		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
+		 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
 		 */
-		formatDate(value) {
-			if (!value) {
-				return '—'
-			}
-			const date = new Date(value)
-			return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
+		formatDate: dateOrDash,
+
+		/**
+		 * The latest bias check as "95% on 2026-09-01".
+		 *
+		 * @param {object} check The factsheet's biasCheck: { passRate, date }.
+		 * @return {string} The label.
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
+		 */
+		biasCheckLabel(check) {
+			const rate = Math.round(Number(check?.passRate || 0) * 100)
+			return this.t('hermiq', '{rate}% on {date}', { rate, date: check?.date || '—' })
 		},
 	},
 }

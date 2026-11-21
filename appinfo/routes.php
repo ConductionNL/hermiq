@@ -18,13 +18,21 @@
 
 declare(strict_types=1);
 
-return [
+$routes = [
     'routes' => [
         // Dashboard + Settings.
         ['name' => 'dashboard#page', 'url' => '/', 'verb' => 'GET'],
         ['name' => 'settings#index', 'url' => '/api/settings', 'verb' => 'GET'],
+        // models-provider-connections: the session user's subscription sign-in.
+        ['name' => 'subscriptionLogin#index', 'url' => '/api/subscription-login', 'verb' => 'GET'],
+        ['name' => 'subscriptionLogin#start', 'url' => '/api/subscription-login', 'verb' => 'POST'],
+        ['name' => 'subscriptionLogin#code', 'url' => '/api/subscription-login/{id}/code', 'verb' => 'POST'],
         ['name' => 'settings#create', 'url' => '/api/settings', 'verb' => 'POST'],
         ['name' => 'settings#load',  'url' => '/api/settings/load', 'verb' => 'POST'],
+
+        // The ADR-023 action matrix, administrators only (action-matrix-screen).
+        ['name' => 'actionMatrix#index',  'url' => '/api/actions', 'verb' => 'GET'],
+        ['name' => 'actionMatrix#update', 'url' => '/api/actions/{action}', 'verb' => 'PUT'],
 
         // Admin LLM provider selection (SPECTR-NEXTCLOUD-PLAN.md §8 move 1 — makes the
         // `nextcloud` TaskProcessing driver, and the pre-existing openai/ollama/fireworks
@@ -40,6 +48,17 @@ return [
         ['name' => 'Settings\TalkBridgeSettings#bindRoom',  'url' => '/api/settings/talk-bridge/room', 'verb' => 'PUT'],
         ['name' => 'Settings\WebResearchSettings#get',    'url' => '/api/settings/web-research', 'verb' => 'GET'],
         ['name' => 'Settings\WebResearchSettings#update', 'url' => '/api/settings/web-research', 'verb' => 'PATCH'],
+        // Admin-only computer targets (tools-browser-and-computer-use REQ-COMPUTER-001):
+        // the machines an agent may operate, each reached only through an integriq source.
+        ['name' => 'Settings\ComputerTarget#index',      'url' => '/api/settings/computer-targets', 'verb' => 'GET'],
+        ['name' => 'Settings\ComputerTarget#create',     'url' => '/api/settings/computer-targets', 'verb' => 'POST'],
+        ['name' => 'Settings\ComputerTarget#update',     'url' => '/api/settings/computer-targets/{id}', 'verb' => 'PUT'],
+        ['name' => 'Settings\ComputerTarget#destroy',    'url' => '/api/settings/computer-targets/{id}', 'verb' => 'DELETE'],
+        ['name' => 'Settings\ComputerTarget#screenshot', 'url' => '/api/settings/computer-targets/{id}/screenshot', 'verb' => 'POST'],
+        // Where code runs (tools-code-sandbox, Task 2): admin only.
+        ['name' => 'Settings\CodeSandboxSettings#get',    'url' => '/api/settings/code-sandbox', 'verb' => 'GET'],
+        ['name' => 'Settings\CodeSandboxSettings#update', 'url' => '/api/settings/code-sandbox', 'verb' => 'PATCH'],
+        ['name' => 'Settings\CodeSandboxSettings#test',   'url' => '/api/settings/code-sandbox/test', 'verb' => 'POST'],
 
         // Generic per-user preferences (used by shared nextcloud-vue widgets, e.g. CnSupportDialog).
         ['name' => 'preferences#getPreference', 'url' => '/api/preferences/{key}', 'verb' => 'GET'],
@@ -49,6 +68,16 @@ return [
         ['name' => 'metrics#index', 'url' => '/api/metrics', 'verb' => 'GET'],
         // Health check endpoint.
         ['name' => 'health#index', 'url' => '/api/health', 'verb' => 'GET'],
+        // The OpenAPI document, public (NL API Design Rules, /core/publish-openapi).
+        ['name' => 'openApi#show', 'url' => '/api/openapi.json', 'verb' => 'GET'],
+
+        // Plain words to a schedule rule, with readback and the next three runs
+        // (scheduling-overview-and-start-choice D3). Before the {scheduleId} routes.
+        ['name' => 'scheduleWhen#parse', 'url' => '/api/schedules/parse-when', 'verb' => 'POST'],
+
+        // The Schedules page: every schedule the caller may see, filtered per row by
+        // owner, agent access and organisation admin (scheduling-overview-and-start-choice D1).
+        ['name' => 'scheduleList#index', 'url' => '/api/schedules', 'verb' => 'GET'],
 
         // Run history — owner-scoped audit read for a schedule (run-audit-log).
         ['name' => 'runHistory#index', 'url' => '/api/schedules/{scheduleId}/runs', 'verb' => 'GET', 'requirements' => ['scheduleId' => '[^/]+']],
@@ -80,6 +109,10 @@ return [
             'requirements' => ['id' => '[^/]+'],
         ],
 
+        // Run by hand — a run of an agent with a prompt and no schedule, for a user who
+        // may use the agent, through the scheduled-run gates (scheduling-overview-and-start-choice D2).
+        ['name' => 'manualRun#run', 'url' => '/api/agents/{id}/run', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+
         // Replay — owner-scoped re-run of a past run's recorded prompt as a dry-run,
         // with a step-by-step diff against the original (run-replay-and-dry-run).
         [
@@ -94,6 +127,19 @@ return [
         // generic OpenRegister objects path (createObjectStore) — this is the one
         // net-new backend endpoint the UI needs, mirroring runNow#run.
         ['name' => 'evalRun#run', 'url' => '/api/evals/{datasetId}/run', 'verb' => 'POST', 'requirements' => ['datasetId' => '[^/]+']],
+        // "Use for this agent": copy a seeded eval dataset template into a dataset the
+        // caller owns, linked to one of their agents (reuse-scheduled-bias-evals).
+        ['name' => 'evalTemplate#use', 'url' => '/api/evals/{datasetId}/use', 'verb' => 'POST', 'requirements' => ['datasetId' => '[^/]+']],
+        // "Run on a schedule": the caller's eval schedules of a dataset they own
+        // (reuse-scheduled-bias-evals); EvalScheduleTask runs them.
+        ['name' => 'evalSchedule#index', 'url' => '/api/evals/{datasetId}/schedules', 'verb' => 'GET', 'requirements' => ['datasetId' => '[^/]+']],
+        ['name' => 'evalSchedule#create', 'url' => '/api/evals/{datasetId}/schedules', 'verb' => 'POST', 'requirements' => ['datasetId' => '[^/]+']],
+        [
+            'name'         => 'evalSchedule#update',
+            'url'          => '/api/evals/{datasetId}/schedules/{id}',
+            'verb'         => 'PUT',
+            'requirements' => ['datasetId' => '[^/]+', 'id' => '[^/]+'],
+        ],
 
         // Schedule webhook-secret lifecycle (delivery-channels): owner-guarded mint/
         // rotate/revoke/status for the OUTBOUND deliver=webhook signing secret —
@@ -164,11 +210,41 @@ return [
             'verb'         => 'POST',
             'requirements' => ['id' => '[^/]+'],
         ],
+        // flows-hand-off-and-wait (REQ-A2A-001): Admin settings, Remote agents.
+        ['name' => 'remoteAgent#index',   'url' => '/api/remote-agents',      'verb' => 'GET'],
+        ['name' => 'remoteAgent#create',  'url' => '/api/remote-agents',      'verb' => 'POST'],
+        ['name' => 'remoteAgent#update',  'url' => '/api/remote-agents/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'remoteAgent#destroy', 'url' => '/api/remote-agents/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '[^/]+']],
+        // flows-hand-off-and-wait (REQ-HANDOFF-004): the one-time address a webhook workflow
+        // posts its late result to. Public on purpose; the handoff's single-use token is the check.
+        [
+            'name'         => 'handoffResult#post',
+            'url'          => '/api/handoffs/{id}/result',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        // Deep research (tools-deep-research-report, REQ-RESEARCH-001 and REQ-RESEARCH-005): start a run
+        // from the chat, read its plan and progress, stop it. The caller's own runs only.
+        ['name' => 'research#create', 'url' => '/api/research',           'verb' => 'POST'],
+        ['name' => 'research#show',   'url' => '/api/research/{id}',      'verb' => 'GET',  'requirements' => ['id' => '[^/]+']],
+        ['name' => 'research#stop',   'url' => '/api/research/{id}/stop', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+
+        // Public web chat (delivery-public-web-chat): a visitor who has not signed in
+        // asks a website channel, named by its token. PublicChatController carries
+        // #[PublicPage]; the channel's tool-free agent reads only anonymous content.
+        ['name' => 'publicChat#message',   'url' => '/api/public/{channelToken}/messages', 'verb' => 'POST',    'requirements' => ['channelToken' => '[A-Za-z0-9]{16,64}']],
+        ['name' => 'publicChat#preflight', 'url' => '/api/public/{channelToken}/messages', 'verb' => 'OPTIONS', 'requirements' => ['channelToken' => '[A-Za-z0-9]{16,64}']],
+        ['name' => 'publicChatPage#page',  'url' => '/public/{channelToken}',              'verb' => 'GET',     'requirements' => ['channelToken' => '[A-Za-z0-9]{16,64}']],
 
         // Agent version history (agent-versioning): owner/invited-scoped read of the
         // Agent's OpenRegister AuditTrail as a version timeline + diff, and owner-only
         // rollback. No new storage — reads/replays the SAME AuditTrail SaveObject
         // already writes on every Agent save.
+        // models-prompt-and-answer-cache: the owner clears the agent's cached answers.
+        ['name' => 'agentAnswerCache#clear', 'url' => '/api/agents/{id}/answer-cache', 'verb' => 'DELETE', 'requirements' => ['id' => '[^/]+']],
+        // Whether an agent's declared acting user still resolves (agent-acting-identity-picker
+        // REQ-AGID-003): read-scoped, so the edit page can warn before a run is refused.
+        ['name' => 'agentActingUser#show', 'url' => '/api/agents/{id}/acting-user', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentVersion#index', 'url' => '/api/agents/{id}/versions', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentVersion#diff',  'url' => '/api/agents/{id}/versions/diff', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         [
@@ -177,24 +253,57 @@ return [
             'verb'         => 'POST',
             'requirements' => ['id' => '[^/]+', 'versionId' => '[^/]+'],
         ],
+        // An agent's published builds (pinned files and tools), and publishing one (owner-only).
+        ['name' => 'agentVersion#builds', 'url' => '/api/agents/{id}/builds', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'agentVersion#publishBuild', 'url' => '/api/agents/{id}/builds', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+
+        // Advisory AI-oversight records about one subject, for whoever may open that subject.
+        ['name' => 'aiOversight#subject', 'url' => '/api/ai-oversight/subject', 'verb' => 'GET'],
+        ['name' => 'aiOversight#subjectExport', 'url' => '/api/ai-oversight/subject/export', 'verb' => 'GET'],
+        // agent-authored-marking: mark an agent-authored file as reviewed, and the label counts.
+        ['name' => 'aiLabel#markReviewed', 'url' => '/api/ai-label/files/{fileId}/reviewed', 'verb' => 'POST', 'requirements' => ['fileId' => '\\d+']],
+        ['name' => 'aiLabel#stats', 'url' => '/api/ai-label/stats', 'verb' => 'GET'],
 
         // Human-approval gate (human-approval-gate-enforcement): reviewer inbox + decisions.
+        // Approval verification contract (hermiq#1045): another app asks for a signed verdict.
+        ['name' => 'approvalVerify#verify', 'url' => '/api/approvals/verify', 'verb' => 'POST'],
         ['name' => 'approval#index',   'url' => '/api/approvals', 'verb' => 'GET'],
         ['name' => 'approval#approve', 'url' => '/api/approvals/{approvalId}/approve', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
+        // tools-browser-and-computer-use: the machine's screen now, for the reviewer of a pending computer action.
+        ['name' => 'approval#screenshot', 'url' => '/api/approvals/{approvalId}/screenshot', 'verb' => 'GET', 'requirements' => ['approvalId' => '[^/]+']],
         ['name' => 'approval#deny',    'url' => '/api/approvals/{approvalId}/deny', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
+        // One route for the chat's approval card: {decision: granted|refused}.
+        ['name' => 'approval#resolve', 'url' => '/api/approvals/{approvalId}/resolve', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
+        // Oversight-ask-and-hold: answer an agent's question, release a held draft.
+        ['name' => 'approval#answer',  'url' => '/api/approvals/{approvalId}/answer', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
+        ['name' => 'approval#release', 'url' => '/api/approvals/{approvalId}/release', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
 
         // Per-organisation kill-switch (human-approval-gate-enforcement): read + toggle.
         [
-            'name'         => 'tenantControl#show',
+            'name'         => 'organisationControl#show',
             'url'          => '/api/tenant-control/{organisation}',
             'verb'         => 'GET',
             'requirements' => ['organisation' => '[^/]+'],
         ],
         [
-            'name'         => 'tenantControl#toggle',
+            'name'         => 'organisationControl#toggle',
             'url'          => '/api/tenant-control/{organisation}/toggle',
             'verb'         => 'POST',
             'requirements' => ['organisation' => '[^/]+'],
+        ],
+        // Per-department AI switch (oversight-switch-ai-off-per-department): admins only.
+        [
+            'name'         => 'departmentControl#toggle',
+            'url'          => '/api/department-control/{group}/toggle',
+            'verb'         => 'POST',
+            'requirements' => ['group' => '[^/]+'],
+        ],
+        ['name' => 'departmentControl#index', 'url' => '/api/department-control', 'verb' => 'GET'],
+        [
+            'name'         => 'departmentControl#evidence',
+            'url'          => '/api/department-control/{group}/evidence',
+            'verb'         => 'GET',
+            'requirements' => ['group' => '[^/]+'],
         ],
 
         // Agent memory (agent-memory): tenant-scoped memory, profiles, sessions, consolidate, recall.
@@ -209,9 +318,16 @@ return [
             'requirements' => ['agentId' => '[^/]+'],
         ],
         ['name' => 'memory#recall',        'url' => '/api/agents/{agentId}/recall', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
+        // memory-correct-and-forget: the owner corrects or forgets one entry.
+        ['name' => 'memory#correctEntry',  'url' => '/api/agents/{agentId}/memory/entries/{entryId}', 'verb' => 'PUT', 'requirements' => ['agentId' => '[^/]+', 'entryId' => '[^/]+']],
+        ['name' => 'memory#forgetEntry',   'url' => '/api/agents/{agentId}/memory/entries/{entryId}', 'verb' => 'DELETE', 'requirements' => ['agentId' => '[^/]+', 'entryId' => '[^/]+']],
+        // Memory-project-scopes: the projects of an agent's memory, and moving an entry between layers.
+        ['name' => 'memory#projects',      'url' => '/api/agents/{agentId}/memory/projects', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
+        ['name' => 'memory#moveEntry',     'url' => '/api/agents/{agentId}/memory/entries/{entryId}/move', 'verb' => 'POST', 'requirements' => ['agentId' => '[^/]+', 'entryId' => '[^/]+']],
 
         // Run analytics (run-analytics): tenant-scoped run metrics from OR AuditTrail (optional agentId).
         ['name' => 'analytics#index', 'url' => '/api/analytics', 'verb' => 'GET'],
+        ['name' => 'analytics#lowRatings', 'url' => '/api/analytics/agents/{agentId}/low-ratings', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
 
         // The cross-agent run list. `runHistory#index` below is addressed per SCHEDULE, so
         // it cannot answer "what did all my agents do last night" and never sees a
@@ -219,6 +335,7 @@ return [
         // routinely lives in another register). This one shares the analytics tenant
         // boundary, so the list and the dashboard KPIs count the same set.
         ['name' => 'analytics#runs', 'url' => '/api/runs', 'verb' => 'GET'],
+        ['name' => 'analytics#compare', 'url' => '/api/runs/compare', 'verb' => 'GET'],
 
         // Tool governance + disclosure (agent-tool-governance-and-disclosure): grant editor
         // catalog/write + per-agent art.12/14 oversight read.
@@ -249,31 +366,38 @@ return [
             'verb'         => 'GET',
             'requirements' => ['agentId' => '[^/]+'],
         ],
+        // verify-row-scenarios (row ov-tool-oversight): mark one tool call as misuse, with a reason.
+        [
+            'name'         => 'toolOversight#markToolInvocation',
+            'url'          => '/api/agents/{agentId}/tool-invocations/{callId}/mark',
+            'verb'         => 'POST',
+            'requirements' => ['agentId' => '[^/]+', 'callId' => '[^/]+'],
+        ],
 
         // Tenant ops (multi-tenant-ops): per-org quota status + EU AI Act audit export (tenant-scoped).
-        ['name' => 'tenantOps#quota',       'url' => '/api/tenant-ops/quota', 'verb' => 'GET'],
-        ['name' => 'tenantOps#auditExport', 'url' => '/api/tenant-ops/audit-export', 'verb' => 'GET'],
+        ['name' => 'organisationOps#quota',       'url' => '/api/tenant-ops/quota', 'verb' => 'GET'],
+        ['name' => 'organisationOps#auditExport', 'url' => '/api/tenant-ops/audit-export', 'verb' => 'GET'],
 
         // Agent-lifecycle-governance: periodic access review + attestation + reassignment,
         // incident records, and the retention-period setting (tenant-scoped; the four
         // mutating endpoints additionally gate through ActionAuthService).
-        ['name' => 'tenantOps#reviewList', 'url' => '/api/tenant-ops/access-review', 'verb' => 'GET'],
+        ['name' => 'organisationOps#reviewList', 'url' => '/api/tenant-ops/access-review', 'verb' => 'GET'],
         [
-            'name'         => 'tenantOps#attestReview',
+            'name'         => 'organisationOps#attestReview',
             'url'          => '/api/tenant-ops/access-review/{uuid}/attest',
             'verb'         => 'POST',
             'requirements' => ['uuid' => '[^/]+'],
         ],
         [
-            'name'         => 'tenantOps#reassignAgent',
+            'name'         => 'organisationOps#reassignAgent',
             'url'          => '/api/tenant-ops/access-review/{uuid}/reassign',
             'verb'         => 'POST',
             'requirements' => ['uuid' => '[^/]+'],
         ],
-        ['name' => 'tenantOps#incidents',       'url' => '/api/tenant-ops/incidents', 'verb' => 'GET'],
-        ['name' => 'tenantOps#createIncident',  'url' => '/api/tenant-ops/incidents', 'verb' => 'POST'],
-        ['name' => 'tenantOps#retention',       'url' => '/api/tenant-ops/retention', 'verb' => 'GET'],
-        ['name' => 'tenantOps#updateRetention', 'url' => '/api/tenant-ops/retention', 'verb' => 'PUT'],
+        ['name' => 'organisationOps#incidents',       'url' => '/api/tenant-ops/incidents', 'verb' => 'GET'],
+        ['name' => 'organisationOps#createIncident',  'url' => '/api/tenant-ops/incidents', 'verb' => 'POST'],
+        ['name' => 'organisationOps#retention',       'url' => '/api/tenant-ops/retention', 'verb' => 'GET'],
+        ['name' => 'organisationOps#updateRetention', 'url' => '/api/tenant-ops/retention', 'verb' => 'PUT'],
 
         // Budget guardrails (cost-guardrails): per-org/per-agent spend caps, status, pre-run
         // estimate. 'status' is registered before the GET list route needs no {budgetId} at
@@ -288,10 +412,10 @@ return [
         // Tenant model policy (tenant-model-policy): per-organisation provider/model
         // allowlists. 'effective' is registered before the {policyId} routes so the
         // literal path never falls into the id matcher.
-        ['name' => 'tenantModelPolicy#effective', 'url' => '/api/model-policy/effective', 'verb' => 'GET'],
-        ['name' => 'tenantModelPolicy#index',  'url' => '/api/model-policy', 'verb' => 'GET'],
-        ['name' => 'tenantModelPolicy#create', 'url' => '/api/model-policy', 'verb' => 'POST'],
-        ['name' => 'tenantModelPolicy#update', 'url' => '/api/model-policy/{policyId}', 'verb' => 'PUT', 'requirements' => ['policyId' => '[^/]+']],
+        ['name' => 'organisationModelPolicy#effective', 'url' => '/api/model-policy/effective', 'verb' => 'GET'],
+        ['name' => 'organisationModelPolicy#index',  'url' => '/api/model-policy', 'verb' => 'GET'],
+        ['name' => 'organisationModelPolicy#create', 'url' => '/api/model-policy', 'verb' => 'POST'],
+        ['name' => 'organisationModelPolicy#update', 'url' => '/api/model-policy/{policyId}', 'verb' => 'PUT', 'requirements' => ['policyId' => '[^/]+']],
 
         // Guardrail policy (agent-guardrails): per-organisation input/output content
         // filters + per-tool risk classification. 'effective' is registered before
@@ -304,6 +428,23 @@ return [
             'url'          => '/api/guardrail-policies/{policyId}',
             'verb'         => 'PUT',
             'requirements' => ['policyId' => '[^/]+'],
+        ],
+
+        // tools-custom-tools-without-code (REQ-CUSTOOL-001): organisation admins and
+        // instance admins list, create and edit the organisation's custom tools.
+        ['name' => 'customTool#index',  'url' => '/api/custom-tools', 'verb' => 'GET'],
+        ['name' => 'customTool#create', 'url' => '/api/custom-tools', 'verb' => 'POST'],
+        [
+            'name'         => 'customTool#update',
+            'url'          => '/api/custom-tools/{id}',
+            'verb'         => 'PUT',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        [
+            'name'         => 'customTool#tryTool',
+            'url'          => '/api/custom-tools/{id}/try',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
         ],
 
         // Compliance control packs (compliance-control-packs): org-scoped dashboard,
@@ -380,6 +521,11 @@ return [
         ['name' => 'skillVersion#rollback', 'url' => '/api/skills/{id}/rollback', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'skillVersion#republish', 'url' => '/api/skills/{id}/republish', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
 
+        // Skill merges (skills-curator-merges-duplicates): the curator's pending merge
+        // proposals, and approving or rejecting one (action skill.merge-duplicates).
+        ['name' => 'skillMerge#index',   'url' => '/api/skill-merges', 'verb' => 'GET'],
+        ['name' => 'skillMerge#approve', 'url' => '/api/skill-merges/{id}/approve', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'skillMerge#reject',  'url' => '/api/skill-merges/{id}/reject', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         // Skills marketplace (skills-marketplace): quarantine install-from-source, review-approve, hub publish.
         ['name' => 'skillMarketplace#installFromSource', 'url' => '/api/skills/install-from-source', 'verb' => 'POST'],
         ['name' => 'skillMarketplace#approve',           'url' => '/api/skills/{id}/approve', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
@@ -402,10 +548,17 @@ return [
         ['name' => 'agentTemplate#index',   'url' => '/api/agent-templates', 'verb' => 'GET'],
         ['name' => 'agentTemplate#create',  'url' => '/api/agent-templates', 'verb' => 'POST'],
         ['name' => 'agentTemplate#import',  'url' => '/api/agent-templates/import', 'verb' => 'POST'],
+        ['name' => 'appTemplateOffers#collect', 'url' => '/api/agent-templates/collect-from-apps', 'verb' => 'POST'],
         [
             'name'         => 'agentTemplate#export',
             'url'          => '/api/agent-templates/from-agent/{agentId}/export',
             'verb'         => 'GET',
+            'requirements' => ['agentId' => '[^/]+'],
+        ],
+        [
+            'name'         => 'agentTemplate#saveFromAgent',
+            'url'          => '/api/agent-templates/from-agent/{agentId}',
+            'verb'         => 'POST',
             'requirements' => ['agentId' => '[^/]+'],
         ],
         // GitHub-backed template store (agent-template-github-store): search/install are
@@ -450,6 +603,61 @@ return [
         ['name' => 'aiFeature#enable',      'url' => '/api/ai-features/{id}/enable', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'aiFeature#disable',     'url' => '/api/ai-features/{id}/disable', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
 
+        // A provider and a place per AI feature (a-provider-and-a-place-per-ai-feature):
+        // bind one feature to a provider and model within the organisation's model policy,
+        // and read which provider each feature will use and where that provider runs.
+        ['name' => 'aiFeature#residencyOverview', 'url' => '/api/ai-features/residency', 'verb' => 'GET'],
+        ['name' => 'aiFeatureRun#runOnDocument', 'url' => '/api/ai-features/{slug}/run-on-document', 'verb' => 'POST', 'requirements' => ['slug' => '[^/]+']],
+        ['name' => 'aiFeature#bind', 'url' => '/api/ai-features/{id}/binding', 'verb' => 'PUT', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'Settings\ProviderResidencySettings#get', 'url' => '/api/settings/provider-residency', 'verb' => 'GET'],
+
+        // What the model reads and what is kept (what-the-model-reads-and-what-is-kept):
+        // the instance retention for AI run records, and the report saying when the
+        // cleanup job last enforced it and how much it removed.
+        ['name' => 'Settings\RunRetentionSettings#get', 'url' => '/api/settings/run-retention', 'verb' => 'GET'],
+        ['name' => 'Settings\RunRetentionSettings#update', 'url' => '/api/settings/run-retention', 'verb' => 'PUT'],
+        // Chat-translate-a-recording D3: the administrator's voice per language (admin only).
+        ['name' => 'Settings\SpeechVoiceSettings#get', 'url' => '/api/settings/speech-voices', 'verb' => 'GET'],
+        ['name' => 'Settings\SpeechVoiceSettings#update', 'url' => '/api/settings/speech-voices', 'verb' => 'PUT'],
+        // How many scheduled runs go at once, for the instance and per organisation (operations-parallel-run-workers).
+        ['name' => 'Settings\RunConcurrencySettings#get', 'url' => '/api/settings/run-concurrency', 'verb' => 'GET'],
+        ['name' => 'Settings\RunConcurrencySettings#update', 'url' => '/api/settings/run-concurrency', 'verb' => 'PUT'],
+        // Backup (operations-backup-and-restore): the admin-only backup settings and
+        // "Back up now", which queues BackupNowJob and returns at once.
+        ['name' => 'Settings\BackupSettings#get', 'url' => '/api/settings/backup', 'verb' => 'GET'],
+        ['name' => 'Settings\BackupSettings#update', 'url' => '/api/settings/backup', 'verb' => 'PUT'],
+        ['name' => 'Settings\BackupSettings#backupNow', 'url' => '/api/backup/now', 'verb' => 'POST'],
+        // Restore (operations-backup-and-restore 3-4): the backups in the folder, the
+        // preview that writes nothing, and the restore, queued as RestoreJob.
+        ['name' => 'backup#files', 'url' => '/api/backup/files', 'verb' => 'GET'],
+        ['name' => 'backup#preview', 'url' => '/api/backup/restore/preview', 'verb' => 'POST'],
+        ['name' => 'backup#restore', 'url' => '/api/backup/restore', 'verb' => 'POST'],
+        // observability-export-traces: trace export settings, admin only (REQ-TREX-001).
+        ['name' => 'Settings\TraceExportSettings#get', 'url' => '/api/settings/trace-export', 'verb' => 'GET'],
+        ['name' => 'Settings\TraceExportSettings#update', 'url' => '/api/settings/trace-export', 'verb' => 'PUT'],
+        // Working with AI (compliance-ai-literacy): the lessons and answer check for the
+        // signed-in person, and the organisation report and requirement switch for its admin.
+        ['name' => 'literacy#lessons', 'url' => '/api/literacy/lessons', 'verb' => 'GET'],
+        ['name' => 'literacy#answer', 'url' => '/api/literacy/lessons/{slug}/answer', 'verb' => 'POST', 'requirements' => ['slug' => '[a-z0-9-]+']],
+        ['name' => 'literacy#overview', 'url' => '/api/literacy/overview', 'verb' => 'GET'],
+        ['name' => 'literacy#overviewCsv', 'url' => '/api/literacy/overview.csv', 'verb' => 'GET'],
+        ['name' => 'literacy#setRequirement', 'url' => '/api/literacy/requirement', 'verb' => 'PUT'],
+
+        // What each provider does with the data it is sent (models-no-training-guarantee).
+        ['name' => 'Settings\ProviderDataUseSettings#get', 'url' => '/api/settings/provider-data-use', 'verb' => 'GET'],
+        [
+            'name'         => 'Settings\ProviderDataUseSettings#declare',
+            'url'          => '/api/settings/provider-data-use/{provider}',
+            'verb'         => 'PUT',
+            'requirements' => ['provider' => '[^/]+'],
+        ],
+        [
+            'name'         => 'Settings\ProviderResidencySettings#declareResidency',
+            'url'          => '/api/settings/provider-residency/{provider}',
+            'verb'         => 'PUT',
+            'requirements' => ['provider' => '[^/]+'],
+        ],
+
         // Algoritmeregister publication (algoritmeregister-publication): publish/withdraw a
         // high-risk feature to the national register, delegated to OpenCatalogi's publication
         // path via the runtime seam (action-auth-gated; NO direct national-portal call).
@@ -483,8 +691,20 @@ return [
         // /api/agents/{agentId}/memory block above matches longer paths — no conflict.
         ['name' => 'agents#stats',   'url' => '/api/agents/stats', 'verb' => 'GET'],
         ['name' => 'agents#tools',   'url' => '/api/agents/tools', 'verb' => 'GET'],
+        // agents-plain-language-builder: check a chat draft before the agent form opens with it (reads only).
+        ['name' => 'agentDraft#check', 'url' => '/api/agents/draft-check', 'verb' => 'POST'],
         ['name' => 'agents#index',   'url' => '/api/agents', 'verb' => 'GET'],
         ['name' => 'agents#create',  'url' => '/api/agents', 'verb' => 'POST'],
+        // Agents-switch-off-and-stop: switch one agent off and on, with who and why.
+        ['name' => 'agentAvailability#show', 'url' => '/api/agents/{id}/availability', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'agentAvailability#update', 'url' => '/api/agents/{id}/availability', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'agentAppAssistant#update', 'url' => '/api/agents/{id}/app-assistant', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        // Agents-instruction-variables: the owner's preview of the filled-in instructions.
+        ['name' => 'instructionVariables#preview', 'url' => '/api/agents/{id}/prompt-preview', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'agentGit#publish', 'url' => '/api/agents/{id}/git/publish', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'agentGit#push', 'url' => '/api/agents/{id}/git/push', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'agentGit#pullPreview', 'url' => '/api/agents/{id}/git/pull', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'agentGit#pullApply', 'url' => '/api/agents/{id}/git/pull', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agents#show',    'url' => '/api/agents/{id}', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agents#update',  'url' => '/api/agents/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agents#patch',   'url' => '/api/agents/{id}', 'verb' => 'PATCH', 'requirements' => ['id' => '[^/]+']],
@@ -521,41 +741,155 @@ return [
         ['name' => 'speech#transcribe',   'url' => '/api/speech/transcriptions', 'verb' => 'POST'],
         ['name' => 'speech#synthesise',   'url' => '/api/speech/speech', 'verb' => 'POST'],
         ['name' => 'speech#capabilities', 'url' => '/api/speech/capabilities', 'verb' => 'GET'],
+        // Chat-translate-a-recording: transcribe, translate and speak one recording, and
+        // where the translation step will run (shown before the person starts).
+        ['name' => 'speechTranslation#translate', 'url' => '/api/speech/translations', 'verb' => 'POST'],
+        ['name' => 'speechTranslation#where', 'url' => '/api/speech/translations/where', 'verb' => 'GET'],
 
         // SSE streaming chat endpoint (six-event envelope, hydra ADR-034 Decision 6).
         ['name' => 'chatStream#stream', 'url' => '/api/chat/stream', 'verb' => 'POST'],
+        // Chat-attachments-and-images: the companion's attach control stores the file in the caller's Files.
+        ['name' => 'chatAttachment#upload', 'url' => '/api/chat/attachments', 'verb' => 'POST'],
+        // Chat-attachments-and-images D7: the chat action "Create an image", and whether to show it.
+        ['name' => 'chatImage#availability', 'url' => '/api/chat/images/availability', 'verb' => 'GET'],
+        ['name' => 'chatImage#create', 'url' => '/api/chat/images', 'verb' => 'POST'],
 
         // Case-assistant surface (case-assistant-surface): minimal, tool-free
         // synchronous conversational endpoint for leaf apps — deliberately
         // separate from chat#sendMessage, see design.md.
         ['name' => 'assistant#converse', 'url' => '/api/assistant/converse', 'verb' => 'POST'],
+        // Agents-bound-to-their-app task 5: the record summary on the agent leaf.
+        ['name' => 'recordSummary#show', 'url' => '/api/assistant/summary', 'verb' => 'GET'],
+        ['name' => 'recordSummary#summarise', 'url' => '/api/assistant/summarise', 'verb' => 'POST'],
+        // reports-on-a-schedule 1.2: subscribe and cancel on each card of the Reports page.
+        ['name' => 'reportSubscription#index', 'url' => '/api/report-subscriptions', 'verb' => 'GET'],
+        ['name' => 'reportSubscription#subscribe', 'url' => '/api/report-subscriptions/{report}', 'verb' => 'POST'],
+        ['name' => 'reportSubscription#cancel', 'url' => '/api/report-subscriptions/{report}', 'verb' => 'DELETE'],
 
         // Structured PII/redaction-span detection surface (woo-llm-anonymisation):
         // stateless, tool-free, reuses the case-assistant-surface plumbing —
         // see design.md for why it is a sibling of assistant#converse, not a
         // reuse of it as-is.
         ['name' => 'assistant#detectPii', 'url' => '/api/assistant/detect-pii', 'verb' => 'POST'],
+        // Paste to fill (forms-smart-paste-fill): proposals from pasted text, and
+        // whether the form may offer it. Gated by the `form-fill` AiFeature.
+        ['name' => 'formFill#fill', 'url' => '/api/assistant/form-fill', 'verb' => 'POST'],
+        ['name' => 'formFill#available', 'url' => '/api/assistant/form-fill/available', 'verb' => 'GET'],
 
-        // Conversations: CRUD + messages + archive lifecycle (restore/permanent).
-        ['name' => 'conversation#index', 'url' => '/api/conversations', 'verb' => 'GET'],
-        ['name' => 'conversation#create', 'url' => '/api/conversations', 'verb' => 'POST'],
-        ['name' => 'conversation#show', 'url' => '/api/conversations/{uuid}', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
+        // Sessions: CRUD + turns + archive lifecycle (restore/permanent).
+        //
+        // 🔴 THE `/api/conversations/*` FAMILY BELOW IS THE SAME CONTROLLER METHODS, NOT
+        // COPIES. Pointing both path families at one method is what makes it impossible
+        // for them to drift: a fix to `show()` reaches both, and there is no second
+        // implementation to forget. Deleting the old family here would 404 every existing
+        // integration on deploy with no transition, which is why they stay as deprecated
+        // aliases rather than being removed with the rename.
+        ['name' => 'session#index', 'url' => '/api/sessions', 'verb' => 'GET'],
+        ['name' => 'session#create', 'url' => '/api/sessions', 'verb' => 'POST'],
+        // The chat's Files panel over the caller's session workspace (tools-agent-workspace-and-installed-tools REQ-WKSP-003).
+        ['name' => 'workspaceFiles#index', 'url' => '/api/sessions/{sessionId}/workspace/files', 'verb' => 'GET', 'requirements' => ['sessionId' => '[^/]+']],
+        ['name' => 'workspaceFiles#download', 'url' => '/api/sessions/{sessionId}/workspace/download', 'verb' => 'GET', 'requirements' => ['sessionId' => '[^/]+']],
+        ['name' => 'workspaceFiles#save', 'url' => '/api/sessions/{sessionId}/workspace/save', 'verb' => 'POST', 'requirements' => ['sessionId' => '[^/]+']],
+        // Archive, restore or delete several sessions at once (chat-session-search-and-bulk-delete, REQ-SSRCH-002).
+        ['name' => 'session#bulk', 'url' => '/api/sessions/bulk', 'verb' => 'POST'],
+        ['name' => 'session#show', 'url' => '/api/sessions/{uuid}', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
         [
-            'name'         => 'conversation#messages',
+            'name'         => 'session#messages',
+            'url'          => '/api/sessions/{uuid}/messages',
+            'verb'         => 'GET',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
+        ['name' => 'session#update', 'url' => '/api/sessions/{uuid}', 'verb' => 'PATCH', 'requirements' => ['uuid' => '[^/]+']],
+        // Session-entity-links: the owner removes a link a sent turn recorded.
+        ['name' => 'session#removeLink', 'url' => '/api/sessions/{uuid}/links', 'verb' => 'DELETE', 'requirements' => ['uuid' => '[^/]+']],
+        // Agents-instruction-variables: a person's answers to the agent's start fields, once per session.
+        ['name' => 'instructionVariables#answer', 'url' => '/api/sessions/{uuid}/start-values', 'verb' => 'PUT', 'requirements' => ['uuid' => '[^/]+']],
+        // Agents-standing-goal: read, set and stop a session's standing goal.
+        ['name' => 'goal#show', 'url' => '/api/sessions/{uuid}/goal', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'goal#create', 'url' => '/api/sessions/{uuid}/goal', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'goal#stop', 'url' => '/api/goals/{id}/stop', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'session#destroy', 'url' => '/api/sessions/{uuid}', 'verb' => 'DELETE', 'requirements' => ['uuid' => '[^/]+']],
+        [
+            'name'         => 'session#restore',
+            'url'          => '/api/sessions/{uuid}/restore',
+            'verb'         => 'POST',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
+        [
+            'name'         => 'session#destroyPermanent',
+            'url'          => '/api/sessions/{uuid}/permanent',
+            'verb'         => 'DELETE',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
+        // chat-fork-and-share-link: the owner starts a new session from one of the session's answers.
+        ['name' => 'sessionFork#create', 'url' => '/api/sessions/{uuid}/fork', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
+        // chat-work-together-in-one-session: the owner invites colleagues into a web session.
+        ['name' => 'sessionParticipant#index', 'url' => '/api/sessions/{uuid}/participants', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'sessionParticipant#create', 'url' => '/api/sessions/{uuid}/participants', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
+        [
+            'name'         => 'sessionParticipant#destroy',
+            'url'          => '/api/sessions/{uuid}/participants/{uid}',
+            'verb'         => 'DELETE',
+            'requirements' => ['uuid' => '[^/]+', 'uid' => '[^/]+'],
+        ],
+        // chat-fork-and-share-link: the owner shares a session read-only with users and groups.
+        ['name' => 'sessionShare#index', 'url' => '/api/sessions/{uuid}/shares', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'sessionShare#create', 'url' => '/api/sessions/{uuid}/shares', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
+        [
+            'name'         => 'sessionShare#destroy',
+            'url'          => '/api/sessions/{uuid}/shares/{type}/{id}',
+            'verb'         => 'DELETE',
+            'requirements' => ['uuid' => '[^/]+', 'type' => 'user|group', 'id' => '[^/]+'],
+        ],
+
+        // memory-knowledge-bases: the owner uploads documents into a knowledge base's folder in
+        // Files, and the detail page reads each source's indexing state and the only-you notice.
+        ['name' => 'knowledgeBase#upload', 'url' => '/api/knowledge-bases/{id}/documents', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'knowledgeBase#sources', 'url' => '/api/knowledge-bases/{id}/sources', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
+
+        // DEPRECATED aliases. Same controller, same methods, same auth. Retire them on
+        // traffic data (SessionController logs at info level when one is hit), not on
+        // optimism.
+        ['name' => 'session#index', 'url' => '/api/conversations', 'verb' => 'GET', 'postfix' => 'legacy'],
+        ['name' => 'session#create', 'url' => '/api/conversations', 'verb' => 'POST', 'postfix' => 'legacy'],
+        [
+            'name'         => 'session#show',
+            'postfix'      => 'legacy',
+            'url'          => '/api/conversations/{uuid}',
+            'verb'         => 'GET',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
+        [
+            'name'         => 'session#messages',
+            'postfix'      => 'legacy',
             'url'          => '/api/conversations/{uuid}/messages',
             'verb'         => 'GET',
             'requirements' => ['uuid' => '[^/]+'],
         ],
-        ['name' => 'conversation#update', 'url' => '/api/conversations/{uuid}', 'verb' => 'PATCH', 'requirements' => ['uuid' => '[^/]+']],
-        ['name' => 'conversation#destroy', 'url' => '/api/conversations/{uuid}', 'verb' => 'DELETE', 'requirements' => ['uuid' => '[^/]+']],
         [
-            'name'         => 'conversation#restore',
+            'name'         => 'session#update',
+            'postfix'      => 'legacy',
+            'url'          => '/api/conversations/{uuid}',
+            'verb'         => 'PATCH',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
+        [
+            'name'         => 'session#destroy',
+            'postfix'      => 'legacy',
+            'url'          => '/api/conversations/{uuid}',
+            'verb'         => 'DELETE',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
+        [
+            'name'         => 'session#restore',
+            'postfix'      => 'legacy',
             'url'          => '/api/conversations/{uuid}/restore',
             'verb'         => 'POST',
             'requirements' => ['uuid' => '[^/]+'],
         ],
         [
-            'name'         => 'conversation#destroyPermanent',
+            'name'         => 'session#destroyPermanent',
+            'postfix'      => 'legacy',
             'url'          => '/api/conversations/{uuid}/permanent',
             'verb'         => 'DELETE',
             'requirements' => ['uuid' => '[^/]+'],
@@ -565,6 +899,89 @@ return [
         // deterministic next-best-course list (EU AI Act Annex III §3, advisory only).
         ['name' => 'courseRecommendation#index', 'url' => '/api/recommendations', 'verb' => 'GET'],
 
+        // Message translation (message-translation-delegate): gated, off-by-default
+        // delegate for parent-facing messages and news (EU AI Act, limited risk).
+        ['name' => 'messageTranslation#translate', 'url' => '/api/translate', 'verb' => 'POST'],
+
+        // The declared tool surface (the-declared-tool-surface-and-the-prompt-library):
+        // what an AI agent outside this instance may call, and the call itself. Ordinary
+        // authenticated requests: the agent authenticates AS a person, and the owning app
+        // authorises every call for that person. Two gates, both must open.
+        ['name' => 'outsideAgent#tools', 'url' => '/api/outside-agent/tools', 'verb' => 'GET'],
+        ['name' => 'outsideAgent#call',  'url' => '/api/outside-agent/call',  'verb' => 'POST'],
+
+        // Lesson authoring (lesson-authoring-ai-delegate): gated, off-by-default drafts
+        // for learniq's lesson editor (EU AI Act, limited risk). Contract in
+        // openspec/changes/lesson-authoring-ai-delegate/contract.md.
+        ['name' => 'lessonAuthoring#outline',         'url' => '/api/lesson-authoring/outline',          'verb' => 'POST'],
+        ['name' => 'lessonAuthoring#questions',       'url' => '/api/lesson-authoring/questions',        'verb' => 'POST'],
+        ['name' => 'lessonAuthoring#simplify',        'url' => '/api/lesson-authoring/simplify',         'verb' => 'POST'],
+        ['name' => 'lessonAuthoring#goalSuggestions', 'url' => '/api/lesson-authoring/goal-suggestions', 'verb' => 'POST'],
+
+        // The prompt library (the-declared-tool-surface-and-the-prompt-library): the
+        // prompts the assistant offers on a record, as objects an administrator reads
+        // and edits. Disable-all is one act; re-enabling is per prompt, by design.
+        ['name' => 'assistantPrompt#index', 'url' => '/api/assistant-prompts', 'verb' => 'GET'],
+        ['name' => 'assistantPrompt#save',  'url' => '/api/assistant-prompts', 'verb' => 'POST'],
+        [
+            'name'         => 'assistantPrompt#save',
+            'postfix'      => 'update',
+            'url'          => '/api/assistant-prompts/{id}',
+            'verb'         => 'PUT',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        ['name' => 'assistantPrompt#disableAll', 'url' => '/api/assistant-prompts/disable-all', 'verb' => 'POST'],
+
+        // Identical reports collapse into one (identical-reports-collapse-into-one):
+        // which group an incoming report belongs to, why, and how to take one back out.
+        // hermiq answers; the owning app decides what a group means.
+        ['name' => 'reportSimilarity#evaluate', 'url' => '/api/report-similarity/evaluate', 'verb' => 'POST'],
+        [
+            'name'         => 'reportSimilarity#show',
+            'url'          => '/api/report-similarity/groups/{groupId}',
+            'verb'         => 'GET',
+            'requirements' => ['groupId' => '[^/]+'],
+        ],
+        [
+            'name'         => 'reportSimilarity#removeMember',
+            'url'          => '/api/report-similarity/groups/{groupId}/members/{reportId}',
+            'verb'         => 'DELETE',
+            'requirements' => ['groupId' => '[^/]+', 'reportId' => '[^/]+'],
+        ],
+        ['name' => 'Settings\ReportSimilaritySettings#get',    'url' => '/api/settings/report-similarity', 'verb' => 'GET'],
+        ['name' => 'Settings\ReportSimilaritySettings#update', 'url' => '/api/settings/report-similarity', 'verb' => 'PUT'],
+        // memory-retrieval-scope (REQ-RSCOPE-002): the Nextcloud tag that marks a document as validated.
+        ['name' => 'Settings\ValidatedTagSettings#get',    'url' => '/api/settings/validated-tag', 'verb' => 'GET'],
+        ['name' => 'Settings\ValidatedTagSettings#update', 'url' => '/api/settings/validated-tag', 'verb' => 'PUT'],
+        ['name' => 'Settings\ValidatedTagSettings#create', 'url' => '/api/settings/validated-tag', 'verb' => 'POST'],
+
+        // A conversational intake that files for the citizen
+        // (a-conversational-intake-that-files-for-the-citizen): one conversation per
+        // person and subject, whichever channel it arrives on, ending in a filed request
+        // or in front of a person. Hermiq transports nothing: each channel arrives here
+        // through the app that owns it.
+        ['name' => 'intake#receive', 'url' => '/api/intake/messages', 'verb' => 'POST'],
+        [
+            'name'         => 'intake#show',
+            'url'          => '/api/intake/conversations/{conversationId}',
+            'verb'         => 'GET',
+            'requirements' => ['conversationId' => '[^/]+'],
+        ],
+        [
+            'name'         => 'intake#conclude',
+            'url'          => '/api/intake/conversations/{conversationId}/conclude',
+            'verb'         => 'POST',
+            'requirements' => ['conversationId' => '[^/]+'],
+        ],
+        [
+            'name'         => 'intake#review',
+            'url'          => '/api/intake/conversations/{conversationId}/review',
+            'verb'         => 'POST',
+            'requirements' => ['conversationId' => '[^/]+'],
+        ],
+        ['name' => 'Settings\IntakeSettings#get',    'url' => '/api/settings/intake', 'verb' => 'GET'],
+        ['name' => 'Settings\IntakeSettings#update', 'url' => '/api/settings/intake', 'verb' => 'PUT'],
+
         // Governed CLI MCP transport (cli-runner-governed-mcp-and-egress). Both routes
         // are machine-to-machine, token-gated (RunTokenService), #[PublicPage] +
         // #[NoCSRFRequired] — the caller is the CLI's MCP client / the egress proxy,
@@ -572,6 +989,9 @@ return [
         // authorization (ADR-005 semantic-auth — see each controller's docblock).
         // Endpoint 1 — the governed MCP server (initialize/tools/list/tools/call).
         ['name' => 'mcpRun#handle', 'url' => '/api/mcp/run', 'verb' => 'POST'],
+        // The MCP client's GET for a server-to-client stream: none is offered, so 405
+        // (persistent-llm-process task 4). Without it the GET reached the SPA catch-all.
+        ['name' => 'mcpRunStream#refuse', 'url' => '/api/mcp/run', 'verb' => 'GET'],
         // Endpoint 2 — the governed egress Policy Decision Point (per-CONNECT allow/deny).
         ['name' => 'egressAuthorize#authorize', 'url' => '/api/egress/authorize', 'verb' => 'POST'],
 
@@ -580,3 +1000,27 @@ return [
         ['name' => 'dashboard#catchAll', 'url' => '/{path}', 'verb' => 'GET', 'requirements' => ['path' => '.+'], 'defaults' => ['path' => '']],
     ],
 ];
+
+// The versioned API base (NL API Design Rules, /core/uri-version): every /api/ route
+// also answers under /api/v1/, the server URL the OpenAPI document names. The unversioned
+// route stays, so existing clients and the URLs the app generates keep working. Each
+// copy gets its own route name through 'postfix', and the copies go before the SPA
+// catch-all, which would otherwise answer /api/v1/ paths first. The deprecated
+// /api/conversations aliases of the session routes (postfix 'legacy', see
+// SessionController::noteDeprecatedAlias) get no versioned copy: new clients use
+// /api/v1/sessions.
+$versioned = [];
+foreach ($routes['routes'] as $route) {
+    if (str_starts_with($route['url'], '/api/') === false || ($route['postfix'] ?? '') === 'legacy') {
+        continue;
+    }
+
+    $route['url']     = '/api/v1/'.substr($route['url'], strlen('/api/'));
+    $route['postfix'] = ($route['postfix'] ?? '').'V1';
+    $versioned[]      = $route;
+}
+
+$catchAll = array_search('dashboard#catchAll', array_column($routes['routes'], 'name'), true);
+array_splice($routes['routes'], ($catchAll === false ? count($routes['routes']) : $catchAll), 0, $versioned);
+
+return $routes;

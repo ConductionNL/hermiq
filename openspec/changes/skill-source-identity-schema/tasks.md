@@ -2,10 +2,11 @@
 
 ### 1. Schema properties
 
-- [ ] Add optional `sourceUrl` (string) and `sourceUpdatedAt` (string, date-time) to `components.schemas.Skill.properties` in `lib/Settings/hermiq_register.json`, neither added to `required`
+- [x] Add optional `sourceUrl` (string) and `sourceUpdatedAt` (string, date-time) to `components.schemas.Skill.properties` in `lib/Settings/hermiq_register.json`, neither added to `required`
 
 Acceptance criteria
 - Neither property appears in `required`
+- Done: both properties were already in the register; `tests/Unit/Settings/SkillSourceIdentitySchemaTest.php` pins type, format and that only `name` is required.
 - No existing property changes type or shape
 
 ### 2. Apply and verify on the live instance

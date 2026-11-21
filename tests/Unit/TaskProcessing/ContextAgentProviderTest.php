@@ -16,7 +16,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/contextagent-provider/tasks.md#task-1-2
+ * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-1-2
  */
 
 declare(strict_types=1);
@@ -31,7 +31,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests for ContextAgentProvider.
  *
- * @spec openspec/changes/contextagent-provider/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-1-1
  */
 class ContextAgentProviderTest extends TestCase {
 	/**
@@ -39,7 +39,7 @@ class ContextAgentProviderTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-1-1
 	 */
 	public function testTaskTypeId(): void {
 		$provider = new ContextAgentProvider($this->createMock(ContextAgentInteractionService::class));
@@ -53,7 +53,7 @@ class ContextAgentProviderTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-1-2
 	 */
 	public function testProcessForwardsToService(): void {
 		$expected = ['output' => 'hi', 'conversation_token' => 'conv-1', 'actions' => '{}'];
@@ -79,7 +79,7 @@ class ContextAgentProviderTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-1-2
 	 */
 	public function testProcessTreatsAbsentConfirmationAsNull(): void {
 		$service = $this->createMock(ContextAgentInteractionService::class);
@@ -91,4 +91,44 @@ class ContextAgentProviderTest extends TestCase {
 		$provider = new ContextAgentProvider($service);
 		$provider->process('bob', ['input' => 'hello'], static fn (float $p): bool => true);
 	}//end testProcessTreatsAbsentConfirmationAsNull()
+
+	/**
+	 * The worker has no session: the turn runs as the task's user, and the prior session
+	 * comes back afterwards. On the old code the session stayed empty and OpenRegister
+	 * refused the turn as "Anonymous" (seen live on :8099, task 18).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-6-2
+	 */
+	public function testTheTurnRunsAsTheTaskUser(): void {
+		$alice = $this->createMock(\OCP\IUser::class);
+		$alice->method('getUID')->willReturn('alice');
+		$users = $this->createMock(\OCP\IUserManager::class);
+		$users->method('get')->with('alice')->willReturn($alice);
+
+		$current = null;
+		$session = $this->createMock(\OCP\IUserSession::class);
+		$session->method('getUser')->willReturnCallback(static function () use (&$current) {
+			return $current;
+		});
+		$session->method('setUser')->willReturnCallback(static function ($user) use (&$current): void {
+			$current = $user;
+		});
+
+		$seenDuringTurn = null;
+		$service = $this->createMock(ContextAgentInteractionService::class);
+		$service->method('interact')->willReturnCallback(
+			static function () use (&$current, &$seenDuringTurn): array {
+				$seenDuringTurn = $current;
+				return ['output' => 'ok', 'conversation_token' => 'c', 'actions' => '{}'];
+			}
+		);
+
+		$provider = new ContextAgentProvider($service, $session, $users);
+		$provider->process('alice', ['input' => 'hi', 'conversation_token' => '{}'], static fn (float $p): bool => true);
+
+		$this->assertSame($alice, $seenDuringTurn);
+		$this->assertNull($current);
+	}//end testTheTurnRunsAsTheTaskUser()
 }//end class

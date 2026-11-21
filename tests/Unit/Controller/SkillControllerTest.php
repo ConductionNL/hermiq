@@ -42,6 +42,7 @@ use OCA\Hermiq\Service\SkillSerializer;
 use OCA\Hermiq\Service\SkillService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\IGroupManager;
 use OCP\IRequest;
@@ -49,6 +50,7 @@ use OCP\IUser;
 use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use ReflectionMethod;
 use RuntimeException;
 
 /**
@@ -191,7 +193,7 @@ class SkillControllerTest extends TestCase {
 	private function agentAccess(?ObjectEntity $agent): AgentAccessService {
 		$objectService = $this->createMock(ObjectService::class);
 		$objectService->method('find')->willReturn($agent);
-		return new AgentAccessService($objectService, $this->createMock(LoggerInterface::class));
+		return new AgentAccessService($objectService, $this->createMock(LoggerInterface::class), $this->createMock(IGroupManager::class));
 	}//end agentAccess()
 
 	/**
@@ -252,6 +254,131 @@ class SkillControllerTest extends TestCase {
 		$this->assertSame(GitHubTemplateCatalogService::OUTCOME_UNREACHABLE, $response->getData()['outcome']);
 
 	}//end testGithubSearchDegradesOnFailure()
+
+	/**
+	 * githubSearch() passes the query (null when not a string), the caller and the
+	 * credential, and answers the exact success and failure bodies.
+	 *
+	 * @return void
+	 */
+	public function testGithubSearchExactCallsAndBodies(): void {
+		$calls = [];
+		$catalog = $this->createMock(originalClassName: GitHubTemplateCatalogService::class);
+		$catalog->method('isBrokerAvailable')->willReturn(true);
+		$catalog->method('search')->willReturnCallback(
+			static function (...$arguments) use (&$calls): array {
+				$calls[] = $arguments;
+				if (count(value: $calls) === 2) {
+					throw new RuntimeException(message: 'down');
+				}
+
+				return [
+					'outcome' => 'ok',
+					'cards' => [['repo' => 'r']],
+					'brokerUsed' => true,
+					'rateLimited' => true,
+					'extra' => 1,
+				];
+			}
+		);
+
+		$first = $this->controller(
+			session: $this->session(uid: 'alice'),
+			request: $this->request(params: ['q' => 'lint', 'credentialId' => 'cred-1']),
+			catalog: $catalog
+		)->githubSearch();
+		$second = $this->controller(
+			session: $this->session(uid: 'bob'),
+			request: $this->request(params: ['q' => ['x'], 'credentialId' => '']),
+			catalog: $catalog
+		)->githubSearch();
+
+		$this->assertSame(
+			expected: [['lint', 'alice', 'cred-1', GitHubTemplateCatalogService::KIND_SKILL], [null, 'bob', null, GitHubTemplateCatalogService::KIND_SKILL]],
+			actual: $calls
+		);
+		$this->assertSame(expected: Http::STATUS_OK, actual: $first->getStatus());
+		$this->assertSame(
+			expected: ['outcome' => 'ok', 'cards' => [['repo' => 'r']], 'brokerCredentialAvailable' => true, 'brokerUsed' => true, 'rateLimited' => true],
+			actual: $first->getData()
+		);
+		$this->assertSame(expected: Http::STATUS_OK, actual: $second->getStatus());
+		$this->assertSame(
+			expected: [
+				'outcome' => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE,
+				'cards' => [],
+				'brokerCredentialAvailable' => true,
+				'brokerUsed' => false,
+				'rateLimited' => false,
+			],
+			actual: $second->getData()
+		);
+
+	}//end testGithubSearchExactCallsAndBodies()
+
+	/**
+	 * githubInstall() passes the ref and credential to both fetches, refuses a bad ref,
+	 * treats an empty ref as none, and answers a failed install with the fixed 500.
+	 *
+	 * @return void
+	 */
+	public function testGithubInstallRefCredentialAndFailures(): void {
+		$fetches = [];
+		$catalog = $this->createMock(originalClassName: GitHubTemplateCatalogService::class);
+		$catalog->method('fetchPackageFile')->willReturnCallback(
+			static function (...$arguments) use (&$fetches): string {
+				$fetches[] = ['package', ...$arguments];
+				return 'pkg';
+			}
+		);
+		$catalog->method('fetchAuxFiles')->willReturnCallback(
+			static function (...$arguments) use (&$fetches): array {
+				$fetches[] = ['aux', ...$arguments];
+				return ['a.md' => 'x'];
+			}
+		);
+		$marketplace = $this->createMock(originalClassName: SkillMarketplaceService::class);
+		$marketplace->method('installFromSource')->willThrowException(new RuntimeException(message: 'scan down'));
+
+		$badRef = $this->controller(
+			session: $this->session(uid: 'alice'),
+			request: $this->request(params: ['owner' => 'acme', 'repo' => 'demo', 'ref' => 'a b']),
+			catalog: $catalog,
+			marketplace: $marketplace
+		)->githubInstall();
+		$this->assertSame(expected: Http::STATUS_BAD_REQUEST, actual: $badRef->getStatus());
+		$this->assertSame(expected: ['error' => 'invalid_ref'], actual: $badRef->getData());
+		$this->assertSame(expected: [], actual: $fetches);
+
+		$params = ['owner' => 'acme', 'repo' => 'demo', 'ref' => 'v1.0', 'credentialId' => 'cred-1'];
+		$failed = $this->controller(
+			session: $this->session(uid: 'alice'),
+			request: $this->request(params: $params),
+			catalog: $catalog,
+			marketplace: $marketplace
+		)->githubInstall();
+		$this->assertSame(expected: Http::STATUS_INTERNAL_SERVER_ERROR, actual: $failed->getStatus());
+		$this->assertSame(expected: ['error' => 'Install failed'], actual: $failed->getData());
+
+		$this->controller(
+			session: $this->session(uid: 'bob'),
+			request: $this->request(params: ['owner' => 'acme', 'repo' => 'demo', 'ref' => '']),
+			catalog: $catalog,
+			marketplace: $marketplace
+		)->githubInstall();
+
+		$kind = GitHubTemplateCatalogService::KIND_SKILL;
+		$this->assertSame(
+			expected: [
+				['package', $kind, 'acme', 'demo', 'v1.0', 'alice', 'cred-1'],
+				['aux', $kind, 'acme', 'demo', 'v1.0', 'alice', 'cred-1'],
+				['package', $kind, 'acme', 'demo', null, 'bob', null],
+				['aux', $kind, 'acme', 'demo', null, 'bob', null],
+			],
+			actual: $fetches
+		);
+
+	}//end testGithubInstallRefCredentialAndFailures()
 
 	/**
 	 * githubInstall() returns 401 for an unauthenticated caller, never reaching the catalog service.
@@ -1017,4 +1144,55 @@ class SkillControllerTest extends TestCase {
 		$this->assertSame('triage', $data['agents'][0]['name']);
 
 	}//end testBundleInstallInstallsTheAgentsTheBundleDeclares()
+
+	/**
+	 * The publishable skill payloads and per-skill outcomes, in request order: a
+	 * missing skill (thrown or null) is not_found, any other failure is failed, and a
+	 * found skill carries its publish-time file selection (none is an empty list).
+	 *
+	 * @return void
+	 */
+	public function testPublishablePayloadsAndOutcomesInRequestOrder(): void {
+		$skillService = $this->createMock(originalClassName: SkillService::class);
+		$skillService->method('getSkill')->willReturnCallback(
+			function (string $skillId): ?ObjectEntity {
+				return match ($skillId) {
+					'gone' => throw new DoesNotExistException(msg: 'gone'),
+					'broken' => throw new RuntimeException(message: 'store down'),
+					'null' => null,
+					default => $this->skill(overrides: ['name' => 'Skill ' . $skillId]),
+				};
+			}
+		);
+		$skillService->method('publishFileSelection')->willReturnCallback(
+			static fn (string $skillId): ?array => match ($skillId) {
+				'with-files' => ['a.md' => 'x', 'b.md' => 'y'],
+				default => null,
+			}
+		);
+		$controller = $this->controller(session: $this->session(uid: 'alice'), skillService: $skillService);
+
+		$collect = new ReflectionMethod(objectOrMethod: $controller, method: 'collectPublishablePayloads');
+		$collected = $collect->invoke($controller, ['with-files', 'gone', 7, 'broken', 'null', 'plain']);
+
+		$this->assertSame(
+			expected: [
+				'payloads' => [
+					['id' => 'skill-1', 'name' => 'Skill with-files', 'state' => 'quarantined', 'files' => ['a.md' => 'x', 'b.md' => 'y']],
+					['id' => 'skill-1', 'name' => 'Skill 7', 'state' => 'quarantined', 'files' => []],
+					['id' => 'skill-1', 'name' => 'Skill plain', 'state' => 'quarantined', 'files' => []],
+				],
+				'outcomes' => [
+					['name' => 'Skill with-files', 'files' => 2, 'outcome' => 'published'],
+					['name' => 'gone', 'outcome' => 'not_found'],
+					['name' => 'Skill 7', 'files' => 0, 'outcome' => 'published'],
+					['name' => 'broken', 'outcome' => 'failed'],
+					['name' => 'null', 'outcome' => 'not_found'],
+					['name' => 'Skill plain', 'files' => 0, 'outcome' => 'published'],
+				],
+			],
+			actual: $collected
+		);
+
+	}//end testPublishablePayloadsAndOutcomesInRequestOrder()
 }//end class

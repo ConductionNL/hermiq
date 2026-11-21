@@ -26,11 +26,10 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\TaskProcessing;
 
-use OCA\Hermiq\Service\Speech\SpeechClient;
+use OCA\Hermiq\Kernel\Contracts\SpeechClientInterface;
 use OCP\TaskProcessing\EShapeType;
 use OCP\TaskProcessing\ISynchronousProvider;
 use OCP\TaskProcessing\ShapeDescriptor;
-use OCP\TaskProcessing\ShapeEnumValue;
 use OCP\TaskProcessing\TaskTypes\TextToSpeech;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -44,15 +43,16 @@ use RuntimeException;
  * @spec openspec/specs/nc-native-tools/spec.md#requirement-remote-systems-route-through-openconnector
  */
 class TextToSpeechProvider implements ISynchronousProvider {
+	use EmptyOptionalShapesTrait;
 
 	/**
 	 * Constructor.
 	 *
-	 * @param SpeechClient $speech The sidecar transport.
+	 * @param SpeechClientInterface $speech The sidecar transport.
 	 * @param LoggerInterface $logger Diagnostics.
 	 */
 	public function __construct(
-		private readonly SpeechClient $speech,
+		private readonly SpeechClientInterface $speech,
 		private readonly LoggerInterface $logger,
 	) {
 
@@ -116,46 +116,6 @@ class TextToSpeechProvider implements ISynchronousProvider {
 	}//end getOptionalInputShape()
 
 	/**
-	 * Optional outputs.
-	 *
-	 * @return array<string, ShapeDescriptor> Empty.
-	 */
-	public function getOptionalOutputShape(): array {
-		return [];
-
-	}//end getOptionalOutputShape()
-
-	/**
-	 * Input enum values.
-	 *
-	 * @return array<array-key, array<array-key, ShapeEnumValue>> Empty.
-	 */
-	public function getInputShapeEnumValues(): array {
-		return [];
-
-	}//end getInputShapeEnumValues()
-
-	/**
-	 * Input defaults.
-	 *
-	 * @return array<array-key, numeric|string> Empty.
-	 */
-	public function getInputShapeDefaults(): array {
-		return [];
-
-	}//end getInputShapeDefaults()
-
-	/**
-	 * Optional input enum values.
-	 *
-	 * @return array<array-key, array<array-key, ShapeEnumValue>> Empty.
-	 */
-	public function getOptionalInputShapeEnumValues(): array {
-		return [];
-
-	}//end getOptionalInputShapeEnumValues()
-
-	/**
 	 * Optional input defaults.
 	 *
 	 * @return array<array-key, numeric|string> The defaults.
@@ -164,26 +124,6 @@ class TextToSpeechProvider implements ISynchronousProvider {
 		return ['voice' => 'af_heart'];
 
 	}//end getOptionalInputShapeDefaults()
-
-	/**
-	 * Output enum values.
-	 *
-	 * @return array<array-key, array<array-key, ShapeEnumValue>> Empty.
-	 */
-	public function getOutputShapeEnumValues(): array {
-		return [];
-
-	}//end getOutputShapeEnumValues()
-
-	/**
-	 * Optional output enum values.
-	 *
-	 * @return array<array-key, array<array-key, ShapeEnumValue>> Empty.
-	 */
-	public function getOptionalOutputShapeEnumValues(): array {
-		return [];
-
-	}//end getOptionalOutputShapeEnumValues()
 
 	/**
 	 * Synthesise.

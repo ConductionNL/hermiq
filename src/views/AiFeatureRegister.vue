@@ -17,7 +17,7 @@
   A standard nav page — NOT a dashboard (dashboard-antipattern gate). All strings via
   t(); server data is fetched through the tenant-scoped API (no DOM reads).
 
-  @spec openspec/changes/ai-feature-governance-register/tasks.md#task-4-2
+  @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-4-2
   @spec openspec/specs/ai-feature-governance/spec.md#requirement-the-register-lists-the-tenants-high-risk-ai-features
 -->
 <template>
@@ -97,6 +97,19 @@
 						{{ t('hermiq', 'Not acknowledged') }}
 					</span>
 				</template>
+				<template #column-runsOn="{ row }">
+					<span class="ai-feature-register__runs-on">
+						{{ providerLabel(row) }}
+					</span>
+					<span
+						class="ai-feature-register__residency"
+						:class="`ai-feature-register__residency--${row.residency}`">
+						{{ residencyLabel(row.residency) }}
+					</span>
+					<span v-if="row.location" class="ai-feature-register__location">
+						{{ row.location }}
+					</span>
+				</template>
 				<template #column-algoritmeregister="{ row }">
 					<span
 						class="ai-feature-register__algo"
@@ -107,7 +120,16 @@
 				<template #row-actions="{ row }">
 					<div class="ai-feature-register__actions">
 						<NcButton
-							type="secondary"
+							variant="secondary"
+							:disabled="busy"
+							:aria-label="
+								t('hermiq', 'Change the provider of this AI feature')
+							"
+							@click="bindingRow = row">
+							{{ t('hermiq', 'Change provider') }}
+						</NcButton>
+						<NcButton
+							variant="secondary"
 							:disabled="busy || row.acknowledged"
 							:aria-label="
 								t('hermiq', 'Acknowledge this AI feature as DPO')
@@ -116,7 +138,7 @@
 							{{ t('hermiq', 'Acknowledge (DPO)') }}
 						</NcButton>
 						<NcButton
-							type="primary"
+							variant="primary"
 							:disabled="
 								busy
 								|| !row.acknowledged
@@ -127,7 +149,7 @@
 							{{ t('hermiq', 'Enable') }}
 						</NcButton>
 						<NcButton
-							type="tertiary"
+							variant="tertiary"
 							:disabled="busy || row.lifecycle !== 'enabled'"
 							:aria-label="t('hermiq', 'Disable this AI feature')"
 							@click="doDisable(row.feature)">
@@ -142,7 +164,7 @@
 								&& opencatalogiAvailable
 								&& row.algoritmeregisterStatus !== 'gepubliceerd'
 							"
-							type="secondary"
+							variant="secondary"
 							:disabled="busy || !publishReady(row)"
 							:title="
 								publishReady(row) ? '' : publishBlockedReason(row)
@@ -162,7 +184,7 @@
 								&& opencatalogiAvailable
 								&& row.algoritmeregisterStatus === 'gepubliceerd'
 							"
-							type="tertiary"
+							variant="tertiary"
 							:disabled="busy"
 							:aria-label="
 								t(
@@ -177,6 +199,17 @@
 				</template>
 			</CnDataTable>
 		</section>
+		<AiFeatureBindingModal
+			v-if="bindingRow"
+			:featureId="bindingRow.id"
+			:featureName="bindingRow.name"
+			:current="{
+				provider: bindingRow.source === 'feature' ? bindingRow.provider : '',
+				model: bindingRow.source === 'feature' ? bindingRow.model : '',
+				requiredResidency: bindingRow.requiredResidency,
+			}"
+			@close="bindingRow = null"
+			@saved="onBindingSaved" />
 	</div>
 </template>
 
@@ -187,14 +220,18 @@ import { NcButton, NcEmptyContent, NcNoteCard } from '@nextcloud/vue'
 // The AI sparkles, not a robot — the single mark for "the model" across the
 // nav, the launcher hex and the chat empty state.
 import AiIcon from 'vue-material-design-icons/Creation.vue'
+import AiFeatureBindingModal from '../modals/AiFeatureBindingModal.vue'
 import {
 	acknowledgeAiFeature,
 	disableAiFeature,
 	enableAiFeature,
 	listAiFeatures,
+	listFeatureResidency,
 	publishAiFeature,
 	withdrawAiFeature,
 } from '../api/aiFeatures.js'
+import { BUSY_FIELDS, busyAction } from '../utils/busyAction.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 /** The Algoritmekader fields mandatory to publish (mirrors AlgoritmekaderMapper::MANDATORY_FIELDS). */
 const MANDATORY_ALGORITMEKADER_FIELDS = [
@@ -211,6 +248,7 @@ export default {
 	name: 'AiFeatureRegister',
 
 	components: {
+		AiFeatureBindingModal,
 		CnDataTable,
 		NcButton,
 		NcEmptyContent,
@@ -221,6 +259,11 @@ export default {
 	data() {
 		return {
 			features: [],
+			// One row per feature: which provider it will use and where that
+			// provider runs (a-provider-and-a-place-per-ai-feature).
+			residencyRows: [],
+			// The row whose provider binding is being changed, or null.
+			bindingRow: null,
 			loading: true,
 			busy: false,
 			error: '',
@@ -237,7 +280,7 @@ export default {
 		 *
 		 * @return {Array<object>} CnDataTable column descriptors.
 		 *
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		columns() {
 			return [
@@ -248,6 +291,7 @@ export default {
 					key: 'acknowledged',
 					label: this.t('hermiq', 'DPO acknowledgement'),
 				},
+				{ key: 'runsOn', label: this.t('hermiq', 'Runs on') },
 				{
 					key: 'algoritmeregister',
 					label: this.t('hermiq', 'Algoritmeregister'),
@@ -260,10 +304,16 @@ export default {
 		 *
 		 * @return {Array<object>} The table rows.
 		 *
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		rows() {
+			const residencyBySlug = {}
+			this.residencyRows.forEach((row) => {
+				residencyBySlug[row.slug] = row
+			})
+
 			return this.features.map((feature) => ({
+				...this.runsOn(residencyBySlug[feature.slug]),
 				id: feature.uuid || feature.slug,
 				name: feature.name || feature.slug,
 				riskCategory: feature.riskCategory || 'minimal',
@@ -286,21 +336,87 @@ export default {
 		 * Load the tenant's AI features.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		async load() {
 			this.loading = true
 			this.error = ''
 			try {
-				this.features = await listAiFeatures()
+				const [features, residencyRows] = await Promise.all([
+					listAiFeatures(),
+					listFeatureResidency(),
+				])
+				this.features = features
+				this.residencyRows = residencyRows
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.loading = false
 			}
+		},
+
+		/**
+		 * Flatten one residency row onto a table row. A feature nothing has bound
+		 * reads `undeclared` rather than a guess, because a guessed residency is one
+		 * nobody can be held to.
+		 *
+		 * @param {object} [row] The residency row for this feature, when there is one.
+		 * @return {object} The provider fields for the table row.
+		 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-split-deployment-must-be-expressible-as-configuration
+		 */
+		runsOn(row) {
+			return {
+				provider: row?.provider || '',
+				model: row?.model || '',
+				source: row?.source || 'instance',
+				residency: row?.residency || 'undeclared',
+				location: row?.location || '',
+				requiredResidency: row?.requiredResidency || '',
+			}
+		},
+
+		/**
+		 * After a binding is saved, close the dialog and reload the register so
+		 * the row shows what the server stored and resolved.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
+		 */
+		async onBindingSaved() {
+			this.bindingRow = null
+			await this.load()
+		},
+
+		/**
+		 * What this feature's runs use, written for a reader rather than a machine.
+		 *
+		 * @param {object} row The table row.
+		 * @return {string} The provider and model, or the fallback wording.
+		 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-split-deployment-must-be-expressible-as-configuration
+		 */
+		providerLabel(row) {
+			if (!row.provider) {
+				return this.t('hermiq', 'The instance default')
+			}
+
+			return `${row.provider} · ${row.model}`
+		},
+
+		/**
+		 * The localised label for a provider residency.
+		 *
+		 * @param {string} residency The residency label.
+		 * @return {string} The localised label.
+		 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
+		 */
+		residencyLabel(residency) {
+			const labels = {
+				'on-premise': this.t('hermiq', 'On premise'),
+				eu: this.t('hermiq', 'In the EU'),
+				'outside-eu': this.t('hermiq', 'Outside the EU'),
+				undeclared: this.t('hermiq', 'Not stated'),
+			}
+			return labels[residency] || residency
 		},
 
 		/**
@@ -308,7 +424,7 @@ export default {
 		 *
 		 * @param {string} category The risk category.
 		 * @return {string} The localised label.
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		riskLabel(category) {
 			const labels = {
@@ -325,7 +441,7 @@ export default {
 		 *
 		 * @param {string} state The lifecycle state.
 		 * @return {string} The localised label.
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		lifecycleLabel(state) {
 			const labels = {
@@ -341,7 +457,7 @@ export default {
 		 * @param {string} status The publication status.
 		 * @return {string} The localised label.
 		 *
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		algoritmeregisterLabel(status) {
 			const labels = {
@@ -360,7 +476,7 @@ export default {
 		 * @param {object} row The table row.
 		 * @return {boolean} True when the feature appears ready to publish.
 		 *
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
 		 */
 		publishReady(row) {
 			return this.missingConditions(row).length === 0
@@ -372,7 +488,7 @@ export default {
 		 * @param {object} row The table row.
 		 * @return {Array<string>} The failing condition labels.
 		 *
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
 		 */
 		missingConditions(row) {
 			const feature = row.feature || {}
@@ -404,7 +520,7 @@ export default {
 		 * @param {object} row The table row.
 		 * @return {string} The explanation.
 		 *
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
 		 */
 		publishBlockedReason(row) {
 			return this.t('hermiq', 'Cannot publish yet — missing: {conditions}', {
@@ -418,7 +534,7 @@ export default {
 		 * @param {object} feature The feature record.
 		 * @return {Promise<void>}
 		 *
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		async doPublish(feature) {
 			this.busy = true
@@ -451,22 +567,13 @@ export default {
 		 * @param {object} feature The feature record.
 		 * @return {Promise<void>}
 		 *
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		async doWithdraw(feature) {
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				await withdrawAiFeature(feature.uuid)
 				await this.load()
-			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 
 		/**
@@ -474,22 +581,13 @@ export default {
 		 *
 		 * @param {object} feature The feature record.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		async doAcknowledge(feature) {
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				await acknowledgeAiFeature(feature.slug)
 				await this.load()
-			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 
 		/**
@@ -497,22 +595,13 @@ export default {
 		 *
 		 * @param {object} feature The feature record.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		async doEnable(feature) {
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				await enableAiFeature(feature.uuid)
 				await this.load()
-			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 
 		/**
@@ -520,22 +609,13 @@ export default {
 		 *
 		 * @param {object} feature The feature record.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		async doDisable(feature) {
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				await disableAiFeature(feature.uuid)
 				await this.load()
-			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 	},
 }
@@ -599,6 +679,34 @@ export default {
 
 .ai-feature-register__lifecycle--enabled {
 	color: var(--color-success);
+}
+
+.ai-feature-register__runs-on {
+	display: block;
+	font-size: 13px;
+}
+
+.ai-feature-register__residency {
+	display: inline-block;
+	font-size: 12px;
+	text-transform: uppercase;
+	padding: 1px 6px;
+	border-radius: 4px;
+	background: var(--color-background-dark);
+}
+
+.ai-feature-register__residency--outside-eu {
+	color: var(--color-warning);
+}
+
+.ai-feature-register__residency--undeclared {
+	color: var(--color-text-maxcontrast);
+}
+
+.ai-feature-register__location {
+	display: block;
+	font-size: 12px;
+	color: var(--color-text-maxcontrast);
 }
 
 .ai-feature-register__lifecycle--disabled {

@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+ * @spec openspec/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
  */
 
 declare(strict_types=1);
@@ -35,7 +35,27 @@ use RuntimeException;
 /**
  * Recoverable "out-of-policy provider/model" refusal signal.
  *
- * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+ * @spec openspec/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
  */
 class ModelPolicyViolationException extends RuntimeException {
+
+	/**
+	 * The name of the check that refused. Two gates sit in front of a provider
+	 * call, and a reader of a refusal must be able to tell which one spoke
+	 * without parsing the sentence.
+	 *
+	 * @var string
+	 */
+	public const STEP = 'model-policy';
+
+	/**
+	 * Which check refused this run.
+	 *
+	 * @return string The step name.
+	 *
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-feature-may-require-a-residency-and-a-run-outside-it-is-refused-before-the-call
+	 */
+	public function step(): string {
+		return self::STEP;
+	}//end step()
 }//end class

@@ -18,6 +18,11 @@ $autoloader = require __DIR__ . '/../vendor/autoload.php';
 // real class is absent (standalone CI).
 $autoloader->addPsr4('OCA\\OpenRegister\\', __DIR__ . '/Stubs/');
 $autoloader->addPsr4('OCA\\Talk\\', __DIR__ . '/Stubs/Talk/');
+// Integriq's connection-registry report event (adopt-connection-registry).
+// ConnectionReporter sends it by class-name string, so hermiq stays installable
+// without integriq. The stub mirrors the contract constructor verbatim and, like
+// the two mappings above, only resolves when the real class is absent.
+$autoloader->addPsr4('OCA\\Integriq\\', __DIR__ . '/Stubs/Integriq/');
 
 // ── The CAPABILITY grammar is loaded from OpenRegister's REAL SOURCE, never a stub.
 //
@@ -29,7 +34,7 @@ $autoloader->addPsr4('OCA\\Talk\\', __DIR__ . '/Stubs/Talk/');
 //
 // 🔴 THERE IS DELIBERATELY NO STUB FOR THIS NAMESPACE, and there must never be
 // one. A stub of a value class is a second copy of the rules, and this repo has
-// already paid for that: `tests/Stubs/Service/Mcp/ToolRegistryFacade.php` drifted
+// already paid for that: `tests/Stubs/Mcp/Service/Mcp/ToolRegistryFacade.php` drifted
 // from the real facade by one method (`describeTools()`), and every matrix cell
 // in which OpenRegister failed to enable errored on the missing method instead
 // of exercising the controller. That was a 3-method facade. This is ~2,400 lines
@@ -253,4 +258,10 @@ if (class_exists(\Doctrine\DBAL\ParameterType::class) === false) {
 	require_once __DIR__ . '/Stubs/Doctrine/ParameterType.php';
 	require_once __DIR__ . '/Stubs/Doctrine/ArrayParameterType.php';
 	require_once __DIR__ . '/Stubs/Doctrine/Types.php';
+}
+
+// OCP\DB\QueryBuilder\IExpressionBuilder reads its comparison constants from
+// Doctrine's ExpressionBuilder at class-load, so mocking it needs this too.
+if (class_exists(\Doctrine\DBAL\Query\Expression\ExpressionBuilder::class) === false) {
+	require_once __DIR__ . '/Stubs/Doctrine/ExpressionBuilder.php';
 }

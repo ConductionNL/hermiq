@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+ * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
  */
 
 declare(strict_types=1);
@@ -34,17 +34,39 @@ use Cron\CronExpression;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\BackgroundJob\ScheduleRunJob;
 use OCA\Hermiq\BackgroundJob\SkillLearningsCaptureJob;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ScheduleServiceInterface;
+use OCA\Hermiq\Service\Agent\AgentAvailability;
+use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
+use OCA\Hermiq\Service\Agent\StartFields;
+use OCA\Hermiq\Service\AiFeature\RunRetentionPolicy;
 use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
-use OCA\OpenRegister\Db\AgentMapper;
+use OCA\Hermiq\Service\Run\OccurrenceClaim;
+use OCA\Hermiq\Service\Run\RunConcurrencySettings;
+use OCA\Hermiq\Service\Schedule\CoarseStepTimeline;
+use OCA\Hermiq\Service\Schedule\DispatchOptions;
+use OCA\Hermiq\Service\Schedule\EngineRunRequest;
+use OCA\Hermiq\Service\Schedule\FailedAttempt;
+use OCA\Hermiq\Service\Schedule\GateSkip;
+use OCA\Hermiq\Service\Schedule\OutputHold;
+use OCA\Hermiq\Service\Schedule\RunAuditRecord;
+use OCA\Hermiq\Service\Schedule\ScheduleRecordNormaliser;
+use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
-use OCA\OpenRegister\Db\Conversation;
-use OCA\OpenRegister\Db\ConversationMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Service\ChatService;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
+use OCA\OpenRegister\Mcp\Db\AgentMapper;
+use OCA\OpenRegister\Mcp\Db\Conversation;
+use OCA\OpenRegister\Mcp\Db\ConversationMapper;
+use OCA\OpenRegister\Mcp\Service\ChatService;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\BackgroundJob\IJobList;
 use OCP\IAppConfig;
@@ -77,14 +99,17 @@ use Throwable;
  *   under the per-method complexity threshold; design.md's Trade-offs rejected a
  *   separate RetryPolicyService because it would duplicate the kill-switch/approval
  *   gate call site instead of inheriting it for free from dispatch().
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods)     gateFor() is public so a standing
+ *   goal's turn passes the very same gates as a scheduled run (agents-standing-goal)
+ *   instead of copying them.
  * @SuppressWarnings(PHPMD.LongVariable)             $guardrailPolicyService is a promoted
  *   constructor collaborator named after its class (GuardrailPolicyService) — the
  *   length IS the clarity.
  *
- * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+ * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
  * @spec openspec/changes/archive/2026-07-12-run-reliability/design.md
  */
-class ScheduleService {
+class ScheduleService implements ScheduleServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq schedule objects.
@@ -101,11 +126,11 @@ class ScheduleService {
 	private const SCHEMA_SLUG = 'schedule';
 
 	/**
-	 * OpenRegister schema slug for tenant-control (kill-switch) objects.
+	 * The error a lost worker's occurrence is recorded with (operations-parallel-run-workers).
 	 *
 	 * @var string
 	 */
-	private const TENANT_CONTROL_SCHEMA = 'tenantcontrol';
+	public const LOST_WORKER_MESSAGE = 'The worker stopped before the run finished.';
 
 	/**
 	 * OpenRegister schema slug for agent objects (agent-engine-port; only read
@@ -121,7 +146,7 @@ class ScheduleService {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * OpenRegister schema slug for message objects (run-replay-and-dry-run:
@@ -130,7 +155,7 @@ class ScheduleService {
 	 *
 	 * @var string
 	 */
-	private const MESSAGE_SCHEMA = 'message';
+	private const MESSAGE_SCHEMA = 'agentsessionturn';
 
 	/**
 	 * IAppConfig key (app `hermiq`) gating which engine runAgentAsOwner()
@@ -141,19 +166,6 @@ class ScheduleService {
 	 * @var string
 	 */
 	private const ENGINE_FLAG_KEY = 'engine.enabled';
-
-	/**
-	 * Schedule properties declared as `date-time` in the schema.
-	 *
-	 * OpenRegister's getObject() returns stored date-times as `Y-m-d H:i:s`
-	 * (space, no `T`), but saveObject re-validates the WHOLE object against the
-	 * schema's `date-time` format, which requires ISO-8601 with `T`. Every one of
-	 * these fields must be re-normalised to `format('c')` before a full-object
-	 * save, or the write is rejected.
-	 *
-	 * @var array<int, string>
-	 */
-	private const DATE_TIME_FIELDS = ['nextRun', 'runAt'];
 
 	/**
 	 * Per-run LLM token/latency usage captured from OpenRegister's ChatService result, so
@@ -184,6 +196,42 @@ class ScheduleService {
 	 * @var array<int, array<string, mixed>>
 	 */
 	private array $lastRunSteps = [];
+
+	/**
+	 * The provider disclosure the last run's collector recorded: provider, model,
+	 * residency and the data-use term in force (models-no-training-guarantee).
+	 * Copied onto the run record so a later declaration cannot rewrite it. Null
+	 * when the run never reached a provider. Reset per run, read by writeRunAudit.
+	 *
+	 * @var array<string, mixed>|null
+	 */
+	private ?array $lastRunDisclosure = null;
+
+	/**
+	 * The question the last engine-path run asked a person with
+	 * hermiq.askPerson (oversight-ask-and-hold), or null. Reset per run.
+	 *
+	 * @var array<string, mixed>|null
+	 */
+	private ?array $lastRunQuestion = null;
+
+	/**
+	 * The last run's attempts at a provider: provider, model, outcome, reason and
+	 * duration, in order (models-several-models-per-turn). Reset per run, read by writeRunAudit.
+	 *
+	 * @var array<int, array<string, mixed>>
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+	 */
+	private array $lastRunProviderAttempts = [];
+
+	/**
+	 * The answers of the last run's reference models, in an ensemble turn
+	 * (models-several-models-per-turn); empty otherwise.
+	 *
+	 * @var array<int, array{provider: string, model: string, text: string}>
+	 */
+	private array $lastRunReferenceAnswers = [];
 
 	/**
 	 * The last (top-level or delegated) run's own fresh run identifier
@@ -247,6 +295,21 @@ class ScheduleService {
 	private array $lastRunSkillsUsed = [];
 
 	/**
+	 * The organisation kill-switch reader, built from this service's own
+	 * ObjectService and logger.
+	 *
+	 * @var TenantKillSwitch
+	 */
+	private readonly TenantKillSwitch $tenantKillSwitch;
+
+	/**
+	 * The per-department AI switch (oversight-switch-ai-off-per-department).
+	 *
+	 * @var DepartmentSwitch
+	 */
+	private readonly DepartmentSwitch $departmentSwitch;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
@@ -288,6 +351,24 @@ class ScheduleService {
 	 *                          written (skill-learnings) — try/catch
 	 *                          wrapped; capture never sits on the run's
 	 *                          critical path.
+	 * @param RunDoneNotifier|null $runDoneNotifier Tells the schedule owner a run is
+	 *                          done when they asked for it (personal-preferences).
+	 *                          Nullable, after the required ones: a service built by
+	 *                          hand in a test sends no such notification.
+	 * @param RunRetentionPolicy|null $retentionPolicy Stamps each run entry with the
+	 *                          retention that applied when it was written
+	 *                          (what-the-model-reads-and-what-is-kept). Nullable and
+	 *                          trailing: a service built by hand in a test writes the
+	 *                          entry it always wrote.
+	 * @param TraceExportQueue|null $traceExportQueue Hands the finished run to trace export (observability-export-traces).
+	 * @param AgentBuildService|null $agentBuilds The agent's pinned build, recorded on
+	 *                          the run next to the version. Nullable and trailing.
+	 * @param OccurrenceClaim|null $occurrenceClaim Claims a queued occurrence for one worker
+	 *                          (operations-parallel-run-workers). Nullable and trailing: a
+	 *                          service built by hand without it runs every due schedule in
+	 *                          the tick's own process, as before.
+	 * @param RunConcurrencySettings|null $runConcurrency The administrator's limits on parallel
+	 *                          scheduled runs; without it a worker applies none.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
 	 *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -313,7 +394,15 @@ class ScheduleService {
 		private readonly SkillVersionService $skillVersionService,
 		private readonly DelegationContext $delegationContext,
 		private readonly IJobList $jobList,
+		private readonly ?RunDoneNotifier $runDoneNotifier = null,
+		private readonly ?RunRetentionPolicy $retentionPolicy = null,
+		private readonly ?TraceExportQueue $traceExportQueue = null,
+		private readonly ?AgentBuildService $agentBuilds = null,
+		private readonly ?OccurrenceClaim $occurrenceClaim = null,
+		private readonly ?RunConcurrencySettings $runConcurrency = null,
 	) {
+		$this->tenantKillSwitch = new TenantKillSwitch(objectService: $objectService, logger: $logger);
+		$this->departmentSwitch = new DepartmentSwitch(objectService: $objectService, logger: $logger);
 	}//end __construct()
 
 	/**
@@ -325,8 +414,11 @@ class ScheduleService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
+	 * stored data; it holds no state to inject.
 	 */
 	public function run(): void {
 		$now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
@@ -343,91 +435,76 @@ class ScheduleService {
 
 		// Load engaged kill-switches ONCE per tick: any schedule whose organisation is
 		// in this set is halted synchronously before its agent runs (ADR-004 Art. 14).
-		$engagedOrganisations = $this->loadEngagedOrganisations();
+		$engagedOrganisations = $this->tenantKillSwitch->engagedOrganisations();
+
+		// Operations-parallel-run-workers: with a claim wired the tick only decides
+		// and commits; a background worker runs each occurrence. Without one the
+		// tick runs them itself, one after the other, as it always did.
+		$mode = DispatchOptions::MODE_INLINE;
+		$queues = $this->claimsOccurrences();
+		if ($queues === true) {
+			$mode = DispatchOptions::MODE_QUEUE;
+			$this->sweepLostOccurrences(now: $now);
+		}
 
 		foreach ($due as $schedule) {
+			// An occurrence already in flight is a worker's; the tick does not queue a second one.
+			if ($queues === true && OccurrenceClaim::pendingOf(data: $schedule->getObject()) !== '') {
+				continue;
+			}
+
 			// Per-schedule isolation: one bad schedule must not block the tick.
 			try {
-				$this->dispatch(schedule: $schedule, now: $now, engagedOrganisations: $engagedOrganisations);
+				$this->dispatch(schedule: $schedule, options: new DispatchOptions(now: $now, engagedOrganisations: $engagedOrganisations, mode: $mode));
 			} catch (Throwable $e) {
 				$this->recordFailure(schedule: $schedule, error: $e);
 			}
 		}
 
-	}//end run()
-
-	/**
-	 * Load the set of organisations whose kill-switch (TenantControl) is engaged.
-	 *
-	 * Read once per tick (and per runNow) via a single register/schema-wide query.
-	 * When engaged, ALL runs for that organisation are halted in dispatch(). A read
-	 * failure is logged and treated as "no organisation engaged" so a transient
-	 * TenantControl read error never silently halts every tenant — the dispatcher
-	 * fails open on the read but the halt itself is a hard, synchronous block.
-	 *
-	 * @return array<int, string> The engaged organisation identifiers.
-	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
-	 */
-	private function loadEngagedOrganisations(): array {
+		// Oversight-ask-and-hold: a question nobody answered within 7 days
+		// expires as denied. Never fatal to the tick.
 		try {
-			$objects = $this->objectService
-				->setRegister(self::REGISTER_SLUG)
-				->setSchema(self::TENANT_CONTROL_SCHEMA)
-				->findAll(
-					config: ['filters' => ['engaged' => true]],
-					_rbac: false,
-					_multitenancy: false
-				);
+			$this->approvalService->expireUnansweredQuestions(now: $now);
 		} catch (Throwable $e) {
-			$this->logger->error(
-				'Hermiq could not load engaged kill-switches: ' . $e->getMessage(),
-				['exception' => $e]
-			);
-			return [];
+			$this->logger->warning('Hermiq could not expire unanswered questions: ' . $e->getMessage(), ['exception' => $e]);
 		}
 
-		$organisations = [];
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			$data = $object->getObject();
-			if (($data['engaged'] ?? false) !== true) {
-				continue;
-			}
-
-			$organisation = (string)($object->getOrganisation() ?? '');
-			if ($organisation !== '') {
-				$organisations[] = $organisation;
-			}
-		}
-
-		return array_values(array_unique($organisations));
-	}//end loadEngagedOrganisations()
+	}//end run()
 
 	/**
 	 * Whether the given organisation's kill-switch (TenantControl) is currently
 	 * engaged — GATE 1 for any governed run, not just a Schedule tick.
 	 *
-	 * Reused by `FlowAgentRunService` so a flow-triggered agent run (from OR's
-	 * `AgentRunRequestedEvent`, ADR-041) is halted by the SAME kill-switch data
-	 * source a scheduled run already respects — one query, one source of truth.
+	 * Kept for the callers that still reach the kill-switch through the
+	 * dispatcher (`FlowAgentRunService`, `WebhookAgentRunService`,
+	 * `EvalRunService`, `DelegationService`, `CourseRecommendationEngine`);
+	 * the check itself lives in `TenantKillSwitch`, the one source of truth.
 	 *
 	 * @param string $organisation The organisation identifier to check.
 	 *
 	 * @return bool True when the organisation's kill-switch is engaged.
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
 	 */
 	public function isOrganisationEngaged(string $organisation): bool {
-		if ($organisation === '') {
-			return false;
-		}
-
-		return in_array($organisation, $this->loadEngagedOrganisations(), true);
+		return $this->tenantKillSwitch->isOrganisationEngaged(organisation: $organisation);
 	}//end isOrganisationEngaged()
+
+	/**
+	 * Whether the department an agent runs for has AI switched off.
+	 *
+	 * The per-department switch every governed run asks after the organisation
+	 * kill-switch (oversight-switch-ai-off-per-department).
+	 *
+	 * @param string $agentId The agent's uuid.
+	 *
+	 * @return bool True when the agent's runs are refused.
+	 *
+	 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
+	 */
+	public function isAgentDepartmentOff(string $agentId): bool {
+		return $this->departmentSwitch->offDepartmentOf(agentId: $agentId) !== null;
+	}//end isAgentDepartmentOff()
 
 	/**
 	 * Offboarding: pause every Schedule owned by, or whose Agent's `actingUser`
@@ -435,7 +512,7 @@ class ScheduleService {
 	 * affected Agent for reassignment (agent-lifecycle-governance).
 	 *
 	 * Runs system-wide (`_rbac:false`, `_multitenancy:false`) — mirrors
-	 * findDueSchedules()/loadEngagedOrganisations() — because the caller
+	 * findDueSchedules()/TenantKillSwitch::engagedOrganisations() — because the caller
 	 * (UserLifecycleListener) fires outside any user session and must see every
 	 * tenant's schedules to find the ones owned by the affected user. Reuses the
 	 * SAME `enabled=false` + persist() mechanic recordGateSkip() already uses, but
@@ -557,8 +634,7 @@ class ScheduleService {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -584,6 +660,77 @@ class ScheduleService {
 	}//end rawAgentActingUser()
 
 	/**
+	 * Whether the agent is switched off (agents-switch-off-and-stop). An agent
+	 * that cannot be read is not called switched off: the run path that loads it
+	 * reports that failure itself.
+	 *
+	 * @param string $agentId The bound agent UUID.
+	 *
+	 * @return bool True when the stored agent's `active` is false.
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
+	 */
+	private function agentIsSwitchedOff(string $agentId): bool {
+		if ($agentId === '') {
+			return false;
+		}
+
+		try {
+			$agent = $this->objectService->find(
+				id: $agentId,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+				_rbac: false,
+				_multitenancy: false
+			);
+		} catch (Throwable $e) {
+			return false;
+		}
+
+		return (new AgentAvailability())->isOn(agent: $agent) === false;
+	}//end agentIsSwitchedOff()
+
+	/**
+	 * The AI feature an agent's runs belong to, when it declares one.
+	 *
+	 * Read here rather than threaded through the run, because the retention stamp
+	 * is the only thing that needs it and a run that cannot resolve its agent still
+	 * has to be recorded with the instance default rather than with nothing.
+	 *
+	 * @param string $agentId The bound agent UUID.
+	 *
+	 * @return string|null The feature slug, or null when the agent names none.
+	 *
+	 * @spec openspec/specs/run-audit-log/spec.md#scenario-a-feature-may-keep-less
+	 */
+	private function aiFeatureForAgent(string $agentId): ?string {
+		if ($agentId === '') {
+			return null;
+		}
+
+		try {
+			$agent = $this->objectService->find(
+				id: $agentId,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+				_rbac: false,
+				_multitenancy: false
+			);
+		} catch (Throwable $e) {
+			return null;
+		}
+
+		if ($agent === null) {
+			return null;
+		}
+
+		$slug = trim((string)($agent->getObject()['aiFeature'] ?? ''));
+		if ($slug === '') {
+			return null;
+		}
+
+		return $slug;
+	}//end aiFeatureForAgent()
+
+	/**
 	 * Flag an Agent for reassignment (agent-lifecycle-governance offboarding).
 	 *
 	 * Non-fatal by contract: a flag-write failure is logged, never thrown — the
@@ -599,8 +746,7 @@ class ScheduleService {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -613,9 +759,10 @@ class ScheduleService {
 
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
-				uuid: (string)$agent->getUuid(),
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+					uuid: (string)$agent->getUuid()
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -644,13 +791,15 @@ class ScheduleService {
 	 */
 	private function writeOffboardingAudit(ObjectEntity $schedule, string $uid): void {
 		try {
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $schedule,
-				action: 'run',
-				context: [
-					'status' => 'paused_offboarding',
-					'offboardedUser' => $uid,
-				]
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $schedule,
+					action: 'run',
+					context: [
+						'status' => 'paused_offboarding',
+						'offboardedUser' => $uid,
+					]
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(
@@ -694,6 +843,8 @@ class ScheduleService {
 	 * @param ObjectEntity $schedule The schedule to run right now.
 	 * @param bool $bypassApprovalGate When true, skip the requiresApproval gate
 	 *                                 for this authorised occurrence (approval-run).
+	 * @param string|null $prompt The prompt for this occurrence instead of the schedule's own
+	 *                            (oversight-ask-and-hold: the run continues with the person's answer).
 	 *
 	 * @return void
 	 *
@@ -703,18 +854,21 @@ class ScheduleService {
 	 *   authorisation input (normal run vs. an already-approved occurrence), not a
 	 *   responsibility split — both modes share the identical dispatch path.
 	 *
-	 * @spec openspec/changes/agent-management-ui/tasks.md#1-backend-thin-run-now-endpoint
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
+	 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#1-backend-thin-run-now-endpoint
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
 	 */
-	public function runNow(ObjectEntity $schedule, bool $bypassApprovalGate = false): void {
+	public function runNow(ObjectEntity $schedule, bool $bypassApprovalGate = false, ?string $prompt = null): void {
 		$now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 
 		try {
 			$this->dispatch(
 				schedule: $schedule,
-				now: $now,
-				engagedOrganisations: $this->loadEngagedOrganisations(),
-				bypassApprovalGate: $bypassApprovalGate
+				options: new DispatchOptions(
+					now: $now,
+					engagedOrganisations: $this->tenantKillSwitch->engagedOrganisations(),
+					bypassApprovalGate: $bypassApprovalGate,
+					prompt: $prompt
+				)
 			);
 		} catch (Throwable $e) {
 			// Same isolation as the tick loop, then re-throw so the caller can surface it.
@@ -784,7 +938,7 @@ class ScheduleService {
 	 *
 	 * @return array<int, ObjectEntity> The due, enabled schedule objects.
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 * @spec openspec/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
 	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
 	 */
@@ -870,10 +1024,7 @@ class ScheduleService {
 	 * Only when none of the gates apply does the normal commit-before-run dispatch fire.
 	 *
 	 * @param ObjectEntity $schedule The schedule object to fire.
-	 * @param DateTimeImmutable $now The current UTC moment.
-	 * @param array<int,string> $engagedOrganisations Organisations whose kill-switch is engaged.
-	 * @param bool $bypassApprovalGate When true, skip the requiresApproval gate
-	 *                                 (an approved occurrence running via approve()).
+	 * @param DispatchOptions $options When a schedule is dispatched and which gates apply.
 	 *
 	 * @return void
 	 *
@@ -881,16 +1032,17 @@ class ScheduleService {
 	 *   authorisation input (normal run vs. an already-approved occurrence), not a
 	 *   responsibility split — both modes share the identical dispatch path.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
 	 * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-3-wire-the-budget-gate-into-the-dispatch-path-soft-threshold-delivery
+	 *
+	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) carried in with this batch's feature work; splitting it
+	 * is follow-up work, not part of this merge.
 	 */
-	private function dispatch(
-		ObjectEntity $schedule,
-		DateTimeImmutable $now,
-		array $engagedOrganisations = [],
-		bool $bypassApprovalGate = false,
-	): void {
+	private function dispatch(ObjectEntity $schedule, DispatchOptions $options): void {
+		$now = $options->now;
+		$engagedOrganisations = $options->engagedOrganisations;
+		$bypassApprovalGate = $options->bypassApprovalGate;
 		$data = $schedule->getObject();
 		$owner = (string)($schedule->getOwner() ?? '');
 		$organisation = (string)($schedule->getOrganisation() ?? '');
@@ -907,12 +1059,30 @@ class ScheduleService {
 		$this->lastRunAsUser = $owner;
 		$this->lastRunUsage = [];
 		$this->lastRunSteps = [];
+		$this->lastRunDisclosure = null;
+		$this->lastRunProviderAttempts = [];
+		$this->lastRunReferenceAnswers = [];
 		$this->lastRunId = '';
 		$this->lastRunSkillsUsed = [];
+		$this->lastRunQuestion = null;
+
+		// GATE 0 — THE AGENT IS SWITCHED OFF (agents-switch-off-and-stop): recorded
+		// like a kill-switch skip, and the next run still advances.
+		if ($this->agentIsSwitchedOff(agentId: $agentId) === true) {
+			$this->recordGateSkip(schedule: $schedule, skip: new GateSkip(data: $data, owner: $owner, now: $now, status: 'skipped_agent_off'));
+			return;
+		}
 
 		// GATE 1 — KILL-SWITCH (highest priority; halts even an authorised approval-run).
 		if ($organisation !== '' && in_array($organisation, $engagedOrganisations, true) === true) {
-			$this->recordGateSkip(schedule: $schedule, data: $data, owner: $owner, now: $now, status: 'skipped_killswitch');
+			$this->recordGateSkip(schedule: $schedule, skip: new GateSkip(data: $data, owner: $owner, now: $now, status: 'skipped_killswitch'));
+			return;
+		}
+
+		// GATE 1b — THE AGENT'S DEPARTMENT IS SWITCHED OFF (oversight-switch-ai-off-per-department).
+		// After the kill-switch, so the organisation switch still stops everything.
+		if ($this->departmentSwitch->offDepartmentOf(agentId: $agentId) !== null) {
+			$this->recordGateSkip(schedule: $schedule, skip: new GateSkip(data: $data, owner: $owner, now: $now, status: DepartmentSwitch::SKIPPED_STATUS));
 			return;
 		}
 
@@ -931,7 +1101,7 @@ class ScheduleService {
 		}
 
 		if ($this->budgetService->isBlocked(organisation: $organisation, agentId: $agentId) === true) {
-			$this->recordGateSkip(schedule: $schedule, data: $data, owner: $owner, now: $now, status: 'skipped_budget');
+			$this->recordGateSkip(schedule: $schedule, skip: new GateSkip(data: $data, owner: $owner, now: $now, status: 'skipped_budget'));
 			return;
 		}
 
@@ -948,11 +1118,15 @@ class ScheduleService {
 				);
 			}
 
-			$this->recordGateSkip(schedule: $schedule, data: $data, owner: $owner, now: $now, status: 'awaiting_approval');
+			$this->recordGateSkip(schedule: $schedule, skip: new GateSkip(data: $data, owner: $owner, now: $now, status: 'awaiting_approval'));
 			return;
 		}
 
-		$this->runDue(schedule: $schedule, now: $now);
+		match ($options->mode) {
+			DispatchOptions::MODE_QUEUE => $this->queueDue(schedule: $schedule, now: $now),
+			DispatchOptions::MODE_CLAIMED => $this->runClaimed(schedule: $schedule, now: $now),
+			default => $this->runInline(schedule: $schedule, now: $now, prompt: $options->prompt),
+		};
 
 	}//end dispatch()
 
@@ -974,22 +1148,16 @@ class ScheduleService {
 	 *
 	 * @param ObjectEntity $schedule The schedule to evaluate.
 	 *
-	 * @return string|null One of `skipped_killswitch`|`skipped_budget`|`awaiting_approval`
+	 * @return string|null One of `skipped_agent_off`|`skipped_killswitch`|`skipped_department_off`|`skipped_budget`|`awaiting_approval`
 	 *                     when a gate blocks the run, or null when every gate passes.
 	 *
 	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-respect-existing-governance-gates-without-mutating-schedule-state
 	 */
 	private function evaluateGates(ObjectEntity $schedule): ?string {
 		$data = $schedule->getObject();
-		$organisation = (string)($schedule->getOrganisation() ?? '');
-		$agentId = (string)($data['agentId'] ?? '');
-
-		if ($this->isOrganisationEngaged(organisation: $organisation) === true) {
-			return 'skipped_killswitch';
-		}
-
-		if ($this->budgetService->isBlocked(organisation: $organisation, agentId: $agentId) === true) {
-			return 'skipped_budget';
+		$gate = $this->gateFor(organisation: (string)($schedule->getOrganisation() ?? ''), agentId: (string)($data['agentId'] ?? ''));
+		if ($gate !== null) {
+			return $gate;
 		}
 
 		if (($data['requiresApproval'] ?? false) === true) {
@@ -998,6 +1166,70 @@ class ScheduleService {
 
 		return null;
 	}//end evaluateGates()
+
+	/**
+	 * The gate that holds a run of this agent now, or null: the agent is switched
+	 * off, the organisation's kill switch is engaged, or the budget's hard cap is
+	 * reached. The same checks, in the same order, as a scheduled run; a standing
+	 * goal's turn passes them before it runs (agents-standing-goal). Read-only.
+	 *
+	 * @param string $organisation The organisation.
+	 * @param string $agentId      The agent.
+	 *
+	 * @return string|null `skipped_agent_off`, `skipped_killswitch`, `skipped_department_off`, `skipped_budget`, or null.
+	 *
+	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
+	 */
+	public function gateFor(string $organisation, string $agentId): ?string {
+		if ($this->agentIsSwitchedOff(agentId: $agentId) === true) {
+			return 'skipped_agent_off';
+		}
+
+		if ($this->isOrganisationEngaged(organisation: $organisation) === true) {
+			return 'skipped_killswitch';
+		}
+
+		if ($this->departmentSwitch->offDepartmentOf(agentId: $agentId) !== null) {
+			return DepartmentSwitch::SKIPPED_STATUS;
+		}
+
+		if ($this->budgetService->isBlocked(organisation: $organisation, agentId: $agentId) === true) {
+			return 'skipped_budget';
+		}
+
+		return null;
+	}//end gateFor()
+
+	/**
+	 * A goal's own session to continue, when it is the owner's and this is no dry run.
+	 *
+	 * @param string $sessionUuid The session ('' for none).
+	 * @param string $owner       The acting owner.
+	 * @param bool   $dryRun      A preview never continues a real session.
+	 *
+	 * @return ObjectEntity|null
+	 *
+	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Mirrors runAgentViaEngine()'s dry-run mode.
+	 */
+	private function continuedSession(string $sessionUuid, string $owner, bool $dryRun): ?ObjectEntity {
+		if ($sessionUuid === '' || $dryRun === true) {
+			return null;
+		}
+
+		$session = $this->objectService->find(
+			id: $sessionUuid,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+			_rbac: false,
+			_multitenancy: false
+		);
+		if ($session === null || (string)($session->getObject()['userId'] ?? '') !== $owner) {
+			return null;
+		}
+
+		return $session;
+	}//end continuedSession()
 
 	/**
 	 * Preview a schedule's agent run as a dry-run (run-replay-and-dry-run):
@@ -1034,6 +1266,9 @@ class ScheduleService {
 
 		$this->lastRunUsage = [];
 		$this->lastRunSteps = [];
+		$this->lastRunDisclosure = null;
+		$this->lastRunProviderAttempts = [];
+		$this->lastRunReferenceAnswers = [];
 		$this->lastRunAsUser = (string)($schedule->getOwner() ?? '');
 		$this->lastRunId = '';
 
@@ -1057,7 +1292,16 @@ class ScheduleService {
 		$auditData = $data;
 		$auditData['lastStatus'] = $status;
 
-		$this->writeRunAudit(schedule: $schedule, data: $auditData, summary: $summary, startedAt: $startedAt, attempt: 1, dryRun: true);
+		$this->writeRunAudit(
+			schedule: $schedule,
+			record: new RunAuditRecord(
+				data: $auditData,
+				summary: $summary,
+				startedAt: $startedAt,
+				attempt: 1,
+				dryRun: true
+			)
+		);
 
 		$error = null;
 		if ($status === 'error') {
@@ -1118,6 +1362,9 @@ class ScheduleService {
 
 		$this->lastRunUsage = [];
 		$this->lastRunSteps = [];
+		$this->lastRunDisclosure = null;
+		$this->lastRunProviderAttempts = [];
+		$this->lastRunReferenceAnswers = [];
 		$this->lastRunAsUser = (string)($schedule->getOwner() ?? '');
 		$this->lastRunId = '';
 
@@ -1141,13 +1388,15 @@ class ScheduleService {
 
 		$this->writeRunAudit(
 			schedule: $schedule,
-			data: $auditData,
-			summary: $summary,
-			startedAt: $startedAt,
-			attempt: 1,
-			dryRun: true,
-			replayOf: $runId,
-			promptOverride: $originalPrompt
+			record: new RunAuditRecord(
+				data: $auditData,
+				summary: $summary,
+				startedAt: $startedAt,
+				attempt: 1,
+				dryRun: true,
+				replayOf: $runId,
+				promptOverride: $originalPrompt
+			)
 		);
 
 		$replaySummary = $this->redactionService->redact($summary);
@@ -1178,72 +1427,31 @@ class ScheduleService {
 	}//end replayRun()
 
 	/**
-	 * Diff a replay's step timeline against the original run's, by tool-call
-	 * POSITION (run-replay-and-dry-run) — the ORIGINAL run's real tool
-	 * arguments/results were never persisted (`run-trace-observability` Risk
-	 * 4), so only the tool-NAME sequence and the final output text can be
-	 * compared, never a byte-for-byte replay of the original invocations.
+	 * Diff a replay's step timeline against the original run's (run-replay-and-dry-run).
+	 * The ORIGINAL run's real tool arguments/results were never persisted
+	 * (`run-trace-observability` Risk 4), so only the tool-name sequence, the
+	 * outcomes and the final output text can be compared. The steps are aligned by
+	 * RunComparator, the same alignment the run comparison uses, so one extra call
+	 * shows as one difference rather than shifting every later call.
 	 *
 	 * @param array<int,array<string,mixed>> $originalSteps The original run's step timeline.
 	 * @param array<int,array<string,mixed>> $replaySteps The replay's step timeline.
 	 * @param string $originalSummary The original run's redacted summary.
 	 * @param string $replaySummary The replay's redacted summary.
 	 *
-	 * @return array{toolSequenceMatches:bool,toolCalls:array<int,array{seq:int,original:?string,replay:?string,match:bool}>,outputChanged:bool}
+	 * @return array{toolSequenceMatches:bool,toolCalls:list<array>,outputChanged:bool}
 	 *
 	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-run-s-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
+	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-steps-are-aligned-so-an-extra-step-shows-as-one-difference-req-rcmp-002
 	 */
 	private function diffTrace(array $originalSteps, array $replaySteps, string $originalSummary, string $replaySummary): array {
-		$originalToolNames = $this->toolStepNames(steps: $originalSteps);
-		$replayToolNames = $this->toolStepNames(steps: $replaySteps);
-
-		$count = max(count($originalToolNames), count($replayToolNames));
-		$toolCalls = [];
-		$allMatch = true;
-		for ($i = 0; $i < $count; $i++) {
-			$originalName = ($originalToolNames[$i] ?? null);
-			$replayName = ($replayToolNames[$i] ?? null);
-			$match = ($originalName !== null && $originalName === $replayName);
-			if ($match === false) {
-				$allMatch = false;
-			}
-
-			$toolCalls[] = [
-				'seq' => $i,
-				'original' => $originalName,
-				'replay' => $replayName,
-				'match' => $match,
-			];
-		}
-
-		return [
-			'toolSequenceMatches' => $allMatch,
-			'toolCalls' => $toolCalls,
-			'outputChanged' => ($originalSummary !== $replaySummary),
-		];
-
+		return (new RunComparator())->toReplayDiff(
+			originalSteps: $originalSteps,
+			replaySteps: $replaySteps,
+			originalSummary: $originalSummary,
+			replaySummary: $replaySummary
+		);
 	}//end diffTrace()
-
-	/**
-	 * Extract the ordered `tool`-type step names from a step timeline
-	 * (run-replay-and-dry-run), for the position-by-position replay diff.
-	 *
-	 * @param array<int,array<string,mixed>> $steps The step timeline.
-	 *
-	 * @return array<int,string> The tool names, in timeline order.
-	 *
-	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-run-s-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
-	 */
-	private function toolStepNames(array $steps): array {
-		$names = [];
-		foreach ($steps as $step) {
-			if (is_array($step) === true && ($step['type'] ?? null) === 'tool') {
-				$names[] = (string)($step['name'] ?? '');
-			}
-		}
-
-		return $names;
-	}//end toolStepNames()
 
 	/**
 	 * Record a gate skip: advance nextRun, set the gate status, persist, and audit.
@@ -1255,18 +1463,19 @@ class ScheduleService {
 	 * (ADR-004). Non-fatal by contract.
 	 *
 	 * @param ObjectEntity $schedule The gated schedule.
-	 * @param array<string,mixed> $data The schedule payload (advanced + finalised here).
-	 * @param string $owner The owner UID (for timezone-anchored next-run).
-	 * @param DateTimeImmutable $now The current UTC moment.
-	 * @param string $status The gate status (skipped_killswitch|skipped_budget|awaiting_approval).
+	 * @param GateSkip $skip An occurrence a gate held back, and why.
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
 	 * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-3-wire-the-budget-gate-into-the-dispatch-path-soft-threshold-delivery
 	 */
-	private function recordGateSkip(ObjectEntity $schedule, array $data, string $owner, DateTimeImmutable $now, string $status): void {
+	private function recordGateSkip(ObjectEntity $schedule, GateSkip $skip): void {
+		$data = $skip->data;
+		$owner = $skip->owner;
+		$now = $skip->now;
+		$status = $skip->status;
 		$startedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 
 		// Run-reliability: a pending retry attempt's own number is preserved — a
@@ -1278,9 +1487,18 @@ class ScheduleService {
 		$data['nextRun'] = $nextRun?->format('c');
 		$data['lastStatus'] = $status;
 		$data['lastError'] = null;
+		$data = self::withoutPending(data: $data);
 
 		$this->persist(schedule: $schedule, data: $data);
-		$this->writeRunAudit(schedule: $schedule, data: $data, summary: '', startedAt: $startedAt, attempt: $attempt);
+		$this->writeRunAudit(
+			schedule: $schedule,
+			record: new RunAuditRecord(
+				data: $data,
+				summary: '',
+				startedAt: $startedAt,
+				attempt: $attempt
+			)
+		);
 
 	}//end recordGateSkip()
 
@@ -1323,31 +1541,58 @@ class ScheduleService {
 	 *
 	 * @param ObjectEntity $schedule The schedule object to fire.
 	 * @param DateTimeImmutable $now The current UTC moment.
+	 * @param string|null $prompt The prompt for this occurrence instead of the schedule's own.
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 * @spec openspec/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
 	 * @spec openspec/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
 	 * @spec openspec/specs/agent-schedule/spec.md#requirement-consecutive-dead-letter-circuit-breaker-auto-pauses-a-schedule-mvp
 	 */
-	private function runDue(ObjectEntity $schedule, DateTimeImmutable $now): void {
+	private function runDue(ObjectEntity $schedule, DateTimeImmutable $now, ?string $prompt = null): void {
 		$data = $schedule->getObject();
 
 		$occurrence = $this->startOccurrence(schedule: $schedule, data: $data, now: $now);
+		// Oversight-ask-and-hold: an answered question runs this occurrence with the
+		// answer's prompt; the schedule's own prompt stays as it is.
+		$occurrence['prompt'] = $prompt;
+
+		$this->persist(schedule: $schedule, data: $occurrence['data']);
+
+		$this->runCommitted(schedule: $schedule, occurrence: $occurrence, now: $now);
+
+	}//end runDue()
+
+	/**
+	 * Run an occurrence whose advance is already committed: the agent turn, the
+	 * delivery, the outcome, the run audit, and the final save or delete.
+	 *
+	 * @param ObjectEntity $schedule The schedule.
+	 * @param array<string, mixed> $occurrence The committed occurrence: data, attemptNumber,
+	 *                                         deferDisable, limitReached and retryEnabled.
+	 * @param DateTimeImmutable $now The dispatch moment.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) carried in with operations-parallel-run-workers;
+	 * splitting it is follow-up work, not part of this merge.
+	 */
+	private function runCommitted(ObjectEntity $schedule, array $occurrence, DateTimeImmutable $now): void {
 		$data = $occurrence['data'];
 		$attemptNumber = $occurrence['attemptNumber'];
 		$deferDisable = $occurrence['deferDisable'];
 		$limitReached = $occurrence['limitReached'];
 		$retryEnabled = $occurrence['retryEnabled'];
 
-		$this->persist(schedule: $schedule, data: $data);
-
 		// Wall-clock start of the agent turn, for the run-audit timing (run-audit-log).
 		$startedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 		$summary = '';
+		$succeeded = false;
 
 		// Run the agent + deliver + finalise inside a try/catch that operates on the
 		// SAME $data that already carries the committed advance (nextRun / disabled
@@ -1361,9 +1606,10 @@ class ScheduleService {
 			$output = $this->runAgentAsOwner(
 				owner: (string)($schedule->getOwner() ?? ''),
 				agentId: (string)($data['agentId'] ?? ''),
-				prompt: (string)($data['prompt'] ?? ''),
+				prompt: (($occurrence['prompt'] ?? null) ?? (string)($data['prompt'] ?? '')),
 				organisation: (string)($schedule->getOrganisation() ?? ''),
-				anchor: $schedule
+				anchor: $schedule,
+				startValues: (array)($data['startValues'] ?? [])
 			);
 
 			// Run-trace-observability: a `delivery` step timed around the existing
@@ -1381,6 +1627,7 @@ class ScheduleService {
 
 			$data = $this->applySuccessOutcome(data: $data, delivery: $delivery, deferDisable: $deferDisable);
 			$summary = $output;
+			$succeeded = true;
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				sprintf('Hermiq schedule %s failed: %s', (string)$schedule->getUuid(), $e->getMessage()),
@@ -1389,21 +1636,40 @@ class ScheduleService {
 
 			$data = $this->applyFailureOutcome(
 				schedule: $schedule,
-				data: $data,
-				retryEnabled: $retryEnabled,
-				attemptNumber: $attemptNumber,
-				deferDisable: $deferDisable,
-				now: $now,
-				error: $e
+				attempt: new FailedAttempt(
+					data: $data,
+					retryEnabled: $retryEnabled,
+					attemptNumber: $attemptNumber,
+					deferDisable: $deferDisable,
+					now: $now,
+					error: $e
+				)
 			);
 			$summary = 'error: ' . $e->getMessage();
 		}//end try
+
+		// The outcome is recorded: no occurrence is in flight any more.
+		$data = self::withoutPending(data: $data);
 
 		// Write the explicit, redacted per-run AuditTrail entry (run-audit-log). Done
 		// for BOTH success and error, and BEFORE any delete, so no run — including the
 		// final occurrence of a finite repeat — escapes the immutable trail. Never
 		// fatal to the tick (ADR-004): a redaction/audit failure is logged, not raised.
-		$this->writeRunAudit(schedule: $schedule, data: $data, summary: $summary, startedAt: $startedAt, attempt: $attemptNumber);
+		$this->writeRunAudit(
+			schedule: $schedule,
+			record: new RunAuditRecord(
+				data: $data,
+				summary: $summary,
+				startedAt: $startedAt,
+				attempt: $attemptNumber
+			)
+		);
+
+		// Personal-preferences: the owner asked to hear when a run is done. Only a
+		// run that resolved (not one waiting for a retry), and never fatal.
+		if (($data['lastStatus'] ?? '') !== 'retry_pending') {
+			$this->notifyRunDone(schedule: $schedule, data: $data, succeeded: $succeeded);
+		}
 
 		// Run-reliability: the deferred finite-repeat delete only fires once the
 		// occurrence has actually RESOLVED (ok / error / dead_letter /
@@ -1416,7 +1682,461 @@ class ScheduleService {
 
 		$this->persist(schedule: $schedule, data: $data);
 
-	}//end runDue()
+	}//end runCommitted()
+
+	/**
+	 * Commit a due occurrence and queue it for a background worker.
+	 *
+	 * The advance is committed exactly as before a run in the tick's own
+	 * process (nextRun, repeat, a disabled one-shot), with `lastStatus: queued`
+	 * and the occurrence key in `pendingOccurrence`; then one ScheduleRunJob is
+	 * added for that key. A job already in the list for the key is not added
+	 * again.
+	 *
+	 * @param ObjectEntity      $schedule The due schedule, past its gates.
+	 * @param DateTimeImmutable $now      The tick's moment.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
+	 * stored data; it holds no state to inject.
+	 */
+	private function queueDue(ObjectEntity $schedule, DateTimeImmutable $now): void {
+		$uuid = (string)$schedule->getUuid();
+		$data = $schedule->getObject();
+		$key = OccurrenceClaim::keyFor(scheduleUuid: $uuid, data: $data);
+
+		$occurrence = $this->startOccurrence(schedule: $schedule, data: $data, now: $now);
+		$data = $occurrence['data'];
+		$data['lastStatus'] = 'queued';
+		$data['pendingOccurrence'] = $key;
+		$data['pendingSince'] = $now->format('c');
+		$this->persist(schedule: $schedule, data: $data);
+
+		$argument = ['scheduleId' => $uuid, 'occurrenceKey' => $key];
+		if ($this->jobList->has(ScheduleRunJob::class, $argument) === false) {
+			$this->jobList->add(ScheduleRunJob::class, $argument);
+		}
+
+	}//end queueDue()
+
+	/**
+	 * Run a due occurrence in this process, under the same claim a worker takes.
+	 *
+	 * An engine-fired or approved run (runNow) and a local retry of the same
+	 * schedule cannot run at the same time: whoever holds the claim runs, the
+	 * other does nothing. Without a claim wired it runs as it always did.
+	 *
+	 * @param ObjectEntity      $schedule The due schedule, past its gates.
+	 * @param DateTimeImmutable $now      The dispatch moment.
+	 * @param string|null       $prompt   The prompt for this occurrence instead of the schedule's own.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
+	 * stored data; it holds no state to inject.
+	 */
+	private function runInline(ObjectEntity $schedule, DateTimeImmutable $now, ?string $prompt = null): void {
+		if ($this->occurrenceClaim === null || $this->claimsOccurrences() === false) {
+			$this->runDue(schedule: $schedule, now: $now, prompt: $prompt);
+			return;
+		}
+
+		$uuid = (string)$schedule->getUuid();
+		$key = OccurrenceClaim::keyFor(scheduleUuid: $uuid, data: $schedule->getObject());
+		if ($this->occurrenceClaim->claim(scheduleUuid: $uuid, occurrenceKey: $key, ttlSeconds: RunConcurrencySettings::CLAIM_TTL_SECONDS) === false) {
+			$this->logger->info(
+				sprintf('Hermiq schedule %s is already running on a worker; this run does not start.', $uuid)
+			);
+			return;
+		}
+
+		try {
+			$this->runDue(schedule: $schedule, now: $now, prompt: $prompt);
+		} finally {
+			$this->occurrenceClaim->release(scheduleUuid: $uuid);
+		}
+
+	}//end runInline()
+
+	/**
+	 * Run the occurrence the tick committed, on the worker that holds its claim.
+	 *
+	 * The advance is not committed a second time: the schedule is marked
+	 * `running` and the committed occurrence runs as it would have in the tick.
+	 *
+	 * @param ObjectEntity      $schedule The schedule, re-read after the claim.
+	 * @param DateTimeImmutable $now      The worker's moment.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
+	 */
+	private function runClaimed(ObjectEntity $schedule, DateTimeImmutable $now): void {
+		$data = $schedule->getObject();
+		$data['lastStatus'] = 'running';
+		$data['pendingSince'] = $now->format('c');
+		$this->persist(schedule: $schedule, data: $data);
+
+		$this->runCommitted(schedule: $schedule, occurrence: $this->committedOccurrence(data: $data), now: $now);
+
+	}//end runClaimed()
+
+	/**
+	 * Run one queued occurrence of a schedule on this worker.
+	 *
+	 * In order: the schedule must still have this occurrence in flight; the
+	 * run must fit under the administrator's limits, or the occurrence goes
+	 * back in the queue; the worker must win the claim; and after the claim the
+	 * schedule is read again, so a worker that won a claim another worker had
+	 * just released finds the occurrence already done. The gates for the agent
+	 * switch, the kill switch, the budget and approval are then checked again,
+	 * because time passed since the tick queued it.
+	 *
+	 * @param string $scheduleUuid  The schedule.
+	 * @param string $occurrenceKey The occurrence the tick queued.
+	 *
+	 * @return string `ran`, `stale`, `claimed_elsewhere`, `deferred` or `gone`.
+	 *
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
+	 * stored data; it holds no state to inject.
+	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) carried in with operations-parallel-run-workers;
+	 * splitting it is follow-up work, not part of this merge.
+	 * @SuppressWarnings(PHPMD.NPathComplexity) carried in with operations-parallel-run-workers; splitting it
+	 * is follow-up work, not part of this merge.
+	 */
+	public function runQueued(string $scheduleUuid, string $occurrenceKey): string {
+		$schedule = $this->findSchedule(uuid: $scheduleUuid);
+		if ($schedule === null) {
+			return 'gone';
+		}
+
+		if ($occurrenceKey === '' || OccurrenceClaim::pendingOf(data: $schedule->getObject()) !== $occurrenceKey) {
+			return 'stale';
+		}
+
+		$now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+		if ($this->fitsUnderLimits(schedule: $schedule, now: $now) === false) {
+			// Back in the queue, never dropped: another worker picks it up later.
+			$this->jobList->add(ScheduleRunJob::class, ['scheduleId' => $scheduleUuid, 'occurrenceKey' => $occurrenceKey]);
+			return 'deferred';
+		}
+
+		$ttl = RunConcurrencySettings::CLAIM_TTL_SECONDS;
+		if ($this->occurrenceClaim === null || $this->claimsOccurrences() === false
+			|| $this->occurrenceClaim->claim(scheduleUuid: $scheduleUuid, occurrenceKey: $occurrenceKey, ttlSeconds: $ttl) === false
+		) {
+			return 'claimed_elsewhere';
+		}
+
+		try {
+			$schedule = $this->findSchedule(uuid: $scheduleUuid);
+			if ($schedule === null || OccurrenceClaim::pendingOf(data: $schedule->getObject()) !== $occurrenceKey) {
+				return 'stale';
+			}
+
+			try {
+				$this->dispatch(
+					schedule: $schedule,
+					options: new DispatchOptions(
+						now: $now,
+						engagedOrganisations: $this->tenantKillSwitch->engagedOrganisations(),
+						mode: DispatchOptions::MODE_CLAIMED
+					)
+				);
+			} catch (Throwable $e) {
+				$this->recordFailure(schedule: $schedule, error: $e);
+			}
+
+			return 'ran';
+		} finally {
+			$this->occurrenceClaim->release(scheduleUuid: $scheduleUuid);
+		}//end try
+
+	}//end runQueued()
+
+	/**
+	 * Whether one more scheduled run fits under the limits, counting the runs
+	 * that are running now within their time-to-live, on the instance and in
+	 * the schedule's organisation. Without limits wired, or when the running
+	 * runs cannot be counted, the run fits: a limit is a throttle, not a gate.
+	 *
+	 * @param ObjectEntity      $schedule The schedule about to run.
+	 * @param DateTimeImmutable $now      The worker's moment.
+	 *
+	 * @return bool True when the run may start.
+	 *
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
+	 * stored data; it holds no state to inject.
+	 */
+	private function fitsUnderLimits(ObjectEntity $schedule, DateTimeImmutable $now): bool {
+		if ($this->runConcurrency === null) {
+			return true;
+		}
+
+		try {
+			$running = $this->schedulesWithStatus(status: 'running');
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq could not count the running scheduled runs; the limit is not applied: ' . $e->getMessage(),
+				['exception' => $e]
+			);
+			return true;
+		}
+
+		$organisation = (string)($schedule->getOrganisation() ?? '');
+		$onInstance = 0;
+		$inOrganisation = 0;
+		foreach ($running as $other) {
+			if ((string)$other->getUuid() === (string)$schedule->getUuid()
+				|| OccurrenceClaim::isLiveRun(data: $other->getObject(), now: $now, ttlSeconds: RunConcurrencySettings::CLAIM_TTL_SECONDS) === false
+			) {
+				continue;
+			}
+
+			$onInstance++;
+			if ($organisation !== '' && (string)($other->getOrganisation() ?? '') === $organisation) {
+				$inOrganisation++;
+			}
+		}
+
+		return $this->runConcurrency->admits(runningOnInstance: $onInstance, runningInOrganisation: $inOrganisation);
+
+	}//end fitsUnderLimits()
+
+	/**
+	 * Record every occurrence whose worker was lost as a failed run.
+	 *
+	 * An occurrence still `queued` or `running` a time-to-live after it was
+	 * queued or started, whose claim nobody holds, is failed with "The worker
+	 * stopped before the run finished." and handed to the schedule's retry
+	 * policy, which retries under a new attempt key. It is never run again
+	 * under its own key. Never fatal to the tick.
+	 *
+	 * @param DateTimeImmutable $now The tick's moment.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-a-lost-worker-is-recorded-as-a-failed-run-req-prun-002
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
+	 * stored data; it holds no state to inject.
+	 */
+	private function sweepLostOccurrences(DateTimeImmutable $now): void {
+		if ($this->occurrenceClaim === null || $this->claimsOccurrences() === false) {
+			return;
+		}
+
+		try {
+			$inFlight = array_merge($this->schedulesWithStatus(status: 'queued'), $this->schedulesWithStatus(status: 'running'));
+		} catch (Throwable $e) {
+			$this->logger->warning('Hermiq could not sweep for lost scheduled runs: ' . $e->getMessage(), ['exception' => $e]);
+			return;
+		}
+
+		foreach ($inFlight as $schedule) {
+			if (OccurrenceClaim::isStale(data: $schedule->getObject(), now: $now, ttlSeconds: RunConcurrencySettings::CLAIM_TTL_SECONDS) === false) {
+				continue;
+			}
+
+			$uuid = (string)$schedule->getUuid();
+			// A worker that still holds the claim is still running: leave it.
+			if ($this->occurrenceClaim->claim(scheduleUuid: $uuid, occurrenceKey: 'sweep', ttlSeconds: 60) === false) {
+				continue;
+			}
+
+			try {
+				$this->recordLostOccurrence(schedule: $schedule, now: $now);
+			} catch (Throwable $e) {
+				$this->logger->warning(sprintf('Hermiq could not record the lost run of schedule %s: %s', $uuid, $e->getMessage()), ['exception' => $e]);
+			} finally {
+				$this->occurrenceClaim->release(scheduleUuid: $uuid);
+			}
+		}//end foreach
+
+	}//end sweepLostOccurrences()
+
+	/**
+	 * Fail a lost occurrence and apply the schedule's retry policy.
+	 *
+	 * @param ObjectEntity      $schedule The schedule with the lost occurrence.
+	 * @param DateTimeImmutable $now      The tick's moment.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-a-lost-worker-is-recorded-as-a-failed-run-req-prun-002
+	 */
+	private function recordLostOccurrence(ObjectEntity $schedule, DateTimeImmutable $now): void {
+		$data = $schedule->getObject();
+		$occurrence = $this->committedOccurrence(data: $data);
+		$error = new RuntimeException(self::LOST_WORKER_MESSAGE);
+
+		$data = $this->applyFailureOutcome(
+			schedule: $schedule,
+			attempt: new FailedAttempt(
+				data: $data,
+				retryEnabled: $occurrence['retryEnabled'],
+				attemptNumber: $occurrence['attemptNumber'],
+				deferDisable: $occurrence['deferDisable'],
+				now: $now,
+				error: $error
+			)
+		);
+		$data = self::withoutPending(data: $data);
+
+		// Nothing ran in this process: the audit entry must not carry another run's identity.
+		$this->lastRunAsUser = (string)($schedule->getOwner() ?? '');
+		$this->lastRunUsage = [];
+		$this->lastRunSteps = [];
+		$this->lastRunDisclosure = null;
+		$this->lastRunProviderAttempts = [];
+		$this->lastRunReferenceAnswers = [];
+		$this->lastRunId = '';
+		$this->lastRunSkillsUsed = [];
+		$this->writeRunAudit(
+			schedule: $schedule,
+			record: new RunAuditRecord(
+				data: $data,
+				summary: 'error: ' . self::LOST_WORKER_MESSAGE,
+				startedAt: $now,
+				attempt: $occurrence['attemptNumber']
+			)
+		);
+
+		if ($occurrence['limitReached'] === true && ($data['lastStatus'] ?? '') !== 'retry_pending') {
+			$this->deleteSchedule(schedule: $schedule);
+			return;
+		}
+
+		$this->persist(schedule: $schedule, data: $data);
+
+	}//end recordLostOccurrence()
+
+	/**
+	 * Whether the tick queues occurrences for workers: a claim is wired and the
+	 * installed OpenRegister can take it.
+	 *
+	 * @return bool True when occurrences are claimed and queued.
+	 *
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
+	 */
+	private function claimsOccurrences(): bool {
+		return $this->occurrenceClaim !== null && $this->occurrenceClaim->isAvailable() === true;
+
+	}//end claimsOccurrences()
+
+	/**
+	 * The schedules whose `lastStatus` is the given one, across organisations.
+	 *
+	 * @param string $status The status.
+	 *
+	 * @return ObjectEntity[] The schedules.
+	 */
+	private function schedulesWithStatus(string $status): array {
+		$objects = $this->objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::SCHEMA_SLUG)
+			->findAll(
+				config: ['filters' => ['lastStatus' => $status]],
+				_rbac: false,
+				_multitenancy: false
+			);
+
+		return array_values(
+			array_filter(
+				$objects,
+				static fn (mixed $object): bool => $object instanceof ObjectEntity && (($object->getObject()['lastStatus'] ?? '') === $status)
+			)
+		);
+
+	}//end schedulesWithStatus()
+
+	/**
+	 * One schedule by uuid, read past RBAC as the dispatcher does, or null.
+	 *
+	 * @param string $uuid The schedule.
+	 *
+	 * @return ObjectEntity|null The schedule.
+	 */
+	private function findSchedule(string $uuid): ?ObjectEntity {
+		if (trim($uuid) === '') {
+			return null;
+		}
+
+		$found = $this->objectService->find(
+			id: $uuid,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
+			_rbac: false,
+			_multitenancy: false
+		);
+
+		if (($found instanceof ObjectEntity) === false) {
+			return null;
+		}
+
+		return $found;
+
+	}//end findSchedule()
+
+	/**
+	 * The occurrence the tick committed, worked out again from the schedule it saved.
+	 *
+	 * Mirrors startRetryAttempt() and startFreshOccurrence() after their commit:
+	 * a retry is attempt n+1 of the retry state the commit left untouched; the
+	 * repeat count was already bumped, so the limit is reached when it is at or
+	 * past `times`.
+	 *
+	 * @param array<string, mixed> $data The committed schedule.
+	 *
+	 * @return array{data: array<string, mixed>, attemptNumber: int, deferDisable: bool, limitReached: bool, retryEnabled: bool}
+	 *
+	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
+	 */
+	private function committedOccurrence(array $data): array {
+		$retryEnabled = (($data['retryEnabled'] ?? false) === true);
+		$retryState = $this->normaliseRetryState(raw: ($data['retryState'] ?? null));
+		$attempt = 1;
+		if ($retryEnabled === true && $retryState !== null) {
+			$attempt = ($retryState['attempt'] + 1);
+		}
+
+		$repeat = $this->normaliseRepeat(repeat: ($data['repeat'] ?? []));
+		$limitReached = ($repeat['times'] > 0 && $repeat['completed'] >= $repeat['times']);
+		$isOnce = ((string)($data['kind'] ?? '') === 'once');
+
+		return [
+			'data' => $data,
+			'attemptNumber' => $attempt,
+			'deferDisable' => ($retryEnabled === true && ($isOnce === true || $limitReached === true)),
+			'limitReached' => $limitReached,
+			'retryEnabled' => $retryEnabled,
+		];
+
+	}//end committedOccurrence()
+
+	/**
+	 * The schedule with no occurrence in flight.
+	 *
+	 * @param array<string, mixed> $data The schedule.
+	 *
+	 * @return array<string, mixed> The schedule.
+	 */
+	private static function withoutPending(array $data): array {
+		$data['pendingOccurrence'] = null;
+		$data['pendingSince'] = null;
+
+		return $data;
+
+	}//end withoutPending()
 
 	/**
 	 * Compute the commit-before-run advance for one occurrence — either a FRESH
@@ -1564,12 +2284,7 @@ class ScheduleService {
 	 * branches when it is enabled.
 	 *
 	 * @param ObjectEntity $schedule The schedule that failed.
-	 * @param array<string,mixed> $data The advanced schedule payload.
-	 * @param bool $retryEnabled Whether this schedule opted into retry.
-	 * @param int $attemptNumber The attempt number that just failed.
-	 * @param bool $deferDisable Whether the once/finite-repeat disable is pending.
-	 * @param DateTimeImmutable $now The current UTC moment.
-	 * @param Throwable $error The captured agent-turn failure.
+	 * @param FailedAttempt $attempt A failed agent turn and the retry settings it is judged against.
 	 *
 	 * @return array<string,mixed> The finalised schedule payload.
 	 *
@@ -1577,15 +2292,13 @@ class ScheduleService {
 	 * @spec openspec/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
 	 * @spec openspec/specs/agent-schedule/spec.md#requirement-consecutive-dead-letter-circuit-breaker-auto-pauses-a-schedule-mvp
 	 */
-	private function applyFailureOutcome(
-		ObjectEntity $schedule,
-		array $data,
-		bool $retryEnabled,
-		int $attemptNumber,
-		bool $deferDisable,
-		DateTimeImmutable $now,
-		Throwable $error,
-	): array {
+	private function applyFailureOutcome(ObjectEntity $schedule, FailedAttempt $attempt): array {
+		$data = $attempt->data;
+		$retryEnabled = $attempt->retryEnabled;
+		$attemptNumber = $attempt->attemptNumber;
+		$deferDisable = $attempt->deferDisable;
+		$now = $attempt->now;
+		$error = $attempt->error;
 		if ($retryEnabled === false) {
 			// Unchanged pre-run-reliability behavior.
 			$data['lastStatus'] = 'error';
@@ -1668,6 +2381,60 @@ class ScheduleService {
 	}//end markDeadLetter()
 
 	/**
+	 * Tell the schedule owner a run is done, when they switched that on
+	 * (personal-preferences). Never throws.
+	 *
+	 * @param ObjectEntity        $schedule  The schedule that ran.
+	 * @param array<string,mixed> $data      The schedule payload after the run.
+	 * @param bool                $succeeded Whether the run succeeded.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 */
+	private function notifyRunDone(ObjectEntity $schedule, array $data, bool $succeeded): void {
+		if ($this->runDoneNotifier === null) {
+			return;
+		}
+
+		$this->runDoneNotifier->notifyScheduledRun(
+			userId: (string)($schedule->getOwner() ?? ''),
+			agentName: $this->agentNameOf(agentId: (string)($data['agentId'] ?? ''), fallback: (string)($data['name'] ?? '')),
+			scheduleUuid: (string)$schedule->getUuid(),
+			succeeded: $succeeded,
+			channel: (string)($data['deliver'] ?? 'none')
+		);
+	}//end notifyRunDone()
+
+	/**
+	 * An agent's name for a notification, or the fallback when it cannot be read.
+	 *
+	 * @param string $agentId  The agent uuid.
+	 * @param string $fallback The name to use instead (the schedule's name).
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 */
+	private function agentNameOf(string $agentId, string $fallback): string {
+		if ($agentId === '') {
+			return $fallback;
+		}
+
+		try {
+			$name = (string)($this->agentMapper->findByUuid($agentId)->getName() ?? '');
+		} catch (Throwable) {
+			$name = '';
+		}
+
+		if ($name === '') {
+			return $fallback;
+		}
+
+		return $name;
+	}//end agentNameOf()
+
+	/**
 	 * Write the explicit per-run AuditTrail entry via OpenRegister (run-audit-log).
 	 *
 	 * REDACTION-BEFORE-PERSIST (ADR-004): the output/error summary is masked by
@@ -1681,45 +2448,27 @@ class ScheduleService {
 	 * auto-audit traces regardless).
 	 *
 	 * @param ObjectEntity $schedule The schedule that ran.
-	 * @param array<string,mixed> $data The finalised schedule payload (status/agentId).
-	 * @param string $summary The raw run output / error (redacted here).
-	 * @param DateTimeImmutable $startedAt When the agent turn began (UTC).
-	 * @param int $attempt The attempt number for this occurrence (1 for a
-	 *                     fresh/non-retry run; 2+ for a retry — run-reliability).
-	 * @param bool $dryRun Whether this entry records a dry-run/replay preview
-	 *                     (run-replay-and-dry-run) rather than a real run. False
-	 *                     (every pre-existing caller) is byte-for-byte unchanged.
-	 * @param string|null $replayOf The original run's AuditTrail UUID, when this entry
-	 *                              records a replay (run-replay-and-dry-run). Null for a
-	 *                              real run or a direct (non-replay) dry-run.
-	 * @param string|null $promptOverride The EXACT prompt text actually used for this run, when
-	 *                                    it differs from `$data['prompt']` (run-replay-and-dry-run
-	 *                                    replay: the original run's recorded prompt, not the
-	 *                                    schedule's current, possibly-since-edited one). Null (every
-	 *                                    pre-existing caller) reads `$data['prompt']` instead — the
-	 *                                    prompt that WAS actually used for a real run/direct dry-run.
+	 * @param RunAuditRecord $record What one per-run audit entry records.
 	 *
 	 * @return void The write is fire-and-forget: no caller consumes an entry
 	 *              UUID, and a failed write is never fatal — see below.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#2-per-run-audit-write
-	 * @spec openspec/changes/run-audit-log/tasks.md#2-per-run-audit-write
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#2-per-run-audit-write
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#2-per-run-audit-write
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-run-history-surfaces-retry-attempts-and-dead-letter-circuit-breaker-outcomes-mvp
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
 	 *
 	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Dry-run preview (run-replay-and-dry-run)
 	 *   is a cross-cutting mode threaded through the run/audit path as a flag by design.
 	 */
-	private function writeRunAudit(
-		ObjectEntity $schedule,
-		array $data,
-		string $summary,
-		DateTimeImmutable $startedAt,
-		int $attempt = 1,
-		bool $dryRun = false,
-		?string $replayOf = null,
-		?string $promptOverride = null,
-	): void {
+	private function writeRunAudit(ObjectEntity $schedule, RunAuditRecord $record): void {
+		$data = $record->data;
+		$summary = $record->summary;
+		$startedAt = $record->startedAt;
+		$attempt = $record->attempt;
+		$dryRun = $record->dryRun;
+		$replayOf = $record->replayOf;
+		$promptOverride = $record->promptOverride;
 		try {
 			$endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 			$agentId = (string)($data['agentId'] ?? '');
@@ -1750,6 +2499,15 @@ class ScheduleService {
 				// step (only ever true on the in-app Engine path; never fabricated).
 				'steps' => $this->lastRunSteps,
 				'toolStepsAvailable' => $this->stepsIncludeToolCall(steps: $this->lastRunSteps),
+				// Models-no-training-guarantee: which provider saw this run, where it
+				// runs and what it declared about training, as it stood at run time.
+				'providerDisclosure' => $this->lastRunDisclosure,
+				// Models-several-models-per-turn: every attempt of the turn at a provider, in order.
+				'providerAttempts' => $this->lastRunProviderAttempts,
+				// Models-several-models-per-turn: the reference models' answers of an
+				// ensemble turn, kept on the run and never shown in the chat; redacted
+				// before the append-only write like the summary.
+				'referenceAnswers' => $this->redactedReferenceAnswers(),
 				// Skill-evals: the skill uuids the run-loop seam actually exposed to
 				// this run's context — persisted for EVERY run (not just evals) so
 				// skill-learnings can later attribute run outcomes to skills.
@@ -1763,6 +2521,9 @@ class ScheduleService {
 				// this occurrence, captured at write time (null when unresolvable —
 				// never fatal to the run).
 				'agentVersion' => $this->agentVersionService->currentVersionId(agentUuid: $agentId),
+				// The build the agent pinned when this run was recorded, next to the
+				// version (tools-agent-workspace-and-installed-tools); null when none.
+				'buildId' => $this->agentBuilds?->pinnedBuildIdOf(agentUuid: $agentId),
 				// Run-replay-and-dry-run: the exact prompt text used for THIS run,
 				// persisted so a later replay is unaffected by any subsequent edit to
 				// the schedule's own `prompt` field — recorded for every run (real,
@@ -1775,11 +2536,7 @@ class ScheduleService {
 				'replayOf' => $replayOf,
 			];
 
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $schedule,
-				action: 'run',
-				context: $context
-			);
+			$this->persistRunAudit(schedule: $schedule, context: $context, agentId: $agentId);
 
 			// Skill-learnings: AFTER the run record is written, enqueue the post-run
 			// capture job for a REAL run that actually exposed skills. Never for a
@@ -1801,6 +2558,44 @@ class ScheduleService {
 		}//end try
 
 	}//end writeRunAudit()
+
+	/**
+	 * Stamp the retention this run was promised, then write the audit entry.
+	 *
+	 * Split out of writeRunAudit() to bring it under the method-length gate. It
+	 * is also the whole of the "persist" half: everything above it assembles the
+	 * context, and everything here writes it.
+	 *
+	 * What is kept, and for how long, is written ONTO the entry rather than
+	 * referenced, so changing the instance default later cannot shorten or
+	 * extend what this run was promised. A retention nobody set is a retention
+	 * of forever, so the policy always resolves to a number.
+	 *
+	 * @param ObjectEntity $schedule The schedule this run belongs to.
+	 * @param array<string, mixed> $context The assembled run context.
+	 * @param string $agentId The agent that ran, for the feature lookup.
+	 *
+	 * @return void
+	 *
+	 * @spec exclude extracted verbatim from writeRunAudit(); covered by its tests
+	 */
+	private function persistRunAudit(ObjectEntity $schedule, array $context, string $agentId): void {
+		if ($this->retentionPolicy !== null) {
+			$context = $this->retentionPolicy->stamp(
+				context: $context,
+				featureSlug: $this->aiFeatureForAgent(agentId: $agentId)
+			);
+		}
+
+		$this->auditTrailMapper->recordObjectEvent(
+			event: new ObjectAuditEvent(
+				object: $schedule,
+				action: 'run',
+				context: $context
+			)
+		);
+		$this->traceExportQueue?->enqueueRun(context: $context, trigger: 'schedule', organisation: (string)($context['organisation'] ?? ''));
+	}//end persistRunAudit()
 
 	/**
 	 * Enqueue the post-run learnings capture QueuedJob for the just-audited run
@@ -1846,6 +2641,24 @@ class ScheduleService {
 	}//end enqueueLearningsCapture()
 
 	/**
+	 * The last run's reference answers with secrets and personal data masked.
+	 *
+	 * @return array<int, array{provider: string, model: string, text: string}>
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 */
+	private function redactedReferenceAnswers(): array {
+		return array_map(
+			fn (array $answer): array => [
+				'provider' => $answer['provider'],
+				'model' => $answer['model'],
+				'text' => $this->redactionService->redact($answer['text']),
+			],
+			$this->lastRunReferenceAnswers
+		);
+	}//end redactedReferenceAnswers()
+
+	/**
 	 * Whether a step timeline includes any `tool`-type step.
 	 *
 	 * Run-trace-observability: `toolStepsAvailable` lets a reader distinguish "no
@@ -1861,31 +2674,14 @@ class ScheduleService {
 	 * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
 	 */
 	private function stepsIncludeToolCall(array $steps): bool {
-		foreach ($steps as $step) {
-			if (($step['type'] ?? null) === 'tool') {
-				return true;
-			}
-		}
-
-		return false;
+		return (new CoarseStepTimeline())->includesToolCall(steps: $steps);
 	}//end stepsIncludeToolCall()
 
 	/**
-	 * Build coarse context/history/llm steps from the agent-turn call's already-
-	 * returned `timings` bucket (a formatted-seconds string per leg, e.g. `"0.18s"`)
-	 * — the ONLY step source available on the default OpenRegister `ChatService`
-	 * path (Hermiq does not instrument OR's internal tool loop, so no `tool` step
-	 * is ever produced here).
+	 * The coarse context/history/llm steps of a turn on the ChatService path
+	 * (see CoarseStepTimeline::fromTimings()).
 	 *
-	 * Each leg's real DURATION is known but not its absolute wall-clock start/end,
-	 * so the three legs are chained backward from `$anchorEnd` (the moment the
-	 * agent-turn call returned) in call order (context, history, llm) — a
-	 * contiguous, honest synthetic timeline. A leg that is absent or does not
-	 * parse as `<number>s` is skipped entirely rather than fabricated (proposal
-	 * Risk 1 / tasks.md task 3 acceptance).
-	 *
-	 * @param array<string, mixed> $timings The `timings` bucket (`context`/`history`/`llm`/`total`
-	 *                                      formatted-seconds strings), or malformed/absent.
+	 * @param array<string, mixed> $timings The `timings` bucket, or malformed/absent.
 	 * @param DateTimeImmutable $anchorEnd The moment the agent-turn call returned.
 	 *
 	 * @return array<int, array<string, mixed>> The coarse steps, oldest leg first, `seq` 0..n-1.
@@ -1893,67 +2689,8 @@ class ScheduleService {
 	 * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
 	 */
 	private function buildCoarseStepsFromTimings(array $timings, DateTimeImmutable $anchorEnd): array {
-		// Chained backward from $anchorEnd; legs are appended in call order below
-		// (context, history, llm) so the final array is already in call order.
-		$legs = [
-			['type' => 'llm', 'name' => 'LLM generation', 'key' => 'llm'],
-			['type' => 'history', 'name' => 'History build', 'key' => 'history'],
-			['type' => 'context', 'name' => 'Context retrieval', 'key' => 'context'],
-		];
-
-		$cursor = $anchorEnd;
-		$backwardSteps = [];
-		foreach ($legs as $leg) {
-			$durationMs = $this->parseTimingSeconds(value: ($timings[$leg['key']] ?? null));
-			if ($durationMs === null) {
-				continue;
-			}
-
-			$endedAt = $cursor;
-			$startedAt = $endedAt->modify('-' . $durationMs . ' milliseconds');
-
-			$backwardSteps[] = [
-				'type' => $leg['type'],
-				'name' => $leg['name'],
-				'startedAt' => $startedAt->format('c'),
-				'endedAt' => $endedAt->format('c'),
-				'durationMs' => $durationMs,
-				'outcome' => 'ok',
-			];
-
-			$cursor = $startedAt;
-		}//end foreach
-
-		$steps = array_reverse($backwardSteps);
-
-		$seq = 0;
-		return array_map(
-			static function (array $step) use (&$seq): array {
-				$step['seq'] = $seq++;
-				return $step;
-			},
-			$steps
-		);
-
+		return (new CoarseStepTimeline())->fromTimings(timings: $timings, anchorEnd: $anchorEnd);
 	}//end buildCoarseStepsFromTimings()
-
-	/**
-	 * Parse a `timings` leg value (`"0.18s"`) into a millisecond duration.
-	 *
-	 * @param mixed $value The raw timing value.
-	 *
-	 * @return int|null The duration in milliseconds, or null when absent/malformed
-	 *                  (never fabricated — proposal Risk 1).
-	 *
-	 * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
-	 */
-	private function parseTimingSeconds(mixed $value): ?int {
-		if (is_string($value) === false || preg_match('~^(\d+(?:\.\d+)?)s$~', $value, $matches) !== 1) {
-			return null;
-		}
-
-		return (int)round(((float)$matches[1]) * 1000);
-	}//end parseTimingSeconds()
 
 	/**
 	 * Compute the next run time for a schedule, anchored to the owner's timezone.
@@ -1969,7 +2706,9 @@ class ScheduleService {
 	 *
 	 * @return DateTimeImmutable|null The next run (UTC), or null for one-shots.
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-schedule/spec.md#REQ-SPCOV-003
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-schedule/spec.md#REQ-SPCOV-004
 	 */
 	private function computeNextRun(string $kind, array $data, string $owner, DateTimeImmutable $now): ?DateTimeImmutable {
 		$timezone = $this->resolveTimezone(owner: $owner);
@@ -2084,6 +2823,12 @@ class ScheduleService {
 	 *                                     `installedOn` are never written. Null
 	 *                                     (every non-eval caller) exposes the
 	 *                                     agent's stored installs.
+	 * @param array<string, mixed> $startValues The schedule's start field values
+	 *                                          (agents-instruction-variables), filtered
+	 *                                          like the prompt and stored on the run's
+	 *                                          session; a field without one uses its default.
+	 * @param string|null $continueSessionUuid A standing goal's session: the run continues
+	 *                                         it instead of opening a new one (agents-standing-goal).
 	 *
 	 * @return string The agent's response text (already output-filtered).
 	 *
@@ -2095,26 +2840,21 @@ class ScheduleService {
 	 *                                   the Engine branch throws this internally,
 	 *                                   inside `runAgentViaEngine()`/`Engine::processMessage()`).
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
-	 * @spec openspec/changes/agent-engine-port/tasks.md#6-feature-flag-the-engine-and-pivot-scheduleservice
-	 * @spec openspec/changes/agent-engine-port/tasks.md#6-feature-flag-the-engine-and-pivot-scheduleservice
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#6-feature-flag-the-engine-and-pivot-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#6-feature-flag-the-engine-and-pivot-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
 	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-4-wire-input-output-filters-into-scheduleservice-runagentasowner
 	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-require-the-in-app-agent-engine
 	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegated-runs-inherit-the-parent-s-acting-user-attribution
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity)  Sub-agent-delegation's `forceOwner`
-	 *   branch pushed this over the threshold; the method is still one linear
-	 *   impersonate → dispatch (flag-on/flag-off) → restore sequence, not incidental
-	 *   branching — splitting further would duplicate the impersonation try/finally.
-	 * @SuppressWarnings(PHPMD.NPathComplexity)       Same reasoning as above.
-	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) Same reasoning as above; the
-	 *   flag-off legacy branch is removed wholesale by or-chat-proxy-deprecation,
-	 *   which brings this back under the threshold — splitting now would be churn.
 	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag)   `$dryRun`/`$forceOwner` are
 	 *   genuine two-mode authorisation inputs (preview vs. real; parent-forced vs.
 	 *   self-resolved identity), not a responsibility split — mirrors this class's
 	 *   existing `$bypassApprovalGate`/`$dryRun` precedent elsewhere.
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Every parameter after $prompt is an
+	 *   optional named mode with a default; agents-standing-goal's $continueSessionUuid
+	 *   made it ten. Callers name only what they use.
 	 */
 	public function runAgentAsOwner(
 		string $owner,
@@ -2125,56 +2865,20 @@ class ScheduleService {
 		bool $forceOwner = false,
 		?ObjectEntity $anchor = null,
 		?array $skillSetOverride = null,
+		array $startValues = [],
+		?string $continueSessionUuid = null,
 	): string {
-		// Run-replay-and-dry-run: dry-run's tool-call interception depends entirely
-		// on the in-app Engine/FacadeToolInvoker path — fail fast, clearly, and
-		// BEFORE any impersonation/LLM call, rather than silently running for real.
-		if ($dryRun === true && $this->isEngineEnabled() === false) {
-			throw new EngineRequiredException();
-		}
+		$this->refuseADryRunWithoutTheEngine(dryRun: $dryRun);
 
-		// Reset per-run usage/steps so a failed run never records the previous run's
-		// tokens, step timeline, or exposed skill set.
-		$this->lastRunUsage = [];
-		$this->lastRunSteps = [];
-		$this->lastRunAsUser = $owner;
-		$this->lastRunId = '';
-		$this->lastRunSkillsUsed = [];
+		$this->resetRunState(owner: $owner);
+
+		$this->refuseASwitchedOffAgent(agentId: $agentId);
 
 		// Agent-guardrails: resolve the effective GuardrailPolicy ONCE for this run.
 		$guardrailPolicy = $this->guardrailPolicyService->effectivePolicyFor(organisation: $organisation);
 
-		// Agent-capability-profile: on the engine-enabled path only, an Agent may name
-		// an actingUser to impersonate instead of the schedule owner. Resolved BEFORE
-		// impersonation so the whole turn (conversation + messages + tool writes) runs
-		// as that identity; falls back to $owner (silently, logged) when it is UNSET.
-		// A DECLARED one that does not resolve refuses the run instead — see
-		// resolveActingUser().
-		// Sub-agent-delegation: `$forceOwner` skips this resolution entirely — `$owner`
-		// (the parent's already-impersonated acting uid) is used verbatim, so a target
-		// agent's own `actingUser` can never launder attribution via delegation.
-		$impersonateAs = $owner;
-		if ($forceOwner === false && $this->isEngineEnabled() === true) {
-			// 🔴 A REFUSAL MUST NOT LEAVE THE OWNER IN THE AUDIT RECORD.
-			//
-			// `lastRunAsUser` was pre-seeded with $owner above (and again by the
-			// runNow/dispatch callers), and `writeRunAudit()` publishes it as
-			// "the identity that actually ran the turn". Letting the throw escape
-			// with that value intact writes the exact substitution this refusal
-			// exists to prevent: the run is attributed to the schedule owner in
-			// the append-only trail while never having run as anybody at all.
-			// Refusing in the control flow and conceding in the record is not a
-			// refusal.
-			//
-			// Blanked rather than set to the unresolvable uid: nobody ran this
-			// turn, and naming the ghost would read as "the turn ran as them".
-			try {
-				$impersonateAs = $this->resolveActingUser(agentId: $agentId, fallbackOwner: $owner);
-			} catch (Throwable $e) {
-				$this->lastRunAsUser = '';
-				throw $e;
-			}
-		}
+		// Agent-capability-profile / sub-agent-delegation: who the turn runs as.
+		$impersonateAs = $this->impersonationTarget(owner: $owner, agentId: $agentId, forceOwner: $forceOwner);
 
 		$this->lastRunAsUser = $impersonateAs;
 
@@ -2187,85 +2891,219 @@ class ScheduleService {
 		$this->userSession->setUser($user);
 
 		try {
-			// Agent-engine-port pivot (task 6.2): with the feature flag ON, the run
-			// goes through the in-app Engine against hermiq-register objects — still
-			// inside the same impersonation try/finally, and only reached AFTER the
-			// kill-switch/approval gating upstream of this method. With the flag OFF
-			// (default) the OpenRegister ChatService path below is byte-for-byte the
-			// pre-flag behavior. Engine::processMessage() already applies its OWN
-			// input/output filter internally; the output filter is re-applied here
-			// too (defense-in-depth at the delivery/persistence trust boundary,
-			// design.md Decision 7) — idempotent on already-filtered text.
+			// Agent-engine-port pivot (task 6.2): flag ON runs the in-app Engine, flag OFF
+			// the legacy ChatService path; both inside this impersonation. The output
+			// filter is re-applied here too (design.md Decision 7) — idempotent.
 			if ($this->isEngineEnabled() === true) {
 				$output = $this->runAgentViaEngine(
-					owner: $impersonateAs,
-					agentId: $agentId,
-					prompt: $prompt,
-					dryRun: $dryRun,
-					anchor: $anchor,
-					skillSetOverride: $skillSetOverride
+					request: new EngineRunRequest(
+						owner: $impersonateAs,
+						agentId: $agentId,
+						prompt: $prompt,
+						dryRun: $dryRun,
+						anchor: $anchor,
+						skillSetOverride: $skillSetOverride,
+						startValues: $this->filterStartValues(policy: $guardrailPolicy, values: $startValues),
+						continueSessionUuid: $continueSessionUuid
+					)
 				);
 				return $this->applyOutputGuardrail(policy: $guardrailPolicy, output: $output);
 			}
 
-			// Agent-guardrails: the input filter's ONLY seam on this legacy
-			// ChatService branch — Engine::processMessage() is never invoked here,
-			// so nothing else would ever filter this prompt. A `block` match throws
-			// BEFORE the legacy ChatService call, so no conversation/message is ever
-			// created for this attempt; a `redact` match replaces $prompt so the
-			// masked text is what the agent actually receives.
-			$inputFilter = $this->guardrailPolicyService->filterInput(policy: $guardrailPolicy, text: $prompt);
-			if ($this->guardrailActed(filter: $inputFilter, originalText: $prompt) === true) {
-				$this->appendGuardrailStep(name: 'Input filter', filter: $inputFilter);
-			}
-
-			if ($inputFilter['blocked'] === true) {
-				throw new GuardrailBlockedException(reason: (string)$inputFilter['reason']);
-			}
-
-			$prompt = (string)$inputFilter['text'];
-
-			$agent = $this->agentMapper->findByUuid($agentId);
-			$conversation = new Conversation();
-			$conversation->setUserId($owner);
-			$conversation->setOwner($owner);
-			$conversation->setAgentId($agent->getId());
-			$conversation->setTitle('Hermiq scheduled run');
-			$conversation = $this->conversationMapper->insert($conversation);
-
-			$result = $this->chatService->processMessage(
-				conversationId: (int)$conversation->getId(),
-				userId: $owner,
-				userMessage: $prompt
-			);
-
-			// Capture the LLM token/latency usage OpenRegister now reports, so writeRunAudit
-			// records it for run-analytics (run-cost recording). Empty when unavailable.
-			$usage = ($result['usage'] ?? []);
-			if (is_array($usage) === true) {
-				$this->lastRunUsage = $usage;
-			}
-
-			// Run-trace-observability: Hermiq does not instrument OR's internal tool
-			// loop on this path, so only coarse context/history/llm steps are ever
-			// captured here — derived from the `timings` bucket the call already
-			// returns (never a fabricated duration when a leg is absent/malformed).
-			$timings = ($result['timings'] ?? []);
-			if (is_array($timings) === true) {
-				$this->lastRunSteps = $this->buildCoarseStepsFromTimings(
-					timings: $timings,
-					anchorEnd: new DateTimeImmutable('now', new DateTimeZone('UTC'))
-				);
-			}
-
-			$output = (string)($result['message'] ?? '');
-			return $this->applyOutputGuardrail(policy: $guardrailPolicy, output: $output);
+			return $this->runViaLegacyChat(owner: $owner, agentId: $agentId, prompt: $prompt, guardrailPolicy: $guardrailPolicy);
 		} finally {
 			// Restore the pre-impersonation identity (OpenConnector #1006 pattern).
 			$this->userSession->setUser($priorUser);
 		}//end try
 
 	}//end runAgentAsOwner()
+
+	/**
+	 * The identity a run impersonates.
+	 *
+	 * Agent-capability-profile: on the engine-enabled path only, an Agent may name
+	 * an actingUser to impersonate instead of the schedule owner. Resolved BEFORE
+	 * impersonation so the whole turn (conversation + messages + tool writes) runs
+	 * as that identity; falls back to $owner (silently, logged) when it is UNSET.
+	 * A DECLARED one that does not resolve refuses the run instead — see
+	 * resolveActingUser().
+	 * Sub-agent-delegation: `$forceOwner` skips this resolution entirely — `$owner`
+	 * (the parent's already-impersonated acting uid) is used verbatim, so a target
+	 * agent's own `actingUser` can never launder attribution via delegation.
+	 *
+	 * @param string $owner      The run's owner.
+	 * @param string $agentId    The agent uuid.
+	 * @param bool   $forceOwner Whether the owner is used verbatim.
+	 *
+	 * @return string The uid to impersonate.
+	 *
+	 * @throws Throwable When a declared acting user does not resolve; the audit
+	 *                   identity is blanked first.
+	 *
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegated-runs-inherit-the-parent-s-acting-user-attribution
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Mirrors runAgentAsOwner()'s `$forceOwner` mode.
+	 */
+	private function impersonationTarget(string $owner, string $agentId, bool $forceOwner): string {
+		if ($forceOwner === true || $this->isEngineEnabled() === false) {
+			return $owner;
+		}
+
+		// 🔴 A REFUSAL MUST NOT LEAVE THE OWNER IN THE AUDIT RECORD.
+		//
+		// `lastRunAsUser` was pre-seeded with $owner (and again by the
+		// runNow/dispatch callers), and `writeRunAudit()` publishes it as
+		// "the identity that actually ran the turn". Letting the throw escape
+		// with that value intact writes the exact substitution this refusal
+		// exists to prevent: the run is attributed to the schedule owner in
+		// the append-only trail while never having run as anybody at all.
+		// Refusing in the control flow and conceding in the record is not a
+		// refusal.
+		//
+		// Blanked rather than set to the unresolvable uid: nobody ran this
+		// turn, and naming the ghost would read as "the turn ran as them".
+		try {
+			return $this->resolveActingUser(agentId: $agentId, fallbackOwner: $owner);
+		} catch (Throwable $e) {
+			$this->lastRunAsUser = '';
+			throw $e;
+		}
+
+	}//end impersonationTarget()
+
+	/**
+	 * Reset the per-run usage, steps, disclosure, identity, run id and exposed
+	 * skill set, so a failed run never records the previous run's.
+	 *
+	 * @param string $owner The run's owner, the identity until resolved further.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 */
+	private function resetRunState(string $owner): void {
+		$this->lastRunUsage = [];
+		$this->lastRunSteps = [];
+		$this->lastRunDisclosure = null;
+		$this->lastRunProviderAttempts = [];
+		$this->lastRunReferenceAnswers = [];
+		$this->lastRunAsUser = $owner;
+		$this->lastRunId = '';
+		$this->lastRunSkillsUsed = [];
+
+	}//end resetRunState()
+
+	/**
+	 * Run-replay-and-dry-run: dry-run's tool-call interception depends entirely on
+	 * the in-app Engine/FacadeToolInvoker path — fail fast, clearly, and BEFORE any
+	 * impersonation/LLM call, rather than silently running for real.
+	 *
+	 * @param bool $dryRun Whether the run is a dry run.
+	 *
+	 * @return void
+	 *
+	 * @throws EngineRequiredException When a dry run is asked without the engine.
+	 *
+	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-require-the-in-app-agent-engine
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Mirrors runAgentAsOwner()'s `$dryRun` mode.
+	 */
+	private function refuseADryRunWithoutTheEngine(bool $dryRun): void {
+		if ($dryRun === true && $this->isEngineEnabled() === false) {
+			throw new EngineRequiredException();
+		}
+
+	}//end refuseADryRunWithoutTheEngine()
+
+	/**
+	 * Agents-switch-off-and-stop: the shared entry of schedules, run now, webhooks,
+	 * flows and delegation refuses a switched-off agent before impersonating anyone.
+	 *
+	 * @param string $agentId The agent uuid.
+	 *
+	 * @return void
+	 *
+	 * @throws AgentSwitchedOffException When the agent is switched off.
+	 *
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 */
+	private function refuseASwitchedOffAgent(string $agentId): void {
+		if ($this->agentIsSwitchedOff(agentId: $agentId) === true) {
+			throw new AgentSwitchedOffException();
+		}
+
+	}//end refuseASwitchedOffAgent()
+
+	/**
+	 * Run the turn on the legacy (flag-off) OpenRegister ChatService path, inside
+	 * the caller's impersonation.
+	 *
+	 * @param string               $owner           The run's owner.
+	 * @param string               $agentId         The agent uuid.
+	 * @param string               $prompt          The prompt.
+	 * @param array<string, mixed> $guardrailPolicy The run's effective GuardrailPolicy.
+	 *
+	 * @return string The output, after the output guardrail.
+	 *
+	 * @throws GuardrailBlockedException When the input filter refuses the prompt.
+	 *
+	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-4-wire-input-output-filters-into-scheduleservice-runagentasowner
+	 */
+	private function runViaLegacyChat(string $owner, string $agentId, string $prompt, array $guardrailPolicy): string {
+		// Agent-guardrails: the input filter's ONLY seam on this legacy
+		// ChatService branch — Engine::processMessage() is never invoked here,
+		// so nothing else would ever filter this prompt. A `block` match throws
+		// BEFORE the legacy ChatService call, so no conversation/message is ever
+		// created for this attempt; a `redact` match replaces $prompt so the
+		// masked text is what the agent actually receives.
+		$inputFilter = $this->guardrailPolicyService->filterInput(policy: $guardrailPolicy, text: $prompt);
+		if ($this->guardrailActed(filter: $inputFilter, originalText: $prompt) === true) {
+			$this->appendGuardrailStep(name: 'Input filter', filter: $inputFilter);
+		}
+
+		if ($inputFilter['blocked'] === true) {
+			throw new GuardrailBlockedException(reason: (string)$inputFilter['reason']);
+		}
+
+		$prompt = (string)$inputFilter['text'];
+
+		$agent = $this->agentMapper->findByUuid($agentId);
+		$conversation = new Conversation();
+		$conversation->setUserId($owner);
+		$conversation->setOwner($owner);
+		$conversation->setAgentId($agent->getId());
+		$conversation->setTitle('Hermiq scheduled run');
+		$conversation = $this->conversationMapper->insert($conversation);
+
+		$result = $this->chatService->processMessage(
+			conversationId: (int)$conversation->getId(),
+			userId: $owner,
+			userMessage: $prompt
+		);
+
+		// Capture the LLM token/latency usage OpenRegister now reports, so writeRunAudit
+		// records it for run-analytics (run-cost recording). Empty when unavailable.
+		$usage = ($result['usage'] ?? []);
+		if (is_array($usage) === true) {
+			$this->lastRunUsage = $usage;
+		}
+
+		// Run-trace-observability: Hermiq does not instrument OR's internal tool
+		// loop on this path, so only coarse context/history/llm steps are ever
+		// captured here — derived from the `timings` bucket the call already
+		// returns (never a fabricated duration when a leg is absent/malformed).
+		$timings = ($result['timings'] ?? []);
+		if (is_array($timings) === true) {
+			$this->lastRunSteps = $this->buildCoarseStepsFromTimings(
+				timings: $timings,
+				anchorEnd: new DateTimeImmutable('now', new DateTimeZone('UTC'))
+			);
+		}
+
+		$output = (string)($result['message'] ?? '');
+		return $this->applyOutputGuardrail(policy: $guardrailPolicy, output: $output);
+
+	}//end runViaLegacyChat()
 
 	/**
 	 * The just-completed `runAgentAsOwner()` call's own fresh run identifier
@@ -2420,14 +3258,15 @@ class ScheduleService {
 
 	/**
 	 * Whether the in-app agent engine feature flag (`hermiq`.`engine.enabled`)
-	 * is on. Defaults to 'false' — existing installs see zero behavior change.
+	 * is on. Reads 'false' when unset; new installs get it on through the
+	 * EnableEngineOnInstall repair step, existing installs keep their stored value.
 	 *
 	 * @return bool True when the in-app Engine must be used.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#6-feature-flag-the-engine-and-pivot-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#6-feature-flag-the-engine-and-pivot-scheduleservice
 	 */
 	private function isEngineEnabled(): bool {
-		return $this->appConfig->getValueString(Application::APP_ID, self::ENGINE_FLAG_KEY, 'false') === 'true';
+		return $this->appConfig->getValueString(AppIdentity::APP_ID, self::ENGINE_FLAG_KEY, 'false') === 'true';
 	}//end isEngineEnabled()
 
 	/**
@@ -2435,7 +3274,7 @@ class ScheduleService {
 	 * `actingUser` when set and valid, otherwise the schedule owner.
 	 *
 	 * Reads the hermiq-register `agent` object system-wide (`_rbac`/`_multitenancy`
-	 * off — mirrors `findDueSchedules()`/`loadEngagedOrganisations()`: no user is
+	 * off — mirrors `findDueSchedules()`/`TenantKillSwitch::engagedOrganisations()`: no user is
 	 * impersonated yet at this point in the call chain). A missing agent, a read
 	 * failure, an unset `actingUser`, or an `actingUser` that does not resolve to an
 	 * existing, ENABLED NC user all fail open to `$fallbackOwner` (logged at
@@ -2447,14 +3286,13 @@ class ScheduleService {
 	 *
 	 * @return string The resolved run-as user id.
 	 *
-	 * @spec openspec/changes/agent-capability-profile/tasks.md#3-scheduleservice-actinguser-impersonation
+	 * @spec openspec/changes/archive/2026-09-06-agent-capability-profile/tasks.md#3-scheduleservice-actinguser-impersonation
 	 */
 	private function resolveActingUser(string $agentId, string $fallbackOwner): string {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -2518,40 +3356,14 @@ class ScheduleService {
 	 * usage shape must survive). Callers hold the impersonation (schedule owner,
 	 * or the Agent's `actingUser` when set/valid — agent-capability-profile).
 	 *
-	 * @param string $owner The identity to run as (schedule owner, or the
-	 *                      resolved `actingUser` — see
-	 *                      resolveActingUser()).
-	 * @param string $agentId The bound agent UUID (hermiq register `agent` object).
-	 * @param string $prompt The prompt to run.
-	 * @param bool $dryRun Whether this turn is a dry-run preview
-	 *                     (run-replay-and-dry-run): threaded
-	 *                     onto `Engine::processMessage()` so a
-	 *                     side-effecting tool call is
-	 *                     neutralised, and the scratch
-	 *                     `Conversation`/`Message` objects
-	 *                     created below are deleted once the
-	 *                     turn completes (success or failure)
-	 *                     — a preview leaves no persisted
-	 *                     transcript behind. False (every
-	 *                     pre-existing caller) is byte-for-byte
-	 *                     unchanged behavior.
-	 * @param ObjectEntity|null $anchor Sub-agent-delegation: the budget-rollup anchor
-	 *                                  object passed straight through from
-	 *                                  `runAgentAsOwner()` — pushed verbatim onto
-	 *                                  the `DelegationContext` frame below, never
-	 *                                  re-derived here.
-	 * @param array|null $skillSetOverride Per-run effective-skill-set override
-	 *                                     (skill uuids, skill-evals) passed straight
-	 *                                     through to `Engine::processMessage()`;
-	 *                                     null (every non-eval caller) exposes the
-	 *                                     agent's stored installs.
+	 * @param EngineRunRequest $request One agent turn the scheduler hands to the Engine.
 	 *
 	 * @return string The agent's response text.
 	 *
 	 * @throws RuntimeException When the agent cannot be resolved in the hermiq register.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#6-feature-flag-the-engine-and-pivot-scheduleservice
-	 * @spec openspec/changes/agent-capability-profile/tasks.md#3-scheduleservice-actinguser-impersonation
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#6-feature-flag-the-engine-and-pivot-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-agent-capability-profile/tasks.md#3-scheduleservice-actinguser-impersonation
 	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
 	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
 	 *
@@ -2561,18 +3373,18 @@ class ScheduleService {
 	 *   create the conversation, push the delegation frame, run, capture usage/trace/
 	 *   skillsUsed; splitting would scatter the try/finally frame-pop + dry-run cleanup.
 	 */
-	private function runAgentViaEngine(
-		string $owner,
-		string $agentId,
-		string $prompt,
-		bool $dryRun = false,
-		?ObjectEntity $anchor = null,
-		?array $skillSetOverride = null,
-	): string {
+	private function runAgentViaEngine(EngineRunRequest $request): string {
+		$owner = $request->owner;
+		$agentId = $request->agentId;
+		$prompt = $request->prompt;
+		$dryRun = $request->dryRun;
+		$anchor = $request->anchor;
+		$skillSetOverride = $request->skillSetOverride;
+		$startValues = $request->startValues;
+		$continueSessionUuid = $request->continueSessionUuid;
 		$agent = $this->objectService->find(
 			id: $agentId,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 		);
 		if ($agent === null) {
 			throw new RuntimeException("Agent '{$agentId}' does not exist in the hermiq register");
@@ -2583,15 +3395,11 @@ class ScheduleService {
 			$title = 'Hermiq dry-run preview';
 		}
 
-		$conversation = $this->objectService->saveObject(
-			object: [
-				'title' => $title,
-				'userId' => $owner,
-				'agentId' => (string)$agent->getUuid(),
-			],
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA
-		);
+		$conversation = $this->continuedSession(sessionUuid: (string)$continueSessionUuid, owner: $owner, dryRun: $dryRun)
+			?? $this->objectService->saveObject(
+				object: $this->runSession(title: $title, owner: $owner, agent: $agent, startValues: $startValues),
+				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA))
+			);
 
 		// Remember which conversation this run produced so a Talk-room delivery
 		// can bind it and become repliable. A dry run's scratch conversation is
@@ -2655,6 +3463,11 @@ class ScheduleService {
 			// back to the envelope's `steps` key (identical content, per Engine's
 			// contract) only if a future engine swap ever stops accepting `$trace`.
 			$this->lastRunSteps = $trace->toArray();
+			$this->lastRunDisclosure = $trace->providerDisclosure();
+			// Oversight-ask-and-hold: the question this run asked, for the reviewer.
+			$this->lastRunQuestion = $trace->question();
+			$this->lastRunProviderAttempts = $trace->providerAttempts();
+			$this->lastRunReferenceAnswers = $trace->referenceAnswers();
 			if ($this->lastRunSteps === []) {
 				// @phpstan-ignore-next-line -- deliberate defensive fallback, see above.
 				$envelopeSteps = ($result['steps'] ?? []);
@@ -2701,7 +3514,7 @@ class ScheduleService {
 				->setRegister(self::REGISTER_SLUG)
 				->setSchema(self::MESSAGE_SCHEMA)
 				->findAll(
-					config: ['filters' => ['conversationId' => $conversationUuid]],
+					config: ['filters' => ['sessionId' => $conversationUuid]],
 					_rbac: false,
 					_multitenancy: false
 				);
@@ -2712,18 +3525,20 @@ class ScheduleService {
 				}
 
 				$this->objectService->deleteObject(
-					uuid: (string)$message->getUuid(),
-					register: self::REGISTER_SLUG,
-					schema: self::MESSAGE_SCHEMA,
+					new ObjectDeletion(
+						uuid: (string)$message->getUuid(),
+						target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MESSAGE_SCHEMA)
+					),
 					_rbac: false,
 					_multitenancy: false
 				);
 			}
 
 			$this->objectService->deleteObject(
-				uuid: $conversationUuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
+				new ObjectDeletion(
+					uuid: $conversationUuid,
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -2772,12 +3587,19 @@ class ScheduleService {
 	 *
 	 * @return DeliveryResult The delivery outcome (warning ⇒ lastDeliveryError).
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#3-wire-into-the-dispatcher
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#3-wire-into-the-dispatcher
 	 */
 	private function deliver(string $channel, string $output, ObjectEntity $schedule): DeliveryResult {
 		$conversationUuid = null;
 		if ($this->lastRunConversationUuid !== '') {
 			$conversationUuid = $this->lastRunConversationUuid;
+		}
+
+		// Oversight-ask-and-hold: a run that asked a question, or whose output is
+		// held, delivers nothing; the reviewer answers or releases it.
+		$held = $this->holdInsteadOfDelivering(channel: $channel, output: $output, schedule: $schedule, conversationUuid: $conversationUuid);
+		if ($held !== null) {
+			return $held;
 		}
 
 		return $this->deliveryService->deliver(
@@ -2790,6 +3612,121 @@ class ScheduleService {
 	}//end deliver()
 
 	/**
+	 * Turn a run's question or held output into a pending Approval instead of a delivery.
+	 *
+	 * Fails closed: when the Approval cannot be created, nothing is delivered and
+	 * the warning is recorded as the delivery error.
+	 *
+	 * @param string $channel The delivery channel.
+	 * @param string $output The run's output.
+	 * @param ObjectEntity $schedule The schedule.
+	 * @param string|null $conversationUuid The run's conversation.
+	 *
+	 * @return DeliveryResult|null The no-delivery outcome, or null to deliver as usual.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 *
+	 * @SuppressWarnings(PHPMD.ElseExpression) the two branches build one value from two sources; an early
+	 * return would duplicate what follows.
+	 */
+	private function holdInsteadOfDelivering(string $channel, string $output, ObjectEntity $schedule, ?string $conversationUuid): ?DeliveryResult {
+		$question = $this->lastRunQuestion;
+		if ($question === null && $this->holdsOutput(channel: $channel, output: $output, schedule: $schedule->getObject()) === false) {
+			return null;
+		}
+
+		try {
+			if ($question !== null) {
+				$this->approvalService->ensurePendingQuestion(schedule: $schedule, question: $question, runId: $this->lastRunId);
+			} else {
+				$this->approvalService->ensurePendingDraft(schedule: $schedule, channel: $channel, output: $output, conversationUuid: $conversationUuid);
+			}
+		} catch (Throwable $e) {
+			return $this->holdFailed(schedule: $schedule, error: $e);
+		}
+
+		return new DeliveryResult(delivered: false, channel: 'none', fellBack: false, warning: null);
+	}//end holdInsteadOfDelivering()
+
+	/**
+	 * Whether a run's output is held for review: a real output on a real channel,
+	 * with `holdOutput` on for the schedule or its agent.
+	 *
+	 * @param string $channel The delivery channel.
+	 * @param string $output The run's output.
+	 * @param array<string, mixed> $schedule The schedule's data.
+	 *
+	 * @return bool True when the output is held.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) OutputHold is a pure check over the schedule and agent; it holds
+	 * no state to inject.
+	 */
+	private function holdsOutput(string $channel, string $output, array $schedule): bool {
+		if ($channel === 'none' || trim($output) === '') {
+			return false;
+		}
+
+		return OutputHold::holds(schedule: $schedule, agent: $this->agentData(agentId: (string)($schedule['agentId'] ?? ''))) === true;
+	}//end holdsOutput()
+
+	/**
+	 * The fail-closed outcome when output could not be held: log it, deliver nothing.
+	 *
+	 * @param ObjectEntity $schedule The schedule.
+	 * @param Throwable $error Why holding failed.
+	 *
+	 * @return DeliveryResult The no-delivery outcome with its warning.
+	 *
+	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	private function holdFailed(ObjectEntity $schedule, Throwable $error): DeliveryResult {
+		$this->logger->warning(
+			sprintf('Hermiq could not hold the output of schedule %s for review: %s', (string)$schedule->getUuid(), $error->getMessage()),
+			['exception' => $error]
+		);
+
+		return new DeliveryResult(
+			delivered: false,
+			channel: 'none',
+			fellBack: false,
+			warning: 'The output could not be held for review, so nothing was sent.'
+		);
+	}//end holdFailed()
+
+	/**
+	 * An agent's data, or null when it cannot be read.
+	 *
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return array<string, mixed>|null The agent's data.
+	 */
+	private function agentData(string $agentId): ?array {
+		if ($agentId === '') {
+			return null;
+		}
+
+		try {
+			$agent = $this->objectService->find(
+				id: $agentId,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+				_rbac: false,
+				_multitenancy: false
+			);
+		} catch (Throwable $e) {
+			return null;
+		}
+
+		if (($agent instanceof ObjectEntity) === false) {
+			return null;
+		}
+
+		return $agent->getObject();
+	}//end agentData()
+
+	/**
 	 * The conversation uuid a Talk-room delivery may bind to, or empty.
 	 *
 	 * @param ObjectEntity $conversation The conversation this run produced.
@@ -2797,7 +3734,7 @@ class ScheduleService {
 	 *
 	 * @return string The uuid, or '' when the conversation must not be bound.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-delivery/spec.md#requirement-talk-delivery-binds-the-delivered-for-conversation-to-the-room
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-talk-delivery-binds-the-delivered-for-conversation-to-the-room
 	 */
 	private function bindableConversationUuid(ObjectEntity $conversation, bool $dryRun): string {
 		if ($dryRun === true) {
@@ -2935,7 +3872,7 @@ class ScheduleService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 */
 	private function recordFailure(ObjectEntity $schedule, Throwable $error): void {
 		$this->logger->warning(
@@ -2947,8 +3884,7 @@ class ScheduleService {
 			$uuid = (string)$schedule->getUuid();
 			$fresh = $this->objectService->find(
 				id: $uuid,
-				register: self::REGISTER_SLUG,
-				schema: self::SCHEMA_SLUG,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -2964,7 +3900,7 @@ class ScheduleService {
 			$data = $fresh->getObject();
 			$data['lastStatus'] = 'error';
 			$data['lastError'] = $error->getMessage();
-			$this->persist(schedule: $fresh, data: $data);
+			$this->persist(schedule: $fresh, data: self::withoutPending(data: $data));
 		} catch (Throwable $e) {
 			$this->logger->error(
 				'Hermiq could not record schedule failure: ' . $e->getMessage(),
@@ -2987,14 +3923,15 @@ class ScheduleService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 */
 	private function persist(ObjectEntity $schedule, array $data): void {
 		$this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $data),
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG,
-			uuid: (string)$schedule->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
+				uuid: (string)$schedule->getUuid()
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -3002,153 +3939,18 @@ class ScheduleService {
 	}//end persist()
 
 	/**
-	 * Neutralise OpenRegister read-modify-write round-trip artifacts before a save.
-	 *
-	 * The dispatcher reads a whole object via getObject(), edits a few fields, and
-	 * saves the whole array back — so OR re-validates the ENTIRE payload against the
-	 * schema, including fields OR itself materialised on read in a shape the schema
-	 * rejects. This single seam repairs the artifacts on the fields this change owns
-	 * (`nextRun`/`runAt` date-time format, and the nullable `repeat` object) so a
-	 * full-object save passes OR's own validation. It repairs OR's own read-side
-	 * shape only — it does not mask genuinely user-supplied invalid data.
+	 * Repair OpenRegister read-modify-write round-trip artifacts before a save
+	 * (see ScheduleRecordNormaliser::sanitizeForSave()).
 	 *
 	 * @param array<string,mixed> $data The payload about to be saved.
 	 *
 	 * @return array<string,mixed> The sanitised payload.
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 */
 	private function sanitizeForSave(array $data): array {
-		$data = $this->normaliseDates(data: $data);
-		$data = $this->sanitizeRepeat(data: $data);
-		$data = $this->sanitizeRetryState(data: $data);
-		return $data;
+		return (new ScheduleRecordNormaliser())->sanitizeForSave(data: $data);
 	}//end sanitizeForSave()
-
-	/**
-	 * Normalise all date-time fields in a schedule payload to ISO-8601 with `T`.
-	 *
-	 * Reparses each present `date-time` field (from any parseable form, notably OR's
-	 * `Y-m-d H:i:s`) and rewrites it with `format('c')`. Null/empty values are left
-	 * as-is; genuinely unparseable values are left untouched so validation surfaces
-	 * them rather than this method silently masking a bad payload.
-	 *
-	 * @param array<string,mixed> $data The payload about to be saved.
-	 *
-	 * @return array<string,mixed> The payload with normalised date-time fields.
-	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
-	 */
-	private function normaliseDates(array $data): array {
-		foreach (self::DATE_TIME_FIELDS as $field) {
-			if (array_key_exists($field, $data) === false) {
-				continue;
-			}
-
-			$value = $data[$field];
-			if ($value === null || $value === '') {
-				continue;
-			}
-
-			$parsed = $this->parseDate(value: (string)$value);
-			if ($parsed !== null) {
-				$data[$field] = $parsed->format('c');
-			}
-		}
-
-		return $data;
-	}//end normaliseDates()
-
-	/**
-	 * Sanitise the nullable `repeat` object against its schema constraints.
-	 *
-	 * `repeat` is optional: a schedule with no valid finite-repeat is INFINITE and
-	 * must serialise as `repeat = null`. OR's getObject() materialises the nullable
-	 * object as `{"times": 0, "completed": 0}` on read, which then fails the schema's
-	 * `repeat.times` `minimum: 1` when the whole object is saved back. This collapses
-	 * any non-finite repeat (missing, non-array, or `times < 1`) to `null`, and keeps
-	 * a genuine finite repeat only when `times >= 1` (with `completed` coerced to an
-	 * int >= 0). It repairs OR's round-trip artifact, not user intent: a user who
-	 * wants a finite repeat supplies `times >= 1`, which is preserved verbatim.
-	 *
-	 * @param array<string,mixed> $data The payload about to be saved.
-	 *
-	 * @return array<string,mixed> The payload with a schema-valid `repeat`.
-	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
-	 */
-	private function sanitizeRepeat(array $data): array {
-		if (array_key_exists('repeat', $data) === false) {
-			return $data;
-		}
-
-		$repeat = $data['repeat'];
-		if (is_array($repeat) === false || isset($repeat['times']) === false || is_numeric($repeat['times']) === false) {
-			$data['repeat'] = null;
-			return $data;
-		}
-
-		$times = (int)$repeat['times'];
-		if ($times < 1) {
-			// A times value below 1 means an infinite schedule; drop the artifact.
-			$data['repeat'] = null;
-			return $data;
-		}
-
-		$completed = 0;
-		if (isset($repeat['completed']) === true && is_numeric($repeat['completed']) === true) {
-			$completed = max(0, (int)$repeat['completed']);
-		}
-
-		$data['repeat'] = [
-			'times' => $times,
-			'completed' => $completed,
-		];
-
-		return $data;
-	}//end sanitizeRepeat()
-
-	/**
-	 * Sanitise the nullable `retryState` object against its schema constraints
-	 * (run-reliability) — mirrors sanitizeRepeat()'s OR round-trip repair.
-	 *
-	 * `retryState` is optional: no open retry sequence serialises as `null`. OR's
-	 * getObject() may materialise the nullable object as `{}` (or an incomplete
-	 * shape) on read, which this collapses back to `null`, and re-normalises a
-	 * genuine retry state's `nextAttemptAt` to ISO-8601 (the same round-trip
-	 * artifact `nextRun`/`runAt` have — see normaliseDates()).
-	 *
-	 * @param array<string,mixed> $data The payload about to be saved.
-	 *
-	 * @return array<string,mixed> The payload with a schema-valid `retryState`.
-	 *
-	 * @spec openspec/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
-	 */
-	private function sanitizeRetryState(array $data): array {
-		if (array_key_exists('retryState', $data) === false) {
-			return $data;
-		}
-
-		$state = $this->normaliseRetryState(raw: $data['retryState']);
-		if ($state === null) {
-			$data['retryState'] = null;
-			return $data;
-		}
-
-		$parsed = $this->parseDate(value: $state['nextAttemptAt']);
-		$nextAttemptAt = $state['nextAttemptAt'];
-		if ($parsed !== null) {
-			$nextAttemptAt = $parsed->format('c');
-		}
-
-		$data['retryState'] = [
-			'attempt' => $state['attempt'],
-			'nextAttemptAt' => $nextAttemptAt,
-		];
-
-		return $data;
-	}//end sanitizeRetryState()
 
 	/**
 	 * Normalise a raw `retryState` value into a `{attempt:int, nextAttemptAt:string}`
@@ -3161,21 +3963,7 @@ class ScheduleService {
 	 * @spec openspec/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
 	 */
 	private function normaliseRetryState(mixed $raw): ?array {
-		if (is_array($raw) === false) {
-			return null;
-		}
-
-		$attempt = ($raw['attempt'] ?? null);
-		$nextAttemptAt = ($raw['nextAttemptAt'] ?? null);
-		if (is_numeric($attempt) === false || empty($nextAttemptAt) === true) {
-			return null;
-		}
-
-		return [
-			'attempt' => (int)$attempt,
-			'nextAttemptAt' => (string)$nextAttemptAt,
-		];
-
+		return (new ScheduleRecordNormaliser())->normaliseRetryState(raw: $raw);
 	}//end normaliseRetryState()
 
 	/**
@@ -3209,13 +3997,14 @@ class ScheduleService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 */
 	private function deleteSchedule(ObjectEntity $schedule): void {
 		$this->objectService->deleteObject(
-			uuid: (string)$schedule->getUuid(),
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG,
+			new ObjectDeletion(
+				uuid: (string)$schedule->getUuid(),
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG)
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -3232,7 +4021,7 @@ class ScheduleService {
 	 *
 	 * @return DateTimeZone The resolved timezone.
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 */
 	private function resolveTimezone(string $owner): DateTimeZone {
 		$tz = '';
@@ -3259,7 +4048,7 @@ class ScheduleService {
 	 *
 	 * @return array{times:int, completed:int}
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 */
 	private function normaliseRepeat(mixed $repeat): array {
 		if (is_array($repeat) === false) {
@@ -3281,15 +4070,67 @@ class ScheduleService {
 	 * @return DateTimeImmutable|null The parsed UTC moment, or null when unparseable.
 	 */
 	private function parseDate(string $value): ?DateTimeImmutable {
-		if ($value === '') {
-			return null;
-		}
-
-		try {
-			return (new DateTimeImmutable($value))->setTimezone(new DateTimeZone('UTC'));
-		} catch (Throwable $e) {
-			return null;
-		}
-
+		return (new ScheduleRecordNormaliser())->parseDate(value: $value);
 	}//end parseDate()
+	/**
+	 * The session a run creates: its title, owner and agent, plus the schedule's
+	 * values for the start fields this agent declares (agents-instruction-variables).
+	 * The engine reads them, or each field's default, per turn.
+	 *
+	 * @param string               $title       The session title.
+	 * @param string               $owner       The run's acting user.
+	 * @param ObjectEntity         $agent       The agent.
+	 * @param array<string, mixed> $startValues The schedule's filtered start values.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+	 */
+	private function runSession(string $title, string $owner, ObjectEntity $agent, array $startValues): array {
+		$session = [
+			'title' => $title,
+			'userId' => $owner,
+			'agentId' => (string)$agent->getUuid(),
+		];
+		$fields = new StartFields();
+		$answers = $fields->clean(fields: $fields->fieldsOf(agentData: $agent->getObject()), values: $startValues);
+		if ($answers !== []) {
+			$session['startValues'] = $answers;
+		}
+
+		return $session;
+	}//end runSession()
+
+	/**
+	 * A schedule's start field values through the same input filter as its
+	 * prompt (agents-instruction-variables): they reach the model inside the
+	 * agent's instructions, so a blocked value stops the run and a redacted
+	 * one is used redacted.
+	 *
+	 * @param array<string, mixed> $policy The effective guardrail policy.
+	 * @param array<string, mixed> $values The schedule's start values.
+	 *
+	 * @return array<string, string>
+	 *
+	 * @throws GuardrailBlockedException When the filter blocks a value.
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+	 */
+	private function filterStartValues(array $policy, array $values): array {
+		$filtered = [];
+		foreach ($values as $key => $value) {
+			if (is_scalar($value) === false || is_bool($value) === true) {
+				continue;
+			}
+
+			$filter = $this->guardrailPolicyService->filterInput(policy: $policy, text: (string)$value);
+			if ($filter['blocked'] === true) {
+				throw new GuardrailBlockedException(reason: (string)$filter['reason']);
+			}
+
+			$filtered[(string)$key] = (string)$filter['text'];
+		}
+
+		return $filtered;
+	}//end filterStartValues()
 }//end class

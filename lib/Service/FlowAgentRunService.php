@@ -44,7 +44,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+ * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
  */
 
 declare(strict_types=1);
@@ -53,10 +53,19 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\OpenRegister\Db\Agent;
-use OCA\OpenRegister\Db\AgentMapper;
+use OCA\Hermiq\Kernel\Contracts\FlowAgentRunServiceInterface;
+use OCA\Hermiq\Service\AgentRun\AgentRunOutcome;
+use OCA\Hermiq\Service\AgentRun\FlowRunInput;
+use OCA\Hermiq\Service\AgentRun\ResultFieldWrite;
+use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
+use OCA\OpenRegister\Mcp\Db\Agent;
+use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -66,9 +75,9 @@ use Throwable;
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Coordinates several OR/Hermiq services.
  *
- * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+ * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
  */
-class FlowAgentRunService {
+class FlowAgentRunService implements FlowAgentRunServiceInterface {
 	/**
 	 * Constructor.
 	 *
@@ -93,6 +102,7 @@ class FlowAgentRunService {
 	 * @param SkillVersionService $skillVersionService Resolves the exposed skills' version identifiers,
 	 *                                                 pinned onto the run-audit context
 	 *                                                 (skill-self-improvement) — never fatal to the run.
+	 * @param TraceExportQueue|null $traceExportQueue Hands the finished run to trace export (observability-export-traces).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
 	 *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -108,6 +118,7 @@ class FlowAgentRunService {
 		private readonly BudgetService $budgetService,
 		private readonly AgentVersionService $agentVersionService,
 		private readonly SkillVersionService $skillVersionService,
+		private readonly ?TraceExportQueue $traceExportQueue = null,
 	) {
 	}//end __construct()
 
@@ -128,7 +139,7 @@ class FlowAgentRunService {
 	 *   authorisation input (normal dispatch vs. an already-approved occurrence),
 	 *   mirroring ScheduleService::runNow()'s identical parameter.
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
 	 */
 	public function run(array $payload, bool $bypassApprovalGate = false): bool {
 		try {
@@ -158,30 +169,11 @@ class FlowAgentRunService {
 	 *   (subject identity, kill-switch, budget, approval) — the spec's own decision
 	 *   points, kept together so the ordering stays auditable.
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
 	 */
 	private function dispatch(array $payload, bool $bypassApprovalGate): bool {
-		$subjectUuid = (string)($payload['subjectUuid'] ?? '');
-		$subjectRegister = (string)($payload['subjectRegister'] ?? '');
-		$subjectSchema = (string)($payload['subjectSchema'] ?? '');
-
-		if ($subjectUuid === '' || $subjectRegister === '' || $subjectSchema === '') {
-			$this->logger->warning('Hermiq flow-agent run missing subject identity; skipping.');
-			return false;
-		}
-
-		$object = $this->objectService->find(
-			id: $subjectUuid,
-			register: $subjectRegister,
-			schema: $subjectSchema,
-			_rbac: false,
-			_multitenancy: false
-		);
-
-		if (($object instanceof ObjectEntity) === false) {
-			$this->logger->warning(
-				sprintf('Hermiq flow-agent run: triggering object %s not found; skipping.', $subjectUuid)
-			);
+		$object = $this->resolveSubject(payload: $payload);
+		if ($object === null) {
 			return false;
 		}
 
@@ -190,13 +182,93 @@ class FlowAgentRunService {
 
 		// GATE 1 — KILL-SWITCH (same TenantControl data source ScheduleService reads).
 		if ($organisation !== '' && $this->scheduleService->isOrganisationEngaged(organisation: $organisation) === true) {
-			$this->writeRunAudit(object: $object, status: 'skipped_killswitch', summary: '', payload: $payload);
+			$this->writeRunAudit(
+				object: $object,
+				outcome: new AgentRunOutcome(
+					status: 'skipped_killswitch',
+					summary: '',
+					payload: $payload
+				)
+			);
 			return false;
 		}
 
-		// GATE 2 — BUDGET HARD CAP (cost-guardrails). Mirrors ScheduleService::dispatch()'s
-		// identical gate: the soft-threshold check is unconditional (never fatal), and the
-		// hard-cap block applies even to an authorised approval-bypass occurrence.
+		// GATE 1b — THE AGENT'S DEPARTMENT IS SWITCHED OFF (oversight-switch-ai-off-per-department).
+		if ($this->scheduleService->isAgentDepartmentOff(agentId: $agentId) === true) {
+			$this->writeRunAudit(
+				object: $object,
+				outcome: new AgentRunOutcome(
+					status: DepartmentSwitch::SKIPPED_STATUS,
+					summary: '',
+					payload: $payload
+				)
+			);
+			return false;
+		}
+
+		// GATE 2 — BUDGET HARD CAP (cost-guardrails), applied even to an authorised
+		// approval-bypass occurrence.
+		if ($this->budgetBlocks(organisation: $organisation, agentId: $agentId) === true) {
+			$this->writeRunAudit(object: $object, outcome: new AgentRunOutcome(status: 'skipped_budget', summary: '', payload: $payload));
+			return false;
+		}
+
+		// GATE 3 — HUMAN APPROVAL (Art. 14). A gated, unauthorised occurrence does not run.
+		$requiresApproval = (bool)($payload['requiresApproval'] ?? false);
+		if ($bypassApprovalGate === false && $requiresApproval === true) {
+			$this->holdForApproval(object: $object, payload: $payload);
+			return false;
+		}
+
+		return $this->runAgentAndWriteBack(object: $object, input: new FlowRunInput(payload: $payload, organisation: $organisation));
+	}//end dispatch()
+
+	/**
+	 * The triggering object named by the payload, read without RBAC. A payload
+	 * without a full subject identity, or naming an object that does not
+	 * exist, is logged and skipped.
+	 *
+	 * @param array<string,mixed> $payload The event payload.
+	 *
+	 * @return ObjectEntity|null The triggering object, or null to skip the run.
+	 */
+	private function resolveSubject(array $payload): ?ObjectEntity {
+		$subjectUuid = (string)($payload['subjectUuid'] ?? '');
+		$subjectRegister = (string)($payload['subjectRegister'] ?? '');
+		$subjectSchema = (string)($payload['subjectSchema'] ?? '');
+
+		if ($subjectUuid === '' || $subjectRegister === '' || $subjectSchema === '') {
+			$this->logger->warning('Hermiq flow-agent run missing subject identity; skipping.');
+			return null;
+		}
+
+		$object = $this->objectService->find(
+			id: $subjectUuid,
+			options: new ObjectFindOptions(register: $subjectRegister, schema: $subjectSchema),
+			_rbac: false,
+			_multitenancy: false
+		);
+
+		if (($object instanceof ObjectEntity) === false) {
+			$this->logger->warning(
+				sprintf('Hermiq flow-agent run: triggering object %s not found; skipping.', $subjectUuid)
+			);
+			return null;
+		}
+
+		return $object;
+	}//end resolveSubject()
+
+	/**
+	 * GATE 2: deliver the soft budget warnings (never fatal) and tell whether the
+	 * hard cap blocks this run. Mirrors ScheduleService::dispatch()'s identical gate.
+	 *
+	 * @param string $organisation The object's organisation.
+	 * @param string $agentId      The agent reference from the payload.
+	 *
+	 * @return bool Whether the budget hard cap blocks the run.
+	 */
+	private function budgetBlocks(string $organisation, string $agentId): bool {
 		try {
 			$this->budgetService->checkAndDeliverWarnings(organisation: $organisation, agentId: $agentId);
 		} catch (Throwable $e) {
@@ -206,36 +278,36 @@ class FlowAgentRunService {
 			);
 		}
 
-		if ($this->budgetService->isBlocked(organisation: $organisation, agentId: $agentId) === true) {
-			$this->writeRunAudit(object: $object, status: 'skipped_budget', summary: '', payload: $payload);
-			return false;
+		return $this->budgetService->isBlocked(organisation: $organisation, agentId: $agentId) === true;
+	}//end budgetBlocks()
+
+	/**
+	 * GATE 3: ensure a single pending Approval for this occurrence (idempotent;
+	 * a failing setup is logged) and audit the run as awaiting approval.
+	 *
+	 * @param ObjectEntity        $object  The triggering object.
+	 * @param array<string,mixed> $payload The event payload.
+	 *
+	 * @return void
+	 */
+	private function holdForApproval(ObjectEntity $object, array $payload): void {
+		$agent = $this->resolveAgent(ref: (string)($payload['agent'] ?? ''));
+		$agentOwner = '';
+		if ($agent !== null) {
+			$agentOwner = (string)($agent->getOwner() ?? '');
 		}
 
-		// GATE 3 — HUMAN APPROVAL (Art. 14). A gated, unauthorised occurrence does not
-		// run: ensure a single pending Approval (idempotent) and mark awaiting_approval.
-		$requiresApproval = (bool)($payload['requiresApproval'] ?? false);
-		if ($bypassApprovalGate === false && $requiresApproval === true) {
-			$agent = $this->resolveAgent(ref: (string)($payload['agent'] ?? ''));
-			$agentOwner = '';
-			if ($agent !== null) {
-				$agentOwner = (string)($agent->getOwner() ?? '');
-			}
-
-			try {
-				$this->approvalService->ensurePendingApprovalForFlowRun(context: $payload, agentOwner: $agentOwner);
-			} catch (Throwable $e) {
-				$this->logger->warning(
-					'Hermiq flow-agent approval gate setup failed: ' . $e->getMessage(),
-					['exception' => $e]
-				);
-			}
-
-			$this->writeRunAudit(object: $object, status: 'awaiting_approval', summary: '', payload: $payload);
-			return false;
+		try {
+			$this->approvalService->ensurePendingApprovalForFlowRun(context: $payload, agentOwner: $agentOwner);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq flow-agent approval gate setup failed: ' . $e->getMessage(),
+				['exception' => $e]
+			);
 		}
 
-		return $this->runAgentAndWriteBack(object: $object, payload: $payload, organisation: $organisation);
-	}//end dispatch()
+		$this->writeRunAudit(object: $object, outcome: new AgentRunOutcome(status: 'awaiting_approval', summary: '', payload: $payload));
+	}//end holdForApproval()
 
 	/**
 	 * Run the agent turn (via ScheduleService::runAgentAsOwner — the same
@@ -243,21 +315,18 @@ class FlowAgentRunService {
 	 * to the triggering object's configured `resultField`.
 	 *
 	 * @param ObjectEntity $object The triggering object.
-	 * @param array<string,mixed> $payload The event payload.
-	 * @param string $organisation The triggering object's organisation —
-	 *                             threaded to `runAgentAsOwner()` so its
-	 *                             defense-in-depth output-filter re-check
-	 *                             resolves the correct GuardrailPolicy
-	 *                             (agent-guardrails).
+	 * @param FlowRunInput $input The flow payload an agent run starts from, and its organisation.
 	 *
 	 * @return bool Whether the run completed successfully (result written).
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
 	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-4-wire-input-output-filters-into-scheduleservice-runagentasowner
 	 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
 	 */
-	private function runAgentAndWriteBack(ObjectEntity $object, array $payload, string $organisation = ''): bool {
+	private function runAgentAndWriteBack(ObjectEntity $object, FlowRunInput $input): bool {
+		$payload = $input->payload;
+		$organisation = $input->organisation;
 		$agentRef = (string)($payload['agent'] ?? '');
 		$resultField = (string)($payload['resultField'] ?? '');
 		$prompt = (string)($payload['prompt'] ?? '');
@@ -309,11 +378,13 @@ class FlowAgentRunService {
 				anchor: $object
 			);
 			$this->writeResultField(
-				resultField: $resultField,
-				value: $output,
-				subjectUuid: (string)$object->getUuid(),
-				subjectRegister: (string)($payload['subjectRegister'] ?? ''),
-				subjectSchema: (string)($payload['subjectSchema'] ?? '')
+				write: new ResultFieldWrite(
+					resultField: $resultField,
+					value: $output,
+					subjectUuid: (string)$object->getUuid(),
+					subjectRegister: (string)($payload['subjectRegister'] ?? ''),
+					subjectSchema: (string)($payload['subjectSchema'] ?? '')
+				)
 			);
 			$summary = $output;
 		} catch (Throwable $e) {
@@ -325,7 +396,15 @@ class FlowAgentRunService {
 			);
 		}//end try
 
-		$this->writeRunAudit(object: $object, status: $status, summary: $summary, payload: $payload, startedAt: $startedAt);
+		$this->writeRunAudit(
+			object: $object,
+			outcome: new AgentRunOutcome(
+				status: $status,
+				summary: $summary,
+				payload: $payload,
+				startedAt: $startedAt
+			)
+		);
 
 		return $status === 'ok';
 	}//end runAgentAndWriteBack()
@@ -339,7 +418,7 @@ class FlowAgentRunService {
 	 *
 	 * @return Agent|null The resolved agent, or null when unresolvable.
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
 	 */
 	private function resolveAgent(string $ref): ?Agent {
 		if ($ref === '') {
@@ -359,27 +438,21 @@ class FlowAgentRunService {
 	 * via OpenRegister's single write-path — a read-modify-write on the whole object,
 	 * mirroring how ScheduleService persists its own schedule fields.
 	 *
-	 * @param string $resultField The object field to write.
-	 * @param string $value The agent's output.
-	 * @param string $subjectUuid The triggering object's UUID.
-	 * @param string $subjectRegister The triggering object's register.
-	 * @param string $subjectSchema The triggering object's schema.
+	 * @param ResultFieldWrite $write The agent's answer and the field on the subject object it is written to.
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
 	 */
-	private function writeResultField(
-		string $resultField,
-		string $value,
-		string $subjectUuid,
-		string $subjectRegister,
-		string $subjectSchema,
-	): void {
+	private function writeResultField(ResultFieldWrite $write): void {
+		$resultField = $write->resultField;
+		$value = $write->value;
+		$subjectUuid = $write->subjectUuid;
+		$subjectRegister = $write->subjectRegister;
+		$subjectSchema = $write->subjectSchema;
 		$fresh = $this->objectService->find(
 			id: $subjectUuid,
-			register: $subjectRegister,
-			schema: $subjectSchema,
+			options: new ObjectFindOptions(register: $subjectRegister, schema: $subjectSchema),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -396,9 +469,10 @@ class FlowAgentRunService {
 
 		$this->objectService->saveObject(
 			object: $data,
-			register: $subjectRegister,
-			schema: $subjectSchema,
-			uuid: $subjectUuid,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: $subjectRegister, schema: $subjectSchema),
+				uuid: $subjectUuid
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -411,22 +485,17 @@ class FlowAgentRunService {
 	 * redaction-before-persist contract. Non-fatal by design.
 	 *
 	 * @param ObjectEntity $object The triggering object.
-	 * @param string $status The run outcome (ok|error|skipped_killswitch|skipped_budget|awaiting_approval).
-	 * @param string $summary The raw run output/error (redacted here).
-	 * @param array<string,mixed> $payload The event payload (for agentId/flowName diagnostics).
-	 * @param DateTimeImmutable|null $startedAt When the agent turn began, if it ran (UTC).
+	 * @param AgentRunOutcome $outcome How one agent run ended, as its audit entry records it.
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
 	 */
-	private function writeRunAudit(
-		ObjectEntity $object,
-		string $status,
-		string $summary,
-		array $payload,
-		?DateTimeImmutable $startedAt = null,
-	): void {
+	private function writeRunAudit(ObjectEntity $object, AgentRunOutcome $outcome): void {
+		$status = $outcome->status;
+		$summary = $outcome->summary;
+		$payload = $outcome->payload;
+		$startedAt = $outcome->startedAt;
 		try {
 			$endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 			$started = ($startedAt ?? $endedAt);
@@ -450,11 +519,14 @@ class FlowAgentRunService {
 				'skillVersions' => $this->skillVersionService->pinsFor(skillUuids: $this->scheduleService->getLastRunSkillsUsed()),
 			];
 
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $object,
-				action: 'agent-run',
-				context: $context
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $object,
+					action: 'agent-run',
+					context: $context
+				)
 			);
+			$this->traceExportQueue?->enqueueRun(context: $context, trigger: 'flow');
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				sprintf(

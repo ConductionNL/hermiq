@@ -305,6 +305,16 @@ else
 fi
 
 # =============================================================================
+# (j2) The built-in denylist is never relaxed for code editing
+#      (hermiq-runner-git-capability): read from the argv a governed turn builds
+# =============================================================================
+if node --test "${ROOT}/test/denylist-integrity.test.js" > "${WORK}/denylist.log" 2>&1; then
+    pass "(j2) denylist integrity (shell and filesystem built-ins denied, ToolSearch kept)"
+else
+    fail "(j2) denylist integrity failed"; cat "${WORK}/denylist.log" || true
+fi
+
+# =============================================================================
 # (k) The push fences, WIRED — against a real git remote that demands a credential
 #
 # ⚠️ (j) proves the fence functions refuse. It proves NOTHING about whether
@@ -353,6 +363,15 @@ else
 fi
 
 # =============================================================================
+# (m) Subscription sign-in through the vendor CLI (models-provider-connections):
+#     URL out, code in, token returned once, home removed, ten-minute limit,
+#     the ChatGPT auth file written 0600 into the turn's home
+# =============================================================================
+if node --test "${ROOT}/test/login.test.js" > "${WORK}/login.log" 2>&1; then
+    pass "(m) sign-in tests (code and device sign-in, cleanup, time limit, auth file)"
+else
+    fail "(m) sign-in tests failed"; cat "${WORK}/login.log" || true
+fi
 
 # =============================================================================
 echo

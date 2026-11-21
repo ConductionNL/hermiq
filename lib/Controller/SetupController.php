@@ -33,8 +33,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\DemoDataService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\DemoDataServiceInterface;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -84,11 +84,10 @@ class SetupController extends Controller {
 	/**
 	 * App-config key holding the dataset the operator picked.
 	 *
-	 * The wizard's `choice` step writes it through `POST /api/setup/config`, and
-	 * the `run-action` step that follows reads it back. Two steps rather than
-	 * one because `CnSetupWizard::runAction()` posts to
-	 * `/api/setup/action/{action}` with no body: an action cannot carry the
-	 * answer, so the answer has to be stored before the action runs.
+	 * The wizard's `choice` step writes it through `POST /api/setup/config`.
+	 * Each card's Load button posts `{ dataset }` to the `load-demo-data`
+	 * action, which stores the same key once the load succeeds, so both routes
+	 * land in one place (`loadAction` on the step, wizard-dataset-card-load).
 	 *
 	 * @var string
 	 */
@@ -102,31 +101,22 @@ class SetupController extends Controller {
 	private const DEFAULT_ENDPOINT = 'http://host.docker.internal:11434';
 
 	/**
-	 * Hosts an LLM endpoint may point at. Keeps the probe from becoming an SSRF
-	 * primitive — the realistic Ollama locations in a Nextcloud deployment are
-	 * the loopback interface or the Docker host gateway.
-	 *
-	 * @var array<int, string>
-	 */
-	private const ALLOWED_LLM_HOSTS = ['localhost', '127.0.0.1', '::1', 'host.docker.internal'];
-
-	/**
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request.
 	 * @param IClientService $clientService Nextcloud HTTP client factory.
 	 * @param IAppConfig $appConfig App-config reader/writer.
 	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param DemoDataService $demoDataService Imports the shipped demo dataset (ADR-111 rule 4).
+	 * @param DemoDataServiceInterface $demoDataService Imports the shipped demo dataset (ADR-111 rule 4).
 	 */
 	public function __construct(
 		IRequest $request,
 		private readonly IClientService $clientService,
 		private readonly IAppConfig $appConfig,
 		private readonly LoggerInterface $logger,
-		private readonly DemoDataService $demoDataService,
+		private readonly DemoDataServiceInterface $demoDataService,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 
@@ -135,7 +125,7 @@ class SetupController extends Controller {
 	 *
 	 * @return JSONResponse `{ version, completed, steps: { <id>: { done } } }`.
 	 *
-	 * @spec exclude First-time-setup status; no behavioural spec.
+	 * @spec openspec/specs/first-time-setup/spec.md
 	 *
 	 * @no-admin-idor-exempt Availability probe. Takes no caller-supplied object
 	 * id and reads no user or organisation data — it reports whether the
@@ -152,15 +142,15 @@ class SetupController extends Controller {
 	 */
 	public function status(): JSONResponse {
 		$llmTested = $this->config(key: 'setup_llm_tested') === '1';
-		$demoDecided = $this->appConfig->getValueString(Application::APP_ID, self::DEMO_DECIDED_KEY, '') !== '';
-		$pickedDataset = $this->appConfig->getValueString(Application::APP_ID, self::DATASET_KEY, '');
+		$demoDecided = $this->appConfig->getValueString(AppIdentity::APP_ID, self::DEMO_DECIDED_KEY, '') !== '';
+		$pickedDataset = $this->appConfig->getValueString(AppIdentity::APP_ID, self::DATASET_KEY, '');
 		// `completed` stays the REQUIRED step alone. Demo data is optional, so
 		// it must not gate the app — it only needs to be reportable, so the
 		// wizard can stop asking once it has an answer.
 		$completed = $llmTested;
 
 		if ($completed === true) {
-			$this->appConfig->setValueString(Application::APP_ID, 'setup_completed_version', (string)self::SETUP_VERSION);
+			$this->appConfig->setValueString(AppIdentity::APP_ID, 'setup_completed_version', (string)self::SETUP_VERSION);
 		}
 
 		return new JSONResponse(
@@ -171,19 +161,21 @@ class SetupController extends Controller {
 				// `optionsSource: datasets` and no options of its own, so a
 				// dataset missing from this list is a dataset nobody can pick.
 				'datasets' => $this->demoDataService->listChoices(),
+				// Every id of `manifest.setup.steps`: a step the server never
+				// reports stays open, and an open step reopens the wizard.
 				'steps' => [
+					'welcome' => ['done' => true],
 					// DEALT WITH, not "objects exist" — see DEMO_DECIDED_KEY.
 					// A step the wizard can never mark done keeps the dialog
 					// open over every page, which since nextcloud-vue 2.21 is
 					// enough on its own: an OUTSTANDING OPTIONAL step opens the
 					// wizard (nextcloud-vue#806).
-					'demo-data' => ['done' => ($pickedDataset !== '')],
-					// "None" is an ANSWER, so the load step is finished the
-					// moment it is chosen: there is nothing left to run.
-					'load-demo-data' => [
-						'done' => ($demoDecided === true || $pickedDataset === DemoDataService::NONE_DATASET),
-					],
+					// A pick without a load still counts: a wizard that predates
+					// `loadAction` can only record the pick.
+					'demo-data' => ['done' => ($demoDecided === true || $pickedDataset !== '')],
+					'llm-endpoint' => ['done' => ($llmTested === true || $this->config(key: 'llmendpoint') !== '')],
 					'test-llm' => ['done' => $llmTested],
+					'done' => ['done' => $completed],
 				],
 			]
 		);
@@ -205,46 +197,72 @@ class SetupController extends Controller {
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function saveConfig(): JSONResponse {
-		// 🔴 THE DATASET IS VALIDATED BEFORE IT IS STORED. The allow-list above
-		// keeps this endpoint from writing arbitrary keys; it says nothing
-		// about the VALUE. The load step reads this one back and hands it to
-		// the importer, so an unknown value would surface one step later as a
-		// failed import with no clue why.
-		$dataset = $this->request->getParam(self::DATASET_KEY);
-		if ($dataset !== null) {
-			$named = 'that';
-			if (is_scalar($dataset) === true) {
-				$named = (string)$dataset;
-			}
-
-			$known = array_column($this->demoDataService->listChoices(), 'id');
-			if (in_array($named, $known, true) === false) {
-				return new JSONResponse(
-					data: ['success' => false, 'message' => 'No dataset is called "' . $named . '".'],
-					statusCode: Http::STATUS_BAD_REQUEST,
-				);
-			}
+		$refusal = $this->postedDatasetRefusal();
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
-		foreach ($this->request->getParams() as $key => $value) {
-			if (in_array($key, self::WRITABLE_KEYS, true) === false) {
-				continue;
-			}
+		$this->storeWritable(params: $this->request->getParams());
 
+		return new JSONResponse(data: ['success' => true]);
+	}//end saveConfig()
+
+	/**
+	 * Refuse a posted dataset no dataset answers to; no dataset posted is no refusal.
+	 *
+	 * 🔴 THE DATASET IS VALIDATED BEFORE IT IS STORED. The allow-list keeps
+	 * saveConfig() from writing arbitrary keys; it says nothing about the VALUE.
+	 * The load step reads this one back and hands it to the importer, so an
+	 * unknown value would surface one step later as a failed import with no clue why.
+	 *
+	 * @return JSONResponse|null The 400 naming the dataset, or null.
+	 *
+	 * @spec exclude First-time-setup config persistence; no behavioural spec.
+	 */
+	private function postedDatasetRefusal(): ?JSONResponse {
+		$dataset = $this->request->getParam(self::DATASET_KEY);
+		if ($dataset === null) {
+			return null;
+		}
+
+		$named = 'that';
+		if (is_scalar($dataset) === true) {
+			$named = (string)$dataset;
+		}
+
+		if (in_array($named, array_column($this->demoDataService->listChoices(), 'id'), true) === true) {
+			return null;
+		}
+
+		return new JSONResponse(
+			data: ['success' => false, 'message' => 'No dataset is called "' . $named . '".'],
+			statusCode: Http::STATUS_BAD_REQUEST,
+		);
+	}//end postedDatasetRefusal()
+
+	/**
+	 * Store every allow-listed parameter; a non-scalar value is stored empty.
+	 *
+	 * @param array<array-key, mixed> $params The request parameters.
+	 *
+	 * @return void
+	 *
+	 * @spec exclude First-time-setup config persistence; no behavioural spec.
+	 */
+	private function storeWritable(array $params): void {
+		foreach (array_intersect_key($params, array_flip(self::WRITABLE_KEYS)) as $key => $value) {
 			$stored = '';
 			if (is_scalar($value) === true) {
 				$stored = (string)$value;
 			}
 
 			$this->appConfig->setValueString(
-				Application::APP_ID,
+				AppIdentity::APP_ID,
 				(string)$key,
 				$stored,
 			);
 		}
-
-		return new JSONResponse(data: ['success' => true]);
-	}//end saveConfig()
+	}//end storeWritable()
 
 	/**
 	 * Run a privileged server-side setup action (admin-only).
@@ -277,13 +295,10 @@ class SetupController extends Controller {
 		// on every visit, so "no thanks" is not expressible and the step never
 		// closes — which is also what keeps the dialog over the page.
 		//
-		// 🔴 AND IT ANSWERS *BOTH* STEPS now that the question is a choice
-		// followed by a run-action: closing only the second leaves the first
-		// outstanding, and that is enough to keep the wizard open.
+		// Skipping IS choosing "None", so both keys are written: an older
+		// runbook may read either one.
 		if ($actionId === 'skip-demo-data') {
-			$this->appConfig->setValueString(Application::APP_ID, self::DATASET_KEY, DemoDataService::NONE_DATASET);
-			$this->appConfig->setValueString(Application::APP_ID, self::DEMO_DECIDED_KEY, 'skipped');
-			return new JSONResponse(data: ['success' => true, 'message' => 'No example data was loaded.']);
+			return $this->declineDemoData();
 		}
 
 		return new JSONResponse(
@@ -294,7 +309,8 @@ class SetupController extends Controller {
 	}//end runAction()
 
 	/**
-	 * Import the dataset the operator picked in the previous step.
+	 * Import the dataset a card's Load button posted as `dataset`, or the
+	 * stored pick when nothing is posted.
 	 *
 	 * Reports the FAILURE, rather than a quiet success: an operator who asked
 	 * for demo data and got none must be told, and `DemoDataService::install()`
@@ -305,15 +321,12 @@ class SetupController extends Controller {
 	 *
 	 * @return JSONResponse `{ success, message }`.
 	 *
-	 * @spec exclude First-time-setup action dispatch; no behavioural spec.
+	 * @spec openspec/specs/first-time-setup/spec.md
 	 */
 	private function loadDataset(string $actionId): JSONResponse {
-		$picked = $this->appConfig->getValueString(Application::APP_ID, self::DATASET_KEY, '');
-
-		// The legacy id carries no answer, so it means the shipped dataset. A
-		// caller that posts it has said which one by posting it.
-		if ($actionId === 'install-demo-data' && $picked === '') {
-			$picked = DemoDataService::DEMO_DATASET;
+		$picked = $this->pickedDataset(actionId: $actionId);
+		if ($picked instanceof JSONResponse) {
+			return $picked;
 		}
 
 		// 🔴 NO SILENT DEFAULT. Importing here because the operator clicked Run
@@ -325,35 +338,130 @@ class SetupController extends Controller {
 			);
 		}
 
-		if ($picked === DemoDataService::NONE_DATASET) {
-			$this->appConfig->setValueString(Application::APP_ID, self::DEMO_DECIDED_KEY, 'skipped');
-
-			return new JSONResponse(data: ['success' => true, 'message' => 'No example data was loaded.']);
+		if ($picked === DemoDataServiceInterface::NONE_DATASET) {
+			return $this->declineDemoData();
 		}
 
+		return $this->importDataset(picked: $picked);
+	}//end loadDataset()
+
+	/**
+	 * The dataset to load: the one the card posted, else the stored pick, else —
+	 * for the legacy action only — the shipped dataset; or the refusal of a posted
+	 * dataset no dataset answers to.
+	 *
+	 * The card's Load button names its dataset in the body. An older wizard
+	 * posts nothing and relies on the pick stored a step earlier. Nothing is
+	 * stored before the load succeeds: a failed load must leave the step
+	 * open for an operator who asked for data and got none.
+	 *
+	 * @param string $actionId The action that asked.
+	 *
+	 * @return string|JSONResponse The dataset id ('' when none is chosen), or the refusal.
+	 */
+	private function pickedDataset(string $actionId): string|JSONResponse {
+		$picked = $this->appConfig->getValueString(AppIdentity::APP_ID, self::DATASET_KEY, '');
+
+		$posted = $this->request->getParam('dataset');
+		if ($posted !== null) {
+			$refusal = $this->refuseDataset(value: $posted);
+			if ($refusal !== null) {
+				return $refusal;
+			}
+
+			$picked = (string)$posted;
+		}
+
+		// The legacy id carries no answer, so it means the shipped dataset. A
+		// caller that posts it has said which one by posting it.
+		if ($actionId === 'install-demo-data' && $picked === '') {
+			$picked = DemoDataServiceInterface::DEMO_DATASET;
+		}
+
+		return $picked;
+	}//end pickedDataset()
+
+	/**
+	 * Record that no example data is wanted, which closes both the choice and the load step.
+	 *
+	 * Skipping IS choosing "None", so both keys are written: an older runbook
+	 * may read either one.
+	 *
+	 * @return JSONResponse `{ success: true, message }`.
+	 */
+	private function declineDemoData(): JSONResponse {
+		$this->appConfig->setValueString(AppIdentity::APP_ID, self::DATASET_KEY, DemoDataServiceInterface::NONE_DATASET);
+		$this->appConfig->setValueString(AppIdentity::APP_ID, self::DEMO_DECIDED_KEY, 'skipped');
+
+		return new JSONResponse(data: ['success' => true, 'message' => 'No example data was loaded.']);
+	}//end declineDemoData()
+
+	/**
+	 * Import the picked dataset and record the pick; a failed import is reported, and stores nothing.
+	 *
+	 * @param string $picked The dataset id.
+	 *
+	 * @return JSONResponse `{ success, message }`.
+	 */
+	private function importDataset(string $picked): JSONResponse {
 		try {
 			$imported = $this->demoDataService->install();
 		} catch (\Throwable $e) {
-			$this->logger->error(
-				'Hermiq setup install-demo-data failed: ' . $e->getMessage(),
-				['app' => Application::APP_ID, 'exception' => $e]
-			);
-			return new JSONResponse(
-				data: ['success' => false, 'message' => 'Could not import the demo data: ' . $e->getMessage()],
-				statusCode: Http::STATUS_INTERNAL_SERVER_ERROR,
-			);
+			return $this->importFailed(error: $e);
 		}
 
-		$this->appConfig->setValueString(Application::APP_ID, self::DEMO_DECIDED_KEY, 'installed');
+		// Loading IS choosing the set, so the pick is recorded too.
+		$this->appConfig->setValueString(AppIdentity::APP_ID, self::DATASET_KEY, $picked);
+		$this->appConfig->setValueString(AppIdentity::APP_ID, self::DEMO_DECIDED_KEY, 'installed');
 
-		return new JSONResponse(
-			data: [
-				'success' => true,
-				'message' => 'Imported ' . $imported['objects'] . ' demo object(s).',
-			]
+		return new JSONResponse(data: ['success' => true, 'message' => 'Imported ' . $imported['objects'] . ' demo object(s).']);
+	}//end importDataset()
+
+	/**
+	 * Log a failed import and report it.
+	 *
+	 * @param \Throwable $error Why the import failed.
+	 *
+	 * @return JSONResponse `{ success: false, message }` with a 500.
+	 */
+	private function importFailed(\Throwable $error): JSONResponse {
+		$this->logger->error(
+			'Hermiq setup install-demo-data failed: ' . $error->getMessage(),
+			['app' => AppIdentity::APP_ID, 'exception' => $error]
 		);
 
-	}//end loadDataset()
+		return new JSONResponse(
+			data: ['success' => false, 'message' => 'Could not import the demo data: ' . $error->getMessage()],
+			statusCode: Http::STATUS_INTERNAL_SERVER_ERROR,
+		);
+	}//end importFailed()
+
+	/**
+	 * Refuse a posted dataset id no dataset answers to.
+	 *
+	 * @param mixed $value The posted value.
+	 *
+	 * @return JSONResponse|null The refusal, or null when the dataset is known.
+	 *
+	 * @spec openspec/specs/first-time-setup/spec.md
+	 */
+	private function refuseDataset(mixed $value): ?JSONResponse {
+		$named = 'that';
+		if (is_scalar($value) === true) {
+			$named = (string)$value;
+		}
+
+		$known = array_column($this->demoDataService->listChoices(), 'id');
+		if (is_scalar($value) === true && in_array($named, $known, true) === true) {
+			return null;
+		}
+
+		return new JSONResponse(
+			data: ['success' => false, 'message' => 'No dataset is called "' . $named . '".'],
+			statusCode: Http::STATUS_BAD_REQUEST,
+		);
+
+	}//end refuseDataset()
 
 	/**
 	 * Probe the configured LLM endpoint (Ollama /api/tags), record the first
@@ -362,12 +470,9 @@ class SetupController extends Controller {
 	 * @return JSONResponse `{ success, message }`.
 	 */
 	private function testLlm(): JSONResponse {
-		$base = trim($this->config(key: 'llmendpoint'));
-		if ($base === '') {
-			$base = self::DEFAULT_ENDPOINT;
-		}
-
-		if ($this->isAllowedEndpoint(endpoint: $base) === false) {
+		$base = $this->llmEndpoint();
+		$probe = new LlmEndpointProbe(clientService: $this->clientService);
+		if ($probe->isAllowedEndpoint(endpoint: $base) === false) {
 			return new JSONResponse(
 				data: [
 					'success' => false,
@@ -377,87 +482,85 @@ class SetupController extends Controller {
 			);
 		}
 
-		$url = rtrim($base, '/') . '/api/tags';
+		return $this->probeModels(probe: $probe, url: rtrim($base, '/') . '/api/tags');
+	}//end testLlm()
 
+	/**
+	 * The configured LLM endpoint, or the default Ollama endpoint when none is set.
+	 *
+	 * @return string The endpoint URL.
+	 */
+	private function llmEndpoint(): string {
+		$base = trim($this->config(key: 'llmendpoint'));
+		if ($base === '') {
+			return self::DEFAULT_ENDPOINT;
+		}
+
+		return $base;
+	}//end llmEndpoint()
+
+	/**
+	 * Ask an allow-listed host for its models and answer with what it advertises;
+	 * an unreachable host (or any failure on the way) is reported, never thrown.
+	 *
+	 * @param LlmEndpointProbe $probe The probe.
+	 * @param string $url The `/api/tags` URL of an allow-listed endpoint.
+	 *
+	 * @return JSONResponse `{ success, message }`.
+	 */
+	private function probeModels(LlmEndpointProbe $probe, string $url): JSONResponse {
 		try {
-			$client = $this->clientService->newClient();
-			// Opt this single request past Nextcloud's local-address guard: the LLM host is a
-			// loopback / Docker-gateway service (the realistic Ollama location), and the host is
-			// already constrained to the ALLOWED_LLM_HOSTS allow-list above, so this is not an
-			// open SSRF. The global guard stays on for every other request.
-			$response = $client->get(
-				$url,
-				[
-					'timeout' => 5,
-					'connect_timeout' => 3,
-					'nextcloud' => ['allow_local_address' => true],
-				]
-			);
-			$decoded = json_decode((string)$response->getBody(), true);
-
-			$models = [];
-			foreach (($decoded['models'] ?? []) as $model) {
-				$name = (string)($model['name'] ?? '');
-				if ($name !== '') {
-					$models[] = $name;
-				}
-			}
-
-			if ($models === []) {
-				return new JSONResponse(
-					data: ['success' => false, 'message' => 'Reachable, but the host advertises no models. Pull a model on the Ollama host first.']
-				);
-			}
-
-			$this->appConfig->setValueString(Application::APP_ID, 'defaultmodel', $models[0]);
-			$this->appConfig->setValueString(Application::APP_ID, 'setup_llm_tested', '1');
-
-			$sample = implode(', ', array_slice($models, 0, 4));
-			$plural = 's';
-			if (count($models) === 1) {
-				$plural = '';
-			}
-
-			return new JSONResponse(
-				data: [
-					'success' => true,
-					'message' => sprintf(
-						'Connected — %d model%s (%s). Default set to "%s".',
-						count($models),
-						$plural,
-						$sample,
-						$models[0],
-					),
-				]
-			);
+			return $this->modelsAnswer(models: $probe->advertisedModels(url: $url));
 		} catch (Throwable $e) {
 			$this->logger->debug('[Hermiq] LLM test failed: ' . $e->getMessage());
 			return new JSONResponse(
 				data: ['success' => false, 'message' => 'Not reachable: ' . $e->getMessage()]
 			);
 		}//end try
-
-	}//end testLlm()
+	}//end probeModels()
 
 	/**
-	 * Whether an LLM endpoint URL is a well-formed http(s) URL pointing at an allow-listed host.
+	 * The answer to a reachable host: no models, or the first one recorded as the
+	 * default and the LLM step marked done.
 	 *
-	 * @param string $endpoint The endpoint URL.
+	 * @param array<int, string> $models The advertised model names.
 	 *
-	 * @return bool True when the endpoint may be probed.
+	 * @return JSONResponse `{ success, message }`.
 	 */
-	private function isAllowedEndpoint(string $endpoint): bool {
-		$parts = parse_url($endpoint);
-		if ($parts === false || isset($parts['scheme']) === false || isset($parts['host']) === false) {
-			return false;
+	private function modelsAnswer(array $models): JSONResponse {
+		if ($models === []) {
+			return new JSONResponse(
+				data: ['success' => false, 'message' => 'Reachable, but the host advertises no models. Pull a model on the Ollama host first.']
+			);
 		}
 
-		if (in_array(strtolower($parts['scheme']), ['http', 'https'], true) === false) {
-			return false;
+		$this->appConfig->setValueString(AppIdentity::APP_ID, 'defaultmodel', $models[0]);
+		$this->appConfig->setValueString(AppIdentity::APP_ID, 'setup_llm_tested', '1');
+
+		return new JSONResponse(data: ['success' => true, 'message' => $this->connectedMessage(models: $models)]);
+	}//end modelsAnswer()
+
+	/**
+	 * `Connected — N model(s) (first four). Default set to "first".`
+	 *
+	 * @param array<int, string> $models The advertised model names (at least one).
+	 *
+	 * @return string The message.
+	 */
+	private function connectedMessage(array $models): string {
+		$plural = 's';
+		if (count($models) === 1) {
+			$plural = '';
 		}
 
-		return in_array(strtolower($parts['host']), self::ALLOWED_LLM_HOSTS, true);
-	}//end isAllowedEndpoint()
+		return sprintf(
+			'Connected — %d model%s (%s). Default set to "%s".',
+			count($models),
+			$plural,
+			implode(', ', array_slice($models, 0, 4)),
+			$models[0],
+		);
+	}//end connectedMessage()
 
 	/**
 	 * Read a Hermiq app-config string value.
@@ -467,6 +570,6 @@ class SetupController extends Controller {
 	 * @return string The value, or '' when unset.
 	 */
 	private function config(string $key): string {
-		return $this->appConfig->getValueString(Application::APP_ID, $key, '');
+		return $this->appConfig->getValueString(AppIdentity::APP_ID, $key, '');
 	}//end config()
 }//end class

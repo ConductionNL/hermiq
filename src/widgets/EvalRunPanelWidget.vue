@@ -36,6 +36,18 @@
 			{{ error }}
 		</NcNoteCard>
 
+		<NcNoteCard
+			v-if="isTemplate"
+			type="info"
+			:heading="t('hermiq', 'This test set is a template')">
+			{{
+				t(
+					'hermiq',
+					'A template cannot be changed or run. Pick one of your agents and choose "Use for this agent" to get a copy you can edit and run.',
+				)
+			}}
+		</NcNoteCard>
+
 		<div class="eval-run-panel-widget__controls">
 			<NcSelect
 				v-model="selectedAgent"
@@ -46,7 +58,18 @@
 				trackBy="value"
 				:placeholder="t('hermiq', 'Select an agent')" />
 			<NcButton
-				type="primary"
+				v-if="isTemplate"
+				variant="primary"
+				:disabled="copying || !selectedAgent"
+				@click="useForAgent">
+				<template v-if="copying" #icon>
+					<NcLoadingIcon :size="20" />
+				</template>
+				{{ t('hermiq', 'Use for this agent') }}
+			</NcButton>
+			<NcButton
+				v-else
+				variant="primary"
 				:disabled="running || !selectedAgent"
 				@click="run">
 				<template v-if="running" #icon>
@@ -56,7 +79,7 @@
 			</NcButton>
 		</div>
 
-		<div class="eval-run-panel-widget__baseline">
+		<div v-if="!isTemplate" class="eval-run-panel-widget__baseline">
 			<NcCheckboxRadioSwitch
 				v-model="baseline"
 				type="switch"
@@ -75,6 +98,38 @@
 				{{ costNote }}
 			</p>
 		</div>
+
+		<section v-if="!isTemplate" class="eval-run-panel-widget__schedules">
+			<h3 class="eval-run-panel-widget__schedules-title">
+				{{ t('hermiq', 'Run on a schedule') }}
+			</h3>
+			<ul v-if="schedules.length > 0" class="eval-run-panel-widget__schedule-list">
+				<li
+					v-for="schedule in schedules"
+					:key="schedule.id"
+					class="eval-run-panel-widget__schedule">
+					<strong>{{ agentName(schedule.agentId) }}</strong>
+					<span>{{ scheduleFrequencyLabel(schedule.cronExpr) }}</span>
+					<span>{{ scheduleStateLabel(schedule) }}</span>
+					<NcButton variant="tertiary" @click="openScheduleForm(schedule)">
+						{{ t('hermiq', 'Change') }}
+					</NcButton>
+				</li>
+			</ul>
+			<p v-else class="eval-run-panel-widget__hint">
+				{{ t('hermiq', 'This dataset does not run on a schedule yet.') }}
+			</p>
+			<NcButton variant="secondary" @click="openScheduleForm(null)">
+				{{ t('hermiq', 'Add a schedule') }}
+			</NcButton>
+			<EvalScheduleFormModal
+				v-if="scheduleForm.open"
+				:agentOptions="agentOptions"
+				:schedule="scheduleForm.schedule"
+				:busy="scheduleForm.busy"
+				@save="saveSchedule"
+				@close="scheduleForm.open = false" />
+		</section>
 
 		<div v-if="runs.length > 0" class="eval-run-panel-widget__runs">
 			<table class="eval-run-panel-widget__table">
@@ -123,7 +178,7 @@
 							<td>
 								<NcButton
 									v-if="runRow.baselineMode"
-									type="tertiary"
+									variant="tertiary"
 									:aria-label="
 										t('hermiq', 'Toggle paired run details')
 									"
@@ -226,7 +281,7 @@
 				</tbody>
 			</table>
 		</div>
-		<p v-else class="eval-run-panel-widget__empty-hint">
+		<p v-else-if="!isTemplate" class="eval-run-panel-widget__empty-hint">
 			{{ t('hermiq', 'No runs yet — pick an agent and run this dataset.') }}
 		</p>
 	</div>
@@ -241,18 +296,32 @@ import {
 	NcNoteCard,
 	NcSelect,
 } from '@nextcloud/vue'
-import { runEval } from '../api/evals.js'
+import EvalScheduleFormModal from '../modals/EvalScheduleFormModal.vue'
+import { listEvalSchedules, runEval, saveEvalSchedule, useEvalTemplate } from '../api/evals.js'
 import { listSkills } from '../api/skills.js'
 import {
 	useAgentStore,
 	useEvalDatasetStore,
 	useEvalRunStore,
 } from '../store/store.js'
+import { frequencyLabel } from '../utils/evalSchedules.js'
+import {
+	agentBaselineMode,
+	agentPickerOptions,
+	asList,
+	baselineCostNote,
+	deltaLabel,
+	formatDate,
+	latestDatasetRuns,
+	loadErrorMessage,
+	passRateLabel,
+} from './evalRunLabels.js'
 
 export default {
 	name: 'EvalRunPanelWidget',
 
 	components: {
+		EvalScheduleFormModal,
 		NcButton,
 		NcCheckboxRadioSwitch,
 		NcLoadingIcon,
@@ -269,6 +338,9 @@ export default {
 			selectedAgent: null,
 			baseline: false,
 			running: false,
+			copying: false,
+			schedules: [],
+			scheduleForm: { open: false, schedule: null, busy: false },
 			expandedRunId: null,
 			error: '',
 		}
@@ -292,10 +364,7 @@ export default {
 		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 */
 		agentOptions() {
-			return this.agents.map((agent) => ({
-				label: agent.name || agent.uuid || agent.id,
-				value: agent.uuid || agent.id,
-			}))
+			return agentPickerOptions(this.agents)
 		},
 
 		/**
@@ -321,16 +390,23 @@ export default {
 		},
 
 		/**
+		 * Whether this dataset is a seeded, read-only template.
+		 *
+		 * @return {boolean} True for a template.
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
+		 */
+		isTemplate() {
+			return this.dataset?.template === true
+		},
+
+		/**
 		 * The selected agent's evalBaselineMode ('joint' unless explicitly 'per-skill').
 		 *
 		 * @spec openspec/specs/agent-evals/spec.md#requirement-every-half-of-a-paired-run-counts-toward-the-same-budgets-and-gates
 		 * @return {string} joint|per-skill.
 		 */
 		selectedAgentMode() {
-			const agent = this.agents.find(
-				(entry) => (entry.uuid || entry.id) === this.selectedAgent?.value,
-			)
-			return agent?.evalBaselineMode === 'per-skill' ? 'per-skill' : 'joint'
+			return agentBaselineMode(this.agents, this.selectedAgent?.value)
 		},
 
 		/**
@@ -341,18 +417,7 @@ export default {
 		 * @return {string} The translated cost note.
 		 */
 		costNote() {
-			if (this.selectedAgentMode === 'per-skill') {
-				const count = this.linkedSkillIds.length
-				return this.t(
-					'hermiq',
-					'Per-skill baseline: every case runs {times} times (one without-half per linked skill) — about {times}x the token cost of a normal run, counted against the same budgets.',
-					{ times: count + 1 },
-				)
-			}
-			return this.t(
-				'hermiq',
-				'Joint baseline: every case runs twice (all linked skills detached together) — about 2x the token cost of a normal run, counted against the same budgets. Link one skill per dataset for the cleanest attribution.',
-			)
+			return baselineCostNote(this.selectedAgentMode, this.linkedSkillIds.length + 1)
 		},
 	},
 
@@ -369,9 +434,14 @@ export default {
 		this.datasetStore = useEvalDatasetStore()
 		this.datasetStore.registerObjectType('evaldataset', 'evaldataset', 'hermiq')
 		this.load()
+		this.loadSchedules()
 	},
 
 	methods: {
+		deltaLabel,
+		formatDate,
+		passRateLabel,
+
 		/**
 		 * Load the caller's agents, this dataset (for its skillRefs), the skill
 		 * catalogue (for names), and this dataset's prior runs.
@@ -382,31 +452,32 @@ export default {
 		async load() {
 			this.error = ''
 			try {
-				const [agents, runs, dataset, skills] = await Promise.all([
-					this.agentStore.fetchCollection('agent').catch(() => []),
-					this.runStore.fetchCollection('evalrun').catch(() => []),
-					this.datasetStore
-						.fetchObject('evaldataset', this.datasetId)
-						.catch(() => null),
-					listSkills().catch(() => []),
-				])
-				this.agents = Array.isArray(agents) ? agents : []
+				const [agents, runs, dataset, skills] = await this.fetchPanelData()
+				this.agents = asList(agents)
 				this.dataset = dataset || null
-				this.skills = Array.isArray(skills) ? skills : []
-				this.runs = (Array.isArray(runs) ? runs : [])
-					.filter((runRow) => runRow.datasetId === this.datasetId)
-					.sort((a, b) =>
-						String(b.startedAt || '').localeCompare(
-							String(a.startedAt || ''),
-						),
-					)
-					.slice(0, 10)
+				this.skills = asList(skills)
+				this.runs = latestDatasetRuns(asList(runs), this.datasetId)
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = loadErrorMessage(e, this.t('hermiq', 'Unknown error'))
 			}
+		},
+
+		/**
+		 * Fetch the caller's agents and runs, this dataset and the skill catalogue
+		 * together; a failed read answers empty.
+		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
+		 * @return {Promise<Array>} agents, runs, dataset, skills.
+		 */
+		fetchPanelData() {
+			return Promise.all([
+				this.agentStore.fetchCollection('agent').catch(() => []),
+				this.runStore.fetchCollection('evalrun').catch(() => []),
+				this.datasetStore
+					.fetchObject('evaldataset', this.datasetId)
+					.catch(() => null),
+				listSkills().catch(() => []),
+			])
 		},
 
 		/**
@@ -441,6 +512,110 @@ export default {
 				)
 			} finally {
 				this.running = false
+			}
+		},
+
+		/**
+		 * Load this dataset's schedules; none when the read fails (a template has none).
+		 *
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @return {Promise<void>}
+		 */
+		async loadSchedules() {
+			try {
+				this.schedules = await listEvalSchedules(this.datasetId)
+			} catch {
+				this.schedules = []
+			}
+		},
+
+		/**
+		 * Open the schedule form, for a new schedule or to change one.
+		 *
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @param {object|null} schedule The schedule to change, or null.
+		 * @return {void}
+		 */
+		openScheduleForm(schedule) {
+			this.scheduleForm = { open: true, schedule, busy: false }
+		},
+
+		/**
+		 * Save the schedule from the form and show it with its next run.
+		 *
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @param {object} body The request body from the form.
+		 * @return {Promise<void>}
+		 */
+		async saveSchedule(body) {
+			this.scheduleForm.busy = true
+			try {
+				await saveEvalSchedule(this.datasetId, body, this.scheduleForm.schedule?.id || '')
+				this.scheduleForm = { open: false, schedule: null, busy: false }
+				showSuccess(this.t('hermiq', 'Schedule saved.'))
+				await this.loadSchedules()
+			} catch (e) {
+				this.scheduleForm.busy = false
+				showError(e?.response?.data?.error || this.t('hermiq', 'The schedule could not be saved.'))
+			}
+		},
+
+		/**
+		 * An agent's name for the schedule list.
+		 *
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @param {string} agentId The agent's uuid.
+		 * @return {string} The name, or the uuid when the agent is not among the caller's.
+		 */
+		agentName(agentId) {
+			const option = this.agentOptions.find((entry) => entry.value === agentId)
+			return option ? option.label : agentId
+		},
+
+		/**
+		 * How a schedule's frequency reads.
+		 *
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @param {string} cronExpr The stored cron expression.
+		 * @return {string} The label.
+		 */
+		scheduleFrequencyLabel(cronExpr) {
+			return frequencyLabel((...args) => this.t(...args), cronExpr)
+		},
+
+		/**
+		 * A schedule's next run, or that it is off.
+		 *
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @param {object} schedule The schedule.
+		 * @return {string} The label.
+		 */
+		scheduleStateLabel(schedule) {
+			if (!schedule.enabled) {
+				return this.t('hermiq', 'Off')
+			}
+			return this.t('hermiq', 'Next run: {date}', { date: this.formatDate(schedule.nextRun) })
+		},
+
+		/**
+		 * Copy this template for the selected agent and open the copy.
+		 *
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
+		 * @return {Promise<void>}
+		 */
+		async useForAgent() {
+			if (!this.selectedAgent) {
+				return
+			}
+			this.copying = true
+			try {
+				const copy = await useEvalTemplate(this.datasetId, this.selectedAgent.value)
+				showSuccess(this.t('hermiq', 'Copied as "{name}". You can now edit and run it.', { name: copy.name }))
+				this.$router.push({ name: 'EvalDatasetDetail', params: { id: String(copy.id) } })
+			} catch (e) {
+				showError(e?.response?.data?.error || this.t('hermiq', 'The test set could not be copied.'))
+			} finally {
+				this.copying = false
 			}
 		},
 
@@ -545,41 +720,6 @@ export default {
 		},
 
 		/**
-		 * A signed delta label (sign + value, never color-only).
-		 *
-		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
-		 * @param {number} delta The baseline delta (-1..1).
-		 * @return {string} The label, e.g. "+30 pp" / "−10 pp" / "±0 pp".
-		 */
-		deltaLabel(delta) {
-			if (typeof delta !== 'number') {
-				return '—'
-			}
-			const points = Math.round(delta * 100)
-			if (points > 0) {
-				return `+${points} pp`
-			}
-			if (points < 0) {
-				return `−${Math.abs(points)} pp`
-			}
-			return '±0 pp'
-		},
-
-		/**
-		 * Human pass-rate percentage (the stored value is a 0..1 fraction).
-		 *
-		 * @param {number} passRate The 0..1 pass rate.
-		 * @return {string} A percentage label.
-		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
-		 */
-		passRateLabel(passRate) {
-			if (typeof passRate !== 'number') {
-				return '—'
-			}
-			return `${Math.round(passRate * 100)}%`
-		},
-
-		/**
 		 * Localised regression-gate label.
 		 *
 		 * @param {string} result The gate result.
@@ -631,20 +771,6 @@ export default {
 			return labels[status] || status
 		},
 
-		/**
-		 * Format an ISO timestamp for display.
-		 *
-		 * @spec exclude pure date-formatting display helper, no domain behaviour
-		 * @param {string} value The ISO timestamp.
-		 * @return {string} The formatted date, or an em dash.
-		 */
-		formatDate(value) {
-			if (!value) {
-				return '—'
-			}
-			const date = new Date(value)
-			return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
-		},
 	},
 }
 </script>
@@ -742,5 +868,31 @@ export default {
 	margin: 4px 0 0;
 	color: var(--color-text-maxcontrast);
 	font-size: 13px;
+}
+
+.eval-run-panel-widget__schedules {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 8px;
+	margin-block: 12px;
+}
+
+.eval-run-panel-widget__schedules-title {
+	margin: 0;
+}
+
+.eval-run-panel-widget__schedule-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	width: 100%;
+}
+
+.eval-run-panel-widget__schedule {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 12px;
 }
 </style>

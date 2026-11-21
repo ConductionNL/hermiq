@@ -34,8 +34,10 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Command;
 
-use OCA\Hermiq\Service\Approval\ApprovalTaskBridge;
+use OCA\Hermiq\Kernel\Contracts\ApprovalTaskBridgeInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Command\Command;
@@ -69,12 +71,12 @@ class RollbackApprovalTaskMirror extends Command {
 	 * Constructor.
 	 *
 	 * @param ObjectService $objectService Reads pending Approvals and clears the backlinks.
-	 * @param ApprovalTaskBridge $taskBridge Terminates the mirror tasks (never throws).
+	 * @param ApprovalTaskBridgeInterface $taskBridge Terminates the mirror tasks (never throws).
 	 * @param LoggerInterface $logger Diagnostics.
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
-		private readonly ApprovalTaskBridge $taskBridge,
+		private readonly ApprovalTaskBridgeInterface $taskBridge,
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct();
@@ -164,9 +166,10 @@ class RollbackApprovalTaskMirror extends Command {
 					->setSchema(self::APPROVAL_SCHEMA)
 					->saveObject(
 						object: $data,
-						register: self::REGISTER_SLUG,
-						schema: self::APPROVAL_SCHEMA,
-						uuid: $approvalUuid,
+						options: new ObjectSaveOptions(
+							target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA),
+							uuid: $approvalUuid
+						),
 						_rbac: false,
 						_multitenancy: false
 					);

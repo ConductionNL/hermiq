@@ -21,6 +21,29 @@ if (is_dir(__DIR__ . '/../vendor/nextcloud/ocp/OCP')) {
 // is only ever resolved when the real class is absent (standalone CI).
 $autoloader->addPsr4('OCA\\OpenRegister\\', __DIR__ . '/Stubs/');
 $autoloader->addPsr4('OCA\\Talk\\', __DIR__ . '/Stubs/Talk/');
+// Integriq's connection-registry report event (adopt-connection-registry).
+// ConnectionReporter sends it by class-name string, so hermiq stays installable
+// without integriq. The stub mirrors the contract constructor verbatim and, like
+// the two mappings above, only resolves when the real class is absent.
+$autoloader->addPsr4('OCA\\Integriq\\', __DIR__ . '/Stubs/Integriq/');
+
+// The CAPABILITY grammar (ToolGrantSet, ToolGrantResolver and friends) is loaded
+// from OpenRegister's real source beside this app, never from a stub; see
+// tests/bootstrap.php for why. HERMIQ_OPENREGISTER_PATH overrides the location.
+// If none resolves, nothing is registered and the affected tests error loudly.
+$capabilityRoots = array_filter(
+	[
+		getenv('HERMIQ_OPENREGISTER_PATH') ?: null,
+		__DIR__ . '/../../openregister',
+	]
+);
+foreach ($capabilityRoots as $capabilityRoot) {
+	$capabilityDir = rtrim((string)$capabilityRoot, '/') . '/lib/Service/Capability';
+	if (is_dir($capabilityDir) === true) {
+		$autoloader->addPsr4('OCA\\OpenRegister\\Service\\Capability\\', $capabilityDir);
+		break;
+	}
+}
 
 // OpenRegister's PUBLISHED CONTRACTS from the vendored hydra-gates package,
 // under a LONGER PSR-4 prefix so they beat the blanket stub mapping above. Kept
@@ -155,13 +178,8 @@ if (is_dir($serverTestsLib)) {
 // Load test stubs for cross-app classes that are only present when the other app
 // is installed. The IMcpToolProvider stub stands in for openregister PR #1466
 // (ai-chat-companion-orchestrator) so Hermiq's MCP tool provider can be
-// unit-tested in standalone CI. AbstractToolHandler provides standardised auth
-// helpers used by HermiqToolProvider. Both are also registered via autoload-dev
+// unit-tested in standalone CI. It is also registered via autoload-dev
 // PSR-4 in composer.json (OCA\OpenRegister\ -> tests/Stubs/) for non-bootstrapped runs.
-if (class_exists(\OCA\OpenRegister\Mcp\AbstractToolHandler::class) === false) {
-	require_once __DIR__ . '/Stubs/Mcp/AbstractToolHandler.php';
-}
-
 if (interface_exists(\OCA\OpenRegister\Mcp\IMcpToolProvider::class) === false) {
 	require_once __DIR__ . '/Stubs/Mcp/IMcpToolProvider.php';
 }
@@ -175,4 +193,10 @@ if (class_exists(\Doctrine\DBAL\ParameterType::class) === false) {
 	require_once __DIR__ . '/Stubs/Doctrine/ParameterType.php';
 	require_once __DIR__ . '/Stubs/Doctrine/ArrayParameterType.php';
 	require_once __DIR__ . '/Stubs/Doctrine/Types.php';
+}
+
+// OCP\DB\QueryBuilder\IExpressionBuilder reads its comparison constants from
+// Doctrine's ExpressionBuilder at class-load, so mocking it needs this too.
+if (class_exists(\Doctrine\DBAL\Query\Expression\ExpressionBuilder::class) === false) {
+	require_once __DIR__ . '/Stubs/Doctrine/ExpressionBuilder.php';
 }

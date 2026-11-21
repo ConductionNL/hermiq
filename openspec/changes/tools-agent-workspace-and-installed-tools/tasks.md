@@ -1,0 +1,81 @@
+# Tasks: tools-agent-workspace-and-installed-tools
+
+Kind: code. Size L. Rows `hermiq:dm-agent-workspace`, `hermiq:dm-install-cli-tool`, `hermiq:dm-build-snapshot`.
+
+## Implementation tasks
+
+### Task 1: The session lifetime for the governed workspace
+- **spec_ref**: `openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-can-keep-a-workspace-for-the-whole-conversation-req-wksp-001`
+- **files**: `lib/Settings/hermiq_register.json` (Agent.workspaceMode), the workspace provider from `hermiq-runner-git-capability`, `lib/BackgroundJob/WorkspaceExpiryJob.php`
+- **acceptance_criteria**:
+  - GIVEN workspaceMode session WHEN two runs share a conversation THEN they reach one workspace, and a run of another conversation, user or agent does not
+  - GIVEN a conversation deleted or idle for 14 days WHEN the job runs THEN its workspace is gone
+- [x] Implement
+- [x] Test (PHPUnit on keying, isolation and expiry)
+  > 2026-11-13: `Agent.workspaceMode` (register v0.53.0); `WorkspaceRunScope` keys a `session` agent's workspace by `SessionWorkspaceKey` (agent, conversation, user from the token); the provider records the lifetime, gives a session 14 days of idleness and 5,000 files, and `WorkspaceExpiryJob` ends the workspace of a deleted conversation. `none` keys by the run like `run`: withholding the workspace tools from `none` agents would change agents that use them today, so it is left to the change that adds the sandbox tools.
+
+### Task 2: Copy in and write back around sandbox runs
+- **spec_ref**: `openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-sandbox-runs-work-on-the-workspace-and-write-back-what-they-change-req-wksp-002`
+- **files**: `lib/Service/CodeSandbox/RunCodeTool.php`, `lib/Service/CodeSandbox/WorkspaceTransfer.php`
+- **acceptance_criteria**:
+  - GIVEN a run that changes one file WHEN it ends THEN only that file is written back, confined to the workspace
+  - GIVEN a workspace over the input cap WHEN a run is asked THEN it is refused with the limit named
+- [x] Implement
+- [x] Test (PHPUnit with a stubbed sandbox, including a returned path that tries to leave the workspace)
+  > 2026-11-14, partly built: `WorkspaceTransfer` packs the workspace (or the named `paths`) into run files within the 10 MB input cap, refusing over it with the message from design D2, and writes back only the files a run created or changed, through `WorkspacePathGuard::forWrite()` and inside the workspace budget (a run over budget writes nothing); a returned path outside the workspace or into `.git` is refused and reported while the rest lands. Text travels as UTF-8, anything else as base64. PHPUnit `WorkspaceTransferTest` with the test playing the sandbox. Still open: `useWorkspace` on `hermiq.runCode` in `RunCodeTool`, which is not on development yet (tools-code-sandbox is in its own open build); both boxes stay unticked until that call site exists.
+  > 2026-11-17: `hermiq.runCode` takes `useWorkspace` and `paths` (`RunCodeTool::workspaceInput()`): inside a governed run with an open workspace it packs the workspace (or `paths`) through `WorkspaceTransfer`, sends it as a workspace run, writes back what the run created or changed and answers `workspace: {written, refused}` instead of the file contents. It defaults to the workspace only when the call names no files of the acting user, so those calls run as before; asked for explicitly without a workspace, or together with `files`, it is refused. The sandbox (`exapp/code-sandbox/src/run.js`) gains the workspace mode: relative paths in a `work` folder that is the working directory, the program kept beside it, and every created or changed file answered; a path leaving the folder or into `.git` is refused before anything runs. PHPUnit `RunCodeToolWorkspaceTest`, node tests in `exapp/code-sandbox/test/run.test.js`.
+
+### Task 3: The Files panel and saving to Files
+- **spec_ref**: `openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-the-user-sees-the-workspace-and-can-keep-a-file-req-wksp-003`
+- **files**: `lib/Controller/WorkspaceFilesController.php`, `appinfo/routes.php`, `src/views/Chat.vue`, `src/components/WorkspaceFilesPanel.vue`, `l10n/en.json`, `l10n/nl.json`
+- **acceptance_criteria**:
+  - GIVEN the session user WHEN they save a file THEN it lands in their Files with the agent-authored tag, and a failed tag fails the save
+  - GIVEN another user WHEN they call the routes for this workspace THEN they are refused
+- [x] Implement
+- [ ] Test (Newman on the routes including another user; Playwright under tests/e2e/spec-coverage/ on the panel)
+  > 2026-11-14: `WorkspaceFiles` lists, opens (through `WorkspacePathGuard`) and saves a session workspace file into the person's Files under "Hermiq" with the agent-authored tag, deleting the copy when the tag fails. `WorkspaceFilesController` keys the workspace by the session's agent, the session and the signed-in user and answers 404 to anyone who takes no part in the session; three routes, documented in `openapi.json`. `WorkspaceFilesPanel.vue` sits under the chat header. Covered by PHPUnit (`WorkspaceFilesTest`, `WorkspaceFilesControllerTest`, including another user) and Vitest (`workspace-files-panel.spec.js`); Newman and Playwright need a live instance and were not run. `WorkspaceToolsetReadTest` still refuses every other route naming the workspace; the Files panel's three routes are the stated exception.
+
+### Task 4: The installer and installTool
+- **spec_ref**: `openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-installs-command-line-tools-only-from-an-allowlisted-registry-without-install-scripts-req-wksp-004`
+- **files**: `exapp/code-sandbox/src/installer.js`, `exapp/code-sandbox/deploy/docker-compose.yml`, `exapp/code-sandbox/deploy/installer-egress-proxy`, `lib/Mcp/CodeSandboxToolDescriptors.php`, `lib/Service/CodeSandbox/InstallToolService.php`
+- **acceptance_criteria**:
+  - GIVEN an allowlisted registry WHEN a package is installed THEN no install script runs and a layer with hash and versions is stored
+  - GIVEN a registry or package outside the allowlists WHEN install is asked THEN the installer is not called
+  - GIVEN a code run WHEN it tries the installer's network THEN it has no route
+- [ ] Implement
+- [ ] Test (the ExApp tests for scripts, egress and isolation; PHPUnit on the tool)
+
+### Task 5: runInstalledTool
+- **spec_ref**: `openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-installed-tool-runs-with-an-argument-list-and-no-shell-req-wksp-005`
+- **files**: `exapp/code-sandbox/src/run.js`, `lib/Service/CodeSandbox/RunInstalledToolService.php`, `lib/Mcp/CodeSandboxToolDescriptors.php`
+- **acceptance_criteria**:
+  - GIVEN an argument with shell syntax WHEN the tool runs THEN it reaches the binary as one argument and nothing else runs
+  - GIVEN a layer hash the sandbox lacks WHEN it runs THEN hermiq sends the bytes and the sandbox verifies the hash
+- [ ] Implement
+- [ ] Test (the ExApp tests; PHPUnit on the dispatch)
+
+### Task 6: AgentBuild, publishing and runs from the build
+- **spec_ref**: `openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning/spec.md#requirement-runs-of-a-published-agent-start-from-its-pinned-build-req-build-002`
+- **files**: `lib/Settings/hermiq_register.json` (AgentBuild, Agent.pinnedBuildId), `lib/Service/AgentBuildService.php`, `lib/Service/AgentVersionService.php` (rollback re-pin), `lib/Service/ScheduleService.php` (buildId on the run), `lib/Controller/AgentVersionController.php`
+- **acceptance_criteria**:
+  - GIVEN publish WHEN it completes THEN the build holds the version id, the archive hash and the tools, and is pinned
+  - GIVEN a pinned build WHEN a new conversation starts THEN its workspace starts from the build and run changes never reach the build
+  - GIVEN a rollback to a version with a build WHEN it completes THEN that build is pinned
+- [x] Implement
+- [ ] Test (PHPUnit on publish, start, rollback; Newman on the publish route)
+  > 2026-11-14: `AgentBuild` schema and `Agent.pinnedBuildId` (register v0.58.0, both written only by the service: the schema is admin-only through the object API and the pin carries an admin update rule). `AgentBuildService` publishes from the publisher's own session workspace (keyed by agent, conversation and publisher), numbers the build, records `currentVersionId()`, archives through `WorkspaceSnapshot` (a zip in the build store named by the sha256 over the sorted paths and file hashes outside `.git`, so equal builds share one archive) and pins it. `McpRunController` starts a new session workspace from the pinned build (`ServerSideWorkspaceProvider::restore()`, which refuses an archive naming a path outside the workspace and never overwrites an open workspace); the run entry in `ScheduleService` records `buildId` next to `agentVersion`. `GET`/`POST /api/agents/{id}/builds` list (readers) and publish (modifiers only); a rollback re-pins the newest build of that version, or keeps the pin and says so. `overview()` reports unpublished changes when a versioned field differs between the build's version and the current one. PHPUnit: `AgentBuildServiceTest`, `WorkspaceSnapshotTest`, `AgentVersionControllerBuildsTest`, plus cases in `McpRunControllerWorkspaceScopeTest` and `ScheduleServiceTest`. Newman needs a live instance and was not run. Installed tools are recorded as an empty list until task 4 builds the installer.
+
+### Task 7: The builds on the agent page
+- **spec_ref**: `openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning/spec.md#requirement-an-agent-owner-can-publish-a-build-that-pins-files-and-installed-tools-req-build-001`
+- **files**: `src/manifest.json` (agent detail), `src/components/AgentBuildsPanel.vue`, `src/modals/PublishBuildModal.vue`, `l10n/en.json`, `l10n/nl.json`
+- **acceptance_criteria**:
+  - GIVEN an agent owner WHEN they publish with a note THEN the panel lists the build with files, tools, author and date
+  - GIVEN edits after the pinned build WHEN the page opens THEN it shows the unpublished changes note
+- [x] Implement
+- [ ] Test (Playwright under tests/e2e/spec-coverage/)
+  > 2026-11-14: `AgentBuildsPanel.vue` is the `agent-builds` widget on AgentDetail (manifest widget, layout row and slot, registry entry): build number, publisher's name, date, note, file and tool counts, the pinned build marked, "Unpublished changes since build N", and "Publish build" only when the server says the caller may modify the agent. `PublishBuildModal.vue` (src/modals) offers the caller's own conversations with this agent and a note, and names the reason when the conversation has no workspace. en and nl strings, including the new register fields. Covered by Vitest (`agent-builds-panel.spec.js`); Playwright needs a live instance and was not run.
+
+## Verification
+- [ ] `openspec validate tools-agent-workspace-and-installed-tools --type change --strict` passes
+- [ ] PHPUnit, the ExApp tests, Newman and Playwright run once before push, exit codes read
+- [ ] One live conversation that installs a tool, runs it on a workspace file, publishes a build, and a second user's new conversation starting from that build

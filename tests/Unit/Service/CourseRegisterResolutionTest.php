@@ -24,7 +24,7 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\LearnerSignalReader;
 use OCA\Hermiq\Service\LearnerSignalRegister;
@@ -37,6 +37,7 @@ use OCA\OpenRegister\Service\ObjectService;
 use OCP\App\IAppManager;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Migrated and unmigrated instances, told apart.
@@ -240,7 +241,7 @@ class CourseRegisterResolutionTest extends TestCase {
 	private function recommend(array $presentSlugs, bool $appInstalled = true): array {
 		$now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 
-		$aiFeatureService = $this->createMock(AiFeatureService::class);
+		$aiFeatureService = $this->createMock(AiFeatureLookup::class);
 		$aiFeatureService->method('findBySlug')->willReturn(
 			$this->entity('feat-1', ['slug' => 'course-recommendations', 'lifecycle' => 'enabled'])
 		);
@@ -364,23 +365,22 @@ class CourseRegisterResolutionTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				// openregister#2211 (insert-only saves) added this. A double that
-				// drifts from the real signature is a FATAL, not a failed
-				// assertion: PHP refuses to declare the class and the whole suite
-				// dies before it runs.
-				bool $failIfExists = false,
-				bool $_unowned = false,
+				bool $_multitenancy = true
 			): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
+				$silent = $options->policy->silent ?? false;
+				$_validation = $options->policy->validation ?? true;
+				$uploadedFiles = $options->uploadedFiles;
+				$currentUser = $options->actor->currentUser;
+				$failIfExists = $options->policy->failIfExists ?? false;
+				$_unowned = $options->actor->unowned ?? false;
+				$_dedupOverride = $options->policy->dedupOverride ?? false;
+				$_owner = $options->actor->owner;
 				$payload = is_array($object) ? $object : $object->getObject();
 				$entity = new ObjectEntity();
 				$entity->setUuid($uuid ?? 'new-recommendation');

@@ -52,8 +52,21 @@
 				<NcButton :disabled="loading" @click="reload">
 					{{ t('hermiq', 'Refresh') }}
 				</NcButton>
+				<NcButton
+					v-if="selected.length === 2"
+					variant="primary"
+					@click="openComparison">
+					{{ t('hermiq', 'Compare') }}
+				</NcButton>
+				<NcButton @click="openFlowComparison">
+					{{ t('hermiq', 'Compare flow runs') }}
+				</NcButton>
 			</div>
 		</div>
+
+		<NcNoteCard v-if="selectionRefused" type="warning">
+			{{ t('hermiq', 'Choose two runs to compare.') }}
+		</NcNoteCard>
 
 		<NcNoteCard
 			v-if="scheduleFilter"
@@ -99,16 +112,29 @@
 			<table class="hermiq-runs__table">
 				<thead>
 					<tr>
+						<th scope="col">
+							<span class="hidden-visually">{{
+								t('hermiq', 'Compare')
+							}}</span>
+						</th>
 						<th scope="col">{{ t('hermiq', 'When') }}</th>
 						<th scope="col">{{ t('hermiq', 'Agent') }}</th>
 						<th scope="col">{{ t('hermiq', 'Status') }}</th>
 						<th scope="col">{{ t('hermiq', 'Trigger') }}</th>
 						<th scope="col">{{ t('hermiq', 'Duration') }}</th>
+						<th scope="col">{{ t('hermiq', 'AI provider') }}</th>
 						<th scope="col">{{ t('hermiq', 'Summary') }}</th>
 					</tr>
 				</thead>
 				<tbody>
 					<tr v-for="run in visibleRuns" :key="run.id">
+						<td>
+							<input
+								type="checkbox"
+								:checked="selected.includes(run.id)"
+								:aria-label="t('hermiq', 'Compare this run')"
+								@change="toggleCompare(run.id)" />
+						</td>
 						<td>{{ formatWhen(run.created) }}</td>
 						<td>
 							<router-link
@@ -127,8 +153,57 @@
 						</td>
 						<td>{{ triggerLabel(run.trigger) }}</td>
 						<td>{{ formatDuration(run.durationMs) }}</td>
+						<td>
+							<template
+								v-if="
+									run.providerDisclosure
+									&& run.providerDisclosure.provider
+								">
+								{{ run.providerDisclosure.provider }}
+								<span
+									class="hermiq-runs__data-use"
+									:title="run.providerDisclosure.termsReference">
+									{{
+										dataUseLabel(run.providerDisclosure.dataUse)
+									}}
+								</span>
+							</template>
+							<span v-else>—</span>
+							<ol
+								v-if="run.providerAttempts && run.providerAttempts.length > 1"
+								class="hermiq-runs__attempts">
+								<li v-for="(attempt, index) in run.providerAttempts" :key="index">
+									{{ attempt.provider }} {{ attempt.model }}:
+									{{ attemptLabel(attempt) }}
+								</li>
+							</ol>
+							<span
+								v-if="run.receivedBy && run.receivedBy.length > 1"
+								class="hermiq-runs__data-use">
+								{{ t('hermiq', 'Received the prompt: {providers}', { providers: receivedByLabel(run.receivedBy) }) }}
+							</span>
+						</td>
 						<td class="hermiq-runs__summary">
 							{{ run.summary || '—' }}
+							<div
+								v-if="cacheLine(run.usage)"
+								class="hermiq-runs__cache">
+								{{ cacheLine(run.usage) }}
+							</div>
+							<ul
+								v-if="run.computerActions && run.computerActions.length"
+								class="hermiq-runs__computer"
+								data-testid="run-computer-actions">
+								<li v-for="(action, index) in run.computerActions" :key="index">
+									{{ computerLine(action) }}
+									<span v-if="action.approvalId" class="hermiq-runs__computer-meta">
+										{{ t('hermiq', 'Approval {id}', { id: action.approvalId }) }}
+									</span>
+									<span v-if="action.screenshot" class="hermiq-runs__computer-meta">
+										{{ t('hermiq', 'Screen {hash}, {bytes} bytes, not kept', { hash: String(action.screenshot.sha256 || '').slice(0, 12), bytes: String(action.screenshot.bytes ?? 0) }) }}
+									</span>
+								</li>
+							</ul>
 						</td>
 					</tr>
 				</tbody>
@@ -158,6 +233,10 @@ import {
 import HistoryIcon from 'vue-material-design-icons/History.vue'
 import { listRuns } from '../api/analytics.js'
 import { useAgentStore } from '../store/store.js'
+import { attemptOutcome, receivedByList } from '../utils/providerAttempts.js'
+import { toggleSelection } from '../utils/runCompare.js'
+import { cacheShare } from '../utils/runUsage.js'
+import { agentPickerOptions } from '../widgets/evalRunLabels.js'
 
 /** Page size. The server clamps anything above 200. */
 const PAGE_SIZE = 50
@@ -189,6 +268,10 @@ export default {
 			// design (it must also cover flow runs, which have no schedule), so
 			// narrowing to one schedule is a view concern, not a query one.
 			scheduleFilter: '',
+			// Runs ticked for a comparison (observability-compare-two-runs).
+			// Kept by id, so a tick survives paging and filtering.
+			selected: [],
+			selectionRefused: false,
 		}
 	},
 
@@ -201,10 +284,7 @@ export default {
 		 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
 		 */
 		agentOptions() {
-			return this.agents.map((agent) => ({
-				label: agent.name || agent.uuid || agent.id,
-				value: agent.uuid || agent.id,
-			}))
+			return agentPickerOptions(this.agents)
 		},
 
 		/**
@@ -312,11 +392,77 @@ export default {
 		this.agentStore = useAgentStore()
 		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
 		this.scheduleFilter = String(this.$route?.query?.schedule || '')
+		// "Compare with…" on an agent's run history arrives with that run ticked.
+		const compareWith = String(this.$route?.query?.compareWith || '')
+		this.selected = compareWith ? [compareWith] : []
 		this.loadAgents()
 		this.load()
 	},
 
 	methods: {
+		/**
+		 * One recorded computer action in words: the action, the machine and its point,
+		 * text or keys (REQ-COMPUTER-004).
+		 *
+		 * @param {{target?: string, action?: string, x?: number, y?: number, text?: string, keys?: string}} action The recorded action.
+		 * @return {string} The line.
+		 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-the-run-records-actions-and-never-stores-screenshots-req-computer-004
+		 */
+		computerLine(action) {
+			const entry = action || {}
+			const target = String(entry.target || '')
+			const lines = {
+				__proto__: null,
+				screenshot: () => this.t('hermiq', 'Screenshot of {target}', { target }),
+				type: () => this.t('hermiq', 'Typed "{text}" on {target}', { text: String(entry.text || ''), target }),
+				key: () => this.t('hermiq', 'Pressed {keys} on {target}', { keys: String(entry.keys || ''), target }),
+			}
+			const line = lines[entry.action]
+			if (line !== undefined) {
+				return line()
+			}
+			return this.t('hermiq', 'Clicked at {x}, {y} on {target}', { x: String(entry.x ?? ''), y: String(entry.y ?? ''), target })
+		},
+
+		/**
+		 * Tick or untick a run for the comparison; a third tick is refused.
+		 *
+		 * @param {string} runId The run.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+		 */
+		toggleCompare(runId) {
+			const next = toggleSelection(this.selected, runId)
+			this.selected = next.selected
+			this.selectionRefused = next.refused
+		},
+
+		/**
+		 * Open the comparison of the two ticked runs.
+		 *
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+		 */
+		openComparison() {
+			const [left, right] = this.selected
+			this.$router
+				.push({ path: '/runs/compare', query: { left, right } })
+				.catch(() => {})
+		},
+
+		/**
+		 * Open the flow run comparison.
+		 *
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
+		 */
+		openFlowComparison() {
+			this.$router.push({ path: '/flow-runs/compare' }).catch(() => {})
+		},
+
 		/**
 		 * Load one page of runs.
 		 *
@@ -459,6 +605,88 @@ export default {
 		},
 
 		/**
+		 * One attempt's outcome in words: "rate limited", "answered", "skipped: residency".
+		 *
+		 * @param {object} attempt The recorded attempt.
+		 * @return {string} The label.
+		 *
+		 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+		 */
+		attemptLabel(attempt) {
+			switch (attemptOutcome(attempt)) {
+				case 'answered':
+					return t('hermiq', 'answered')
+				case 'rate_limit':
+					return t('hermiq', 'rate limited')
+				case 'server':
+					return t('hermiq', 'server error')
+				case 'timeout':
+					return t('hermiq', 'timed out')
+				case 'connection':
+					return t('hermiq', 'could not be reached')
+				case 'cooling':
+					return t('hermiq', 'cooling down, skipped')
+				case 'skipped':
+					return t('hermiq', 'skipped: {step}', { step: attempt.reason || '' })
+				default:
+					return t('hermiq', 'failed')
+			}
+		},
+
+		/**
+		 * The providers and models that were sent the prompt, in words.
+		 *
+		 * @param {Array<object>} receivedBy The recorded list.
+		 * @return {string} "anthropic claude-opus-4-8, ollama qwen2.5"
+		 *
+		 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+		 */
+		receivedByLabel(receivedBy) {
+			return receivedByList(receivedBy)
+		},
+
+		/**
+		 * The line saying how many input tokens came from the provider's prompt cache, or ''.
+		 *
+		 * @param {object|Array|undefined} usage The run row's recorded token counts.
+		 * @return {string} The line, or '' when the run read nothing from the cache.
+		 *
+		 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-3
+		 */
+		cacheLine(usage) {
+			const share = cacheShare(usage)
+			if (share === null) {
+				return ''
+			}
+
+			return t('hermiq', '{cached} of {total} input tokens from the provider’s cache', {
+				cached: share.cached.toLocaleString(),
+				total: share.total.toLocaleString(),
+			})
+		},
+
+		/**
+		 * The plain label for the data-use term a run recorded, as it stood then.
+		 *
+		 * @param {string} dataUse The recorded term.
+		 * @return {string} The label.
+		 *
+		 * @spec openspec/specs/provider-data-use/spec.md#requirement-every-run-records-the-data-use-term-in-force-req-notrain-003
+		 */
+		dataUseLabel(dataUse) {
+			switch (dataUse) {
+				case 'zero-retention':
+					return t('hermiq', 'Keeps nothing it is sent')
+				case 'no-training':
+					return t('hermiq', 'Never trains on your data')
+				case 'may-train':
+					return t('hermiq', 'May train on your data')
+				default:
+					return t('hermiq', 'Not declared')
+			}
+		},
+
+		/**
 		 * Map a run status onto one of three tones.
 		 *
 		 * Anything not recognised is neutral rather than an error: a status this
@@ -538,9 +766,26 @@ export default {
 	white-space: nowrap;
 }
 
+.hermiq-runs__data-use {
+	display: block;
+	color: var(--color-text-maxcontrast);
+}
+
+.hermiq-runs__attempts {
+	margin: 4px 0 0;
+	padding-inline-start: 16px;
+	color: var(--color-text-maxcontrast);
+}
+
 .hermiq-runs__summary {
 	white-space: normal;
 	max-width: 40ch;
+}
+
+.hermiq-runs__cache {
+	margin-top: 4px;
+	color: var(--color-text-maxcontrast);
+	font-size: var(--font-size-small, 13px);
 }
 
 .hermiq-runs__status--ok {
@@ -565,5 +810,17 @@ export default {
 
 .hermiq-runs__range {
 	color: var(--color-text-maxcontrast);
+}
+
+.hermiq-runs__computer {
+	margin: 4px 0 0;
+	padding-inline-start: 16px;
+	list-style: disc;
+}
+
+.hermiq-runs__computer-meta {
+	display: block;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.9em;
 }
 </style>

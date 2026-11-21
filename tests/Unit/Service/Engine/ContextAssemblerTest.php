@@ -551,4 +551,55 @@ class ContextAssemblerTest extends TestCase {
 		$this->assertSame([], $bundle['skillsUsed']);
 
 	}//end testANonActiveSkillIsNotExposedToTheRun()
+
+	/**
+	 * The exact skill block layout, the skips (non-string or empty id, a lookup
+	 * that throws — logged as a warning), a skill without a state counting as
+	 * active, and the transient draft-content override replacing name,
+	 * description and body while the stored skill still gates exposure.
+	 *
+	 * @return void
+	 */
+	public function testSkillBlocksSkipsAndContentOverride(): void {
+		$objectService = $this->createMock(ObjectService::class);
+		$skills = [
+			'sk-full' => $this->skill('sk-full', ['name' => 'full', 'description' => 'D', 'body' => 'B', 'state' => 'active']),
+			'sk-bare' => $this->skill('sk-bare', ['body' => '']),
+			'sk-draft' => $this->skill('sk-draft', ['name' => 'stored', 'description' => 'stored d', 'body' => 'stored b', 'state' => 'active']),
+		];
+		$objectService->method('find')->willReturnCallback(
+			static function (string $id) use ($skills): ?ObjectEntity {
+				if ($id === 'sk-broken') {
+					throw new \RuntimeException('register offline');
+				}
+
+				return ($skills[$id] ?? null);
+			}
+		);
+		$logger = $this->createMock(\Psr\Log\LoggerInterface::class);
+		$logger->expects($this->once())->method('warning')
+			->with('Hermiq ContextAssembler could not resolve skill sk-broken: register offline');
+		$assembler = new ContextAssembler($objectService, $this->createMock(IRootFolder::class), $logger);
+		$assembler->setTransientSkillContentOverride(['sk-draft' => ['name' => 'draft', 'body' => 'draft b']]);
+
+		$bundle = $assembler->assembleSkillsForRun(agent: null, skillSetOverride: ['sk-full', 42, '', 'sk-broken', 'sk-bare', 'sk-draft']);
+
+		$this->assertSame(['sk-full', 'sk-bare', 'sk-draft'], $bundle['skillsUsed']);
+		$this->assertSame("Skill: full\nD\n\nB\n\nSkill: skill\n\nSkill: draft\nstored d\n\ndraft b", $bundle['text']);
+
+	}//end testSkillBlocksSkipsAndContentOverride()
+
+	/**
+	 * Stored installs that are not a list expose nothing.
+	 *
+	 * @return void
+	 */
+	public function testNonListInstallsExposeNothing(): void {
+		$assembler = new ContextAssembler($this->skillObjectService([]), $this->createMock(IRootFolder::class), new NullLogger());
+
+		$bundle = $assembler->assembleSkillsForRun(agent: $this->agent(['skillInstalls' => 'sk-1']));
+
+		$this->assertSame(['text' => '', 'skillsUsed' => []], $bundle);
+
+	}//end testNonListInstallsExposeNothing()
 }//end class

@@ -37,7 +37,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\BackgroundJob;
 
-use OCA\Hermiq\Service\Engine\ConversationTitleWriter;
+use OCA\Hermiq\Kernel\Contracts\ConversationTitleWriterInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\QueuedJob;
 
@@ -54,11 +54,11 @@ class ConversationTitleJob extends QueuedJob {
 	 * Constructor.
 	 *
 	 * @param ITimeFactory $time Time factory for the base job.
-	 * @param ConversationTitleWriter $writer Generates and persists the title.
+	 * @param ConversationTitleWriterInterface $writer Generates and persists the title.
 	 */
 	public function __construct(
 		ITimeFactory $time,
-		private readonly ConversationTitleWriter $writer,
+		private readonly ConversationTitleWriterInterface $writer,
 	) {
 		parent::__construct(time: $time);
 

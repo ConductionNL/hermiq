@@ -42,21 +42,26 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
- * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#requirement-progressive-tool-disclosure-for-large-catalogs
+ * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-3
+ * @spec openspec/specs/agent-tool-governance/spec.md#requirement-progressive-tool-disclosure-for-large-catalogs
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ToolSearchServiceInterface;
+use OCA\Hermiq\Service\Engine\VectorSearch;
+use OCP\IAppConfig;
+
 /**
  * Holds one run's resolved tool descriptor set and ranks `searchTools` queries
  * against it.
  *
- * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
+ * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-3
  */
-class ToolSearchService {
+class ToolSearchService implements ToolSearchServiceInterface {
 
 	/**
 	 * Matches returned per `search()` call are capped so a broad query cannot
@@ -67,11 +72,53 @@ class ToolSearchService {
 	private const MAX_MATCHES = 10;
 
 	/**
+	 * The similarity a descriptor needs when `tools.searchSimilarityFloor` is not set.
+	 *
+	 * @var float
+	 */
+	public const DEFAULT_SIMILARITY_FLOOR = 0.3;
+
+	/**
+	 * The app setting holding the similarity floor.
+	 *
+	 * @var string
+	 */
+	public const FLOOR_SETTING = 'tools.searchSimilarityFloor';
+
+	/**
 	 * This run's resolved descriptor set, keyed by id (`mcpId` or `name`).
 	 *
 	 * @var array<string, array<string,mixed>>
 	 */
 	private array $resolved = [];
+
+	/**
+	 * Embeddings of the resolved descriptors, keyed by id.
+	 *
+	 * @var array<string, array<int, float>>
+	 */
+	private array $descriptorVectors = [];
+
+	/**
+	 * What the cached embeddings were made for: a hash of the descriptor ids and the model id.
+	 *
+	 * @var string
+	 */
+	private string $vectorKey = '';
+
+	/**
+	 * Constructor.
+	 *
+	 * @param VectorSearch|null $vectors   OpenRegister's embeddings (vector-rag); null keeps substring matching.
+	 * @param IAppConfig|null   $appConfig Reads the similarity floor.
+	 *
+	 * @spec openspec/changes/vector-rag/tasks.md#task-3-1
+	 */
+	public function __construct(
+		private readonly ?VectorSearch $vectors = null,
+		private readonly ?IAppConfig $appConfig = null,
+	) {
+	}//end __construct()
 
 	/**
 	 * Register this run's resolved (grant-filtered, default-denied) descriptor
@@ -84,7 +131,7 @@ class ToolSearchService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#scenario-a-resolved-catalog-exceeds-the-disclosure-threshold
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-resolved-catalog-exceeds-the-disclosure-threshold
 	 */
 	public function registerResolved(array $descriptors): void {
 		$this->resolved = [];
@@ -109,7 +156,7 @@ class ToolSearchService {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/human-approval-gate/spec.md#requirement-un-granted-destructive-tool-invocation-routes-through-the-approval-gate
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-un-granted-destructive-tool-invocation-routes-through-the-approval-gate
 	 */
 	public function isGranted(string $id): bool {
 		return array_key_exists($id, $this->resolved);
@@ -122,7 +169,7 @@ class ToolSearchService {
 	 *
 	 * @return array<string,mixed>|null
 	 *
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-3
 	 */
 	public function descriptor(string $id): ?array {
 		return ($this->resolved[$id] ?? null);
@@ -137,12 +184,17 @@ class ToolSearchService {
 	 *
 	 * @return array<int, array<string,mixed>> Matching descriptors (capped, best-effort ranked).
 	 *
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#scenario-the-model-searches-for-and-then-invokes-a-deferred-tool
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-the-model-searches-for-and-then-invokes-a-deferred-tool
 	 */
 	public function search(string $query): array {
 		$needle = mb_strtolower(trim($query));
 		if ($needle === '') {
 			return [];
+		}
+
+		$ranked = $this->rankBySimilarity(query: trim($query));
+		if ($ranked !== null) {
+			return $ranked;
 		}
 
 		$matches = [];
@@ -162,6 +214,137 @@ class ToolSearchService {
 
 		return $matches;
 	}//end search()
+
+	/**
+	 * The resolved descriptors most similar to the query, or null when no embedding can be made.
+	 *
+	 * Only `$this->resolved` is iterated, so a descriptor outside the resolved set can
+	 * never be returned. Descriptors at or above the floor, best first, at most
+	 * MAX_MATCHES. A tie keeps the resolved set's order.
+	 *
+	 * @param string $query The trimmed query.
+	 *
+	 * @return array<int, array<string,mixed>>|null The matches, or null for the substring path.
+	 *
+	 * @spec openspec/changes/vector-rag/tasks.md#task-3-1
+	 */
+	private function rankBySimilarity(string $query): ?array {
+		if ($this->vectors === null || $this->resolved === []) {
+			return null;
+		}
+
+		$descriptors = $this->descriptorVectors();
+		if ($descriptors === null) {
+			return null;
+		}
+
+		$queryVectors = $this->vectors->embedTexts(texts: [$query]);
+		if ($queryVectors === null || isset($queryVectors[0]) === false) {
+			return null;
+		}
+
+		$floor  = $this->similarityFloor();
+		$scores = [];
+		foreach (array_keys($this->resolved) as $id) {
+			$score = self::cosine(a: $queryVectors[0], b: ($descriptors[$id] ?? []));
+			if ($score >= $floor) {
+				$scores[$id] = $score;
+			}
+		}
+
+		// Sorting is stable since PHP 8, so a tie keeps the resolved order.
+		arsort($scores);
+
+		$matches = [];
+		foreach (array_slice(array_keys($scores), 0, self::MAX_MATCHES) as $id) {
+			$matches[] = $this->resolved[(string)$id];
+		}
+
+		return $matches;
+	}//end rankBySimilarity()
+
+	/**
+	 * The embeddings of the resolved descriptors, made again when the set or the model changed.
+	 *
+	 * @return array<string, array<int, float>>|null Vectors by id, or null when they cannot be made.
+	 *
+	 * @spec openspec/changes/vector-rag/tasks.md#task-3-2
+	 */
+	private function descriptorVectors(): ?array {
+		$ids = array_map('strval', array_keys($this->resolved));
+		$key = sha1(implode("\n", $ids)) . '|' . $this->vectors->modelId();
+		if ($key === $this->vectorKey) {
+			return $this->descriptorVectors;
+		}
+
+		$texts = [];
+		foreach ($this->resolved as $id => $descriptor) {
+			$texts[] = trim($id . ' ' . (string)($descriptor['name'] ?? '') . ' ' . (string)($descriptor['description'] ?? ''));
+		}
+
+		$vectors = $this->vectors->embedTexts(texts: $texts);
+		if ($vectors === null) {
+			return null;
+		}
+
+		$this->descriptorVectors = array_combine($ids, $vectors);
+		$this->vectorKey         = $key;
+
+		return $this->descriptorVectors;
+	}//end descriptorVectors()
+
+	/**
+	 * The similarity floor from `tools.searchSimilarityFloor`, between 0 and 1.
+	 *
+	 * @return float The floor; the default when unset or not a number.
+	 *
+	 * @spec openspec/changes/vector-rag/tasks.md#task-3-1
+	 */
+	private function similarityFloor(): float {
+		$raw = '';
+		if ($this->appConfig !== null) {
+			$raw = trim($this->appConfig->getValueString(AppIdentity::APP_ID, self::FLOOR_SETTING, ''));
+		}
+
+		if (is_numeric($raw) === false) {
+			return self::DEFAULT_SIMILARITY_FLOOR;
+		}
+
+		return max(0.0, min(1.0, (float)$raw));
+	}//end similarityFloor()
+
+	/**
+	 * The cosine similarity of two vectors; 0 when either is empty, zero or of another length.
+	 *
+	 * @param array<int, float|int> $a One vector.
+	 * @param array<int, float|int> $b The other.
+	 *
+	 * @return float The similarity.
+	 *
+	 * @spec openspec/changes/vector-rag/tasks.md#task-3-1
+	 */
+	public static function cosine(array $a, array $b): float {
+		$a = array_values($a);
+		$b = array_values($b);
+		if ($a === [] || count($a) !== count($b)) {
+			return 0.0;
+		}
+
+		$dot   = 0.0;
+		$normA = 0.0;
+		$normB = 0.0;
+		foreach ($a as $i => $value) {
+			$dot   += ((float)$value * (float)$b[$i]);
+			$normA += ((float)$value ** 2);
+			$normB += ((float)$b[$i] ** 2);
+		}
+
+		if ($normA === 0.0 || $normB === 0.0) {
+			return 0.0;
+		}
+
+		return $dot / (sqrt($normA) * sqrt($normB));
+	}//end cosine()
 
 	/**
 	 * A descriptor's whitelist-matchable id: the dotted `mcpId` when present

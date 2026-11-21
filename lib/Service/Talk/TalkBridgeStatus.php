@@ -24,14 +24,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-chat-bridge/tasks.md#7-opt-in-and-admin-visibility
+ * @spec openspec/changes/archive/2026-07-30-talk-chat-bridge/tasks.md#7-opt-in-and-admin-visibility
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Talk;
 
+use OCA\Hermiq\Kernel\Contracts\TalkBridgeStatusInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -42,9 +44,9 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
+ * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
  */
-class TalkBridgeStatus {
+class TalkBridgeStatus implements TalkBridgeStatusInterface {
 
 	/**
 	 * OpenRegister register slug.
@@ -110,7 +112,7 @@ class TalkBridgeStatus {
 	 *
 	 * @return array The status payload for the admin panel.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
 	 */
 	public function describe(): array {
 		$available = $this->bridge->isAvailable();
@@ -145,7 +147,7 @@ class TalkBridgeStatus {
 	 *
 	 * @return bool True when the bot is installed.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
 	 */
 	private function isBotInstalled(): bool {
 		try {
@@ -173,7 +175,7 @@ class TalkBridgeStatus {
 	 *
 	 * @return array The per-room rows.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
 	 */
 	private function describeRooms(): array {
 		$rows = [];
@@ -210,7 +212,7 @@ class TalkBridgeStatus {
 	 *
 	 * @return bool True when spreed will dispatch our bot there.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
 	 */
 	private function isBotEnabledIn(string $token): bool {
 		try {
@@ -239,7 +241,7 @@ class TalkBridgeStatus {
 	 *
 	 * @return string The display name.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
 	 */
 	private function roomName(object $manager, string $token): string {
 		try {
@@ -264,14 +266,13 @@ class TalkBridgeStatus {
 	 *
 	 * @return string|null The agent name.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
 	 */
 	private function agentName(string $agentId): ?string {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 			);
 
 			if (($agent instanceof ObjectEntity) === false) {

@@ -25,15 +25,28 @@
  *     (~150s). The CLI is SIGKILLed at `RUNNER_TIMEOUT_MS`, so a token outliving
  *     the turn has no legitimate caller. `RUNNER_TIMEOUT_MS` is a runner-container
  *     env var Hermiq cannot read, so this tracks the runner's DEFAULT.
- *   - **Storage**: `ICache` (distributed, TTL-native, auto-expiring). A token is a
- *     secret and ephemeral — wrong place for an OpenRegister object.
+ *   - **Storage**: the database, through `RunTokenStore` (hermiq ADR-025). A
+ *     token is a secret and ephemeral, which is why it is not an OpenRegister
+ *     object. It used to be the distributed `ICache`, and that was wrong in a way
+ *     that only shows on some instances: with no `memcache.distributed`
+ *     configured Nextcloud falls back to APCu, which is PER PROCESS POOL. A token
+ *     minted by a cron-mode background job (conversation titles, stages) lived in
+ *     the CLI's APCu, and the web server answering the egress proxy never saw it.
+ *     Every CONNECT of that run came back 401, and every 401 fed the brute-force
+ *     throttle until the whole egress path answered 429 for every run (measured
+ *     on a live instance, 2026-09-29).
+ *   - **Recognition after death**: a consumed or expired record is KEPT for
+ *     `RECOGNITION_SECONDS` after expiry. It authorises nothing in that window,
+ *     but `isKnown()` still says it was genuinely issued, so the endpoints can
+ *     tell a legitimate straggler (a CLI still flushing after its turn ended)
+ *     from a guess, and throttle only the guess.
  *   - **Comparison**: constant-time (`hash_equals`). No timing oracle.
  *   - **Consumption**: `consume()` is called in a `finally` when the run closes
  *     (success, error, timeout), so later use is rejected.
  *   - **Logging**: a token value is NEVER logged and NEVER placed in an error body.
  *
- * The cache is keyed by `sha256(token)` — never the raw token — so the store
- * cannot be enumerated to a live token even with cache-key visibility, and the
+ * The store is keyed by `sha256(token)`, never the raw token, so the store
+ * cannot be enumerated to a live token even with read access to it, and the
  * stored record additionally carries the same `sha256(token)` so `verify()` runs
  * a `hash_equals()` confirmation on every lookup (the code path never
  * short-circuits before that comparison).
@@ -50,15 +63,15 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Llm;
 
-use OCP\ICache;
-use OCP\ICacheFactory;
+use OCA\Hermiq\Kernel\Contracts\RunTokenServiceInterface;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Security\ISecureRandom;
 use RuntimeException;
 
@@ -66,17 +79,9 @@ use RuntimeException;
  * Mint / verify / consume the per-run bearer token that authenticates both
  * governed CLI endpoints.
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
  */
-class RunTokenService {
-
-	/**
-	 * Distributed-cache prefix for run tokens (mirrors OR's session-cache prefix
-	 * pattern).
-	 *
-	 * @var string
-	 */
-	private const CACHE_PREFIX = 'hermiq_run_tokens';
+class RunTokenService implements RunTokenServiceInterface {
 
 	/**
 	 * Token length: 43 alphanumeric characters ≈ 256 bits of entropy (matches
@@ -105,24 +110,26 @@ class RunTokenService {
 	private const TTL_SLACK_SECONDS = 30;
 
 	/**
-	 * The distributed token store (TTL-native, auto-expiring).
+	 * How long a spent or expired record is still RECOGNISED after its expiry.
+	 * It authorises nothing in this window; it only lets the endpoints tell a
+	 * legitimate straggler from a brute-force guess.
 	 *
-	 * @var ICache
+	 * @var int
 	 */
-	private ICache $cache;
+	private const RECOGNITION_SECONDS = 3600;
 
 	/**
 	 * Constructor.
 	 *
-	 * @param ICacheFactory $cacheFactory Builds the distributed token store.
+	 * @param RunTokenStore $store        The token store every process shares.
 	 * @param ISecureRandom $secureRandom CSPRNG for the token entropy.
+	 * @param ITimeFactory  $timeFactory  The clock expiry is judged against.
 	 */
 	public function __construct(
-		ICacheFactory $cacheFactory,
+		private readonly RunTokenStore $store,
 		private readonly ISecureRandom $secureRandom,
+		private readonly ITimeFactory $timeFactory,
 	) {
-		$this->cache = $cacheFactory->createDistributed(prefix: self::CACHE_PREFIX);
-
 	}//end __construct()
 
 	/**
@@ -147,10 +154,14 @@ class RunTokenService {
 	 *                             The caller passes its OWN ceiling, so the token still dies
 	 *                             with the work it belongs to and never becomes a long-lived
 	 *                             credential. Null keeps the turn default.
+	 * @param string $projectKey The session's project (memory-project-scopes), or '' outside
+	 *                           a project. Bound into the token so the memory tools called over
+	 *                           the governed MCP endpoint act on that project's memory.
 	 *
 	 * @return string The plaintext bearer token.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
 	public function mint(
 		string $runId,
@@ -158,17 +169,74 @@ class RunTokenService {
 		string $userId,
 		string $conversationId = '',
 		?int $ttlSeconds = null,
+		string $projectKey = '',
 	): string {
-		$token = $this->secureRandom->generate(self::TOKEN_LENGTH, ISecureRandom::CHAR_ALPHANUMERIC);
+		$request = new RunTokenRequest(runId: $runId, agentId: $agentId);
+		$request->userId = $userId;
+		$request->conversationId = $conversationId;
+		$request->ttlSeconds = $ttlSeconds;
+		$request->projectKey = $projectKey;
+		return $this->mintFor(request: $request);
+	}//end mint()
 
+	/**
+	 * Mint a token for one run binding, sweeping closed records first.
+	 *
+	 * @param RunTokenRequest $request The binding and lifetime.
+	 *
+	 * @return string The plaintext bearer token.
+	 *
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
+	 */
+	public function mintFor(RunTokenRequest $request): string {
+		$token = $this->secureRandom->generate(self::TOKEN_LENGTH, ISecureRandom::CHAR_ALPHANUMERIC);
+		$encoded = $this->encodedRecord(request: $request, token: $token);
+		$ttl = $this->ttlFor(request: $request);
+		$now = $this->timeFactory->getTime();
+
+		// Sweep first, on the one indexed column: records whose recognition
+		// window has closed. Minting is the only write path, so the table stays
+		// bounded by the tokens of roughly the last hour without a background job.
+		$this->store->purge(now: $now);
+		$this->store->put(
+			digest: $this->digest(token: $token),
+			record: $encoded,
+			expiresAt: ($now + $ttl),
+			retainUntil: ($now + $ttl + self::RECOGNITION_SECONDS)
+		);
+
+		return $token;
+	}//end mintFor()
+
+	/**
+	 * The stored record: the binding and the token's own digest, JSON with slashes and unicode unescaped.
+	 *
+	 * @param RunTokenRequest $request The binding.
+	 * @param string          $token   The plaintext token.
+	 *
+	 * @return string The encoded record.
+	 *
+	 * @throws RuntimeException When the record cannot be encoded.
+	 */
+	private function encodedRecord(RunTokenRequest $request, string $token): string {
 		$record = [
-			'runId' => $runId,
-			'agentId' => $agentId,
-			'userId' => $userId,
-			'conversationId' => $conversationId,
+			'runId' => $request->runId,
+			'agentId' => $request->agentId,
+			'userId' => $request->userId,
+			'conversationId' => $request->conversationId,
 			// The token's own digest — re-checked with hash_equals() on verify().
 			'hash' => $this->digest(token: $token),
 		];
+		// Only a run in a project carries one, so every other record keeps its shape.
+		if ($request->projectKey !== '') {
+			$record['projectKey'] = $request->projectKey;
+		}
+
+		// A sign-in token carries the hosts it may reach; a run token carries none,
+		// so its stored record is unchanged.
+		if ($request->egressHosts !== []) {
+			$record['egressHosts'] = array_values(array_map('strval', $request->egressHosts));
+		}
 
 		$encoded = json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 		if (is_string($encoded) === false) {
@@ -177,15 +245,24 @@ class RunTokenService {
 			throw new RuntimeException('Could not encode the run-token record.');
 		}
 
+		return $encoded;
+	}//end encodedRecord()
+
+	/**
+	 * The token's lifetime: a positive override, else the turn default.
+	 *
+	 * @param RunTokenRequest $request The request.
+	 *
+	 * @return int Seconds.
+	 */
+	private function ttlFor(RunTokenRequest $request): int {
 		$ttl = $this->ttlSeconds();
-		if ($ttlSeconds !== null && $ttlSeconds > 0) {
-			$ttl = $ttlSeconds;
+		if ($request->ttlSeconds !== null && $request->ttlSeconds > 0) {
+			$ttl = $request->ttlSeconds;
 		}
 
-		$this->cache->set(key: $this->digest(token: $token), value: $encoded, ttl: $ttl);
-
-		return $token;
-	}//end mint()
+		return $ttl;
+	}//end ttlFor()
 
 	/**
 	 * Verify a presented token and return its binding, or null when it is missing,
@@ -195,27 +272,19 @@ class RunTokenService {
 	 *
 	 * @param string $token The presented bearer token.
 	 *
-	 * @return array{runId: string, agentId: string, userId: string, conversationId: string}|null
+	 * @return array{runId: string, agentId: string, userId: string, conversationId: string, projectKey?: string, egressHosts?: list<string>}|null
 	 *                                                                                            The binding, or null when the token is not valid.
+	 *                                                                                            `projectKey` is present only for a run in a project.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
 	 */
 	public function verify(string $token): ?array {
 		// Always compute the digest (constant work) even for an empty token, so
 		// the presence/absence of a token is not itself a timing signal.
 		$presentedDigest = $this->digest(token: $token);
 
-		$raw = $this->cache->get(key: $presentedDigest);
-		if (is_string($raw) === false) {
-			return null;
-		}
-
-		$record = json_decode($raw, true);
-		if (is_array($record) === false || isset($record['hash']) === false || is_string($record['hash']) === false) {
-			return null;
-		}
-
-		if (hash_equals($record['hash'], $presentedDigest) === false) {
+		$record = $this->liveRecord(digest: $presentedDigest);
+		if ($record === null || hash_equals($record['hash'], $presentedDigest) === false) {
 			return null;
 		}
 
@@ -224,14 +293,115 @@ class RunTokenService {
 			return null;
 		}
 
-		return [
+		return self::bindingOf(record: $record);
+
+	}//end verify()
+
+	/**
+	 * The run binding a live token record carries; `projectKey` only when the run has a project, `egressHosts` only for a sign-in token.
+	 *
+	 * @param array<string, mixed> $record The token record.
+	 *
+	 * @return array{runId: string, agentId: string, userId: string, conversationId: string, projectKey?: string, egressHosts?: list<string>}
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	private static function bindingOf(array $record): array {
+		$binding = [
 			'runId' => (string)($record['runId'] ?? ''),
 			'agentId' => (string)($record['agentId'] ?? ''),
 			'userId' => (string)($record['userId'] ?? ''),
 			'conversationId' => (string)($record['conversationId'] ?? ''),
 		];
+		$projectKey = (string)($record['projectKey'] ?? '');
+		if ($projectKey !== '') {
+			$binding['projectKey'] = $projectKey;
+		}
 
-	}//end verify()
+		// Only a sign-in token names hosts (models-provider-connections D5).
+		if (isset($record['egressHosts']) === true && is_array($record['egressHosts']) === true
+			&& $record['egressHosts'] !== []
+		) {
+			$binding['egressHosts'] = array_values(array_map('strval', $record['egressHosts']));
+		}
+
+		return $binding;
+	}//end bindingOf()
+
+	/**
+	 * The stored record for a digest while it may authorise: found, not consumed,
+	 * not expired, and carrying a digest of its own.
+	 *
+	 * @param string $digest The presented token's digest.
+	 *
+	 * @return array<string, mixed>|null The record, or null.
+	 */
+	private function liveRecord(string $digest): ?array {
+		$stored = $this->store->find(digest: $digest);
+		if ($stored === null) {
+			return null;
+		}
+
+		// Consumed (the run closed) or past its TTL: recognised, not authorised.
+		if ($stored['consumed'] === true || $stored['expiresAt'] <= $this->timeFactory->getTime()) {
+			return null;
+		}
+
+		return $this->decodedRecord(raw: $stored['record']);
+	}//end liveRecord()
+
+	/**
+	 * A stored record decoded, or null when it is not an object with a string digest.
+	 *
+	 * @param string $raw The stored JSON.
+	 *
+	 * @return array<string, mixed>|null The record, or null.
+	 */
+	private function decodedRecord(string $raw): ?array {
+		$record = json_decode($raw, true);
+		if (is_array($record) === false || isset($record['hash']) === false || is_string($record['hash']) === false) {
+			return null;
+		}
+
+		return $record;
+	}//end decodedRecord()
+
+	/**
+	 * Whether this token was genuinely issued by this instance, whatever its state
+	 * now: live, consumed or expired (within the recognition window).
+	 *
+	 * This is NOT an authorisation check, and callers must never treat it as one:
+	 * `verify()` is. It answers the throttler's question. A token that fails
+	 * `verify()` but `isKnown()` is a legitimate component presenting a spent
+	 * credential (a CLI still flushing telemetry after its turn ended, a pooled
+	 * process outliving its run), and counting that as a brute-force guess lets
+	 * one stale component throttle the egress path for every run on the host.
+	 * An attacker cannot reach this branch: it requires the preimage of a stored
+	 * digest, which is the token.
+	 *
+	 * @param string $token The presented bearer token.
+	 *
+	 * @return bool True when a record for this token exists.
+	 *
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 */
+	public function isKnown(string $token): bool {
+		if ($token === '') {
+			return false;
+		}
+
+		$stored = $this->store->find(digest: $this->digest(token: $token));
+		if ($stored === null) {
+			return false;
+		}
+
+		$record = json_decode($stored['record'], true);
+		if (is_array($record) === false || is_string($record['hash'] ?? null) === false) {
+			return false;
+		}
+
+		return hash_equals($record['hash'], $this->digest(token: $token));
+	}//end isKnown()
 
 	/**
 	 * Consume a token so any later use is rejected. Called in a `finally` when the
@@ -242,14 +412,14 @@ class RunTokenService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-the-token-dies-with-the-run-for-both-endpoints
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-the-token-dies-with-the-run-for-both-endpoints
 	 */
 	public function consume(string $token): void {
 		if ($token === '') {
 			return;
 		}
 
-		$this->cache->remove(key: $this->digest(token: $token));
+		$this->store->markConsumed(digest: $this->digest(token: $token));
 
 	}//end consume()
 
@@ -264,7 +434,7 @@ class RunTokenService {
 	}//end ttlSeconds()
 
 	/**
-	 * The cache key / stored digest for a token: a SHA-256 hex digest, so the
+	 * The store key / stored digest for a token: a SHA-256 hex digest, so the
 	 * store is keyed by an irreversible value and never by the raw token.
 	 *
 	 * @param string $token The token to digest.
