@@ -156,6 +156,10 @@
             "description": "Owner-scoped \"run this EvalDataset against this Agent\" endpoint."
         },
         {
+            "name": "eval-schedule",
+            "description": "Lists, adds and changes a dataset's eval schedules for its owner."
+        },
+        {
             "name": "eval-template",
             "description": "Copies an eval dataset template for one of the caller's agents."
         },
@@ -6149,6 +6153,301 @@
                     },
                     "500": {
                         "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
+        },
+        "/evals/{datasetId}/schedules": {
+            "get": {
+                "operationId": "eval-schedule-index",
+                "summary": "The caller's schedules of a dataset",
+                "description": "The caller's eval schedules of a dataset they own; 404 for a dataset the caller does not own. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "eval-schedule"
+                ],
+                "parameters": [
+                    {
+                        "name": "datasetId",
+                        "in": "path",
+                        "required": true,
+                        "description": "The dataset uuid.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The schedules.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "results": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "string"
+                                                    },
+                                                    "agentId": {
+                                                        "type": "string"
+                                                    },
+                                                    "cronExpr": {
+                                                        "type": "string"
+                                                    },
+                                                    "enabled": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "nextRun": {
+                                                        "type": "string",
+                                                        "nullable": true
+                                                    },
+                                                    "lastRunId": {
+                                                        "type": "string",
+                                                        "nullable": true
+                                                    },
+                                                    "regressionThresholdPercent": {
+                                                        "type": "integer",
+                                                        "nullable": true
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "eval-schedule-create",
+                "summary": "Add a schedule to a dataset",
+                "description": "Run a dataset the caller owns against an agent the caller owns on a cron schedule. 404 when the caller does not own either; 400 for a cron expression or threshold that is not valid. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "eval-schedule"
+                ],
+                "parameters": [
+                    {
+                        "name": "datasetId",
+                        "in": "path",
+                        "required": true,
+                        "description": "The dataset uuid.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "agentId": {
+                                        "type": "string",
+                                        "description": "The agent the dataset runs against."
+                                    },
+                                    "cronExpr": {
+                                        "type": "string",
+                                        "description": "5-field cron expression in UTC; empty means monthly, 06:00 on the first."
+                                    },
+                                    "enabled": {
+                                        "type": "boolean",
+                                        "description": "Whether the schedule runs."
+                                    },
+                                    "regressionThresholdPercent": {
+                                        "type": "integer",
+                                        "description": "Points the pass rate may drop before the owner is notified."
+                                    }
+                                },
+                                "required": [
+                                    "agentId"
+                                ],
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The schedule was stored.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "agentId": {
+                                            "type": "string"
+                                        },
+                                        "cronExpr": {
+                                            "type": "string"
+                                        },
+                                        "enabled": {
+                                            "type": "boolean"
+                                        },
+                                        "nextRun": {
+                                            "type": "string",
+                                            "nullable": true
+                                        },
+                                        "lastRunId": {
+                                            "type": "string",
+                                            "nullable": true
+                                        },
+                                        "regressionThresholdPercent": {
+                                            "type": "integer",
+                                            "nullable": true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    }
+                }
+            }
+        },
+        "/evals/{datasetId}/schedules/{id}": {
+            "put": {
+                "operationId": "eval-schedule-update",
+                "summary": "Change one of a dataset's schedules",
+                "description": "Change a schedule the caller owns. 404 when the caller does not own the dataset, the agent or the schedule; 400 for a cron expression or threshold that is not valid. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "eval-schedule"
+                ],
+                "parameters": [
+                    {
+                        "name": "datasetId",
+                        "in": "path",
+                        "required": true,
+                        "description": "The dataset uuid.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The schedule uuid.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "agentId": {
+                                        "type": "string",
+                                        "description": "The agent the dataset runs against."
+                                    },
+                                    "cronExpr": {
+                                        "type": "string",
+                                        "description": "5-field cron expression in UTC; empty means monthly, 06:00 on the first."
+                                    },
+                                    "enabled": {
+                                        "type": "boolean",
+                                        "description": "Whether the schedule runs."
+                                    },
+                                    "regressionThresholdPercent": {
+                                        "type": "integer",
+                                        "description": "Points the pass rate may drop before the owner is notified."
+                                    }
+                                },
+                                "required": [
+                                    "agentId"
+                                ],
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The schedule was stored.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "agentId": {
+                                            "type": "string"
+                                        },
+                                        "cronExpr": {
+                                            "type": "string"
+                                        },
+                                        "enabled": {
+                                            "type": "boolean"
+                                        },
+                                        "nextRun": {
+                                            "type": "string",
+                                            "nullable": true
+                                        },
+                                        "lastRunId": {
+                                            "type": "string",
+                                            "nullable": true
+                                        },
+                                        "regressionThresholdPercent": {
+                                            "type": "integer",
+                                            "nullable": true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
                     }
                 }
             }

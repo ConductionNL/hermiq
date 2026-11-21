@@ -36,15 +36,10 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Eval;
 
 use OCA\OpenRegister\Service\ObjectService;
-use OCA\OpenRegister\Mcp\Db\AgentMapper;
-use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
-use OCA\Hermiq\Kernel\Contracts\SeedCustodyServiceInterface;
 use InvalidArgumentException;
-use Throwable;
 
 /**
  * Copies an eval dataset template into an editable dataset for one agent.
@@ -70,9 +65,8 @@ class EvalTemplateCopier {
 	/**
 	 * Constructor.
 	 *
-	 * @param ObjectService               $objectService Reads the template and saves the copy as the signed-in user.
-	 * @param AgentMapper                 $agentMapper   Resolves the agent.
-	 * @param SeedCustodyServiceInterface $seedCustody   The owner rule of the eval endpoints.
+	 * @param ObjectService $objectService Saves the copy as the signed-in user.
+	 * @param EvalOwnership $ownership     Reads the template and applies the owner rule to the agent.
 	 *
 	 * @return void
 	 *
@@ -80,8 +74,7 @@ class EvalTemplateCopier {
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
-		private readonly AgentMapper $agentMapper,
-		private readonly SeedCustodyServiceInterface $seedCustody,
+		private readonly EvalOwnership $ownership,
 	) {
 	}//end __construct()
 
@@ -145,8 +138,8 @@ class EvalTemplateCopier {
 	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
 	 */
 	public function copyForOwner(string $datasetId, string $agentId, string $uid): ?ObjectEntity {
-		$template = $this->readableDataset(datasetId: $datasetId);
-		$agent    = $this->ownedAgent(agentId: $agentId, uid: $uid);
+		$template = $this->ownership->readable(schema: self::SCHEMA, id: $datasetId);
+		$agent    = $this->ownership->ownedAgent(agentId: $agentId, uid: $uid);
 		if ($template === null || $agent === null) {
 			return null;
 		}
@@ -177,54 +170,4 @@ class EvalTemplateCopier {
 			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER, schema: self::SCHEMA))
 		);
 	}//end copy()
-
-	/**
-	 * The dataset, read with the caller's rights; null when absent or unreadable.
-	 *
-	 * @param string $datasetId The dataset uuid.
-	 *
-	 * @return ObjectEntity|null
-	 */
-	private function readableDataset(string $datasetId): ?ObjectEntity {
-		try {
-			$dataset = $this->objectService->find(
-				id: $datasetId,
-				options: new ObjectFindOptions(register: self::REGISTER, schema: self::SCHEMA)
-			);
-		} catch (Throwable $e) {
-			return null;
-		}
-
-		if (($dataset instanceof ObjectEntity) === false) {
-			return null;
-		}
-
-		return $dataset;
-	}//end readableDataset()
-
-	/**
-	 * The agent, when the caller acts as its owner; null otherwise.
-	 *
-	 * @param string $agentId The agent uuid.
-	 * @param string $uid     The caller.
-	 *
-	 * @return Agent|null
-	 */
-	private function ownedAgent(string $agentId, string $uid): ?Agent {
-		$agent = null;
-		if ($agentId !== '') {
-			try {
-				$agent = $this->agentMapper->findByUuid(uuid: $agentId);
-			} catch (Throwable $e) {
-				$agent = null;
-			}
-		}
-
-		$owns = ($agent !== null && $this->seedCustody->actsAsOwner(owner: $agent->getOwner(), uid: $uid) === true);
-		if ($owns === false) {
-			return null;
-		}
-
-		return $agent;
-	}//end ownedAgent()
 }//end class

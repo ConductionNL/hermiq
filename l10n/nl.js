@@ -3644,7 +3644,22 @@ OC.L10N.register(
         "The test set could not be copied.": "De testset kon niet worden gekopieerd.",
         "Bias check": "Biascheck",
         "No bias check run": "Nog geen biascheck uitgevoerd",
-        "{rate}% on {date}": "{rate}% op {date}"
+        "{rate}% on {date}": "{rate}% op {date}",
+        "Run on a schedule": "Uitvoeren volgens schema",
+        "Change": "Wijzigen",
+        "This dataset does not run on a schedule yet.": "Deze dataset wordt nog niet volgens een schema uitgevoerd.",
+        "Add a schedule": "Schema toevoegen",
+        "Schedule saved.": "Schema opgeslagen.",
+        "The schedule could not be saved.": "Het schema kon niet worden opgeslagen.",
+        "Next run: {date}": "Volgende run: {date}",
+        "Monthly, on the 1st at 06:00 UTC": "Maandelijks, op de 1e om 06:00 UTC",
+        "Weekly, on Monday at 06:00 UTC": "Wekelijks, op maandag om 06:00 UTC",
+        "Daily at 06:00 UTC": "Dagelijks om 06:00 UTC",
+        "Custom: {cron}": "Eigen schema: {cron}",
+        "How often": "Hoe vaak",
+        "Tell me when the pass rate drops more than this many points": "Waarschuw me als het slagingspercentage meer dan zoveel punten daalt",
+        "Save schedule": "Schema opslaan",
+        "Keep the current schedule ({cron})": "Huidig schema behouden ({cron})"
     },
     "nplurals=2; plural=(n != 1);"
 )

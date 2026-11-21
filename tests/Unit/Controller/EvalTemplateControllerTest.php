@@ -23,6 +23,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\EvalTemplateController;
+use OCA\Hermiq\Service\Eval\EvalOwnership;
 use OCA\Hermiq\Service\Eval\EvalTemplateCopier;
 use OCA\Hermiq\Service\SeedCustodyService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -41,6 +42,7 @@ use Psr\Log\LoggerInterface;
 /**
  * @covers \OCA\Hermiq\Controller\EvalTemplateController
  * @uses   \OCA\Hermiq\Service\Eval\EvalTemplateCopier
+ * @uses   \OCA\Hermiq\Service\Eval\EvalOwnership
  * @uses   \OCA\Hermiq\Service\SeedCustodyService
  */
 class EvalTemplateControllerTest extends TestCase {
@@ -102,7 +104,10 @@ class EvalTemplateControllerTest extends TestCase {
 		return new EvalTemplateController(
 			request: $request,
 			userSession: $session,
-			copier: new EvalTemplateCopier(objectService: $objects, agentMapper: $agents, seedCustody: new SeedCustodyService(groupManager: $groups)),
+			copier: new EvalTemplateCopier(
+				objectService: $objects,
+				ownership: new EvalOwnership(objectService: $objects, agentMapper: $agents, seedCustody: new SeedCustodyService(groupManager: $groups))
+			),
 			logger: $this->createMock(originalClassName: LoggerInterface::class));
 	}//end controller()
 

@@ -130,6 +130,16 @@ $routes = [
         // "Use for this agent": copy a seeded eval dataset template into a dataset the
         // caller owns, linked to one of their agents (reuse-scheduled-bias-evals).
         ['name' => 'evalTemplate#use', 'url' => '/api/evals/{datasetId}/use', 'verb' => 'POST', 'requirements' => ['datasetId' => '[^/]+']],
+        // "Run on a schedule": the caller's eval schedules of a dataset they own
+        // (reuse-scheduled-bias-evals); EvalScheduleTask runs them.
+        ['name' => 'evalSchedule#index', 'url' => '/api/evals/{datasetId}/schedules', 'verb' => 'GET', 'requirements' => ['datasetId' => '[^/]+']],
+        ['name' => 'evalSchedule#create', 'url' => '/api/evals/{datasetId}/schedules', 'verb' => 'POST', 'requirements' => ['datasetId' => '[^/]+']],
+        [
+            'name'         => 'evalSchedule#update',
+            'url'          => '/api/evals/{datasetId}/schedules/{id}',
+            'verb'         => 'PUT',
+            'requirements' => ['datasetId' => '[^/]+', 'id' => '[^/]+'],
+        ],
 
         // Schedule webhook-secret lifecycle (delivery-channels): owner-guarded mint/
         // rotate/revoke/status for the OUTBOUND deliver=webhook signing secret —

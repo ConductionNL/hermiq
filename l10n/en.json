@@ -3679,7 +3679,22 @@
         "Use for this agent": "Use for this agent",
         "{rate}% on {date}": "{rate}% on {date}",
         "Bias check": "Bias check",
-        "No bias check run": "No bias check run"
+        "No bias check run": "No bias check run",
+        "Add a schedule": "Add a schedule",
+        "Change": "Change",
+        "Custom: {cron}": "Custom: {cron}",
+        "Daily at 06:00 UTC": "Daily at 06:00 UTC",
+        "How often": "How often",
+        "Keep the current schedule ({cron})": "Keep the current schedule ({cron})",
+        "Monthly, on the 1st at 06:00 UTC": "Monthly, on the 1st at 06:00 UTC",
+        "Next run: {date}": "Next run: {date}",
+        "Run on a schedule": "Run on a schedule",
+        "Save schedule": "Save schedule",
+        "Schedule saved.": "Schedule saved.",
+        "Tell me when the pass rate drops more than this many points": "Tell me when the pass rate drops more than this many points",
+        "The schedule could not be saved.": "The schedule could not be saved.",
+        "This dataset does not run on a schedule yet.": "This dataset does not run on a schedule yet.",
+        "Weekly, on Monday at 06:00 UTC": "Weekly, on Monday at 06:00 UTC"
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

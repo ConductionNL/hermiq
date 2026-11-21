@@ -24,10 +24,9 @@ namespace OCA\Hermiq\Tests\Unit\Service\Eval;
 
 use InvalidArgumentException;
 use OCA\Hermiq\Repair\SeedBiasEvalTemplate;
+use OCA\Hermiq\Service\Eval\EvalOwnership;
 use OCA\Hermiq\Service\Eval\EvalTemplateCopier;
-use OCA\Hermiq\Kernel\Contracts\SeedCustodyServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
@@ -60,8 +59,7 @@ class EvalTemplateCopierTest extends TestCase {
 	private function copier(ObjectService $service): EvalTemplateCopier {
 		return new EvalTemplateCopier(
 			objectService: $service,
-			agentMapper: $this->createMock(originalClassName: AgentMapper::class),
-			seedCustody: $this->createMock(originalClassName: SeedCustodyServiceInterface::class)
+			ownership: $this->createMock(originalClassName: EvalOwnership::class)
 		);
 	}//end copier()
 
