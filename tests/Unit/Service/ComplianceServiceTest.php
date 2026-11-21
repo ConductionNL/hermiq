@@ -41,6 +41,7 @@ use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Contract\ObjectFindOptions as PublishedObjectFindOptions;
 
 /**
  * Tests for the compliance-control-packs ComplianceService.
@@ -103,7 +104,7 @@ class ComplianceServiceTest extends TestCase {
 
 			public function find(
 				int|string $id,
-				?ObjectFindOptions $options = null,
+				ObjectFindOptions|PublishedObjectFindOptions|null $options = null,
 				bool $_rbac = true,
 				bool $_multitenancy = true
 			): ?ObjectEntity {
