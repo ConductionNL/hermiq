@@ -3632,7 +3632,15 @@ OC.L10N.register(
         "Tell me when the pass rate drops more than this many points": "Tell me when the pass rate drops more than this many points",
         "The schedule could not be saved.": "The schedule could not be saved.",
         "This dataset does not run on a schedule yet.": "This dataset does not run on a schedule yet.",
-        "Weekly, on Monday at 06:00 UTC": "Weekly, on Monday at 06:00 UTC"
+        "Weekly, on Monday at 06:00 UTC": "Weekly, on Monday at 06:00 UTC",
+        "Deep research": "Deep research",
+        "Planning the research…": "Planning the research…",
+        "Researching: {sources} sources read, {toolCalls} tool calls": "Researching: {sources} sources read, {toolCalls} tool calls",
+        "Stop research": "Stop research",
+        "Stopping the research…": "Stopping the research…",
+        "The research could not be started.": "The research could not be started.",
+        "The research could not be stopped.": "The research could not be stopped.",
+        "Writing the report from {sources} sources…": "Writing the report from {sources} sources…"
     },
     "nplurals=2; plural=(n != 1);"
 )

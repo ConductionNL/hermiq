@@ -3659,7 +3659,15 @@ OC.L10N.register(
         "How often": "Hoe vaak",
         "Tell me when the pass rate drops more than this many points": "Waarschuw me als het slagingspercentage meer dan zoveel punten daalt",
         "Save schedule": "Schema opslaan",
-        "Keep the current schedule ({cron})": "Huidig schema behouden ({cron})"
+        "Keep the current schedule ({cron})": "Huidig schema behouden ({cron})",
+        "Deep research": "Diepgaand onderzoek",
+        "Stop research": "Onderzoek stoppen",
+        "Stopping the research…": "Het onderzoek wordt gestopt…",
+        "Researching: {sources} sources read, {toolCalls} tool calls": "Onderzoek loopt: {sources} bronnen gelezen, {toolCalls} toolaanroepen",
+        "Writing the report from {sources} sources…": "Het rapport wordt geschreven uit {sources} bronnen…",
+        "Planning the research…": "Het onderzoek wordt gepland…",
+        "The research could not be started.": "Het onderzoek kon niet worden gestart.",
+        "The research could not be stopped.": "Het onderzoek kon niet worden gestopt."
     },
     "nplurals=2; plural=(n != 1);"
 )
