@@ -39,6 +39,7 @@ vi.mock('../../src/store/store.js', () => ({ useAgentStore: () => ({ registerObj
 const { getResearch, startResearch, stopResearch } = await import('../../src/api/research.js')
 const { canDeepResearch, researchId, researchProgressLine, runningResearch } = await import('../../src/utils/deepResearch.js')
 const { default: Chat } = await import('../../src/views/Chat.vue')
+const { deepResearchControls } = await import('../../src/views/chatDeepResearch.js')
 
 /**
  * A translate double that fills in the variables.
@@ -128,6 +129,7 @@ function page(state = {}) {
 	const calls = []
 	const ctx = {
 		...Chat.methods,
+		...deepResearchControls.methods,
 		t,
 		calls,
 		currentMessage: '  Which councils publish an algorithm register?  ',
@@ -143,8 +145,8 @@ function page(state = {}) {
 		stoppingResearch: false,
 		...state,
 	}
-	Object.defineProperty(ctx, 'canDeepResearch', { get: () => Chat.computed.canDeepResearch.call(ctx) })
-	Object.defineProperty(ctx, 'activeResearch', { get: () => Chat.computed.activeResearch.call(ctx) })
+	Object.defineProperty(ctx, 'canDeepResearch', { get: () => deepResearchControls.computed.canDeepResearch.call(ctx) })
+	Object.defineProperty(ctx, 'activeResearch', { get: () => deepResearchControls.computed.activeResearch.call(ctx) })
 	ctx.finishTurn = async (uuid) => calls.push(['finish', uuid])
 	ctx.refreshThread = async (uuid) => calls.push(['refresh', uuid])
 	ctx.sendViaStream = async () => calls.push(['stream'])
@@ -214,6 +216,24 @@ describe('Chat deep research', () => {
 		const failing = page({ handoffs: [{ id: 'h-9', kind: 'research', status: 'waiting' }] })
 		await failing.onStopResearch()
 		expect(failing.sendError).toBe('The research could not be stopped.')
+	})
+
+	it('mixes the controls into the chat page with their state off', () => {
+		expect(Chat.mixins).toContain(deepResearchControls)
+		expect(deepResearchControls.data()).toEqual({ deepResearch: false, researchTimer: null, stoppingResearch: false })
+		const ctx = page({ handoffs: [{ id: 'h-9', kind: 'research', status: 'waiting', progress: { phase: 'write', sources: 2 } }] })
+		Object.defineProperty(ctx, 'researchProgress', { get: () => deepResearchControls.computed.researchProgress.call(ctx) })
+		expect(ctx.researchProgress).toBe('Writing the report from 2 sources…')
+	})
+
+	it('re-syncs the poll when the running research changes, and clears it on leaving', () => {
+		vi.useFakeTimers()
+		const ctx = page({ handoffs: [{ id: 'h-9', kind: 'research', status: 'waiting' }] })
+		deepResearchControls.watch.activeResearch.call(ctx)
+		expect(ctx.researchTimer).not.toBeNull()
+		deepResearchControls.beforeUnmount.call(ctx)
+		vi.advanceTimersByTime(10000)
+		expect(ctx.calls).toEqual([])
 	})
 
 	it('polls the thread while a run goes and stops polling once it ends', () => {
