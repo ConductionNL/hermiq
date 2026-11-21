@@ -59,6 +59,7 @@ Kind: code. Size L. Rows `hermiq:tl-code-exec`, `hermiq:fl-code-step`, `hermiq:d
   - `CodeSandboxSettings.vue` in Admin settings (own or hosted with its integriq source, the live backend, "Run a test" through `POST /api/settings/code-sandbox/test`, which runs `print(1 + 1)`), `CodeRunTrace` (the `codeRun` trace extra from `FacadeToolInvoker`: code, language, limits, exit code, duration, `timedOut`, stdout and stderr cut to 4 KB and redacted, e-mail addresses masked, outputs withheld without a redaction service), en/nl strings.
 - [ ] Test (PHPUnit on the trace extra; Playwright under tests/e2e/spec-coverage/ on the admin section)
   - PHPUnit (`CodeRunTraceTest`, the invoker's trace step, the test route) and vitest (`code-sandbox-settings.spec.js`) done; the Playwright run needs a live instance.
+  - 2026-11-21: `tests/e2e/spec-coverage/code-sandbox.spec.ts` written for the admin section (the hosted choice saved for real and put back, "Run a test" answered by page.route); not run here, it needs a running Nextcloud. Open: the auditor scenario has no screen yet, nothing renders the `codeRun` trace extra on the Runs page.
 
 ## Verification
 - [x] `openspec validate tools-code-sandbox --type change --strict` passes
