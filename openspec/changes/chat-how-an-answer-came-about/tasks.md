@@ -50,6 +50,7 @@ Kind: code. Size M. Rows `hermiq:td-explain`, `dm-show-reasoning`, `dm-context-m
   - GIVEN any turn WHEN it completes THEN `metadata.token_count` is not written
 - [x] Implement
 - [ ] Test (PHPUnit per driver; Playwright under `tests/e2e/spec-coverage/answer-transparency.spec.ts`)
+  - 2026-11-21: `tests/e2e/spec-coverage/answer-transparency.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, sidecar or Talk is needed); not run here, it needs a running Nextcloud.
   - `ContextUsageMeter`: the provider's count for a turn without tool calls, else characters / 4 marked `estimated`; window from `ModelContextWindows` (own app config key, set on the LLM provider modal, validated in LlmSettingsController); stored as `metadata.contextUsage`, never `metadata.token_count`; on the send response and `final`; readout under the message box with the warning above 80%. PHPUnit: ContextUsageMeterTest, ModelContextWindowsTest, LlmSettingsContextWindowsTest, ConversationContextUsageTest; vitest: context-usage, chat-template-wiring, llm-provider-modal. Left: the Playwright scenarios.
 
 ## Verification

@@ -134,6 +134,23 @@
 					v-model="form.bodyTemplate"
 					:label="t('hermiq', 'Body template')"
 					:helperText="t('hermiq', 'The JSON body; {{input.<name>}} inserts an argument. Empty sends the arguments as the body.')" />
+				<NcButton class="custom-tool-form__preset" @click="applyN8nPreset">
+					{{ t('hermiq', 'Fill in for an n8n workflow') }}
+				</NcButton>
+				<NcCheckboxRadioSwitch v-model="form.waitForCallback">
+					{{ t('hermiq', 'Wait for the workflow to post its result back') }}
+				</NcCheckboxRadioSwitch>
+				<template v-if="form.waitForCallback">
+					<NcTextField
+						v-model="form.deadlineHours"
+						type="number"
+						:label="t('hermiq', 'Deadline in hours')"
+						:helperText="t('hermiq', 'Empty is 24 hours; at most 168.')" />
+					<NcNoteCard type="info" class="custom-tool-form__callback-help">
+						<p>{{ t('hermiq', 'The workflow gets hermiqResultUrl and hermiqResultToken in its body. The result comes back in the conversation the tool ran in.') }}</p>
+						<p>{{ n8nSteps }}</p>
+					</NcNoteCard>
+				</template>
 			</template>
 
 			<NcCheckboxRadioSwitch v-model="form.enabled">
@@ -195,6 +212,7 @@ import {
 	createCustomTool,
 	inputSchemaFrom,
 	inputsFrom,
+	integriqTargetFrom,
 	sampleArguments,
 	tryCustomTool,
 	updateCustomTool,
@@ -220,6 +238,8 @@ function targetFormFrom(target) {
 		method: target.method || 'GET',
 		path: target.path || '',
 		bodyTemplate: target.bodyTemplate || '',
+		waitForCallback: target.waitForCallback === true,
+		deadlineHours: target.deadlineHours ? String(target.deadlineHours) : '',
 	}
 }
 
@@ -263,6 +283,20 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * What to add to the n8n workflow so its result comes back.
+		 *
+		 * @return {string}
+		 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+		 */
+		n8nSteps() {
+			return this.t(
+				'hermiq',
+				'In n8n, add "Respond to Webhook" right after the trigger, and at the end an "HTTP Request" node that posts the result to {url} with the header X-Hermiq-Result-Token set to {token}.',
+				{ url: '{{ $json.hermiqResultUrl }}', token: '{{ $json.hermiqResultToken }}' },
+			)
+		},
+
 		/**
 		 * The dialog title.
 		 *
@@ -398,6 +432,18 @@ export default {
 
 	methods: {
 		/**
+		 * Fill the target in for an n8n workflow: POST to its webhook path, waiting for its result.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+		 */
+		applyN8nPreset() {
+			this.form.method = 'POST'
+			this.form.path = '/webhook/' + (this.form.slug.trim() || 'workflow')
+			this.form.waitForCallback = true
+		},
+
+		/**
 		 * A fresh key for a list row.
 		 *
 		 * @return {number}
@@ -474,13 +520,7 @@ export default {
 		buildPayload() {
 			const target = this.form.targetType === 'flow'
 				? { type: 'flow', flowId: this.form.flowId }
-				: {
-					type: 'integriq',
-					source: this.form.source.trim(),
-					method: this.form.method,
-					path: this.form.path.trim(),
-					bodyTemplate: this.form.bodyTemplate.trim(),
-				}
+				: integriqTargetFrom(this.form)
 			return {
 				name: this.form.name.trim(),
 				slug: this.form.slug.trim(),
@@ -560,6 +600,10 @@ export default {
 	padding: calc(var(--default-grid-baseline) * 2);
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-large);
+}
+
+.custom-tool-form__preset {
+	align-self: flex-start;
 }
 
 .custom-tool-form__try {

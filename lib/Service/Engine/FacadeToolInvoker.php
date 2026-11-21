@@ -329,6 +329,13 @@ class FacadeToolInvoker {
 	private const FLOW_OWNER_ARGUMENT = 'triggeredBy';
 
 	/**
+	 * The argument a custom tool receives this run's agent and conversation in
+	 * (CustomToolInvoker::TURN_ARGUMENT), so a tool that waits for its workflow's
+	 * result can open the handoff the result comes back to (flows-hand-off-and-wait D4).
+	 */
+	private const CUSTOM_TOOL_TURN_ARGUMENT = 'hermiqTurn';
+
+	/**
 	 * The stop rule of this turn (agents-switch-off-and-stop).
 	 *
 	 * @var TurnGuard
@@ -937,9 +944,11 @@ class FacadeToolInvoker {
 	 * @param string $name The LLPhant-side function name.
 	 * @param array<string, mixed> $arguments Decoded arguments object.
 	 *
-	 * @return array<string, mixed> Arguments, with the owner set when applicable.
+	 * @return array<string, mixed> Arguments, with the owner set when applicable, and for a
+	 *                              custom tool also the run's agent and conversation.
 	 *
 	 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#scenario-an-agent-queued-flow-run-names-the-acting-owner
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) CustomToolDescriptors is used through its static API (a pure
 	 * helper or named constructor) with no state to inject.
@@ -953,13 +962,16 @@ class FacadeToolInvoker {
 		}
 
 		$owner = trim((string)$this->ownerUid);
+		// Never let a model-supplied owner or turn stand in for the run's own.
+		unset($arguments[self::FLOW_OWNER_ARGUMENT], $arguments[self::CUSTOM_TOOL_TURN_ARGUMENT]);
 		if ($owner === '') {
-			// Never let a model-supplied owner stand in for a missing one.
-			unset($arguments[self::FLOW_OWNER_ARGUMENT]);
 			return $arguments;
 		}
 
 		$arguments[self::FLOW_OWNER_ARGUMENT] = $owner;
+		if ($custom === true) {
+			$arguments[self::CUSTOM_TOOL_TURN_ARGUMENT] = ['agentId' => (string)$this->agentId, 'conversationId' => $this->conversationId];
+		}
 
 		return $arguments;
 	}//end withFlowOwner()

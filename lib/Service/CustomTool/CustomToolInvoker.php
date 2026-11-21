@@ -28,6 +28,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\CustomTool;
 
 use OCA\Hermiq\Mcp\CustomToolDescriptors;
+use OCA\Hermiq\Service\Handoff\FlowTurn;
+use OCA\Hermiq\Service\Handoff\WebhookHandoffs;
 use OCA\Hermiq\Support\FleetAppId;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
@@ -70,6 +72,17 @@ class CustomToolInvoker {
 	 * The argument the agent engine carries the run's owner in (FacadeToolInvoker::FLOW_OWNER_ARGUMENT).
 	 */
 	public const OWNER_ARGUMENT = 'triggeredBy';
+
+	/**
+	 * The argument the agent engine carries the run's agent and conversation in
+	 * (FacadeToolInvoker::CUSTOM_TOOL_TURN_ARGUMENT), for a tool that waits for its result.
+	 */
+	public const TURN_ARGUMENT = 'hermiqTurn';
+
+	/**
+	 * What the agent is told when a waiting tool's workflow has been started.
+	 */
+	public const STARTED = 'Started. The result comes back in this conversation when the workflow posts it.';
 
 	/**
 	 * The OpenRegister tool a flow target runs through.
@@ -116,6 +129,7 @@ class CustomToolInvoker {
 	 * @return array<string, mixed> The answer, or an error envelope.
 	 *
 	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) CustomToolDescriptors is used through its static API (a pure
 	 * helper or named constructor) with no state to inject.
@@ -132,9 +146,15 @@ class CustomToolInvoker {
 		}
 
 		$owner = trim((string)($arguments[self::OWNER_ARGUMENT] ?? ''));
-		unset($arguments[self::OWNER_ARGUMENT]);
+		$turn  = (array)($arguments[self::TURN_ARGUMENT] ?? []);
+		unset($arguments[self::OWNER_ARGUMENT], $arguments[self::TURN_ARGUMENT]);
 
-		return $this->run(tool: $tool, arguments: $arguments, owner: $owner);
+		return $this->run(
+			tool: $tool,
+			arguments: $arguments,
+			owner: $owner,
+			turn: new FlowTurn(agentId: (string)($turn['agentId'] ?? ''), conversationId: (string)($turn['conversationId'] ?? ''), owner: $owner)
+		);
 	}//end invoke()
 
 	/**
@@ -146,15 +166,18 @@ class CustomToolInvoker {
 	 * @param array<string, mixed> $tool      The stored tool, with its slug.
 	 * @param array<string, mixed> $arguments The arguments, without the owner.
 	 * @param string               $owner     Who the run is for; a flow is never queued without one.
+	 * @param FlowTurn|null        $turn      The conversation turn the tool runs in; a tool that waits
+	 *                                        for its workflow's result runs only in one.
 	 *
 	 * @return array<string, mixed> The answer, or an error envelope, with the `customTool` record.
 	 *
 	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) CustomToolDescriptors is used through its static API (a pure
 	 * helper or named constructor) with no state to inject.
 	 */
-	public function run(array $tool, array $arguments, string $owner): array {
+	public function run(array $tool, array $arguments, string $owner, ?FlowTurn $turn = null): array {
 		$slug   = (string)($tool['slug'] ?? '');
 		$toolId = CustomToolDescriptors::idOf(slug: $slug);
 
@@ -176,7 +199,7 @@ class CustomToolInvoker {
 		try {
 			$answer = match ((string)($target['type'] ?? '')) {
 				'flow' => $this->runFlow(target: $target, arguments: $arguments, owner: $owner),
-				'integriq' => $this->callIntegriq(target: $target, arguments: $arguments),
+				'integriq' => $this->callIntegriqTool(tool: $tool, target: $target, arguments: $arguments, turn: $turn),
 				default => self::error(code: 'tool_failed', message: 'This custom tool has no target.'),
 			};
 		} catch (Throwable $e) {
@@ -375,14 +398,80 @@ class CustomToolInvoker {
 	}//end runFlow()
 
 	/**
+	 * Call an integriq target; a tool that waits for its workflow's result first opens
+	 * the webhook handoff and hands the workflow its one-time result address and token.
+	 *
+	 * The token goes to the workflow only, never into the answer the agent reads. When
+	 * the call fails the handoff is closed at once, so it does not wait for a result
+	 * that cannot come.
+	 *
+	 * @param array<string, mixed> $tool      The stored tool.
+	 * @param array<string, mixed> $target    The integriq target.
+	 * @param array<string, mixed> $arguments The checked arguments.
+	 * @param FlowTurn|null        $turn      The conversation turn.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 */
+	private function callIntegriqTool(array $tool, array $target, array $arguments, ?FlowTurn $turn): array {
+		if (($target['waitForCallback'] ?? false) !== true) {
+			return $this->callIntegriq(target: $target, arguments: $arguments);
+		}
+
+		$handoffs = $this->webhookHandoffs();
+		if ($handoffs === null || $turn === null || $turn->isComplete() === false) {
+			return self::error(code: 'tool_failed', message: 'This tool waits for its workflow to post the result back, so it runs only in a conversation.');
+		}
+
+		$opened = $handoffs->open(
+			turn: $turn,
+			label: (string)($tool['name'] ?? $tool['slug'] ?? ''),
+			target: (string)($tool['slug'] ?? ''),
+			deadlineHours: ($target['deadlineHours'] ?? null)
+		);
+		$answer = $this->callIntegriq(
+			target: $target,
+			arguments: $arguments,
+			callback: ['hermiqResultUrl' => $opened['hermiqResultUrl'], 'hermiqResultToken' => $opened['hermiqResultToken']]
+		);
+		if (isset($answer['error']) === true) {
+			$handoffs->abandon(handoffId: $opened['handoffId'], reason: (string)($answer['error']['message'] ?? 'The workflow could not be started.'));
+			return $answer;
+		}
+
+		return ['handoffId' => $opened['handoffId'], 'message' => self::STARTED] + $answer;
+	}//end callIntegriqTool()
+
+	/**
+	 * The webhook handoffs, resolved lazily like integriq's CallService; null when unavailable.
+	 *
+	 * @return WebhookHandoffs|null
+	 */
+	private function webhookHandoffs(): ?WebhookHandoffs {
+		try {
+			$handoffs = $this->container->get(WebhookHandoffs::class);
+		} catch (Throwable $e) {
+			return null;
+		}
+
+		if ($handoffs instanceof WebhookHandoffs) {
+			return $handoffs;
+		}
+
+		return null;
+	}//end webhookHandoffs()
+
+	/**
 	 * Call the tool's integriq source through `CallService`, as the acting user.
 	 *
 	 * @param array<string, mixed> $target    The integriq target.
 	 * @param array<string, mixed> $arguments The checked arguments.
+	 * @param array<string, mixed> $callback  The result address and token a waiting tool adds to the body.
 	 *
 	 * @return array<string, mixed>
 	 */
-	private function callIntegriq(array $target, array $arguments): array {
+	private function callIntegriq(array $target, array $arguments, array $callback = []): array {
 		$callService = FleetAppId::getService(container: $this->container, canonical: 'integriq', relative: 'Service\CallService');
 		if ($callService === null || method_exists($callService, 'call') === false) {
 			return self::error(code: 'tool_failed', message: 'Integriq is not available, so this tool cannot call its system.');
@@ -401,7 +490,7 @@ class CustomToolInvoker {
 			source: $source,
 			endpoint: self::renderPath(path: (string)($target['path'] ?? ''), arguments: $arguments),
 			method: $method,
-			config: self::requestConfig(target: $target, method: $method, arguments: $arguments)
+			config: self::requestConfig(target: $target, method: $method, arguments: $arguments, callback: $callback)
 		);
 
 		return self::answerFrom(callLog: $callLog);
@@ -414,10 +503,14 @@ class CustomToolInvoker {
 	 * @param array<string, mixed> $target    The integriq target.
 	 * @param string               $method    The HTTP method.
 	 * @param array<string, mixed> $arguments The checked arguments.
+	 * @param array<string, mixed> $callback  Fields added to the body over anything the template set;
+	 *                                        a body that is not a JSON object is kept under `payload`.
 	 *
 	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 */
-	private static function requestConfig(array $target, string $method, array $arguments): array {
+	private static function requestConfig(array $target, string $method, array $arguments, array $callback = []): array {
 		$config   = [];
 		$template = (string)($target['bodyTemplate'] ?? '');
 		if ($template !== '') {
@@ -425,6 +518,17 @@ class CustomToolInvoker {
 		} elseif ($method !== 'GET' && $method !== 'DELETE') {
 			$config['json'] = $arguments;
 		}
+
+		if ($callback === []) {
+			return $config;
+		}
+
+		$body = ($config['json'] ?? []);
+		if (is_array($body) === false || ($body !== [] && array_is_list($body) === true)) {
+			$body = ['payload' => $body];
+		}
+
+		$config['json'] = array_merge($body, $callback);
 
 		return $config;
 	}//end requestConfig()

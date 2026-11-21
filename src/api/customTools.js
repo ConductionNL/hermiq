@@ -169,3 +169,32 @@ export function sampleArguments(inputs, samples) {
 	}
 	return args
 }
+
+/**
+ * The integriq target a form stores: the wait and the deadline only when the tool waits,
+ * and the deadline only as a whole number of hours.
+ *
+ * @param {object} form The editable form.
+ * @return {object}
+ * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+ */
+export function integriqTargetFrom(form) {
+	const target = {
+		type: 'integriq',
+		source: form.source.trim(),
+		method: form.method,
+		path: form.path.trim(),
+		bodyTemplate: form.bodyTemplate.trim(),
+	}
+	if (form.waitForCallback !== true) {
+		return target
+	}
+
+	target.waitForCallback = true
+	const hours = Number.parseInt(String(form.deadlineHours).trim(), 10)
+	if (Number.isInteger(hours) && hours >= 1 && hours <= 168) {
+		target.deadlineHours = hours
+	}
+
+	return target
+}
