@@ -17,6 +17,7 @@ Rows: `tl-catalog`, `dm-app-tools`. Boards: `hermiq/HmMcpTools`, `hermiq/HmAgent
 - **WHEN** an administrator opens the MCP tools page after installing it
 - **THEN** the page lists `decidiq.listMeetings` with its description under "decidiq"
 - **AND** the agent form offers it as a tool an owner can grant
+@e2e exclude Needs an app to be installed during the test; the catalogue read through OpenRegister's tool registry is covered by AgentsControllerTest.
 
 #### Scenario: No app offers a tool
 - **GIVEN** no installed app registers a tool provider
@@ -36,13 +37,16 @@ Rows: `tl-register`, `dm-builtin-table`. Board: `hermiq/HmAgentBewerken`.
 - **GIVEN** an agent granted the read tools of the schema "permit application", acting for a case handler who may see twelve open applications
 - **WHEN** the case handler asks "How many permit applications are still open?"
 - **THEN** the agent searches the schema and answers "12", and its tool steps show the search
+@e2e exclude Needs a real model to choose the search tool; the grant check on register tools is covered by ToolLoopTest.
 
 #### Scenario: An agent updates a record it may write
 - **GIVEN** the same agent with a write grant on "permit application" added by its owner
 - **WHEN** the case handler asks it to set application 2026-0412 to "Waiting for documents"
 - **THEN** the record shows the status "Waiting for documents", and the audit trail names the agent and the case handler
+@e2e exclude Needs a real model to choose the update tool; the write grant check is covered by ToolLoopTest.
 
 #### Scenario: An update without a write grant is refused
 - **GIVEN** an agent with only the read tools of "permit application"
 - **WHEN** the model calls the update tool for application 2026-0412
 - **THEN** the call is refused as not granted, and the record is unchanged
+@e2e exclude A server-side refusal of a model's tool call; covered by ToolLoopTest.

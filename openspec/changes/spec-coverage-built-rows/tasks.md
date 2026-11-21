@@ -10,6 +10,7 @@
       (`Service/NcNative/FilesWriteService`; `FilesWriteServiceTest`, `NcNativeWriteServiceFilesTest`.)
 - [ ] 1.3 Add e2e coverage for the REQ-SPCOV scenarios that have a screen, or a reasoned
       `@e2e exclude` for the server-side ones (gate 19).
+      - 2026-11-21: `tests/e2e/spec-coverage/spec-coverage-built-rows.spec.ts` written for the ten scenarios with a screen or an endpoint, and a reason-bearing `@e2e exclude` naming the covering unit test added to the nineteen server-side ones; not run here, it needs a running Nextcloud.
 - [x] 1.4 Cover REQ-SPCOV-014 and REQ-SPCOV-015, added in the closing round of 12 November: a
       unit test that `ScheduleTask` keeps parallel runs off, and a test that a register update
       without a write grant is refused while a granted one goes through. Verify: both tests
