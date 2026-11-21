@@ -82,8 +82,8 @@ final class AgentTemperatureGuardListenerTest extends TestCase {
 
 		$this->guard()->handle($event);
 
-		self::assertSame([], $event->getErrors());
-		self::assertFalse($event->isPropagationStopped());
+		self::assertSame(expected: [], actual: $event->getErrors());
+		self::assertFalse(condition: $event->isPropagationStopped());
 	}//end testATemperatureFromZeroToTwoIsWritten()
 
 	/**
@@ -115,8 +115,8 @@ final class AgentTemperatureGuardListenerTest extends TestCase {
 
 		$this->guard()->handle($event);
 
-		self::assertSame(['temperature' => AgentTemperatureGuardListener::OUT_OF_RANGE], $event->getErrors());
-		self::assertTrue($event->isPropagationStopped());
+		self::assertSame(expected: ['temperature' => AgentTemperatureGuardListener::OUT_OF_RANGE], actual: $event->getErrors());
+		self::assertTrue(condition: $event->isPropagationStopped());
 	}//end testATemperatureOutsideZeroToTwoIsRefused()
 
 	/**
@@ -148,8 +148,8 @@ final class AgentTemperatureGuardListenerTest extends TestCase {
 
 		$this->guard()->handle($event);
 
-		self::assertSame(['temperature' => AgentTemperatureGuardListener::OUT_OF_RANGE], $event->getErrors());
-		self::assertTrue($event->isPropagationStopped());
+		self::assertSame(expected: ['temperature' => AgentTemperatureGuardListener::OUT_OF_RANGE], actual: $event->getErrors());
+		self::assertTrue(condition: $event->isPropagationStopped());
 	}//end testAChangedTemperatureOnAnUpdateIsChecked()
 
 	/**
@@ -165,8 +165,8 @@ final class AgentTemperatureGuardListenerTest extends TestCase {
 
 		$this->guard()->handle($event);
 
-		self::assertSame([], $event->getErrors());
-		self::assertFalse($event->isPropagationStopped());
+		self::assertSame(expected: [], actual: $event->getErrors());
+		self::assertFalse(condition: $event->isPropagationStopped());
 	}//end testAnUnchangedTemperatureIsNotCheckedAgain()
 
 	/**
@@ -190,8 +190,8 @@ final class AgentTemperatureGuardListenerTest extends TestCase {
 		$created = new ObjectCreatedEvent(self::object(data: ['temperature' => 9]));
 		$guard->handle($created);
 
-		self::assertSame([], $noTemperature->getErrors());
-		self::assertSame([], $otherSchema->getErrors());
-		self::assertSame([], $stopped->getErrors());
+		self::assertSame(expected: [], actual: $noTemperature->getErrors());
+		self::assertSame(expected: [], actual: $otherSchema->getErrors());
+		self::assertSame(expected: [], actual: $stopped->getErrors());
 	}//end testOtherWritesAreLeftAlone()
 }//end class
