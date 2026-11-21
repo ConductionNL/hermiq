@@ -10,6 +10,7 @@
       (`Service/NcNative/FilesWriteService`; `FilesWriteServiceTest`, `NcNativeWriteServiceFilesTest`.)
 - [ ] 1.3 Add e2e coverage for the REQ-SPCOV scenarios that have a screen, or a reasoned
       `@e2e exclude` for the server-side ones (gate 19).
+      - 2026-11-21: `tests/e2e/spec-coverage/spec-coverage-built-rows.spec.ts` written for the ten scenarios with a screen or an endpoint, and a reason-bearing `@e2e exclude` naming the covering unit test added to the nineteen server-side ones; not run here, it needs a running Nextcloud.
 - [x] 1.4 Cover REQ-SPCOV-014 and REQ-SPCOV-015, added in the closing round of 12 November: a
       unit test that `ScheduleTask` keeps parallel runs off, and a test that a register update
       without a write grant is refused while a granted one goes through. Verify: both tests
@@ -20,3 +21,10 @@
       (`src/widgets/ChatHealthBlock.vue` as the Integrations page's `below-header` slot, view built by
       `src/services/chatHealth.js`; `tests/vitest/chat-health-block.spec.js`, seen failing with
       `unavailable` dropped from the not-answering states.)
+- [x] 1.6 Refuse a temperature outside 0 to 2 (REQ-SPCOV-002, scenario "A value out of range is refused"):
+      the agent form says "The temperature must be between 0 and 2." and does not save, and every
+      write path refuses a changed temperature outside the range before it is stored. Verify: a
+      unit test refuses 3 on a create and on an update, and leaves an unchanged one alone.
+      (`Listener/AgentTemperatureGuardListener` over `Listener/AgentFieldChanges`;
+      `AgentTemperatureGuardListenerTest`, vitest `agent-temperature.spec.js` and the save refusal in
+      `agent-form-helpers.spec.js`.)

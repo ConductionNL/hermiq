@@ -16,3 +16,4 @@ Rows: `me-compression`. Board: `hermiq/HmChat`.
 - **WHEN** the person sends the next message
 - **THEN** the model receives a summary of the older turns and the most recent turns in full
 - **AND** the answer arrives in the same session
+@e2e exclude Needs a real model to write the summary and a long conversation; the summary trigger is covered by ConversationSummaryDueGoldenTest.

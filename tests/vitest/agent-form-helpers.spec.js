@@ -5,7 +5,7 @@
  * AgentFormModal's helpers that the payload, grants and model picker specs
  * leave out: pinning a credential per provider, the people and group
  * searches, the instruction findings, the agent catalogue load, and the
- * save's refusals (model policy, a failed store write, a refused grant
+ * save's refusals (a temperature outside 0 to 2, model policy, a failed store write, a refused grant
  * update, a refused assistant flag).
  */
 
@@ -176,6 +176,22 @@ describe('AgentFormModal save refusals', () => {
 		await wrapper.vm.save()
 		expect(wrapper.vm.error).toBe(refusal)
 		expect(api.saveObject).not.toHaveBeenCalled()
+	})
+
+	it('refuses a temperature outside 0 to 2 without writing, and saves one inside it', async () => {
+		const wrapper = await modal()
+		Object.assign(wrapper.vm.form, { name: 'Permit helper', temperature: '3' })
+		expect(wrapper.vm.temperatureValid).toBe(false)
+
+		await wrapper.vm.save()
+		expect(wrapper.vm.error).toBe('The temperature must be between 0 and 2.')
+		expect(api.saveObject).not.toHaveBeenCalled()
+
+		wrapper.vm.form.temperature = '0.2'
+		expect(wrapper.vm.temperatureValid).toBe(true)
+		await wrapper.vm.save()
+		expect(api.saveObject).toHaveBeenCalledTimes(1)
+		expect(api.saveObject.mock.calls[0][1].temperature).toBe(0.2)
 	})
 
 	it('reports the store error, or a generic one, when the write returns nothing', async () => {

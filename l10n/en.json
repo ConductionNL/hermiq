@@ -1191,6 +1191,7 @@
         "Task text passed to the agent run": "Task text passed to the agent run",
         "Temperature": "Temperature",
         "Temperature (0–2)": "Temperature (0–2)",
+        "The temperature must be between 0 and 2.": "The temperature must be between 0 and 2.",
         "Templates": "Templates",
         "Templates imported from another organisation start quarantined and must be approved before they can be used.": "Templates imported from another organisation start quarantined and must be approved before they can be used.",
         "Tenant ops": "Tenant ops",
