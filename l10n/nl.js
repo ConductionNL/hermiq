@@ -3674,7 +3674,8 @@ OC.L10N.register(
         "Writing the report from {sources} sources…": "Het rapport wordt geschreven uit {sources} bronnen…",
         "Planning the research…": "Het onderzoek wordt gepland…",
         "The research could not be started.": "Het onderzoek kon niet worden gestart.",
-        "The research could not be stopped.": "Het onderzoek kon niet worden gestopt."
+        "The research could not be stopped.": "Het onderzoek kon niet worden gestopt.",
+        "{label} (OpenAI-compatible)": "{label} (OpenAI-compatibel)"
     },
     "nplurals=2; plural=(n != 1);"
 )

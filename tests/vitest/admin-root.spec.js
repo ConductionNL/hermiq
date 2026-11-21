@@ -112,6 +112,28 @@ describe('AdminRoot', () => {
 		expect(current(w)).toEqual(labels)
 	})
 
+	it('names an OpenAI-compatible endpoint by its label, and by its kind without one', async () => {
+		llm.getLlmSettings.mockResolvedValue({ chatProvider: 'openai-compatible', openaiCompatibleConfig: { label: ' vLLM Rekencentrum ' } })
+		webResearch.getWebResearchSettings.mockResolvedValue({})
+		expect(current(await mountPanel())[0]).toBe('vLLM Rekencentrum (OpenAI-compatible)')
+
+		llm.getLlmSettings.mockResolvedValue({ chatProvider: 'openai-compatible', openaiCompatibleConfig: {} })
+		expect(current(await mountPanel())[0]).toBe('OpenAI-compatible endpoint')
+	})
+
+	it('names a just-saved OpenAI-compatible endpoint by the label the modal saved', async () => {
+		llm.getLlmSettings.mockResolvedValue({ chatProvider: 'ollama' })
+		webResearch.getWebResearchSettings.mockResolvedValue({})
+		const w = await mountPanel()
+		const modal = w.findComponent({ name: 'LlmProviderModal' })
+
+		await modal.vm.$emit('saved', 'openai-compatible', 'vLLM Rekencentrum')
+		expect(current(w)[0]).toBe('vLLM Rekencentrum (OpenAI-compatible)')
+
+		await modal.vm.$emit('saved', 'ollama')
+		expect(current(w)[0]).toBe('Ollama (local)')
+	})
+
 	it('falls back to Nextcloud AI and no search backend when the settings cannot be read', async () => {
 		llm.getLlmSettings.mockRejectedValue(new Error('down'))
 		webResearch.getWebResearchSettings.mockRejectedValue(new Error('down'))

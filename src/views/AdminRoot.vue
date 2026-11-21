@@ -391,6 +391,7 @@ const PROVIDER_LABELS = {
 	ollama: 'Ollama (local)',
 	fireworks: 'Fireworks AI',
 	nextcloud: 'Nextcloud AI',
+	'openai-compatible': 'OpenAI-compatible endpoint',
 }
 
 const SEARCH_PROVIDER_LABELS = {
@@ -448,6 +449,8 @@ export default {
 		return {
 			showModal: false,
 			chatProvider: null,
+			// The admin's name for an OpenAI-compatible endpoint (models-provider-connections).
+			compatibleLabel: '',
 			// Nextcloud AI readiness per task type hermiq consumes, the admin
 			// message and the link to Nextcloud's AI settings
 			// (use-nextcloud-ai-settings).
@@ -490,11 +493,17 @@ export default {
 		 *
 		 * @return {string} The label.
 		 *
-		 * @spec exclude Trivial computed display helper; no behavioural spec.
+		 * An OpenAI-compatible endpoint is named by the label the admin gave it,
+		 * as "vLLM Rekencentrum (OpenAI-compatible)".
+		 *
+		 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-an-admin-can-connect-an-openai-compatible-endpoint-by-name-req-pconn-001
 		 */
 		currentProviderLabel() {
 			if (this.usesNextcloudAi) {
 				return this.t('hermiq', 'Nextcloud AI')
+			}
+			if (this.chatProvider === 'openai-compatible' && this.compatibleLabel !== '') {
+				return this.t('hermiq', '{label} (OpenAI-compatible)', { label: this.compatibleLabel })
 			}
 			return PROVIDER_LABELS[this.chatProvider] || this.chatProvider
 		},
@@ -618,11 +627,13 @@ export default {
 		 * @return {Promise<void>}
 		 *
 		 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-2-3
+		 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-an-admin-can-connect-an-openai-compatible-endpoint-by-name-req-pconn-001
 		 */
 		async refresh() {
 			try {
 				const config = await getLlmSettings()
 				this.chatProvider = config.chatProvider || null
+				this.compatibleLabel = String(config.openaiCompatibleConfig?.label || '').trim()
 				if (config.nextcloudAi) {
 					this.nextcloudAi = config.nextcloudAi
 				}
@@ -635,12 +646,17 @@ export default {
 		 * Handle a save from the modal: reflect the new provider immediately.
 		 *
 		 * @param {string} provider The newly-selected provider.
+		 * @param {string} [label] The name of an OpenAI-compatible endpoint, when that was saved.
 		 * @return {void}
 		 *
 		 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-2-3
+		 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-an-admin-can-connect-an-openai-compatible-endpoint-by-name-req-pconn-001
 		 */
-		onSaved(provider) {
+		onSaved(provider, label = '') {
 			this.chatProvider = provider
+			if (provider === 'openai-compatible') {
+				this.compatibleLabel = String(label || '').trim()
+			}
 		},
 
 		/**

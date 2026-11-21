@@ -3647,7 +3647,8 @@ OC.L10N.register(
         "Stopping the research…": "Stopping the research…",
         "The research could not be started.": "The research could not be started.",
         "The research could not be stopped.": "The research could not be stopped.",
-        "Writing the report from {sources} sources…": "Writing the report from {sources} sources…"
+        "Writing the report from {sources} sources…": "Writing the report from {sources} sources…",
+        "{label} (OpenAI-compatible)": "{label} (OpenAI-compatible)"
     },
     "nplurals=2; plural=(n != 1);"
 )
