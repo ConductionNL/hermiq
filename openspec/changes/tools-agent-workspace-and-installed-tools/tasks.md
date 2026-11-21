@@ -34,6 +34,7 @@ Kind: code. Size L. Rows `hermiq:dm-agent-workspace`, `hermiq:dm-install-cli-too
 - [x] Implement
 - [ ] Test (Newman on the routes including another user; Playwright under tests/e2e/spec-coverage/ on the panel)
   > 2026-11-14: `WorkspaceFiles` lists, opens (through `WorkspacePathGuard`) and saves a session workspace file into the person's Files under "Hermiq" with the agent-authored tag, deleting the copy when the tag fails. `WorkspaceFilesController` keys the workspace by the session's agent, the session and the signed-in user and answers 404 to anyone who takes no part in the session; three routes, documented in `openapi.json`. `WorkspaceFilesPanel.vue` sits under the chat header. Covered by PHPUnit (`WorkspaceFilesTest`, `WorkspaceFilesControllerTest`, including another user) and Vitest (`workspace-files-panel.spec.js`); Newman and Playwright need a live instance and were not run. `WorkspaceToolsetReadTest` still refuses every other route naming the workspace; the Files panel's three routes are the stated exception.
+  > 2026-11-21: `tests/e2e/spec-coverage/agent-workspace-and-builds.spec.ts` written for the Files panel (listing, download link, "Save to my Files"), with the workspace routes answered by page.route; not run here, it needs a running Nextcloud. Newman stays open.
 
 ### Task 4: The installer and installTool
 - **spec_ref**: `openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-installs-command-line-tools-only-from-an-allowlisted-registry-without-install-scripts-req-wksp-004`
@@ -74,6 +75,7 @@ Kind: code. Size L. Rows `hermiq:dm-agent-workspace`, `hermiq:dm-install-cli-too
 - [x] Implement
 - [ ] Test (Playwright under tests/e2e/spec-coverage/)
   > 2026-11-14: `AgentBuildsPanel.vue` is the `agent-builds` widget on AgentDetail (manifest widget, layout row and slot, registry entry): build number, publisher's name, date, note, file and tool counts, the pinned build marked, "Unpublished changes since build N", and "Publish build" only when the server says the caller may modify the agent. `PublishBuildModal.vue` (src/modals) offers the caller's own conversations with this agent and a note, and names the reason when the conversation has no workspace. en and nl strings, including the new register fields. Covered by Vitest (`agent-builds-panel.spec.js`); Playwright needs a live instance and was not run.
+  > 2026-11-21: `tests/e2e/spec-coverage/agent-workspace-and-builds.spec.ts` written for the builds panel (build 3 pinned with its counts, the unpublished changes note, publishing with a note from a real conversation), with the build routes answered by page.route; not run here, it needs a running Nextcloud.
 
 ## Verification
 - [x] `openspec validate tools-agent-workspace-and-installed-tools --type change --strict` passes
