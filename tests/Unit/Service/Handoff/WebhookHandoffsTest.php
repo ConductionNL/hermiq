@@ -239,4 +239,21 @@ class WebhookHandoffsTest extends TestCase {
 			}//end readRawBody()
 		};
 	}//end controller()
+
+	/**
+	 * A handoff whose workflow could not be started is closed as failed, once.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 */
+	public function testAnAbandonedHandoffClosesAsFailedOnce(): void {
+		$this->openOne();
+
+		$this->assertTrue(condition: $this->webhooks->abandon(handoffId: 'h-1', reason: 'The system answered with status 502.'));
+		$this->assertFalse(condition: $this->webhooks->abandon(handoffId: 'h-1', reason: 'again'));
+
+		$this->assertSame(expected: 'failed', actual: $this->stored['status']);
+		$this->assertSame(expected: [['error' => 'The system answered with status 502.']], actual: $this->closed);
+	}//end testAnAbandonedHandoffClosesAsFailedOnce()
 }//end class

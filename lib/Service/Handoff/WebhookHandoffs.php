@@ -97,6 +97,21 @@ class WebhookHandoffs {
 	}//end open()
 
 	/**
+	 * Close a webhook handoff whose workflow could not be started, so it does not wait
+	 * for a result that cannot come. A handoff that already left waiting is left as it is.
+	 *
+	 * @param string $handoffId The handoff.
+	 * @param string $reason    Why the workflow could not be started.
+	 *
+	 * @return bool True when this call closed the handoff.
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 */
+	public function abandon(string $handoffId, string $reason): bool {
+		return $this->handoffs->close(handoffId: $handoffId, status: 'failed', result: ['error' => $reason]);
+	}//end abandon()
+
+	/**
 	 * Accept a workflow's result: only with the handoff's token, only once, only while it waits.
 	 *
 	 * @param string $handoffId The handoff named by the address.
