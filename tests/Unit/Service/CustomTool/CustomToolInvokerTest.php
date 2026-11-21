@@ -16,10 +16,13 @@ namespace OCA\Hermiq\Tests\Unit\Service\CustomTool;
 use OCA\Hermiq\Service\CustomTool\CustomToolDefinition;
 use OCA\Hermiq\Service\CustomTool\CustomToolInvoker;
 use OCA\Hermiq\Service\CustomTool\CustomToolService;
+use OCA\Hermiq\Service\Handoff\FlowTurn;
+use OCA\Hermiq\Service\Handoff\WebhookHandoffs;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\NullLogger;
@@ -35,6 +38,13 @@ final class CustomToolInvokerTest extends TestCase {
 
 	/** @var list<array<string, mixed>> */
 	private array $sourceCalls = [];
+
+	/**
+	 * The webhook handoffs the container resolves, null when it resolves none.
+	 *
+	 * @var (WebhookHandoffs&MockObject)|null
+	 */
+	private ?WebhookHandoffs $webhookHandoffs = null;
 
 	/** @var list<array{id: mixed, options: ObjectFindOptions|null}> */
 	private array $sourceReads = [];
@@ -142,9 +152,13 @@ final class CustomToolInvokerTest extends TestCase {
 
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->willReturnCallback(
-			static function (string $id) use ($facade, $callService, $withIntegriq): object {
+			function (string $id) use ($facade, $callService, $withIntegriq): object {
 				if ($id === ToolRegistryFacade::class) {
 					return $facade;
+				}
+
+				if ($id === WebhookHandoffs::class && $this->webhookHandoffs !== null) {
+					return $this->webhookHandoffs;
 				}
 
 				if ($withIntegriq === true && $id === 'OCA\Integriq\Service\CallService') {
@@ -319,4 +333,109 @@ final class CustomToolInvokerTest extends TestCase {
 		$this->assertSame([], $this->sourceCalls);
 		$this->assertSame([], $this->sourceReads);
 	}//end testWithoutIntegriqNothingIsCalled()
+
+	/**
+	 * A waiting tool opens its webhook handoff first and hands the workflow the result
+	 * address and token in the body; the agent gets the handoff, never the token.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 */
+	public function testAWaitingToolHandsTheWorkflowItsResultAddressAndToken(): void {
+		$this->tool = self::bagTool(target: ['method' => 'POST', 'path' => '/webhook/bag', 'bodyTemplate' => '{"nr": {{input.huisnummer}}}', 'waitForCallback' => true, 'deadlineHours' => 48]);
+		$this->webhookHandoffs = $this->createMock(originalClassName: WebhookHandoffs::class);
+		$this->webhookHandoffs->expects($this->once())->method('open')
+			->willReturnCallback(
+				function (FlowTurn $turn, string $label, string $target, ?int $deadlineHours): array {
+					$this->assertSame(expected: ['agent-1', 'conv-1', 'alice'], actual: [$turn->agentId, $turn->conversationId, $turn->owner]);
+					$this->assertSame(expected: ['Adres opzoeken in BAG', 'bag_adres', 48], actual: [$label, $target, $deadlineHours]);
+					return ['handoffId' => 'h-1', 'hermiqResultUrl' => 'https://nc/apps/hermiq/api/handoffs/h-1/result', 'hermiqResultToken' => 'secret-token'];
+				}
+			);
+		$this->webhookHandoffs->expects($this->never())->method('abandon');
+
+		$answer = $this->invoker()->invoke(
+			toolId: 'hermiq.custom_bag_adres',
+			arguments: ['postcode' => '1234AB', 'huisnummer' => 3, 'triggeredBy' => 'alice', 'hermiqTurn' => ['agentId' => 'agent-1', 'conversationId' => 'conv-1']]
+		);
+
+		$this->assertSame(
+			expected: ['json' => ['nr' => 3, 'hermiqResultUrl' => 'https://nc/apps/hermiq/api/handoffs/h-1/result', 'hermiqResultToken' => 'secret-token']],
+			actual: $this->sourceCalls[0]['config']
+		);
+		$this->assertSame(expected: 'h-1', actual: $answer['handoffId']);
+		$this->assertSame(expected: CustomToolInvoker::STARTED, actual: $answer['message']);
+		$this->assertStringNotContainsString(needle: 'secret-token', haystack: (string)json_encode($answer));
+	}//end testAWaitingToolHandsTheWorkflowItsResultAddressAndToken()
+
+	/**
+	 * A waiting tool whose workflow cannot be started closes its handoff at once.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 */
+	public function testAWaitingToolWhoseCallFailsClosesItsHandoff(): void {
+		$this->tool    = self::bagTool(target: ['method' => 'POST', 'path' => '/webhook/bag', 'waitForCallback' => true]);
+		$this->callLog = ['statusCode' => 502, 'response' => ['body' => 'down']];
+		$this->webhookHandoffs = $this->createMock(originalClassName: WebhookHandoffs::class);
+		$this->webhookHandoffs->method('open')->willReturn(['handoffId' => 'h-1', 'hermiqResultUrl' => 'https://nc/r', 'hermiqResultToken' => 't']);
+		$this->webhookHandoffs->expects($this->once())->method('abandon')->with('h-1', 'The system answered with status 502.')->willReturn(true);
+
+		$answer = $this->invoker()->invoke(
+			toolId: 'hermiq.custom_bag_adres',
+			arguments: ['postcode' => '1234AB', 'huisnummer' => 3, 'triggeredBy' => 'alice', 'hermiqTurn' => ['agentId' => 'agent-1', 'conversationId' => 'conv-1']]
+		);
+
+		$this->assertSame(expected: 'tool_failed', actual: $answer['error']['code']);
+		$this->assertArrayNotHasKey(key: 'handoffId', array: $answer);
+		$this->assertSame(expected: ['json' => ['postcode' => '1234AB', 'huisnummer' => 3, 'hermiqResultUrl' => 'https://nc/r', 'hermiqResultToken' => 't']], actual: $this->sourceCalls[0]['config']);
+	}//end testAWaitingToolWhoseCallFailsClosesItsHandoff()
+
+	/**
+	 * A waiting tool outside a conversation, or without the handoffs, calls nothing.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 */
+	public function testAWaitingToolOutsideAConversationCallsNothing(): void {
+		$this->tool = self::bagTool(target: ['method' => 'POST', 'path' => '/webhook/bag', 'waitForCallback' => true]);
+		$this->webhookHandoffs = $this->createMock(originalClassName: WebhookHandoffs::class);
+		$this->webhookHandoffs->expects($this->never())->method('open');
+
+		$noTurn = $this->invoker()->invoke(toolId: 'hermiq.custom_bag_adres', arguments: ['postcode' => '1234AB', 'huisnummer' => 3, 'triggeredBy' => 'alice']);
+		$tried  = $this->invoker()->run(tool: $this->tool, arguments: ['postcode' => '1234AB', 'huisnummer' => 3], owner: 'alice');
+		$this->webhookHandoffs = null;
+		$noHandoffs = $this->invoker()->invoke(
+			toolId: 'hermiq.custom_bag_adres',
+			arguments: ['postcode' => '1234AB', 'huisnummer' => 3, 'triggeredBy' => 'alice', 'hermiqTurn' => ['agentId' => 'agent-1', 'conversationId' => 'conv-1']]
+		);
+
+		$this->assertSame(expected: 'tool_failed', actual: $noTurn['error']['code']);
+		$this->assertSame(expected: 'tool_failed', actual: $tried['error']['code']);
+		$this->assertSame(expected: 'tool_failed', actual: $noHandoffs['error']['code']);
+		$this->assertSame(expected: [], actual: $this->sourceCalls);
+	}//end testAWaitingToolOutsideAConversationCallsNothing()
+
+	/**
+	 * A body that is not a JSON object is kept under `payload` next to the result fields.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 */
+	public function testABodyThatIsNotAnObjectIsKeptUnderPayload(): void {
+		$this->tool = self::bagTool(target: ['method' => 'POST', 'path' => '/webhook/bag', 'bodyTemplate' => '[{{input.huisnummer}}]', 'waitForCallback' => true]);
+		$this->webhookHandoffs = $this->createMock(originalClassName: WebhookHandoffs::class);
+		$this->webhookHandoffs->method('open')->willReturn(['handoffId' => 'h-1', 'hermiqResultUrl' => 'https://nc/r', 'hermiqResultToken' => 't']);
+
+		$this->invoker()->invoke(
+			toolId: 'hermiq.custom_bag_adres',
+			arguments: ['postcode' => '1234AB', 'huisnummer' => 3, 'triggeredBy' => 'alice', 'hermiqTurn' => ['agentId' => 'agent-1', 'conversationId' => 'conv-1']]
+		);
+
+		$this->assertSame(expected: ['json' => ['payload' => [3], 'hermiqResultUrl' => 'https://nc/r', 'hermiqResultToken' => 't']], actual: $this->sourceCalls[0]['config']);
+	}//end testABodyThatIsNotAnObjectIsKeptUnderPayload()
 }//end class
