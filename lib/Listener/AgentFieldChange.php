@@ -69,24 +69,48 @@ final class AgentFieldChange {
 	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
 	 */
 	public static function of(Event $event, AgentObjectMatcherInterface $agents, string $field): ?self {
-		$isUpdate = $event instanceof ObjectUpdatingEvent;
-		if (($isUpdate === false && ($event instanceof ObjectCreatingEvent) === false) || $event->isPropagationStopped() === true) {
+		if (($event instanceof ObjectUpdatingEvent) === false && ($event instanceof ObjectCreatingEvent) === false) {
 			return null;
 		}
 
-		$object = $isUpdate === true ? $event->getNewObject() : $event->getObject();
+		if ($event->isPropagationStopped() === true) {
+			return null;
+		}
+
+		$object = self::written(event: $event);
+		$before = null;
+		if ($event instanceof ObjectUpdatingEvent) {
+			$before = ($event->getOldObject()?->getObject()[$field] ?? null);
+		}
+
 		if ($agents->isAgent(object: $object) === false) {
 			return null;
 		}
 
 		$written = array_merge($object->getObject(), $event->getModifiedData());
-		$before  = $isUpdate === true ? ($event->getOldObject()?->getObject()[$field] ?? null) : null;
 		if (array_key_exists($field, $written) === false || $written[$field] === $before) {
 			return null;
 		}
 
 		return new self(event: $event, agentUuid: (string)$object->getUuid(), value: $written[$field]);
 	}//end of()
+
+	/**
+	 * The object a pending write saves: the new object on an update.
+	 *
+	 * @param ObjectCreatingEvent|ObjectUpdatingEvent $event The pending write.
+	 *
+	 * @return \OCA\OpenRegister\Db\ObjectEntity
+	 *
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
+	 */
+	private static function written(ObjectCreatingEvent|ObjectUpdatingEvent $event): \OCA\OpenRegister\Db\ObjectEntity {
+		if ($event instanceof ObjectUpdatingEvent) {
+			return $event->getNewObject();
+		}
+
+		return $event->getObject();
+	}//end written()
 
 	/**
 	 * Refuse the write with a message for the field, so nothing is saved.
