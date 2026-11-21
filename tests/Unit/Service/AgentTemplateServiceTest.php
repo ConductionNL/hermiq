@@ -38,6 +38,8 @@ use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
+use OCA\OpenRegister\Contract\ObjectFindOptions as PublishedObjectFindOptions;
+use OCA\OpenRegister\Contract\ObjectSaveOptions as PublishedObjectSaveOptions;
 
 /**
  * Tests for the agent-template-gallery AgentTemplateService.
@@ -90,7 +92,7 @@ class AgentTemplateServiceTest extends TestCase {
 
 			public function find(
 				int|string $id,
-				?ObjectFindOptions $options = null,
+				ObjectFindOptions|PublishedObjectFindOptions|null $options = null,
 				bool $_rbac = true,
 				bool $_multitenancy = true
 			): ?ObjectEntity {
@@ -105,7 +107,7 @@ class AgentTemplateServiceTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				ObjectSaveOptions|PublishedObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
 				bool $_multitenancy = true
 			): ObjectEntity {

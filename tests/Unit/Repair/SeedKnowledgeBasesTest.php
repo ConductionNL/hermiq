@@ -30,6 +30,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
+use OCA\OpenRegister\Contract\ObjectSaveOptions as PublishedObjectSaveOptions;
 
 /**
  * The demo knowledge base: dev mode only, once, attached to the demo agent when it exists.
@@ -78,7 +79,7 @@ class SeedKnowledgeBasesTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				ObjectSaveOptions|PublishedObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
 				bool $_multitenancy = true
 			): ObjectEntity {

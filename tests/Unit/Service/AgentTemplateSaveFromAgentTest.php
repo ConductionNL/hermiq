@@ -38,6 +38,8 @@ use Opis\JsonSchema\Validator;
 use PHPUnit\Framework\TestCase;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
+use OCA\OpenRegister\Contract\ObjectFindOptions as PublishedObjectFindOptions;
+use OCA\OpenRegister\Contract\ObjectSaveOptions as PublishedObjectSaveOptions;
 
 /**
  * The owner saves a well-tuned agent as an active template that remembers where it came from.
@@ -125,7 +127,7 @@ final class AgentTemplateSaveFromAgentTest extends TestCase {
 
 			public function find(
 				int|string $id,
-				?ObjectFindOptions $options = null,
+				ObjectFindOptions|PublishedObjectFindOptions|null $options = null,
 				bool $_rbac = true,
 				bool $_multitenancy = true
 			): ?ObjectEntity {
@@ -140,7 +142,7 @@ final class AgentTemplateSaveFromAgentTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				ObjectSaveOptions|PublishedObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
 				bool $_multitenancy = true
 			): ObjectEntity {
