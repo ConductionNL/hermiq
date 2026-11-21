@@ -7,20 +7,17 @@ What hermiq needs from the platform it runs on: the Nextcloud version range it d
 
 ### Requirement: The declared Nextcloud floor supports every NC API the app calls unconditionally
 
-The `appinfo/info.xml` `<nextcloud min-version>` MUST be at least as high as the newest
-Nextcloud API `@since` version that `lib/AppInfo/Application.php::register()` (or any
-other bootstrap path) invokes unconditionally. Because hermiq calls
-`IRegistrationContext::registerTaskProcessingProvider()` (`@since 30.0.0`) unconditionally
-for its four TaskProcessing providers, the declared `min-version` MUST be `30` or higher.
-The app MUST NOT advertise a `min-version` on which its own bootstrap raises a fatal
-error.
+The `appinfo/info.xml` `<nextcloud min-version>` MUST be at least the newest Nextcloud
+API `@since` version that a bootstrap path (`lib/AppInfo/Application.php::register()` or
+another) invokes unconditionally. The app MUST NOT advertise a `min-version` on which its
+own bootstrap raises a fatal error.
 
 #### Scenario: The manifest floor matches the newest bootstrap API
 
 - **WHEN** the app manifest is validated against the code
-- **THEN** `info.xml` `min-version` MUST be `>= 30` (the `@since` of
-  `registerTaskProcessingProvider`, called unconditionally in `Application::register()`)
-- **AND** `max-version` MUST remain `34`
+- **THEN** `info.xml` `min-version` MUST be `>= 30`, the `@since` of
+  `IRegistrationContext::registerTaskProcessingProvider()`, which `Application::register()`
+  calls unconditionally for each TaskProcessing provider
 
 @e2e exclude manifest/version-floor invariant is a static consistency check, not a UI flow; covered by the regression guard test.
 
