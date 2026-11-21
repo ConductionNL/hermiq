@@ -59,6 +59,7 @@ Kind: code. Size M. Rows `filinq:wk-ai-chat`, `ch-citations` (hermiq).
 ### Task 7: End to end
 - **spec_ref**: `openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003`
 - **files**: `tests/e2e/spec-coverage/document-chat.spec.ts`, `docs/features/document-chat.md`
+  - 2026-11-21: `tests/e2e/spec-coverage/document-chat.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, sidecar or Talk is needed); not run here, it needs a running Nextcloud.
 - **acceptance_criteria**:
   - The four `@e2e` scenarios pass on the dev instance with a stub model; docs show the chip and the source list
 - [ ] Implement

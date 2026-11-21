@@ -1,0 +1,379 @@
+/*
+ * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
+ * SPDX-License-Identifier: EUPL-1.2
+ *
+ * Spec-coverage e2e for chat-about-a-document-cites-its-sources: a turn about
+ * one document or one folder, its numbered sources, and the source links under
+ * every answer on the Chat page.
+ *
+ * Covered openspec scenarios (the `// @e2e` line above each test is the hook):
+ *   - document-chat::an-unscoped-answer-shows-linked-sources (REQ-DCHAT-005):
+ *     real. Two files are uploaded to the admin's Files and an answer turn
+ *     carrying them as `sources` is seeded through the OpenRegister objects
+ *     API, so no model is needed. The Chat page must list both under the
+ *     answer, each as a link to `/f/{fileId}`, and the link must open the file.
+ *
+ * Written against the spec but marked `test.fixme`, because no screen sends a
+ * scope yet. hermiq's own Chat page never puts `scope` on a turn, and the
+ * companion's scope chip and source list (nextcloud-vue `CnAiChatPanel` and
+ * `CnAiMessageList`, tasks.md Task 4) are not built. The filinq page context is
+ * not built either (Task 5):
+ *   - document-chat::a-question-about-the-open-document-uses-only-that-document
+ *   - document-chat::a-question-about-a-dossier-folder-stays-inside-it
+ *   - document-chat::nothing-in-scope-matches
+ *   - document-chat::the-person-asks-from-a-filinq-document-page
+ *   These also need a model behind the instance (the "stub model" of tasks.md
+ *   Task 7). The stream is not stubbed in them, because what they check (which
+ *   passages retrieval kept, and whether the model was asked at all) happens on
+ *   the server.
+ *
+ * Not written here, per their `@e2e exclude` lines in the spec:
+ *   - a-document-the-person-cannot-open-is-refused (negative API path, PHPUnit
+ *     ContextRetrievalScopeTest)
+ *   - claims-point-at-numbered-sources (prompt and storage contract, PHPUnit
+ *     with a stub model)
+ *   - removing-the-chip-widens-the-question-again (component behaviour, vitest
+ *     in nextcloud-vue)
+ *
+ * Every seeded object and file carries the e2espec- family prefix and is
+ * removed in afterAll.
+ *
+ * Run against a disposable Nextcloud with hermiq + OpenRegister installed:
+ *
+ *     PLAYWRIGHT_BASE_URL=<your rig> NC_USER=admin NC_PASS=admin \
+ *       npx playwright test -c tests/e2e/spec-coverage/playwright.config.ts document-chat
+ *
+ * Covers openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md
+ */
+
+import type { APIRequestContext, Page } from '@playwright/test'
+
+import { expect, test } from '@playwright/test'
+import {
+	appEnabled,
+	appRoot,
+	cleanupFamily,
+	deleteObject,
+	dismissTour,
+	harvestToken,
+	jsonHeaders,
+	seedAgent,
+	seedObject,
+	TEST_PREFIX,
+} from './_fixtures.ts'
+
+const API = '/index.php/apps/hermiq/api'
+const USER = process.env.NC_USER || 'admin'
+const DAV = `/remote.php/dav/files/${USER}`
+
+/** The OpenRegister schema slug of one turn of a session. */
+const TURN_SCHEMA = 'agentsessionturn'
+
+/** The companion launcher and its composer (nextcloud-vue CnAiCompanion). */
+const FAB = '[data-testid="cn-ai-fab"]'
+const COMPOSER = '[data-testid="cn-ai-input-textarea"]'
+
+/** The chip the companion shows for a file or folder scope (REQ-DCHAT-004). */
+const DOCUMENT_CHIP = /Over dit document|About this document/
+const FOLDER_CHIP = /Over deze map|About this folder/
+
+/** Why the scoped scenarios cannot run yet. */
+const NO_SCOPE_SCREEN = 'No screen sends a scope yet: the companion scope chip and source list (nextcloud-vue CnAiChatPanel, tasks.md Task 4) are not built.'
+
+/** The two files the unscoped answer rests on. */
+const FILE_A = `${TEST_PREFIX}-besluit-2026-0042.pdf`
+const FILE_B = `${TEST_PREFIX}-aanvraag-omgevingsvergunning.pdf`
+
+/** The dossier folder and the file outside it (REQ-DCHAT-002). */
+const DOSSIER = `${TEST_PREFIX}-dossier-2026-0042`
+const OUTSIDE = `${TEST_PREFIX}-beslistermijnen-overzicht.pdf`
+
+const SESSION_TITLE = `${TEST_PREFIX} Bronnen bij een antwoord`
+
+/**
+ * Put one small PDF in the admin's Files and return its file id.
+ *
+ * Nextcloud answers a WebDAV PUT with `OC-FileId` (`00000123oc…`): the leading
+ * digits are the file id that `/f/{fileId}` opens.
+ *
+ * @param req   The request context (admin session).
+ * @param token The CSRF request-token.
+ * @param path  The path under the admin's Files.
+ * @return The file id.
+ */
+async function putPdf(
+	req: APIRequestContext,
+	token: string,
+	path: string,
+): Promise<number> {
+	const put = await req.put(`${DAV}/${path}`, {
+		headers: { requesttoken: token, 'Content-Type': 'application/pdf' },
+		data: '%PDF-1.4\n%%EOF\n',
+	})
+	expect([201, 204], `PUT ${path} HTTP ${put.status()}`).toContain(put.status())
+	const fileId = parseInt(put.headers()['oc-fileid'] ?? '', 10)
+	expect(fileId, `PUT ${path} must answer with an OC-FileId`).toBeGreaterThan(0)
+	return fileId
+}
+
+/**
+ * Open the AI companion on the current page and wait for its composer.
+ *
+ * @param page The page.
+ * @return Nothing.
+ */
+async function openCompanion(page: Page): Promise<void> {
+	await dismissTour(page)
+	const fab = page.locator(FAB).first()
+	await expect(fab).toBeVisible({ timeout: 30_000 })
+	await fab.click()
+	await expect(page.locator(COMPOSER)).toBeVisible({ timeout: 20_000 })
+}
+
+/**
+ * Ask the companion a question and return the body of the turn it sent.
+ *
+ * @param page     The page, with the companion open.
+ * @param question The question.
+ * @return The JSON body of the streamed turn.
+ */
+async function askCompanion(
+	page: Page,
+	question: string,
+): Promise<Record<string, unknown>> {
+	const sent = page.waitForRequest(
+		(r) => r.url().includes('/apps/hermiq/api/chat/stream') && r.method() === 'POST',
+	)
+	await page.locator(COMPOSER).fill(question)
+	await page.locator(COMPOSER).press('Enter')
+	return (await sent).postDataJSON() as Record<string, unknown>
+}
+
+test.describe.configure({ mode: 'serial' })
+
+test.describe('chat-about-a-document-cites-its-sources: scoped turns and linked sources', () => {
+	let token = ''
+	let agentId = ''
+	let sessionUuid = ''
+	let fileA = 0
+	let fileB = 0
+	let dossierFile = 0
+	let outsideFile = 0
+	const turnIds: string[] = []
+
+	test.beforeAll(async ({ browser }) => {
+		const page = await browser.newPage()
+		token = await harvestToken(page)
+		const headers = { ...jsonHeaders(token), 'OCS-APIRequest': 'true' }
+
+		fileA = await putPdf(page.request, token, FILE_A)
+		fileB = await putPdf(page.request, token, FILE_B)
+
+		// A dossier folder with a document in it, and a better match outside it.
+		await page.request.fetch(`${DAV}/${DOSSIER}`, {
+			method: 'MKCOL',
+			headers: { requesttoken: token },
+		})
+		dossierFile = await putPdf(page.request, token, `${DOSSIER}/besluit.pdf`)
+		outsideFile = await putPdf(page.request, token, OUTSIDE)
+
+		agentId = (await seedAgent(page.request, token, {
+			name: `${TEST_PREFIX}-bronnen`,
+			prompt: 'Answer from the documents and cite them.',
+		})).id
+
+		const created = await page.request.post(`${API}/sessions`, {
+			headers,
+			data: { agentId, title: SESSION_TITLE },
+		})
+		expect(created.status(), await created.text()).toBe(201)
+		sessionUuid = (await created.json()).uuid
+
+		// An unscoped question and an answer resting on two files. Stored as the
+		// engine stores them (ResponseGenerationHandler): `sources` in citation
+		// order, each file source with its file id and, when known, its page.
+		const question = await seedObject(page.request, token, TURN_SCHEMA, {
+			sessionId: sessionUuid,
+			agentId,
+			role: 'user',
+			content: 'Wat is de beslistermijn voor deze aanvraag?',
+		})
+		turnIds.push(question.id)
+		const answer = await seedObject(page.request, token, TURN_SCHEMA, {
+			sessionId: sessionUuid,
+			agentId,
+			role: 'assistant',
+			content: 'De beslistermijn is acht weken [1], met één verlenging van zes weken [2].',
+			sources: [
+				{
+					id: String(fileA),
+					file_id: fileA,
+					type: 'file',
+					name: FILE_A,
+					text: 'De beslistermijn bedraagt acht weken.',
+					page: 2,
+				},
+				{
+					id: String(fileB),
+					file_id: fileB,
+					type: 'file',
+					name: FILE_B,
+					text: 'De termijn kan eenmaal met zes weken worden verlengd.',
+				},
+			],
+		})
+		turnIds.push(answer.id)
+		await page.close()
+	})
+
+	test.afterAll(async ({ browser }) => {
+		const page = await browser.newPage()
+		const cleanupToken = await harvestToken(page)
+		const headers = { ...jsonHeaders(cleanupToken), 'OCS-APIRequest': 'true' }
+		for (const id of turnIds) {
+			await deleteObject(page.request, cleanupToken, TURN_SCHEMA, id)
+		}
+		if (sessionUuid !== '') {
+			await page.request
+				.delete(`${API}/sessions/${sessionUuid}`, { headers })
+				.catch(() => undefined)
+			await page.request
+				.delete(`${API}/sessions/${sessionUuid}/permanent`, { headers })
+				.catch(() => undefined)
+		}
+		for (const path of [FILE_A, FILE_B, OUTSIDE, DOSSIER]) {
+			await page.request
+				.delete(`${DAV}/${path}`, { headers: { requesttoken: cleanupToken } })
+				.catch(() => undefined)
+		}
+		await cleanupFamily(page.request, cleanupToken, 'agent')
+		await page.close()
+	})
+
+	// @e2e document-chat::an-unscoped-answer-shows-linked-sources
+	test('an unscoped answer lists both files it rests on, each as a link that opens it', async ({
+		page,
+	}) => {
+		await page.goto(`${await appRoot(page)}/chat`)
+		await dismissTour(page)
+		await page
+			.getByText(SESSION_TITLE, { exact: true })
+			.first()
+			.click({ timeout: 20_000 })
+
+		const answer = page
+			.locator('.chat-page__message--assistant')
+			.filter({ hasText: 'De beslistermijn is acht weken' })
+		await expect(answer).toBeVisible({ timeout: 20_000 })
+
+		const sources = answer.locator('.chat-page__sources')
+		await expect(sources).toBeVisible()
+		await expect(sources).toContainText('Sources')
+
+		// In the stored order, numbered, each a link to its file.
+		const rows = sources.locator('.chat-page__source')
+		await expect(rows).toHaveCount(2)
+		await expect(rows.nth(0)).toContainText('[1]')
+		await expect(rows.nth(0)).toContainText(FILE_A)
+		await expect(rows.nth(0).locator('.chat-page__source-page')).toHaveText('page 2')
+		await expect(rows.nth(1)).toContainText('[2]')
+		await expect(rows.nth(1)).toContainText(FILE_B)
+
+		const linkA = sources.getByRole('link', { name: FILE_A })
+		const linkB = sources.getByRole('link', { name: FILE_B })
+		await expect(linkA).toHaveAttribute('href', new RegExp(`/f/${fileA}$`))
+		await expect(linkB).toHaveAttribute('href', new RegExp(`/f/${fileB}$`))
+
+		// The link opens the file: Nextcloud resolves /f/{id} into Files at that file.
+		const [opened] = await Promise.all([
+			page.waitForEvent('popup'),
+			linkA.click(),
+		])
+		await opened.waitForLoadState('domcontentloaded')
+		await expect(opened).toHaveURL(new RegExp(`(/f/|/files/|fileid=)${fileA}\\b`))
+		await opened.close()
+	})
+
+	// @e2e document-chat::a-question-about-the-open-document-uses-only-that-document
+	test('a question about the open document uses only that document', async ({ page }) => {
+		test.fixme(true, NO_SCOPE_SCREEN)
+
+		// The companion takes the file id from the open file's URL (src/companion.js).
+		await page.goto(`/index.php/apps/files/files/${fileA}?dir=/&openfile=true`)
+		await openCompanion(page)
+		await expect(page.getByText(DOCUMENT_CHIP).first()).toBeVisible()
+
+		const body = await askCompanion(page, 'Wat is de beslistermijn?')
+		expect(body.scope).toEqual({ type: 'file', fileId: fileA })
+
+		// Every source of the answer is that one file.
+		const links = page.getByRole('link', { name: /\.pdf/ })
+		await expect(links.first()).toBeVisible({ timeout: 90_000 })
+		for (const link of await links.all()) {
+			await expect(link).toHaveText(FILE_A)
+			await expect(link).toHaveAttribute('href', new RegExp(`/f/${fileA}\\b`))
+		}
+	})
+
+	// @e2e document-chat::a-question-about-a-dossier-folder-stays-inside-it
+	test('a question about a dossier folder stays inside it', async ({ page }) => {
+		test.fixme(true, `${NO_SCOPE_SCREEN} The folder page context (pageKind "folder") is not built either.`)
+
+		await page.goto(`/index.php/apps/files/?dir=/${encodeURIComponent(DOSSIER)}`)
+		await openCompanion(page)
+		await expect(page.getByText(FOLDER_CHIP).first()).toBeVisible()
+
+		const body = await askCompanion(page, 'Wat is de beslistermijn?')
+		expect((body.scope as Record<string, unknown>)?.type).toBe('folder')
+
+		const links = page.getByRole('link', { name: /\.pdf/ })
+		await expect(links.first()).toBeVisible({ timeout: 90_000 })
+		// The file outside the folder matches the question better, and is not used.
+		await expect(page.getByRole('link', { name: OUTSIDE })).toHaveCount(0)
+		for (const link of await links.all()) {
+			await expect(link).toHaveAttribute('href', new RegExp(`/f/${dossierFile}\\b`))
+		}
+		expect(outsideFile).toBeGreaterThan(0)
+	})
+
+	// @e2e document-chat::nothing-in-scope-matches
+	test('a question the document does not answer says so and lists no sources', async ({ page }) => {
+		test.fixme(true, NO_SCOPE_SCREEN)
+
+		await page.goto(`/index.php/apps/files/files/${fileB}?dir=/&openfile=true`)
+		await openCompanion(page)
+		await expect(page.getByText(DOCUMENT_CHIP).first()).toBeVisible()
+
+		const body = await askCompanion(page, 'Hoe hoog is de boete voor fout parkeren?')
+		expect(body.scope).toEqual({ type: 'file', fileId: fileB })
+
+		await expect(
+			page.getByText(/does not answer|geeft geen antwoord/i).first(),
+		).toBeVisible({ timeout: 90_000 })
+		await expect(page.getByRole('link', { name: FILE_B })).toHaveCount(0)
+	})
+
+	// @e2e document-chat::the-person-asks-from-a-filinq-document-page
+	test('on a filinq document page the chip reads "Over dit document" and the answer links its sources', async ({
+		page,
+	}) => {
+		test.fixme(true, `${NO_SCOPE_SCREEN} filinq does not pass the open document to the companion yet (tasks.md Task 5).`)
+		test.skip(
+			!(await appEnabled(page.request, token, 'filinq')),
+			'filinq is not installed on this instance',
+		)
+
+		// filinq's document route is not in this repository; confirm the path when
+		// Task 5 lands. The file id is the document the page shows.
+		await page.goto(`/index.php/apps/filinq/documents/${fileA}`)
+		await openCompanion(page)
+		await expect(page.getByText(DOCUMENT_CHIP).first()).toBeVisible()
+
+		const body = await askCompanion(page, 'Wat is de beslistermijn?')
+		expect(body.scope).toEqual({ type: 'file', fileId: fileA })
+
+		const link = page.getByRole('link', { name: FILE_A }).first()
+		await expect(link).toBeVisible({ timeout: 90_000 })
+		await expect(link).toHaveAttribute('href', new RegExp(`/f/${fileA}\\b`))
+	})
+})

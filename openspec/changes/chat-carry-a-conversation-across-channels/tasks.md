@@ -39,6 +39,7 @@ Kind: code. Size S to M. Row `hermiq:dm-cross-channel`.
   - GIVEN the agent's first answer in a room THEN it ends with the "Continue in Hermiq" link; the second answer does not
 - [x] Implement: a session with a room shows the Talk icon in the list and "Open in Talk" in its menu (`src/services/sessionChannel.js`); a person's turn typed in Talk reads "via Talk" (`SessionController` returns `channel`); the agent's first answer in a room ends with "Continue in Hermiq: <link>" (`TalkTurnService::continueInHermiq()`, claimed once per session through `TalkRoomBinding::claimFirstAnswerLink()` and `Session.talkLinkPosted`, Session 0.5.0).
 - [ ] Test (Playwright `tests/e2e/spec-coverage/chat-carry-a-conversation-across-channels.spec.ts`; PHPUnit on the formatter) — PHPUnit (`TalkTurnServiceTest`, `TalkRoomBindingFirstAnswerTest`) and vitest (`tests/vitest/sessionChannel.spec.js`) are in; the Playwright file is not written yet.
+  - 2026-11-21: `tests/e2e/spec-coverage/chat-carry-a-conversation-across-channels.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, sidecar or Talk is needed); not run here, it needs a running Nextcloud.
 
 ### Task 5: Seed data
 - **files**: `lib/Settings/hermiq_register.json` seed section
