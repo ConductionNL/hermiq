@@ -69,7 +69,7 @@
 			</NcButton>
 			<NcButton
 				v-else
-				type="primary"
+				variant="primary"
 				:disabled="running || !selectedAgent"
 				@click="run">
 				<template v-if="running" #icon>
@@ -98,6 +98,38 @@
 				{{ costNote }}
 			</p>
 		</div>
+
+		<section v-if="!isTemplate" class="eval-run-panel-widget__schedules">
+			<h3 class="eval-run-panel-widget__schedules-title">
+				{{ t('hermiq', 'Run on a schedule') }}
+			</h3>
+			<ul v-if="schedules.length > 0" class="eval-run-panel-widget__schedule-list">
+				<li
+					v-for="schedule in schedules"
+					:key="schedule.id"
+					class="eval-run-panel-widget__schedule">
+					<strong>{{ agentName(schedule.agentId) }}</strong>
+					<span>{{ scheduleFrequencyLabel(schedule.cronExpr) }}</span>
+					<span>{{ scheduleStateLabel(schedule) }}</span>
+					<NcButton variant="tertiary" @click="openScheduleForm(schedule)">
+						{{ t('hermiq', 'Change') }}
+					</NcButton>
+				</li>
+			</ul>
+			<p v-else class="eval-run-panel-widget__hint">
+				{{ t('hermiq', 'This dataset does not run on a schedule yet.') }}
+			</p>
+			<NcButton variant="secondary" @click="openScheduleForm(null)">
+				{{ t('hermiq', 'Add a schedule') }}
+			</NcButton>
+			<EvalScheduleFormModal
+				v-if="scheduleForm.open"
+				:agentOptions="agentOptions"
+				:schedule="scheduleForm.schedule"
+				:busy="scheduleForm.busy"
+				@save="saveSchedule"
+				@close="scheduleForm.open = false" />
+		</section>
 
 		<div v-if="runs.length > 0" class="eval-run-panel-widget__runs">
 			<table class="eval-run-panel-widget__table">
@@ -146,7 +178,7 @@
 							<td>
 								<NcButton
 									v-if="runRow.baselineMode"
-									type="tertiary"
+									variant="tertiary"
 									:aria-label="
 										t('hermiq', 'Toggle paired run details')
 									"
@@ -264,13 +296,15 @@ import {
 	NcNoteCard,
 	NcSelect,
 } from '@nextcloud/vue'
-import { runEval, useEvalTemplate } from '../api/evals.js'
+import EvalScheduleFormModal from '../modals/EvalScheduleFormModal.vue'
+import { listEvalSchedules, runEval, saveEvalSchedule, useEvalTemplate } from '../api/evals.js'
 import { listSkills } from '../api/skills.js'
 import {
 	useAgentStore,
 	useEvalDatasetStore,
 	useEvalRunStore,
 } from '../store/store.js'
+import { frequencyLabel } from '../utils/evalSchedules.js'
 import {
 	agentBaselineMode,
 	agentPickerOptions,
@@ -287,6 +321,7 @@ export default {
 	name: 'EvalRunPanelWidget',
 
 	components: {
+		EvalScheduleFormModal,
 		NcButton,
 		NcCheckboxRadioSwitch,
 		NcLoadingIcon,
@@ -304,6 +339,8 @@ export default {
 			baseline: false,
 			running: false,
 			copying: false,
+			schedules: [],
+			scheduleForm: { open: false, schedule: null, busy: false },
 			expandedRunId: null,
 			error: '',
 		}
@@ -397,6 +434,7 @@ export default {
 		this.datasetStore = useEvalDatasetStore()
 		this.datasetStore.registerObjectType('evaldataset', 'evaldataset', 'hermiq')
 		this.load()
+		this.loadSchedules()
 	},
 
 	methods: {
@@ -475,6 +513,88 @@ export default {
 			} finally {
 				this.running = false
 			}
+		},
+
+		/**
+		 * Load this dataset's schedules; none when the read fails (a template has none).
+		 *
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @return {Promise<void>}
+		 */
+		async loadSchedules() {
+			try {
+				this.schedules = await listEvalSchedules(this.datasetId)
+			} catch {
+				this.schedules = []
+			}
+		},
+
+		/**
+		 * Open the schedule form, for a new schedule or to change one.
+		 *
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @param {object|null} schedule The schedule to change, or null.
+		 * @return {void}
+		 */
+		openScheduleForm(schedule) {
+			this.scheduleForm = { open: true, schedule, busy: false }
+		},
+
+		/**
+		 * Save the schedule from the form and show it with its next run.
+		 *
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @param {object} body The request body from the form.
+		 * @return {Promise<void>}
+		 */
+		async saveSchedule(body) {
+			this.scheduleForm.busy = true
+			try {
+				await saveEvalSchedule(this.datasetId, body, this.scheduleForm.schedule?.id || '')
+				this.scheduleForm = { open: false, schedule: null, busy: false }
+				showSuccess(this.t('hermiq', 'Schedule saved.'))
+				await this.loadSchedules()
+			} catch (e) {
+				this.scheduleForm.busy = false
+				showError(e?.response?.data?.error || this.t('hermiq', 'The schedule could not be saved.'))
+			}
+		},
+
+		/**
+		 * An agent's name for the schedule list.
+		 *
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @param {string} agentId The agent's uuid.
+		 * @return {string} The name, or the uuid when the agent is not among the caller's.
+		 */
+		agentName(agentId) {
+			const option = this.agentOptions.find((entry) => entry.value === agentId)
+			return option ? option.label : agentId
+		},
+
+		/**
+		 * How a schedule's frequency reads.
+		 *
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @param {string} cronExpr The stored cron expression.
+		 * @return {string} The label.
+		 */
+		scheduleFrequencyLabel(cronExpr) {
+			return frequencyLabel((...args) => this.t(...args), cronExpr)
+		},
+
+		/**
+		 * A schedule's next run, or that it is off.
+		 *
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @param {object} schedule The schedule.
+		 * @return {string} The label.
+		 */
+		scheduleStateLabel(schedule) {
+			if (!schedule.enabled) {
+				return this.t('hermiq', 'Off')
+			}
+			return this.t('hermiq', 'Next run: {date}', { date: this.formatDate(schedule.nextRun) })
 		},
 
 		/**
@@ -748,5 +868,31 @@ export default {
 	margin: 4px 0 0;
 	color: var(--color-text-maxcontrast);
 	font-size: 13px;
+}
+
+.eval-run-panel-widget__schedules {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 8px;
+	margin-block: 12px;
+}
+
+.eval-run-panel-widget__schedules-title {
+	margin: 0;
+}
+
+.eval-run-panel-widget__schedule-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	width: 100%;
+}
+
+.eval-run-panel-widget__schedule {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 12px;
 }
 </style>

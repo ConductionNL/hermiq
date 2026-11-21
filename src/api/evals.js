@@ -64,3 +64,32 @@ export async function useEvalTemplate(datasetId, agentId) {
 	const response = await axios.post(generateUrl(`${EVALS_BASE}/${datasetId}/use`), { agentId })
 	return response.data
 }
+
+/**
+ * The caller's schedules of a dataset they own.
+ *
+ * @param {string} datasetId The dataset's uuid.
+ * @return {Promise<Array<object>>} The schedules.
+ * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+ */
+export async function listEvalSchedules(datasetId) {
+	const response = await axios.get(generateUrl(`${EVALS_BASE}/${datasetId}/schedules`))
+	return response.data?.results || []
+}
+
+/**
+ * Add a schedule to a dataset, or change one when `scheduleId` is given.
+ *
+ * @param {string} datasetId The dataset's uuid.
+ * @param {object} body { agentId, cronExpr, enabled, regressionThresholdPercent }.
+ * @param {string} [scheduleId] The schedule to change.
+ * @return {Promise<object>} The stored schedule, with its next run.
+ * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+ */
+export async function saveEvalSchedule(datasetId, body, scheduleId = '') {
+	const base = `${EVALS_BASE}/${datasetId}/schedules`
+	const response = scheduleId
+		? await axios.put(generateUrl(`${base}/${scheduleId}`), body)
+		: await axios.post(generateUrl(base), body)
+	return response.data
+}

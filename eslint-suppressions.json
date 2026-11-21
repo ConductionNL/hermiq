@@ -252,11 +252,6 @@
       "count": 3
     }
   },
-  "src/widgets/EvalRunPanelWidget.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 2
-    }
-  },
   "src/widgets/SkillDraftReview.vue": {
     "@nextcloud/no-deprecated-library-props": {
       "count": 4

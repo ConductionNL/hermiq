@@ -37,8 +37,10 @@ Kind: code. Size M. Row `hermiq:td-bias-test`.
 - **files**: `src/widgets/EvalRunPanelWidget.vue`, `src/modals/EvalScheduleFormModal.vue`, `src/api/evals.js`, `lib/Controller/EvalRunController.php`, `appinfo/routes.php`
 - **acceptance_criteria**:
   - GIVEN an owner WHEN they set a monthly schedule THEN it shows with its next run; a non-owner gets 404
-- [ ] Implement
+- [x] Implement
+  - `GET|POST /api/evals/{datasetId}/schedules` and `PUT /api/evals/{datasetId}/schedules/{id}` (`EvalScheduleController` over `Service/Eval/EvalScheduleEditor`): the caller's schedules of a dataset they own, against an agent they own; anything else is a 404, a cron expression or threshold that is not valid a 400. A save stores the next run, so the page shows it and the first run waits for the schedule. `Service/Eval/EvalOwnership` holds the owner rule the copy and the schedules share. On the dataset page the eval run panel lists the schedules (agent, frequency, next run or off) with "Add a schedule" and "Change", through `src/modals/EvalScheduleFormModal.vue` (agent, monthly, weekly or daily, the drop threshold, on or off); en/nl strings. The task's file list named `EvalRunController`; the routes live on a controller of their own so the run endpoint keeps its collaborators.
 - [ ] Test (PHPUnit on the guard; Playwright)
+  - PHPUnit done: `EvalScheduleEditorTest` (monthly schedule with its next run, non-owner and missing dataset or agent, invalid cron and threshold, a change keeps its last run, the list holds the caller's own), `EvalScheduleControllerTest` (201, 200, 404, 400, 401); vitest `eval-schedules.spec.js`. Playwright written in `tests/e2e/spec-coverage/bias-evals.spec.ts`, not run here: it needs a live instance.
 
 ### Task 5: Factsheet and compliance evidence
 - **spec_ref**: `openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004`
