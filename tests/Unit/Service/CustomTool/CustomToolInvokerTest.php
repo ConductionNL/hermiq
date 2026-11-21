@@ -354,7 +354,13 @@ final class CustomToolInvokerTest extends TestCase {
 	 */
 	public function testAWaitingToolHandsTheWorkflowItsResultAddressAndToken(): void {
 		$this->tool = self::bagTool(
-			target: ['method' => 'POST', 'path' => '/webhook/bag', 'bodyTemplate' => '{"nr": {{input.huisnummer}}}', 'waitForCallback' => true, 'deadlineHours' => 48]
+			target: [
+				'method'          => 'POST',
+				'path'            => '/webhook/bag',
+				'bodyTemplate'    => '{"nr": {{input.huisnummer}}}',
+				'waitForCallback' => true,
+				'deadlineHours'   => 48,
+			]
 		);
 		$this->webhookHandoffs = $this->createMock(originalClassName: WebhookHandoffs::class);
 		$this->webhookHandoffs->expects($this->once())->method('open')
@@ -455,6 +461,9 @@ final class CustomToolInvokerTest extends TestCase {
 			arguments: self::IN_A_TURN
 		);
 
-		$this->assertSame(expected: ['json' => ['payload' => [3], 'hermiqResultUrl' => 'https://nc/r', 'hermiqResultToken' => 't']], actual: $this->sourceCalls[0]['config']);
+		$this->assertSame(
+			expected: ['json' => ['payload' => [3], 'hermiqResultUrl' => 'https://nc/r', 'hermiqResultToken' => 't']],
+			actual: $this->sourceCalls[0]['config']
+		);
 	}//end testABodyThatIsNotAnObjectIsKeptUnderPayload()
 }//end class
