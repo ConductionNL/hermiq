@@ -24,6 +24,7 @@ use OCA\Hermiq\Listener\AgentActingUserGuardListener;
 use OCA\Hermiq\Listener\AgentDepartmentGuardListener;
 use OCA\Hermiq\Listener\AgentBotLifecycleListener;
 use OCA\Hermiq\Listener\AgentEnsembleGuardListener;
+use OCA\Hermiq\Listener\AgentTemperatureGuardListener;
 use OCA\Hermiq\Listener\AgentRunRequestedListener;
 use OCA\Hermiq\Listener\AgentWaiverChangeListener;
 use OCA\Hermiq\Listener\AiOversightRecordedListener;
@@ -108,6 +109,8 @@ class ListenerRegistrarTest extends TestCase {
 				[ObjectUpdatingEvent::class, AgentDepartmentGuardListener::class],
 				[ObjectCreatingEvent::class, AgentEnsembleGuardListener::class],
 				[ObjectUpdatingEvent::class, AgentEnsembleGuardListener::class],
+				[ObjectCreatingEvent::class, AgentTemperatureGuardListener::class],
+				[ObjectUpdatingEvent::class, AgentTemperatureGuardListener::class],
 				[RegisterFlowNodesEvent::class, HermiqFlowNodeListener::class],
 				[RegisterFlowOversightEvent::class, FlowOversightRegistrationListener::class],
 				[RegisterLeafProvidersEvent::class, RegisterAgentLeafListener::class],
