@@ -8,7 +8,8 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { answerCacheFields, answerCachePayload, organisationScopeAllowed, questionBefore } from '../../src/utils/answerCache.js'
+import manifest from '../../src/manifest.json'
+import { answerCacheFields, answerCachePayload, answerCacheSummary, organisationScopeAllowed, questionBefore } from '../../src/utils/answerCache.js'
 
 describe('answer cache form fields', () => {
 	it('reads a stored setting, with the lifetime in days', () => {
@@ -66,5 +67,38 @@ describe('the question a cached answer replied to', () => {
 
 	it('falls back to the last user turn when the answer is not in the thread', () => {
 		expect(questionBefore([question, later], answer)).toBe('En glas?')
+	})
+})
+
+const translate = (app, text, vars = {}) => text.replace(/\{(\w+)\}/g, (m, k) => String(vars[k] ?? m))
+const plural = (app, one, many, count, vars) => translate(app, count === 1 ? one : many, vars)
+
+describe('the answer cache on the agent page', () => {
+	it('says it is on and for how long', () => {
+		expect(answerCacheSummary({ enabled: true, ttlMinutes: 10080, similarity: 'off' }, plural, translate)).toBe('Answer cache: on, 7 days')
+		expect(answerCacheSummary({ enabled: true, ttlMinutes: 1440 }, plural, translate)).toBe('Answer cache: on, 1 day')
+	})
+
+	it('says off when the cache is off or was never set', () => {
+		expect(answerCacheSummary({ enabled: false, ttlMinutes: 10080 }, plural, translate)).toBe('Off')
+		expect(answerCacheSummary(undefined, plural, translate)).toBe('Off')
+		expect(answerCacheSummary({ enabled: 'yes' }, plural, translate)).toBe('Off')
+	})
+})
+
+describe('the agent\'s Configuration card', () => {
+	it('shows the answer cache through its formatter, read-only', () => {
+		const cards = JSON.stringify(manifest)
+		const card = manifest.pages
+			.flatMap((page) => page.config?.widgets || [])
+			.find((widget) => widget.content?.title === 'Configuration' && (widget.content?.include || []).includes('ensemble'))
+
+		expect(cards).toContain('agentAnswerCache')
+		expect(card.content.include).toContain('answerCache')
+		expect(card.content.overrides.answerCache).toEqual({
+			label: 'Reuse answers to repeated questions',
+			formatter: 'agentAnswerCache',
+			editable: false,
+		})
 	})
 })

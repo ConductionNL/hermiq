@@ -99,3 +99,22 @@ export function questionBefore(messages, answer) {
 	}
 	return ''
 }
+
+/**
+ * The agent's answer cache in one line, for the agent's Configuration card.
+ *
+ * @param {object|undefined} answerCache The agent's stored `answerCache`.
+ * @param {function(string, string, string, number, object): string} n The app's plural function, `n('hermiq', ...)`.
+ * @param {function(string, string): string} t The app's translate function, `t('hermiq', text)`.
+ * @return {string} "Answer cache: on, 7 days", or "Off".
+ *
+ * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-the-answer-cache-is-opt-in-per-agent-and-only-for-turns-without-tools-req-acache-001
+ */
+export function answerCacheSummary(answerCache, n, t) {
+	const fields = answerCacheFields({ answerCache })
+	if (!fields.answerCacheEnabled) {
+		return t('hermiq', 'Off')
+	}
+	const count = fields.answerCacheDays
+	return n('hermiq', 'Answer cache: on, {count} day', 'Answer cache: on, {count} days', count, { count })
+}

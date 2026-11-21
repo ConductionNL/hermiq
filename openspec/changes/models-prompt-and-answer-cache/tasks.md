@@ -41,7 +41,7 @@ Kind: code. Size M. Rows `hermiq:dm-prompt-cache`, `integriq:gw-ai-cache`.
 - [x] Implement
 - [ ] Test (register validation test; Playwright under tests/e2e/spec-coverage/)
   > 2026-11-14: the register validation test is done (`tests/Unit/Settings/AnswerCacheSchemaTest.php`) and the form's setting is covered by `tests/vitest/answer-cache-form.spec.js`; the Playwright check needs a live instance and stays open. The similarity choice is disabled with its note until OpenRegister exposes the vector facade.
-  > 2026-11-21: `tests/e2e/spec-coverage/answer-cache.spec.ts` written for the setting (saved for real) and the disabled similarity choice; not run here, it needs a running Nextcloud. Open: no screen shows the scenario's "Answer cache: on, 7 days" line yet, so that assertion fails until the agent page shows it.
+  > 2026-11-21: `tests/e2e/spec-coverage/answer-cache.spec.ts` written for the setting (saved for real) and the disabled similarity choice; not run here, it needs a running Nextcloud. The agent's Configuration card now shows "Answer cache: on, 7 days" (`answerCacheSummary()` in `src/utils/answerCache.js`, the `agentAnswerCache` formatter in `App.vue`, the `answerCache` override in `src/manifest.json`; vitest in `answer-cache-form.spec.js`).
 
 ### Task 5: Exact lookup and store
 - **spec_ref**: `openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-an-exact-repeat-within-one-organisation-gets-the-stored-answer-req-acache-002`

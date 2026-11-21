@@ -166,6 +166,7 @@ import SkillMaturityDots from './widgets/SkillMaturityDots.vue'
 import credentialDeclarations from './credentials.json'
 import { ensembleSummary } from './utils/agentEnsemble.js'
 import { agentCatalogFormatters } from './utils/agentSharing.js'
+import { answerCacheSummary } from './utils/answerCache.js'
 import { scheduleListFormatters } from './utils/scheduleList.js'
 
 export default {
@@ -284,6 +285,7 @@ export default {
 		 *
 		 * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-the-agent-catalog-shows-owner-sharing-and-status-req-agshare-003
 		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-every-schedule-a-person-may-see-is-on-one-page-req-sched-001
+		 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-the-answer-cache-is-opt-in-per-agent-and-only-for-turns-without-tools-req-acache-001
 		 * @return {object} Map of formatter id to function.
 		 */
 		formatters() {
@@ -293,6 +295,9 @@ export default {
 				// The agent's Configuration card: "Ensemble: 2 reference models"
 				// (models-several-models-per-turn REQ-MENS-001).
 				agentEnsemble: (value) => ensembleSummary(value, ncN, ncT),
+				// The agent's Configuration card: "Answer cache: on, 7 days"
+				// (models-prompt-and-answer-cache REQ-ACACHE-001).
+				agentAnswerCache: (value) => answerCacheSummary(value, ncN, ncT),
 			}
 		},
 

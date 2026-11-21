@@ -367,12 +367,18 @@
 								"temperature",
 								"maxTokens",
 								"maxToolCalls",
-								"ensemble"
+								"ensemble",
+								"answerCache"
 							],
 							"overrides": {
 								"ensemble": {
 									"label": "Answer with several models",
 									"formatter": "agentEnsemble",
+									"editable": false
+								},
+								"answerCache": {
+									"label": "Reuse answers to repeated questions",
+									"formatter": "agentAnswerCache",
 									"editable": false
 								}
 							}

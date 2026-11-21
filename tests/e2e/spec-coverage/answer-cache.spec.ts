@@ -111,8 +111,7 @@ test.describe('models-prompt-and-answer-cache: the agent setting', () => {
 			ttlMinutes: 7 * 24 * 60,
 		})
 
-		// The scenario's "Answer cache: on, 7 days" line on the agent page. No screen renders
-		// it yet (21 Nov 2026), so this line fails until the agent's Configuration card shows it.
+		// The agent's Configuration card says so (formatter agentAnswerCache).
 		await expect(
 			page.getByText('Answer cache: on, 7 days').first(),
 		).toBeVisible()
