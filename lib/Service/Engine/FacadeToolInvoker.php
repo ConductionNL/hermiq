@@ -148,6 +148,7 @@ use OCA\Hermiq\Service\Handoff\FlowTurn;
 use OCA\Hermiq\Service\Handoff\TurnHandoffs;
 use OCA\Hermiq\Service\ComputerUse\ComputerActionRecord;
 use OCA\Hermiq\Service\RedactionService;
+use OCA\Hermiq\Service\Research\ResearchTool;
 use OCA\Hermiq\Service\ToolClassificationService;
 use OCA\Hermiq\Service\ToolSearchService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -1430,6 +1431,7 @@ class FacadeToolInvoker {
 	 * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-5
 	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
 	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-passes-the-acting-agent-to-integriqs-agent-tools-req-apver-003
+	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-user-can-start-deep-research-and-sees-the-plan-req-research-001
 	 */
 	private function withAgentId(string $name, array $arguments): array {
 		if ($this->agentId === null) {
@@ -1444,7 +1446,9 @@ class FacadeToolInvoker {
 
 		// A browser tool also gets its conversation: each conversation has its own
 		// browser context (tools-browser-and-computer-use D1).
-		if (in_array($this->resolveToolId(name: $name), BrowserToolDescriptors::IDS, true) === true) {
+		// A research run also gets its conversation: its plan and report are posted
+		// there (tools-deep-research-report D6).
+		if (in_array($this->resolveToolId(name: $name), [...BrowserToolDescriptors::IDS, ResearchTool::ID], true) === true) {
 			$arguments['conversationId'] = $this->conversationId;
 		}
 
@@ -1486,13 +1490,15 @@ class FacadeToolInvoker {
 	 * @param string $toolId The registry tool id.
 	 *
 	 * @return bool True when the tool receives the agent id.
+	 *
+	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-user-can-start-deep-research-and-sees-the-plan-req-research-001
 	 */
 	private function needsAgentId(string $toolId): bool {
 		$agentTools = array_merge(
 			self::MEMORY_TOOL_IDS,
 			self::ARTEFACT_WRITE_TOOL_IDS,
 			self::INTEGRIQ_AGENT_TOOL_IDS,
-			[self::DELEGATE_AGENT_TOOL_ID, self::DELEGATE_AGENTS_TOOL_ID],
+			[self::DELEGATE_AGENT_TOOL_ID, self::DELEGATE_AGENTS_TOOL_ID, ResearchTool::ID],
 			BrowserToolDescriptors::IDS
 		);
 

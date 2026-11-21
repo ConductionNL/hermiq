@@ -378,6 +378,95 @@ class HandoffServiceTest extends TestCase {
 	}//end testAClosedHandoffDoesNotExpire()
 
 	/**
+	 * A research handoff keeps its research fields and nothing else extra.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-user-can-start-deep-research-and-sees-the-plan-req-research-001
+	 */
+	public function testAResearchHandoffKeepsItsResearchFields(): void {
+		$saved = [];
+		$this->objects->method('saveObject')->willReturnCallback(function (array $object) use (&$saved): ObjectEntity {
+			$saved = $object;
+			return $this->entity(uuid: 'r-1', data: $object);
+		});
+
+		$this->service->open(
+			handoff: [
+				'kind'          => 'research',
+				'depth'         => 'quick',
+				'organisation'  => 'org-1',
+				'caps'          => ['sources' => 10],
+				'stopRequested' => false,
+				'status'        => 'done',
+				'injected'      => 'ignored',
+			] + $this->request()
+		);
+
+		$this->assertSame(expected: 'research', actual: $saved['kind']);
+		$this->assertSame(expected: 'quick', actual: $saved['depth']);
+		$this->assertSame(expected: 'org-1', actual: $saved['organisation']);
+		$this->assertSame(expected: ['sources' => 10], actual: $saved['caps']);
+		$this->assertFalse(condition: $saved['stopRequested']);
+		$this->assertSame(expected: 'waiting', actual: $saved['status']);
+		$this->assertArrayNotHasKey(key: 'injected', array: $saved);
+	}//end testAResearchHandoffKeepsItsResearchFields()
+
+	/**
+	 * Another kind never carries research fields.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-user-can-start-deep-research-and-sees-the-plan-req-research-001
+	 */
+	public function testAFlowHandoffCarriesNoResearchFields(): void {
+		$saved = [];
+		$this->objects->method('saveObject')->willReturnCallback(function (array $object) use (&$saved): ObjectEntity {
+			$saved = $object;
+			return $this->entity(uuid: 'h-1', data: $object);
+		});
+
+		$this->service->open(handoff: ['plan' => ['a'], 'stopRequested' => true] + $this->request());
+
+		$this->assertArrayNotHasKey(key: 'plan', array: $saved);
+		$this->assertArrayNotHasKey(key: 'stopRequested', array: $saved);
+	}//end testAFlowHandoffCarriesNoResearchFields()
+
+	/**
+	 * update() writes only the research fields, and only while the handoff waits.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-research-run-stops-at-its-caps-the-budget-the-kill-switch-or-the-user-req-research-005
+	 */
+	public function testUpdateWritesOnlyResearchFieldsWhileWaiting(): void {
+		$waiting = ['kind' => 'research'] + $this->waitingHandoff();
+		$this->objects->method('find')->willReturnCallback(
+			fn (string $id): ?ObjectEntity => match ($id) {
+				'r-1' => $this->entity(uuid: 'r-1', data: $waiting),
+				'r-2' => $this->entity(uuid: 'r-2', data: ['status' => 'done'] + $waiting),
+				default => null,
+			}
+		);
+		$stored = null;
+		$this->objects->expects($this->once())->method('saveObject')
+			->willReturnCallback(function (array $object, ObjectSaveOptions $options) use (&$stored): ObjectEntity {
+				$stored = ['object' => $object, 'uuid' => $options->uuid];
+				return $this->entity(uuid: 'r-1', data: $object);
+			});
+
+		$fields = ['stopRequested' => true, 'status' => 'done', 'requestedBy' => 'eve'];
+		$this->assertTrue(condition: $this->service->update(handoffId: 'r-1', fields: $fields));
+		$this->assertFalse(condition: $this->service->update(handoffId: 'r-2', fields: ['stopRequested' => true]));
+		$this->assertFalse(condition: $this->service->update(handoffId: 'gone', fields: ['stopRequested' => true]));
+
+		$this->assertSame(expected: 'r-1', actual: $stored['uuid']);
+		$this->assertTrue(condition: $stored['object']['stopRequested']);
+		$this->assertSame(expected: 'waiting', actual: $stored['object']['status']);
+		$this->assertSame(expected: 'anne', actual: $stored['object']['requestedBy']);
+	}//end testUpdateWritesOnlyResearchFieldsWhileWaiting()
+
+	/**
 	 * What a tool asks for when it opens a handoff.
 	 *
 	 * @return array<string, mixed>

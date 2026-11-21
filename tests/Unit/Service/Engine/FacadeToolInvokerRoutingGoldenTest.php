@@ -177,6 +177,30 @@ class FacadeToolInvokerRoutingGoldenTest extends TestCase {
 	}//end testOnlyAgentScopedToolsReceiveTheAgentId()
 
 	/**
+	 * `hermiq.startResearch` receives the run's agent and conversation, whatever the
+	 * model put in its arguments (tools-deep-research-report D6).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-user-can-start-deep-research-and-sees-the-plan-req-research-001
+	 */
+	public function testStartResearchReceivesTheRunsAgentAndConversation(): void {
+		$invoker = new FacadeToolInvoker(
+			facade: $this->facade(),
+			agentId: 'agent-1',
+			mcpIdByName: ['hermiq_startResearch' => 'hermiq.startResearch'],
+			conversationId: 'conv-1'
+		);
+
+		$invoker->hermiq_startResearch(question: 'Q', agentId: 'other', conversationId: 'elsewhere');
+
+		$this->assertSame(
+			expected: [['hermiq_startResearch', ['question' => 'Q', 'agentId' => 'agent-1', 'conversationId' => 'conv-1']]],
+			actual: $this->calls
+		);
+	}//end testStartResearchReceivesTheRunsAgentAndConversation()
+
+	/**
 	 * A write step records an artefact only when the result names one with a scalar
 	 * type and id, and records both as strings.
 	 *
