@@ -61,6 +61,7 @@ Kind: code. Size M. Rows `hermiq:dm-metadata-filter`, `td-validated-sources`.
   - Display under an answer in `src/views/Chat.vue`: the abstention line, the mode with its floor, the number of passages that passed and the best similarity, and a note when file filters applied (`scopeDisplay()` in `src/utils/retrievalScope.js`). The validated-mode fields (switch, minimum similarity, abstention message) are on the agent form. en/nl strings.
   - Tests: vitest `retrieval-scope.spec.js`, `agent-form-retrieval-scope.spec.js`; PHPUnit `SessionControllerUncoveredPathsTest::testMessagesReturnTheRetrievalScope`.
 - [ ] Test (Playwright under `tests/e2e/spec-coverage/retrieval-scope.spec.ts` with a seeded abstained turn)
+  - 2026-11-21: `tests/e2e/spec-coverage/retrieval-scope.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, sidecar or Talk is needed); not run here, it needs a running Nextcloud.
 
 ## Verification
 - [ ] `openspec validate memory-retrieval-scope --type change --strict` passes
