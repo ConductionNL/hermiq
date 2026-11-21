@@ -323,7 +323,8 @@ final class CustomToolDefinition {
 			throw new InvalidArgumentException('target.waitForCallback: a workflow that posts its result back is called with POST, PUT or PATCH');
 		}
 
-		$hours = filter_var(($raw['deadlineHours'] ?? null), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => self::MAX_DEADLINE_HOURS]]);
+		$range = ['options' => ['min_range' => 1, 'max_range' => self::MAX_DEADLINE_HOURS]];
+		$hours = filter_var(($raw['deadlineHours'] ?? null), FILTER_VALIDATE_INT, $range);
 		if ($hours === false) {
 			return ['waitForCallback' => true];
 		}
