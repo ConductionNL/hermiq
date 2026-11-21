@@ -48,6 +48,7 @@ Kind: code. Size M. Row `hermiq:dm-project-memory`.
 - [ ] Test (PHPUnit on the move; Playwright for the tabs and the move)
 
 ## Verification
-- [ ] `openspec validate memory-project-scopes --type change --strict` passes
+- [x] `openspec validate memory-project-scopes --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit and the Playwright file run, exit codes read
 - [ ] A live check on the dev instance: two project sessions with one agent, a fact remembered in one does not come back in the other

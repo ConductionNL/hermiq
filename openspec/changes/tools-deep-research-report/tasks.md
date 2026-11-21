@@ -68,6 +68,7 @@ Kind: code. Size M. Row `hermiq:dm-deep-research`.
   - Written, not run here: `tests/e2e/spec-coverage/deep-research.spec.ts` answers the research routes and the handoff listing with page.route. Needs a running Nextcloud.
 
 ## Verification
-- [ ] `openspec validate tools-deep-research-report --type change --strict` passes
+- [x] `openspec validate tools-deep-research-report --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, Newman and Playwright run once before push, exit codes read
 - [ ] One live research run on a public question, with the report opened in Files and its citations spot-checked by hand

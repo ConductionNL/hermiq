@@ -53,5 +53,6 @@ Kind: code. Size M. Row `hermiq:td-bias-test`.
   - PHPUnit done: `BiasCheckEvidenceTest` (latest completed run, satisfied, partial, unevidenced, unreadable register), `ComplianceServiceTest` (dispatch and factsheet), `SeedComplianceControlsTest` (13 controls); vitest `factsheet-bias-check.spec.js`. Playwright written in `tests/e2e/spec-coverage/bias-evals.spec.ts`, not run here: it needs a live instance.
 
 ## Verification
-- [ ] `openspec validate reuse-scheduled-bias-evals --type change --strict` passes
+- [x] `openspec validate reuse-scheduled-bias-evals --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit and Playwright run, exit codes read

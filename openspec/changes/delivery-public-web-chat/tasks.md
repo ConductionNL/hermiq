@@ -53,5 +53,6 @@ Kind: code. Size L. Row `hermiq:dl-embed-web`.
 - [ ] Test (PHPUnit `PublicChannelGuardListenerTest` and vitest `public-channel-settings.spec.js` done; Playwright needs a running instance. Entry point for the portaliq lane: `OCA\Hermiq\PublicChat\PublicChatEntryPoint::ask(string $channelKey, string $question, string $locale, array $sourceScope, ?string $conversationToken): PublicAnswer`, channel key `app:portaliq:<portal-slug>`)
 
 ## Verification
-- [ ] `openspec validate delivery-public-web-chat --type change --strict` passes
+- [x] `openspec validate delivery-public-web-chat --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, Newman and Playwright run, exit codes read

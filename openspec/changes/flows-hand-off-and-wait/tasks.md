@@ -89,6 +89,7 @@ Kind: code. Size L. Rows `hermiq:dm-async-flow-step`, `hermiq:dm-remote-agent`, 
   - vitest done: `handoff-lines.spec.js`. Playwright needs a live instance.
 
 ## Verification
-- [ ] `openspec validate flows-hand-off-and-wait --type change --strict` passes
+- [x] `openspec validate flows-hand-off-and-wait --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, Newman and Playwright run once before push, exit codes read
 - [ ] One live run: an agent starts a flow with a wait node of two minutes and answers on its result in the same conversation

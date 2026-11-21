@@ -70,6 +70,7 @@ Kind: code. Size L. Rows `hermiq:me-kb-upload`, `me-external-kb`.
   - Written: `tests/e2e/spec-coverage/knowledge-bases.spec.ts` (5: Memory page link to the list, upload on the detail page into the folder with its state and the only-you notice, the no-search notice, an integriq-labelled source, a non-owner refused from an empty-storage-state context, the agent form picker). Lints, type-checks and lists; not run yet (needs a running instance), so the box stays open. Vitest: `tests/vitest/knowledge-base-sources.spec.js` (6); the agent form golden fixture gains `knowledgeBaseRefs`.
 
 ## Verification
-- [ ] `openspec validate memory-knowledge-bases --type change --strict` passes
+- [x] `openspec validate memory-knowledge-bases --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, Newman and the Playwright file run, exit codes read
 - [ ] A live check on the dev instance with an OpenRegister vector backend: upload a PDF, wait for indexed, ask a question it answers

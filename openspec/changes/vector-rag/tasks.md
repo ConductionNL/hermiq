@@ -70,7 +70,7 @@
       in hybrid mode and confirm facade-sourced results (similarity < 1.0 present);
       then unset the backend and confirm the same agent still answers on the keyword
       tier with the degradation visible in settings.
-- [ ] 5.4 (PARTLY: phpcs, psalm and phpstan clean on the changed files, zero `OCA\OpenRegister\Service\Vectorization` hits in `lib/`; `openspec validate` and the hydra gates were not run here) `openspec validate vector-rag --strict`; phpcs/psalm/phpstan clean; hydra
+- [ ] 5.4 (PARTLY: phpcs, psalm and phpstan clean on the changed files, zero `OCA\OpenRegister\Service\Vectorization` hits in `lib/`; `openspec validate vector-rag --strict` valid under openspec 1.2.0 since 2026-11-21, after the fallback requirement was reworded to open with its MUST; the diff-scoped hydra gates were not run here) `openspec validate vector-rag --strict`; phpcs/psalm/phpstan clean; hydra
       gates diff-scoped vs `origin/development` — report results. Explicitly grep
       for `OCA\OpenRegister\Service\Vectorization` in `lib/` and report zero hits.
 

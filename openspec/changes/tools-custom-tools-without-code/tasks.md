@@ -53,6 +53,7 @@ Kind: code. Size M. Row `hermiq:tl-custom-tool`.
 - [ ] Test (Playwright under tests/e2e/spec-coverage/)
 
 ## Verification
-- [ ] `openspec validate tools-custom-tools-without-code --type change --strict` passes
+- [x] `openspec validate tools-custom-tools-without-code --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, Newman and Playwright run once before push, exit codes read
 - [ ] One live chat turn in which an agent calls a flow-target and an integriq-target custom tool

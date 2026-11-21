@@ -46,6 +46,7 @@ Kind: code. Size S to M. Row `hermiq:dm-cross-channel`.
 - [x] Add the "Inkoop overleg" demo session with mixed channels — in `lib/Settings/example-sets/zuiddrecht.json` (the register holds no seed objects; the example set is where demo sessions live): a Talk question and answer, then a Chat-page question and answer (`ExampleSetInkoopOverlegTest`). Its Talk room is not example data, as for the set's other session.
 
 ## Verification
-- [ ] `openspec validate chat-carry-a-conversation-across-channels --type change --strict` passes
+- [x] `openspec validate chat-carry-a-conversation-across-channels --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, Newman and the Playwright file run, exit codes read
 - [ ] A live check: begin in a Talk room, continue on `/chat`, see the mirrored turn in the room

@@ -68,6 +68,7 @@ Kind: code. Size L. Rows `hermiq:mo-failover`, `hermiq:dm-model-ensemble`, `inte
 - [ ] Test (PHPUnit with stubbed drivers and BudgetService; one live chat turn on an ensemble agent) — PHPUnit done (`ReferenceAnswerRoundTest`, `EnsembleUsageTest`, `ResponseGenerationEnsembleTest`); the live chat turn needs a live instance and is left
 
 ## Verification
-- [ ] `openspec validate models-several-models-per-turn --type change --strict` passes
+- [x] `openspec validate models-several-models-per-turn --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit and Playwright run once before push, exit codes read
 - [ ] One live turn with the first provider's base URL pointed at an address that does not answer shows the fallback and both attempts on the run

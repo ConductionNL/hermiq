@@ -64,6 +64,7 @@ Kind: code. Size M. Rows `hermiq:dm-metadata-filter`, `td-validated-sources`.
   - 2026-11-21: `tests/e2e/spec-coverage/retrieval-scope.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, sidecar or Talk is needed); not run here, it needs a running Nextcloud.
 
 ## Verification
-- [ ] `openspec validate memory-retrieval-scope --type change --strict` passes
+- [x] `openspec validate memory-retrieval-scope --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, Newman and the Playwright file run, exit codes read
 - [ ] A live check on the dev instance: tag one file validated, ask a question it answers and one it does not

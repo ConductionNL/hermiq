@@ -64,7 +64,8 @@ Kind: code. Size M. Row `hermiq:op-scale`.
   - `docs/Installation/parallel-runs.md`. Left: the live check.
 
 ## Verification
-- [ ] `openspec validate operations-parallel-run-workers --type change --strict` passes
+- [x] `openspec validate operations-parallel-run-workers --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit runs, exit code read, including the race test
   - The unit suite runs green (5767 tests); the race test needs a live instance.
 - [ ] A live check on the dev instance with two workers: ten due schedules finish in about half the single-worker time, each run once

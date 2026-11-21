@@ -61,6 +61,7 @@ Kind: code. Size L. Rows `hermiq:tl-code-exec`, `hermiq:fl-code-step`, `hermiq:d
   - PHPUnit (`CodeRunTraceTest`, the invoker's trace step, the test route) and vitest (`code-sandbox-settings.spec.js`) done; the Playwright run needs a live instance.
 
 ## Verification
-- [ ] `openspec validate tools-code-sandbox --type change --strict` passes
+- [x] `openspec validate tools-code-sandbox --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, the ExApp tests, Newman and Playwright run once before push, exit codes read
 - [ ] One live chat turn in which an agent runs a calculation in the installed sandbox, with the network test from Task 1 repeated on that host

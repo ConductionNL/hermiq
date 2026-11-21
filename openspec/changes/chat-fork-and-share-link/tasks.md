@@ -65,6 +65,7 @@ Kind: code. Size M. Rows `hermiq:dm-fork-chat`, `ch-share-link`.
 - [ ] Test (Playwright under `tests/e2e/spec-coverage/session-fork-and-share.spec.ts` with two users) — written; live run pending
 
 ## Verification
-- [ ] `openspec validate chat-fork-and-share-link --type change --strict` passes
+- [x] `openspec validate chat-fork-and-share-link --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, Newman and the Playwright file run, exit codes read
 - [ ] A live check on the dev instance: share a session with a second user, read it as that user, revoke, read again

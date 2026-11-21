@@ -80,6 +80,7 @@ Kind: code. Size M. Rows `hermiq:dm-prompt-cache`, `integriq:gw-ai-cache`.
 - [ ] Test (PHPUnit on the job and the feedback hook; Playwright under tests/e2e/spec-coverage/ for the note and the button)
 
 ## Verification
-- [ ] `openspec validate models-prompt-and-answer-cache --type change --strict` passes
+- [x] `openspec validate models-prompt-and-answer-cache --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, Newman and Playwright run once before push, exit codes read
 - [ ] One live Anthropic session shows cache read tokens on its second turn
