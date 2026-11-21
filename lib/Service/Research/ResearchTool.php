@@ -106,23 +106,12 @@ final class ResearchTool {
 			return null;
 		}
 
-		if ($this->starter === null || $call->agentId === '' || $call->text(name: 'conversationId') === '') {
-			return self::error(code: 'unavailable', message: 'Deep research can only be started by an agent in a conversation.');
-		}
-
-		$depth = $call->text(name: 'depth');
-		if ($depth === '') {
-			$depth = 'thorough';
+		if ($this->starter === null) {
+			return self::error(code: 'unavailable', message: 'Deep research is not available on this instance.');
 		}
 
 		try {
-			$run = $this->starter->start(
-				agentId: $call->agentId,
-				conversationId: $call->text(name: 'conversationId'),
-				userId: $call->uid,
-				question: $call->text(name: 'question'),
-				depth: $depth
-			);
+			$run = $this->starter->start(request: $this->request(call: $call), userId: $call->uid);
 		} catch (InvalidArgumentException $e) {
 			return self::error(code: 'invalid_argument', message: $e->getMessage());
 		}
@@ -137,6 +126,29 @@ final class ResearchTool {
 			'message'    => 'Research started. The plan appears in this conversation, then the report.',
 		];
 	}//end invoke()
+
+	/**
+	 * The request of this call: the injected agent and conversation, the question, the depth (thorough by default).
+	 *
+	 * @param NativeToolCall $call The call.
+	 *
+	 * @return ResearchRequest
+	 *
+	 * @throws InvalidArgumentException When a part is missing or the depth is unknown.
+	 */
+	private function request(NativeToolCall $call): ResearchRequest {
+		$depth = $call->text(name: 'depth');
+		if ($depth === '') {
+			$depth = 'thorough';
+		}
+
+		return new ResearchRequest(
+			agentId: $call->agentId,
+			conversationId: $call->text(name: 'conversationId'),
+			question: $call->text(name: 'question'),
+			depth: $depth
+		);
+	}//end request()
 
 	/**
 	 * The error envelope.

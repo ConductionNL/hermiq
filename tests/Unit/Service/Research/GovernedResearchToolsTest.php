@@ -26,11 +26,11 @@ use LLPhant\Chat\FunctionInfo\FunctionInfo;
 use OCA\Hermiq\Service\Engine\ToolLoop;
 use OCA\Hermiq\Service\Research\GovernedResearchTools;
 use OCA\Hermiq\Service\Research\InvokerToolbox;
+use OCA\Hermiq\Service\Research\ResearchObjects;
+use OCA\Hermiq\Tests\Unit\Service\Research\Fakes\RecordingInvoker;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 
 /**
  * @covers \OCA\Hermiq\Service\Research\GovernedResearchTools
@@ -39,41 +39,53 @@ use RuntimeException;
 final class GovernedResearchToolsTest extends TestCase {
 
 	/**
-	 * The calls the governed invoker received, as [name, arguments].
+	 * The tool loop.
 	 *
-	 * @var list<array{0: string, 1: array<string, mixed>}>
-	 */
-	public array $calls = [];
-
-	/**
-	 * What the invoker answers per function name.
-	 *
-	 * @var array<string, string>
-	 */
-	public array $answers = [];
-
-	/**
 	 * @var ToolLoop&MockObject
 	 */
 	private ToolLoop&MockObject $toolLoop;
 
 	/**
-	 * @var ObjectService&MockObject
+	 * The objects reader.
+	 *
+	 * @var ResearchObjects&MockObject
 	 */
-	private ObjectService&MockObject $objects;
+	private ResearchObjects&MockObject $objects;
 
 	/**
-	 * @var ObjectEntity&MockObject
+	 * The agent.
+	 *
+	 * @var ObjectEntity
 	 */
-	private ObjectEntity&MockObject $agent;
+	private ObjectEntity $agent;
 
+	/**
+	 * The governed invoker double.
+	 *
+	 * @var RecordingInvoker
+	 */
+	private RecordingInvoker $invoker;
+
+	/**
+	 * A readable agent and a recording invoker.
+	 *
+	 * @return void
+	 */
 	protected function setUp(): void {
-		$this->toolLoop = $this->createMock(ToolLoop::class);
-		$this->objects = $this->createMock(ObjectService::class);
-		$this->agent = $this->createMock(ObjectEntity::class);
-		$this->objects->method('find')->willReturn($this->agent);
-	}
+		$this->toolLoop = $this->createMock(originalClassName: ToolLoop::class);
+		$this->objects  = $this->createMock(originalClassName: ResearchObjects::class);
+		$this->agent    = new ObjectEntity();
+		$this->objects->method('readable')->willReturnCallback(
+			fn (string $uuid, string $schema): ?ObjectEntity => $this->agentFor(uuid: $uuid, schema: $schema)
+		);
+		$this->invoker = new RecordingInvoker();
+	}//end setUp()
 
+	/**
+	 * The toolbox binds the agent's two granted functions to its governed chain.
+	 *
+	 * @return void
+	 */
 	public function testTheToolboxIsBoundToTheAgentsGovernedChain(): void {
 		$functions = [
 			['name' => 'hermiq_webSearch', 'mcpId' => 'hermiq.webSearch'],
@@ -84,89 +96,121 @@ final class GovernedResearchToolsTest extends TestCase {
 			->willReturn($functions);
 		$this->toolLoop->expects(self::once())->method('buildFunctionInfos')
 			->with($functions, null, null, $this->agent, 'org-1', false, 'conv-1')
-			->willReturn($this->infos());
+			->willReturn($this->infos(search: 'hermiq_webSearch', fetch: 'hermiq_webFetch'));
 
-		$toolbox = (new GovernedResearchTools($this->toolLoop, $this->objects))->open('agent-1', 'org-1', 'conv-1');
+		$toolbox = $this->tools()->open(agentId: 'agent-1', organisation: 'org-1', conversationId: 'conv-1');
 
-		self::assertInstanceOf(InvokerToolbox::class, $toolbox);
-	}
+		self::assertInstanceOf(expected: InvokerToolbox::class, actual: $toolbox);
+	}//end testTheToolboxIsBoundToTheAgentsGovernedChain()
 
+	/**
+	 * An agent with only one of the two tools gets no toolbox.
+	 *
+	 * @return void
+	 */
 	public function testAnAgentWithoutBothToolsGetsNoToolbox(): void {
 		$this->toolLoop->method('listAgentFunctions')->willReturn([['name' => 'hermiq_webSearch', 'mcpId' => 'hermiq.webSearch'], 'junk']);
 		$this->toolLoop->expects(self::never())->method('buildFunctionInfos');
 
-		self::assertNull((new GovernedResearchTools($this->toolLoop, $this->objects))->open('agent-1', 'org-1', 'conv-1'));
-	}
+		self::assertNull(actual: $this->tools()->open(agentId: 'agent-1', organisation: 'org-1', conversationId: 'conv-1'));
+	}//end testAnAgentWithoutBothToolsGetsNoToolbox()
 
+	/**
+	 * An agent the person cannot read gets no toolbox, and no function is listed.
+	 *
+	 * @return void
+	 */
 	public function testAnAgentThatCannotBeReadGetsNoToolbox(): void {
-		$objects = $this->createMock(ObjectService::class);
-		$objects->method('find')->willThrowException(new RuntimeException('not found'));
 		$this->toolLoop->expects(self::never())->method('listAgentFunctions');
 
-		self::assertNull((new GovernedResearchTools($this->toolLoop, $objects))->open('agent-1', 'org-1', 'conv-1'));
-		self::assertNull((new GovernedResearchTools($this->toolLoop, $this->objects))->open('', 'org-1', 'conv-1'));
-	}
+		self::assertNull(actual: $this->tools()->open(agentId: 'other', organisation: 'org-1', conversationId: 'conv-1'));
+	}//end testAnAgentThatCannotBeReadGetsNoToolbox()
 
+	/**
+	 * A function without a registry id is read by its name, as ToolLoop does.
+	 *
+	 * @return void
+	 */
 	public function testANameWithoutARegistryIdIsReadAsTheId(): void {
-		$functions = [['name' => 'hermiq.webSearch'], ['name' => 'hermiq.webFetch']];
-		$this->toolLoop->method('listAgentFunctions')->willReturn($functions);
-		$this->toolLoop->method('buildFunctionInfos')->willReturn([
-			new FunctionInfo('hermiq.webSearch', $this->invoker(), '', []),
-			new FunctionInfo('hermiq.webFetch', $this->invoker(), '', []),
-		]);
+		$this->toolLoop->method('listAgentFunctions')->willReturn([['name' => 'hermiq.webSearch'], ['name' => 'hermiq.webFetch']]);
+		$this->toolLoop->method('buildFunctionInfos')->willReturn($this->infos(search: 'hermiq.webSearch', fetch: 'hermiq.webFetch'));
 
-		self::assertNotNull((new GovernedResearchTools($this->toolLoop, $this->objects))->open('agent-1', 'org-1', 'conv-1'));
-	}
+		self::assertNotNull(actual: $this->tools()->open(agentId: 'agent-1', organisation: 'org-1', conversationId: 'conv-1'));
+	}//end testANameWithoutARegistryIdIsReadAsTheId()
 
+	/**
+	 * A bound function that is missing after binding gives no toolbox.
+	 *
+	 * @return void
+	 */
+	public function testAFunctionMissingAfterBindingGivesNoToolbox(): void {
+		$this->toolLoop->method('listAgentFunctions')->willReturn([['name' => 'hermiq.webSearch'], ['name' => 'hermiq.webFetch']]);
+		$this->toolLoop->method('buildFunctionInfos')->willReturn([new FunctionInfo('hermiq.webSearch', $this->invoker, '', [])]);
+
+		self::assertNull(actual: $this->tools()->open(agentId: 'agent-1', organisation: 'org-1', conversationId: 'conv-1'));
+	}//end testAFunctionMissingAfterBindingGivesNoToolbox()
+
+	/**
+	 * Searches and fetches go through the invoker; refusals and unreadable answers become errors.
+	 *
+	 * @return void
+	 */
 	public function testSearchAndFetchPassTheInvokerAndRefusalsBecomeErrors(): void {
-		$infos = $this->infos();
-		$toolbox = new InvokerToolbox($infos[0], $infos[1]);
+		$infos   = $this->infos(search: 'hermiq_webSearch', fetch: 'hermiq_webFetch');
+		$toolbox = new InvokerToolbox(search: $infos[0], fetch: $infos[1]);
 
-		$this->answers['hermiq_webSearch'] = json_encode(['results' => [['title' => 'A', 'url' => 'https://a'], ['title' => 'No url'], 'junk']]);
-		self::assertSame([['title' => 'A', 'url' => 'https://a']], $toolbox->search('q'));
-		self::assertSame(['hermiq_webSearch', ['query' => 'q']], $this->calls[0]);
+		$this->invoker->answers['hermiq_webSearch'] = json_encode(['results' => [['title' => 'A', 'url' => 'https://a'], ['title' => 'No url'], 'junk']]);
+		self::assertSame(expected: [['title' => 'A', 'url' => 'https://a']], actual: $toolbox->search(query: 'q'));
+		self::assertSame(expected: ['hermiq_webSearch', ['query' => 'q']], actual: $this->invoker->calls[0]);
 
-		$this->answers['hermiq_webFetch'] = json_encode(['url' => 'https://a', 'content' => 'text']);
-		self::assertSame(['url' => 'https://a', 'content' => 'text'], $toolbox->fetch('https://a'));
-		self::assertSame(['hermiq_webFetch', ['url' => 'https://a']], $this->calls[1]);
+		$this->invoker->answers['hermiq_webFetch'] = json_encode(['url' => 'https://a', 'content' => 'text']);
+		self::assertSame(expected: ['url' => 'https://a', 'content' => 'text'], actual: $toolbox->fetch(url: 'https://a'));
+		self::assertSame(expected: ['hermiq_webFetch', ['url' => 'https://a']], actual: $this->invoker->calls[1]);
 
-		$this->answers['hermiq_webFetch'] = json_encode(['ok' => false, 'isError' => true, 'error' => 'egress_denied']);
-		self::assertSame(['error' => 'egress_denied'], $toolbox->fetch('http://10.0.0.1'));
+		$this->invoker->answers['hermiq_webFetch'] = json_encode(['ok' => false, 'isError' => true, 'error' => 'egress_denied']);
+		self::assertSame(expected: ['error' => 'egress_denied'], actual: $toolbox->fetch(url: 'http://10.0.0.1'));
 
-		$this->answers['hermiq_webFetch'] = 'not json';
-		self::assertArrayHasKey('error', $toolbox->fetch('https://a'));
+		$this->invoker->answers['hermiq_webFetch'] = 'not json';
+		self::assertArrayHasKey(key: 'error', array: $toolbox->fetch(url: 'https://a'));
 
-		$this->answers['hermiq_webSearch'] = json_encode(['isError' => true]);
-		self::assertSame([], $toolbox->search('q'));
-	}
+		$this->invoker->answers['hermiq_webSearch'] = json_encode(['isError' => true]);
+		self::assertSame(expected: [], actual: $toolbox->search(query: 'q'));
+	}//end testSearchAndFetchPassTheInvokerAndRefusalsBecomeErrors()
+
+	/**
+	 * The tools under test.
+	 *
+	 * @return GovernedResearchTools
+	 */
+	private function tools(): GovernedResearchTools {
+		return new GovernedResearchTools(toolLoop: $this->toolLoop, objects: $this->objects);
+	}//end tools()
 
 	/**
 	 * The two bound functions over the recording invoker.
 	 *
+	 * @param string $search The search function's name.
+	 * @param string $fetch  The fetch function's name.
+	 *
 	 * @return list<FunctionInfo>
 	 */
-	private function infos(): array {
-		return [
-			new FunctionInfo('hermiq_webSearch', $this->invoker(), '', []),
-			new FunctionInfo('hermiq_webFetch', $this->invoker(), '', []),
-		];
-	}
+	private function infos(string $search, string $fetch): array {
+		return [new FunctionInfo($search, $this->invoker, '', []), new FunctionInfo($fetch, $this->invoker, '', [])];
+	}//end infos()
 
 	/**
-	 * An invoker double that records the call and answers the queued JSON.
+	 * The agent for `agent-1`, nothing for any other uuid.
 	 *
-	 * @return object
+	 * @param string $uuid   The uuid.
+	 * @param string $schema The schema.
+	 *
+	 * @return ObjectEntity|null
 	 */
-	private function invoker(): object {
-		$test = $this;
-		return new class($test) {
-			public function __construct(private readonly GovernedResearchToolsTest $test) {
-			}
+	private function agentFor(string $uuid, string $schema): ?ObjectEntity {
+		if ($uuid !== 'agent-1' || $schema !== ResearchObjects::AGENT) {
+			return null;
+		}
 
-			public function __call(string $name, array $arguments): string {
-				$this->test->calls[] = [$name, $arguments];
-				return $this->test->answers[$name] ?? '{}';
-			}
-		};
-	}
-}
+		return $this->agent;
+	}//end agentFor()
+}//end class

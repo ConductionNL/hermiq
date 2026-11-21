@@ -22,8 +22,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\Research;
 
-use InvalidArgumentException;
 use OCA\Hermiq\Mcp\NativeToolCall;
+use OCA\Hermiq\Service\Research\ResearchRequest;
 use OCA\Hermiq\Service\Research\ResearchStarter;
 use OCA\Hermiq\Service\Research\ResearchTool;
 use OCP\IUser;
@@ -32,68 +32,109 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * @covers \OCA\Hermiq\Service\Research\ResearchTool
+ * @uses   \OCA\Hermiq\Service\Research\ResearchRequest
  * @uses   \OCA\Hermiq\Mcp\NativeToolCall
  */
 final class ResearchToolTest extends TestCase {
 
 	/**
+	 * The starter.
+	 *
 	 * @var ResearchStarter&MockObject
 	 */
 	private ResearchStarter&MockObject $starter;
 
+	/**
+	 * A starter double.
+	 *
+	 * @return void
+	 */
 	protected function setUp(): void {
-		$this->starter = $this->createMock(ResearchStarter::class);
-	}
+		$this->starter = $this->createMock(originalClassName: ResearchStarter::class);
+	}//end setUp()
 
+	/**
+	 * The descriptor is a default-denied create that reaches the person.
+	 *
+	 * @return void
+	 */
 	public function testTheDescriptorIsADefaultDeniedCreateThatReachesThePerson(): void {
 		$descriptor = ResearchTool::DESCRIPTORS[0];
 
-		self::assertSame('hermiq.startResearch', $descriptor['id']);
-		self::assertSame('user', $descriptor['reach']);
-		self::assertSame('create', $descriptor['scope']);
-		self::assertFalse($descriptor['readOnlyHint']);
-		self::assertFalse($descriptor['destructiveHint']);
-		self::assertSame(['question'], $descriptor['inputSchema']['required']);
-	}
+		self::assertSame(expected: 'hermiq.startResearch', actual: $descriptor['id']);
+		self::assertSame(expected: 'user', actual: $descriptor['reach']);
+		self::assertSame(expected: 'create', actual: $descriptor['scope']);
+		self::assertFalse(condition: $descriptor['readOnlyHint']);
+		self::assertFalse(condition: $descriptor['destructiveHint']);
+		self::assertSame(expected: ['question'], actual: $descriptor['inputSchema']['required']);
+	}//end testTheDescriptorIsADefaultDeniedCreateThatReachesThePerson()
 
+	/**
+	 * It starts a thorough run in the injected agent's conversation by default.
+	 *
+	 * @return void
+	 */
 	public function testItStartsAResearchRunInTheInjectedConversation(): void {
+		$started = null;
 		$this->starter->expects(self::once())->method('start')
-			->with('agent-1', 'conv-1', 'anne', 'Welke gemeenten?', 'thorough')
-			->willReturn(['id' => 'r-1', 'status' => 'waiting']);
+			->willReturnCallback(function (ResearchRequest $request, string $userId) use (&$started): array {
+				$started = [$request->agentId, $request->conversationId, $request->question, $request->depth, $userId];
+				return ['id' => 'r-1', 'status' => 'waiting'];
+			});
 
-		$result = (new ResearchTool($this->starter))->invoke('hermiq.startResearch', $this->call(['question' => 'Welke gemeenten?', 'agentId' => 'agent-1', 'conversationId' => 'conv-1']));
-
-		self::assertSame('r-1', $result['researchId']);
-		self::assertSame('waiting', $result['status']);
-	}
-
-	public function testAnotherToolIdIsNotThisTools(): void {
-		self::assertNull((new ResearchTool($this->starter))->invoke('hermiq.webSearch', $this->call([])));
-	}
-
-	public function testWithoutAnAgentConversationOrStarterItIsUnavailable(): void {
-		$this->starter->expects(self::never())->method('start');
-
-		$noConversation = (new ResearchTool($this->starter))->invoke('hermiq.startResearch', $this->call(['question' => 'Q', 'agentId' => 'agent-1']));
-		$noAgent = (new ResearchTool($this->starter))->invoke('hermiq.startResearch', $this->call(['question' => 'Q', 'conversationId' => 'conv-1']));
-		$noStarter = (new ResearchTool(null))->invoke('hermiq.startResearch', $this->call(['question' => 'Q', 'agentId' => 'a', 'conversationId' => 'c']));
-
-		self::assertSame('unavailable', $noConversation['error']['code']);
-		self::assertSame('unavailable', $noAgent['error']['code']);
-		self::assertSame('unavailable', $noStarter['error']['code']);
-	}
-
-	public function testARefusedOrUnreadableStartIsAnError(): void {
-		$this->starter->method('start')->willReturnOnConsecutiveCalls(
-			$this->throwException(new InvalidArgumentException('The depth is quick or thorough.')),
-			null
+		$result = (new ResearchTool(starter: $this->starter))->invoke(
+			toolId: 'hermiq.startResearch',
+			call: $this->call(arguments: ['question' => 'Welke gemeenten?', 'agentId' => 'agent-1', 'conversationId' => 'conv-1'])
 		);
-		$tool = new ResearchTool($this->starter);
-		$arguments = ['question' => 'Q', 'depth' => 'deep', 'agentId' => 'agent-1', 'conversationId' => 'conv-1'];
 
-		self::assertSame('invalid_argument', $tool->invoke('hermiq.startResearch', $this->call($arguments))['error']['code']);
-		self::assertSame('not_found', $tool->invoke('hermiq.startResearch', $this->call($arguments))['error']['code']);
-	}
+		self::assertSame(expected: ['agent-1', 'conv-1', 'Welke gemeenten?', 'thorough', 'anne'], actual: $started);
+		self::assertSame(expected: 'r-1', actual: $result['researchId']);
+		self::assertSame(expected: 'waiting', actual: $result['status']);
+	}//end testItStartsAResearchRunInTheInjectedConversation()
+
+	/**
+	 * Another tool id is not this tool's.
+	 *
+	 * @return void
+	 */
+	public function testAnotherToolIdIsNotThisTools(): void {
+		self::assertNull(actual: (new ResearchTool(starter: $this->starter))->invoke(toolId: 'hermiq.webSearch', call: $this->call(arguments: [])));
+	}//end testAnotherToolIdIsNotThisTools()
+
+	/**
+	 * Without a starter the tool is unavailable; without an agent or conversation the request is refused.
+	 *
+	 * @return void
+	 */
+	public function testWithoutAStarterItIsUnavailableAndWithoutContextItIsRefused(): void {
+		$this->starter->expects(self::never())->method('start');
+		$tool = new ResearchTool(starter: $this->starter);
+
+		$complete  = ['question' => 'Q', 'agentId' => 'a', 'conversationId' => 'c'];
+		$noStarter = (new ResearchTool(starter: null))->invoke(toolId: 'hermiq.startResearch', call: $this->call(arguments: $complete));
+		$noConversation = $tool->invoke(toolId: 'hermiq.startResearch', call: $this->call(arguments: ['question' => 'Q', 'agentId' => 'agent-1']));
+		$badDepth       = $tool->invoke(toolId: 'hermiq.startResearch', call: $this->call(arguments: ['depth' => 'deep'] + $complete));
+
+		self::assertSame(expected: 'unavailable', actual: $noStarter['error']['code']);
+		self::assertSame(expected: 'invalid_argument', actual: $noConversation['error']['code']);
+		self::assertSame(expected: 'invalid_argument', actual: $badDepth['error']['code']);
+	}//end testWithoutAStarterItIsUnavailableAndWithoutContextItIsRefused()
+
+	/**
+	 * An agent or conversation the person cannot read is not found.
+	 *
+	 * @return void
+	 */
+	public function testAnUnreadableAgentOrConversationIsNotFound(): void {
+		$this->starter->method('start')->willReturn(null);
+
+		$result = (new ResearchTool(starter: $this->starter))->invoke(
+			toolId: 'hermiq.startResearch',
+			call: $this->call(arguments: ['question' => 'Q', 'depth' => 'quick', 'agentId' => 'agent-1', 'conversationId' => 'conv-1'])
+		);
+
+		self::assertSame(expected: 'not_found', actual: $result['error']['code']);
+	}//end testAnUnreadableAgentOrConversationIsNotFound()
 
 	/**
 	 * A tool call by anne.
@@ -103,9 +144,9 @@ final class ResearchToolTest extends TestCase {
 	 * @return NativeToolCall
 	 */
 	private function call(array $arguments): NativeToolCall {
-		$user = $this->createMock(IUser::class);
+		$user = $this->createMock(originalClassName: IUser::class);
 		$user->method('getUID')->willReturn('anne');
 
-		return new NativeToolCall($user, $arguments);
-	}
-}
+		return new NativeToolCall(user: $user, arguments: $arguments);
+	}//end call()
+}//end class

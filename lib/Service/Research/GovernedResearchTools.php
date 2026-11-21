@@ -31,10 +31,6 @@ namespace OCA\Hermiq\Service\Research;
 
 use LLPhant\Chat\FunctionInfo\FunctionInfo;
 use OCA\Hermiq\Service\Engine\ToolLoop;
-use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
-use OCA\OpenRegister\Service\ObjectService;
-use Throwable;
 
 /**
  * Opens a research toolbox over the agent's governed tool chain.
@@ -56,14 +52,14 @@ class GovernedResearchTools implements ResearchTools {
 	/**
 	 * Constructor.
 	 *
-	 * @param ToolLoop      $toolLoop      Lists the agent's granted functions and binds them to the governed invoker.
-	 * @param ObjectService $objectService Reads the agent.
+	 * @param ToolLoop        $toolLoop Lists the agent's granted functions and binds them to the governed invoker.
+	 * @param ResearchObjects $objects  Reads the agent.
 	 *
 	 * @return void
 	 */
 	public function __construct(
 		private readonly ToolLoop $toolLoop,
-		private readonly ObjectService $objectService,
+		private readonly ResearchObjects $objects,
 	) {
 	}//end __construct()
 
@@ -79,7 +75,7 @@ class GovernedResearchTools implements ResearchTools {
 	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-the-research-goes-through-the-agents-governed-tools-and-records-every-source-req-research-002
 	 */
 	public function open(string $agentId, string $organisation, string $conversationId): ?ResearchToolbox {
-		$agent = $this->agent(agentId: $agentId);
+		$agent = $this->objects->readable(uuid: $agentId, schema: ResearchObjects::AGENT);
 		if ($agent === null) {
 			return null;
 		}
@@ -115,20 +111,14 @@ class GovernedResearchTools implements ResearchTools {
 	 * @return array<string, array<string, mixed>> The two descriptors that were listed.
 	 */
 	private function researchFunctions(array $functions): array {
-		$found = [];
-		foreach ($functions as $function) {
-			if (is_array($function) === false || isset($function['name']) === false) {
-				continue;
-			}
-
+		$named = array_filter($functions, static fn (mixed $function): bool => is_array($function) && isset($function['name']));
+		$byId  = [];
+		foreach ($named as $function) {
 			// The same id resolution ToolLoop applies: the registry id, else the name.
-			$toolId = (string)($function['mcpId'] ?? $function['name']);
-			if ($toolId === self::SEARCH || $toolId === self::FETCH) {
-				$found[$toolId] = $function;
-			}
+			$byId[(string)($function['mcpId'] ?? $function['name'])] = $function;
 		}
 
-		return $found;
+		return array_intersect_key($byId, array_flip([self::SEARCH, self::FETCH]));
 	}//end researchFunctions()
 
 	/**
@@ -148,32 +138,4 @@ class GovernedResearchTools implements ResearchTools {
 
 		return null;
 	}//end infoNamed()
-
-	/**
-	 * The agent, or null when it cannot be read.
-	 *
-	 * @param string $agentId The agent's uuid.
-	 *
-	 * @return ObjectEntity|null
-	 */
-	private function agent(string $agentId): ?ObjectEntity {
-		if ($agentId === '') {
-			return null;
-		}
-
-		try {
-			$agent = $this->objectService->find(
-				id: $agentId,
-				options: new ObjectFindOptions(register: 'hermiq', schema: 'agent')
-			);
-		} catch (Throwable $e) {
-			return null;
-		}
-
-		if (($agent instanceof ObjectEntity) === false) {
-			return null;
-		}
-
-		return $agent;
-	}//end agent()
 }//end class

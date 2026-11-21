@@ -37,6 +37,62 @@ use Exception;
 final class ResearchRunState {
 
 	/**
+	 * The research question.
+	 *
+	 * @var string
+	 */
+	public readonly string $question;
+
+	/**
+	 * The person the run is for.
+	 *
+	 * @var string
+	 */
+	public readonly string $userId;
+
+	/**
+	 * The agent that runs it.
+	 *
+	 * @var string
+	 */
+	public readonly string $agentId;
+
+	/**
+	 * The conversation it reports to.
+	 *
+	 * @var string
+	 */
+	public readonly string $conversationId;
+
+	/**
+	 * The organisation whose kill switch and budget apply.
+	 *
+	 * @var string
+	 */
+	public readonly string $organisation;
+
+	/**
+	 * The run's caps.
+	 *
+	 * @var ResearchCaps
+	 */
+	public readonly ResearchCaps $caps;
+
+	/**
+	 * When the run was started.
+	 *
+	 * @var DateTimeImmutable
+	 */
+	public readonly DateTimeImmutable $startedAt;
+
+	/**
+	 * What the run has read.
+	 *
+	 * @var SourceLedger
+	 */
+	public readonly SourceLedger $ledger;
+
+	/**
 	 * Tool calls made so far.
 	 *
 	 * @var integer
@@ -72,64 +128,34 @@ final class ResearchRunState {
 	public array $plan = [];
 
 	/**
-	 * Constructor.
-	 *
-	 * @param string            $handoffId      The research handoff.
-	 * @param string            $question       The research question.
-	 * @param string            $userId         The user it runs for.
-	 * @param string            $agentId        The agent that runs it.
-	 * @param string            $conversationId The conversation it reports to.
-	 * @param string            $organisation   The organisation whose gates apply.
-	 * @param ResearchCaps      $caps           The run's caps.
-	 * @param DateTimeImmutable $startedAt      When the run was started.
-	 * @param SourceLedger      $ledger         What the run has read.
-	 *
-	 * @return void
-	 *
-	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) One value object holding the run's fixed identity.
-	 */
-	public function __construct(
-		public readonly string $handoffId,
-		public readonly string $question,
-		public readonly string $userId,
-		public readonly string $agentId,
-		public readonly string $conversationId,
-		public readonly string $organisation,
-		public readonly ResearchCaps $caps,
-		public readonly DateTimeImmutable $startedAt,
-		public readonly SourceLedger $ledger,
-	) {
-	}//end __construct()
-
-	/**
 	 * The state of the run a stored research handoff describes.
 	 *
 	 * @param string               $handoffId The handoff's uuid.
 	 * @param array<string, mixed> $handoff   The stored handoff.
 	 * @param DateTimeImmutable    $now       Now, the start when the handoff names none.
 	 *
-	 * @return self
+	 * @return void
 	 *
 	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-research-run-stops-at-its-caps-the-budget-the-kill-switch-or-the-user-req-research-005
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) ResearchCaps and SourceLedger are read back through their named constructors; neither has state to inject.
+	 * @SuppressWarnings(PHPMD.StaticAccess) ResearchCaps and SourceLedger are read back through their named
+	 * constructors; neither has state to inject.
 	 */
-	public static function fromHandoff(string $handoffId, array $handoff, DateTimeImmutable $now): self {
-		$state = new self(
-			handoffId: $handoffId,
-			question: (string)($handoff['label'] ?? ''),
-			userId: (string)($handoff['requestedBy'] ?? ''),
-			agentId: (string)($handoff['agentId'] ?? ''),
-			conversationId: (string)($handoff['conversationId'] ?? ''),
-			organisation: (string)($handoff['organisation'] ?? ''),
-			caps: ResearchCaps::fromSettings(settings: (array)($handoff['caps'] ?? [])),
-			startedAt: self::startOf(requestedAt: (string)($handoff['requestedAt'] ?? ''), now: $now),
-			ledger: SourceLedger::fromArray(rows: (array)($handoff['ledger'] ?? []))
-		);
-		$state->plan = array_values(array_filter((array)($handoff['plan'] ?? []), 'is_string'));
-
-		return $state;
-	}//end fromHandoff()
+	public function __construct(
+		public readonly string $handoffId,
+		array $handoff,
+		DateTimeImmutable $now,
+	) {
+		$this->question       = (string)($handoff['label'] ?? '');
+		$this->userId         = (string)($handoff['requestedBy'] ?? '');
+		$this->agentId        = (string)($handoff['agentId'] ?? '');
+		$this->conversationId = (string)($handoff['conversationId'] ?? '');
+		$this->organisation   = (string)($handoff['organisation'] ?? '');
+		$this->caps           = ResearchCaps::fromSettings(settings: (array)($handoff['caps'] ?? []));
+		$this->startedAt      = self::startOf(requestedAt: (string)($handoff['requestedAt'] ?? ''), now: $now);
+		$this->ledger         = SourceLedger::fromArray(rows: (array)($handoff['ledger'] ?? []));
+		$this->plan           = array_values(array_filter((array)($handoff['plan'] ?? []), 'is_string'));
+	}//end __construct()
 
 	/**
 	 * Seconds since the run was started.

@@ -29,6 +29,7 @@ namespace OCA\Hermiq\Controller;
 
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Service\Research\ResearchRequest;
 use OCA\Hermiq\Service\Research\ResearchStarter;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -80,11 +81,12 @@ class ResearchController extends Controller {
 		}
 
 		try {
-			$run = $this->research->start(agentId: $agentId, conversationId: $conversationId, userId: $uid, question: $question, depth: $depth);
+			$request = new ResearchRequest(agentId: $agentId, conversationId: $conversationId, question: $question, depth: $depth);
 		} catch (InvalidArgumentException $e) {
 			return new JSONResponse(data: ['error' => $e->getMessage()], statusCode: 400);
 		}
 
+		$run = $this->research->start(request: $request, userId: $uid);
 		if ($run === null) {
 			return new JSONResponse(data: ['error' => 'Not found'], statusCode: 404);
 		}

@@ -51,26 +51,22 @@ final class ResearchPlan {
 	/**
 	 * The prompt that asks for the plan.
 	 *
-	 * @param string $question    The user's research question.
-	 * @param string $agentPrompt The agent owner's prompt, '' when it has none.
+	 * @param string $question The person's research question.
 	 *
 	 * @return string The prompt.
 	 *
 	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-user-can-start-deep-research-and-sees-the-plan-req-research-001
 	 */
-	public static function prompt(string $question, string $agentPrompt): string {
-		$lines = [];
-		if (trim($agentPrompt) !== '') {
-			$lines[] = trim($agentPrompt);
-			$lines[] = '';
-		}
-
-		$lines[] = 'You plan a web research. Split the question below into three to eight sub-questions that together answer it.';
-		$lines[] = 'Answer with the sub-questions only, one per line, numbered 1., 2., 3. and so on. Write them in the language of the question.';
-		$lines[] = '';
-		$lines[] = 'Question: ' . trim($question);
-
-		return implode("\n", $lines);
+	public function prompt(string $question): string {
+		return implode(
+			"\n",
+			[
+				'You plan a web research. Split the question below into three to eight sub-questions that together answer it.',
+				'Answer with the sub-questions only, one per line, numbered 1., 2., 3. and so on. Write them in the language of the question.',
+				'',
+				'Question: ' . trim($question),
+			]
+		);
 	}//end prompt()
 
 	/**
@@ -81,31 +77,16 @@ final class ResearchPlan {
 	 * gathers on nothing.
 	 *
 	 * @param string $answer   The model's answer.
-	 * @param string $question The user's research question, the fallback plan.
+	 * @param string $question The person's research question, the fallback plan.
 	 *
 	 * @return list<string> The sub-questions.
 	 *
 	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-user-can-start-deep-research-and-sees-the-plan-req-research-001
 	 */
-	public static function parse(string $answer, string $question): array {
-		$questions = [];
-		$lines = preg_split('/\R/u', $answer);
-		if ($lines === false) {
-			$lines = [];
-		}
-
-		foreach ($lines as $line) {
-			$matched = preg_match('/^\s*(?:\d{1,2}[.)]|[-*\x{2022}])\s+(.+)$/u', $line, $match);
-			if ($matched !== 1) {
-				continue;
-			}
-
-			$text = trim(mb_substr(trim($match[1]), 0, self::QUESTION_LENGTH));
-			if ($text !== '' && in_array($text, $questions, true) === false) {
-				$questions[] = $text;
-			}
-		}
-
+	public function parse(string $answer, string $question): array {
+		preg_match_all('/^\s*(?:\d{1,2}[.)]|[-*\x{2022}])\s+(.+)$/mu', $answer, $matches);
+		$questions = array_map(static fn (string $line): string => trim(mb_substr(trim($line), 0, self::QUESTION_LENGTH)), $matches[1]);
+		$questions = array_values(array_unique(array_filter($questions, static fn (string $line): bool => $line !== '')));
 		if ($questions === []) {
 			return [trim($question)];
 		}
@@ -122,7 +103,7 @@ final class ResearchPlan {
 	 *
 	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-user-can-start-deep-research-and-sees-the-plan-req-research-001
 	 */
-	public static function message(array $plan): string {
+	public function message(array $plan): string {
 		$lines = ['**' . self::HEADING . '**', ''];
 		foreach (array_values($plan) as $index => $question) {
 			$lines[] = ($index + 1) . '. ' . $question;
