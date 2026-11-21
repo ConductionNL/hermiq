@@ -119,6 +119,8 @@ use OCA\Hermiq\Service\CodeSandbox\CodeSandboxSettings;
 use OCA\Hermiq\Service\CodeSandbox\RunCodeTool;
 use OCA\Hermiq\Service\Mcp\DomainTools;
 use OCA\Hermiq\Service\RemoteAgent\RemoteTasks;
+use OCA\Hermiq\Service\Research\ResearchStarter;
+use OCA\Hermiq\Service\Research\ResearchTool;
 use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
 use OCA\Hermiq\Service\Workspace\WorkspaceWrites;
 use OCA\OpenRegister\Mcp\IMcpToolProvider;
@@ -730,8 +732,11 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *                                                 can write `Agent.tools`.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param RemoteTasks|null $remoteTasks Backs `askRemoteAgent` (flows-hand-off-and-wait); null answers it as unavailable.
+	 * @param ResearchStarter|null $researchStarter Backs `startResearch` (tools-deep-research-report); null answers it as unavailable.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) DI of thirteen distinct capabilities.
+	 *
+	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-user-can-start-deep-research-and-sees-the-plan-req-research-001
 	 */
 	public function __construct(
 		// Promoted like every other dependency. These two were previously plain
@@ -757,6 +762,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 		private readonly ToolAccessRequestServiceInterface $accessRequests,
 		private readonly LoggerInterface $logger,
 		private readonly ?RemoteTasks $remoteTasks = null,
+		private readonly ?ResearchStarter $researchStarter = null,
 	) {
 	}//end __construct()
 
@@ -777,6 +783,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @return array<int, array<string, mixed>> The tool descriptors.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-nc-native-tools/tasks.md#task-1-1
+	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-user-can-start-deep-research-and-sees-the-plan-req-research-001
 	 */
 	public function getTools(): array {
 		// The five nc-native-write-tools descriptors live in their own class so
@@ -795,7 +802,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 			$this->customToolDescriptors(),
 			$this->codeSandboxDescriptors(),
 			ComputerToolDescriptors::ALL,
-			BrowserToolDescriptors::ALL
+			BrowserToolDescriptors::ALL,
+			ResearchTool::DESCRIPTORS
 		);
 	}//end getTools()
 
@@ -1031,6 +1039,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @param NativeToolCall $call The acting user and arguments.
 	 *
 	 * @return array<string, mixed> The tool's result, or an error envelope.
+	 *
+	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-user-can-start-deep-research-and-sees-the-plan-req-research-001
 	 */
 	private function runNative(string $toolId, NativeToolCall $call): array {
 		try {
@@ -1040,6 +1050,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 				?? (new AgentMemoryTools(memoryService: $this->memoryService))->invoke(toolId: $toolId, call: $call)
 				?? $this->invokeLookupOrDelegationTool(toolId: $toolId, call: $call)
 				?? $this->invokeToolAccessTool(toolId: $toolId, call: $call)
+				?? (new ResearchTool(starter: $this->researchStarter))->invoke(toolId: $toolId, call: $call)
 				?? $this->unknownToolError(toolId: $toolId);
 		} catch (Throwable $e) {
 			$this->logger->warning('Hermiq nc-native tool failed: ' . $e->getMessage(), ['exception' => $e, 'tool' => $toolId]);

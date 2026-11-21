@@ -97,10 +97,11 @@ class HandoffDelivery {
 	 * @param string $handoffId The handoff's uuid.
 	 *
 	 * @return string What happened: `delivered`, `noted_expired`, `failed`, `skipped`
-	 *                (missing or still waiting), or the gate that kept the result
+	 *                (missing, still waiting, or a research run), or the gate that kept the result
 	 *                (`skipped_agent_off`, `skipped_killswitch`, `skipped_budget`).
 	 *
 	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002
+	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-the-report-is-saved-in-the-users-files-and-marked-as-agent-authored-req-research-004
 	 */
 	public function deliver(string $handoffId): string {
 		$handoff = $this->handoff(handoffId: $handoffId);
@@ -110,7 +111,11 @@ class HandoffDelivery {
 			return $this->noteExpiry(handoff: $handoff);
 		}
 
-		if (in_array($status, HandoffService::CLOSE_STATUSES, true) === false) {
+		// A research run posted its own plan and report (tools-deep-research-report):
+		// a follow-up turn would answer it a second time.
+		if (in_array($status, HandoffService::CLOSE_STATUSES, true) === false
+			|| ($handoff['kind'] ?? '') === HandoffService::RESEARCH
+		) {
 			return 'skipped';
 		}
 

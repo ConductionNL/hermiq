@@ -284,6 +284,24 @@ class HandoffDeliveryTest extends TestCase {
 	}//end testAMissingOrWaitingHandoffIsSkipped()
 
 	/**
+	 * A closed research run posted its own plan and report, so no follow-up turn runs.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-the-report-is-saved-in-the-users-files-and-marked-as-agent-authored-req-research-004
+	 */
+	public function testAClosedResearchRunRunsNoFollowUpTurn(): void {
+		$this->store['r-1'] = $this->handoff(status: 'done', extra: ['kind' => 'research']);
+		$this->store['r-2'] = $this->handoff(status: 'failed', extra: ['kind' => 'research']);
+		$this->schedules->expects($this->never())->method('runAgentAsOwner');
+		$this->messages->expects($this->never())->method('storeMessage');
+
+		$this->assertSame('skipped', $this->delivery->deliver(handoffId: 'r-1'));
+		$this->assertSame('skipped', $this->delivery->deliver(handoffId: 'r-2'));
+		$this->assertSame([], $this->sent);
+	}//end testAClosedResearchRunRunsNoFollowUpTurn()
+
+	/**
 	 * The job hands its handoff id to the delivery, and an argument without one delivers nothing.
 	 *
 	 * @return void

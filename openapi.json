@@ -394,6 +394,10 @@
         {
             "name": "workspace-files",
             "description": "The files of a conversation's session workspace."
+        },
+        {
+            "name": "research",
+            "description": "Deep research runs of the signed-in person: start, read and stop."
         }
     ],
     "paths": {
@@ -14637,6 +14641,164 @@
                     },
                     "500": {
                         "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
+        },
+        "/research": {
+            "post": {
+                "operationId": "research-create",
+                "summary": "Start a deep research run in a conversation",
+                "description": "Start a deep research run for the signed-in person: the agent researches the question in the background, posts its plan in the conversation first and saves a cited report in the person's Files. The request returns at once. Answers 404 when the person cannot read the agent or the conversation.",
+                "tags": [
+                    "research"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "agentId",
+                                    "conversationId",
+                                    "question"
+                                ],
+                                "properties": {
+                                    "agentId": {
+                                        "type": "string"
+                                    },
+                                    "conversationId": {
+                                        "type": "string"
+                                    },
+                                    "question": {
+                                        "type": "string"
+                                    },
+                                    "depth": {
+                                        "type": "string",
+                                        "enum": [
+                                            "quick",
+                                            "thorough"
+                                        ],
+                                        "default": "thorough"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The run was started.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    }
+                }
+            }
+        },
+        "/research/{id}": {
+            "get": {
+                "operationId": "research-show",
+                "summary": "Read one of your research runs",
+                "description": "The status, plan, progress and caps of one of the signed-in person's research runs. A run of someone else answers 404, like one that does not exist.",
+                "tags": [
+                    "research"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The research run (its handoff UUID).",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The run.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    }
+                }
+            }
+        },
+        "/research/{id}/stop": {
+            "post": {
+                "operationId": "research-stop",
+                "summary": "Stop one of your research runs",
+                "description": "Ask one of the signed-in person's running research runs to stop. It ends at its next step, writes no report, and the conversation says \"Research stopped.\". A run of someone else, or one that has ended, answers 404.",
+                "tags": [
+                    "research"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The research run (its handoff UUID).",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The stop was recorded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
                     }
                 }
             }
