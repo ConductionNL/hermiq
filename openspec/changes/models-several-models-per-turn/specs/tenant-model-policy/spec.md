@@ -33,6 +33,7 @@ When a provider call fails with a rate limit, a server error, a timeout, a conne
 - GIVEN an agent in organisation "Gemeente Voorbeeld" whose policy lists `anthropic` first and `ollama` `qwen2.5` as fallback
 - WHEN a case handler sends a message in the chat and Anthropic answers HTTP 429
 - THEN the reply comes from `ollama` `qwen2.5` in the same turn, and the run's steps show "Anthropic was rate limited. Answered by ollama qwen2.5."
+- @e2e exclude needs a hosted provider that answers HTTP 429 on demand; covered by ResponseGenerationHandlerTest::testARateLimitedTurnIsAnsweredByTheNextHop and ProviderFallbackLoopTest
 
 #### Scenario: A fallback that breaks the feature's residency is skipped
 - GIVEN an agent whose AI feature requires residency `eu`, and a chain whose first hop `openai` is declared `outside-eu` and whose second hop `fireworks` is declared `eu`
