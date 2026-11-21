@@ -21,8 +21,9 @@
 
 ## 3. Verify
 
-- [ ] 3.1 `openspec validate raise-nc-minversion-taskprocessing --strict` is clean; the app-manifest schema still validates with the new floor; no other spec references `min-version="28"`.
+- [x] 3.1 `openspec validate raise-nc-minversion-taskprocessing --strict` is clean; the app-manifest schema still validates with the new floor; no other spec references `min-version="28"`.
   - **spec_ref**: all
   - **acceptance_criteria**:
     - Strict validation passes
     - A grep for `min-version="28"` across the repo returns only historical/archived references, not the live manifest
+  - Done 2026-11-21: strict validation is clean after the long requirement text was shortened (the TaskProcessing detail moved into its scenario) and the stale `max-version MUST remain 34` line was dropped, in the change and in `openspec/specs/app-runtime-requirements/spec.md`, which already held both requirements. `npm run check:manifest` passes (Ajv, 0 errors). `min-version="28"` appears only in this change's own history text; `info.xml` declares `min-version="32"`.
