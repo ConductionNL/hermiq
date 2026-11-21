@@ -60,6 +60,7 @@ Kind: code. Size L. Row `hermiq:dm-backup-restore`.
   - Open: needs a running instance with a backup in the folder.
 
 ## Verification
-- [ ] `openspec validate operations-backup-and-restore --type change --strict` passes
+- [x] `openspec validate operations-backup-and-restore --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, Newman and the Playwright file run, exit codes read
 - [ ] A live check on the dev instance: back up, change an agent's prompt, restore, and read the agent's version history

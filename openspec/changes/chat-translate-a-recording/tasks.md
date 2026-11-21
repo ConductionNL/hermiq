@@ -58,6 +58,7 @@ Kind: code. Size M. Row `hermiq:dm-speech-translate`.
 - [x] Test (PHPUnit with the class present and absent)
 
 ## Verification
-- [ ] `openspec validate chat-translate-a-recording --type change --strict` passes
+- [x] `openspec validate chat-translate-a-recording --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, Newman and the Playwright file run, exit codes read
 - [ ] A live check on the dev instance with the speech sidecar: translate a short English clip into French and play it

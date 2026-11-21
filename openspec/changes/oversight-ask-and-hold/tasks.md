@@ -59,5 +59,6 @@ Kind: code. Size M. Rows `hermiq:dm-ask-mid-run`, `hermiq:ov-draft-hold`.
   - The inbox gets an All / Drafts filter with the drafts count; a draft row shows its first line and "Review", which opens `DraftReviewModal`: the recipients read-only, the subject and text in an editor, and "Release", "Edit and release" (sends only the changed fields) and "Discard" (the deny dialog, with a reason). The inbox record carries `question` and `draft` for those two source types only. Vitest: `draft-review-modal.spec.js` (7), `approval-inbox-rows.spec.js`; PHPUnit `ApprovalInboxTest`. Left: Playwright (browser). The stored `editedOutput` holds both versions; a view of decided approvals to show them is not part of this inbox, which lists pending ones.
 
 ## Verification
-- [ ] `openspec validate oversight-ask-and-hold --type change --strict` passes
+- [x] `openspec validate oversight-ask-and-hold --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, Newman and Playwright run, exit codes read

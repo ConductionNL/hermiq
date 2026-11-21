@@ -37,5 +37,6 @@ Kind: code. Size M. Rows `hermiq:sc-list`, `sc-manual-event-choice`, `sc-nl`.
 - [ ] Test (PHPUnit table test of at least 30 phrases; the model fallback with a stubbed provider; Playwright for the readback)
 
 ## Verification
-- [ ] `openspec validate scheduling-overview-and-start-choice --type change --strict` passes
+- [x] `openspec validate scheduling-overview-and-start-choice --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, Newman and Playwright run, exit codes read

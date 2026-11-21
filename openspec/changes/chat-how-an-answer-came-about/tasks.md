@@ -54,6 +54,7 @@ Kind: code. Size M. Rows `hermiq:td-explain`, `dm-show-reasoning`, `dm-context-m
   - `ContextUsageMeter`: the provider's count for a turn without tool calls, else characters / 4 marked `estimated`; window from `ModelContextWindows` (own app config key, set on the LLM provider modal, validated in LlmSettingsController); stored as `metadata.contextUsage`, never `metadata.token_count`; on the send response and `final`; readout under the message box with the warning above 80%. PHPUnit: ContextUsageMeterTest, ModelContextWindowsTest, LlmSettingsContextWindowsTest, ConversationContextUsageTest; vitest: context-usage, chat-template-wiring, llm-provider-modal. Left: the Playwright scenarios.
 
 ## Verification
-- [ ] `openspec validate chat-how-an-answer-came-about --type change --strict` passes
+- [x] `openspec validate chat-how-an-answer-came-about --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, Newman and the Playwright file run, exit codes read
 - [ ] A live check on the dev instance: one streamed answer with a tool call shows its account, and the meter moves after the next message

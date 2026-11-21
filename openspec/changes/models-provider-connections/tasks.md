@@ -73,6 +73,7 @@ Kind: code. Size L. Rows `hermiq:mo-openai-compat`, `hermiq:dm-responses-api`, `
       > `SubscriptionLoginServiceTest` (ChatGPT case, scope assertions); runner `test/login.test.js` (device sign-in with a stub Codex CLI, the 0600 auth file).
 
 ## Verification
-- [ ] `openspec validate models-provider-connections --type change --strict` passes
+- [x] `openspec validate models-provider-connections --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, runner tests and Playwright run once before push, exit codes read
 - [ ] One live walk-through of the Claude sign-in on a test subscription, recorded in the PR

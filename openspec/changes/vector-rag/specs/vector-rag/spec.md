@@ -63,9 +63,9 @@ logged. The `retrieveContext()` never-throws contract MUST be preserved.
 - **AND** the facade MUST NOT be called
 
 ### Requirement: Retrieval degrades honestly when no vector backend is configured
-When the facade is absent, reports `isAvailable() === false`, or a facade call
-throws, the system MUST fall back to the existing keyword retrieval path for
-`semantic` and `hybrid` modes, MUST log which condition caused the fallback
+The system MUST fall back to the existing keyword retrieval path for `semantic`
+and `hybrid` modes when the facade is absent, reports `isAvailable() === false`,
+or a facade call throws. It MUST log which condition caused the fallback
 (distinguishing "facade not present" from "no backend configured" from "backend
 error"), and MUST NOT fail the turn. The system MUST expose the current tier
 (vector-live or keyword-degraded) on the admin settings surface so a degraded

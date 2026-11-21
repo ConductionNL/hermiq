@@ -76,6 +76,7 @@ Kind: code. Size L. Rows `hermiq:dm-agent-workspace`, `hermiq:dm-install-cli-too
   > 2026-11-14: `AgentBuildsPanel.vue` is the `agent-builds` widget on AgentDetail (manifest widget, layout row and slot, registry entry): build number, publisher's name, date, note, file and tool counts, the pinned build marked, "Unpublished changes since build N", and "Publish build" only when the server says the caller may modify the agent. `PublishBuildModal.vue` (src/modals) offers the caller's own conversations with this agent and a note, and names the reason when the conversation has no workspace. en and nl strings, including the new register fields. Covered by Vitest (`agent-builds-panel.spec.js`); Playwright needs a live instance and was not run.
 
 ## Verification
-- [ ] `openspec validate tools-agent-workspace-and-installed-tools --type change --strict` passes
+- [x] `openspec validate tools-agent-workspace-and-installed-tools --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, the ExApp tests, Newman and Playwright run once before push, exit codes read
 - [ ] One live conversation that installs a tool, runs it on a workspace file, publishes a build, and a second user's new conversation starting from that build
