@@ -72,7 +72,7 @@ interface AiOversightServiceInterface {
 	 *
 	 * @return string|null The written Approval's uuid, or null when the record was refused.
 	 *
-	 * @spec openspec/changes/ai-oversight-advisory-approvals/specs/ai-oversight/spec.md
+	 * @spec openspec/specs/ai-oversight/spec.md
 	 */
 	public function record(array $record): ?string;
 }//end interface

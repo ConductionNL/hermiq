@@ -27,7 +27,7 @@ use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 /**
  * Covers the advisory oversight record: what it writes, and what it refuses.
  *
- * @spec openspec/changes/ai-oversight-advisory-approvals/specs/ai-oversight/spec.md
+ * @spec openspec/specs/ai-oversight/spec.md
  */
 class AiOversightServiceTest extends TestCase {
 

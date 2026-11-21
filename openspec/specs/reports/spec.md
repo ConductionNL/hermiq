@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Hermiq gives people one place to read what its agents did: a Reports page that lists the reports the app has, each as a card that opens the report. Today it holds one report, AI oversight, the EU AI Act Art. 14 record of what a human did with each AI suggestion that was not gated. This spec describes the page as built (hermiq#765, moved under Advanced in hermiq#1106). The oversight report itself, how advisory decisions are recorded and what its log shows, is specified in `openspec/changes/ai-oversight-advisory-approvals`. A person can also subscribe to a report weekly or monthly and receive it as a notification (archived change `2026-11-20-reports-on-a-schedule`).
+Hermiq gives people one place to read what its agents did: a Reports page that lists the reports the app has, each as a card that opens the report. Today it holds one report, AI oversight, the EU AI Act Art. 14 record of what a human did with each AI suggestion that was not gated. This spec describes the page as built (hermiq#765, moved under Advanced in hermiq#1106). The oversight report itself, how advisory decisions are recorded and what its log shows, is specified in `openspec/specs/ai-oversight/spec.md`. A person can also subscribe to a report weekly or monthly and receive it as a notification (archived change `2026-11-20-reports-on-a-schedule`).
 
 Code: `src/manifest.json` menu entry `ReportsMenu` (section `settings`, order 95), page `Reports` (route `/reports`, type `reports`) and page `AiOversight` (route `/ai-oversight`, type `dashboard`); `lib/Service/AiOversightService.php` writes the records the report reads.
 

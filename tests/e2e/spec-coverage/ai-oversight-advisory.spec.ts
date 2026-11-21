@@ -20,7 +20,7 @@
  *
  * Not run when written: it needs a live instance.
  *
- * @spec openspec/changes/ai-oversight-advisory-approvals/specs/ai-oversight/spec.md
+ * @spec openspec/specs/ai-oversight/spec.md
  */
 
 import { expect, test } from '@playwright/test'
@@ -76,7 +76,7 @@ test.describe('AI oversight lists advisory records only', () => {
 	})
 
 	/**
-	 * @spec openspec/changes/ai-oversight-advisory-approvals/specs/ai-oversight/spec.md#requirement-the-oversight-log-is-a-surface-of-its-own
+	 * @spec openspec/specs/ai-oversight/spec.md#requirement-the-oversight-log-is-a-surface-of-its-own
 	 */
 	test('the log lists the advisory record and not the blocking approval, under the three counts @spec ai-oversight', async ({ page }) => {
 		await page.goto(`${await appRoot(page)}/ai-oversight`, { waitUntil: 'domcontentloaded' })

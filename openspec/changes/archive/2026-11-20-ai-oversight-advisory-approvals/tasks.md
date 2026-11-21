@@ -30,7 +30,8 @@
 - [x] 5.2 `phpunit --filter AiOversightServiceTest` green.
 - [x] 5.3 Schema extension confirmed live after `POST /api/settings/load` (Approval 0.5.0, advisory + overridden + advisoryContext present).
 - [x] 5.4 `/ai-oversight` renders with one `<h2>`, the three counts and the empty log state.
-- [ ] 5.5 `composer check:strict`.
+- [x] 5.5 `composer check:strict`.
+  - Run on development at 10a0cabf (2026-11-20): no phpcs, phpmd, psalm or phpstan finding in this change's files (`AiOversightRecordedEvent`, `AiOversightService`, `AiOversightRecordedListener`, the `/ai-oversight` pages) and `AiOversightServiceTest` green. The run as a whole is red on development for files outside this change (for example `ApprovalController`, `DelegationService`, `FlowRunTerminalListener`, and PHPUnit's `ToolAccessRequestPropertyRulesTest` and `ReasoningOllamaChatTest`).
 
 ## Acceptance Criteria
 

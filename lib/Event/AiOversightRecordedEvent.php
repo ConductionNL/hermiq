@@ -61,7 +61,7 @@ use OCP\EventDispatcher\Event;
  *   externalRef     string            consumer's own reference, for idempotency
  *   unusedBecause   string            with 'ignored': 'closed' | 'expired' | 'superseded'
  *
- * @spec openspec/changes/ai-oversight-advisory-approvals/specs/ai-oversight/spec.md
+ * @spec openspec/specs/ai-oversight/spec.md
  */
 class AiOversightRecordedEvent extends Event {
 
@@ -104,7 +104,7 @@ class AiOversightRecordedEvent extends Event {
      *
      * @return array<string, mixed> The record as the consumer supplied it.
      *
-     * @spec openspec/changes/ai-oversight-advisory-approvals/specs/ai-oversight/spec.md#requirement-hermiq-records-advisory-human-oversight-decisions-from-consumer-apps
+     * @spec openspec/specs/ai-oversight/spec.md#requirement-hermiq-records-advisory-human-oversight-decisions-from-consumer-apps
      */
     public function getRecord(): array {
         return $this->record;
@@ -117,7 +117,7 @@ class AiOversightRecordedEvent extends Event {
      *
      * @return string|null The Approval id, or null when unhandled.
      *
-     * @spec openspec/changes/ai-oversight-advisory-approvals/specs/ai-oversight/spec.md#requirement-hermiq-records-advisory-human-oversight-decisions-from-consumer-apps
+     * @spec openspec/specs/ai-oversight/spec.md#requirement-hermiq-records-advisory-human-oversight-decisions-from-consumer-apps
      */
     public function getApprovalId(): ?string {
         return $this->approvalId;
@@ -132,7 +132,7 @@ class AiOversightRecordedEvent extends Event {
      *
      * @return void
      *
-     * @spec openspec/changes/ai-oversight-advisory-approvals/specs/ai-oversight/spec.md#requirement-hermiq-records-advisory-human-oversight-decisions-from-consumer-apps
+     * @spec openspec/specs/ai-oversight/spec.md#requirement-hermiq-records-advisory-human-oversight-decisions-from-consumer-apps
      */
     public function setApprovalId(string $approvalId): void {
         $this->approvalId = $approvalId;
@@ -146,7 +146,7 @@ class AiOversightRecordedEvent extends Event {
      *
      * @return boolean True when hermiq's listener wrote an Approval.
      *
-     * @spec openspec/changes/ai-oversight-advisory-approvals/specs/ai-oversight/spec.md#requirement-hermiq-records-advisory-human-oversight-decisions-from-consumer-apps
+     * @spec openspec/specs/ai-oversight/spec.md#requirement-hermiq-records-advisory-human-oversight-decisions-from-consumer-apps
      */
     public function isHandled(): bool {
         return $this->handled;
