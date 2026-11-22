@@ -180,7 +180,7 @@ test.describe('scheduling-overview-and-start-choice: the Schedules page, how an 
 		await page.close()
 	})
 
-	// e2e: agent-schedule::a-functional-admin-checks-which-schedules-failed-last-night
+	// @e2e agent-schedule::a-functional-admin-checks-which-schedules-failed-last-night
 	test('a functional admin filters the Schedules page on a failed last result', async ({ page }) => {
 		const intake = await seedAgent(page.request, token, { name: `${TEST_PREFIX}-intake-agent` })
 		const reminders = await seedAgent(page.request, token, { name: `${TEST_PREFIX}-reminder-agent` })
@@ -257,7 +257,7 @@ test.describe('scheduling-overview-and-start-choice: the Schedules page, how an 
 		expect(failed).toEqual([`${TEST_PREFIX}-intake-nightly`, `${TEST_PREFIX}-reminders-nightly`])
 	})
 
-	// e2e: agent-schedule::a-case-handler-runs-an-agent-by-hand-without-a-schedule
+	// @e2e agent-schedule::a-case-handler-runs-an-agent-by-hand-without-a-schedule
 	test('a case handler runs an agent by hand without a schedule', async ({ page }) => {
 		const agent = await seedAgent(page.request, token, { name: `${TEST_PREFIX}-objections-agent` })
 		expect(await listSchedules(page.request, token, { agentId: agent.id })).toEqual([])
@@ -292,7 +292,7 @@ test.describe('scheduling-overview-and-start-choice: the Schedules page, how an 
 		await expect(starts.getByTestId('agent-start-schedule')).toContainText('Not active')
 	})
 
-	// e2e: agent-schedule::an-owner-adds-an-event-start
+	// @e2e agent-schedule::an-owner-adds-an-event-start
 	test('an owner adds an event start as an inactive draft flow', async ({ page }) => {
 		const store = await page.request.get(`${FLOWS}?app=hermiq`, { headers: jsonHeaders(token) })
 		test.skip(store.status() !== 200, `OpenRegister's flow store is not readable here (HTTP ${store.status()})`)
@@ -347,7 +347,7 @@ test.describe('scheduling-overview-and-start-choice: the Schedules page, how an 
 		await expect(again.getByTestId('agent-start-event').locator('.agent-run-ops-widget__badge')).toHaveText('Not active')
 	})
 
-	// e2e: agent-schedule::a-team-lead-schedules-a-weekday-digest
+	// @e2e agent-schedule::a-team-lead-schedules-a-weekday-digest
 	test('a team lead schedules a weekday digest in plain words', async ({ page }) => {
 		const agent = await seedAgent(page.request, token, { name: `${TEST_PREFIX}-digest-agent` })
 		const starts = await openStarts(page, agent.id)

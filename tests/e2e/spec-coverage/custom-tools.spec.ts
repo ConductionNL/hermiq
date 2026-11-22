@@ -239,7 +239,7 @@ test.describe('tools-custom-tools-without-code: the Custom tools page and editor
 		await page.close()
 	})
 
-	// e2e: custom-tools::an-organisation-admin-adds-the-permit-check
+	// @e2e custom-tools::an-organisation-admin-adds-the-permit-check
 	test('an organisation admin adds the permit check', async ({ page }) => {
 		const name = `${TEST_PREFIX}-Vergunningcheck`
 		const slug = `vergunningcheck_${RUN}`
@@ -345,7 +345,7 @@ test.describe('tools-custom-tools-without-code: the Custom tools page and editor
 		await expect(page.getByRole('row').filter({ hasText: name })).toBeVisible({ timeout: 20_000 })
 	})
 
-	// e2e: custom-tools::try-it-runs-the-saved-tool-once
+	// @e2e custom-tools::try-it-runs-the-saved-tool-once
 	test('Try it warns, sends the sample inputs and shows the answer', async ({ page }) => {
 		const name = `${TEST_PREFIX}-Vergunningcheck-try`
 		const slug = `vergunningcheck_try_${RUN}`

@@ -348,7 +348,7 @@ test.describe('delivery-public-web-chat: the public chat channel', () => {
 		await page.close()
 	})
 
-	// e2e: public-chat-channel::a-communications-advisor-puts-the-assistant-on-the-municipal-website
+	// @e2e public-chat-channel::a-communications-advisor-puts-the-assistant-on-the-municipal-website
 	test('a communications advisor puts the assistant on the municipal website', async ({ page }) => {
 		const name = `${TEST_PREFIX} Website`
 		const dialog = await openNewChannel(page)
@@ -393,7 +393,7 @@ test.describe('delivery-public-web-chat: the public chat channel', () => {
 		})
 	})
 
-	// e2e: public-chat-channel::an-agent-with-tools-cannot-be-public
+	// @e2e public-chat-channel::an-agent-with-tools-cannot-be-public
 	test('an agent with tools cannot be public', async ({ page }) => {
 		const name = `${TEST_PREFIX} Website with tools`
 
@@ -452,7 +452,7 @@ test.describe('delivery-public-web-chat: the public chat channel', () => {
 		expect(await channelsNamed(page.request, token, name)).toHaveLength(0)
 	})
 
-	// e2e: public-chat-channel::a-resident-asks-about-bulky-waste-on-the-website
+	// @e2e public-chat-channel::a-resident-asks-about-bulky-waste-on-the-website
 	test('a resident asks about bulky waste on the website', async ({ browser }) => {
 		const context = await browser.newContext({ storageState: { cookies: [], origins: [] } })
 		const page = await context.newPage()
