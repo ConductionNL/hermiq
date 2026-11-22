@@ -51,6 +51,8 @@ namespace OCA\Hermiq\Service;
 
 /**
  * Resolves the canonical identity of a bundle skill, and the local skill it matches.
+ *
+ * @spec openspec/changes/skill-install-idempotency/specs/skills-marketplace/spec.md#requirement-the-same-skill-from-a-mirror-is-the-same-skill
  */
 class SkillIdentityResolver {
 
