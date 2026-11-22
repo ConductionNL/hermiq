@@ -51,6 +51,7 @@ Kind: code. Size M. Row `hermiq:tl-custom-tool`.
   - GIVEN the editor WHEN a field uses NcSelect THEN it has an inputLabel
 - [x] Implement
 - [ ] Test (Playwright under tests/e2e/spec-coverage/)
+  - 2026-11-22: `tests/e2e/spec-coverage/custom-tools.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, a flow or a sent mail would be needed); not run here, it needs a running Nextcloud.
 
 ## Verification
 - [x] `openspec validate tools-custom-tools-without-code --type change --strict` passes
