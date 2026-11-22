@@ -58,7 +58,8 @@ Acceptance criteria
 
 ### 7. Quality
 
-- [ ] Run phpcs, phpmd, phpstan and psalm explicitly on PHP 8.3, plus the hydra gates, and open the PR
+- [x] Run phpcs, phpmd, phpstan and psalm explicitly on PHP 8.3, plus the hydra gates, and open the PR
+  - 2026-11-22, PHP 8.3.6, on `SkillIdentityResolver`, `SkillUpsertPolicy`, `SkillMarketplaceService`, `SkillBundleInstaller` and `SkillController` as they stand on development: phpstan, psalm and both phpmd rulesets (`phpmd.xml`, hydra-gates `phpmd-unusedparams.xml`) report nothing; phpcs reported two warnings, a missing class-level `@spec` on the resolver and the policy, added in this PR. The hydra diff-check of this PR: no NEW findings in units, floor, php -l, phpcs, phpstan, phpmd or phpunit; gate 23 counts the app-local Tenant classes, outside this change. The build itself landed in #112 and #1730.
 
 Acceptance criteria
 - Each tool is confirmed to have actually run, not merely to have not failed
