@@ -76,11 +76,11 @@ class VectorSearch {
 	public const REASON_NO_BACKEND = 'no-embedding-backend';
 
 	/**
-	 * The resolved facade; false once resolution failed, null before it was tried.
+	 * Finds the facade once and says whether it has a backend.
 	 *
-	 * @var object|false|null
+	 * @var VectorFacadeLocator
 	 */
-	private object|false|null $facade = null;
+	private readonly VectorFacadeLocator $locator;
 
 	/**
 	 * Constructor.
@@ -96,6 +96,12 @@ class VectorSearch {
 		private readonly LoggerInterface $logger,
 		private readonly string $facadeClass=self::FACADE_CLASS,
 	) {
+		$this->locator = new VectorFacadeLocator(
+			container: $this->container,
+			logger: $this->logger,
+			facadeClass: $this->facadeClass,
+			caller: 'VectorSearch'
+		);
 	}//end __construct()
 
 	/**
@@ -253,45 +259,12 @@ class VectorSearch {
 	 * The facade, resolved once.
 	 *
 	 * @return object|null The facade, or null when OpenRegister has none.
+	 *
+	 * @spec openspec/changes/vector-rag/tasks.md#task-1-1
 	 */
 	private function facade(): ?object {
-		if ($this->facade === null) {
-			$this->facade = $this->resolve();
-		}
-
-		if ($this->facade === false) {
-			return null;
-		}
-
-		return $this->facade;
+		return $this->locator->facade();
 	}//end facade()
-
-	/**
-	 * Resolve the facade behind a class probe.
-	 *
-	 * @return object|false The facade, or false.
-	 */
-	private function resolve(): object|false {
-		if (class_exists($this->facadeClass) === false) {
-			return false;
-		}
-
-		try {
-			$facade = $this->container->get($this->facadeClass);
-		} catch (Throwable $e) {
-			$this->logger->info(
-				message: '[VectorSearch] the OpenRegister vector facade could not be resolved',
-				context: ['error' => $e->getMessage()]
-			);
-			return false;
-		}
-
-		if (is_object($facade) === false) {
-			return false;
-		}
-
-		return $facade;
-	}//end resolve()
 
 	/**
 	 * Whether the facade reports an embedding backend.
@@ -299,12 +272,10 @@ class VectorSearch {
 	 * @param object $facade The facade.
 	 *
 	 * @return bool
+	 *
+	 * @spec openspec/changes/vector-rag/tasks.md#task-1-1
 	 */
 	private function isAvailable(object $facade): bool {
-		try {
-			return method_exists($facade, 'isAvailable') === true && $facade->isAvailable() === true;
-		} catch (Throwable) {
-			return false;
-		}
+		return VectorFacadeLocator::isAvailable(facade: $facade);
 	}//end isAvailable()
 }//end class
