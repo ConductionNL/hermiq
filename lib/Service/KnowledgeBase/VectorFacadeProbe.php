@@ -30,6 +30,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\KnowledgeBase;
 
+use OCA\Hermiq\Service\Engine\VectorFacadeLocator;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use ReflectionMethod;
@@ -63,11 +64,11 @@ class VectorFacadeProbe {
 	public const STATES = ['indexed', 'pending', 'failed', 'unsupported'];
 
 	/**
-	 * The resolved facade, false once resolution failed.
+	 * Finds the facade once and says whether it has a backend.
 	 *
-	 * @var object|false|null
+	 * @var VectorFacadeLocator
 	 */
-	private object|false|null $facade = null;
+	private readonly VectorFacadeLocator $locator;
 
 	/**
 	 * Whether the missing scope was logged already.
@@ -84,12 +85,19 @@ class VectorFacadeProbe {
 	 * @param string             $facadeClass The facade class name.
 	 *
 	 * @spec openspec/changes/memory-knowledge-bases/specs/knowledge-bases/spec.md#requirement-the-vector-facade-offers-a-file-scope-and-an-indexing-state-req-kb-005
+	 * @spec openspec/changes/vector-rag/tasks.md#task-1-1
 	 */
 	public function __construct(
 		private readonly ContainerInterface $container,
 		private readonly LoggerInterface $logger,
 		private readonly string $facadeClass=self::FACADE_CLASS,
 	) {
+		$this->locator = new VectorFacadeLocator(
+			container: $this->container,
+			logger: $this->logger,
+			facadeClass: $this->facadeClass,
+			caller: 'VectorFacadeProbe'
+		);
 	}//end __construct()
 
 	/**
@@ -195,42 +203,12 @@ class VectorFacadeProbe {
 	 * The facade, resolved once; null when OpenRegister does not offer it.
 	 *
 	 * @return object|null
+	 *
+	 * @spec openspec/changes/vector-rag/tasks.md#task-1-1
 	 */
 	private function facade(): ?object {
-		if ($this->facade === null) {
-			$this->facade = $this->resolve();
-		}
-
-		if ($this->facade === false) {
-			return null;
-		}
-
-		return $this->facade;
+		return $this->locator->facade();
 	}//end facade()
-
-	/**
-	 * Resolve the facade from the container, guarded.
-	 *
-	 * @return object|false
-	 */
-	private function resolve(): object|false {
-		if (class_exists($this->facadeClass) === false) {
-			return false;
-		}
-
-		try {
-			$facade = $this->container->get($this->facadeClass);
-		} catch (Throwable $e) {
-			$this->logger->info('[VectorFacadeProbe] The OpenRegister vector facade could not be resolved: '.$e->getMessage());
-			return false;
-		}
-
-		if (is_object($facade) === false) {
-			return false;
-		}
-
-		return $facade;
-	}//end resolve()
 
 	/**
 	 * Whether the facade says an embedding provider is configured.
@@ -238,13 +216,11 @@ class VectorFacadeProbe {
 	 * @param object $facade The facade.
 	 *
 	 * @return bool
+	 *
+	 * @spec openspec/changes/vector-rag/tasks.md#task-1-1
 	 */
 	private function isAvailable(object $facade): bool {
-		try {
-			return method_exists($facade, 'isAvailable') === true && $facade->isAvailable() === true;
-		} catch (Throwable) {
-			return false;
-		}
+		return $this->locator->hasBackend(facade: $facade);
 	}//end isAvailable()
 
 	/**
