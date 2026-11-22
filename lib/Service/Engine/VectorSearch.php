@@ -276,6 +276,6 @@ class VectorSearch {
 	 * @spec openspec/changes/vector-rag/tasks.md#task-1-1
 	 */
 	private function isAvailable(object $facade): bool {
-		return VectorFacadeLocator::isAvailable(facade: $facade);
+		return $this->locator->hasBackend(facade: $facade);
 	}//end isAvailable()
 }//end class

@@ -126,10 +126,12 @@ final class VectorFacadeLocatorTest extends TestCase {
 			}//end isAvailable()
 		};
 
-		$this->assertTrue(condition: VectorFacadeLocator::isAvailable(facade: $available));
-		$this->assertFalse(condition: VectorFacadeLocator::isAvailable(facade: $unavailable));
-		$this->assertFalse(condition: VectorFacadeLocator::isAvailable(facade: $throwing));
-		$this->assertFalse(condition: VectorFacadeLocator::isAvailable(facade: new \stdClass()));
+		$locator = $this->locator(container: $this->createMock(originalClassName: ContainerInterface::class), facadeClass: VectorSearchFacadeStub::class);
+
+		$this->assertTrue(condition: $locator->hasBackend(facade: $available));
+		$this->assertFalse(condition: $locator->hasBackend(facade: $unavailable));
+		$this->assertFalse(condition: $locator->hasBackend(facade: $throwing));
+		$this->assertFalse(condition: $locator->hasBackend(facade: new \stdClass()));
 	}//end testTheBackendCheckNeverThrows()
 
 	/**

@@ -27,6 +27,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\AnswerCache;
 
+use OCA\Hermiq\Service\Engine\VectorFacadeLocator;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -44,11 +45,11 @@ class SimilarQuestionSearch {
 	public const FACADE_CLASS = 'OCA\\OpenRegister\\Service\\Search\\VectorSearchFacade';
 
 	/**
-	 * The resolved facade, false once resolution failed.
+	 * Finds the facade once and says whether it has a backend.
 	 *
-	 * @var object|false|null
+	 * @var VectorFacadeLocator
 	 */
-	private object|false|null $facade = null;
+	private readonly VectorFacadeLocator $locator;
 
 	/**
 	 * Constructor.
@@ -58,12 +59,19 @@ class SimilarQuestionSearch {
 	 * @param string             $facadeClass The facade class name.
 	 *
 	 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-6
+	 * @spec openspec/changes/vector-rag/tasks.md#task-1-1
 	 */
 	public function __construct(
-		private readonly ContainerInterface $container,
+		ContainerInterface $container,
 		private readonly LoggerInterface $logger,
-		private readonly string $facadeClass=self::FACADE_CLASS,
+		string $facadeClass=self::FACADE_CLASS,
 	) {
+		$this->locator = new VectorFacadeLocator(
+			container: $container,
+			logger: $logger,
+			facadeClass: $facadeClass,
+			caller: 'AnswerCache'
+		);
 	}//end __construct()
 
 	/**
@@ -72,18 +80,15 @@ class SimilarQuestionSearch {
 	 * @return bool
 	 *
 	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#scenario-no-vector-search-no-similarity-layer
+	 * @spec openspec/changes/vector-rag/tasks.md#task-1-1
 	 */
 	public function isAvailable(): bool {
-		$facade = $this->facade();
-		if ($facade === null || method_exists($facade, 'isAvailable') === false || method_exists($facade, 'searchSemantic') === false) {
+		$facade = $this->locator->facade();
+		if ($facade === null || method_exists($facade, 'searchSemantic') === false) {
 			return false;
 		}
 
-		try {
-			return $facade->isAvailable() === true;
-		} catch (Throwable) {
-			return false;
-		}
+		return $this->locator->hasBackend(facade: $facade);
 	}//end isAvailable()
 
 	/**
@@ -102,7 +107,7 @@ class SimilarQuestionSearch {
 		}
 
 		try {
-			$rows = $this->facade()?->searchSemantic(query: $question, limit: $limit);
+			$rows = $this->locator->facade()?->searchSemantic(query: $question, limit: $limit);
 		} catch (Throwable $e) {
 			$this->logger->warning('[AnswerCache] similar question search failed: '.$e->getMessage());
 			return [];
@@ -110,45 +115,4 @@ class SimilarQuestionSearch {
 
 		return array_values(array_filter((array)$rows, 'is_array'));
 	}//end nearest()
-
-	/**
-	 * The facade, resolved once; null when OpenRegister does not offer it.
-	 *
-	 * @return object|null
-	 */
-	private function facade(): ?object {
-		if ($this->facade === null) {
-			$this->facade = $this->resolve();
-		}
-
-		if ($this->facade === false) {
-			return null;
-		}
-
-		return $this->facade;
-	}//end facade()
-
-	/**
-	 * Resolve the facade from the container, guarded.
-	 *
-	 * @return object|false
-	 */
-	private function resolve(): object|false {
-		if (class_exists($this->facadeClass) === false) {
-			return false;
-		}
-
-		try {
-			$facade = $this->container->get($this->facadeClass);
-		} catch (Throwable $e) {
-			$this->logger->info('[AnswerCache] The OpenRegister vector facade could not be resolved: '.$e->getMessage());
-			return false;
-		}
-
-		if (is_object($facade) === false) {
-			return false;
-		}
-
-		return $facade;
-	}//end resolve()
 }//end class

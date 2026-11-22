@@ -1,10 +1,7 @@
 <?php
 
 /**
- * Hermiq VectorFacadeLocator.
- *
- * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
- * SPDX-License-Identifier: EUPL-1.2
+ * Hermiq: where OpenRegister's vector facade is found, shared by every caller.
  *
  * @category Service
  * @package  OCA\Hermiq\Service\Engine
@@ -12,6 +9,9 @@
  * @author    Conduction Development Team <info@conduction.nl>
  * @copyright 2026 Conduction B.V.
  * @license   EUPL-1.2 https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+ *
+ * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
+ * SPDX-License-Identifier: EUPL-1.2
  *
  * @link https://conduction.nl
  *
@@ -91,13 +91,13 @@ class VectorFacadeLocator {
 	 *
 	 * @spec openspec/changes/vector-rag/tasks.md#task-1-1
 	 */
-	public static function isAvailable(object $facade): bool {
+	public function hasBackend(object $facade): bool {
 		try {
 			return method_exists($facade, 'isAvailable') === true && $facade->isAvailable() === true;
 		} catch (Throwable) {
 			return false;
 		}
-	}//end isAvailable()
+	}//end hasBackend()
 
 	/**
 	 * Resolve the facade behind a class probe.
