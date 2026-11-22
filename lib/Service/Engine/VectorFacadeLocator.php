@@ -24,7 +24,6 @@ namespace OCA\Hermiq\Service\Engine;
 
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
-use Throwable;
 
 /**
  * Finds OpenRegister's `VectorSearchFacade` once, behind a `class_exists()`
@@ -94,7 +93,7 @@ class VectorFacadeLocator {
 	public function hasBackend(object $facade): bool {
 		try {
 			return method_exists($facade, 'isAvailable') === true && $facade->isAvailable() === true;
-		} catch (Throwable) {
+		} catch (\Throwable) {
 			return false;
 		}
 	}//end hasBackend()
@@ -111,7 +110,7 @@ class VectorFacadeLocator {
 
 		try {
 			$facade = $this->container->get($this->facadeClass);
-		} catch (Throwable $e) {
+		} catch (\Throwable $e) {
 			$this->logger->info(
 				message: '['.$this->caller.'] the OpenRegister vector facade could not be resolved',
 				context: ['error' => $e->getMessage()]
