@@ -147,6 +147,18 @@ posted answer to `TalkAgentChain::follow()`.
     lib files. `openspec validate --strict` (latest CLI) has no errors, only four
     warnings: text above the first section in both deltas, and two long requirement
     texts. Open: those warnings and the diff-scoped hydra gates run.
+  - 2026-11-22, hydra diff-check of the build PR (#1853, its merge against its first
+    parent): php -l, phpstan, phpmd and phpunit pass. NEW findings, so this stays open:
+    gate 122 flags seven constructors or methods with five or more parameters
+    (`TalkAgentChain::__construct` 9 and `handOff` 5, `TalkTurnService::__construct` 9
+    and `runTurn` 7, `TalkTurnDispatcher::__construct` 7 and `dispatch` 8,
+    `TalkProgressiveReply::__construct` 7) and six repeated fragments (inside
+    `TalkTurnClaims` and `TalkRoomBinding`, `TalkTurnClaims` against
+    `TalkTurnDispatcher`, `TalkProgressiveReply` against `ProviderFallbackLoop`, and two
+    interfaces against their implementations); the maintainability floor dropped
+    (overall 4.20 to 4.16, unit interfacing 2.64 to 2.50); 298 phpcs findings sit in the
+    test files, mostly named parameters, outside the app's `composer phpcs` scope
+    (lib only); gate 23 counts the app-local Tenant classes, outside this change.
 
 ## Acceptance criteria
 
