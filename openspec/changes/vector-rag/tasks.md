@@ -78,8 +78,8 @@
     `OCA\OpenRegister\Service\Vectorization` hits in `lib/`.
   - Hydra diff-check of the build PR (#1852, its merge against its first parent):
     php -l, phpstan, phpmd, eslint and stylelint pass. NEW findings: gate 122 flagged
-    `VectorSearch` lines 249-310 as a copy of `VectorFacadeProbe` (fixed: both now use
-    `VectorFacadeLocator`, `VectorFacadeLocatorTest`); the constructors of
+    `VectorSearch` lines 249-310 as a copy of `VectorFacadeProbe` (fixed: both, and the answer cache's
+    `SimilarQuestionSearch`, now use `VectorFacadeLocator`, `VectorFacadeLocatorTest`); the constructors of
     `ContextRetrievalHandler` (9 parameters) and `SettingsService` (7) grew by one each;
     the unit-complexity rating went 4.55 to 4.53; 23 phpcs findings sit in the test files,
     which the app's `composer phpcs` (lib only) does not check; gate 23 counts the
