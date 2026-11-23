@@ -70,3 +70,11 @@ test('browser routes need the shared secret and answer 503 without a browser ser
 	assert.equal(res.status, 503)
 	assert.equal((await res.json()).code, 'browser_unavailable')
 })
+
+test('install needs the shared secret and answers 503 without an installer service', async () => {
+	const body = JSON.stringify({ manager: 'pip', package: 'csvkit' })
+	assert.equal((await fetch(base + '/install', { method: 'POST', body })).status, 401)
+	const res = await fetch(base + '/install', { method: 'POST', headers: authed, body })
+	assert.equal(res.status, 503)
+	assert.equal((await res.json()).code, 'installer_unavailable')
+})

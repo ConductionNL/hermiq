@@ -3651,7 +3651,9 @@ OC.L10N.register(
         "{label} (OpenAI-compatible)": "{label} (OpenAI-compatible)",
         "_Answer cache: on, {count} day_::_Answer cache: on, {count} days_": ["Answer cache: on, {count} day","Answer cache: on, {count} days"],
         "Answer cache: on, {count} day": "Answer cache: on, {count} day",
-        "Answer cache: on, {count} days": "Answer cache: on, {count} days"
+        "Answer cache: on, {count} days": "Answer cache: on, {count} days",
+        "Package allowlist": "Package allowlist",
+        "The packages an agent may install with hermiq.installTool (tools-agent-workspace-and-installed-tools D4), each as manager:package (pip:csvkit, npm:cowsay) or a bare package name that holds for both managers. Empty means no organisation list: the admin's registry allowlist alone applies. A package outside a non-empty list is refused before the installer is called.": "The packages an agent may install with hermiq.installTool (tools-agent-workspace-and-installed-tools D4), each as manager:package (pip:csvkit, npm:cowsay) or a bare package name that holds for both managers. Empty means no organisation list: the admin's registry allowlist alone applies. A package outside a non-empty list is refused before the installer is called."
     },
     "nplurals=2; plural=(n != 1);"
 )

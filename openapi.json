@@ -11075,7 +11075,7 @@
                         "$ref": "#/components/responses/Problem401"
                     },
                     "422": {
-                        "description": "The choice is refused: an unknown backend, or a hosted backend without its source. Nothing is stored."
+                        "description": "The choice is refused: an unknown backend, a hosted backend without its source, or an installManagers entry other than pip or npm. Nothing is stored."
                     }
                 }
             }

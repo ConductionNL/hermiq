@@ -411,4 +411,73 @@ class CodeSandboxClientTest extends TestCase {
 
 		$this->assertSame([], $appApi->calls);
 	}//end testAnUnknownLanguageIsRefusedBeforeDispatch()
+
+	/**
+	 * An install goes to the sandbox's /install with only manager, package and
+	 * version, and answers the layer, versions and binaries.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-installs-command-line-tools-only-from-an-allowlisted-registry-without-install-scripts-req-wksp-004
+	 */
+	public function testAnInstallGoesToTheInstallerAndAnswersTheLayer(): void {
+		$hash = hash('sha256', 'x');
+		$appApi = $this->appApi(
+			answer: $this->response(
+				status: 200,
+				body: (string)json_encode(
+					[
+						'manager' => 'pip', 'package' => 'csvkit', 'version' => '2.1.0',
+						'versions' => [['name' => 'csvkit', 'version' => '2.1.0'], 'junk'],
+						'binaries' => ['csvstat', 7],
+						'layer' => ['sha256' => $hash, 'size' => 1, 'archive' => base64_encode('x')],
+					]
+				)
+			)
+		);
+
+		$result = $this->client(appApi: $appApi)->install(manager: 'pip', package: 'csvkit', version: '2.1.0', uid: 'alice');
+
+		$this->assertSame(
+			expected: [
+				'hermiq-code-sandbox', '/install', 'alice', 'POST',
+				['manager' => 'pip', 'package' => 'csvkit', 'version' => '2.1.0'], ['timeout' => 600],
+			],
+			actual: $appApi->calls[0]
+		);
+		$this->assertSame(expected: [['name' => 'csvkit', 'version' => '2.1.0']], actual: $result['versions']);
+		$this->assertSame(expected: ['csvstat'], actual: $result['binaries']);
+		$this->assertSame(expected: ['sha256' => $hash, 'archive' => base64_encode('x')], actual: $result['layer']);
+	}//end testAnInstallGoesToTheInstallerAndAnswersTheLayer()
+
+	/**
+	 * A hosted backend refuses before anything is sent; a refusal carries the
+	 * installer's reason; an answer without a layer is malformed.
+	 *
+	 * @return void
+	 */
+	public function testAnInstallIsRefusedOnAHostedBackendAndCarriesTheInstallersReason(): void {
+		$appApi = $this->appApi(answer: $this->response(status: 400, body: '{"error":"npm is not an allowed registry on this instance."}'));
+		try {
+			$hosted = $this->client(appApi: $appApi, settings: $this->settings(stored: '{"backend":"hosted","hostedSource":"src-1"}'));
+			$hosted->install(manager: 'npm', package: 'cowsay', version: null, uid: 'alice');
+			$this->fail(message: 'A hosted backend took an install.');
+		} catch (CodeSandboxUnavailableException $e) {
+			$this->assertSame(expected: CodeSandboxUnavailableException::INSTALL_NEEDS_EXAPP, actual: $e->getMessage());
+		}
+
+		$this->assertSame(expected: [], actual: $appApi->calls);
+
+		try {
+			$this->client(appApi: $appApi)->install(manager: 'npm', package: 'cowsay', version: null, uid: 'alice');
+			$this->fail(message: 'A refused install answered.');
+		} catch (RuntimeException $e) {
+			$this->assertSame(expected: 'npm is not an allowed registry on this instance.', actual: $e->getMessage());
+		}
+
+		$this->expectException(exception: RuntimeException::class);
+		$this->expectExceptionMessage(message: 'The installer answered without a tool layer.');
+		$malformed = $this->appApi(answer: $this->response(status: 200, body: '{"layer":{"sha256":"nope","archive":""}}'));
+		$this->client(appApi: $malformed)->install(manager: 'pip', package: 'csvkit', version: null, uid: null);
+	}//end testAnInstallIsRefusedOnAHostedBackendAndCarriesTheInstallersReason()
 }//end class

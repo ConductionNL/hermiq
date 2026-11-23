@@ -29,7 +29,7 @@ class CodeSandboxToolDescriptorsTest extends TestCase {
 	public function testTheOwnSandboxReachesSelf(): void {
 		$tools = CodeSandboxToolDescriptors::forReach(reach: 'self');
 
-		$this->assertCount(1, $tools);
+		$this->assertSame(expected: ['hermiq.runCode', 'hermiq.installTool'], actual: array_column($tools, 'id'));
 		$this->assertSame('hermiq.runCode', $tools[0]['id']);
 		$this->assertSame('self', $tools[0]['reach']);
 		$this->assertSame(['files' => 'user'], $tools[0]['reachWithArguments']);

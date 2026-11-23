@@ -3758,7 +3758,9 @@
             "Antwoordcache: aan, {count} dagen"
         ],
         "Answer cache: on, {count} day": "Antwoordcache: aan, {count} dag",
-        "Answer cache: on, {count} days": "Antwoordcache: aan, {count} dagen"
+        "Answer cache: on, {count} days": "Antwoordcache: aan, {count} dagen",
+        "Package allowlist": "Toegestane pakketten",
+        "The packages an agent may install with hermiq.installTool (tools-agent-workspace-and-installed-tools D4), each as manager:package (pip:csvkit, npm:cowsay) or a bare package name that holds for both managers. Empty means no organisation list: the admin's registry allowlist alone applies. A package outside a non-empty list is refused before the installer is called.": "De pakketten die een agent met hermiq.installTool mag installeren (tools-agent-workspace-and-installed-tools D4), elk als manager:pakket (pip:csvkit, npm:cowsay) of als losse pakketnaam die voor beide managers geldt. Leeg betekent geen lijst van de organisatie: dan geldt alleen de registerlijst van de beheerder. Een pakket buiten een niet-lege lijst wordt geweigerd voordat de installer wordt aangeroepen."
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

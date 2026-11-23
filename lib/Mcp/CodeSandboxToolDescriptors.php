@@ -48,11 +48,25 @@ final class CodeSandboxToolDescriptors {
 	public const RUN_CODE = AppIdentity::APP_ID . '.runCode';
 
 	/**
-	 * Every tool id this class describes.
+	 * The install tool id (tools-agent-workspace-and-installed-tools D4).
+	 *
+	 * @var string
+	 */
+	public const INSTALL_TOOL = AppIdentity::APP_ID . '.installTool';
+
+	/**
+	 * The tool ids RunCodeTool serves.
 	 *
 	 * @var array<int, string>
 	 */
 	public const IDS = [self::RUN_CODE];
+
+	/**
+	 * The tool ids InstallToolService serves.
+	 *
+	 * @var array<int, string>
+	 */
+	public const INSTALL_IDS = [self::INSTALL_TOOL];
 
 	/**
 	 * The most files one call may name.
@@ -129,8 +143,46 @@ final class CodeSandboxToolDescriptors {
 				'idempotentHint' => false,
 				'scope' => 'create',
 			],
+			self::installTool(),
 		];
 	}//end forReach()
+
+	/**
+	 * The installTool descriptor. Its reach is `external` whatever the sandbox
+	 * setting, because the package name goes to a registry; `destructiveHint`
+	 * because it brings third-party code into the agent's runs. So it is
+	 * default-denied and approval-gated when not granted.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-installs-command-line-tools-only-from-an-allowlisted-registry-without-install-scripts-req-wksp-004
+	 */
+	public static function installTool(): array {
+		return [
+			'id' => self::INSTALL_TOOL,
+			'subject' => 'toolInstall',
+			'action' => 'create',
+			'reach' => ToolReachResolver::REACH_EXTERNAL,
+			'name' => 'Install a command line tool',
+			'description' => 'Install a command line tool from PyPI (pip) or npm into the agent\'s workspace for this '
+				. 'conversation, without running any install script, and get its binaries and the resolved versions. '
+				. 'Only the registries the admin allows and, when the organisation keeps one, the packages on its '
+				. 'allowlist can be installed. Requires the agent code execution AI feature and a workspace.',
+			'inputSchema' => [
+				'type' => 'object',
+				'properties' => [
+					'manager' => ['type' => 'string', 'enum' => ['pip', 'npm'], 'description' => 'The package manager, and so the registry.'],
+					'package' => ['type' => 'string', 'description' => 'The package name, such as csvkit.'],
+					'version' => ['type' => 'string', 'description' => 'One exact version, such as 2.1.0; the latest when left out.'],
+				],
+				'required' => ['manager', 'package'],
+			],
+			'readOnlyHint' => false,
+			'destructiveHint' => true,
+			'idempotentHint' => false,
+			'scope' => 'create',
+		];
+	}//end installTool()
 
 	/**
 	 * The reach lifted to at least `user`.
