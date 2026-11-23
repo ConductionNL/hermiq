@@ -107,6 +107,52 @@ class ToolLayerKeeper {
 	}//end keep()
 
 	/**
+	 * The tool installed in the workspace's conversation that offers a binary,
+	 * or null when none does.
+	 *
+	 * @param string $workspaceKey The conversation's workspace.
+	 * @param string $binary       The binary's name.
+	 *
+	 * @return array<string, mixed>|null `{manager, package, version, sha256, binaries}`.
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-installed-tool-runs-with-an-argument-list-and-no-shell-req-wksp-005
+	 */
+	public function toolOffering(string $workspaceKey, string $binary): ?array {
+		foreach (array_reverse($this->workspaces->installedTools(runKey: $workspaceKey)) as $tool) {
+			if (in_array($binary, (array)($tool['binaries'] ?? []), true) === true) {
+				return $tool;
+			}
+		}
+
+		return null;
+	}//end toolOffering()
+
+	/**
+	 * A kept layer's bytes, base64, after checking them against the hash.
+	 *
+	 * @param string $sha256 The layer's hash.
+	 *
+	 * @return string
+	 *
+	 * @throws RuntimeException When the layer is not kept or no longer matches its hash.
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-installed-tool-runs-with-an-argument-list-and-no-shell-req-wksp-005
+	 */
+	public function layer(string $sha256): string {
+		$path = $this->workspaces->toolLayerStore() . '/' . $sha256 . '.tar.gz';
+		$bytes = false;
+		if (preg_match('/^[0-9a-f]{64}$/', $sha256) === 1 && is_file($path) === true) {
+			$bytes = file_get_contents($path);
+		}
+
+		if ($bytes === false || hash('sha256', $bytes) !== $sha256) {
+			throw new RuntimeException('The installed tool\'s layer is no longer kept on this instance. Install the tool again.');
+		}
+
+		return base64_encode($bytes);
+	}//end layer()
+
+	/**
 	 * Store the layer under its hash once it matches it; an equal layer is stored once.
 	 *
 	 * @param string $sha256  The claimed hash.

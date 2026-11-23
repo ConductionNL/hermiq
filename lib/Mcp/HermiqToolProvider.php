@@ -118,6 +118,7 @@ use OCA\Hermiq\Service\CustomTool\CustomToolService;
 use OCA\Hermiq\Service\CodeSandbox\CodeSandboxSettings;
 use OCA\Hermiq\Service\CodeSandbox\InstallToolService;
 use OCA\Hermiq\Service\CodeSandbox\RunCodeTool;
+use OCA\Hermiq\Service\CodeSandbox\RunInstalledToolService;
 use OCA\Hermiq\Service\Mcp\DomainTools;
 use OCA\Hermiq\Service\Research\ResearchTool;
 use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
@@ -1001,6 +1002,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 			in_array($toolId, BrowserToolDescriptors::IDS, true) => BrowserTool::class,
 			in_array($toolId, CodeSandboxToolDescriptors::IDS, true) => RunCodeTool::class,
 			in_array($toolId, CodeSandboxToolDescriptors::INSTALL_IDS, true) => InstallToolService::class,
+			in_array($toolId, CodeSandboxToolDescriptors::RUN_INSTALLED_IDS, true) => RunInstalledToolService::class,
 			in_array($toolId, NcTalkToolDescriptors::IDS, true) => TalkMessageToolInterface::class,
 			default => null,
 		};

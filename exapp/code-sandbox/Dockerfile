@@ -33,13 +33,14 @@ COPY test ./test
 
 ENV NODE_ENV=production \
 	SANDBOX_WORK_ROOT=/work \
+	SANDBOX_LAYER_ROOT=/layers \
 	SANDBOX_RUN_UID=10001 \
 	SANDBOX_IN_CONTAINER=1 \
 	SANDBOX_PYTHON=/usr/local/bin/python3
 
 # The server needs to switch to the runner's uid for each run, and nothing else.
 USER root
-RUN mkdir -p /work && chown sandbox:sandbox /work && chmod 0711 /work
+RUN mkdir -p /work /layers && chown sandbox:sandbox /work /layers && chmod 0711 /work && chmod 0755 /layers
 
 EXPOSE 9000
 CMD ["setpriv", "--reuid=sandbox", "--regid=sandbox", "--init-groups", "--inh-caps=-all,+setuid,+setgid", "--ambient-caps=+setuid,+setgid", "--", "node", "src/server.js"]

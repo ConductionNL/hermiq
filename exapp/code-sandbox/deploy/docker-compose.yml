@@ -31,9 +31,14 @@ services:
     tmpfs:
       - /work:rw,noexec,nosuid,nodev,size=256m,mode=0711,uid=10000,gid=10000
       - /tmp:rw,noexec,nosuid,nodev,size=16m
+      # Installed tool layers (tools-agent-workspace-and-installed-tools D5):
+      # unpacked by the server, readable and runnable by the runner, never
+      # writable by it. Not noexec, because an installed binary runs from here.
+      - /layers:rw,nosuid,nodev,size=1g,mode=0755,uid=10000,gid=10000
     environment:
       APP_ID: hermiq-code-sandbox
       APP_PORT: "9000"
+      SANDBOX_LAYER_ROOT: /layers
       BROWSER_CONTROL_URL: "http://hermiq-code-sandbox-browser:9100"
       INSTALLER_CONTROL_URL: "http://hermiq-code-sandbox-installer:9200"
     networks:
