@@ -159,12 +159,16 @@ final class ServerSideWorkspaceProviderSessionTest extends TestCase {
 	}//end testOnlyTheWorkspaceOfADeletedConversationEnds()
 
 	/**
+	 * An installed tool is recorded on the conversation's workspace and outlives the next run.
+	 *
+	 * @return void
+	 *
 	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#scenario-an-agent-installs-csvkit
 	 */
 	public function testAnInstalledToolIsRecordedOnTheConversationAndOutlivesTheNextRun(): void {
 		$provider = $this->provider();
 		$this->open(provider: $provider, key: self::SESSION);
-		self::assertSame([], $provider->installedTools(runKey: self::SESSION));
+		self::assertSame(expected: [], actual: $provider->installedTools(runKey: self::SESSION));
 
 		$provider->recordInstalledTool(runKey: self::SESSION, tool: ['manager' => 'pip', 'package' => 'csvkit', 'version' => '2.0.0', 'sha256' => 'a']);
 		$provider->recordInstalledTool(runKey: self::SESSION, tool: ['manager' => 'npm', 'package' => 'csvkit', 'version' => '1.0.0', 'sha256' => 'b']);
@@ -172,13 +176,16 @@ final class ServerSideWorkspaceProviderSessionTest extends TestCase {
 		$this->open(provider: $provider, key: self::SESSION);
 
 		self::assertSame(
-			[['manager' => 'npm', 'package' => 'csvkit', 'version' => '1.0.0', 'sha256' => 'b'], ['manager' => 'pip', 'package' => 'csvkit', 'version' => '2.1.0', 'sha256' => 'c']],
-			$provider->installedTools(runKey: self::SESSION)
+			expected: [
+				['manager' => 'npm', 'package' => 'csvkit', 'version' => '1.0.0', 'sha256' => 'b'],
+				['manager' => 'pip', 'package' => 'csvkit', 'version' => '2.1.0', 'sha256' => 'c'],
+			],
+			actual: $provider->installedTools(runKey: self::SESSION)
 		);
-		self::assertSame([], $provider->installedTools(runKey: self::OTHER_SESSION));
-		self::assertSame($this->base . '/workspace-tool-layers', $provider->toolLayerStore());
+		self::assertSame(expected: [], actual: $provider->installedTools(runKey: self::OTHER_SESSION));
+		self::assertSame(expected: $this->base . '/workspace-tool-layers', actual: $provider->toolLayerStore());
 
-		$this->expectException(WorkspaceException::class);
+		$this->expectException(exception: WorkspaceException::class);
 		$provider->recordInstalledTool(runKey: self::OTHER_SESSION, tool: ['manager' => 'pip', 'package' => 'x']);
 	}//end testAnInstalledToolIsRecordedOnTheConversationAndOutlivesTheNextRun()
 

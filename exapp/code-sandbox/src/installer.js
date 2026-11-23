@@ -23,12 +23,12 @@
 
 'use strict'
 
-const { spawn } = require('child_process')
-const crypto = require('crypto')
-const fs = require('fs')
-const os = require('os')
-const path = require('path')
+const childProcess = require('child_process')
 const zlib = require('zlib')
+const crypto = require('crypto')
+const path = require('path')
+const os = require('os')
+const fs = require('fs')
 
 const MANAGERS = Object.freeze(['pip', 'npm'])
 
@@ -60,6 +60,33 @@ function allowedManagers(env = process.env) {
 }
 
 /**
+ * Why a request's manager cannot be used, or null when it can.
+ *
+ * @param {object} request `{manager}`.
+ * @param {string[]} allowed The managers this installer serves.
+ * @return {string|null}
+ */
+function invalidManager(request, allowed) {
+	if (!request || typeof request !== 'object' || !MANAGERS.includes(request.manager)) {
+		return 'The installer installs with pip or npm.'
+	}
+	return allowed.includes(request.manager) ? null : request.manager + ' is not an allowed registry on this instance.'
+}
+
+/**
+ * Whether a version is absent or one exact version.
+ *
+ * @param {*} version The requested version.
+ * @return {boolean}
+ */
+function validVersion(version) {
+	if (version === undefined || version === null || version === '') {
+		return true
+	}
+	return typeof version === 'string' && VERSION_PATTERN.test(version)
+}
+
+/**
  * Why a request cannot be installed, or null when it can.
  *
  * @param {object} request `{manager, package, version}`.
@@ -67,24 +94,14 @@ function allowedManagers(env = process.env) {
  * @return {string|null}
  */
 function invalid(request, allowed) {
-	if (!request || typeof request !== 'object') {
-		return 'The request is not an install.'
-	}
-	if (!MANAGERS.includes(request.manager)) {
-		return 'The installer installs with pip or npm.'
-	}
-	if (!allowed.includes(request.manager)) {
-		return request.manager + ' is not an allowed registry on this instance.'
+	const manager = invalidManager(request, allowed)
+	if (manager !== null) {
+		return manager
 	}
 	if (typeof request.package !== 'string' || !PACKAGE_PATTERNS[request.manager].test(request.package)) {
 		return 'The package name is not a valid ' + request.manager + ' package name.'
 	}
-	if (request.version !== undefined && request.version !== null && request.version !== '') {
-		if (typeof request.version !== 'string' || !VERSION_PATTERN.test(request.version)) {
-			return 'The version is one exact version, such as 2.1.0.'
-		}
-	}
-	return null
+	return validVersion(request.version) ? null : 'The version is one exact version, such as 2.1.0.'
 }
 
 /**
@@ -222,7 +239,7 @@ function binaries(manager, prefix) {
  */
 function runStep(step, options) {
 	return new Promise((resolve, reject) => {
-		const child = spawn(step.command, step.args, {
+		const child = childProcess.spawn(step.command, step.args, {
 			cwd: options.cwd,
 			env: options.env,
 			shell: false,
@@ -302,6 +319,47 @@ function stepEnv(work, env = process.env) {
 }
 
 /**
+ * Resolve with pip, then install each resolved requirement on its own.
+ *
+ * @param {object} ctx `{env, step, options, work, prefix, spec}`.
+ * @return {Promise<{name: string, version: string}[]>} The resolved requirements.
+ */
+async function installPip(ctx) {
+	const python = ctx.env.INSTALLER_PYTHON || 'python3'
+	const report = path.join(ctx.work, 'report.json')
+	await ctx.step(pipResolveStep(python, ctx.spec, report), ctx.options)
+	const versions = parsePipReport(fs.readFileSync(report, 'utf8'))
+	for (const requirement of versions) {
+		await ctx.step(pipInstallStep(python, ctx.prefix, requirement), ctx.options)
+	}
+	return versions
+}
+
+/**
+ * Install with npm and read back what it placed.
+ *
+ * @param {object} ctx `{env, step, options, prefix, spec}`.
+ * @return {Promise<{name: string, version: string}[]>} The placed packages.
+ */
+async function installNpm(ctx) {
+	await ctx.step(npmInstallStep(ctx.env.INSTALLER_NPM || 'npm', ctx.prefix, ctx.spec), ctx.options)
+	return parseNpmLock(fs.readFileSync(path.join(ctx.prefix, 'node_modules', '.package-lock.json'), 'utf8'))
+}
+
+/**
+ * The resolved version of the requested package itself.
+ *
+ * @param {{name: string, version: string}[]} versions The resolved packages.
+ * @param {object} request `{package, version}`.
+ * @return {string}
+ */
+function ownVersion(versions, request) {
+	const normal = (name) => name.toLowerCase().replace(/[._-]+/g, '-')
+	const own = versions.find((v) => normal(v.name) === normal(request.package))
+	return own ? own.version : (request.version || '')
+}
+
+/**
  * Install one tool and answer its layer.
  *
  * @param {object} request `{manager, package, version}`.
@@ -310,7 +368,6 @@ function stepEnv(work, env = process.env) {
  */
 async function install(request, deps = {}) {
 	const env = deps.env || process.env
-	const step = deps.step || runStep
 	const reason = invalid(request, allowedManagers(env))
 	if (reason !== null) {
 		const error = new Error(reason)
@@ -318,35 +375,20 @@ async function install(request, deps = {}) {
 		throw error
 	}
 
-	const root = deps.workRoot || env.INSTALLER_WORK_ROOT || os.tmpdir()
-	const work = fs.mkdtempSync(path.join(root, 'install-'))
+	const work = fs.mkdtempSync(path.join(deps.workRoot || env.INSTALLER_WORK_ROOT || os.tmpdir(), 'install-'))
 	const prefix = path.join(work, 'prefix')
 	fs.mkdirSync(prefix)
-	const options = { cwd: work, env: stepEnv(work, env), timeoutSeconds: LIMITS.stepSeconds }
-	const spec = specifier(request)
+	const ctx = { env, step: deps.step || runStep, work, prefix, spec: specifier(request) }
+	ctx.options = { cwd: work, env: stepEnv(work, env), timeoutSeconds: LIMITS.stepSeconds }
 
 	try {
-		let versions
-		if (request.manager === 'pip') {
-			const python = env.INSTALLER_PYTHON || 'python3'
-			const report = path.join(work, 'report.json')
-			await step(pipResolveStep(python, spec, report), options)
-			versions = parsePipReport(fs.readFileSync(report, 'utf8'))
-			for (const requirement of versions) {
-				await step(pipInstallStep(python, prefix, requirement), options)
-			}
-		} else {
-			await step(npmInstallStep(env.INSTALLER_NPM || 'npm', prefix, spec), options)
-			versions = parseNpmLock(fs.readFileSync(path.join(prefix, 'node_modules', '.package-lock.json'), 'utf8'))
-		}
-
-		const own = versions.find((v) => v.name.toLowerCase().replace(/[._-]+/g, '-') === request.package.toLowerCase().replace(/[._-]+/g, '-'))
-		const archive = await pack(prefix, step, options)
+		const versions = await (request.manager === 'pip' ? installPip(ctx) : installNpm(ctx))
+		const archive = await pack(prefix, ctx.step, ctx.options)
 
 		return {
 			manager: request.manager,
 			package: request.package,
-			version: own ? own.version : (request.version || ''),
+			version: ownVersion(versions, request),
 			versions,
 			binaries: binaries(request.manager, prefix),
 			layer: {

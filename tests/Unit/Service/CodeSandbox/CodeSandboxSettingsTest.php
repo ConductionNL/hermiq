@@ -74,7 +74,10 @@ class CodeSandboxSettingsTest extends TestCase {
 	public function testNothingStoredIsTheOwnSandbox(): void {
 		$settings = $this->settings();
 
-		$this->assertSame(['backend' => 'exapp', 'hostedSource' => null, 'reach' => 'self', 'installManagers' => ['pip', 'npm']], $settings->toArray());
+		$this->assertSame(
+			expected: ['backend' => 'exapp', 'hostedSource' => null, 'reach' => 'self', 'installManagers' => ['pip', 'npm']],
+			actual: $settings->toArray()
+		);
 	}//end testNothingStoredIsTheOwnSandbox()
 
 	/**
@@ -151,14 +154,14 @@ class CodeSandboxSettingsTest extends TestCase {
 	 */
 	public function testTheInstallRegistriesAreBothUntilNarrowedAndSurviveABackendSave(): void {
 		$settings = $this->settings();
-		$this->assertSame(['pip', 'npm'], $settings->installManagers());
+		$this->assertSame(expected: ['pip', 'npm'], actual: $settings->installManagers());
 
-		$this->assertSame(['pip'], $settings->saveInstallManagers(managers: ['pip']));
+		$this->assertSame(expected: ['pip'], actual: $settings->saveInstallManagers(managers: ['pip']));
 		$settings->save(backend: 'exapp');
 
-		$this->assertSame(['pip'], $settings->installManagers());
-		$this->assertSame(['pip'], $settings->toArray()['installManagers']);
-		$this->assertSame([], $settings->saveInstallManagers(managers: []));
+		$this->assertSame(expected: ['pip'], actual: $settings->installManagers());
+		$this->assertSame(expected: ['pip'], actual: $settings->toArray()['installManagers']);
+		$this->assertSame(expected: [], actual: $settings->saveInstallManagers(managers: []));
 	}//end testTheInstallRegistriesAreBothUntilNarrowedAndSurviveABackendSave()
 
 	/**
@@ -169,12 +172,12 @@ class CodeSandboxSettingsTest extends TestCase {
 	public function testAnUnknownRegistryIsRefusedAndADoubtfulStoredListReadsSafely(): void {
 		try {
 			$this->settings()->saveInstallManagers(managers: ['pip', 'cargo']);
-			$this->fail('An unknown registry was stored.');
+			$this->fail(message: 'An unknown registry was stored.');
 		} catch (InvalidArgumentException $e) {
-			$this->assertSame('Tools are installed from pip or npm.', $e->getMessage());
+			$this->assertSame(expected: 'Tools are installed from pip or npm.', actual: $e->getMessage());
 		}
 
-		$this->assertSame(['pip', 'npm'], $this->settings(stored: '{"backend":"exapp","installManagers":"pip"}')->installManagers());
-		$this->assertSame(['npm'], $this->settings(stored: '{"backend":"exapp","installManagers":["npm","cargo"]}')->installManagers());
+		$this->assertSame(expected: ['pip', 'npm'], actual: $this->settings(stored: '{"backend":"exapp","installManagers":"pip"}')->installManagers());
+		$this->assertSame(expected: ['npm'], actual: $this->settings(stored: '{"backend":"exapp","installManagers":["npm","cargo"]}')->installManagers());
 	}//end testAnUnknownRegistryIsRefusedAndADoubtfulStoredListReadsSafely()
 }//end class

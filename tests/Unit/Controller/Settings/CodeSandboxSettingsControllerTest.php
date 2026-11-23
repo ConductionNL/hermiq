@@ -111,7 +111,10 @@ class CodeSandboxSettingsControllerTest extends TestCase {
 		self::assertSame(200, $response->getStatus());
 		self::assertSame('hosted', $response->getData()['backend']);
 		self::assertSame('src-sandbox', $response->getData()['hostedSource']);
-		self::assertSame(['backend' => 'hosted', 'hostedSource' => 'src-sandbox', 'installManagers' => ['pip', 'npm']], json_decode($this->stored, true));
+		self::assertSame(
+			expected: ['backend' => 'hosted', 'hostedSource' => 'src-sandbox', 'installManagers' => ['pip', 'npm']],
+			actual: json_decode(json: $this->stored, associative: true)
+		);
 	}//end testAHostedChoiceIsSavedWithItsSource()
 
 	/**
@@ -124,16 +127,16 @@ class CodeSandboxSettingsControllerTest extends TestCase {
 	 */
 	public function testTheInstallRegistriesAreSavedAndAnUnknownOneStoresNothing(): void {
 		$refused = $this->controller(params: ['backend' => 'exapp', 'installManagers' => ['pip', 'cargo']])->update();
-		self::assertSame(422, $refused->getStatus());
-		self::assertSame('', $this->stored);
+		self::assertSame(expected: 422, actual: $refused->getStatus());
+		self::assertSame(expected: '', actual: $this->stored);
 
 		$refused = $this->controller(params: ['backend' => 'docker', 'installManagers' => ['pip']])->update();
-		self::assertSame(422, $refused->getStatus());
-		self::assertSame('', $this->stored);
+		self::assertSame(expected: 422, actual: $refused->getStatus());
+		self::assertSame(expected: '', actual: $this->stored);
 
 		$response = $this->controller(params: ['backend' => 'exapp', 'installManagers' => ['pip']])->update();
-		self::assertSame(200, $response->getStatus());
-		self::assertSame(['pip'], $response->getData()['installManagers']);
+		self::assertSame(expected: 200, actual: $response->getStatus());
+		self::assertSame(expected: ['pip'], actual: $response->getData()['installManagers']);
 	}//end testTheInstallRegistriesAreSavedAndAnUnknownOneStoresNothing()
 
 	/**

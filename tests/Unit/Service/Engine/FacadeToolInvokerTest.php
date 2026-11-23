@@ -774,9 +774,15 @@ class FacadeToolInvokerTest extends TestCase {
 	 */
 	public function testInstallToolTraceStepRecordsThePackageVersionAndLayerHash(): void {
 		$hash = str_repeat('a', 64);
-		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade = $this->createMock(originalClassName: ToolRegistryFacade::class);
 		$facade->method('invokeTool')->willReturn(
-			['result' => ['manager' => 'pip', 'package' => 'csvkit', 'version' => '2.1.0', 'sha256' => $hash, 'binaries' => ['csvstat'], 'artefact' => ['type' => 'toolLayer', 'id' => $hash]], 'isError' => false]
+			[
+				'result' => [
+					'manager' => 'pip', 'package' => 'csvkit', 'version' => '2.1.0', 'sha256' => $hash, 'binaries' => ['csvstat'],
+					'artefact' => ['type' => 'toolLayer', 'id' => $hash],
+				],
+				'isError' => false,
+			]
 		);
 
 		$trace = new RunTraceCollector();
@@ -785,8 +791,8 @@ class FacadeToolInvokerTest extends TestCase {
 		$invoker->hermiq_installTool(manager: 'pip', package: 'csvkit', version: '2.1.0');
 
 		$steps = $trace->toArray();
-		$this->assertSame(['manager' => 'pip', 'package' => 'csvkit', 'version' => '2.1.0', 'sha256' => $hash], $steps[0]['toolInstall']);
-		$this->assertSame(['type' => 'toolLayer', 'id' => $hash], $steps[0]['artefact']);
+		$this->assertSame(expected: ['manager' => 'pip', 'package' => 'csvkit', 'version' => '2.1.0', 'sha256' => $hash], actual: $steps[0]['toolInstall']);
+		$this->assertSame(expected: ['type' => 'toolLayer', 'id' => $hash], actual: $steps[0]['artefact']);
 
 	}//end testInstallToolTraceStepRecordsThePackageVersionAndLayerHash()
 

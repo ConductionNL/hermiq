@@ -209,24 +209,12 @@ class CodeSandboxClient {
 			throw new CodeSandboxUnavailableException(CodeSandboxUnavailableException::INSTALL_NEEDS_EXAPP);
 		}
 
-		$appApi = $this->appApi();
-		if ($appApi === null) {
-			throw new CodeSandboxUnavailableException(CodeSandboxUnavailableException::NOT_INSTALLED);
-		}
-
-		$result = $appApi->exAppRequest(
-			self::EXAPP_ID,
-			self::INSTALL_ROUTE,
-			$uid,
-			'POST',
-			['manager' => $manager, 'package' => $package, 'version' => $version],
-			['timeout' => self::INSTALL_TIMEOUT_SECONDS]
+		$result = $this->exAppCall(
+			route: self::INSTALL_ROUTE,
+			uid: $uid,
+			payload: ['manager' => $manager, 'package' => $package, 'version' => $version],
+			timeoutSeconds: self::INSTALL_TIMEOUT_SECONDS
 		);
-
-		if (is_array($result) === true) {
-			$this->logger->warning('[CodeSandboxClient] the sandbox ExApp could not be reached', ['reason' => (string)($result['error'] ?? 'unknown')]);
-			throw new CodeSandboxUnavailableException(CodeSandboxUnavailableException::NOT_INSTALLED);
-		}
 
 		$status = (int)$result->getStatusCode();
 		$decoded = json_decode((string)$result->getBody(), true);
@@ -340,19 +328,41 @@ class CodeSandboxClient {
 	 */
 	private function runOnExApp(array $payload, ?string $uid): array {
 		$clamped = $payload['limits'];
+		$result = $this->exAppCall(
+			route: self::RUN_ROUTE,
+			uid: $uid,
+			payload: $payload,
+			timeoutSeconds: ($clamped['wallSeconds'] + self::TRANSPORT_SLACK_SECONDS)
+		);
+
+		$status = (int)$result->getStatusCode();
+		if ($status < 200 || $status > 299) {
+			$this->logger->warning('[CodeSandboxClient] the sandbox refused the run', ['status' => $status]);
+			throw new RuntimeException('The code sandbox could not run the code (HTTP ' . $status . ').');
+		}
+
+		return self::mapResult(body: (string)$result->getBody()) + ['limits' => $clamped];
+	}//end runOnExApp()
+
+	/**
+	 * One request to the sandbox ExApp through AppAPI.
+	 *
+	 * @param string               $route          The ExApp route.
+	 * @param string|null          $uid            The acting user, passed to AppAPI.
+	 * @param array<string, mixed> $payload        The request body.
+	 * @param int                  $timeoutSeconds The transport timeout.
+	 *
+	 * @return object The response: `getStatusCode()` and `getBody()`.
+	 *
+	 * @throws CodeSandboxUnavailableException When the ExApp is not there or cannot be reached.
+	 */
+	private function exAppCall(string $route, ?string $uid, array $payload, int $timeoutSeconds): object {
 		$appApi = $this->appApi();
 		if ($appApi === null) {
 			throw new CodeSandboxUnavailableException(CodeSandboxUnavailableException::NOT_INSTALLED);
 		}
 
-		$result = $appApi->exAppRequest(
-			self::EXAPP_ID,
-			self::RUN_ROUTE,
-			$uid,
-			'POST',
-			$payload,
-			['timeout' => ($clamped['wallSeconds'] + self::TRANSPORT_SLACK_SECONDS)]
-		);
+		$result = $appApi->exAppRequest(self::EXAPP_ID, $route, $uid, 'POST', $payload, ['timeout' => $timeoutSeconds]);
 
 		// AppAPI never throws: an array answer is its failure channel.
 		if (is_array($result) === true) {
@@ -363,14 +373,8 @@ class CodeSandboxClient {
 			throw new CodeSandboxUnavailableException(CodeSandboxUnavailableException::NOT_INSTALLED);
 		}
 
-		$status = (int)$result->getStatusCode();
-		if ($status < 200 || $status > 299) {
-			$this->logger->warning('[CodeSandboxClient] the sandbox refused the run', ['status' => $status]);
-			throw new RuntimeException('The code sandbox could not run the code (HTTP ' . $status . ').');
-		}
-
-		return self::mapResult(body: (string)$result->getBody()) + ['limits' => $clamped];
-	}//end runOnExApp()
+		return $result;
+	}//end exAppCall()
 
 	/**
 	 * Run at the hosted sandbox through integriq.

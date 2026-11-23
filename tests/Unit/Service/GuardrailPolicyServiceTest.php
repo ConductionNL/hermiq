@@ -705,23 +705,23 @@ class GuardrailPolicyServiceTest extends TestCase {
 	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-installs-command-line-tools-only-from-an-allowlisted-registry-without-install-scripts-req-wksp-004
 	 */
 	public function testThePackageAllowlistIsSavedReadLenientlyAndKept(): void {
-		$this->assertSame([], $this->service([])->effectivePolicyFor(organisation: 'org-a')['packageAllowlist']);
+		$this->assertSame(expected: [], actual: $this->service(policies: [])->effectivePolicyFor(organisation: 'org-a')['packageAllowlist']);
 
 		$saved = $this->service()->upsertForOrganisation(
 			organisation: 'org-a',
 			payload: ['packageAllowlist' => [' pip:csvkit ', 'npm:cowsay', 'pip:csvkit', 7, '']]
 		);
-		$this->assertSame(['pip:csvkit', 'npm:cowsay'], $saved['packageAllowlist']);
+		$this->assertSame(expected: ['pip:csvkit', 'npm:cowsay'], actual: $saved['packageAllowlist']);
 
 		$stored = $this->policy(uuid: 'p-1', organisation: 'org-a');
 		$stored->setObject($stored->getObject() + ['packageAllowlist' => ['pip:csvkit']]);
-		$kept = $this->service([$stored])->upsertForOrganisation(organisation: 'org-a', payload: ['enabled' => true]);
-		$this->assertSame(['pip:csvkit'], $kept['packageAllowlist']);
+		$kept = $this->service(policies: [$stored])->upsertForOrganisation(organisation: 'org-a', payload: ['enabled' => true]);
+		$this->assertSame(expected: ['pip:csvkit'], actual: $kept['packageAllowlist']);
 
 		$stored->setObject(['packageAllowlist' => 'pip:csvkit']);
-		$this->assertSame([], $this->service([$stored])->effectivePolicyFor(organisation: 'org-a')['packageAllowlist']);
+		$this->assertSame(expected: [], actual: $this->service(policies: [$stored])->effectivePolicyFor(organisation: 'org-a')['packageAllowlist']);
 
-		$this->expectException(\InvalidArgumentException::class);
+		$this->expectException(exception: \InvalidArgumentException::class);
 		$this->service()->upsertForOrganisation(organisation: 'org-a', payload: ['packageAllowlist' => 'pip:csvkit']);
 	}//end testThePackageAllowlistIsSavedReadLenientlyAndKept()
 }//end class

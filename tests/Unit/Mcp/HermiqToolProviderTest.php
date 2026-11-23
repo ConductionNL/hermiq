@@ -618,7 +618,7 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.sendTalkMessage' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
 			// tools-code-sandbox: write-classified so it is default-denied.
 			'hermiq.runCode' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
-			// tools-agent-workspace-and-installed-tools D4: brings third-party code into the agent's runs.
+			// Tools-agent-workspace-and-installed-tools D4 brings third-party code into the agent's runs.
 			'hermiq.installTool' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'create'],
 			// tools-browser-and-computer-use: a screenshot only reads; every action changes the machine.
 			'hermiq.computerScreenshot' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],

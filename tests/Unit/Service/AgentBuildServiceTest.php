@@ -159,6 +159,10 @@ final class AgentBuildServiceTest extends TestCase {
 	}//end testPublishArchivesThePublishersWorkspaceAndPinsTheNextBuild()
 
 	/**
+	 * A build pins the tools installed in the conversation, by their layer hash.
+	 *
+	 * @return void
+	 *
 	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning/spec.md#requirement-an-agent-owner-can-publish-a-build-that-pins-files-and-installed-tools-req-build-001
 	 */
 	public function testPublishPinsTheToolsInstalledInTheConversationByTheirLayerHash(): void {
@@ -172,8 +176,8 @@ final class AgentBuildServiceTest extends TestCase {
 		$this->service()->publish(agent: self::entity(uuid: 'agent-1', data: []), sessionId: 'conv-9', userId: 'alice', note: '');
 
 		self::assertSame(
-			[['manager' => 'pip', 'package' => 'csvkit', 'version' => '2.1.0', 'sha256' => self::HASH]],
-			$this->saved[0][1]['tools']
+			expected: [['manager' => 'pip', 'package' => 'csvkit', 'version' => '2.1.0', 'sha256' => self::HASH]],
+			actual: $this->saved[0][1]['tools']
 		);
 	}//end testPublishPinsTheToolsInstalledInTheConversationByTheirLayerHash()
 

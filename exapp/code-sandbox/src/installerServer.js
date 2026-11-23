@@ -17,75 +17,43 @@
 
 const http = require('http')
 const auth = require('./auth.js')
+const { sendJson, log, lowerHeaders, readBody, failure } = require('./http.js')
 const { install } = require('./installer.js')
 
 const MAX_BODY_BYTES = 16 * 1024
 
-let busy = false
-
 /**
- * Send a JSON answer.
+ * The install handler: auth, one at a time, and only manager, package and
+ * version passed on.
  *
- * @param {http.ServerResponse} res The response.
- * @param {number} status The status.
- * @param {object} body The body.
- * @return {void}
+ * @param {function} doInstall Installs one tool.
+ * @return {function} `(req, res) => Promise<void>`.
  */
-function sendJson(res, status, body) {
-	const text = JSON.stringify(body)
-	res.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(text) })
-	res.end(text)
-}
+function installHandler(doInstall) {
+	const state = { busy: false }
 
-/**
- * One log line, without the request's content.
- *
- * @param {string} level The level.
- * @param {string} message The message.
- * @return {void}
- */
-function log(level, message) {
-	process.stdout.write(JSON.stringify({ level, message, time: new Date().toISOString() }) + '\n')
-}
+	return async (req, res) => {
+		const verdict = auth.verify(lowerHeaders(req.headers), '')
+		if (!verdict.ok || state.busy) {
+			req.resume()
+			sendJson(res, verdict.ok ? 429 : verdict.status, { error: verdict.ok ? 'The installer is busy. Try again shortly.' : 'unauthorised' })
+			return
+		}
 
-/**
- * The request headers, lower-cased.
- *
- * @param {object} headers The raw headers.
- * @return {object}
- */
-function lowerHeaders(headers) {
-	const out = {}
-	for (const [key, value] of Object.entries(headers || {})) {
-		out[key.toLowerCase()] = Array.isArray(value) ? value[0] : value
+		state.busy = true
+		const started = Date.now()
+		try {
+			const request = JSON.parse(await readBody(req, MAX_BODY_BYTES, 'The request is larger than an install request may be.'))
+			sendJson(res, 200, await doInstall({ manager: request.manager, package: request.package, version: request.version }))
+			log('info', `/install 200 in ${Date.now() - started} ms`)
+		} catch (error) {
+			const { status, message } = failure(error, 'The installer could not install the tool.')
+			sendJson(res, status, { error: message })
+			log('warn', `/install ${status} in ${Date.now() - started} ms`)
+		} finally {
+			state.busy = false
+		}
 	}
-	return out
-}
-
-/**
- * Read a small body, refusing one over the cap.
- *
- * @param {http.IncomingMessage} req The request.
- * @return {Promise<string>}
- */
-function readBody(req) {
-	return new Promise((resolve, reject) => {
-		const chunks = []
-		let size = 0
-		req.on('data', (chunk) => {
-			size += chunk.length
-			if (size > MAX_BODY_BYTES) {
-				const error = new Error('The request is larger than an install request may be.')
-				error.status = 413
-				reject(error)
-				req.destroy()
-				return
-			}
-			chunks.push(chunk)
-		})
-		req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
-		req.on('error', reject)
-	})
 }
 
 /**
@@ -95,47 +63,20 @@ function readBody(req) {
  * @return {http.Server}
  */
 function createServer(deps = {}) {
-	const doInstall = deps.install || install
+	const handleInstall = installHandler(deps.install || install)
 
-	return http.createServer(async (req, res) => {
+	return http.createServer((req, res) => {
 		const path = new URL(req.url, 'http://localhost').pathname
+		if (req.method === 'POST' && path === '/install') {
+			handleInstall(req, res)
+			return
+		}
+		req.resume()
 		if (req.method === 'GET' && path === '/heartbeat') {
-			sendJson(res, 200, { status: 'ok', busy })
+			sendJson(res, 200, { status: 'ok' })
 			return
 		}
-		if (req.method !== 'POST' || path !== '/install') {
-			req.resume()
-			sendJson(res, 404, { error: 'not found' })
-			return
-		}
-
-		const verdict = auth.verify(lowerHeaders(req.headers), '')
-		if (!verdict.ok) {
-			req.resume()
-			sendJson(res, verdict.status, { error: 'unauthorised' })
-			return
-		}
-		if (busy) {
-			req.resume()
-			sendJson(res, 429, { error: 'The installer is busy. Try again shortly.' })
-			return
-		}
-
-		busy = true
-		const started = Date.now()
-		try {
-			const request = JSON.parse(await readBody(req))
-			const result = await doInstall({ manager: request.manager, package: request.package, version: request.version })
-			sendJson(res, 200, result)
-			log('info', `/install 200 in ${Date.now() - started} ms`)
-		} catch (error) {
-			const status = error.status || (error instanceof SyntaxError ? 400 : 500)
-			const message = status === 500 ? 'The installer could not install the tool.' : error.message
-			sendJson(res, status, { error: message })
-			log('warn', `/install ${status} in ${Date.now() - started} ms`)
-		} finally {
-			busy = false
-		}
+		sendJson(res, 404, { error: 'not found' })
 	})
 }
 
