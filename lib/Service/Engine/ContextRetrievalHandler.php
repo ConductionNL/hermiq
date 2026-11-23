@@ -569,8 +569,7 @@ class ContextRetrievalHandler {
 			mode: $searchMode,
 			query: (string)$run['query'],
 			limit: $limit,
-			views: array_values($run['viewFilters']),
-			fileIds: ($run['fileIds'] ?? null)
+			scope: ['views' => array_values($run['viewFilters']), 'fileIds' => ($run['fileIds'] ?? null)]
 		);
 	}//end vectorRows()
 

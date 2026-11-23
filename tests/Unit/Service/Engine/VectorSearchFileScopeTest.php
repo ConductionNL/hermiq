@@ -61,8 +61,8 @@ final class VectorSearchFileScopeTest extends TestCase {
 		$facade = new FileScopedVectorSearchFacadeStub();
 		$search = $this->search(facade: $facade, facadeClass: FileScopedVectorSearchFacadeStub::class);
 
-		$search->search(mode: 'semantic', query: 'mandaat', limit: 6, views: ['v-1'], fileIds: [3 => 12, 7 => 40]);
-		$search->search(mode: 'hybrid', query: 'mandaat', limit: 6, views: ['v-1'], fileIds: [12]);
+		$search->search(mode: 'semantic', query: 'mandaat', limit: 6, scope: ['views' => ['v-1'], 'fileIds' => [3 => 12, 7 => 40]]);
+		$search->search(mode: 'hybrid', query: 'mandaat', limit: 6, scope: ['views' => ['v-1'], 'fileIds' => [12]]);
 
 		$this->assertSame(
 			expected: [
@@ -83,8 +83,8 @@ final class VectorSearchFileScopeTest extends TestCase {
 		$facade = new FileScopedVectorSearchFacadeStub();
 		$search = $this->search(facade: $facade, facadeClass: FileScopedVectorSearchFacadeStub::class);
 
-		$search->search(mode: 'semantic', query: 'q', limit: 4, views: ['v-1']);
-		$search->search(mode: 'semantic', query: 'q', limit: 4, views: ['v-1'], fileIds: []);
+		$search->search(mode: 'semantic', query: 'q', limit: 4, scope: ['views' => ['v-1']]);
+		$search->search(mode: 'semantic', query: 'q', limit: 4, scope: ['views' => ['v-1'], 'fileIds' => []]);
 
 		$this->assertSame(expected: [[], []], actual: array_map(static fn (array $call): array => $call[1]['fileIds'], $facade->calls));
 	}//end testNoOrAnEmptyFileSetPassesNoScope()
@@ -99,7 +99,7 @@ final class VectorSearchFileScopeTest extends TestCase {
 		$facade->rows = [['entity_id' => 12, 'entity_type' => 'file', 'chunk_text' => 'a', 'similarity' => 0.8, 'metadata' => []]];
 
 		$rows = $this->search(facade: $facade, facadeClass: VectorSearchFacadeStub::class)
-			->search(mode: 'hybrid', query: 'q', limit: 4, views: ['v-1'], fileIds: [12]);
+			->search(mode: 'hybrid', query: 'q', limit: 4, scope: ['views' => ['v-1'], 'fileIds' => [12]]);
 
 		$this->assertSame(expected: [['searchHybrid', ['query' => 'q', 'limit' => 4, 'views' => ['v-1']]]], actual: $facade->calls);
 		$this->assertSame(expected: $facade->rows, actual: $rows);

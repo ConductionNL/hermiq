@@ -136,11 +136,13 @@ class VectorSearch {
 	 * outside the set, so the scope holds either way. An empty set is never passed: a
 	 * facade could read `fileIds: []` as "no restriction".
 	 *
-	 * @param string                 $mode    `semantic` or `hybrid`.
-	 * @param string                 $query   The question.
-	 * @param int                    $limit   At most this many rows.
-	 * @param array<int, int|string> $views   The resolved view filters, passed through.
-	 * @param list<int>|null         $fileIds The agent's file set, or null when unscoped.
+	 * `$scope` holds `views`, the resolved view filters passed through, and optionally
+	 * `fileIds`, the agent's file set (null or absent when unscoped).
+	 *
+	 * @param string                                                         $mode  `semantic` or `hybrid`.
+	 * @param string                                                         $query The question.
+	 * @param int                                                            $limit At most this many rows.
+	 * @param array{views: array<int, int|string>, fileIds?: list<int>|null} $scope The views and the file set.
 	 *
 	 * @return array<int, array<string, mixed>>|null The facade's rows, or null on the keyword tier.
 	 *
@@ -148,7 +150,7 @@ class VectorSearch {
 	 * @spec openspec/changes/vector-rag/tasks.md#task-2-3
 	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-owner-can-limit-file-retrieval-by-owner-file-name-and-modified-date-req-rscope-001
 	 */
-	public function search(string $mode, string $query, int $limit, array $views, ?array $fileIds=null): ?array {
+	public function search(string $mode, string $query, int $limit, array $scope): ?array {
 		$facade = $this->usableFacade(purpose: $mode . ' retrieval');
 		if ($facade === null) {
 			return null;
@@ -159,7 +161,8 @@ class VectorSearch {
 			$method = 'searchHybrid';
 		}
 
-		$arguments = ['query' => $query, 'limit' => $limit, 'views' => array_values($views)];
+		$arguments = ['query' => $query, 'limit' => $limit, 'views' => array_values($scope['views'])];
+		$fileIds   = ($scope['fileIds'] ?? null);
 		if ($fileIds !== null && $fileIds !== [] && self::takesFileIds(facade: $facade, method: $method) === true) {
 			$arguments['fileIds'] = array_values($fileIds);
 		}

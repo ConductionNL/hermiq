@@ -59,7 +59,7 @@ final class ContextRetrievalVectorFileScopeTest extends TestCase {
 		$container = $this->createMock(originalClassName: ContainerInterface::class);
 		$container->method('get')->willReturn($facade);
 
-		$resolver = $this->createMock(FileScopeResolver::class);
+		$resolver = $this->createMock(originalClassName: FileScopeResolver::class);
 		$resolver->method('resolve')->willReturn($fileSet);
 
 		$agent = new ObjectEntity();
@@ -76,7 +76,7 @@ final class ContextRetrievalVectorFileScopeTest extends TestCase {
 		);
 
 		$handler = new ContextRetrievalHandler(
-			objectService: $this->createMock(ObjectService::class),
+			objectService: $this->createMock(originalClassName: ObjectService::class),
 			logger: new NullLogger(),
 			fileScope: $resolver,
 			vectorSearch: new VectorSearch(container: $container, logger: new NullLogger(), facadeClass: $facadeClass)
@@ -110,7 +110,8 @@ final class ContextRetrievalVectorFileScopeTest extends TestCase {
 		$context = $this->retrieve(facade: $facade, facadeClass: VectorSearchFacadeStub::class, fileSet: [12]);
 
 		$this->assertArrayNotHasKey(key: 'fileIds', array: $facade->calls[0][1]);
-		$this->assertSame(expected: [[12, 'file'], ['obj-1', 'object']], actual: array_map(static fn (array $s): array => [$s['id'], $s['type']], $context['sources']));
+		$sources = array_map(static fn (array $s): array => [$s['id'], $s['type']], $context['sources']);
+		$this->assertSame(expected: [[12, 'file'], ['obj-1', 'object']], actual: $sources);
 	}//end testWithoutAFacadeScopeFileRowsOutsideTheSetAreDropped()
 
 	/**
