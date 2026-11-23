@@ -49,8 +49,11 @@ is already covered. Task 3 verifies the existing behaviour against the new entry
   - GIVEN an `anthropic-oauth` credential WHEN `resolveInjectable()` is called THEN it still returns `null` — the proxy providers stay zero-knowledge
   - GIVEN the Credentials tab WHEN a user opens hermiq Settings THEN `anthropic-cli` is offered with its declared reason, and saving a credential succeeds
   - GIVEN this task WHEN it finds a gap THEN a code change is OUT OF SCOPE here — raise it, do not widen this `kind: config` change
-- [ ] Implement
+- [x] Implement
+  - 2026-11-23, read against openregister `main` (4588c723): `anthropic-cli` is `inject_only: true` with no `baseUrl` and no `allowRules` (catalogue 1.12.0); `anthropic-oauth` carries no `inject_only`, so `resolveInjectableFor()` refuses it (`CredentialBrokerService.php:490`). The inject-only branch denies a proxied request (`:260`), and the owner (`:1149`) and `allowedApps` (`:1330-1332`) guards run before a secret is returned. The line numbers in the criteria above predate these moves; the guards are unchanged. No gap.
+  - `tests/Unit/Settings/AnthropicCliCredentialDeclarationTest.php` pins the declaration in `src/credentials.json` and, with an OpenRegister checkout next to this one, that the identifier resolves to that inject-only entry. Breaking `inject_only` in the catalogue fails it.
 - [ ] Test
+  - Open: the Credentials tab check (the row offered with its reason, a save that succeeds) needs a running Nextcloud with OpenRegister.
 
 ## Quality checklist
 
