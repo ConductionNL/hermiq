@@ -10,10 +10,10 @@ Kind: code. Size M. Rows `hermiq:dm-metadata-filter`, `td-validated-sources`.
 - **acceptance_criteria**:
   - GIVEN an owner filter on a group and a date WHEN a turn retrieves THEN the facade's `fileIds` holds only matching files the person can read
   - GIVEN filters that match nothing WHEN a turn retrieves THEN no file search runs
-- [ ] Implement
+- [x] Implement
   - Backend built: `Agent.ragFileFilters` (register 0.53.0), `lib/Service/RetrievalScope/FileScopeResolver.php` (one Nextcloud file search as the session user, owners expanded from groups, name LIKE, mtime range; null when unset, an empty set when nothing can match) and `ContextRetrievalHandler` (an empty set switches file search off; file rows outside the set are dropped).
   - Form built: owners (people and groups), file name pattern and modified after/before in `src/modals/AgentFormModal.vue`, read and written by `src/utils/retrievalScope.js`, with en/nl strings. A default the form leaves alone is not written onto an agent that never held it.
-  - Open: handing the set to the vector facade's `fileIds`. `vector-rag` has not shipped a public facade yet, so retrieval still takes the keyword path, where file rows outside the set are already dropped.
+  - Facade hand-over built: a semantic or hybrid turn passes the file set to OpenRegister's vector facade as `fileIds` (`VectorSearch::search()`, from `ContextRetrievalHandler::vectorRows()`) when the facade's search method takes that argument, and never passes an empty set. The facade on openregister main (`searchSemantic`/`searchHybrid`) takes no `fileIds` yet; it is then asked as published and file rows outside the set are dropped afterwards, so the scope holds either way. Tests: `VectorSearchFileScopeTest`, `ContextRetrievalVectorFileScopeTest`.
 - [x] Test (PHPUnit on the query built and on the empty case)
   - `FileScopeResolverTest`, `ContextRetrievalFileScopeTest`.
 
