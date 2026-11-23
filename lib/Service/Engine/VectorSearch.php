@@ -24,6 +24,7 @@ namespace OCA\Hermiq\Service\Engine;
 
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
+use ReflectionMethod;
 use Throwable;
 
 /**
@@ -129,17 +130,25 @@ class VectorSearch {
 	 *
 	 * The caller gates on views first: this is never asked with an empty view set.
 	 *
-	 * @param string                 $mode  `semantic` or `hybrid`.
-	 * @param string                 $query The question.
-	 * @param int                    $limit At most this many rows.
-	 * @param array<int, int|string> $views The resolved view filters, passed through.
+	 * A file set (memory-retrieval-scope) is handed to the facade as `fileIds` when its
+	 * search method takes that argument, so the facade searches only those files. A
+	 * facade without the argument is asked as before; the caller still drops file rows
+	 * outside the set, so the scope holds either way. An empty set is never passed: a
+	 * facade could read `fileIds: []` as "no restriction".
+	 *
+	 * @param string                 $mode    `semantic` or `hybrid`.
+	 * @param string                 $query   The question.
+	 * @param int                    $limit   At most this many rows.
+	 * @param array<int, int|string> $views   The resolved view filters, passed through.
+	 * @param list<int>|null         $fileIds The agent's file set, or null when unscoped.
 	 *
 	 * @return array<int, array<string, mixed>>|null The facade's rows, or null on the keyword tier.
 	 *
 	 * @spec openspec/changes/vector-rag/tasks.md#task-2-1
 	 * @spec openspec/changes/vector-rag/tasks.md#task-2-3
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-owner-can-limit-file-retrieval-by-owner-file-name-and-modified-date-req-rscope-001
 	 */
-	public function search(string $mode, string $query, int $limit, array $views): ?array {
+	public function search(string $mode, string $query, int $limit, array $views, ?array $fileIds=null): ?array {
 		$facade = $this->usableFacade(purpose: $mode . ' retrieval');
 		if ($facade === null) {
 			return null;
@@ -150,8 +159,13 @@ class VectorSearch {
 			$method = 'searchHybrid';
 		}
 
+		$arguments = ['query' => $query, 'limit' => $limit, 'views' => array_values($views)];
+		if ($fileIds !== null && $fileIds !== [] && self::takesFileIds(facade: $facade, method: $method) === true) {
+			$arguments['fileIds'] = array_values($fileIds);
+		}
+
 		try {
-			$rows = $facade->{$method}(query: $query, limit: $limit, views: array_values($views));
+			$rows = $facade->{$method}(...$arguments);
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				message: '[VectorSearch] the OpenRegister vector facade failed; degrading to keyword search',
@@ -226,6 +240,30 @@ class VectorSearch {
 
 		return $model;
 	}//end modelId()
+
+	/**
+	 * Whether the facade's search method takes a `fileIds` argument.
+	 *
+	 * @param object $facade The facade.
+	 * @param string $method `searchSemantic` or `searchHybrid`.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-owner-can-limit-file-retrieval-by-owner-file-name-and-modified-date-req-rscope-001
+	 */
+	private static function takesFileIds(object $facade, string $method): bool {
+		if (method_exists($facade, $method) === false) {
+			return false;
+		}
+
+		foreach ((new ReflectionMethod($facade, $method))->getParameters() as $parameter) {
+			if ($parameter->getName() === 'fileIds') {
+				return true;
+			}
+		}
+
+		return false;
+	}//end takesFileIds()
 
 	/**
 	 * The facade when it is present and has a backend, logging which tier stops it otherwise.
