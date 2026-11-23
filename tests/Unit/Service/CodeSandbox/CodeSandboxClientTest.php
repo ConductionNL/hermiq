@@ -552,7 +552,8 @@ class CodeSandboxClientTest extends TestCase {
 	 * @return void
 	 */
 	public function testAnInstalledToolRunIsRefusedOnAHostedBackendAndCarriesTheSandboxesReason(): void {
-		$appApi = $this->appApi(answer: $this->response(status: 404, body: '{"error":"The tool layer has no binary named csvjson.","code":"tool_missing"}'));
+		$refused = $this->response(status: 404, body: '{"error":"The tool layer has no binary named csvjson.","code":"tool_missing"}');
+		$appApi = $this->appApi(answer: $refused);
 		$call = ['sha256' => str_repeat(string: 'a', times: 64), 'tool' => 'csvjson'];
 		$noLayer = static fn (): string => '';
 

@@ -70,13 +70,12 @@ function invalidArgs(args) {
 }
 
 /**
- * Why an installed-tool request cannot run, or null when it can.
+ * Why the named tool cannot be run, or null when it can.
  *
- * @param {object} request `{installed: {sha256, tool, args}, layer, files, stdin, limits}`.
+ * @param {*} installed The `installed` entry: `{sha256, tool, args}`.
  * @return {string|null}
  */
-function invalid(request) {
-	const installed = request && request.installed
+function invalidTool(installed) {
 	if (!installed || typeof installed !== 'object') {
 		return 'The request does not name an installed tool.'
 	}
@@ -86,13 +85,27 @@ function invalid(request) {
 	if (typeof installed.tool !== 'string' || !TOOL_PATTERN.test(installed.tool)) {
 		return 'The tool is the plain name of an installed binary.'
 	}
+	return invalidArgs(installed.args)
+}
+
+/**
+ * Why an installed-tool request cannot run, or null when it can.
+ *
+ * @param {object} request `{installed: {sha256, tool, args}, layer, files, stdin, limits}`.
+ * @return {string|null}
+ */
+function invalid(request) {
+	const tool = invalidTool(request && request.installed)
+	if (tool !== null) {
+		return tool
+	}
 	if (request.stdin !== undefined && typeof request.stdin !== 'string') {
 		return 'stdin is text.'
 	}
 	if (request.layer !== undefined && typeof request.layer !== 'string') {
 		return 'The layer is sent as base64 text.'
 	}
-	return invalidArgs(installed.args) || runner.invalidFiles(request.files, true)
+	return runner.invalidFiles(request.files, true)
 }
 
 /**
@@ -191,7 +204,7 @@ async function runInstalled(request) {
 	try {
 		const { work, before } = runner.placeWorkspace(dir, request.files)
 		const cmd = runner.limitedCommand([binary, ...(request.installed.args || [])], limits, false)
-		const outcome = await runner.executeCommand(cmd, limits, work, request.stdin || '', env)
+		const outcome = await runner.executeCommand(cmd, limits, { dir: work, stdin: request.stdin || '', env })
 		const changed = runner.changedFiles(work, before)
 		return { ...outcome, files: changed.files, filesTruncated: changed.truncated, limits }
 	} finally {

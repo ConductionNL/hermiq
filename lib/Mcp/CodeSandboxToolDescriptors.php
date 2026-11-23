@@ -149,14 +149,7 @@ final class CodeSandboxToolDescriptors {
 							'description' => 'Run on the agent\'s workspace and write back what the run changes. Default true when '
 								. 'the agent has a workspace and no `files` are named.',
 						],
-						'paths' => [
-							'type' => 'array',
-							'items' => ['type' => 'string'],
-							'description' => 'Workspace paths to send instead of the whole workspace (limit 10 MB together).',
-						],
-						'timeoutSeconds' => ['type' => 'integer', 'description' => 'Wall time limit (default 30, max 300).'],
-						'memoryMb' => ['type' => 'integer', 'description' => 'Memory limit (default 512, max 2048).'],
-					],
+					] + self::workspaceRunProperties(),
 					'required' => ['language', 'code'],
 				],
 				'readOnlyHint' => false,
@@ -202,14 +195,7 @@ final class CodeSandboxToolDescriptors {
 						'description' => 'The arguments, each passed as one argument.',
 					],
 					'stdin' => ['type' => 'string', 'description' => 'What the tool reads on standard input.'],
-					'paths' => [
-						'type' => 'array',
-						'items' => ['type' => 'string'],
-						'description' => 'Workspace paths to send instead of the whole workspace (limit 10 MB together).',
-					],
-					'timeoutSeconds' => ['type' => 'integer', 'description' => 'Wall time limit (default 30, max 300).'],
-					'memoryMb' => ['type' => 'integer', 'description' => 'Memory limit (default 512, max 2048).'],
-				],
+				] + self::workspaceRunProperties(),
 				'required' => ['tool'],
 			],
 			'readOnlyHint' => false,
@@ -255,6 +241,26 @@ final class CodeSandboxToolDescriptors {
 			'scope' => 'create',
 		];
 	}//end installTool()
+
+	/**
+	 * The input properties every sandbox run on the workspace takes: the paths
+	 * to send and the limits.
+	 *
+	 * @return array<string, array<string, mixed>>
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-installed-tool-runs-with-an-argument-list-and-no-shell-req-wksp-005
+	 */
+	private static function workspaceRunProperties(): array {
+		return [
+			'paths' => [
+				'type' => 'array',
+				'items' => ['type' => 'string'],
+				'description' => 'Workspace paths to send instead of the whole workspace (limit 10 MB together).',
+			],
+			'timeoutSeconds' => ['type' => 'integer', 'description' => 'Wall time limit (default 30, max 300).'],
+			'memoryMb' => ['type' => 'integer', 'description' => 'Memory limit (default 512, max 2048).'],
+		];
+	}//end workspaceRunProperties()
 
 	/**
 	 * The reach lifted to at least `user`.

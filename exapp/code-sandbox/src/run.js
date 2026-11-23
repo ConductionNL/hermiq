@@ -410,7 +410,7 @@ async function run(request) {
  * @return {Promise<object>} `{exitCode, stdout, stderr, durationMs, timedOut, stdoutTruncated, stderrTruncated}`.
  */
 function execute(language, limits, dir, stdin, program = language.file) {
-	return executeCommand(commandFor(language, limits, program), limits, dir, stdin)
+	return executeCommand(commandFor(language, limits, program), limits, { dir, stdin })
 }
 
 /**
@@ -418,13 +418,14 @@ function execute(language, limits, dir, stdin, program = language.file) {
  *
  * @param {{command: string, args: string[]}} cmd The command, from limitedCommand().
  * @param {{wallSeconds: number, memoryMb: number}} limits The limits.
- * @param {string} dir The working directory.
- * @param {string} stdin The input.
- * @param {object} extraEnv Variables added to the run's bare environment.
+ * @param {{dir: string, stdin: string, env: object}} where The working directory, the input, and
+ *   variables added to the run's bare environment.
  * @return {Promise<object>} `{exitCode, stdout, stderr, durationMs, timedOut, stdoutTruncated, stderrTruncated}`.
  */
-function executeCommand(cmd, limits, dir, stdin, extraEnv = {}) {
+function executeCommand(cmd, limits, where) {
 	const { command, args } = cmd
+	const { dir, stdin } = where
+	const extraEnv = where.env || {}
 	const started = Date.now()
 	const stdout = capped()
 	const stderr = capped()
