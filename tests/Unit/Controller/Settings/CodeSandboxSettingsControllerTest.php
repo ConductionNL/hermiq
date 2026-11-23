@@ -111,8 +111,30 @@ class CodeSandboxSettingsControllerTest extends TestCase {
 		self::assertSame(200, $response->getStatus());
 		self::assertSame('hosted', $response->getData()['backend']);
 		self::assertSame('src-sandbox', $response->getData()['hostedSource']);
-		self::assertSame(['backend' => 'hosted', 'hostedSource' => 'src-sandbox'], json_decode($this->stored, true));
+		self::assertSame(['backend' => 'hosted', 'hostedSource' => 'src-sandbox', 'installManagers' => ['pip', 'npm']], json_decode($this->stored, true));
 	}//end testAHostedChoiceIsSavedWithItsSource()
+
+	/**
+	 * The registries an agent may install from are saved with the backend; an
+	 * unknown one is refused and stores nothing.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-installs-command-line-tools-only-from-an-allowlisted-registry-without-install-scripts-req-wksp-004
+	 */
+	public function testTheInstallRegistriesAreSavedAndAnUnknownOneStoresNothing(): void {
+		$refused = $this->controller(params: ['backend' => 'exapp', 'installManagers' => ['pip', 'cargo']])->update();
+		self::assertSame(422, $refused->getStatus());
+		self::assertSame('', $this->stored);
+
+		$refused = $this->controller(params: ['backend' => 'docker', 'installManagers' => ['pip']])->update();
+		self::assertSame(422, $refused->getStatus());
+		self::assertSame('', $this->stored);
+
+		$response = $this->controller(params: ['backend' => 'exapp', 'installManagers' => ['pip']])->update();
+		self::assertSame(200, $response->getStatus());
+		self::assertSame(['pip'], $response->getData()['installManagers']);
+	}//end testTheInstallRegistriesAreSavedAndAnUnknownOneStoresNothing()
 
 	/**
 	 * An unknown backend, a hosted choice without a source, or a value that is

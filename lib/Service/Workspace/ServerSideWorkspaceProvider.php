@@ -493,6 +493,68 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider, ServerSideWorksp
 	}//end buildStore()
 
 	/**
+	 * The directory installed tool layers are kept in, beside the workspaces,
+	 * each named by its SHA-256 so equal layers are stored once.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-installs-command-line-tools-only-from-an-allowlisted-registry-without-install-scripts-req-wksp-004
+	 */
+	public function toolLayerStore(): string {
+		return dirname($this->base()) . '/workspace-tool-layers';
+	}//end toolLayerStore()
+
+	/**
+	 * Record a tool installed for the workspace's conversation, replacing an
+	 * earlier install of the same package with the same manager.
+	 *
+	 * @param string               $runKey The workspace key.
+	 * @param array<string, mixed> $tool   `{manager, package, version, sha256, binaries}`.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException When no workspace is open for the key.
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#scenario-an-agent-installs-csvkit
+	 */
+	public function recordInstalledTool(string $runKey, array $tool): void {
+		$this->root(runKey: $runKey);
+		$dir = $this->dirFor(runKey: $runKey);
+		$meta = (array)$this->readMeta(dir: $dir);
+		$tools = [];
+		foreach ((array)($meta['tools'] ?? []) as $known) {
+			$same = (is_array($known) === true
+				&& ($known['manager'] ?? null) === ($tool['manager'] ?? null)
+				&& ($known['package'] ?? null) === ($tool['package'] ?? null));
+			if ($same === false) {
+				$tools[] = $known;
+			}
+		}
+
+		$tools[] = $tool;
+		$meta['tools'] = $tools;
+		$this->writeMeta(dir: $dir, meta: $meta);
+	}//end recordInstalledTool()
+
+	/**
+	 * The tools installed for the workspace's conversation; none when no workspace is open.
+	 *
+	 * @param string $runKey The workspace key.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning/spec.md#requirement-an-agent-owner-can-publish-a-build-that-pins-files-and-installed-tools-req-build-001
+	 */
+	public function installedTools(string $runKey): array {
+		$meta = $this->readMeta(dir: $this->dirFor(runKey: $runKey));
+		if ($meta === null) {
+			return [];
+		}
+
+		return array_values(array_filter((array)($meta['tools'] ?? []), 'is_array'));
+	}//end installedTools()
+
+	/**
 	 * Remove every workspace idle for longer than the retention window.
 	 *
 	 * @return int The number removed.

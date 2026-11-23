@@ -285,6 +285,7 @@ class GuardrailPolicyService implements GuardrailPolicyServiceInterface {
 			'inputFilters' => ['piiAction' => 'off', 'promptInjectionAction' => 'off'],
 			'outputFilters' => ['piiAction' => 'off'],
 			'toolPolicy' => [],
+			'packageAllowlist' => [],
 			'enabled' => true,
 		];
 
@@ -526,7 +527,8 @@ class GuardrailPolicyService implements GuardrailPolicyServiceInterface {
 	 * `$organisation === ''` upserts the organisation-less instance default.
 	 *
 	 * @param string $organisation The target organisation ('' for the instance default).
-	 * @param array<string, mixed> $payload The requested `inputFilters`/`outputFilters`/`toolPolicy`/`enabled` fields.
+	 * @param array<string, mixed> $payload The requested `inputFilters`/`outputFilters`/`toolPolicy`/`enabled` fields,
+	 *                                      and `packageAllowlist`, kept as stored when absent.
 	 *
 	 * @return array<string, mixed> The shaped, persisted policy.
 	 *
@@ -553,6 +555,13 @@ class GuardrailPolicyService implements GuardrailPolicyServiceInterface {
 		$data['outputFilters'] = $outputFilters;
 		$data['toolPolicy'] = $toolPolicy;
 		$data['enabled'] = $enabled;
+		if (array_key_exists('packageAllowlist', $payload) === true) {
+			if (is_array($payload['packageAllowlist']) === false) {
+				throw new InvalidArgumentException('packageAllowlist must be a list of package names');
+			}
+
+			$data['packageAllowlist'] = $this->lenientPackageAllowlist(raw: $payload['packageAllowlist']);
+		}
 
 		// Pin the policy to the TARGET organisation, not the actor's active
 		// organisation (mirrors OrganisationModelPolicyService::upsertForOrganisation()'s
@@ -745,10 +754,36 @@ class GuardrailPolicyService implements GuardrailPolicyServiceInterface {
 			'inputFilters' => $this->lenientInputFilters(raw: $data['inputFilters'] ?? []),
 			'outputFilters' => $this->lenientOutputFilters(raw: $data['outputFilters'] ?? []),
 			'toolPolicy' => $this->lenientToolPolicy(raw: $data['toolPolicy'] ?? []),
+			'packageAllowlist' => $this->lenientPackageAllowlist(raw: $data['packageAllowlist'] ?? []),
 			'enabled' => ($data['enabled'] ?? true) !== false,
 		];
 
 	}//end shape()
+
+	/**
+	 * A lenient read of a stored `packageAllowlist`: the non-empty strings,
+	 * trimmed; anything else reads as no list.
+	 *
+	 * @param mixed $raw The stored `packageAllowlist` value.
+	 *
+	 * @return array<int, string>
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-installs-command-line-tools-only-from-an-allowlisted-registry-without-install-scripts-req-wksp-004
+	 */
+	private function lenientPackageAllowlist(mixed $raw): array {
+		if (is_array($raw) === false) {
+			return [];
+		}
+
+		$entries = [];
+		foreach ($raw as $entry) {
+			if (is_string($entry) === true && trim($entry) !== '') {
+				$entries[] = trim($entry);
+			}
+		}
+
+		return array_values(array_unique($entries));
+	}//end lenientPackageAllowlist()
 
 	/**
 	 * A lenient (non-throwing) read of a stored `inputFilters` value — falls

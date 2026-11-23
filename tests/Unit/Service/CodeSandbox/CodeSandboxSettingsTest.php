@@ -74,7 +74,7 @@ class CodeSandboxSettingsTest extends TestCase {
 	public function testNothingStoredIsTheOwnSandbox(): void {
 		$settings = $this->settings();
 
-		$this->assertSame(['backend' => 'exapp', 'hostedSource' => null, 'reach' => 'self'], $settings->toArray());
+		$this->assertSame(['backend' => 'exapp', 'hostedSource' => null, 'reach' => 'self', 'installManagers' => ['pip', 'npm']], $settings->toArray());
 	}//end testNothingStoredIsTheOwnSandbox()
 
 	/**
@@ -140,4 +140,41 @@ class CodeSandboxSettingsTest extends TestCase {
 		$this->assertSame('exapp', $this->settings(stored: '{"backend":"hosted","hostedSource":""}')->backend());
 		$this->assertSame('exapp', $this->settings(stored: '{"backend":"hosted","hostedSource":7}')->backend());
 	}//end testAnyDoubtfulStoredValueReadsAsTheOwnSandbox()
+
+	/**
+	 * Both registries are allowed until an admin narrows them, and a backend
+	 * save keeps the narrowed list.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-installs-command-line-tools-only-from-an-allowlisted-registry-without-install-scripts-req-wksp-004
+	 */
+	public function testTheInstallRegistriesAreBothUntilNarrowedAndSurviveABackendSave(): void {
+		$settings = $this->settings();
+		$this->assertSame(['pip', 'npm'], $settings->installManagers());
+
+		$this->assertSame(['pip'], $settings->saveInstallManagers(managers: ['pip']));
+		$settings->save(backend: 'exapp');
+
+		$this->assertSame(['pip'], $settings->installManagers());
+		$this->assertSame(['pip'], $settings->toArray()['installManagers']);
+		$this->assertSame([], $settings->saveInstallManagers(managers: []));
+	}//end testTheInstallRegistriesAreBothUntilNarrowedAndSurviveABackendSave()
+
+	/**
+	 * An unknown registry is refused and a doubtful stored list is read safely.
+	 *
+	 * @return void
+	 */
+	public function testAnUnknownRegistryIsRefusedAndADoubtfulStoredListReadsSafely(): void {
+		try {
+			$this->settings()->saveInstallManagers(managers: ['pip', 'cargo']);
+			$this->fail('An unknown registry was stored.');
+		} catch (InvalidArgumentException $e) {
+			$this->assertSame('Tools are installed from pip or npm.', $e->getMessage());
+		}
+
+		$this->assertSame(['pip', 'npm'], $this->settings(stored: '{"backend":"exapp","installManagers":"pip"}')->installManagers());
+		$this->assertSame(['npm'], $this->settings(stored: '{"backend":"exapp","installManagers":["npm","cargo"]}')->installManagers());
+	}//end testAnUnknownRegistryIsRefusedAndADoubtfulStoredListReadsSafely()
 }//end class

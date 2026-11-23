@@ -154,9 +154,8 @@ class AgentBuildService {
 				'repository' => $archive['repository'],
 				'ref' => $archive['ref'],
 			],
-			// Installed tools are recorded here once the installer exists; until then
-			// a build pins files only (tools-agent-workspace-and-installed-tools task 4).
-			'tools' => [],
+			// The tools installed in this conversation, each pinned by its layer's hash.
+			'tools' => self::buildTools(installed: $this->workspaces->installedTools(runKey: $key)),
 			'sourceSessionId' => $sessionId,
 			'note' => mb_substr(trim($note), 0, self::MAX_NOTE_LENGTH),
 			'createdBy' => $userId,
@@ -173,6 +172,29 @@ class AgentBuildService {
 		$this->pin(agent: $agent, buildId: (string)$build->getUuid());
 		return $this->view(build: $build);
 	}//end publish()
+
+	/**
+	 * The installed tools as a build pins them: `{manager, package, version, sha256}`.
+	 *
+	 * @param array<int, array<string, mixed>> $installed The workspace's installed tools.
+	 *
+	 * @return array<int, array{manager: string, package: string, version: string, sha256: string}>
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning/spec.md#requirement-an-agent-owner-can-publish-a-build-that-pins-files-and-installed-tools-req-build-001
+	 */
+	private static function buildTools(array $installed): array {
+		$tools = [];
+		foreach ($installed as $tool) {
+			$tools[] = [
+				'manager' => (string)($tool['manager'] ?? ''),
+				'package' => (string)($tool['package'] ?? ''),
+				'version' => (string)($tool['version'] ?? ''),
+				'sha256' => (string)($tool['sha256'] ?? ''),
+			];
+		}
+
+		return $tools;
+	}//end buildTools()
 
 	/**
 	 * The agent's builds, newest first, with the pin and whether the agent changed since it.

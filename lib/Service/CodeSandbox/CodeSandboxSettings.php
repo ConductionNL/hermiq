@@ -58,6 +58,12 @@ final class CodeSandboxSettings {
 	public const BACKENDS = [self::BACKEND_EXAPP, self::BACKEND_HOSTED];
 
 	/**
+	 * The registries an agent may install tools from, by package manager
+	 * (tools-agent-workspace-and-installed-tools D4).
+	 */
+	public const INSTALL_MANAGERS = ['pip', 'npm'];
+
+	/**
 	 * The app id the configuration lives under.
 	 */
 	private const APP_ID = 'hermiq';
@@ -147,17 +153,62 @@ final class CodeSandboxSettings {
 		}
 
 		$choice = ['backend' => $backend, 'hostedSource' => $source];
-		$this->appConfig->setValueString(self::APP_ID, self::CONFIG_KEY, (string)json_encode($choice));
+		$this->appConfig->setValueString(self::APP_ID, self::CONFIG_KEY, (string)json_encode($choice + ['installManagers' => $this->installManagers()]));
 
 		return $choice;
 	}//end save()
 
 	/**
+	 * The package managers whose registries an agent may install tools from:
+	 * both unless an admin narrowed them. A stored value that is not a list
+	 * reads as both; unknown entries are dropped.
+	 *
+	 * @return array<int, string> A subset of INSTALL_MANAGERS.
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-installs-command-line-tools-only-from-an-allowlisted-registry-without-install-scripts-req-wksp-004
+	 */
+	public function installManagers(): array {
+		$stored = ($this->stored()['installManagers'] ?? null);
+		if (is_array($stored) === false) {
+			return self::INSTALL_MANAGERS;
+		}
+
+		return array_values(array_intersect(self::INSTALL_MANAGERS, $stored));
+	}//end installManagers()
+
+	/**
+	 * Store the registries an agent may install tools from.
+	 *
+	 * @param array<int, mixed> $managers A subset of INSTALL_MANAGERS; empty allows none.
+	 *
+	 * @return array<int, string> The stored managers.
+	 *
+	 * @throws InvalidArgumentException When an entry is not a known package manager.
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-installs-command-line-tools-only-from-an-allowlisted-registry-without-install-scripts-req-wksp-004
+	 */
+	public function saveInstallManagers(array $managers): array {
+		foreach ($managers as $manager) {
+			if (in_array($manager, self::INSTALL_MANAGERS, true) === false) {
+				throw new InvalidArgumentException('Tools are installed from pip or npm.');
+			}
+		}
+
+		$allowed = array_values(array_intersect(self::INSTALL_MANAGERS, $managers));
+		$stored = $this->stored();
+		$stored['installManagers'] = $allowed;
+		$this->appConfig->setValueString(self::APP_ID, self::CONFIG_KEY, (string)json_encode($stored));
+
+		return $allowed;
+	}//end saveInstallManagers()
+
+	/**
 	 * The choice as the admin section shows it.
 	 *
-	 * @return array{backend: string, hostedSource: string|null, reach: string}
+	 * @return array{backend: string, hostedSource: string|null, reach: string, installManagers: array<int, string>}
 	 *
 	 * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-the-admin-chooses-where-code-runs-req-sandbox-004
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-installs-command-line-tools-only-from-an-allowlisted-registry-without-install-scripts-req-wksp-004
 	 */
 	public function toArray(): array {
 		$backend = $this->backend();
@@ -170,6 +221,7 @@ final class CodeSandboxSettings {
 			'backend' => $backend,
 			'hostedSource' => $source,
 			'reach' => $this->reach(),
+			'installManagers' => $this->installManagers(),
 		];
 	}//end toArray()
 

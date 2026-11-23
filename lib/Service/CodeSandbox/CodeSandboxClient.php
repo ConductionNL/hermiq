@@ -57,6 +57,16 @@ class CodeSandboxClient {
 	public const RUN_ROUTE = '/run';
 
 	/**
+	 * The sandbox's install route, forwarded to its installer service.
+	 */
+	public const INSTALL_ROUTE = '/install';
+
+	/**
+	 * Seconds an install may take, resolution and packing included.
+	 */
+	public const INSTALL_TIMEOUT_SECONDS = 600;
+
+	/**
 	 * The languages the sandbox image carries.
 	 */
 	public const LANGUAGES = ['python', 'node'];
@@ -173,6 +183,103 @@ class CodeSandboxClient {
 
 		return $this->send(payload: $payload, uid: $uid);
 	}//end runOnWorkspace()
+
+	/**
+	 * Install one tool in the sandbox's installer and answer its layer.
+	 *
+	 * Only the own sandbox installs: its installer reaches the allowlisted
+	 * registries through its own egress proxy. A hosted backend refuses before
+	 * anything is sent.
+	 *
+	 * @param string      $manager The package manager: `pip` or `npm`.
+	 * @param string      $package The package.
+	 * @param string|null $version One exact version, or null for the latest.
+	 * @param string|null $uid     The acting user, passed to AppAPI.
+	 *
+	 * @return array{manager: string, package: string, version: string, versions: array<int, array{name: string, version: string}>,
+	 *   binaries: array<int, string>, layer: array{sha256: string, archive: string}} The installer's answer, the archive base64.
+	 *
+	 * @throws CodeSandboxUnavailableException When the own sandbox is not there; nothing was sent.
+	 * @throws RuntimeException               When the installer refused the install or answered malformed.
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-installs-command-line-tools-only-from-an-allowlisted-registry-without-install-scripts-req-wksp-004
+	 */
+	public function install(string $manager, string $package, ?string $version, ?string $uid): array {
+		if ($this->settings->backend() === CodeSandboxSettings::BACKEND_HOSTED) {
+			throw new CodeSandboxUnavailableException(CodeSandboxUnavailableException::INSTALL_NEEDS_EXAPP);
+		}
+
+		$appApi = $this->appApi();
+		if ($appApi === null) {
+			throw new CodeSandboxUnavailableException(CodeSandboxUnavailableException::NOT_INSTALLED);
+		}
+
+		$result = $appApi->exAppRequest(
+			self::EXAPP_ID,
+			self::INSTALL_ROUTE,
+			$uid,
+			'POST',
+			['manager' => $manager, 'package' => $package, 'version' => $version],
+			['timeout' => self::INSTALL_TIMEOUT_SECONDS]
+		);
+
+		if (is_array($result) === true) {
+			$this->logger->warning('[CodeSandboxClient] the sandbox ExApp could not be reached', ['reason' => (string)($result['error'] ?? 'unknown')]);
+			throw new CodeSandboxUnavailableException(CodeSandboxUnavailableException::NOT_INSTALLED);
+		}
+
+		$status = (int)$result->getStatusCode();
+		$decoded = json_decode((string)$result->getBody(), true);
+		if ($status < 200 || $status > 299) {
+			$this->logger->warning('[CodeSandboxClient] the installer refused the install', ['status' => $status]);
+			$reason = 'The installer could not install the tool (HTTP ' . $status . ').';
+			if (is_array($decoded) === true && is_string($decoded['error'] ?? null) === true) {
+				$reason = $decoded['error'];
+			}
+
+			throw new RuntimeException($reason);
+		}
+
+		return self::mapInstall(decoded: $decoded);
+	}//end install()
+
+	/**
+	 * The install result from the installer's answer.
+	 *
+	 * @param mixed $decoded The decoded body.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @throws RuntimeException When the answer is not an install result.
+	 */
+	private static function mapInstall(mixed $decoded): array {
+		$layer = [];
+		if (is_array($decoded) === true && is_array($decoded['layer'] ?? null) === true) {
+			$layer = $decoded['layer'];
+		}
+
+		$sha256 = ($layer['sha256'] ?? null);
+		$archive = ($layer['archive'] ?? null);
+		if (is_string($sha256) === false || preg_match('/^[0-9a-f]{64}$/', $sha256) !== 1 || is_string($archive) === false) {
+			throw new RuntimeException('The installer answered without a tool layer.');
+		}
+
+		$versions = [];
+		foreach ((array)($decoded['versions'] ?? []) as $entry) {
+			if (is_array($entry) === true && is_string($entry['name'] ?? null) === true && is_string($entry['version'] ?? null) === true) {
+				$versions[] = ['name' => $entry['name'], 'version' => $entry['version']];
+			}
+		}
+
+		return [
+			'manager' => (string)($decoded['manager'] ?? ''),
+			'package' => (string)($decoded['package'] ?? ''),
+			'version' => (string)($decoded['version'] ?? ''),
+			'versions' => $versions,
+			'binaries' => array_values(array_filter((array)($decoded['binaries'] ?? []), 'is_string')),
+			'layer' => ['sha256' => $sha256, 'archive' => $archive],
+		];
+	}//end mapInstall()
 
 	/**
 	 * The run contract's request, its limits clamped.

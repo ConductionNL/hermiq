@@ -6,6 +6,9 @@
 //   GET  /heartbeat  AppAPI's health probe; no auth, runs nothing.
 //   PUT  /enabled    AppAPI's enable/disable call; AppAPI auth.
 //   POST /run        One run of code; AppAPI auth before anything else.
+//   POST /install    One tool install, forwarded to the installer service, which
+//                    runs in its own container on its own network
+//                    (tools-agent-workspace-and-installed-tools D4).
 //
 // There is no /init handler on purpose: AppAPI reads a 404 there as "nothing
 // to initialise" (see exapp/llm-runner/src/server.js). Runs are taken one at a
@@ -147,17 +150,21 @@ function handleEnabled(req, res) {
 }
 
 /**
- * Forward a browser action to the browser service, which runs in its own
- * container (tools-browser-and-computer-use D1). The AppAPI headers travel with
- * it and the browser service checks them itself; this server only refuses
- * early, and answers 503 when no browser service is configured.
+ * Forward a request to a sibling service in its own container: the browser
+ * service (tools-browser-and-computer-use D1) or the installer
+ * (tools-agent-workspace-and-installed-tools D4). The AppAPI headers travel
+ * with it and the service checks them itself; this server only refuses early,
+ * and answers 503 when the service is not configured or cannot be reached.
  *
  * @param {http.IncomingMessage} req The request.
  * @param {http.ServerResponse} res The response.
  * @param {string} path The request path.
+ * @param {string|undefined} baseUrl The service's base URL.
+ * @param {string} name The service, for the refusal.
+ * @param {string} code The machine code of the refusal.
  * @return {void}
  */
-function handleBrowser(req, res, path) {
+function forward(req, res, path, baseUrl, name, code) {
 	const verdict = auth.verify(lowerHeaders(req.headers), '')
 	if (!verdict.ok) {
 		req.resume()
@@ -166,18 +173,41 @@ function handleBrowser(req, res, path) {
 	}
 	let target
 	try {
-		target = new URL(path, process.env.BROWSER_CONTROL_URL || '')
+		target = new URL(path, baseUrl || '')
 	} catch (e) {
 		req.resume()
-		sendJson(res, 503, { error: 'The browser service is not configured.', code: 'browser_unavailable' })
+		sendJson(res, 503, { error: 'The ' + name + ' is not configured.', code })
 		return
 	}
 	const upstream = http.request(target, { method: 'POST', headers: req.headers }, (answer) => {
 		res.writeHead(answer.statusCode || 502, { 'Content-Type': 'application/json' })
 		answer.pipe(res)
 	})
-	upstream.on('error', () => sendJson(res, 503, { error: 'The browser service could not be reached.', code: 'browser_unavailable' }))
+	upstream.on('error', () => sendJson(res, 503, { error: 'The ' + name + ' could not be reached.', code }))
 	req.pipe(upstream)
+}
+
+/**
+ * Forward a browser action to the browser service.
+ *
+ * @param {http.IncomingMessage} req The request.
+ * @param {http.ServerResponse} res The response.
+ * @param {string} path The request path.
+ * @return {void}
+ */
+function handleBrowser(req, res, path) {
+	forward(req, res, path, process.env.BROWSER_CONTROL_URL, 'browser service', 'browser_unavailable')
+}
+
+/**
+ * Forward an install to the installer service.
+ *
+ * @param {http.IncomingMessage} req The request.
+ * @param {http.ServerResponse} res The response.
+ * @return {void}
+ */
+function handleInstall(req, res) {
+	forward(req, res, '/install', process.env.INSTALLER_CONTROL_URL, 'installer', 'installer_unavailable')
 }
 
 /**
@@ -199,6 +229,10 @@ function route(req, res) {
 	}
 	if (req.method === 'POST' && path === '/run') {
 		handleRun(req, res)
+		return
+	}
+	if (req.method === 'POST' && path === '/install') {
+		handleInstall(req, res)
 		return
 	}
 	if (req.method === 'POST' && /^\/browser\/(open|read|click|fill|close)$/.test(path)) {

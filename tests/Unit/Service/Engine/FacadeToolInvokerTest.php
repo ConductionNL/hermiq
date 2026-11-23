@@ -765,6 +765,32 @@ class FacadeToolInvokerTest extends TestCase {
 	}//end testRunCodeTraceStepCarriesTheRedactedCodeRun()
 
 	/**
+	 * A `hermiq.installTool` call's trace step records the package, its version
+	 * and the layer's hash, and the layer as the artefact.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#scenario-an-agent-installs-csvkit
+	 */
+	public function testInstallToolTraceStepRecordsThePackageVersionAndLayerHash(): void {
+		$hash = str_repeat('a', 64);
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->method('invokeTool')->willReturn(
+			['result' => ['manager' => 'pip', 'package' => 'csvkit', 'version' => '2.1.0', 'sha256' => $hash, 'binaries' => ['csvstat'], 'artefact' => ['type' => 'toolLayer', 'id' => $hash]], 'isError' => false]
+		);
+
+		$trace = new RunTraceCollector();
+		$invoker = new FacadeToolInvoker(facade: $facade, trace: $trace, mcpIdByName: ['hermiq_installTool' => 'hermiq.installTool']);
+
+		$invoker->hermiq_installTool(manager: 'pip', package: 'csvkit', version: '2.1.0');
+
+		$steps = $trace->toArray();
+		$this->assertSame(['manager' => 'pip', 'package' => 'csvkit', 'version' => '2.1.0', 'sha256' => $hash], $steps[0]['toolInstall']);
+		$this->assertSame(['type' => 'toolLayer', 'id' => $hash], $steps[0]['artefact']);
+
+	}//end testInstallToolTraceStepRecordsThePackageVersionAndLayerHash()
+
+	/**
 	 * ADR-088 §3: a write records the identity of the artefact it produced, so an
 	 * overseer can follow the record to the thing that changed. Without this the
 	 * trace can say `createNote` succeeded but not on what.

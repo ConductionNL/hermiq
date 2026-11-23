@@ -144,6 +144,7 @@ use OCA\Hermiq\Service\Approval\DraftRelease;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Mcp\CodeSandboxToolDescriptors;
 use OCA\Hermiq\Service\CodeSandbox\CodeRunTrace;
+use OCA\Hermiq\Service\CodeSandbox\ToolInstallTrace;
 use OCA\Hermiq\Service\Handoff\FlowTurn;
 use OCA\Hermiq\Service\Handoff\TurnHandoffs;
 use OCA\Hermiq\Service\ComputerUse\ComputerActionRecord;
@@ -1682,6 +1683,7 @@ class FacadeToolInvoker {
 	 *
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
 	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-the-run-records-actions-and-never-stores-screenshots-req-computer-004
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#scenario-an-agent-installs-csvkit
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) CustomToolDescriptors is used through its static API (a pure
 	 * helper or named constructor) with no state to inject.
@@ -1724,6 +1726,12 @@ class FacadeToolInvoker {
 		// The tools-code-sandbox D6 record: the code, its limits and outcome, outputs capped and redacted.
 		if ($toolId === CodeSandboxToolDescriptors::RUN_CODE) {
 			return array_merge($artefact, CodeRunTrace::extra(arguments: $arguments, result: $result, redaction: $this->redactionService));
+		}
+
+		// An install records the package, its version and the layer's hash
+		// (tools-agent-workspace-and-installed-tools D4).
+		if ($toolId === CodeSandboxToolDescriptors::INSTALL_TOOL) {
+			return array_merge($artefact, ToolInstallTrace::extra(result: $result));
 		}
 
 		return $this->withWebResearchTarget(toolId: $toolId, arguments: $arguments, artefact: $artefact);

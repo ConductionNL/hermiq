@@ -87,20 +87,34 @@ class CodeSandboxSettingsController extends Controller {
 	 * Save where code runs. A hosted choice needs the integriq source it is
 	 * reached through; anything else is refused with 422 and stores nothing.
 	 *
+	 * `installManagers`, when sent, is the list of registries (`pip`, `npm`) an
+	 * agent may install tools from (tools-agent-workspace-and-installed-tools D4).
+	 *
 	 * @return JSONResponse The saved choice as get() answers it, or 422 with the reason.
 	 *
 	 * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-the-admin-chooses-where-code-runs-req-sandbox-004
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-installs-command-line-tools-only-from-an-allowlisted-registry-without-install-scripts-req-wksp-004
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function update(): JSONResponse {
 		$backend = $this->request->getParam('backend');
 		$source = $this->request->getParam('hostedSource');
+		$managers = $this->request->getParam('installManagers');
 		if (is_string($backend) === false || ($source !== null && is_string($source) === false)) {
 			return new JSONResponse(['error' => 'Choose where code runs: exapp or hosted.'], Http::STATUS_UNPROCESSABLE_ENTITY);
 		}
 
+		$knownManagers = ($managers === null || (is_array($managers) === true && array_is_list($managers) === true
+			&& array_diff($managers, CodeSandboxSettings::INSTALL_MANAGERS) === []));
+		if ($knownManagers === false) {
+			return new JSONResponse(['error' => 'Tools are installed from pip or npm.'], Http::STATUS_UNPROCESSABLE_ENTITY);
+		}
+
 		try {
 			$this->settings->save(backend: $backend, hostedSource: $source);
+			if ($managers !== null) {
+				$this->settings->saveInstallManagers(managers: $managers);
+			}
 		} catch (InvalidArgumentException $e) {
 			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_UNPROCESSABLE_ENTITY);
 		}
