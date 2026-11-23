@@ -55,6 +55,20 @@ final class CodeSandboxToolDescriptors {
 	public const INSTALL_TOOL = AppIdentity::APP_ID . '.installTool';
 
 	/**
+	 * The installed tool run id (tools-agent-workspace-and-installed-tools D5).
+	 *
+	 * @var string
+	 */
+	public const RUN_INSTALLED_TOOL = AppIdentity::APP_ID . '.runInstalledTool';
+
+	/**
+	 * The most arguments one installed tool run takes.
+	 *
+	 * @var int
+	 */
+	public const MAX_ARGS = 64;
+
+	/**
 	 * The tool ids RunCodeTool serves.
 	 *
 	 * @var array<int, string>
@@ -67,6 +81,13 @@ final class CodeSandboxToolDescriptors {
 	 * @var array<int, string>
 	 */
 	public const INSTALL_IDS = [self::INSTALL_TOOL];
+
+	/**
+	 * The tool ids RunInstalledToolService serves.
+	 *
+	 * @var array<int, string>
+	 */
+	public const RUN_INSTALLED_IDS = [self::RUN_INSTALLED_TOOL];
 
 	/**
 	 * The most files one call may name.
@@ -144,8 +165,59 @@ final class CodeSandboxToolDescriptors {
 				'scope' => 'create',
 			],
 			self::installTool(),
+			self::runInstalledTool(reach: $reach),
 		];
 	}//end forReach()
+
+	/**
+	 * The runInstalledTool descriptor: it matches runCode, because an installed
+	 * binary runs in the same sandbox, on the same workspace copy, under the
+	 * same limits and without network.
+	 *
+	 * @param string $reach The setting's reach: `self` or `external`.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-installed-tool-runs-with-an-argument-list-and-no-shell-req-wksp-005
+	 */
+	public static function runInstalledTool(string $reach): array {
+		return [
+			'id' => self::RUN_INSTALLED_TOOL,
+			'subject' => 'codeRun',
+			'action' => 'create',
+			'reach' => self::atLeastUser(reach: $reach),
+			'name' => 'Run an installed tool',
+			'description' => 'Run a command line tool installed with hermiq.installTool in this conversation, on the '
+				. 'agent\'s workspace, in the isolated sandbox without network access. `args` is a list: each entry '
+				. 'reaches the tool as one argument and no shell reads it. The files the tool creates or changes in '
+				. 'the workspace are written back. Requires the agent code execution AI feature.',
+			'inputSchema' => [
+				'type' => 'object',
+				'properties' => [
+					'tool' => ['type' => 'string', 'description' => 'The installed binary, such as csvstat.'],
+					'args' => [
+						'type' => 'array',
+						'maxItems' => self::MAX_ARGS,
+						'items' => ['type' => 'string'],
+						'description' => 'The arguments, each passed as one argument.',
+					],
+					'stdin' => ['type' => 'string', 'description' => 'What the tool reads on standard input.'],
+					'paths' => [
+						'type' => 'array',
+						'items' => ['type' => 'string'],
+						'description' => 'Workspace paths to send instead of the whole workspace (limit 10 MB together).',
+					],
+					'timeoutSeconds' => ['type' => 'integer', 'description' => 'Wall time limit (default 30, max 300).'],
+					'memoryMb' => ['type' => 'integer', 'description' => 'Memory limit (default 512, max 2048).'],
+				],
+				'required' => ['tool'],
+			],
+			'readOnlyHint' => false,
+			'destructiveHint' => false,
+			'idempotentHint' => false,
+			'scope' => 'create',
+		];
+	}//end runInstalledTool()
 
 	/**
 	 * The installTool descriptor. Its reach is `external` whatever the sandbox

@@ -480,4 +480,93 @@ class CodeSandboxClientTest extends TestCase {
 		$malformed = $this->appApi(answer: $this->response(status: 200, body: '{"layer":{"sha256":"nope","archive":""}}'));
 		$this->client(appApi: $malformed)->install(manager: 'pip', package: 'csvkit', version: null, uid: null);
 	}//end testAnInstallIsRefusedOnAHostedBackendAndCarriesTheInstallersReason()
+
+	/**
+	 * An installed tool runs by its layer's hash; on 409 the layer is sent once
+	 * with the same run.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-installed-tool-runs-with-an-argument-list-and-no-shell-req-wksp-005
+	 */
+	public function testAnInstalledToolRunSendsTheLayerOnlyWhenTheSandboxLacksIt(): void {
+		$answers = [
+			$this->response(status: 409, body: '{"error":"The sandbox does not hold this tool layer yet.","code":"layer_missing"}'),
+			$this->response(status: 200, body: '{"exitCode":0,"stdout":"ok\n","stderr":"","durationMs":9,"timedOut":false,"files":[]}'),
+		];
+		$appApi = new class($answers) {
+			/**
+			 * The recorded requests.
+			 *
+			 * @var array<int, array<int, mixed>>
+			 */
+			public array $calls = [];
+
+			/**
+			 * Constructor.
+			 *
+			 * @param array<int, object> $answers The answers, in order.
+			 */
+			public function __construct(private array $answers) {
+			}
+
+			/**
+			 * Record and answer the next.
+			 *
+			 * @param mixed ...$args The request.
+			 *
+			 * @return mixed
+			 */
+			public function exAppRequest(mixed ...$args): mixed {
+				$this->calls[] = $args;
+				return array_shift($this->answers);
+			}
+		};
+		$loads = 0;
+
+		$result = $this->client(appApi: $appApi)->runInstalled(
+			call: [
+				'sha256' => str_repeat(string: 'a', times: 64), 'tool' => 'csvstat',
+				'args' => ['x.csv; rm -rf .'], 'limits' => ['wallSeconds' => 10],
+			],
+			files: [['name' => 'x.csv', 'content' => "a\n"]],
+			layer: function () use (&$loads): string {
+				$loads++;
+				return 'bGF5ZXI=';
+			},
+			uid: 'alice'
+		);
+
+		$this->assertSame(expected: 0, actual: $result['exitCode']);
+		$this->assertSame(expected: 1, actual: $loads);
+		$this->assertCount(expectedCount: 2, haystack: $appApi->calls);
+		$this->assertArrayNotHasKey(key: 'layer', array: $appApi->calls[0][4]);
+		$this->assertSame(expected: 'bGF5ZXI=', actual: $appApi->calls[1][4]['layer']);
+		$this->assertSame(expected: ['x.csv; rm -rf .'], actual: $appApi->calls[1][4]['installed']['args']);
+		$this->assertSame(expected: ['wallSeconds' => 10, 'memoryMb' => 512], actual: $result['limits']);
+	}//end testAnInstalledToolRunSendsTheLayerOnlyWhenTheSandboxLacksIt()
+
+	/**
+	 * A hosted backend does not run installed tools, and a refusal carries the sandbox's reason.
+	 *
+	 * @return void
+	 */
+	public function testAnInstalledToolRunIsRefusedOnAHostedBackendAndCarriesTheSandboxesReason(): void {
+		$appApi = $this->appApi(answer: $this->response(status: 404, body: '{"error":"The tool layer has no binary named csvjson.","code":"tool_missing"}'));
+		$call = ['sha256' => str_repeat(string: 'a', times: 64), 'tool' => 'csvjson'];
+		$noLayer = static fn (): string => '';
+
+		try {
+			$hosted = $this->client(appApi: $appApi, settings: $this->settings(stored: '{"backend":"hosted","hostedSource":"src-1"}'));
+			$hosted->runInstalled(call: $call, files: [], layer: $noLayer, uid: 'alice');
+			$this->fail(message: 'A hosted backend ran an installed tool.');
+		} catch (CodeSandboxUnavailableException $e) {
+			$this->assertSame(expected: CodeSandboxUnavailableException::RUN_INSTALLED_NEEDS_EXAPP, actual: $e->getMessage());
+		}
+
+		$this->assertSame(expected: [], actual: $appApi->calls);
+		$this->expectException(exception: RuntimeException::class);
+		$this->expectExceptionMessage(message: 'The tool layer has no binary named csvjson.');
+		$this->client(appApi: $appApi)->runInstalled(call: $call, files: [], layer: $noLayer, uid: 'alice');
+	}//end testAnInstalledToolRunIsRefusedOnAHostedBackendAndCarriesTheSandboxesReason()
 }//end class

@@ -53,8 +53,9 @@ Kind: code. Size L. Rows `hermiq:dm-agent-workspace`, `hermiq:dm-install-cli-too
 - **acceptance_criteria**:
   - GIVEN an argument with shell syntax WHEN the tool runs THEN it reaches the binary as one argument and nothing else runs
   - GIVEN a layer hash the sandbox lacks WHEN it runs THEN hermiq sends the bytes and the sandbox verifies the hash
-- [ ] Implement
-- [ ] Test (the ExApp tests; PHPUnit on the dispatch)
+- [x] Implement
+- [x] Test (the ExApp tests; PHPUnit on the dispatch)
+  > 2026-11-23: the sandbox's `POST /run` takes `{installed: {sha256, tool, args}, layer?, files, stdin, limits}` (`src/installedTool.js`). A layer the cache (`SANDBOX_LAYER_ROOT`, a `/layers` tmpfs the runner can read and run from but not write) lacks is answered 409 `layer_missing`; sent bytes are checked against the hash before they are unpacked. The binary is resolved inside the layer (`bin/` for pip, `node_modules/.bin/` for npm, a symlink out of the layer is refused) and runs with an argument list through the same `prlimit`/runner-uid command as code (`limitedCommand()`, `executeCommand()` in `src/run.js`), on the workspace copy, answering what it created or changed. Hermiq: `hermiq.runInstalledTool` (descriptor as `hermiq.runCode`, reach at least `user`) served by `RunInstalledToolService`: the AI feature, a plain binary name and a list of at most 64 strings, the installed tool offering that binary (`ToolLayerKeeper::toolOffering()`), the workspace packed through `WorkspaceTransfer`, `CodeSandboxClient::runInstalled()` resending once with the kept layer (`ToolLayerKeeper::layer()`, re-checked against its hash) on 409, and the changes written back. Tests: node `test/installedTool.test.js` (shell syntax stays one argument, the cache and its hash check, a binary outside the layer), the layer cases in `test/deploy.posture.test.js` and `test/server.test.js`; PHPUnit `RunInstalledToolServiceTest` and two cases in `CodeSandboxClientTest`. Not done here: a run of a real wheel's console script in the deployed containers.
 
 ### Task 6: AgentBuild, publishing and runs from the build
 - **spec_ref**: `openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning/spec.md#requirement-runs-of-a-published-agent-start-from-its-pinned-build-req-build-002`

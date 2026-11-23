@@ -176,16 +176,29 @@ function isWorkspacePath(name) {
  * @return {{command: string, args: string[]}}
  */
 function commandFor(language, limits, program = language.file) {
+	const languageArgs = language.args(limits.memoryMb).map((arg) => (arg === language.file ? program : arg))
+	return limitedCommand([language.command, ...languageArgs], limits, language.addressSpace)
+}
+
+/**
+ * An argument list under prlimit, as the run UID when set: no shell anywhere,
+ * so every argument reaches the program as itself.
+ *
+ * @param {string[]} argv The program and its arguments.
+ * @param {{wallSeconds: number, memoryMb: number}} limits The limits.
+ * @param {boolean} addressSpace Whether memory is capped as address space.
+ * @return {{command: string, args: string[]}}
+ */
+function limitedCommand(argv, limits, addressSpace) {
 	const prlimit = [
-		...(language.addressSpace ? ['--as=' + (limits.memoryMb * 1024 * 1024)] : []),
+		...(addressSpace ? ['--as=' + (limits.memoryMb * 1024 * 1024)] : []),
 		'--nproc=' + LIMITS.maxProcesses,
 		'--fsize=' + LIMITS.maxFilesBytes,
 		'--cpu=' + limits.wallSeconds,
 		'--core=0',
 		'--',
 	]
-	const languageArgs = language.args(limits.memoryMb).map((arg) => (arg === language.file ? program : arg))
-	let args = [...prlimit, language.command, ...languageArgs]
+	let args = [...prlimit, ...argv]
 	const uid = process.env.SANDBOX_RUN_UID
 	if (uid && /^\d+$/.test(uid)) {
 		args = ['--reuid=' + uid, '--regid=' + uid, '--clear-groups', '--no-new-privs', '--', 'prlimit', ...args]
@@ -297,11 +310,22 @@ function prepareWorkspace(request, language) {
 	const dir = fs.mkdtempSync(path.join(root, 'run-'))
 	fs.chmodSync(dir, 0o755)
 	fs.writeFileSync(path.join(dir, language.file), request.code)
+	return { dir, ...placeWorkspace(dir, request.files) }
+}
+
+/**
+ * Place the workspace files as relative paths in a `work` folder the run may write.
+ *
+ * @param {string} dir The run's directory.
+ * @param {Array<{name: string, content: string, encoding: string}>|undefined} files The workspace files.
+ * @return {{work: string, before: Map<string, string>}} The folder and each file's hash before the run.
+ */
+function placeWorkspace(dir, files) {
 	const work = path.join(dir, 'work')
 	fs.mkdirSync(work, { mode: 0o777 })
 	fs.chmodSync(work, 0o777)
 	const before = new Map()
-	for (const file of request.files || []) {
+	for (const file of files || []) {
 		const bytes = Buffer.from(file.content, file.encoding === 'base64' ? 'base64' : 'utf8')
 		const full = path.join(work, ...file.name.split('/'))
 		let folder = work
@@ -316,7 +340,7 @@ function prepareWorkspace(request, language) {
 		fs.chmodSync(full, 0o666)
 		before.set(file.name, crypto.createHash('sha256').update(bytes).digest('hex'))
 	}
-	return { dir, work, before }
+	return { work, before }
 }
 
 /**
@@ -386,7 +410,21 @@ async function run(request) {
  * @return {Promise<object>} `{exitCode, stdout, stderr, durationMs, timedOut, stdoutTruncated, stderrTruncated}`.
  */
 function execute(language, limits, dir, stdin, program = language.file) {
-	const { command, args } = commandFor(language, limits, program)
+	return executeCommand(commandFor(language, limits, program), limits, dir, stdin)
+}
+
+/**
+ * Start a command and wait for it, killing its group at the wall time.
+ *
+ * @param {{command: string, args: string[]}} cmd The command, from limitedCommand().
+ * @param {{wallSeconds: number, memoryMb: number}} limits The limits.
+ * @param {string} dir The working directory.
+ * @param {string} stdin The input.
+ * @param {object} extraEnv Variables added to the run's bare environment.
+ * @return {Promise<object>} `{exitCode, stdout, stderr, durationMs, timedOut, stdoutTruncated, stderrTruncated}`.
+ */
+function executeCommand(cmd, limits, dir, stdin, extraEnv = {}) {
+	const { command, args } = cmd
 	const started = Date.now()
 	const stdout = capped()
 	const stderr = capped()
@@ -395,7 +433,7 @@ function execute(language, limits, dir, stdin, program = language.file) {
 		const child = spawn(command, args, {
 			cwd: dir,
 			detached: true,
-			env: { PATH: '/usr/local/bin:/usr/bin:/bin', HOME: dir, LANG: 'C.UTF-8', PYTHONDONTWRITEBYTECODE: '1', OPENBLAS_NUM_THREADS: '1', OMP_NUM_THREADS: '1' },
+			env: { PATH: '/usr/local/bin:/usr/bin:/bin', HOME: dir, LANG: 'C.UTF-8', PYTHONDONTWRITEBYTECODE: '1', OPENBLAS_NUM_THREADS: '1', OMP_NUM_THREADS: '1', ...extraEnv },
 			stdio: ['pipe', 'pipe', 'pipe'],
 		})
 		let timedOut = false
@@ -440,4 +478,4 @@ function execute(language, limits, dir, stdin, program = language.file) {
 	})
 }
 
-module.exports = { run, clampLimits, invalid, commandFor, isWorkspacePath, LIMITS, LANGUAGES }
+module.exports = { run, clampLimits, invalid, invalidFiles, commandFor, limitedCommand, executeCommand, placeWorkspace, changedFiles, isWorkspacePath, LIMITS, LANGUAGES }

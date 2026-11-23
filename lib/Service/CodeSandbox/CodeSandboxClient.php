@@ -203,6 +203,8 @@ class CodeSandboxClient {
 	 * @throws RuntimeException               When the installer refused the install or answered malformed.
 	 *
 	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-installs-command-line-tools-only-from-an-allowlisted-registry-without-install-scripts-req-wksp-004
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) SandboxAnswers is a stateless reader of the sandbox's answers.
 	 */
 	public function install(string $manager, string $package, ?string $version, ?string $uid): array {
 		if ($this->settings->backend() === CodeSandboxSettings::BACKEND_HOSTED) {
@@ -217,57 +219,69 @@ class CodeSandboxClient {
 		);
 
 		$status = (int)$result->getStatusCode();
-		$decoded = json_decode((string)$result->getBody(), true);
 		if ($status < 200 || $status > 299) {
 			$this->logger->warning('[CodeSandboxClient] the installer refused the install', ['status' => $status]);
-			$reason = 'The installer could not install the tool (HTTP ' . $status . ').';
-			if (is_array($decoded) === true && is_string($decoded['error'] ?? null) === true) {
-				$reason = $decoded['error'];
-			}
-
-			throw new RuntimeException($reason);
+			$fallback = 'The installer could not install the tool (HTTP ' . $status . ').';
+			throw new RuntimeException(SandboxAnswers::refusalOf(body: (string)$result->getBody(), fallback: $fallback));
 		}
 
-		return self::mapInstall(decoded: $decoded);
+		return SandboxAnswers::install(decoded: json_decode((string)$result->getBody(), true));
 	}//end install()
 
 	/**
-	 * The install result from the installer's answer.
+	 * Run an installed tool on a workspace copy in the own sandbox.
 	 *
-	 * @param mixed $decoded The decoded body.
+	 * The run names the tool layer by its hash. When the sandbox answers 409
+	 * `layer_missing`, the layer's bytes are sent with the run once more; the
+	 * sandbox checks them against the hash before it unpacks anything.
 	 *
-	 * @return array<string, mixed>
+	 * @param array<string, mixed>                             $call  `sha256`, `tool`, `args`, `stdin` and `limits`.
+	 * @param array<int, array{name: string, content: string}> $files The workspace files.
+	 * @param callable(): string                               $layer Reads the layer, base64, on a miss.
+	 * @param string|null                                      $uid   The acting user, passed to AppAPI.
 	 *
-	 * @throws RuntimeException When the answer is not an install result.
+	 * @return array<string, mixed> The run result and the limits it ran under.
+	 *
+	 * @throws CodeSandboxUnavailableException When the own sandbox is not there; nothing was sent.
+	 * @throws RuntimeException               When the sandbox refused the run or answered malformed.
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-installed-tool-runs-with-an-argument-list-and-no-shell-req-wksp-005
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) SandboxAnswers is a stateless reader of the sandbox's answers.
 	 */
-	private static function mapInstall(mixed $decoded): array {
-		$layer = [];
-		if (is_array($decoded) === true && is_array($decoded['layer'] ?? null) === true) {
-			$layer = $decoded['layer'];
+	public function runInstalled(array $call, array $files, callable $layer, ?string $uid): array {
+		if ($this->settings->backend() === CodeSandboxSettings::BACKEND_HOSTED) {
+			throw new CodeSandboxUnavailableException(CodeSandboxUnavailableException::RUN_INSTALLED_NEEDS_EXAPP);
 		}
 
-		$sha256 = ($layer['sha256'] ?? null);
-		$archive = ($layer['archive'] ?? null);
-		if (is_string($sha256) === false || preg_match('/^[0-9a-f]{64}$/', $sha256) !== 1 || is_string($archive) === false) {
-			throw new RuntimeException('The installer answered without a tool layer.');
-		}
-
-		$versions = [];
-		foreach ((array)($decoded['versions'] ?? []) as $entry) {
-			if (is_array($entry) === true && is_string($entry['name'] ?? null) === true && is_string($entry['version'] ?? null) === true) {
-				$versions[] = ['name' => $entry['name'], 'version' => $entry['version']];
-			}
-		}
-
-		return [
-			'manager' => (string)($decoded['manager'] ?? ''),
-			'package' => (string)($decoded['package'] ?? ''),
-			'version' => (string)($decoded['version'] ?? ''),
-			'versions' => $versions,
-			'binaries' => array_values(array_filter((array)($decoded['binaries'] ?? []), 'is_string')),
-			'layer' => ['sha256' => $sha256, 'archive' => $archive],
+		$limits = self::clampLimits(limits: (array)($call['limits'] ?? []));
+		$payload = [
+			'installed' => [
+				'sha256' => (string)$call['sha256'],
+				'tool' => (string)$call['tool'],
+				'args' => array_values((array)($call['args'] ?? [])),
+			],
+			'stdin' => (string)($call['stdin'] ?? ''),
+			'files' => array_values($files),
+			'limits' => $limits,
 		];
-	}//end mapInstall()
+		$timeout = ($limits['wallSeconds'] + self::TRANSPORT_SLACK_SECONDS);
+
+		$result = $this->exAppCall(route: self::RUN_ROUTE, uid: $uid, payload: $payload, timeoutSeconds: $timeout);
+		if ((int)$result->getStatusCode() === 409) {
+			$payload['layer'] = $layer();
+			$result = $this->exAppCall(route: self::RUN_ROUTE, uid: $uid, payload: $payload, timeoutSeconds: $timeout);
+		}
+
+		$status = (int)$result->getStatusCode();
+		if ($status < 200 || $status > 299) {
+			$this->logger->warning('[CodeSandboxClient] the sandbox refused the installed tool run', ['status' => $status]);
+			$fallback = 'The code sandbox could not run the tool (HTTP ' . $status . ').';
+			throw new RuntimeException(SandboxAnswers::refusalOf(body: (string)$result->getBody(), fallback: $fallback));
+		}
+
+		return self::mapResult(body: (string)$result->getBody()) + ['limits' => $limits];
+	}//end runInstalled()
 
 	/**
 	 * The run contract's request, its limits clamped.

@@ -5,7 +5,7 @@
 //
 //   GET  /heartbeat  AppAPI's health probe; no auth, runs nothing.
 //   PUT  /enabled    AppAPI's enable/disable call; AppAPI auth.
-//   POST /run        One run of code; AppAPI auth before anything else.
+//   POST /run        One run of code, or of an installed tool; AppAPI auth before anything else.
 //   POST /install    One tool install, forwarded to the installer service, which
 //                    runs in its own container on its own network
 //                    (tools-agent-workspace-and-installed-tools D4).
@@ -26,9 +26,11 @@ const http = require('http')
 const auth = require('./auth.js')
 const { sendJson, log, lowerHeaders, readBody, failure } = require('./http.js')
 const { run, LIMITS } = require('./run.js')
+const { runInstalled, LIMITS: INSTALLED_LIMITS } = require('./installedTool.js')
 
-// Code, stdin and files together; the files' own cap is 10 MB.
-const MAX_BODY_BYTES = LIMITS.maxFilesBytes * 2
+// Code, stdin and files together (the files' own cap is 10 MB), plus a tool
+// layer of at most 64 MB as base64 when an installed tool's layer is sent.
+const MAX_BODY_BYTES = LIMITS.maxFilesBytes * 2 + Math.ceil(INSTALLED_LIMITS.maxLayerBytes * 4 / 3)
 const CONCURRENCY = Math.max(1, parseInt(process.env.SANDBOX_CONCURRENCY || '2', 10) || 2)
 
 let running = 0
@@ -61,12 +63,13 @@ async function handleRun(req, res) {
 	const started = Date.now()
 	try {
 		const request = JSON.parse(await readBody(req, MAX_BODY_BYTES, 'The request is larger than the sandbox takes.'))
-		const result = await run(request)
+		// An installed tool (tools-agent-workspace-and-installed-tools D5) or code.
+		const result = await (request && request.installed !== undefined ? runInstalled(request) : run(request))
 		sendJson(res, 200, result)
 		log('info', `/run 200 in ${Date.now() - started} ms`)
 	} catch (error) {
 		const { status, message } = failure(error, 'The sandbox could not run the code.')
-		sendJson(res, status, { error: message })
+		sendJson(res, status, error.code ? { error: message, code: error.code } : { error: message })
 		log('warn', `/run ${status} in ${Date.now() - started} ms`)
 	} finally {
 		running -= 1
