@@ -61,7 +61,7 @@ final class SubjectListing {
 	 *
 	 * @return self
 	 *
-	 * @spec openspec/changes/ai-oversight-subject-export/specs/ai-oversight/spec.md
+	 * @spec openspec/specs/ai-oversight/spec.md
 	 */
 	public function atPage(int $offset, int $limit): self {
 		return new self(
