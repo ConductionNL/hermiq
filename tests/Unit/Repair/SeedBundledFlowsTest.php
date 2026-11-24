@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+ * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
  */
 
 declare(strict_types=1);
@@ -45,7 +45,7 @@ use RuntimeException;
 /**
  * Tests for the bundled flow seed.
  *
- * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+ * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
  */
 class SeedBundledFlowsTest extends TestCase {
 

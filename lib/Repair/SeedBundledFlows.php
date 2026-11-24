@@ -41,7 +41,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+ * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
  */
 
 declare(strict_types=1);
@@ -62,7 +62,7 @@ use Throwable;
 /**
  * Seed the bundled flow definitions, disabled and ownerless, once each by name.
  *
- * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+ * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
  */
 class SeedBundledFlows implements IRepairStep {
 
@@ -88,7 +88,7 @@ class SeedBundledFlows implements IRepairStep {
 	 * @param IAppConfig|null             $appConfig   Where the per-flow outcome is recorded.
 	 * @param BundledFlowDefinitions|null $definitions The definitions; the shipped ones by default.
 	 *
-	 * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+	 * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
 	 */
 	public function __construct(
 		private readonly ContainerInterface $container,
@@ -103,7 +103,7 @@ class SeedBundledFlows implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+	 * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
 	 */
 	public function getName(): string {
 		return 'Seed the bundled hydra flows (disabled, ownerless)';
@@ -118,7 +118,7 @@ class SeedBundledFlows implements IRepairStep {
 	 *
 	 * @throws RuntimeException When one or more flows could not be written.
 	 *
-	 * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+	 * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
 	 */
 	public function run(IOutput $output): void {
 		try {
@@ -164,7 +164,7 @@ class SeedBundledFlows implements IRepairStep {
 	 *
 	 * @return array{0: string, 1: string} The flow name (the file name when unreadable) and the outcome.
 	 *
-	 * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+	 * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
 	 */
 	private function seedOne(BundledFlowSeed $seed, string $file, array $definition): array {
 		$data = $definition['data'];
@@ -206,7 +206,7 @@ class SeedBundledFlows implements IRepairStep {
 	 *
 	 * @return string|null The refusal.
 	 *
-	 * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+	 * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
 	 */
 	private function refusal(BundledFlowSeed $seed, string $name, array $data): ?string {
 		if ($seed->preflight === null) {
@@ -226,7 +226,7 @@ class SeedBundledFlows implements IRepairStep {
 	 *
 	 * @return FlowNodePreflight|null
 	 *
-	 * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+	 * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
 	 */
 	private function preflight(): ?FlowNodePreflight {
 		try {
@@ -246,7 +246,7 @@ class SeedBundledFlows implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+	 * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
 	 */
 	private function report(IOutput $output, string $name, string $outcome): void {
 		if ($outcome === 'seeded') {
@@ -268,7 +268,7 @@ class SeedBundledFlows implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+	 * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
 	 */
 	private function record(array $outcomes): void {
 		if ($this->appConfig === null) {

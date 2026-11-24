@@ -12,7 +12,7 @@
 #   - hydra-triage.flow.json: hermiq's SeedHydraTriageFlow owns the "Hydra Triage" flow.
 #   - hydra-applier-live-4-1-proof.flow.json: a provenance duplicate of hydra-applier.
 #
-# @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+# @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
 set -euo pipefail
 src="${1:?usage: $0 <path-to-hydra-checkout>}/flows"
 dest="$(cd "$(dirname "$0")/.." && pwd)/lib/Settings/flows"

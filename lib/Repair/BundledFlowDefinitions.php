@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+ * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
  */
 
 declare(strict_types=1);
@@ -32,7 +32,7 @@ use JsonException;
 /**
  * The bundled flow definitions, by file name.
  *
- * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+ * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
  */
 class BundledFlowDefinitions {
 
@@ -48,7 +48,7 @@ class BundledFlowDefinitions {
 	 *
 	 * @param string $directory Where the `*.flow.json` files are; the shipped directory by default.
 	 *
-	 * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+	 * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
 	 */
 	public function __construct(
 		private readonly string $directory=self::DIRECTORY,
@@ -61,7 +61,7 @@ class BundledFlowDefinitions {
 	 *
 	 * @return array<string, array{data: array<string, mixed>|null, error: string|null}> The definitions.
 	 *
-	 * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+	 * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
 	 */
 	public function all(): array {
 		$files = glob($this->directory . '/*.flow.json');
@@ -85,7 +85,7 @@ class BundledFlowDefinitions {
 	 *
 	 * @return array{data: array<string, mixed>|null, error: string|null} The definition or its error.
 	 *
-	 * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+	 * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
 	 */
 	private static function read(string $file): array {
 		$raw = file_get_contents($file);

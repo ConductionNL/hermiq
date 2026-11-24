@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+ * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use Throwable;
 /**
  * Resolves the default organisation without a session.
  *
- * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+ * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
  */
 class DefaultOrganisationLookup {
 
@@ -47,7 +47,7 @@ class DefaultOrganisationLookup {
 	 * @param ContainerInterface $container Server container (OpenRegister may not be installed).
 	 * @param LoggerInterface    $logger    PSR-3 logger.
 	 *
-	 * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+	 * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
 	 */
 	public function __construct(
 		private readonly ContainerInterface $container,
@@ -60,7 +60,7 @@ class DefaultOrganisationLookup {
 	 *
 	 * @return string|null The UUID.
 	 *
-	 * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+	 * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
 	 */
 	public function uuid(): ?string {
 		try {

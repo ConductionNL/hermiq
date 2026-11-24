@@ -133,7 +133,7 @@
             <step>OCA\Hermiq\Repair\SeedHydraTriageFlow</step>
             <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-6-seed-the-hydra-triage-agent -->
             <step>OCA\Hermiq\Repair\SeedHydraTriageAgent</step>
-            <!-- @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md -->
+            <!-- @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md -->
             <!-- hydra's pipeline flows from lib/Settings/flows, disabled and ownerless, once each by name. -->
             <step>OCA\Hermiq\Repair\SeedBundledFlows</step>
             <!-- @spec openspec/changes/hermiq-agent-application-slug/specs/hermiq-agent-application-slug/spec.md#requirement-the-four-hydra-console-agents-are-backfilled-with-their-application-slug -->
@@ -240,7 +240,7 @@
             <step>OCA\Hermiq\Repair\SeedHydraTriageFlow</step>
             <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-6-seed-the-hydra-triage-agent -->
             <step>OCA\Hermiq\Repair\SeedHydraTriageAgent</step>
-            <!-- @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md -->
+            <!-- @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md -->
             <!-- hydra's pipeline flows from lib/Settings/flows, disabled and ownerless, once each by name. -->
             <step>OCA\Hermiq\Repair\SeedBundledFlows</step>
             <!-- @spec openspec/changes/talk-chat-bridge/tasks.md#1-bot-registration-and-lifecycle -->
