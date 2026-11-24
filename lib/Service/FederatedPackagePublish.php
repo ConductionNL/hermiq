@@ -87,13 +87,24 @@ final class FederatedPackagePublish {
 			return null;
 		}
 
+		return self::commitOf(answer: $answer);
+	}//end commit()
+
+	/**
+	 * The commit sha of an engine answer, or null when it names none.
+	 *
+	 * @param array<string, mixed> $answer The engine's answer.
+	 *
+	 * @return string|null The sha.
+	 */
+	private static function commitOf(array $answer): ?string {
 		$commit = (string)($answer['commit'] ?? '');
 		if ($commit === '') {
 			return null;
 		}
 
 		return $commit;
-	}//end commit()
+	}//end commitOf()
 
 	/**
 	 * The engine, when this instance has it with the request classes the publish needs.
