@@ -27,8 +27,9 @@ Kind: code. Size M. Rows `hermiq:sc-list`, `sc-manual-event-choice`, `sc-nl`.
 - **acceptance_criteria**:
   - GIVEN an agent with a schedule, a flow step and a webhook WHEN the page loads THEN all three rows show as active; "Add event" creates an inactive draft flow
 - [x] Implement
-- [ ] Test (Playwright; check the flow draft shape against openregister's flow schema)
+- [x] Test (Playwright; check the flow draft shape against openregister's flow schema)
   - 2026-11-22: `tests/e2e/spec-coverage/scheduling-overview.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, a flow or a sent mail would be needed); not run here, it needs a running Nextcloud.
+  - 2026-11-24: written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ### Task 4: Plain words to a rule
 - **spec_ref**: `openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003`

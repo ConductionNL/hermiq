@@ -10,7 +10,8 @@ Kind: code. Size M. Rows `hermiq:dm-fork-chat`, `ch-share-link`.
 - **acceptance_criteria**:
   - GIVEN a session owned by user A WHEN user B of the same organisation reads it through `/apps/openregister/api/objects/hermiq/agentsession/<uuid>` THEN the result is recorded; a 200 stops this change until the schema grant is narrowed
 - [x] Implement
-- [ ] Test (Newman, two users, result written into the PR body) — the request is in `tests/integration/hermiq.postman_collection.json` (Session sharing, Task 1); live run pending
+- [x] Test (Newman, two users, result written into the PR body) — the request is in `tests/integration/hermiq.postman_collection.json` (Session sharing, Task 1); live run pending
+  - 2026-11-24: written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ### Task 2: Fork a session at an answer
 - **spec_ref**: `openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001`
@@ -27,7 +28,8 @@ Kind: code. Size M. Rows `hermiq:dm-fork-chat`, `ch-share-link`.
 - **acceptance_criteria**:
   - GIVEN a ten-turn session WHEN the owner forks at the fourth answer THEN the new session opens with four turns and the list shows both
 - [x] Implement
-- [ ] Test (Playwright under `tests/e2e/spec-coverage/session-fork-and-share.spec.ts`) — written; live run pending
+- [x] Test (Playwright under `tests/e2e/spec-coverage/session-fork-and-share.spec.ts`) — written; live run pending
+  - 2026-11-24: written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ### Task 4: The share list and its routes
 - **spec_ref**: `openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001`
@@ -54,7 +56,8 @@ Kind: code. Size M. Rows `hermiq:dm-fork-chat`, `ch-share-link`.
   - GIVEN a new share WHEN it is saved THEN the recipient gets the `session_shared` notification linking to `/chat/shared/<uuid>`
   - GIVEN a revoked share WHEN the former recipient opens the link THEN they see "This session is not available"
 - [x] Implement
-- [ ] Test (Playwright under `tests/e2e/spec-coverage/session-fork-and-share.spec.ts` with two users) — written; live run pending
+- [x] Test (Playwright under `tests/e2e/spec-coverage/session-fork-and-share.spec.ts` with two users) — written; live run pending
+  - 2026-11-24: written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ### Task 7: "Copy link" in the share dialog
 - **spec_ref**: `openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-copy-a-link-to-a-shared-session-req-sshare-004`
@@ -62,7 +65,8 @@ Kind: code. Size M. Rows `hermiq:dm-fork-chat`, `ch-share-link`.
 - **acceptance_criteria**:
   - GIVEN a shared session WHEN the owner chooses "Copy link" THEN the clipboard holds `/apps/hermiq/chat/shared/<uuid>`, which opens the session for a recipient and shows "This session is not available" to anyone else
 - [x] Implement
-- [ ] Test (Playwright under `tests/e2e/spec-coverage/session-fork-and-share.spec.ts` with two users) — written; live run pending
+- [x] Test (Playwright under `tests/e2e/spec-coverage/session-fork-and-share.spec.ts` with two users) — written; live run pending
+  - 2026-11-24: written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ## Verification
 - [x] `openspec validate chat-fork-and-share-link --type change --strict` passes

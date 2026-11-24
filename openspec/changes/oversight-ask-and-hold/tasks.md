@@ -28,9 +28,10 @@ Kind: code. Size M. Rows `hermiq:dm-ask-mid-run`, `hermiq:ov-draft-hold`.
 - **acceptance_criteria**:
   - GIVEN a final event with a question WHEN rendered THEN one button per option and a text box when allowed
 - [x] Implement
-- [ ] Test (Playwright with a stubbed stream)
+- [x] Test (Playwright with a stubbed stream)
   - 2026-11-22: `tests/e2e/spec-coverage/ask-and-hold.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, a flow or a sent mail would be needed); not run here, it needs a running Nextcloud.
   - `AgentQuestionCard` shows the question under the answer it came with (the `final` payload's or the POST result's `messageId`), a button per suggested answer (at most four) and a text box when `allowOther`; `Chat.vue` `takeQuestion()` keeps it and `answerQuestion()` sends the choice as the next message. Vitest: `agent-question-card.spec.js` (6), `chat-agent-question.spec.js` (4). The Playwright run is a browser task and is left for a live run.
+  - 2026-11-24: written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ### Task 4: Questions in unattended runs
 - **spec_ref**: `openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002`

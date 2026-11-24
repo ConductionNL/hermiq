@@ -20,7 +20,8 @@ Kind: code. Size M. Rows `hermiq:ch-search-history`, `dm-bulk-delete-chats`.
 - **acceptance_criteria**:
   - GIVEN the Active tab WHEN a person types a term THEN results replace the groups, each with its excerpt, and clearing the field brings the groups back
 - [x] Implement
-- [ ] Test (Playwright under `tests/e2e/spec-coverage/session-search-and-bulk.spec.ts`: written, not yet run, it needs the live instance)
+- [x] Test (Playwright under `tests/e2e/spec-coverage/session-search-and-bulk.spec.ts`: written, not yet run, it needs the live instance)
+  - 2026-11-24: written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ### Task 3: One deletion routine for single and bulk delete
 - **spec_ref**: `openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-deleting-a-session-removes-everything-that-belongs-to-it-req-ssrch-003`
@@ -46,7 +47,8 @@ Kind: code. Size M. Rows `hermiq:ch-search-history`, `dm-bulk-delete-chats`.
   - GIVEN selection mode on the Archive tab WHEN a person ticks rows and confirms Delete THEN the rows leave the list and the modal named the count
   - GIVEN the open session is archived in bulk WHEN the action completes THEN the thread column shows the start surface
 - [x] Implement
-- [ ] Test (Playwright under `tests/e2e/spec-coverage/session-search-and-bulk.spec.ts`, keyboard selection included: written, not yet run, it needs the live instance)
+- [x] Test (Playwright under `tests/e2e/spec-coverage/session-search-and-bulk.spec.ts`, keyboard selection included: written, not yet run, it needs the live instance)
+  - 2026-11-24: written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ## Verification
 - [x] `openspec validate chat-session-search-and-bulk-delete --type change --strict` passes

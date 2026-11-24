@@ -36,8 +36,9 @@ Kind: code. Size M. Row `hermiq:dm-project-memory`.
 - **acceptance_criteria**:
   - GIVEN an agent with projects WHEN a person starts a session THEN they can pick a project, start a new one or choose none, and the header shows the project
 - [x] Implement
-- [ ] Test (Playwright under `tests/e2e/spec-coverage/memory-project-scopes.spec.ts`)
+- [x] Test (Playwright under `tests/e2e/spec-coverage/memory-project-scopes.spec.ts`)
   - 2026-11-21: `tests/e2e/spec-coverage/memory-project-scopes.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, sidecar or Talk is needed); not run here, it needs a running Nextcloud.
+  - 2026-11-24: written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ### Task 5: Layers and moves on the Memory page
 - **spec_ref**: `openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004`
