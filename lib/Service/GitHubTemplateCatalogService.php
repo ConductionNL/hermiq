@@ -259,6 +259,13 @@ class GitHubTemplateCatalogService implements GitHubTemplateCatalogServiceInterf
 	private readonly FederatedCatalogSearch $engineSearch;
 
 	/**
+	 * The install-time reads through OpenRegister's shared engine, when the instance has it.
+	 *
+	 * @var FederatedCatalogRead
+	 */
+	private readonly FederatedCatalogRead $engineRead;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param IClientService $clientService NC HTTP client factory (anonymous calls).
@@ -287,7 +294,9 @@ class GitHubTemplateCatalogService implements GitHubTemplateCatalogServiceInterf
 
 		$this->cache = $cache;
 		$this->payload = new GitHubCatalogPayload();
-		$this->engineSearch = new FederatedCatalogSearch(container: $container, logger: $logger, appId: self::APP_ID);
+		$locator = new FederatedEngineLocator(container: $container, appId: self::APP_ID);
+		$this->engineSearch = new FederatedCatalogSearch(locator: $locator, logger: $logger);
+		$this->engineRead = new FederatedCatalogRead(locator: $locator, logger: $logger);
 	}//end __construct()
 
 	/**
@@ -608,6 +617,7 @@ class GitHubTemplateCatalogService implements GitHubTemplateCatalogServiceInterf
 	 * @return array<int, array{name: string, content: string}> The auxiliary files.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+	 * @spec openspec/changes/store-through-federated-config/tasks.md#task-3-3
 	 */
 	public function fetchAuxFiles(
 		string $kind,
@@ -628,12 +638,13 @@ class GitHubTemplateCatalogService implements GitHubTemplateCatalogServiceInterf
 		$fetch->credentialId = $credentialId;
 		$fetch->maxFiles = self::MAX_AUX_FILES;
 		$fetch->maxBytes = self::MAX_AUX_BYTES;
-		$this->collectTreeBlobs(
-			fetch: $fetch,
-			accept: static function (string $path) use ($packageFile, $kind): bool {
-				return ($path !== $packageFile && self::isEngineFile(kind: $kind, path: $path) === false);
-			}
-		);
+		$accept = static function (string $path) use ($packageFile, $kind): bool {
+			return ($path !== $packageFile && self::isEngineFile(kind: $kind, path: $path) === false);
+		};
+		// Through OpenRegister's shared engine when this instance has it; GitHub directly otherwise.
+		if ($this->engineRead->collect(fetch: $fetch, accept: $accept) === false) {
+			$this->collectTreeBlobs(fetch: $fetch, accept: $accept);
+		}
 
 		return $this->auxFilesOf(fetch: $fetch);
 	}//end fetchAuxFiles()
@@ -825,6 +836,7 @@ class GitHubTemplateCatalogService implements GitHubTemplateCatalogServiceInterf
 	 *                                                               or null when the repo is not a bundle / unreachable.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/store-through-federated-config/tasks.md#task-3-3
 	 */
 	public function fetchBundle(
 		string $owner,
@@ -842,6 +854,25 @@ class GitHubTemplateCatalogService implements GitHubTemplateCatalogServiceInterf
 		$fetch->actingUserId = $actingUserId;
 		$fetch->credentialId = $credentialId;
 
+		// Through OpenRegister's shared engine when this instance has it: the same
+		// one-archive read, falling back per file, with hermiq's broker identity.
+		return $this->engineRead->bundle(
+			fetch: $fetch,
+			manifest: self::BUNDLE_MANIFEST_FILE,
+			prefixes: [self::BUNDLE_SKILLS_PREFIX, self::BUNDLE_AGENTS_PREFIX]
+		) ?? $this->fetchBundleDirect(fetch: $fetch);
+	}//end fetchBundle()
+
+	/**
+	 * Read a bundle from GitHub directly: one archive download, else one read per file.
+	 *
+	 * @param CatalogFetch $fetch The repository, ref and caller.
+	 *
+	 * @return array{files: array<string, string>, truncated: bool}|null The bundle, or null when it has no manifest.
+	 *
+	 * @spec openspec/changes/store-through-federated-config/tasks.md#task-3-3
+	 */
+	private function fetchBundleDirect(CatalogFetch $fetch): ?array {
 		// Only the manifest, plus blobs under `skills/` or `agents/`, are
 		// wanted; anything else in the repository is ignored, so a bundle can
 		// live alongside unrelated content.
@@ -872,7 +903,7 @@ class GitHubTemplateCatalogService implements GitHubTemplateCatalogServiceInterf
 		// manifest the archive filter somehow missed) degrades gracefully
 		// rather than failing the install outright.
 		return $this->fetchBundlePerFile(fetch: $fetch);
-	}//end fetchBundle()
+	}//end fetchBundleDirect()
 
 	/**
 	 * Fetch a bundle file by file: the manifest first, then every blob under

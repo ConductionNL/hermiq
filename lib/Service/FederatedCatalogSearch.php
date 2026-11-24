@@ -32,7 +32,6 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
-use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -44,16 +43,6 @@ use Throwable;
 final class FederatedCatalogSearch {
 
 	/**
-	 * OpenRegister's engine, resolved by class-string so hermiq installs without it.
-	 */
-	public const ENGINE_CLASS = 'OCA\\OpenRegister\\Service\\Config\\FederatedConfigService';
-
-	/**
-	 * The engine's broker identity value object.
-	 */
-	public const IDENTITY_CLASS = 'OCA\\OpenRegister\\Service\\Config\\BrokerIdentity';
-
-	/**
 	 * The engine outcome for a rate-limited search.
 	 */
 	private const RATE_LIMITED = 'rate_limited';
@@ -61,14 +50,12 @@ final class FederatedCatalogSearch {
 	/**
 	 * Constructor.
 	 *
-	 * @param ContainerInterface|null $container The container the engine is resolved from; null means no engine.
-	 * @param LoggerInterface         $logger    Where a failed engine search is noted.
-	 * @param string                  $appId     The app id a brokered call names.
+	 * @param FederatedEngineLocator $locator Finds the engine and builds the broker identity.
+	 * @param LoggerInterface        $logger  Where a failed engine search is noted.
 	 */
 	public function __construct(
-		private readonly ?ContainerInterface $container,
+		private readonly FederatedEngineLocator $locator,
 		private readonly LoggerInterface $logger,
-		private readonly string $appId,
 	) {
 	}//end __construct()
 
@@ -86,13 +73,13 @@ final class FederatedCatalogSearch {
 	 * @spec openspec/changes/store-through-federated-config/tasks.md#task-3-3
 	 */
 	public function search(string $topic, string $term, CatalogCaller $caller, int $max): ?array {
-		$engine = $this->engine();
+		$engine = $this->locator->engineWith(method: 'discoverOutcome');
 		if ($engine === null) {
 			return null;
 		}
 
 		try {
-			$identity = call_user_func([self::IDENTITY_CLASS, 'of'], $this->appId, $caller->actingUserId);
+			$identity = $this->locator->identityFor(actingUserId: $caller->actingUserId);
 			$answer = $engine->discoverOutcome(
 				topic: self::bareTopic(topic: $topic),
 				term: $term,
@@ -109,34 +96,6 @@ final class FederatedCatalogSearch {
 
 		return self::readShape(answer: (array)$answer, max: $max);
 	}//end search()
-
-	/**
-	 * The engine, when this instance has one that can say how a search went.
-	 *
-	 * @return object|null The engine, or null.
-	 */
-	private function engine(): ?object {
-		if ($this->container === null
-			|| class_exists(self::ENGINE_CLASS) === false
-			|| class_exists(self::IDENTITY_CLASS) === false
-			|| $this->container->has(self::ENGINE_CLASS) === false
-		) {
-			return null;
-		}
-
-		try {
-			$engine = $this->container->get(self::ENGINE_CLASS);
-		} catch (Throwable $e) {
-			return null;
-		}
-
-		// An older OpenRegister has the engine without the search that says how it went.
-		if (is_object($engine) === false || is_callable([$engine, 'discoverOutcome']) === false) {
-			return null;
-		}
-
-		return $engine;
-	}//end engine()
 
 	/**
 	 * A topic without its `topic:` qualifier: the engine adds it itself.
