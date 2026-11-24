@@ -109,11 +109,127 @@ class AnalyticsServiceTest extends TestCase {
 		$objectService->method('searchObjectsPaginated')
 			->willReturn(['results' => $page, 'total' => count($page)]);
 
-		$mapper = $this->createMock(AuditTrailMapper::class);
-		$mapper->method('findAll')->willReturn($runs);
-
-		return new AnalyticsService($objectService, $mapper);
+		return new AnalyticsService(
+			objectService: $objectService,
+			auditTrailMapper: $this->boundedMapper(runs: $runs, calls: $this->mapperCalls)
+		);
 	}//end service()
+
+	/**
+	 * The findAll() arguments the service under test passed, one entry per call.
+	 *
+	 * @var \ArrayObject<int, array{filters: array|null, search: string|null, limit: int|null}>
+	 */
+	private \ArrayObject $mapperCalls;
+
+	/**
+	 * Reset the recorded mapper calls before every test.
+	 *
+	 * @return void
+	 */
+	protected function setUp(): void {
+		parent::setUp();
+		$this->mapperCalls = new \ArrayObject();
+	}//end setUp()
+
+	/**
+	 * An audit mapper that behaves like the real one for the query shape the service
+	 * must use, and fails the test on any other.
+	 *
+	 * Every call must carry the run actions AND a non-empty search term (the bound); the
+	 * mapper then returns only the fixture entries whose context mentions that term, the
+	 * way OpenRegister's LIKE on `changed` does. A blanket `willReturn($runs)` here would
+	 * hand every row to an unbounded call and could never fail (phantom green).
+	 *
+	 * @param array<int, AuditTrail>  $runs  Every run entry on the "instance".
+	 * @param \ArrayObject<int, mixed> $calls Receives the arguments of each call.
+	 *
+	 * @return AuditTrailMapper
+	 *
+	 * @spec openspec/changes/analytics-unbounded-audit-scan/tasks.md#2-tests-make-the-phantom-green-mock-assert-the-query-shape
+	 */
+	private function boundedMapper(array $runs, \ArrayObject $calls): AuditTrailMapper {
+		$mapper = $this->createMock(AuditTrailMapper::class);
+		$mapper->method('findAll')->willReturnCallback(
+			function (?int $limit = null, ?int $offset = null, ?array $filters = [], ?array $sort = null, ?string $search = null) use ($runs, $calls): array {
+				$calls->append(['filters' => $filters, 'search' => $search, 'limit' => $limit]);
+				$this->assertSame(expected: 'run,agent-run,manual-run', actual: ($filters['action'] ?? null), message: 'Only run entries may be read.');
+				$this->assertNotSame(expected: '', actual: trim((string) $search), message: 'An audit read without a tenant bound reads every organisation.');
+
+				return array_values(
+					array_filter(
+						$runs,
+						static fn (AuditTrail $run): bool => str_contains((string) json_encode($run->getChanged()), (string) $search)
+					)
+				);
+			}
+		);
+
+		return $mapper;
+	}//end boundedMapper()
+
+	/**
+	 * The audit read is bounded by the caller's own agents, and follows them when they change.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/analytics-unbounded-audit-scan/tasks.md#2-tests-make-the-phantom-green-mock-assert-the-query-shape
+	 */
+	public function testTheAuditReadIsBoundedByTheCallersAgents(): void {
+		$runs = [
+			$this->runEntry(objectUuid: 's1', status: 'ok', durationMs: 100, agentId: 'agentA'),
+			$this->runEntry(objectUuid: 's2', status: 'ok', durationMs: 100, agentId: 'agentB'),
+			$this->runEntry(objectUuid: 's3-foreign', status: 'ok', durationMs: 100, agentId: 'agentX'),
+		];
+
+		$this->service(schedules: [$this->schedule(uuid: 's1', agentId: 'agentA')], runs: $runs)->computeAnalytics();
+		$first = array_column($this->mapperCalls->getArrayCopy(), 'search');
+		$this->assertSame(expected: ['agentA'], actual: $first);
+
+		$this->mapperCalls->exchangeArray([]);
+		$both = [$this->schedule(uuid: 's1', agentId: 'agentA'), $this->schedule(uuid: 's2', agentId: 'agentB')];
+		$this->service(schedules: $both, runs: $runs)->computeAnalytics();
+		$second = array_column($this->mapperCalls->getArrayCopy(), 'search');
+		sort(array: $second);
+		$this->assertSame(expected: ['agentA', 'agentB'], actual: $second, message: 'The bound must follow the caller\'s own agents.');
+		$this->assertNotContains(needle: 'agentX', haystack: $second);
+		$this->assertSame(
+			expected: [null, null],
+			actual: array_column($this->mapperCalls->getArrayCopy(), 'limit'),
+			message: 'A limit would turn every metric into a floor.'
+		);
+	}//end testTheAuditReadIsBoundedByTheCallersAgents()
+
+	/**
+	 * A caller without a visible agent issues no audit read at all.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/analytics-unbounded-audit-scan/tasks.md#2-tests-make-the-phantom-green-mock-assert-the-query-shape
+	 */
+	public function testNoVisibleAgentIssuesNoAuditRead(): void {
+		$foreign = $this->runEntry(objectUuid: 's3-foreign', status: 'ok', durationMs: 100, agentId: 'agentX');
+		$this->service(schedules: [], runs: [$foreign])->computeAnalytics();
+		$this->assertCount(expectedCount: 0, haystack: $this->mapperCalls);
+	}//end testNoVisibleAgentIssuesNoAuditRead()
+
+	/**
+	 * A run whose context names two visible agents is counted once.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/analytics-unbounded-audit-scan/tasks.md#1-backend-bound-the-audit-trail-read
+	 */
+	public function testARunMentioningTwoVisibleAgentsIsCountedOnce(): void {
+		$run = $this->runEntry(objectUuid: 's1', status: 'ok', durationMs: 100, agentId: 'agentA');
+		$run->setUuid(uuid: 'run-1');
+		$run->setChanged(changed: ['status' => 'ok', 'durationMs' => 100, 'agentId' => 'agentA', 'delegatedTo' => 'agentB']);
+
+		$both = [$this->schedule(uuid: 's1', agentId: 'agentA'), $this->schedule(uuid: 's2', agentId: 'agentB')];
+		$m    = $this->service(schedules: $both, runs: [$run])->computeAnalytics();
+
+		$this->assertSame(expected: 1, actual: $m['totalRuns']);
+	}//end testARunMentioningTwoVisibleAgentsIsCountedOnce()
 
 	/**
 	 * Aggregation computes success rate, status breakdown, latency and per-agent counts,
