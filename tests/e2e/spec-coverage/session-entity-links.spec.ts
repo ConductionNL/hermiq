@@ -27,7 +27,9 @@
  * @spec openspec/changes/session-entity-links/specs/session-entity-links/spec.md
  */
 
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
+import type { APIRequestContext, Page } from '@playwright/test'
+
+import { expect, test } from '@playwright/test'
 import { dismissTour, harvestToken, TEST_PREFIX } from './_fixtures.ts'
 
 const USER = process.env.NC_USER || 'admin'
