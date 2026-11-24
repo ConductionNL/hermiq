@@ -22,7 +22,7 @@ export const OBJECT_TRIGGER = 'openregister.trigger-object'
  * @param {object} flow An OpenRegister flow.
  * @param {string} agentId The agent uuid.
  * @return {boolean}
- * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+ * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
  */
 export function runsAgent(flow, agentId) {
 	const nodes = Array.isArray(flow?.nodes) ? flow.nodes : []
@@ -34,7 +34,7 @@ export function runsAgent(flow, agentId) {
  *
  * @param {string} agentId The agent uuid.
  * @return {Promise<Array<object>>} The flows.
- * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+ * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
  */
 export async function listAgentFlows(agentId) {
 	const response = await axios.get(generateUrl('/apps/openregister/api/flows'), {
@@ -54,7 +54,7 @@ export async function listAgentFlows(agentId) {
  * @param {string} agentId The agent uuid.
  * @param {string} name The flow's name.
  * @return {object} The flow body.
- * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+ * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
  */
 export function eventDraft(agentId, name) {
 	return {
@@ -94,7 +94,7 @@ export function eventDraft(agentId, name) {
  * @param {string} agentId The agent uuid.
  * @param {string} name The flow's name.
  * @return {Promise<object>} The created flow.
- * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+ * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
  */
 export async function createAgentEventDraft(agentId, name) {
 	const response = await axios.post(

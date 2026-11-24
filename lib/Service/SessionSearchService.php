@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+ * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
  */
 
 declare(strict_types=1);
@@ -33,7 +33,7 @@ use OCA\OpenRegister\Service\ObjectService;
  * Matches a term against the titles of the caller's own sessions and the text
  * of the caller's own turns in them.
  *
- * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+ * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
  */
 class SessionSearchService {
 
@@ -89,7 +89,7 @@ class SessionSearchService {
 	 *
 	 * @return bool True when it searches.
 	 *
-	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+	 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
 	 */
 	public static function searches(string $term): bool {
 		return mb_strlen(trim($term)) >= self::MIN_TERM_LENGTH;
@@ -106,7 +106,7 @@ class SessionSearchService {
 	 *
 	 * @return list<array{session: ObjectEntity, match: array<string, mixed>}> The hits.
 	 *
-	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+	 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
 	 */
 	public function search(string $userId, string $term, array $sessions): array {
 		$term = trim($term);
@@ -151,7 +151,7 @@ class SessionSearchService {
 	 *
 	 * @return array<string, array{turnUuid: string, excerpt: string}> By session uuid.
 	 *
-	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+	 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
 	 */
 	private function turnMatches(string $userId, string $term, array $sessionIds): array {
 		$turns = $this->objectService
@@ -199,7 +199,7 @@ class SessionSearchService {
 	 *
 	 * @return string The excerpt, with an ellipsis where text was cut.
 	 *
-	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+	 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
 	 */
 	public static function excerpt(string $text, string $term): string {
 		$text = trim((string)preg_replace('/\s+/u', ' ', $text));

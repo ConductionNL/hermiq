@@ -8,7 +8,7 @@
   Nextcloud's collaborator search, so it only offers people the owner may
   share with. There is no public link.
 
-  @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+  @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
 -->
 <template>
 	<NcModal
@@ -134,7 +134,7 @@ export default {
 		 * Load the shares each time the dialog opens.
 		 *
 		 * @param {boolean} open Whether it opened.
-		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
 		 */
 		show(open) {
 			if (open) {
@@ -148,7 +148,7 @@ export default {
 		 * Load the current shares.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
 		 */
 		async load() {
 			this.error = ''
@@ -165,7 +165,7 @@ export default {
 		 *
 		 * @param {string} text The typed text.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
 		 */
 		async search(text) {
 			if (!text || text.length < 2) {
@@ -187,7 +187,7 @@ export default {
 		 * Share with the selected colleague or group.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
 		 */
 		async add() {
 			const { type, id } = this.selected
@@ -200,7 +200,7 @@ export default {
 		 *
 		 * @param {{type: string, id: string}} share The share.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-revoke-a-share-at-once-req-sshare-003
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-revoke-a-share-at-once-req-sshare-003
 		 */
 		async remove(share) {
 			await this.change(() => removeShare(this.session.uuid, share.type, share.id))
@@ -211,7 +211,7 @@ export default {
 		 *
 		 * @param {Function} action The api call.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
 		 */
 		async change(action) {
 			this.busy = true
@@ -230,7 +230,7 @@ export default {
 		 * Copy the link to the session's read-only page.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-copy-a-link-to-a-shared-session-req-sshare-004
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-copy-a-link-to-a-shared-session-req-sshare-004
 		 */
 		async copyLink() {
 			const link = sharedSessionLink(window.location.origin, window.OC?.webroot || '', this.session.uuid)
@@ -257,7 +257,7 @@ export default {
 		 *
 		 * @param {Error} e The failure.
 		 * @return {string}
-		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
 		 */
 		messageFor(e) {
 			const known = {

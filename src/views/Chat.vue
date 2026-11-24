@@ -1581,7 +1581,7 @@ export default {
 		 * Whether "Fork from here" is offered: the owner of an open, unarchived session.
 		 *
 		 * @return {boolean}
-		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
 		 */
 		canFork() {
 			return canForkSession(this.activeSession)
@@ -1660,7 +1660,7 @@ export default {
 		 * Whether the list shows search results rather than the grouped sessions.
 		 *
 		 * @return {boolean}
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
 		 */
 		searchActive() {
 			return this.appliedSearch !== ''
@@ -1670,7 +1670,7 @@ export default {
 		 * The shown sessions a person may select: their own, not ones they joined.
 		 *
 		 * @return {Array<object>}
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 		 */
 		selectableShown() {
 			return this.visibleSessions.filter((session) => this.isSelectable(session))
@@ -1883,7 +1883,7 @@ export default {
 	/**
 	 * Stop a pending session search, and hand the shared page kind back.
 	 *
-	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+	 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
 	 */
 	beforeUnmount() {
 		clearTimeout(this.searchTimer)
@@ -1968,7 +1968,7 @@ export default {
 		 *
 		 * @param {object} session The session row.
 		 * @return {boolean}
-		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
 		 */
 		canShare(session) {
 			return canShareSession(session)
@@ -1978,7 +1978,7 @@ export default {
 		 * Open the share dialog for a session.
 		 *
 		 * @param {object} session The session row.
-		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
 		 */
 		openShare(session) {
 			this.shareTarget = session
@@ -1988,7 +1988,7 @@ export default {
 		 * Keep the row's share count in step after a share or a removal.
 		 *
 		 * @param {Array<object>} shares The shares now.
-		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
 		 */
 		onSharesChanged(shares) {
 			if (this.shareTarget) {
@@ -2000,7 +2000,7 @@ export default {
 		 * Open a session shared with the reader on its read-only page.
 		 *
 		 * @param {object} session The shared session row.
-		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
 		 */
 		openShared(session) {
 			this.$router.push(`/chat/shared/${encodeURIComponent(session.uuid)}`)
@@ -2010,7 +2010,7 @@ export default {
 		 * Load the sessions shared with the reader; a failure leaves the group out.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
 		 */
 		async loadSharedSessions() {
 			try {
@@ -3290,7 +3290,7 @@ export default {
 		 *
 		 * @param {object} message The assistant message to fork at.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
 		 */
 		async forkFrom(message) {
 			if (!this.canFork || this.forking) {
@@ -3347,7 +3347,7 @@ export default {
 		 *
 		 * @param {string} value The field's value.
 		 * @return {void}
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
 		 */
 		onSearchInput(value) {
 			this.searchTerm = value ?? ''
@@ -3364,7 +3364,7 @@ export default {
 		 * overwrites a newer one.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
 		 */
 		async runSearch() {
 			const term = this.searchTerm.trim()
@@ -3402,7 +3402,7 @@ export default {
 		 * Clear the search field and return to the grouped list.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
 		 */
 		clearSearch() {
 			this.searchTerm = ''
@@ -3414,7 +3414,7 @@ export default {
 		 * Drop the search results; a search still in flight is ignored when it lands.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
 		 */
 		endSearch() {
 			this.searchSeq++
@@ -3430,7 +3430,7 @@ export default {
 		 *
 		 * @param {string} turnUuid The turn to show, or ''.
 		 * @return {void}
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
 		 */
 		scrollToTurn(turnUuid) {
 			if (!turnUuid) {
@@ -3459,7 +3459,7 @@ export default {
 		 *
 		 * @param {object} session The row's session.
 		 * @return {void}
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 		 */
 		onRowActivate(session) {
 			if (this.selecting) {
@@ -3474,7 +3474,7 @@ export default {
 		 *
 		 * @param {object} session The row's session.
 		 * @return {void}
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 		 */
 		onRowSpace(session) {
 			if (this.selecting) {
@@ -3487,7 +3487,7 @@ export default {
 		 *
 		 * @param {object} session The session.
 		 * @return {boolean}
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 		 */
 		isSelectable(session) {
 			return Boolean(session?.uuid) && session.role !== 'participant'
@@ -3498,7 +3498,7 @@ export default {
 		 *
 		 * @param {object} session The session.
 		 * @return {boolean}
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 		 */
 		isSelected(session) {
 			return this.selected.includes(session?.uuid)
@@ -3509,7 +3509,7 @@ export default {
 		 *
 		 * @param {object} session The session.
 		 * @return {void}
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 		 */
 		toggleSelected(session) {
 			if (!this.isSelectable(session)) {
@@ -3524,7 +3524,7 @@ export default {
 		 * Turn on selection mode with nothing ticked.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 		 */
 		startSelecting() {
 			this.selecting = true
@@ -3535,7 +3535,7 @@ export default {
 		 * Leave selection mode and untick everything.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 		 */
 		stopSelecting() {
 			this.selecting = false
@@ -3547,7 +3547,7 @@ export default {
 		 * Tick every selectable row currently shown, search results included.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 		 */
 		selectAllShown() {
 			this.selected = this.selectableShown.map((session) => session.uuid)
@@ -3558,7 +3558,7 @@ export default {
 		 *
 		 * @param {'archive'|'restore'} action What to do.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 		 */
 		async runBulk(action) {
 			if (this.selected.length === 0 || this.bulkBusy) {
@@ -3580,7 +3580,7 @@ export default {
 		 *
 		 * @param {Array<{uuid: string, status: string}>} results The outcome per uuid.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 		 */
 		async onBulkDeleted(results) {
 			await this.applyBulk('delete', results)
@@ -3594,7 +3594,7 @@ export default {
 		 * @param {'archive'|'restore'|'delete'} action The action that ran.
 		 * @param {Array<{uuid: string, status: string}>} results The outcome per uuid.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 		 */
 		async applyBulk(action, results) {
 			const done = new Set(results.filter((entry) => entry.status === 'ok').map((entry) => entry.uuid))
@@ -3624,7 +3624,7 @@ export default {
 		 * @param {'archive'|'restore'|'delete'} action The action that ran.
 		 * @param {number} count How many sessions it changed.
 		 * @return {string}
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 		 */
 		bulkDoneMessage(action, count) {
 			if (action === 'archive') {
@@ -3641,7 +3641,7 @@ export default {
 		 *
 		 * @param {object} session The session.
 		 * @return {void}
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
 		 */
 		dropFromSearch(session) {
 			this.searchResults = this.searchResults.filter((entry) => entry.uuid !== session.uuid)

@@ -251,7 +251,7 @@ class SessionController extends Controller {
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 * @spec openspec/specs/session-surface/spec.md#requirement-the-session-list-can-be-narrowed-to-one-record
-	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+	 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) SessionLinks is a set of pure functions over session data; it
 	 * holds no state to inject.
@@ -471,7 +471,7 @@ class SessionController extends Controller {
 	 *
 	 * @return JSONResponse The list envelope.
 	 *
-	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+	 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
 	 */
 	private function searchResponse(string $userId, string $term, array $sessions, array $window): JSONResponse {
 		$this->sessionSearch ??= new SessionSearchService(objectService: $this->objectService);
@@ -1219,7 +1219,7 @@ class SessionController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 *
-	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+	 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 	 */
 	public function bulk(): JSONResponse {
 		try {
@@ -1251,7 +1251,7 @@ class SessionController extends Controller {
 	 *
 	 * @return string|null The refusal.
 	 *
-	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+	 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 	 */
 	private function bulkRefusal(mixed $action, mixed $uuids): ?string {
 		if (in_array($action, self::BULK_ACTIONS, true) === false) {
@@ -1280,7 +1280,7 @@ class SessionController extends Controller {
 	 *
 	 * @return string `ok`, `not_found` (missing or not the caller's) or `refused` (the write failed).
 	 *
-	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+	 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 	 */
 	private function bulkOne(string $action, string $uuid, string $userId): string {
 		try {
@@ -1328,7 +1328,7 @@ class SessionController extends Controller {
 	 *
 	 * @throws Exception If the write failed; bulkOne() reports it as `refused`.
 	 *
-	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+	 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 	 */
 	private function applyBulkAction(string $action, ObjectEntity $conversation, string $userId): void {
 		$uuid = (string)$conversation->getUuid();
@@ -1741,7 +1741,7 @@ class SessionController extends Controller {
 	 *
 	 * @return array{0: string, 1: ObjectEntity|null} The way in and, for a recipient, the session.
 	 *
-	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
 	 */
 	private function readThroughShare(string $uuid, string $userId): array {
 		if ($this->shares === null) {
@@ -1839,7 +1839,7 @@ class SessionController extends Controller {
 	 *
 	 * @return JSONResponse
 	 *
-	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
 	 */
 	private function sharedIndex(string $userId, int $limit, int $offset): JSONResponse {
 		$shared = [];
@@ -1875,7 +1875,7 @@ class SessionController extends Controller {
 	 *
 	 * @return array<string, mixed>
 	 *
-	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
 	 */
 	private function serializeSharedConversation(ObjectEntity $conversation, string $userId): array {
 		$response = $this->serializeConversation(conversation: $conversation, userId: $userId);

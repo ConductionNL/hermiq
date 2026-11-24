@@ -83,7 +83,7 @@ const BULK_MAX = 100
  *   or turns contain it come back, each with a `match` (`{ turnUuid, excerpt }` or `{ title: true }`).
  * @return {Promise<{results: Array<object>, total: number, truncated: boolean}>} The page envelope;
  *   `truncated` says a search did not reach the oldest sessions.
- * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+ * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
  */
 export async function listSessions({
 	archived = false,
@@ -116,7 +116,7 @@ export async function listSessions({
  * @param {'archive'|'restore'|'delete'} action What to do with them.
  * @param {Array<string>} uuids The session uuids.
  * @return {Promise<Array<{uuid: string, status: string}>>} The outcome per uuid.
- * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+ * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
  */
 export async function bulkSessions(action, uuids) {
 	const results = []
@@ -214,7 +214,7 @@ export async function renameSession(uuid, title) {
  * @param {string} uuid The source session UUID.
  * @param {string} turnUuid The assistant turn to fork at.
  * @return {Promise<{uuid: string, title: string, agentId: string, forkedFrom: object, messageCount: number}>} The new session.
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
  */
 export async function forkSession(uuid, turnUuid) {
 	const response = await axios.post(generateUrl(`${SESSIONS_BASE}/${uuid}/fork`), {
@@ -293,7 +293,7 @@ export async function removeParticipant(uuid, uid) {
  *
  * @param {string} uuid The session UUID.
  * @return {Promise<Array<{type: string, id: string, displayName: string, sharedBy: string, sharedAt: string}>>} The shares.
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
  */
 export async function listShares(uuid) {
 	const response = await axios.get(
@@ -309,7 +309,7 @@ export async function listShares(uuid) {
  * @param {string} type `user` or `group`.
  * @param {string} id The user id or group id.
  * @return {Promise<Array<object>>} The shares after the change.
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
  */
 export async function addShare(uuid, type, id) {
 	const response = await axios.post(
@@ -326,7 +326,7 @@ export async function addShare(uuid, type, id) {
  * @param {string} type `user` or `group`.
  * @param {string} id The user id or group id.
  * @return {Promise<Array<object>>} The shares after the change.
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-revoke-a-share-at-once-req-sshare-003
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-revoke-a-share-at-once-req-sshare-003
  */
 export async function removeShare(uuid, type, id) {
 	const response = await axios.delete(
@@ -341,7 +341,7 @@ export async function removeShare(uuid, type, id) {
  * The sessions shared with the current user, for "Shared with you".
  *
  * @return {Promise<Array<object>>} The shared sessions, newest first.
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
  */
 export async function listSharedSessions() {
 	const response = await axios.get(generateUrl(SESSIONS_BASE), {
@@ -356,7 +356,7 @@ export async function listSharedSessions() {
  *
  * @param {string} search The typed text.
  * @return {Promise<Array<{type: string, id: string, displayName: string}>>} Matching users and groups.
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
  */
 export async function searchSharees(search) {
 	const response = await axios.get(generateOcsUrl('core/autocomplete/get'), {
@@ -370,7 +370,7 @@ export async function searchSharees(search) {
  *
  * @param {Array<{id: string, label?: string, source?: string}>} items The autocomplete items.
  * @return {Array<{type: string, id: string, displayName: string}>} The options.
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
  */
 export function shareeOptions(items) {
 	return items

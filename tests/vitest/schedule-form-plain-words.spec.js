@@ -8,7 +8,7 @@
  * and next three runs, an unreadable text shows the server's example, and the
  * saved payload carries the rule, never the words.
  *
- * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003
+ * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003
  */
 
 import { t } from '@nextcloud/l10n'

@@ -6,7 +6,7 @@
  * user or group, takes a share back, says why the server refused, and copies
  * the link to the session's read-only page.
  *
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
  */
 
 import { flushPromises, mount } from '@vue/test-utils'

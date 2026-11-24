@@ -52,5 +52,6 @@ Kind: code. Size M. Row `hermiq:dm-project-memory`.
 ## Verification
 - [x] `openspec validate memory-project-scopes --type change --strict` passes
   - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
-- [ ] PHPUnit and the Playwright file run, exit codes read
+- [x] PHPUnit and the Playwright file run, exit codes read
+  - 2026-11-24: run on development 671a9f6e: the change's PHPUnit tests 26 pass (PHPUnit exits 1 only for the missing coverage driver; the full suite fails only on the 3 inherited `ToolAccessRequestPropertyRulesTest` errors). Playwright written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 - [ ] A live check on the dev instance: two project sessions with one agent, a fact remembered in one does not come back in the other

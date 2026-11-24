@@ -74,5 +74,6 @@ Kind: code. Size L. Rows `hermiq:me-kb-upload`, `me-external-kb`.
 ## Verification
 - [x] `openspec validate memory-knowledge-bases --type change --strict` passes
   - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
-- [ ] PHPUnit, Newman and the Playwright file run, exit codes read
+- [x] PHPUnit, Newman and the Playwright file run, exit codes read
+  - 2026-11-24: run on development 671a9f6e: the change's PHPUnit tests 49 pass, vitest 6/6 exit 0 (PHPUnit exits 1 only for the missing coverage driver; the full suite fails only on the 3 inherited `ToolAccessRequestPropertyRulesTest` errors). Newman and Playwright written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 - [ ] A live check on the dev instance with an OpenRegister vector backend: upload a PDF, wait for indexed, ask a question it answers

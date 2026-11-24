@@ -5,7 +5,7 @@
  * Read-only session shares (chat-fork-and-share-link): who is offered the
  * share dialog, the link the dialog copies and the key of a share entry.
  *
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
  */
 
 /**
@@ -13,7 +13,7 @@
  *
  * @param {object|null} session The session row.
  * @return {boolean}
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
  */
 export function canShareSession(session) {
 	return Boolean(session?.uuid) && (session.role ?? 'owner') === 'owner' && !session.deletedAt
@@ -24,7 +24,7 @@ export function canShareSession(session) {
  *
  * @param {string} uuid The session UUID.
  * @return {string} `/apps/hermiq/chat/shared/<uuid>`.
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-copy-a-link-to-a-shared-session-req-sshare-004
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-copy-a-link-to-a-shared-session-req-sshare-004
  */
 export function sharedSessionPath(uuid) {
 	return `/apps/hermiq/chat/shared/${encodeURIComponent(uuid)}`
@@ -37,7 +37,7 @@ export function sharedSessionPath(uuid) {
  * @param {string} webroot The instance's web root ('' or for example `/nextcloud`).
  * @param {string} uuid The session UUID.
  * @return {string}
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-copy-a-link-to-a-shared-session-req-sshare-004
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-copy-a-link-to-a-shared-session-req-sshare-004
  */
 export function sharedSessionLink(origin, webroot, uuid) {
 	const root = (webroot || '').replace(/\/+$/, '')
@@ -49,7 +49,7 @@ export function sharedSessionLink(origin, webroot, uuid) {
  *
  * @param {{type: string, id: string}} share The share.
  * @return {string} `user:<uid>` or `group:<gid>`.
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
  */
 export function shareKey(share) {
 	return `${share.type}:${share.id}`
@@ -62,7 +62,7 @@ export function shareKey(share) {
  * @param {Array<{type: string, id: string}>} shares The current shares.
  * @param {string} ownerUid The owner, never offered.
  * @return {Array<object>}
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
  */
 export function openShareOptions(options, shares, ownerUid) {
 	const taken = new Set(shares.map(shareKey))
@@ -74,7 +74,7 @@ export function openShareOptions(options, shares, ownerUid) {
  *
  * @param {object} source A RAG source.
  * @return {string}
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
  */
 export function sharedSourceName(source) {
 	return String(source?.title || source?.name || source?.fileName || source?.objectTitle || '')
@@ -86,7 +86,7 @@ export function sharedSourceName(source) {
  * @param {{sharedBy?: string, sharedByDisplayName?: string, sharedAt?: string}|null} share The share that admits the reader.
  * @param {string} [locale] The locale to write the date in.
  * @return {{name: string, date: string}|null}
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
  */
 export function sharedByParts(share, locale) {
 	if (!share) {

@@ -101,7 +101,7 @@ export default {
 		 * Clear a previous error when the modal opens.
 		 *
 		 * @param {boolean} open Whether the modal is now shown.
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 		 */
 		show(open) {
 			if (open) {
@@ -115,7 +115,7 @@ export default {
 		 * Close unless a delete is under way.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 		 */
 		close() {
 			if (!this.deleting) {
@@ -127,7 +127,7 @@ export default {
 		 * Delete the sessions in one bulk request and hand the per-uuid answer to the page.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 		 */
 		async confirmDelete() {
 			if (this.uuids.length === 0) {

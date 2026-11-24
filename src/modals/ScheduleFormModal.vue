@@ -468,7 +468,7 @@ export default {
 		 * example and leaves the rule fields as they were.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003
+		 * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003
 		 */
 		async readWhen() {
 			const text = this.whenText.trim()
@@ -499,7 +499,7 @@ export default {
 		 *
 		 * @param {object} rule `{kind, cronExpr|intervalMinutes|runAt}`.
 		 * @return {void}
-		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003
+		 * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003
 		 */
 		applyRule(rule) {
 			this.form.kind = rule.kind
@@ -519,7 +519,7 @@ export default {
 		 *
 		 * @param {string} run An ISO 8601 timestamp.
 		 * @return {string} The run in the person's locale.
-		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003
+		 * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003
 		 */
 		formatRun(run) {
 			const date = new Date(run)

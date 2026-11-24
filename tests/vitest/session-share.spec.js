@@ -8,7 +8,7 @@
  * with "Shared by", or "This session is not available" when the server
  * refuses.
  *
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
  */
 
 import { flushPromises, mount } from '@vue/test-utils'

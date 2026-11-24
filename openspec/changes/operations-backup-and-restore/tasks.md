@@ -65,5 +65,6 @@ Kind: code. Size L. Row `hermiq:dm-backup-restore`.
 ## Verification
 - [x] `openspec validate operations-backup-and-restore --type change --strict` passes
   - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
-- [ ] PHPUnit, Newman and the Playwright file run, exit codes read
+- [x] PHPUnit, Newman and the Playwright file run, exit codes read
+  - 2026-11-24: run on development 671a9f6e: the change's PHPUnit tests 50 pass, vitest 24/24 exit 0 (PHPUnit exits 1 only for the missing coverage driver; the full suite fails only on the 3 inherited `ToolAccessRequestPropertyRulesTest` errors). Newman and Playwright written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 - [ ] A live check on the dev instance: back up, change an agent's prompt, restore, and read the agent's version history
