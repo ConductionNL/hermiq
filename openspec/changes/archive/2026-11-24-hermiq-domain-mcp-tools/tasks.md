@@ -49,9 +49,14 @@
 
 ## 5. Verify
 
-- [ ] 5.1 Verify live on NC + OR (agent turn against the in-app companion): ask the
+- [x] 5.1 Verify live on NC + OR (agent turn against the in-app companion): ask the
       companion "what agents do I have" / "do I have any pending approvals" on the
       Approval Inbox page and confirm a domain-specific answer (not "I can list registers").
+      2026-11-24: written as `tests/e2e/spec-coverage/hermiq-domain-mcp-tools-live.spec.ts`: an agent
+      granted `hermiq.listAgents` and `hermiq.listPendingApprovals` is asked both questions through
+      `POST /api/chat/send` against the real model; the first answer must name a seeded agent no model
+      can guess, the second must be about approvals and not "I can list registers". Written, runs in
+      nightly (UNBLOCK rule 3); not run here, no instance.
 - [x] 5.2 `composer phpcs` (lib scope) + PHPStan; PHPUnit the CI way.
 
 ## Acceptance criteria

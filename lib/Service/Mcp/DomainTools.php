@@ -18,7 +18,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-domain-mcp-tools/specs/hermiq-domain-mcp-tools/spec.md
+ * @spec openspec/changes/archive/2026-11-24-hermiq-domain-mcp-tools/specs/hermiq-domain-mcp-tools/spec.md
  */
 
 declare(strict_types=1);
@@ -52,7 +52,7 @@ use Throwable;
  *
  * `invoke()` never throws: a failure is the `{error: {code, message}}` envelope.
  *
- * @spec openspec/changes/hermiq-domain-mcp-tools/specs/hermiq-domain-mcp-tools/spec.md
+ * @spec openspec/changes/archive/2026-11-24-hermiq-domain-mcp-tools/specs/hermiq-domain-mcp-tools/spec.md
  */
 class DomainTools {
 
@@ -92,7 +92,7 @@ class DomainTools {
 	 *
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
-	 * @spec openspec/changes/hermiq-domain-mcp-tools/specs/hermiq-domain-mcp-tools/spec.md
+	 * @spec openspec/changes/archive/2026-11-24-hermiq-domain-mcp-tools/specs/hermiq-domain-mcp-tools/spec.md
 	 */
 	public function invoke(string $uid, string $toolId, array $arguments): array {
 		try {
@@ -276,7 +276,7 @@ class DomainTools {
 	 *
 	 * @return array{error: array{code: string, message: string}}
 	 *
-	 * @spec openspec/changes/hermiq-domain-mcp-tools/specs/hermiq-domain-mcp-tools/spec.md
+	 * @spec openspec/changes/archive/2026-11-24-hermiq-domain-mcp-tools/specs/hermiq-domain-mcp-tools/spec.md
 	 */
 	public static function error(string $code, string $message): array {
 		return ['error' => ['code' => $code, 'message' => $message]];
