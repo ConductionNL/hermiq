@@ -12,7 +12,7 @@
     <description lang="nl"><![CDATA[Hermiq brengt autonome AI-agents naar Nextcloud. Definieer een agent, geef deze tools, en laat hem volgens een schema draaien: dagelijkse rapportages, inbox-triage, monitoring, ochtendbriefings. Alles binnen je eigen Nextcloud, afgeleverd in Nextcloud Talk. Agents, hun geheugen en hun zelflerende skills worden opgeslagen als OpenRegister-objecten, zodat elke run beheerd, controleerbaar en multi-tenant is.
 
 **Vereist:** [OpenRegister](https://apps.nextcloud.com/apps/openregister) 0.2.17-unstable.14 of hoger (installeer/upgrade via de [Nextcloud App Store](https://apps.nextcloud.com/apps/openregister)). Hermiq's agent-engine (chat, geplande runs, flow-getriggerde agent-acties) roept OpenRegister's `ToolRegistryFacade` aan en luistert naar diens `AgentRunRequestedEvent`, die beide pas vanaf die OpenRegister-versie bestaan; de sectie "Agent-credentials" in Instellingen en de persoonlijke/organisatie-credentialresolutie hebben daarnaast OpenRegister's organisatiebrede credential broker nodig, die sinds diezelfde versie wordt geleverd.]]></description>
-    <version>0.2.30-unstable.20261124080939</version>
+    <version>0.2.30-unstable.20261124141452</version>
     <licence>EUPL-1.2</licence>
     <author mail="info@conduction.nl" homepage="https://www.conduction.nl/">Conduction</author>
     <namespace>Hermiq</namespace>
@@ -133,6 +133,9 @@
             <step>OCA\Hermiq\Repair\SeedHydraTriageFlow</step>
             <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-6-seed-the-hydra-triage-agent -->
             <step>OCA\Hermiq\Repair\SeedHydraTriageAgent</step>
+            <!-- @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md -->
+            <!-- hydra's pipeline flows from lib/Settings/flows, disabled and ownerless, once each by name. -->
+            <step>OCA\Hermiq\Repair\SeedBundledFlows</step>
             <!-- @spec openspec/changes/hermiq-agent-application-slug/specs/hermiq-agent-application-slug/spec.md#requirement-the-four-hydra-console-agents-are-backfilled-with-their-application-slug -->
             <!-- Runs AFTER SeedHydraTriageAgent so a first-upgrade install's seeded
                  "Hydra Triage" (which now sets applicationSlug at creation time) is
@@ -237,6 +240,9 @@
             <step>OCA\Hermiq\Repair\SeedHydraTriageFlow</step>
             <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-6-seed-the-hydra-triage-agent -->
             <step>OCA\Hermiq\Repair\SeedHydraTriageAgent</step>
+            <!-- @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md -->
+            <!-- hydra's pipeline flows from lib/Settings/flows, disabled and ownerless, once each by name. -->
+            <step>OCA\Hermiq\Repair\SeedBundledFlows</step>
             <!-- @spec openspec/changes/talk-chat-bridge/tasks.md#1-bot-registration-and-lifecycle -->
             <step>OCA\Hermiq\Repair\InstallTalkBot</step>
             <!-- @spec openspec/changes/instant-talk/tasks.md#4-multi-agent-rooms -->

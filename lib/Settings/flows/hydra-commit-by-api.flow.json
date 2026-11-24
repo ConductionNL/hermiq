@@ -1,0 +1,335 @@
+{
+  "name": "Hydra commit by API",
+  "trigger": "manual",
+  "enabled": false,
+  "description": "Create a commit without a git push: blob -> tree -> commit -> ref, entirely over the brokered forge REST API. Carries the two safety rails git push used to provide for free — see openspec/changes/hydra-flows-first-port tasks 2.1 and 2.5.",
+  "$bindings": {
+    "read-ref.source": "The uuid of the Source seeded from flows/hydra-forge.source.json on the target instance. Instance-specific; an importer resolves it by name.",
+    "read-commit.source": "The uuid of the Source seeded from flows/hydra-forge.source.json on the target instance. Instance-specific; an importer resolves it by name.",
+    "make-blob.source": "The uuid of the Source seeded from flows/hydra-forge.source.json on the target instance. Instance-specific; an importer resolves it by name.",
+    "recheck-tip.source": "The uuid of the Source seeded from flows/hydra-forge.source.json on the target instance. Instance-specific; an importer resolves it by name.",
+    "make-tree.source": "The uuid of the Source seeded from flows/hydra-forge.source.json on the target instance. Instance-specific; an importer resolves it by name.",
+    "make-commit.source": "The uuid of the Source seeded from flows/hydra-forge.source.json on the target instance. Instance-specific; an importer resolves it by name.",
+    "compare.source": "The uuid of the Source seeded from flows/hydra-forge.source.json on the target instance. Instance-specific; an importer resolves it by name.",
+    "move-ref.source": "The uuid of the Source seeded from flows/hydra-forge.source.json on the target instance. Instance-specific; an importer resolves it by name."
+  },
+  "$comment": [
+    "🔑 THE TWO RAILS ARE THE POINT, not the blob/tree/commit chain.",
+    "",
+    "`git push` refuses a non-fast-forward for free. commit-by-API does not, and",
+    "`base_tree` OVERWRITES rather than merges — so a tree built against a base",
+    "that has since moved silently reverts every file the caller did not send, and",
+    "the resulting commit looks perfectly clean. That happened for real during the",
+    "nc-vue migration: two files lost an import and a template gate, caught only by",
+    "running the full suite.",
+    "",
+    "  tip-gate   re-reads the branch tip immediately before the tree is built and",
+    "             refuses if it no longer equals the base the commit is parented on.",
+    "  diff-gate  compares the produced commit against the base and refuses to move",
+    "             the ref unless exactly the expected number of files changed.",
+    "",
+    "Both were exercised live on 2026-07-31 against a throwaway branch:",
+    "the diff-gate REFUSED a run whose commit changed nothing (the ref did not",
+    "move), and PASSED the next one (blob 201, tree 201, commit 201, ref moved",
+    "0acaec6b -> ac1c467f). Two commits existed on GitHub with no git push anywhere.",
+    "",
+    "⚠️ `expectedFiles` is the caller's assertion about its own change. It is not a",
+    "  formality: it is the only thing that distinguishes 'my one file landed' from",
+    "  'my tree quietly reverted four others'.",
+    "",
+    "⚠️ Getting here needed two OpenRegister fixes, both found by running it:",
+    "  openregister#2231 — the broker read `..` anywhere as traversal, so GitHub's",
+    "    `compare/{base}...{head}` was denied and the diff rail could not be built.",
+    "  openregister#2232 — a stop on the branch a router did NOT choose still fired,",
+    "    so the happy path reported `failed` with the rail's own refusal message."
+  ],
+  "nodes": [
+    {
+      "id": "start",
+      "type": "openregister.trigger-manual",
+      "config": {},
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "read-ref",
+      "type": "openconnector.source-call",
+      "config": {
+        "method": "GET",
+        "output": "baseRef",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "stop",
+        "endpoint": "/repos/{{repo}}/git/ref/heads/{{branch}}"
+      }
+    },
+    {
+      "id": "read-commit",
+      "type": "openconnector.source-call",
+      "config": {
+        "method": "GET",
+        "output": "baseCommit",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "stop",
+        "endpoint": "/repos/{{repo}}/git/commits/{{baseRef.body.object.sha}}"
+      }
+    },
+    {
+      "id": "make-blob",
+      "type": "openconnector.source-call",
+      "config": {
+        "body": {
+          "content": "{{content}}",
+          "encoding": "utf-8"
+        },
+        "method": "POST",
+        "output": "blob",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "stop",
+        "endpoint": "/repos/{{repo}}/git/blobs"
+      }
+    },
+    {
+      "id": "recheck-tip",
+      "type": "openconnector.source-call",
+      "config": {
+        "method": "GET",
+        "output": "tipNow",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "stop",
+        "endpoint": "/repos/{{repo}}/git/ref/heads/{{branch}}"
+      }
+    },
+    {
+      "id": "tip-gate",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "make-tree",
+            "condition": {
+              "and": [
+                {
+                  "!!": [
+                    {
+                      "var": "json.tipNow.body.object.sha"
+                    }
+                  ]
+                },
+                {
+                  "===": [
+                    {
+                      "var": "json.tipNow.body.object.sha"
+                    },
+                    {
+                      "var": "json.baseRef.body.object.sha"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "default": "stop-moved",
+        "$comment": "The rail must PROVE the tip is where the commit is parented, and an unanswered forge proves nothing. `==` made this fail OPEN in exactly the situation it exists for: with both reads empty, `null == null` is true and the gate reported `safe`, so 'the recheck never happened' was indistinguishable from 'the branch has not moved'. Hence two conditions, not one. `!!` requires the re-read tip to actually be a sha — an absent read and an empty string both refuse — and `===` then requires the base to be that same sha with no type coercion. Requiring only the tip is sufficient: if the tip is a non-empty string, `===` can only hold when the base is the identical non-empty string."
+      }
+    },
+    {
+      "id": "make-tree",
+      "type": "openconnector.source-call",
+      "config": {
+        "body": {
+          "tree": [
+            {
+              "sha": "{{blob.body.sha}}",
+              "mode": "100644",
+              "path": "{{path}}",
+              "type": "blob"
+            }
+          ],
+          "base_tree": "{{baseCommit.body.tree.sha}}"
+        },
+        "method": "POST",
+        "output": "tree",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "stop",
+        "endpoint": "/repos/{{repo}}/git/trees"
+      }
+    },
+    {
+      "id": "make-commit",
+      "type": "openconnector.source-call",
+      "config": {
+        "body": {
+          "tree": "{{tree.body.sha}}",
+          "message": "{{message}}",
+          "parents": [
+            "{{baseRef.body.object.sha}}"
+          ]
+        },
+        "method": "POST",
+        "output": "commit",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "stop",
+        "endpoint": "/repos/{{repo}}/git/commits"
+      }
+    },
+    {
+      "id": "compare",
+      "type": "openconnector.source-call",
+      "config": {
+        "method": "GET",
+        "output": "cmp",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "stop",
+        "endpoint": "/repos/{{repo}}/compare/{{baseRef.body.object.sha}}...{{commit.body.sha}}"
+      }
+    },
+    {
+      "id": "diff-gate",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "move-ref",
+            "condition": {
+              "and": [
+                {
+                  ">": [
+                    {
+                      "var": "json.expectedFiles"
+                    },
+                    0
+                  ]
+                },
+                {
+                  "===": [
+                    {
+                      "length": [
+                        {
+                          "var": "json.cmp.body.files"
+                        }
+                      ]
+                    },
+                    {
+                      "var": "json.expectedFiles"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "default": "stop-dirty",
+        "$comment": "Same failure as the tip-gate, one node later and with the ref move behind it. `length` of an absent `cmp.body.files` is 0, an absent `expectedFiles` is null, and `0 == null` is TRUE — so a caller that forgot the assertion, or a compare that returned nothing, routed to `clean` and moved the ref. The assertion is now required to BE one: `> 0` rejects both the absent caller and the degenerate 'I expect zero files to change' (which is never a reason to move a ref), and `===` then compares counts without coercion. Measured through the real SetFieldsNode on the deployed `hydra-record-stage/package-commit`: `expectedFiles` arrives as integer 1, so `===` against `length` holds on the working path."
+      }
+    },
+    {
+      "id": "move-ref",
+      "type": "openconnector.source-call",
+      "config": {
+        "body": {
+          "sha": "{{commit.body.sha}}"
+        },
+        "method": "PATCH",
+        "output": "moved",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "stop",
+        "endpoint": "/repos/{{repo}}/git/refs/heads/{{branch}}"
+      },
+      "exit": true
+    },
+    {
+      "id": "stop-moved",
+      "type": "openregister.end",
+      "config": {
+        "error": true,
+        "message": "The branch tip moved while the commit was being built. Refusing to base a tree on a stale parent."
+      }
+    },
+    {
+      "id": "stop-dirty",
+      "type": "openregister.end",
+      "config": {
+        "error": true,
+        "message": "The produced commit touches more files than were sent. base_tree overwrites rather than merges, so this would silently revert somebody's work. Refusing to move the ref."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-read-ref",
+      "from": "start",
+      "to": "read-ref"
+    },
+    {
+      "id": "move-ref-stop-moved",
+      "from": "move-ref",
+      "to": "stop-moved"
+    },
+    {
+      "id": "read-ref-read-commit",
+      "from": "read-ref",
+      "to": "read-commit",
+      "title": "based"
+    },
+    {
+      "id": "read-commit-make-blob",
+      "from": "read-commit",
+      "to": "make-blob",
+      "title": "treed"
+    },
+    {
+      "id": "make-blob-recheck-tip",
+      "from": "make-blob",
+      "to": "recheck-tip",
+      "title": "blobbed"
+    },
+    {
+      "id": "recheck-tip-tip-gate",
+      "from": "recheck-tip",
+      "to": "tip-gate",
+      "title": "rechecked"
+    },
+    {
+      "id": "tip-gate-make-tree",
+      "from": "tip-gate",
+      "to": "make-tree",
+      "title": "safe"
+    },
+    {
+      "id": "tip-gate-stop-moved",
+      "from": "tip-gate",
+      "to": "stop-moved",
+      "title": "moved-away"
+    },
+    {
+      "id": "make-tree-make-commit",
+      "from": "make-tree",
+      "to": "make-commit",
+      "title": "newtree"
+    },
+    {
+      "id": "make-commit-compare",
+      "from": "make-commit",
+      "to": "compare",
+      "title": "committed"
+    },
+    {
+      "id": "compare-diff-gate",
+      "from": "compare",
+      "to": "diff-gate",
+      "title": "compared"
+    },
+    {
+      "id": "diff-gate-move-ref",
+      "from": "diff-gate",
+      "to": "move-ref",
+      "title": "clean"
+    },
+    {
+      "id": "diff-gate-stop-dirty",
+      "from": "diff-gate",
+      "to": "stop-dirty",
+      "title": "dirty"
+    }
+  ]
+}

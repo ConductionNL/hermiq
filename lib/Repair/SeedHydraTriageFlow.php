@@ -71,7 +71,6 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use DateTime;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\OpenRegister\Db\Flow;
 use OCA\OpenRegister\Db\Flow\FlowSelection;
@@ -79,7 +78,6 @@ use OCA\OpenRegister\Db\FlowMapper;
 use OCA\OpenRegister\Kernel\Contracts\ListQuery;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
-use OCA\OpenRegister\Service\OrganisationService;
 use OCP\IAppConfig;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -203,77 +201,20 @@ class SeedHydraTriageFlow implements IRepairStep {
 	}//end __construct()
 
 	/**
-	 * The default organisation's UUID, or null when none can be resolved.
-	 *
-	 * Two steps, cheapest first:
-	 *
-	 *   1. `getDefaultOrganisationUuid()` — a plain app-config read, no session
-	 *      and no side effects. This is the normal answer.
-	 *   2. `ensureDefaultOrganisation()` — self-provisioning: it creates
-	 *      "Default Organisation" when none exists yet and records its UUID.
-	 *      Only reached on an instance so fresh that nothing has needed an
-	 *      organisation before, which is exactly the install this bug is about.
+	 * The default organisation's UUID, or null when none can be resolved
+	 * ({@see DefaultOrganisationLookup}: the configured default, then a self-provisioned one).
 	 *
 	 * Returns null rather than throwing, and the caller REFUSES TO WRITE on
-	 * null. That ordering matters: an absent flow is recoverable because the
-	 * next run seeds it, whereas an org-less orphan blocks its own re-seed
-	 * forever while reporting success.
+	 * null: an absent flow is recoverable because the next run seeds it, whereas
+	 * an org-less orphan blocks its own re-seed forever while reporting success.
 	 *
 	 * @return string|null The default organisation UUID, or null.
 	 *
 	 * @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-7-seed-the-triage-agentflow
 	 */
 	private function defaultOrganisationUuid(): ?string {
-		try {
-			$organisations = $this->container->get(OrganisationService::class);
-		} catch (Throwable $e) {
-			$this->logger->warning('[hermiq] OrganisationService unavailable for the flow seed: ' . $e->getMessage());
-			return null;
-		}
-
-		return $this->configuredOrganisationUuid(organisations: $organisations)
-			?? $this->ensuredOrganisationUuid(organisations: $organisations);
+		return (new DefaultOrganisationLookup(container: $this->container, logger: $this->logger))->uuid();
 	}//end defaultOrganisationUuid()
-
-	/**
-	 * The configured default organisation's UUID — a plain app-config read — or null.
-	 *
-	 * @param OrganisationService $organisations The organisation service.
-	 *
-	 * @return string|null
-	 */
-	private function configuredOrganisationUuid(OrganisationService $organisations): ?string {
-		try {
-			$uuid = $organisations->getDefaultOrganisationUuid();
-			if (is_string($uuid) === true && $uuid !== '') {
-				return $uuid;
-			}
-		} catch (Throwable $e) {
-			$this->logger->debug('[hermiq] Default organisation not yet configured: ' . $e->getMessage());
-		}
-
-		return null;
-	}//end configuredOrganisationUuid()
-
-	/**
-	 * The UUID of the default organisation, created when none exists yet, or null.
-	 *
-	 * @param OrganisationService $organisations The organisation service.
-	 *
-	 * @return string|null
-	 */
-	private function ensuredOrganisationUuid(OrganisationService $organisations): ?string {
-		try {
-			$uuid = $organisations->ensureDefaultOrganisation()->getUuid();
-			if (is_string($uuid) === true && $uuid !== '') {
-				return $uuid;
-			}
-		} catch (Throwable $e) {
-			$this->logger->warning('[hermiq] Could not ensure a default organisation: ' . $e->getMessage());
-		}
-
-		return null;
-	}//end ensuredOrganisationUuid()
 
 	/**
 	 * Record how this seed ended, where something other than a log tail can read it.
@@ -432,45 +373,8 @@ class SeedHydraTriageFlow implements IRepairStep {
 	 * @return Flow
 	 */
 	private function newFlow(): Flow {
-		$flow = $this->flowFrom(data: $this->flowObject());
-		$flow->setCreated(new DateTime());
-		$flow->setUpdated(new DateTime());
-
-		// Seeded DISABLED and OWNERLESS, deliberately. A repair step runs with
-		// no user session, so there is no identity to attribute the flow to,
-		// and a flow with no owner cannot dispatch. Seeding it enabled would
-		// mean picking an owner for a graph that runs agents — a privilege
-		// decision nobody made. Enabling it is a human act that supplies one.
-		$flow->setEnabled(false);
-		$flow->setOwner(null);
-
-		return $flow;
+		return (new SeededFlowRow())->from(data: $this->flowObject(), name: self::FLOW_NAME, applicationSlug: self::APPLICATION_SLUG);
 	}//end newFlow()
-
-	/**
-	 * A new flow entity carrying the seeded object's identity, trigger and graph.
-	 *
-	 * @param array<string, mixed> $data The seeded agentflow object.
-	 *
-	 * @return Flow
-	 */
-	private function flowFrom(array $data): Flow {
-		$flow = new Flow();
-		$flow->setUuid($this->newUuid());
-		$flow->setApp(AppIdentity::APP_ID);
-		$flow->setName(self::FLOW_NAME);
-		$flow->setDescription((string)($data['description'] ?? ''));
-		$flow->setTrigger((string)($data['trigger'] ?? ''));
-		$flow->setTriggerRegister(($data['triggerRegister'] ?? null));
-		$flow->setTriggerSchema(($data['triggerSchema'] ?? null));
-		$flow->setCron(($data['cron'] ?? null));
-		$flow->setNodes((array)($data['nodes'] ?? []));
-		$flow->setEdges((array)($data['edges'] ?? []));
-		$flow->setLimits((array)($data['limits'] ?? []));
-		$flow->setApplicationSlug(self::APPLICATION_SLUG);
-
-		return $flow;
-	}//end flowFrom()
 
 	/**
 	 * The default organisation's UUID, or null after warning and recording that none is
@@ -871,17 +775,4 @@ class SeedHydraTriageFlow implements IRepairStep {
 			);
 		}
 	}//end backfillApplicationSlug()
-
-	/**
-	 * Mint a v4 uuid for the seeded flow.
-	 *
-	 * @return string The uuid.
-	 */
-	private function newUuid(): string {
-		$data = random_bytes(16);
-		$data[6] = chr((ord($data[6]) & 0x0f) | 0x40);
-		$data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
-
-		return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
-	}//end newUuid()
 }//end class

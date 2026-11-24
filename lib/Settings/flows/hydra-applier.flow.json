@@ -1,0 +1,90 @@
+{
+  "name": "Hydra applier",
+  "description": "The final go/no-go on a pipeline PR, as a flow. Runs Axel Pliér as a hermiq agent step over the post-review context on the item and branches on the verdict. Replaces the hydra-owned applier container (images/applier) in the Claude path. See openspec/changes/hydra-flows-first-port task 4.1.",
+  "trigger": "manual",
+  "enabled": false,
+  "$bindings": {
+    "judge.agentId": "The uuid of the agent seeded from agents/axel-plier/hermiq-agent.json on the target instance. Instance-specific, so it cannot be checked in; an importer resolves it by the agent's name."
+  },
+  "nodes": [
+    {
+      "id": "start",
+      "type": "openregister.trigger-manual",
+      "config": {},
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "judge",
+      "type": "hermiq.agent-step",
+      "config": {
+        "output": "applier",
+        "prompt": "Final go/no-go on PR {{prUrl}} — \"{{prTitle}}\".\n\n=== hydra.json ===\n{{hydraJson}}\n\n=== PR mergeability ===\n{{mergeState}}\n\n=== inline review comments (flattened) ===\n{{inlineComments}}\n\n=== reviewer summary comments ===\n{{summaryComments}}\n\n=== PR diff ===\n{{diff}}",
+        "agentId": "b1adfb0f-7d24-439a-bd26-8801e44fa6b6",
+        "expectJson": true
+      },
+      "onError": "stop"
+    },
+    {
+      "id": "gate",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "go-stop",
+            "condition": {
+              "===": [
+                {
+                  "var": "json.applier.pass"
+                },
+                true
+              ]
+            }
+          }
+        ],
+        "default": "no-go-stop",
+        "$comment": "⚠️ `===`, NOT `==`. json-logic-php's `==` is PHP's loose `==`, under which EVERY non-empty string equals `true` — so an applier answering `{\"pass\": \"no\"}` was routed to `go`. Measured live 2026-08-02. `default: \"no-go\"` was already right and is what makes an absent verdict safe; this makes a MALFORMED one safe too."
+      }
+    },
+    {
+      "id": "go-stop",
+      "type": "openregister.end",
+      "config": {
+        "error": false,
+        "message": "Applier returned pass. The verdict and its summary_comment are on the run's items; the caller transitions the label and merges."
+      }
+    },
+    {
+      "id": "no-go-stop",
+      "type": "openregister.end",
+      "config": {
+        "error": false,
+        "message": "Applier returned fail, or a verdict without pass:true. The blocking[] entries are on the run's items; the caller escalates to needs-input."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-judge",
+      "from": "start",
+      "to": "judge"
+    },
+    {
+      "id": "judge-gate",
+      "from": "judge",
+      "to": "gate",
+      "title": "judged"
+    },
+    {
+      "id": "gate-go-stop",
+      "from": "gate",
+      "to": "go-stop",
+      "title": "go"
+    },
+    {
+      "id": "gate-no-go-stop",
+      "from": "gate",
+      "to": "no-go-stop",
+      "title": "no-go"
+    }
+  ]
+}

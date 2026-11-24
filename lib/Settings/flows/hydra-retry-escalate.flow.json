@@ -1,0 +1,257 @@
+{
+  "$comment": [
+    "Retry with a budget, then escalate — openspec/changes/hydra-flows-first-port task 3.3.",
+    "",
+    "The supervisor's `_auto_retry_or_escalate` + `_clear_auto_retry_labels`, as a",
+    "graph. A failing stage is retried up to `maxRetries` and then handed to a",
+    "human, and the OUTCOME LANDS ON THE ISSUE rather than only in a run log —",
+    "which is the half of the task that makes it useful to anyone not reading",
+    "flow runs.",
+    "",
+    "🔑 The counter lives in FLOW STATE, keyed per flow, so it survives between",
+    "ticks (openregister#2216). A scheduled flow starts blank every run; without",
+    "this the budget would reset every time and 'retry twice' would mean 'retry",
+    "forever'.",
+    "",
+    "⚠️ `bump` uses `compute`, not `set`. A template SUBSTITUTES and does not",
+    "  CALCULATE — `{{retries}}` copies the counter and nothing could add one to",
+    "  it. That is precisely why the first version of this flow retried forever",
+    "  with the counter stuck at 0. openregister#2238 added `compute`.",
+    "",
+    "Verified live with maxRetries=2:",
+    "    fail -> retries 1     (retry)",
+    "    fail -> retries 2     (retry)",
+    "    fail -> retries 2     (budget exhausted; escalate, no bump)",
+    "    pass -> counter gone  (cleared)",
+    "",
+    "⚠️ The counter here is per FLOW, not per issue. That is correct for a",
+    "  sequencer that handles one issue per tick and wrong if this graph is ever",
+    "  reused for several issues at once — then the key has to include the issue",
+    "  ref, and `flow-state` keys are literal, so it needs a `set-fields` step to",
+    "  build the key first. Named because it will not announce itself.",
+    "",
+    "🔑 `persist` AND `label-retry` USED TO SHARE ONE TOKEN, and only one of them",
+    "  ever ran (REVALIDATION-2026-08-02 D3). Both were drawn `bumped → done`.",
+    "  In a Petri net two transitions on one place COMPETE for its single token:",
+    "  `FlowEngine::selectTransition()` takes the first unconditioned candidate,",
+    "  which is `persist` by declaration order, `workflow->apply()` then moves the",
+    "  token off `bumped`, and `label-retry` is never enabled again. It did not",
+    "  appear in the run log at all across two retry cycles — no error, no warning,",
+    "  and the counter advanced correctly the whole time, so the run looked right",
+    "  while the issue was never told it was being retried.",
+    "",
+    "  Two steps that must BOTH happen are a SEQUENCE, not two edges out of one",
+    "  place. `bumped → persist → persisted → label-retry → done` is the fix. A",
+    "  genuine parallel split would be ONE transition with two `to` places; two",
+    "  transitions with the same `from` is a choice, and the engine chooses."
+  ],
+  "name": "Hydra retry and escalate",
+  "description": "A failing stage is retried up to a budget and then escalated to a human, with the outcome written to the issue. Replaces hydra-supervisor.sh's _auto_retry_or_escalate. See openspec/changes/hydra-flows-first-port task 3.3.",
+  "trigger": "manual",
+  "enabled": false,
+  "$bindings": {
+    "label-retry.source": "The uuid of the Source seeded from flows/hydra-forge.source.json on the target instance.",
+    "label-escalate.source": "Same Source as label-retry.source."
+  },
+  "nodes": [
+    {
+      "id": "start",
+      "type": "openregister.trigger-manual",
+      "config": {},
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "done",
+      "type": "openregister.end",
+      "config": { "message": "The flow completed." },
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "read-count",
+      "type": "openregister.flow-state",
+      "config": {
+        "as": "retries",
+        "key": "retries",
+        "default": 0,
+        "operation": "get"
+      }
+    },
+    {
+      "id": "verdict-gate",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "clear",
+            "condition": {
+              "===": [
+                {
+                  "var": "json.verdict"
+                },
+                "pass"
+              ]
+            }
+          }
+        ],
+        "default": "budget-gate"
+      }
+    },
+    {
+      "id": "clear",
+      "type": "openregister.flow-state",
+      "config": {
+        "key": "retries",
+        "operation": "forget"
+      },
+      "exit": true
+    },
+    {
+      "id": "budget-gate",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "bump",
+            "condition": {
+              "<": [
+                {
+                  "var": "json.retries"
+                },
+                {
+                  "var": "json.maxRetries"
+                }
+              ]
+            }
+          }
+        ],
+        "default": "label-escalate"
+      }
+    },
+    {
+      "id": "bump",
+      "type": "openregister.set-fields",
+      "config": {
+        "set": {
+          "outcome": "retry"
+        },
+        "compute": {
+          "nextRetry": {
+            "+": [
+              {
+                "var": "json.retries"
+              },
+              1
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "persist",
+      "type": "openregister.flow-state",
+      "config": {
+        "key": "retries",
+        "from": "nextRetry",
+        "operation": "set"
+      }
+    },
+    {
+      "id": "label-retry",
+      "type": "openconnector.source-call",
+      "config": {
+        "body": {
+          "labels": [
+            "{{retryLabel}}"
+          ]
+        },
+        "method": "POST",
+        "output": "labelled",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "stop",
+        "endpoint": "/repos/{{repo}}/issues/{{issue}}/labels"
+      },
+      "exit": true
+    },
+    {
+      "id": "label-escalate",
+      "type": "openconnector.source-call",
+      "config": {
+        "body": {
+          "labels": [
+            "{{escalateLabel}}"
+          ]
+        },
+        "method": "POST",
+        "output": "escalated",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "stop",
+        "endpoint": "/repos/{{repo}}/issues/{{issue}}/labels"
+      },
+      "exit": true
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-read-count",
+      "from": "start",
+      "to": "read-count"
+    },
+    {
+      "id": "clear-done",
+      "from": "clear",
+      "to": "done"
+    },
+    {
+      "id": "label-retry-done",
+      "from": "label-retry",
+      "to": "done"
+    },
+    {
+      "id": "label-escalate-done",
+      "from": "label-escalate",
+      "to": "done"
+    },
+    {
+      "id": "read-count-verdict-gate",
+      "from": "read-count",
+      "to": "verdict-gate",
+      "title": "counted"
+    },
+    {
+      "id": "verdict-gate-clear",
+      "from": "verdict-gate",
+      "to": "clear",
+      "title": "passed"
+    },
+    {
+      "id": "verdict-gate-budget-gate",
+      "from": "verdict-gate",
+      "to": "budget-gate",
+      "title": "failed"
+    },
+    {
+      "id": "budget-gate-bump",
+      "from": "budget-gate",
+      "to": "bump",
+      "title": "retryable"
+    },
+    {
+      "id": "budget-gate-label-escalate",
+      "from": "budget-gate",
+      "to": "label-escalate",
+      "title": "exhausted"
+    },
+    {
+      "id": "bump-persist",
+      "from": "bump",
+      "to": "persist",
+      "title": "bumped"
+    },
+    {
+      "id": "persist-label-retry",
+      "from": "persist",
+      "to": "label-retry",
+      "title": "persisted"
+    }
+  ]
+}
