@@ -26,7 +26,7 @@
  *     NEXTCLOUD_URL=http://localhost:8080 NC_USER=admin NC_PASS=admin \
  *       npx playwright test --project=chromium oversight-switch-ai-off-per-department
  *
- * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md
+ * @spec openspec/specs/human-approval-gate/spec.md
  */
 
 import type { APIRequestContext } from '@playwright/test'

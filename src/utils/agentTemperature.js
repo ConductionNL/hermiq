@@ -16,7 +16,7 @@ export const MAX_TEMPERATURE = 2
  *
  * @param {string|number|null|undefined} raw The field's value.
  * @return {boolean} True when the form may save it.
- * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
+ * @spec openspec/specs/agent-management-ui/spec.md#REQ-SPCOV-002
  */
 export function temperatureInRange(raw) {
 	if (raw === null || raw === undefined || String(raw).trim() === '') {

@@ -146,7 +146,7 @@ class ScheduleTaskTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-schedule/spec.md#requirement-a-schedule-does-not-start-a-new-run-while-its-last-run-is-still-going-req-spcov-014
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-a-schedule-does-not-start-a-new-run-while-its-last-run-is-still-going-req-spcov-014
 	 */
 	public function testATickNeverStartsWhileTheLastOneRuns(): void {
 		$task = new ScheduleTask(

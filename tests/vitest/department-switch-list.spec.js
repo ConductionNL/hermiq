@@ -6,7 +6,7 @@
  * with its switch, who switched it and when, the refused runs and the
  * evidence download; administrators only.
  *
- * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md
+ * @spec openspec/specs/human-approval-gate/spec.md
  */
 
 import { flushPromises, mount } from '@vue/test-utils'

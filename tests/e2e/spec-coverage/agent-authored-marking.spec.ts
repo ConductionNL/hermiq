@@ -28,7 +28,7 @@
  *     NEXTCLOUD_URL=http://localhost:8080 NC_USER=admin NC_PASS=admin \
  *       npx playwright test --project=chromium agent-authored-marking
  *
- * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md
+ * @spec openspec/specs/nc-native-tools/spec.md
  */
 
 import type { APIRequestContext } from '@playwright/test'

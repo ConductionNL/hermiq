@@ -274,7 +274,7 @@ class ToolGrantWrites {
 	 *
 	 * @return array<int, string> The grants as the schema declares them.
 	 *
-	 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-the-written-shape-is-the-one-the-schema-declares
+	 * @spec openspec/specs/structured-tool-grants/spec.md#scenario-the-written-shape-is-the-one-the-schema-declares
 	 */
 	public function storableGrants(array $rawGrants): array {
 		return ToolGrantSet::fromStored(stored: $rawGrants)->toGrantStrings();

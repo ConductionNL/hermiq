@@ -6,7 +6,7 @@
  *
  * Administrators only; the server answers 403 to anyone else.
  *
- * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md
+ * @spec openspec/specs/human-approval-gate/spec.md
  */
 
 import axios from '@nextcloud/axios'
@@ -20,7 +20,7 @@ const DEPARTMENT_CONTROL_BASE = '/apps/hermiq/api/department-control'
  * count, last run and the runs refused since the switch-off.
  *
  * @return {Promise<Array<object>>} The department rows.
- * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
  */
 export async function listDepartments() {
 	const response = await axios.get(generateUrl(DEPARTMENT_CONTROL_BASE))
@@ -35,7 +35,7 @@ export async function listDepartments() {
  * @param {boolean} off True to switch AI off.
  * @param {string} reason Why, when switching off.
  * @return {Promise<object>} The department as stored.
- * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
  */
 export async function toggleDepartment(group, off, reason) {
 	const response = await axios.post(
@@ -50,7 +50,7 @@ export async function toggleDepartment(group, off, reason) {
  *
  * @param {string} group The department's group id.
  * @return {string} The URL.
- * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
  */
 export function departmentEvidenceUrl(group) {
 	return generateUrl(`${DEPARTMENT_CONTROL_BASE}/${encodeURIComponent(group)}/evidence`)

@@ -258,7 +258,7 @@ export default {
 		 *
 		 * @return {void}
 		 *
-		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-an-untouched-save-loses-nothing
+		 * @spec openspec/specs/structured-tool-grants/spec.md#scenario-an-untouched-save-loses-nothing
 		 */
 		onReset() {
 			this.$refs.matrix.reset()

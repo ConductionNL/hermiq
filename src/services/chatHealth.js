@@ -11,7 +11,7 @@
  * plain node. Only the fields named here are read, so nothing a source adds
  * later (a URL, a credential id, a key) can reach the page.
  *
- * @spec openspec/changes/spec-coverage-built-rows/specs/observability/spec.md#REQ-SPCOV-012
+ * @spec openspec/specs/observability/spec.md#REQ-SPCOV-012
  */
 
 /** Provider ids and the name the page shows for each. */
@@ -35,7 +35,7 @@ const NOT_ANSWERING = new Set(['error', 'unavailable'])
  *
  * @param {unknown} status The row's stored status.
  * @return {'yes'|'no'|'off'} The state the page shows.
- * @spec openspec/changes/spec-coverage-built-rows/specs/observability/spec.md#REQ-SPCOV-012
+ * @spec openspec/specs/observability/spec.md#REQ-SPCOV-012
  */
 export function connectionState(status) {
 	if (ANSWERING.has(status)) {
@@ -53,7 +53,7 @@ export function connectionState(status) {
  * @param {object|null} llm The masked `hermiq.llm` settings.
  * @param {string} provider The chosen provider id.
  * @return {string} The model name.
- * @spec openspec/changes/spec-coverage-built-rows/specs/observability/spec.md#REQ-SPCOV-012
+ * @spec openspec/specs/observability/spec.md#REQ-SPCOV-012
  */
 export function defaultModel(llm, provider) {
 	const config = llm && provider ? llm[provider + 'Config'] : null
@@ -69,7 +69,7 @@ export function defaultModel(llm, provider) {
  *        unreadable) and the app's connection rows.
  * @return {{chatWorks: boolean, chatStatus: string, provider: string, model: string, rows: Array<{id: string, title: string, state: string, checkedAt: string}>}}
  *         The view; `chatStatus` is `ok`, `unconfigured` or `error`.
- * @spec openspec/changes/spec-coverage-built-rows/specs/observability/spec.md#REQ-SPCOV-012
+ * @spec openspec/specs/observability/spec.md#REQ-SPCOV-012
  */
 export function buildChatHealth({ health, llm, connections }) {
 	let chatStatus = 'error'

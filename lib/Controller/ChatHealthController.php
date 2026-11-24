@@ -102,7 +102,7 @@ class ChatHealthController extends Controller {
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-3-2
-	 * @spec openspec/changes/spec-coverage-built-rows/specs/observability/spec.md#REQ-SPCOV-012
+	 * @spec openspec/specs/observability/spec.md#REQ-SPCOV-012
 	 */
 	#[AnonRateLimit(limit: 240, period: 60)]
 	public function health(): JSONResponse {

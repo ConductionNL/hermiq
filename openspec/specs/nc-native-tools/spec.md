@@ -181,6 +181,145 @@ Rows: `tl-talk` (hermiq matrix).
 - **THEN** the agent receives an error result and its turn continues
 - @e2e exclude {needs an instance without Talk; covered by tests/Unit/Mcp/TalkMessageToolTest.php}
 
+### Requirement: Every object an agent writes is marked as agent-authored (REQ-AILBL-001)
+
+hermiq SHALL mark each object an agent creates or updates as agent-authored, in the same operation
+as the write, with the mechanism native to that object's subsystem: a Nextcloud system tag for
+files and notes, and the `X-HERMIQ-AGENT-AUTHORED` property on the object itself for contacts
+(vCard), calendar items and tasks (iCalendar). The stored system tag name SHALL be the
+untranslated identifier `Agent authored` in every UI language, so one filter finds every tagged
+file, and hermiq SHALL NOT rename or translate the stored tag. A write whose mark cannot be applied
+SHALL report failure, never success.
+
+Rows: `dm-ai-label`. Board: `hermiq/HmToezicht`.
+
+#### Scenario: An agent writes a note
+- **WHEN** an agent creates or updates a note
+- **THEN** the note's file carries the agent-authored system tag
+
+@e2e exclude requires the Notes app, which CI does not install; covered by NotesWriteServiceTest.
+
+#### Scenario: An agent writes a contact or a calendar item
+- **WHEN** an agent upserts a contact or creates a calendar event
+- **THEN** the stored object carries `X-HERMIQ-AGENT-AUTHORED`
+- **AND** the property survives export and synchronisation of the object
+
+@e2e exclude asserting stored vCard and iCalendar bytes needs a CardDAV or CalDAV fetch, not a page; covered by ContactWriteServiceTest and CalendarWriteServiceTest.
+
+#### Scenario: The stored tag name does not follow the UI language
+- **GIVEN** one person uses Nextcloud in Dutch and another in English
+- **WHEN** an agent writes a file for each of them
+- **THEN** both files carry the system tag `Agent authored`
+- **AND** filtering Files on that one tag finds both
+
+@e2e exclude a second user with another UI language plus an agent write; covered by the AgentArtefactMarker unit test.
+
+#### Scenario: The mark cannot be applied
+- **GIVEN** the object was written
+- **WHEN** applying the mark fails
+- **THEN** the tool call reports failure to the agent and the run trace records it
+
+@e2e exclude a tagging failure cannot be forced from a page; covered by the write service tests.
+
+### Requirement: A person can mark a labelled file as reviewed, and the oversight page counts the labels (REQ-AILBL-002)
+
+A person who can read an agent-authored file SHALL be able to mark it as reviewed; the file SHALL
+then carry a reviewed system tag next to the agent-authored tag, which stays. The AI oversight page
+SHALL show a section, as drawn on `hermiq/HmToezicht`, with the number of agent-authored notes and
+files, contacts and calendar items, the share of agent-authored files marked as reviewed, and a link
+that opens Files filtered on the agent-authored tag. Counts SHALL include only what the viewer is
+allowed to see.
+
+Rows: `dm-ai-label`. Board: `hermiq/HmToezicht`.
+
+#### Scenario: A reviewed file counts as reviewed
+- **GIVEN** four agent-authored files the viewer can read, one marked as reviewed
+- **WHEN** the viewer opens the AI oversight page
+- **THEN** the label section shows 4 files and a reviewed share of 25%
+
+@e2e exclude needs agent-authored files tagged through an agent write and a review mark set up in advance; covered by AiLabelStatsServiceTest and the AiLabelSection Vitest test.
+
+#### Scenario: Marking a file someone cannot read is refused
+- **GIVEN** an agent-authored file the caller cannot read
+- **WHEN** they ask to mark it as reviewed
+- **THEN** the request is refused with 404 and the file's tags are unchanged
+
+@e2e exclude needs a second Nextcloud user who cannot read the file; covered by AiLabelControllerTest.
+
+### Requirement: hermiq shows the AI label as "Gemaakt met AI" (REQ-AILBL-004)
+
+Wherever hermiq's own pages show the label of REQ-AILBL-001 (the label section on the AI oversight
+page, the reviewed action, and any badge on an agent-authored object), they SHALL show the
+translatable display text "Gemaakt met AI" (English source "Made with AI"), never the stored
+identifier `Agent authored`. The link that opens Files filtered on the label SHALL filter on the
+stored tag. Files itself shows a system tag by its stored name; hermiq does not change that.
+
+Rows: `dm-ai-label`. Board: `hermiq/HmToezicht`.
+
+#### Scenario: The oversight section shows the display text
+- **GIVEN** a person using Nextcloud in Dutch
+- **WHEN** they open the AI oversight page
+- **THEN** the label section names the label "Gemaakt met AI"
+- **AND** the text `Agent authored` does not appear in the section
+- **AND** its link opens Files filtered on the tag `Agent authored`
+
+### Requirement: Chat answers are shown as the agent's, without a separate label (REQ-AILBL-003)
+
+On hermiq's chat page every answer SHALL be shown under the agent's name and avatar, so a person
+can always tell an agent's text from a person's. hermiq SHALL NOT add a separate AI label to chat
+answers; the label of REQ-AILBL-001 applies to what an agent writes outside the conversation.
+
+Rows: `dm-ai-label`. Board: `hermiq/HmChat`.
+
+#### Scenario: An answer shows who wrote it
+- **WHEN** an agent answers in a conversation
+- **THEN** the answer bubble shows the agent's name, and a person's own message shows that person's name
+
+### Requirement: An agent can read, create and move files in the acting user's Files (REQ-SPCOV-005)
+
+The system SHALL offer agent tools to list and read files, and to create and move a file,
+in the acting user's own Files folder only. Creating and moving SHALL be write tools,
+ungranted by default. A path outside the acting user's folder SHALL be refused.
+
+Rows: `tl-files`. Board: `hermiq/HmAgentBewerken`.
+
+#### Scenario: An agent reads a file
+- **GIVEN** an agent granted `hermiq.readFile`, acting for a user with `Beleid/nota.md`
+- **WHEN** a person asks it to summarise `Beleid/nota.md`
+- **THEN** the agent reads the file and the answer summarises it
+@e2e exclude A tool call made by the model on the server, with no screen of its own; covered by FilesWriteServiceTest and NcNativeWriteServiceFilesTest.
+
+#### Scenario: An agent creates and moves a file
+- **GIVEN** an agent granted the file write tools
+- **WHEN** a person asks it to write `concept.md` and then move it to `Archief/`
+- **THEN** `Archief/concept.md` exists in that person's Files and `concept.md` does not
+@e2e exclude A tool call made by the model on the server, with no screen of its own; covered by FilesWriteServiceTest and NcNativeWriteServiceFilesTest.
+
+#### Scenario: A path outside the user's folder is refused
+- **WHEN** the agent asks to read `../other-user/files/salaris.xlsx`
+- **THEN** the call is refused and no content is returned
+@e2e exclude A server-side refusal with no screen; covered by FilesWriteServiceTest.
+
+### Requirement: An agent can read the calendar and create events (REQ-SPCOV-006)
+
+The system SHALL offer an agent tool that lists the acting user's calendar events in a
+period, and a write tool, ungranted by default, that creates an event in a calendar that
+user owns and can write.
+
+Rows: `tl-calendar`. Board: `hermiq/HmAgentBewerken`.
+
+#### Scenario: An agent lists tomorrow's events
+- **GIVEN** an agent granted `hermiq.listCalendarEvents`
+- **WHEN** a person asks "What is in my calendar tomorrow?"
+- **THEN** the answer names tomorrow's events from that person's calendars
+@e2e exclude A tool call made by the model on the server, and the shared e2e instance has no seeded calendar; covered by HermiqToolProviderCalendarTest.
+
+#### Scenario: An agent creates an event
+- **GIVEN** an agent granted `hermiq.createCalendarEvent`
+- **WHEN** a person asks it to plan "Overleg bestemmingsplan" on Friday at 10:00
+- **THEN** the event appears on Friday at 10:00 in that person's calendar
+@e2e exclude A tool call made by the model on the server, and the shared e2e instance has no seeded calendar; covered by CalendarWriteServiceTest.
+
 ## User Stories
 
 - As an agent builder, I want my agent to read and write Files/Contacts/Calendar/Deck so that it can act on real Nextcloud data.

@@ -651,7 +651,7 @@ class AgentsController extends Controller {
 	 * check, not by hiding the catalogue.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
-	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-tool-governance/spec.md#REQ-SPCOV-007
+	 * @spec openspec/specs/agent-tool-governance/spec.md#REQ-SPCOV-007
 	 */
 	public function tools(): JSONResponse {
 		try {

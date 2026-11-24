@@ -15,7 +15,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
+ * @spec openspec/specs/agent-management-ui/spec.md#REQ-SPCOV-002
  */
 
 declare(strict_types=1);

@@ -268,7 +268,7 @@ class DashboardControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-naming-a-service-account-is-a-governance-action-checked-on-every-write-req-agid-002
+	 * @spec openspec/specs/agent-identity/spec.md#requirement-naming-a-service-account-is-a-governance-action-checked-on-every-write-req-agid-002
 	 */
 	public function testTheActingUserRightTracksTheActionMatrix(): void {
 		$controller = $this->controller('alice', false, [], false, true);
@@ -288,7 +288,7 @@ class DashboardControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-naming-a-service-account-is-a-governance-action-checked-on-every-write-req-agid-002
+	 * @spec openspec/specs/agent-identity/spec.md#requirement-naming-a-service-account-is-a-governance-action-checked-on-every-write-req-agid-002
 	 */
 	public function testAnAnonymousRequestMayNotSetTheActingUser(): void {
 		$controller = $this->controller(null, false, [], false, true);

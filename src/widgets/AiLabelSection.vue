@@ -92,7 +92,7 @@ export default {
 		 * The label as people read it, never the stored tag name.
 		 *
 		 * @return {string}
-		 * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-hermiq-shows-the-ai-label-as-gemaakt-met-ai-req-ailbl-004
+		 * @spec openspec/specs/nc-native-tools/spec.md#requirement-hermiq-shows-the-ai-label-as-gemaakt-met-ai-req-ailbl-004
 		 */
 		labelText() {
 			return this.t('hermiq', 'Made with AI')
@@ -102,7 +102,7 @@ export default {
 		 * The Files view filtered on the stored tag.
 		 *
 		 * @return {string}
-		 * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+		 * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
 		 */
 		filesUrl() {
 			return aiLabelFilesUrl(this.stats.tagId)
@@ -118,7 +118,7 @@ export default {
 		 * Load the counts for the viewer.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+		 * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
 		 */
 		async load() {
 			this.loading = true

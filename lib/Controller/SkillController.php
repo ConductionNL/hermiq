@@ -205,7 +205,7 @@ class SkillController extends Controller {
 	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#4-controller-routes
-	 * @spec openspec/changes/spec-coverage-built-rows/specs/skills-catalog/spec.md#REQ-SPCOV-010
+	 * @spec openspec/specs/skills-catalog/spec.md#REQ-SPCOV-010
 	 */
 	public function export(string $id): JSONResponse {
 		if ($this->userSession->getUser() === null) {

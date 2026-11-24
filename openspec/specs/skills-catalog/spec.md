@@ -219,6 +219,19 @@ skills-marketplace delta).
   than immediately `active`
 - AND an agent MUST NOT be able to use it until it is Approved through the existing review gate
 
+### Requirement: A person can export a skill to a file (REQ-SPCOV-010)
+
+Each skill row in the catalogue SHALL offer an Export action. Export SHALL download the skill
+as an agentskills.io package file that can be imported again without loss.
+
+Rows: `sk-export`. Board: `hermiq/HmSkills`.
+
+#### Scenario: A skill is downloaded
+- **GIVEN** the skill "meeting-notes-cleanup" in the catalogue
+- **WHEN** a person chooses "Export" on its row
+- **THEN** a file with the skill's frontmatter and body downloads
+- **AND** importing that file creates a skill with the same frontmatter and body
+
 ## User Stories
 
 - As an agent builder, I want to browse a catalog of skills so that I can extend my agent's capabilities without writing code.

@@ -83,7 +83,7 @@ class NcNativeWriteService implements NcNativeWriteServiceInterface {
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
 	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-per-object-idor-guard-on-every-provider
-	 * @spec openspec/changes/spec-coverage-built-rows/specs/nc-native-tools/spec.md#REQ-SPCOV-006
+	 * @spec openspec/specs/nc-native-tools/spec.md#REQ-SPCOV-006
 	 */
 	public function createCalendarEvent(string $uid, array $arguments, string $agentId = ''): array {
 		return $this->calendar->create(uid: $uid, arguments: $arguments, agentId: $agentId);
@@ -158,8 +158,8 @@ class NcNativeWriteService implements NcNativeWriteServiceInterface {
 	 *
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
-	 * @spec openspec/changes/spec-coverage-built-rows/tasks.md
-	 * @spec openspec/changes/spec-coverage-built-rows/specs/nc-native-tools/spec.md#REQ-SPCOV-005
+	 * @spec openspec/changes/archive/2026-11-24-spec-coverage-built-rows/tasks.md
+	 * @spec openspec/specs/nc-native-tools/spec.md#REQ-SPCOV-005
 	 */
 	public function createFile(string $uid, array $arguments): array {
 		if ($this->files === null) {
@@ -178,8 +178,8 @@ class NcNativeWriteService implements NcNativeWriteServiceInterface {
 	 *
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
-	 * @spec openspec/changes/spec-coverage-built-rows/tasks.md
-	 * @spec openspec/changes/spec-coverage-built-rows/specs/nc-native-tools/spec.md#REQ-SPCOV-005
+	 * @spec openspec/changes/archive/2026-11-24-spec-coverage-built-rows/tasks.md
+	 * @spec openspec/specs/nc-native-tools/spec.md#REQ-SPCOV-005
 	 */
 	public function moveFile(string $uid, array $arguments): array {
 		if ($this->files === null) {

@@ -48,7 +48,7 @@ interface AiLabelStatsServiceInterface {
 	 *         files exist than were checked; `objectsTruncated` says more contacts or calendar
 	 *         items exist than were read.
 	 *
-	 * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
 	 */
 	public function stats(string $uid): array;
 }//end interface

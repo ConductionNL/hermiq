@@ -16,7 +16,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
  */
 
 declare(strict_types=1);
@@ -38,7 +38,7 @@ use Throwable;
 /**
  * The per-department AI switch, administrators only.
  *
- * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
  */
 class DepartmentControlController extends Controller {
 
@@ -72,7 +72,7 @@ class DepartmentControlController extends Controller {
 	 *
 	 * @auth admin-only Switching a department's AI off or on is an administrator decision; the method also refuses non-administrators itself.
 	 *
-	 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
 	 */
 	public function toggle(string $group): JSONResponse {
 		$refused = $this->refuseNonAdmin(message: 'Only an administrator can switch a department.');
@@ -107,7 +107,7 @@ class DepartmentControlController extends Controller {
 	 *
 	 * @auth admin-only The department switches and who changed them are shown to administrators only.
 	 *
-	 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
 	 */
 	public function index(): JSONResponse {
 		$refused = $this->refuseNonAdmin(message: 'Only an administrator can see the department switches.');
@@ -135,7 +135,7 @@ class DepartmentControlController extends Controller {
 	 *
 	 * @NoCSRFRequired The file is opened by a plain download link, which carries no request token.
 	 *
-	 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
 	 */
 	public function evidence(string $group): JSONResponse {
 		$refused = $this->refuseNonAdmin(message: 'Only an administrator can download department evidence.');

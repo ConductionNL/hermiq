@@ -500,7 +500,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @return bool True when the agent's runs are refused.
 	 *
-	 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
 	 */
 	public function isAgentDepartmentOff(string $agentId): bool {
 		return $this->departmentSwitch->offDepartmentOf(agentId: $agentId) !== null;
@@ -2707,8 +2707,8 @@ class ScheduleService implements ScheduleServiceInterface {
 	 * @return DateTimeImmutable|null The next run (UTC), or null for one-shots.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
-	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-schedule/spec.md#REQ-SPCOV-003
-	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-schedule/spec.md#REQ-SPCOV-004
+	 * @spec openspec/specs/agent-schedule/spec.md#REQ-SPCOV-003
+	 * @spec openspec/specs/agent-schedule/spec.md#REQ-SPCOV-004
 	 */
 	private function computeNextRun(string $kind, array $data, string $owner, DateTimeImmutable $now): ?DateTimeImmutable {
 		$timezone = $this->resolveTimezone(owner: $owner);

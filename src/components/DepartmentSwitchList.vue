@@ -11,7 +11,7 @@
   evidence file. Shown only to administrators (`is_admin`, read via loadState);
   the server refuses everyone else on every endpoint.
 
-  @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md
+  @spec openspec/specs/human-approval-gate/spec.md
 -->
 <template>
 	<section
@@ -138,7 +138,7 @@ export default {
 	},
 
 	/**
-	 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
 	 */
 	created() {
 		if (this.isAdmin) {
@@ -154,7 +154,7 @@ export default {
 		 *
 		 * @param {string} group The department's group id.
 		 * @return {string} The URL.
-		 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
 		 */
 		evidenceUrl(group) {
 			return departmentEvidenceUrl(group)
@@ -164,7 +164,7 @@ export default {
 		 * Read the departments and their switches.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
 		 */
 		async load() {
 			this.loading = true
@@ -184,7 +184,7 @@ export default {
 		 * @param {object} department The department row.
 		 * @param {boolean} on True to switch AI on.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
 		 */
 		async onToggle(department, on) {
 			this.saving = department.group

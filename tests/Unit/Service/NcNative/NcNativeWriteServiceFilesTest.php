@@ -9,7 +9,7 @@
  * @category Test
  * @package  OCA\Hermiq\Tests\Unit\Service\NcNative
  *
- * @spec openspec/changes/spec-coverage-built-rows/tasks.md
+ * @spec openspec/changes/archive/2026-11-24-spec-coverage-built-rows/tasks.md
  */
 
 declare(strict_types=1);

@@ -455,7 +455,7 @@ class MemoryController extends Controller {
 	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-3-1
-	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-memory/spec.md#REQ-SPCOV-008
+	 * @spec openspec/specs/agent-memory/spec.md#REQ-SPCOV-008
 	 */
 	public function consolidate(string $agentId): JSONResponse {
 		$refusal = $this->refusal(agentId: $agentId, level: self::WRITE);

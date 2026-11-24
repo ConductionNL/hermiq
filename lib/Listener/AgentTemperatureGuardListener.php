@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
+ * @spec openspec/specs/agent-management-ui/spec.md#REQ-SPCOV-002
  */
 
 declare(strict_types=1);
@@ -36,7 +36,7 @@ use Psr\Log\LoggerInterface;
  *
  * @template-implements IEventListener<Event>
  *
- * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
+ * @spec openspec/specs/agent-management-ui/spec.md#REQ-SPCOV-002
  */
 class AgentTemperatureGuardListener implements IEventListener {
 
@@ -80,7 +80,7 @@ class AgentTemperatureGuardListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
+	 * @spec openspec/specs/agent-management-ui/spec.md#REQ-SPCOV-002
 	 */
 	public function handle(Event $event): void {
 		$change = $this->changes->changedValue(event: $event, field: self::FIELD);
@@ -102,7 +102,7 @@ class AgentTemperatureGuardListener implements IEventListener {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
+	 * @spec openspec/specs/agent-management-ui/spec.md#REQ-SPCOV-002
 	 */
 	public static function withinRange(mixed $value): bool {
 		if ($value === null || $value === '') {
