@@ -48,8 +48,9 @@ Kind: code. Size M. Rows `hermiq:dm-metadata-filter`, `td-validated-sources`.
   - GIVEN validated mode WHEN a turn arrives with `includeObjects: true` or an extra view THEN neither takes effect
 - [x] Implement
   - Enforced in `ContextRetrievalHandler::retrieveContext()`, which every turn path reaches (chat, stream and the Talk bridge), so the controllers stay unchanged: `includeObjects`, the session's views and a session file or folder `scope` are dropped for a validated agent.
-- [ ] Test (PHPUnit; Newman with a widening request)
+- [x] Test (PHPUnit; Newman with a widening request)
   - PHPUnit done: `ContextRetrievalValidatedModeTest` (objects switched back on, a session scope to another file). Newman needs a live instance.
+  - 2026-11-24: Newman folder "Validated mode cannot be widened" in `tests/integration/hermiq.postman_collection.json`: a validated-mode agent with a floor nothing reaches is asked with `includeObjects`, `includeFiles` and more sources switched on; the answer must be its own abstention message with no sources. written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ### Task 5: The scope record and its display
 - **spec_ref**: `openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-each-answer-records-the-scope-it-was-given-req-rscope-004`
@@ -68,5 +69,6 @@ Kind: code. Size M. Rows `hermiq:dm-metadata-filter`, `td-validated-sources`.
 ## Verification
 - [x] `openspec validate memory-retrieval-scope --type change --strict` passes
   - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
-- [ ] PHPUnit, Newman and the Playwright file run, exit codes read
+- [x] PHPUnit, Newman and the Playwright file run, exit codes read
+  - 2026-11-24: run on development dfee312d: the change's PHPUnit tests 56 pass (exit 1 only for the missing coverage driver), vitest 21/21 exit 0. Newman and Playwright written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 - [ ] A live check on the dev instance: tag one file validated, ask a question it answers and one it does not
