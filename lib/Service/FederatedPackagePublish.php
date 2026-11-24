@@ -75,22 +75,15 @@ final class FederatedPackagePublish {
 	 * @spec openspec/changes/store-through-federated-config/tasks.md#task-3-3
 	 */
 	public function commit(GitHubPublishRun $run, array $files, string $message): ?string {
-		$engine = $this->locator->engineWith(method: 'publishFiles');
-		if ($engine === null
-			|| class_exists(self::TARGET_CLASS) === false
-			|| class_exists(self::REQUEST_CLASS) === false
-			|| $files === []
-		) {
+		$engine = $this->engine();
+		if ($engine === null || $files === []) {
 			return null;
 		}
 
 		try {
 			$answer = (array)$engine->publishFiles($this->request(run: $run, files: $files, message: $message));
 		} catch (Throwable $e) {
-			$this->logger->warning(
-				message: '[FederatedPackagePublish] engine commit failed, committing directly: ' . $e->getMessage(),
-				context: ['owner' => $run->target->owner, 'repo' => $run->target->repo]
-			);
+			$this->logger->warning(message: '[FederatedPackagePublish] engine commit failed, committing directly: ' . $e->getMessage());
 			return null;
 		}
 
@@ -101,6 +94,19 @@ final class FederatedPackagePublish {
 
 		return $commit;
 	}//end commit()
+
+	/**
+	 * The engine, when this instance has it with the request classes the publish needs.
+	 *
+	 * @return object|null The engine, or null.
+	 */
+	private function engine(): ?object {
+		if (class_exists(self::TARGET_CLASS) === false || class_exists(self::REQUEST_CLASS) === false) {
+			return null;
+		}
+
+		return $this->locator->engineWith(method: 'publishFiles');
+	}//end engine()
 
 	/**
 	 * The engine request: the existing repository at the run's branch, no topics
@@ -115,20 +121,16 @@ final class FederatedPackagePublish {
 	private function request(GitHubPublishRun $run, array $files, string $message): object {
 		$targetClass = self::TARGET_CLASS;
 		$requestClass = self::REQUEST_CLASS;
-		$target = new $targetClass(
-			repo: $run->target->owner . '/' . $run->target->repo,
-			path: (string)array_key_first($files),
-			branch: $run->branch,
-			private: ($run->visibility === 'private')
-		);
+		$repo = $run->target->owner . '/' . $run->target->repo;
+		$target = new $targetClass(repo: $repo, path: (string)array_key_first($files), branch: $run->branch, private: ($run->visibility === 'private'));
+		$identity = $this->locator->identityFor(actingUserId: $run->credential->actingUserId);
 
 		return new $requestClass(
 			target: $target->withoutUserNamespaceFallback(),
 			files: $files,
 			message: $message,
 			credentialId: $run->credential->credentialId,
-			identity: $this->locator->identityFor(actingUserId: $run->credential->actingUserId),
-			topics: []
+			identity: $identity
 		);
 	}//end request()
 }//end class

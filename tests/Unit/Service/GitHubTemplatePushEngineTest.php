@@ -109,7 +109,7 @@ final class GitHubTemplatePushEngineTest extends TestCase {
 		$this->repoExists = true;
 		$engine = $this->engine(commit: 'engine-sha');
 
-		$this->expectException(RuntimeException::class);
+		$this->expectException(exception: RuntimeException::class);
 		try {
 			$this->service(engine: $engine)->push(package: '{}', owner: 'acme', repo: 'demo', visibility: 'public', credentialId: 'cred-uuid');
 		} finally {
@@ -153,7 +153,7 @@ final class GitHubTemplatePushEngineTest extends TestCase {
 	public function testARepublishToAVanishedRepositoryIsRefused(): void {
 		$engine = $this->engine(commit: 'engine-sha');
 
-		$this->expectExceptionMessage('does not exist');
+		$this->expectExceptionMessage(message: 'does not exist');
 		try {
 			$this->service(engine: $engine)->pushUpdate(package: 'skill', owner: 'acme', repo: 'demo', credentialId: 'cred-uuid');
 		} finally {
@@ -236,7 +236,13 @@ final class GitHubTemplatePushEngineTest extends TestCase {
 					throw new RuntimeException('engine down');
 				}
 
-				return ['published' => true, 'repo' => $request->target->repo, 'branch' => $request->target->branch, 'commit' => $this->commit, 'files' => count($request->files)];
+				return [
+					'published' => true,
+					'repo' => $request->target->repo,
+					'branch' => $request->target->branch,
+					'commit' => $this->commit,
+					'files' => count($request->files),
+				];
 			}//end publishFiles()
 		};
 	}//end engine()
@@ -288,7 +294,13 @@ final class GitHubTemplatePushEngineTest extends TestCase {
 		$container = $this->createMock(originalClassName: ContainerInterface::class);
 		$container->method('has')->willReturnCallback(static fn (string $id): bool => $id === FederatedConfigService::class);
 		$container->method('get')->willReturnCallback(
-			static fn (string $id): object => ($id === FederatedConfigService::class ? $engine : $broker)
+			static function (string $id) use ($engine, $broker): object {
+				if ($id === FederatedConfigService::class) {
+					return $engine;
+				}
+
+				return $broker;
+			}
 		);
 
 		return new GitHubTemplatePushService(logger: new NullLogger(), container: $container);
@@ -314,10 +326,12 @@ final class GitHubTemplatePushEngineTest extends TestCase {
 			'POST /repos/acme/demo/git/trees' => [201, ['sha' => 'own-tree-sha']],
 			'POST /repos/acme/demo/git/commits' => [201, ['sha' => 'own-commit-sha']],
 		];
+		if ($method . ' ' . $path === 'GET /repos/acme/demo' && $this->repoExists === false) {
+			return ['status' => 404, 'body' => '{"message":"Not Found"}'];
+		}
+
 		if ($method . ' ' . $path === 'GET /repos/acme/demo') {
-			return $this->repoExists === true
-				? ['status' => 200, 'body' => (string)json_encode($repo)]
-				: ['status' => 404, 'body' => '{"message":"Not Found"}'];
+			return ['status' => 200, 'body' => (string)json_encode($repo)];
 		}
 
 		[$status, $payload] = ($answers[$method . ' ' . $path] ?? [200, []]);

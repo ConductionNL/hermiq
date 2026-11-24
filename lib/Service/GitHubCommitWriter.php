@@ -242,14 +242,8 @@ final class GitHubCommitWriter {
 	private function uploadBlobs(GitHubPublishRun $run, array $files): array {
 		$treeEntries = [];
 
-		foreach ($files as $path => $contents) {
-			$path = (string)$path;
-			if ($path === '' || $this->isSafeRepoPath(path: $path) === false) {
-				$this->logger->warning('Hermiq bundle publish: skipped unsafe path.', ['path' => $path]);
-				continue;
-			}
-
-			$treeEntries[] = $this->treeEntry(path: $path, sha: $this->requiredBlobSha(run: $run, file: [$path, (string)$contents]));
+		foreach ($this->safeFiles(files: $files) as $path => $contents) {
+			$treeEntries[] = $this->treeEntry(path: $path, sha: $this->requiredBlobSha(run: $run, file: [$path, $contents]));
 		}
 
 		return $treeEntries;
