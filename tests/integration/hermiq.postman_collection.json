@@ -7080,6 +7080,338 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "Translate a recording",
+			"description": "chat-translate-a-recording task 3 (REQ-STRN-001): POST /api/speech/translations takes an upload and a Files id; no recording is 400, a Files id the caller cannot read is 404. With the speech sidecar the answer carries transcript and translation and a spoken result is saved under Hermiq/Translations; without it the speech service's refusal (409, 422 or 502) is accepted, never a 400 or 404 for a recording that was supplied.",
+			"item": [
+				{
+					"name": "No recording is refused",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/speech/translations",
+						"description": "Neither an upload nor a Files id.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"targetLanguage\": \"fr\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('400 invalid_request', function () {",
+									"    pm.response.to.have.status(400);",
+									"    pm.expect(JSON.stringify(pm.response.json())).to.include('invalid_request');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A Files id the caller cannot read is refused",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/speech/translations",
+						"description": "A file id that is not the caller's answers 404.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"targetLanguage\": \"fr\", \"fileId\": 2147480000}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('404 not_found', function () {",
+									"    pm.response.to.have.status(404);",
+									"    pm.expect(JSON.stringify(pm.response.json())).to.include('not_found');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Translate an upload",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/speech/translations",
+						"description": "A one-second WAV posted as field audio, into French. The fixture path is relative to tests/integration, where CI runs newman.",
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "audio",
+									"type": "file",
+									"src": "fixtures/opname-newman.wav"
+								},
+								{
+									"key": "targetLanguage",
+									"value": "fr",
+									"type": "text"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.collectionVariables.set('trans_upload_path', 'Hermiq/Translations/newman-nothing-saved.wav');",
+									"const code = pm.response.code;",
+									"pm.test('The recording is taken: translated, or refused by the speech service, never as missing', function () {",
+									"    pm.expect([200, 409, 422, 502]).to.include(code);",
+									"});",
+									"if (code === 200) {",
+									"    const body = pm.response.json();",
+									"    pm.test('Transcript and translation come back', function () {",
+									"        pm.expect(body.transcript).to.be.a('string');",
+									"        pm.expect(body.translation).to.be.a('string');",
+									"        pm.expect(body.record.targetLanguage).to.equal('fr');",
+									"    });",
+									"    if (body.spoken === true) {",
+									"        pm.test('A spoken result is saved under Hermiq/Translations as a WAV', function () {",
+									"            pm.expect(body.file.path).to.include('Hermiq/Translations/');",
+									"            pm.expect(body.file.mimeType).to.include('audio/');",
+									"            pm.expect(body.file.size).to.be.above(0);",
+									"        });",
+									"        pm.collectionVariables.set('trans_upload_path', body.file.path.replace(/^\\/+/, ''));",
+									"    } else {",
+									"        pm.test('Without a voice there is no file and a notice says so', function () {",
+									"            pm.expect(body.file).to.equal(null);",
+									"            pm.expect(body.notice).to.be.a('string').and.not.equal('');",
+									"        });",
+									"    }",
+									"} else {",
+									"    pm.test('A refusal names its code', function () {",
+									"        pm.expect(pm.response.json().error || pm.response.json().code || pm.response.json().message).to.be.a('string');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Put a recording in Files",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "audio/wav"
+							}
+						],
+						"url": "{{base_url}}/remote.php/dav/files/{{admin_user}}/opname-newman.wav",
+						"description": "The same WAV in the caller's Files, to translate by its id.",
+						"body": {
+							"mode": "file",
+							"file": {
+								"src": "fixtures/opname-newman.wav"
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Stored in Files', function () {",
+									"    pm.expect([201, 204]).to.include(pm.response.code);",
+									"});",
+									"const id = parseInt(pm.response.headers.get('OC-FileId') || '0', 10);",
+									"pm.test('Files answers its id', function () {",
+									"    pm.expect(id).to.be.above(0);",
+									"});",
+									"pm.collectionVariables.set('trans_file_id', String(id));"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Translate a Files id",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/speech/translations",
+						"description": "The recording from Files, by its id, into French.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"targetLanguage\": \"fr\", \"fileId\": {{trans_file_id}}}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.collectionVariables.set('trans_file_path', 'Hermiq/Translations/newman-nothing-saved.wav');",
+									"const code = pm.response.code;",
+									"pm.test('The recording is taken: translated, or refused by the speech service, never as missing', function () {",
+									"    pm.expect([200, 409, 422, 502]).to.include(code);",
+									"});",
+									"if (code === 200) {",
+									"    const body = pm.response.json();",
+									"    pm.test('Transcript and translation come back', function () {",
+									"        pm.expect(body.transcript).to.be.a('string');",
+									"        pm.expect(body.translation).to.be.a('string');",
+									"        pm.expect(body.record.targetLanguage).to.equal('fr');",
+									"    });",
+									"    if (body.spoken === true) {",
+									"        pm.test('A spoken result is saved under Hermiq/Translations as a WAV', function () {",
+									"            pm.expect(body.file.path).to.include('Hermiq/Translations/');",
+									"            pm.expect(body.file.mimeType).to.include('audio/');",
+									"            pm.expect(body.file.size).to.be.above(0);",
+									"        });",
+									"        pm.collectionVariables.set('trans_file_path', body.file.path.replace(/^\\/+/, ''));",
+									"    } else {",
+									"        pm.test('Without a voice there is no file and a notice says so', function () {",
+									"            pm.expect(body.file).to.equal(null);",
+									"            pm.expect(body.notice).to.be.a('string').and.not.equal('');",
+									"        });",
+									"    }",
+									"} else {",
+									"    pm.test('A refusal names its code', function () {",
+									"        pm.expect(pm.response.json().error || pm.response.json().code || pm.response.json().message).to.be.a('string');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Remove the saved translation (trans_upload_path)",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/remote.php/dav/files/{{admin_user}}/{{trans_upload_path}}",
+						"description": "Clean up the WAV a spoken result saved; nothing to remove when the speech service refused."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed or never saved', function () {",
+									"    pm.expect([204, 400, 404, 405]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Remove the saved translation (trans_file_path)",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/remote.php/dav/files/{{admin_user}}/{{trans_file_path}}",
+						"description": "Clean up the WAV a spoken result saved; nothing to remove when the speech service refused."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed or never saved', function () {",
+									"    pm.expect([204, 400, 404, 405]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Remove the recording from Files",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/remote.php/dav/files/{{admin_user}}/opname-newman.wav",
+						"description": "Clean up."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([204, 404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
 		}
 	]
 }
