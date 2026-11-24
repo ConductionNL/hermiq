@@ -3406,6 +3406,184 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "Form fill",
+			"description": "forms-smart-paste-fill REQ-FFILL-002/003: the smart-paste route buildiq's handler calls. The proposal path asserts only when the instance has form-fill acknowledged and on with a model; otherwise it asserts the honest unavailable answer.",
+			"item": [
+				{
+					"name": "Form fill availability",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/assistant/form-fill/available",
+						"description": "REQ-FFILL-001: the renderer asks first whether to offer smart paste."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Availability is a boolean', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().available).to.be.a('boolean');",
+									"    pm.collectionVariables.set('form_fill_available', String(pm.response.json().available));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Form fill refuses 51 fields",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/assistant/form-fill",
+						"description": "REQ-FFILL-002: more than 50 fields is a bad request.",
+						"body": {
+							"mode": "raw",
+							"raw": "{{form_fill_51_fields}}"
+						}
+					},
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"var fields = [];",
+									"for (var i = 0; i < 51; i++) { fields.push({key: 'f' + i, label: 'Veld ' + i, type: 'text', options: []}); }",
+									"pm.collectionVariables.set('form_fill_51_fields', JSON.stringify({text: 'tekst', fields: fields}));"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('51 fields is refused', function () {",
+									"    pm.response.to.have.status(400);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Form fill refuses 10001 characters",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/assistant/form-fill",
+						"description": "REQ-FFILL-002: more than 10,000 characters is a bad request.",
+						"body": {
+							"mode": "raw",
+							"raw": "{{form_fill_long_text}}"
+						}
+					},
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.collectionVariables.set('form_fill_long_text', JSON.stringify({text: 'a'.repeat(10001), fields: [{key: 'name', label: 'Naam', type: 'text', options: []}]}));"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('10001 characters is refused', function () {",
+									"    pm.response.to.have.status(400);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Form fill proposes values from an email signature",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/assistant/form-fill",
+						"description": "REQ-FFILL-002/003: an email signature and three fields; proposals only for the requested keys, marked as a draft.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"text\": \"Met vriendelijke groet,\\n\\nJan Jansen\\nAdviseur Vergunningen\\nGemeente Voorbeeld\\nT 020 123 45 67\\nE jan.jansen@voorbeeld.nl\", \"fields\": [{\"key\": \"name\", \"label\": \"Naam\", \"type\": \"text\", \"options\": []}, {\"key\": \"email\", \"label\": \"E-mailadres\", \"type\": \"email\", \"options\": []}, {\"key\": \"phone\", \"label\": \"Telefoonnummer\", \"type\": \"text\", \"options\": []}], \"language\": \"nl\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var body = pm.response.json();",
+									"pm.test('The answer is a proposal or an honest unavailable', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(body.available).to.be.a('boolean');",
+									"});",
+									"if (body.available === true) {",
+									"    pm.test('Proposals fit the requested fields and are a draft', function () {",
+									"        pm.expect(body.draft).to.equal(true);",
+									"        Object.keys(body.values || {}).forEach(function (key) {",
+									"            pm.expect(['name', 'email', 'phone']).to.include(key);",
+									"        });",
+									"    });",
+									"} else {",
+									"    pm.test('Unavailable names its reason', function () {",
+									"        pm.expect(body.reason).to.be.a('string');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
 		}
 	]
 }
