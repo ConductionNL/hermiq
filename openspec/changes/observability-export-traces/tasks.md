@@ -11,7 +11,8 @@ Kind: code. Size M. Row `hermiq:ob-external-tracing`.
   - GIVEN an administrator WHEN they save an endpoint and a credential reference THEN `trace_export` holds both and no secret
   - GIVEN a non-admin WHEN they call the route THEN the answer is 403
 - [x] Implement
-- [ ] Test (PHPUnit on auth and storage; Playwright for the section)
+- [x] Test (PHPUnit on auth and storage; Playwright for the section)
+  - 2026-11-24: PHPUnit in `tests/Unit/Service/TraceExport/TraceExportSettingsTest.php` (`testBothRoutesAreAdminOnly`: both routes carry `#[AuthorizedAdminSetting(AdminSettings::class)]`; `testAnAdministratorConnectsLangfuse`: the reference is stored and the secret is not; `testTheControllerSavesAndRefuses`; 5 tests green here). Playwright `tests/e2e/spec-coverage/trace-export.spec.ts` ("an administrator connects Langfuse") written, runs in nightly; not verified against a live instance here.
 
 ### Task 2: The exporter
 - **spec_ref**: `openspec/changes/observability-export-traces/specs/trace-export/spec.md#requirement-traces-carry-metadata-by-default-and-never-tool-arguments-or-results-req-trex-002`

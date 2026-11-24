@@ -51,6 +51,16 @@ const path = require('path')
 
 const REPO_ROOT = path.resolve(__dirname, '..')
 
+/**
+ * The locale whose keys ARE its source strings. Its browser catalogue carries
+ * only the entries that differ from their key (a capitalisation fix, a
+ * trailing space, a plural pair): `t()` already falls back to the key, so an
+ * identity entry costs bytes on every English page and changes nothing.
+ * l10n/en.json keeps every key, because PHP `$l->t()` and the completeness
+ * checks read it.
+ */
+const SOURCE_LOCALE = 'en'
+
 /** Fallback when a catalogue declares no pluralForm — see the header note. */
 const DEFAULT_PLURAL_FORM = 'nplurals=2; plural=(n != 1);'
 const L10N_DIR = path.join(REPO_ROOT, 'l10n')
@@ -72,6 +82,28 @@ function appId() {
 		process.exit(1)
 	}
 	return match[1].trim()
+}
+
+/**
+ * The entries the browser needs from one catalogue: all of them, except for
+ * the source locale, where an entry equal to its own key is dropped.
+ *
+ * @spec PERF-HANDOFF.md (all apps: drop identity entries from the English catalogue at build time)
+ * @param {string} locale - the catalogue's locale code
+ * @param {object} translations - key -> translation
+ * @return {object} key -> translation, as served to the browser
+ */
+function browserEntries(locale, translations) {
+	if (locale !== SOURCE_LOCALE) {
+		return translations
+	}
+	const kept = {}
+	for (const key of Object.keys(translations)) {
+		if (translations[key] !== key) {
+			kept[key] = translations[key]
+		}
+	}
+	return kept
 }
 
 /**
@@ -139,18 +171,15 @@ function main() {
 			process.exit(1)
 		}
 
-		const rendered = renderJs(
-			id,
-			doc.translations,
-			doc.pluralForm || DEFAULT_PLURAL_FORM,
-		)
+		const entries = browserEntries(locale, doc.translations)
+		const rendered = renderJs(id, entries, doc.pluralForm || DEFAULT_PLURAL_FORM)
 		const current = fs.existsSync(jsFile)
 			? fs.readFileSync(jsFile, 'utf8')
 			: null
 
 		if (current === rendered) {
 			console.log(
-				`  ✓ l10n/${locale}.js up to date (${Object.keys(doc.translations).length} keys)`,
+				`  ✓ l10n/${locale}.js up to date (${Object.keys(entries).length} keys)`,
 			)
 			continue
 		}
@@ -160,7 +189,7 @@ function main() {
 		}
 		fs.writeFileSync(jsFile, rendered)
 		console.log(
-			`  ✎ l10n/${locale}.js written (${Object.keys(doc.translations).length} keys)`,
+			`  ✎ l10n/${locale}.js written (${Object.keys(entries).length} keys)`,
 		)
 	}
 
@@ -172,4 +201,8 @@ function main() {
 	}
 }
 
-main()
+if (require.main === module) {
+	main()
+}
+
+module.exports = { browserEntries, renderJs, SOURCE_LOCALE }

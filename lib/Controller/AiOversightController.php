@@ -153,7 +153,7 @@ class AiOversightController extends Controller {
 	 *
 	 * @return JSONResponse|DataDownloadResponse The CSV, or an error.
 	 *
-	 * @spec openspec/changes/ai-oversight-subject-export/specs/ai-oversight/spec.md
+	 * @spec openspec/specs/ai-oversight/spec.md
 	 */
 	#[NoAdminRequired]
 	public function subjectExport(

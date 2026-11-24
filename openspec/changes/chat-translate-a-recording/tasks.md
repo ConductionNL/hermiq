@@ -29,7 +29,8 @@ Kind: code. Size M. Row `hermiq:dm-speech-translate`.
   - GIVEN a `fileId` the caller can read WHEN posted with a target THEN a WAV tagged "Agent authored" is saved under `Hermiq/Translations`
   - GIVEN a `fileId` the caller cannot read WHEN posted THEN the answer is 404
 - [x] Implement
-- [ ] Test (PHPUnit; Newman with an upload and with a Files id)
+- [x] Test (PHPUnit; Newman with an upload and with a Files id)
+  - 2026-11-24: PHPUnit `SpeechTranslationControllerTest` in; Newman folder "Translate a recording" in `tests/integration/hermiq.postman_collection.json` (fixture `tests/integration/fixtures/opname-newman.wav`) written, runs in nightly (UNBLOCK rule 3): no recording answers 400, a Files id the caller cannot read 404; an upload and a Files id are taken, and with the speech sidecar a spoken result lands under `Hermiq/Translations` (without it the service's 409/422/502 refusal is accepted). Not verified against a live instance here.
 
 ### Task 4: The voice map in admin settings
 - **spec_ref**: `openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-a-person-can-translate-a-recording-and-hear-the-result-req-strn-001`
@@ -37,7 +38,8 @@ Kind: code. Size M. Row `hermiq:dm-speech-translate`.
 - **acceptance_criteria**:
   - GIVEN an administrator WHEN they map `fr` to a voice THEN `speech_voices` holds it, and a non-admin gets 403 on the route
 - [x] Implement
-- [ ] Test (PHPUnit on the controller auth; Playwright on the modal)
+- [x] Test (PHPUnit on the controller auth; Playwright on the modal)
+  - 2026-11-24: PHPUnit `tests/Unit/Controller/Settings/SpeechVoiceSettingsControllerTest.php` in; Playwright `tests/e2e/spec-coverage/speech-voice-map.spec.ts` written, runs in nightly (UNBLOCK rule 3): the administrator maps `fr` to `ff_siwis` in the modal and the stored map and the section show it; removing it drops it; the map found before the run is put back. Not verified against a live instance here.
 
 ### Task 5: The chat action and the result turn
 - **spec_ref**: `openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-a-person-can-translate-a-recording-and-hear-the-result-req-strn-001`
