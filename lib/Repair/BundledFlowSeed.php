@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+ * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
  */
 
 declare(strict_types=1);
@@ -34,7 +34,7 @@ use OCA\OpenRegister\Service\Flow\FlowNodePreflight;
 /**
  * One bundled flow seed run.
  *
- * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+ * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
  */
 final class BundledFlowSeed {
 
@@ -60,7 +60,7 @@ final class BundledFlowSeed {
 	 * @param string                 $organisation The default organisation's UUID.
 	 * @param FlowNodePreflight|null $preflight    The preflight, or null when unavailable.
 	 *
-	 * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+	 * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
 	 */
 	public function __construct(
 		public readonly FlowMapper $mapper,

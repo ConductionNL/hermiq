@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+ * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
  */
 
 declare(strict_types=1);
@@ -36,7 +36,7 @@ use OCA\OpenRegister\Db\Flow;
 /**
  * Builds a seeded flow row: disabled, ownerless, organisation left to the caller.
  *
- * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+ * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
  */
 final class SeededFlowRow {
 
@@ -49,7 +49,7 @@ final class SeededFlowRow {
 	 *
 	 * @return Flow The row, disabled and without an owner, whatever the definition says.
 	 *
-	 * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+	 * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
 	 */
 	public function from(array $data, string $name, string $applicationSlug): Flow {
 		$flow = new Flow();
@@ -78,7 +78,7 @@ final class SeededFlowRow {
 	 *
 	 * @return string The uuid.
 	 *
-	 * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
+	 * @spec openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows/tasks.md
 	 */
 	private function newUuid(): string {
 		$data = random_bytes(16);

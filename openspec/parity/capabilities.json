@@ -7614,7 +7614,7 @@
 				"evidence": "lib/Repair/SeedHydraTriageFlow.php + lib/Repair/SeedHydraTriageAgent.php seed a starter 'Hydra Triage' flow and its agent on install/upgrade.",
 				"spec": "openspec/specs/flow-authoring",
 				"requirement": "openspec/specs/hydra-flow-application-slug :: The seeded Hydra Triage flow declares its owning application (REQ-001)",
-				"change": "openspec/changes/hermiq-seed-hydra-flows"
+				"change": "openspec/changes/archive/2026-11-24-hermiq-seed-hydra-flows"
 			},
 			"reachedOn": "/flows FlowIndex shows the seeded 'Hydra Triage' flow after a fresh install/repair run",
 			"provider": "hermiq",
