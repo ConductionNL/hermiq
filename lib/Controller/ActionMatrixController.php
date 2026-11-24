@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md#requirement-the-matrix-endpoints-are-administrator-only-and-validate-what-they-store-req-actmx-002
+ * @spec openspec/specs/action-authorization/spec.md#requirement-the-matrix-endpoints-are-administrator-only-and-validate-what-they-store-req-actmx-002
  */
 
 declare(strict_types=1);
@@ -41,7 +41,7 @@ use OCP\IRequest;
 /**
  * Lists and changes the groups allowed per governance action.
  *
- * @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md#requirement-the-matrix-endpoints-are-administrator-only-and-validate-what-they-store-req-actmx-002
+ * @spec openspec/specs/action-authorization/spec.md#requirement-the-matrix-endpoints-are-administrator-only-and-validate-what-they-store-req-actmx-002
  */
 class ActionMatrixController extends Controller {
 	/**
@@ -76,7 +76,7 @@ class ActionMatrixController extends Controller {
 	 *
 	 * @auth admin-only The action matrix decides who may run every governance action; only Nextcloud administrators see it.
 	 *
-	 * @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
+	 * @spec openspec/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
 	 */
 	public function index(): JSONResponse {
 		$stored = $this->matrix->getMatrix();
@@ -98,7 +98,7 @@ class ActionMatrixController extends Controller {
 	 *
 	 * @auth admin-only A group that could edit the matrix could grant itself any action.
 	 *
-	 * @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md#requirement-the-matrix-endpoints-are-administrator-only-and-validate-what-they-store-req-actmx-002
+	 * @spec openspec/specs/action-authorization/spec.md#requirement-the-matrix-endpoints-are-administrator-only-and-validate-what-they-store-req-actmx-002
 	 */
 	public function update(string $action): JSONResponse {
 		$stored = $this->matrix->getMatrix();

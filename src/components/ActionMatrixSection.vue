@@ -7,7 +7,7 @@
   it, with save and back-to-default per action. Instance-wide (ADR-023), and
   shown to Nextcloud administrators only; the parent page decides that.
 
-  @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
+  @spec openspec/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
 -->
 <template>
 	<section class="action-matrix" data-testid="action-matrix">
@@ -116,7 +116,7 @@ export default {
 		 *
 		 * @return {Array<string>} The group ids.
 		 *
-		 * @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
+		 * @spec openspec/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
 		 */
 		groupOptions() {
 			return this.groups
@@ -133,7 +133,7 @@ export default {
 		 *
 		 * @return {Promise<void>}
 		 *
-		 * @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
+		 * @spec openspec/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
 		 */
 		async load() {
 			this.loading = true
@@ -156,7 +156,7 @@ export default {
 		 * @param {object} row The row.
 		 * @return {boolean} True when there is something to save.
 		 *
-		 * @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
+		 * @spec openspec/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
 		 */
 		isDirty(row) {
 			return groupKey(this.drafts[row.action]) !== groupKey(row.groups)
@@ -169,7 +169,7 @@ export default {
 		 * @param {Array<string>} groups The groups to store.
 		 * @return {Promise<void>}
 		 *
-		 * @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
+		 * @spec openspec/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
 		 */
 		async save(row, groups) {
 			this.busy = row.action

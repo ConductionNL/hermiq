@@ -6,7 +6,7 @@
  * actions, saves a change, resets an action to its default, and is not shown
  * to someone who is not a Nextcloud administrator.
  *
- * @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md
+ * @spec openspec/specs/action-authorization/spec.md
  */
 
 import { state } from '@nextcloud/initial-state'
