@@ -48,7 +48,8 @@ Kind: code. Size M. Rows `filinq:wk-ai-chat`, `ch-citations` (hermiq).
 - **files**: ConductionNL/filinq `src/App.vue` (companion page context) and the document and dossier views that know the open file id
 - **acceptance_criteria**:
   - GIVEN a filinq document page WHEN the companion opens THEN its context carries that document's `fileId` and `pageKind: "document"`; on a dossier, the dossier folder's id and `pageKind: "folder"`
-- [ ] Implement (PR in ConductionNL/filinq)
+- [x] Implement (PR in ConductionNL/filinq)
+  - 2026-11-24: ConductionNL/filinq#2318 (filinq change `companion-knows-the-open-document`): the file viewer sets `pageKind: "document"` and the open file id, a dossier `pageKind: "folder"` and its home folder id (new `folderId` on the dossier detail), both released on leaving; vitest `tests/vitest/companionContext.spec.js`, PHPUnit `testDetailNamesTheHomeFolder`.
 
 ### Task 6: The chat page links every answer's sources
 - **spec_ref**: `openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-the-chat-page-lists-the-sources-of-every-answer-as-links-req-dchat-005`
