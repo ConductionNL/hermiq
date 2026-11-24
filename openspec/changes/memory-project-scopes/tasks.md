@@ -46,7 +46,8 @@ Kind: code. Size M. Row `hermiq:dm-project-memory`.
 - **acceptance_criteria**:
   - GIVEN a project entry WHEN the owner moves it to shared THEN it leaves the project and appears under Shared, redacted again
 - [x] Implement
-- [ ] Test (PHPUnit on the move; Playwright for the tabs and the move)
+- [x] Test (PHPUnit on the move; Playwright for the tabs and the move)
+  - 2026-11-24: PHPUnit `MemoryProjectScopesTest::testMoveToSharedLeavesTheProject` and `testAMoveThatCannotHappenChangesNothing`, plus `MemoryControllerProjectsTest`, pass. Playwright "a general rule moves to shared" in `tests/e2e/spec-coverage/memory-project-scopes.spec.ts`: written, runs in nightly (UNBLOCK rule 3); not run here, no instance.
 
 ## Verification
 - [x] `openspec validate memory-project-scopes --type change --strict` passes

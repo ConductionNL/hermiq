@@ -12,7 +12,8 @@ Kind: code. Size M. Row `hermiq:tl-custom-tool`.
   - GIVEN a non-admin WHEN they create or edit THEN it is refused
   - GIVEN an input schema with a nested object WHEN saved THEN it is refused with the allowed types named
 - [x] Implement
-- [ ] Test (PHPUnit on validation and rights; Newman for admin and non-admin)
+- [x] Test (PHPUnit on validation and rights; Newman for admin and non-admin)
+  - 2026-11-24: PHPUnit `CustomToolDefinitionTest`, `CustomToolServiceTest` and `CustomToolControllerTest` (admin creates, agent owner refused, other organisation refused, instance admin edits, invalid tool 400) pass. Newman folder "Custom tools" in `tests/integration/hermiq.postman_collection.json`: the admin lists and saves a flow-target tool (201, its slug), a nested object input is refused with the allowed types named (400), and a non-admin second user can neither create (403) nor edit it (403/404). Newman written, runs in nightly (UNBLOCK rule 3); not run here, no instance.
 
 ### Task 2: Descriptors in the catalogue
 - **spec_ref**: `openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-is-offered-under-a-two-segment-id-and-only-by-exact-grant-req-custool-002`

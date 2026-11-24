@@ -67,8 +67,9 @@ Kind: code. Size L. Rows `hermiq:me-kb-upload`, `me-external-kb`.
   - GIVEN a folder integriq marks as synced WHEN it is a source THEN its row names the outside system
 - [x] Implement
   - `src/manifest.json`: `KnowledgeBases` (`/knowledge-bases`, index over `agentknowledgebase`, create and edit through the generic schema form) and `KnowledgeBaseDetail` (`/knowledge-bases/:id`, detail) with the `knowledge-base-sources` widget (`src/widgets/KnowledgeBaseSources.vue`): sources with their indexing state, the only-you notice, the source `label` (e.g. "Synced by integriq from SharePoint"), "Search is not available on this server…" when the facade has no file scope, and Upload documents / Add from Files / Add a folder / Remove (removing never deletes the file). The detail page is a widget on a manifest detail page rather than a `KnowledgeBaseDetail.vue` view, and no `KnowledgeBaseFormModal` was needed: the schema form covers name, description and folder. No menu item (D6): the Memory page links to the list. `AgentFormModal` gains the knowledge base picker (`knowledgeBaseRefs`). en/nl strings, including the schema's. The row names the outside system from the source's `label`; detecting an integriq-synced folder by itself is not built.
-- [ ] Test (Playwright under `tests/e2e/spec-coverage/knowledge-bases.spec.ts`)
+- [x] Test (Playwright under `tests/e2e/spec-coverage/knowledge-bases.spec.ts`)
   - Written: `tests/e2e/spec-coverage/knowledge-bases.spec.ts` (5: Memory page link to the list, upload on the detail page into the folder with its state and the only-you notice, the no-search notice, an integriq-labelled source, a non-owner refused from an empty-storage-state context, the agent form picker). Lints, type-checks and lists; not run yet (needs a running instance), so the box stays open. Vitest: `tests/vitest/knowledge-base-sources.spec.js` (6); the agent form golden fixture gains `knowledgeBaseRefs`.
+  - 2026-11-24: written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here. Vitest 6/6.
 
 ## Verification
 - [x] `openspec validate memory-knowledge-bases --type change --strict` passes
