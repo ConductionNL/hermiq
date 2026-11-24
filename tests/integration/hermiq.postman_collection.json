@@ -5877,6 +5877,258 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "Model policy fallback chain",
+			"description": "models-several-models-per-turn task 1 (REQ-MFAIL-001): an organisation admin saves an allowed fallback and reads it back; a fallback the same policy does not allow is refused and nothing changes; an update without a chain keeps it; at most four fallbacks.",
+			"item": [
+				{
+					"name": "Save a policy with an ollama fallback",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/model-policy",
+						"description": "A policy for a test organisation allowing anthropic and ollama, with ollama as its fallback.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"organisation\": \"00000000-0000-4000-8000-00000000fa11\", \"allowed\": [{\"provider\": \"anthropic\", \"models\": [\"claude-sonnet-newman\"]}, {\"provider\": \"ollama\", \"models\": [\"llama3.1\"]}], \"defaultModel\": {\"provider\": \"anthropic\", \"model\": \"claude-sonnet-newman\"}, \"fallbackChain\": [{\"provider\": \"ollama\", \"model\": \"llama3.1\"}]}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const body = pm.response.json();",
+									"pm.test('The policy is saved with its fallback chain', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(body.fallbackChain).to.eql([{provider: 'ollama', model: 'llama3.1'}]);",
+									"});",
+									"pm.collectionVariables.set('fallback_policy', body.id);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The list returns the fallback",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/model-policy",
+						"description": "GET /api/model-policy shows the stored chain on the organisation's policy."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const policy = (pm.response.json().policies || []).find(p => p.id === pm.collectionVariables.get('fallback_policy'));",
+									"pm.test('The organisation policy carries the ollama fallback', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(policy).to.be.an('object');",
+									"    pm.expect(policy.source).to.equal('organisation');",
+									"    pm.expect(policy.fallbackChain).to.eql([{provider: 'ollama', model: 'llama3.1'}]);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A fallback the policy does not allow is refused",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/model-policy/{{fallback_policy}}",
+						"description": "Narrowing the policy to ollama while naming an openai fallback is refused.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"allowed\": [{\"provider\": \"ollama\", \"models\": [\"llama3.1\"]}], \"defaultModel\": {\"provider\": \"ollama\", \"model\": \"llama3.1\"}, \"fallbackChain\": [{\"provider\": \"openai\", \"model\": \"gpt-4o\"}]}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Refused with 400 and the reason', function () {",
+									"    pm.response.to.have.status(400);",
+									"    pm.expect(pm.response.json().error).to.equal('This fallback is not allowed by the model policy.');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The refused save changed nothing",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/model-policy",
+						"description": "The policy still allows anthropic and keeps its ollama fallback."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const policy = (pm.response.json().policies || []).find(p => p.id === pm.collectionVariables.get('fallback_policy'));",
+									"pm.test('Allowed list and chain are unchanged', function () {",
+									"    pm.expect(policy.allowed.map(a => a.provider)).to.include('anthropic');",
+									"    pm.expect(policy.defaultModel).to.eql({provider: 'anthropic', model: 'claude-sonnet-newman'});",
+									"    pm.expect(policy.fallbackChain).to.eql([{provider: 'ollama', model: 'llama3.1'}]);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "An update without a chain keeps it",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/model-policy/{{fallback_policy}}",
+						"description": "An update that does not send fallbackChain keeps the stored chain.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"requireNoTraining\": false}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The chain is kept', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().requireNoTraining).to.equal(false);",
+									"    pm.expect(pm.response.json().fallbackChain).to.eql([{provider: 'ollama', model: 'llama3.1'}]);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "More than four fallbacks are refused",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/model-policy/{{fallback_policy}}",
+						"description": "A chain is at most four entries long.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"fallbackChain\": [{\"provider\": \"ollama\", \"model\": \"llama3.1\"}, {\"provider\": \"ollama\", \"model\": \"llama3.1\"}, {\"provider\": \"ollama\", \"model\": \"llama3.1\"}, {\"provider\": \"ollama\", \"model\": \"llama3.1\"}, {\"provider\": \"ollama\", \"model\": \"llama3.1\"}]}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Refused with 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Remove the fallback policy",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/modelpolicy/{{fallback_policy}}",
+						"description": "Clean up."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 204, 404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
 		}
 	]
 }
