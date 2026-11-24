@@ -4211,6 +4211,698 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "Custom tools",
+			"description": "tools-custom-tools-without-code task 1: an organisation or instance admin saves a custom tool; a nested object input is refused naming the allowed types; a non-admin can neither create nor edit (REQ-CUSTOOL-001).",
+			"item": [
+				{
+					"name": "Create the second user",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/ocs/v2.php/cloud/users?format=json",
+						"description": "A second, non-admin user. An existing user is fine.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"userid\": \"{{share_user}}\", \"password\": \"{{share_password}}\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.variables.get('share_user')) { pm.collectionVariables.set('share_user', 'hermiq-newman-reader'); }",
+									"if (!pm.variables.get('share_password')) { pm.collectionVariables.set('share_password', 'Newman-reader-' + Date.now()); }"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The second user exists', function () {",
+									"    pm.expect([200, 400]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Admin lists the custom tools",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/custom-tools",
+						"description": "The admin may read the organisation's tools."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The admin reads the list', function () {",
+									"    pm.expect([200]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Admin saves a custom tool",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/custom-tools",
+						"description": "A valid flow-target tool is stored with its slug.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"slug\": \"{{custom_tool_slug}}\", \"name\": \"Newman permit check\", \"description\": \"Checks whether an activity at an address needs a permit.\", \"inputSchema\": {\"type\": \"object\", \"properties\": {\"adres\": {\"type\": \"string\", \"description\": \"The address\"}}, \"required\": [\"adres\"]}, \"changesData\": \"no\", \"target\": {\"type\": \"flow\", \"flowId\": \"newman-flow\"}}"
+						}
+					},
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.collectionVariables.set('custom_tool_slug', 'newman_tool_' + Date.now());"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The tool is saved', function () {",
+									"    pm.response.to.have.status(201);",
+									"    const body = pm.response.json();",
+									"    pm.expect(body.slug).to.equal(pm.collectionVariables.get('custom_tool_slug'));",
+									"    pm.collectionVariables.set('custom_tool_id', body.id || body.uuid || (body['@self'] || {}).id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A nested object input is refused",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/custom-tools",
+						"description": "Only flat inputs; the refusal names the allowed types.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"slug\": \"{{custom_tool_slug}}_nested\", \"name\": \"Newman nested\", \"description\": \"Nested input.\", \"inputSchema\": {\"type\": \"object\", \"properties\": {\"adres\": {\"type\": \"object\", \"properties\": {\"straat\": {\"type\": \"string\"}}}}}, \"changesData\": \"no\", \"target\": {\"type\": \"flow\", \"flowId\": \"newman-flow\"}}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('400 naming the allowed input types', function () {",
+									"    pm.response.to.have.status(400);",
+									"    pm.expect(pm.response.json().error).to.match(/type must be one of/);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A non-admin cannot create a custom tool",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/custom-tools",
+						"description": "Only organisation owners and instance admins write custom tools.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"slug\": \"{{custom_tool_slug_second}}\", \"name\": \"Newman permit check\", \"description\": \"Checks whether an activity at an address needs a permit.\", \"inputSchema\": {\"type\": \"object\", \"properties\": {\"adres\": {\"type\": \"string\", \"description\": \"The address\"}}, \"required\": [\"adres\"]}, \"changesData\": \"no\", \"target\": {\"type\": \"flow\", \"flowId\": \"newman-flow\"}}"
+						}
+					},
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.collectionVariables.set('custom_tool_slug_second', 'newman_second_' + Date.now());"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The non-admin is refused', function () {",
+									"    pm.expect([403]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A non-admin cannot edit the admin's custom tool",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/custom-tools/{{custom_tool_id}}",
+						"description": "Editing is an admin right too.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"slug\": \"{{custom_tool_slug}}\", \"name\": \"Newman permit check\", \"description\": \"Checks whether an activity at an address needs a permit.\", \"inputSchema\": {\"type\": \"object\", \"properties\": {\"adres\": {\"type\": \"string\", \"description\": \"The address\"}}, \"required\": [\"adres\"]}, \"changesData\": \"no\", \"target\": {\"type\": \"flow\", \"flowId\": \"newman-flow\"}}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The edit is refused', function () {",
+									"    pm.expect([403, 404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Remove the Newman custom tool",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/customtool/{{custom_tool_id}}",
+						"description": "Clean up."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 204, 404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Research stop",
+			"description": "tools-deep-research-report task 5: the owner of a research run can stop it; another user cannot stop or read it (404, REQ-RESEARCH-005).",
+			"item": [
+				{
+					"name": "Create the second user",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/ocs/v2.php/cloud/users?format=json",
+						"description": "A second, non-admin user. An existing user is fine.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"userid\": \"{{share_user}}\", \"password\": \"{{share_password}}\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.variables.get('share_user')) { pm.collectionVariables.set('share_user', 'hermiq-newman-reader'); }",
+									"if (!pm.variables.get('share_password')) { pm.collectionVariables.set('share_password', 'Newman-reader-' + Date.now()); }"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The second user exists', function () {",
+									"    pm.expect([200, 400]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Research agent",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agent",
+						"description": "The agent the research runs for.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"name\": \"Newman research agent\", \"description\": \"Agent for the research stop checks.\", \"tools\": [\"hermiq.webSearch\", \"hermiq.webFetch\"]}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The agent is saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"    const body = pm.response.json();",
+									"    pm.collectionVariables.set('research_agent', body.id || body.uuid || (body['@self'] || {}).id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Research session",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions",
+						"description": "The conversation the run reports into.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"agentId\": \"{{research_agent}}\", \"title\": \"Newman research\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The session is created', function () {",
+									"    pm.response.to.have.status(201);",
+									"    pm.collectionVariables.set('research_session', pm.response.json().uuid);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Start a research run",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/research",
+						"description": "A quick run on a public question.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"agentId\": \"{{research_agent}}\", \"conversationId\": \"{{research_session}}\", \"question\": \"Which Dutch municipalities publish their permit rules as open data?\", \"depth\": \"quick\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The run starts', function () {",
+									"    pm.response.to.have.status(201);",
+									"    pm.expect(pm.response.json().stopRequested).to.equal(false);",
+									"    pm.collectionVariables.set('research_run', pm.response.json().id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Another user cannot stop the run",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/research/{{research_run}}/stop",
+						"description": "Only the person who started it may stop it.",
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Not found for another user', function () {",
+									"    pm.expect([404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Another user cannot read the run",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/research/{{research_run}}",
+						"description": "The run is the starter's own."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Not found for another user', function () {",
+									"    pm.expect([404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The owner stops the run",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/research/{{research_run}}/stop",
+						"description": "The run ends at its next step.",
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The stop is recorded', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().stopRequested).to.equal(true);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The owner reads the stop",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/research/{{research_run}}",
+						"description": "The run shows the stop request."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The run carries the stop', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().stopRequested).to.equal(true);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Remove the research session",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{research_session}}",
+						"description": "Clean up."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 204, 404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Remove the research agent",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agent/{{research_agent}}",
+						"description": "Clean up."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 204, 404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
 		}
 	]
 }
