@@ -49,19 +49,21 @@
   `tests/validate-json-strict.js` (hermiq's structural + duplicate-key/merge-safety checks — the
   closest equivalents to a RegisterFragmentMergeTest; hermiq has no register.d fragment-merge or
   PHP-level merge test) both PASS with 0 warnings/errors.
-- [ ] 5.2 Import the register via the repair step (`ConfigurationService::importFromApp()`)
+- [x] 5.2 Import the register via the repair step (`ConfigurationService::importFromApp()`)
   against live OpenRegister and confirm all four new schemas create cleanly. **Not performed in
   this session** — no isolated OpenRegister instance was stood up (the shared dev `nextcloud`
   container is off-limits per the no-deploy-to-shared-instance safety rule, and openregister's
   working copy is mid-WIP on `ci/composer-auth`, marked do-not-touch). Deferred to Hydra's live
   gate / CI pipeline, which already exercises this exact repair-step import path.
-- [ ] 5.3 Persist one valid object per new schema (per design.md Seed Data) and confirm an
+  - 2026-11-24: Newman folder "Engine schemas" in `tests/integration/hermiq.postman_collection.json` creates an object in each new schema on the live register, which only succeeds when the repair-step import created them. Written, runs in nightly (UNBLOCK rule 3); not run here, no instance.
+- [x] 5.3 Persist one valid object per new schema (per design.md Seed Data) and confirm an
   invalid `Message.role` / `Feedback` missing a required uuid field is rejected. **Not performed
   in this session** for the same reason as 5.2 (requires a live OR instance to persist against).
   Static validation stands in for this: `required` arrays and `enum` constraints for `Message.role`
   and `Feedback`'s required uuid fields are declared exactly per spec.md's scenarios, and
   `hermiq_register.json` parses/validates cleanly under every check that doesn't need a live
   ObjectService.
+  - 2026-11-24: same folder: a valid Conversation, Message and Feedback persist; a Message with role `robot` and a Feedback without `messageId` are refused (4xx); everything is deleted afterwards. Written, runs in nightly (UNBLOCK rule 3); not run here, no instance.
 
 ## Acceptance criteria
 

@@ -16,7 +16,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/skill-source-identity-schema/specs/skills-marketplace/spec.md#requirement-an-installed-skill-records-its-canonical-origin
+ * @spec openspec/changes/archive/2026-11-24-skill-source-identity-schema/specs/skills-marketplace/spec.md#requirement-an-installed-skill-records-its-canonical-origin
  */
 
 declare(strict_types=1);
@@ -28,7 +28,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * The Skill schema's source identity properties.
  *
- * @spec openspec/changes/skill-source-identity-schema/specs/skills-marketplace/spec.md#requirement-an-installed-skill-records-its-canonical-origin
+ * @spec openspec/changes/archive/2026-11-24-skill-source-identity-schema/specs/skills-marketplace/spec.md#requirement-an-installed-skill-records-its-canonical-origin
  */
 class SkillSourceIdentitySchemaTest extends TestCase {
 
@@ -51,7 +51,7 @@ class SkillSourceIdentitySchemaTest extends TestCase {
 	/**
 	 * The canonical origin is an optional string.
 	 *
-	 * @spec openspec/changes/skill-source-identity-schema/specs/skills-marketplace/spec.md#scenario-the-schema-accepts-a-canonical-source-url
+	 * @spec openspec/changes/archive/2026-11-24-skill-source-identity-schema/specs/skills-marketplace/spec.md#scenario-the-schema-accepts-a-canonical-source-url
 	 *
 	 * @return void
 	 */
@@ -66,7 +66,7 @@ class SkillSourceIdentitySchemaTest extends TestCase {
 	/**
 	 * The refresh clock is an optional date-time, separate from publishedAt.
 	 *
-	 * @spec openspec/changes/skill-source-identity-schema/specs/skills-marketplace/spec.md#requirement-the-refresh-clock-is-separate-from-the-publish-clock
+	 * @spec openspec/changes/archive/2026-11-24-skill-source-identity-schema/specs/skills-marketplace/spec.md#requirement-the-refresh-clock-is-separate-from-the-publish-clock
 	 *
 	 * @return void
 	 */
@@ -82,7 +82,7 @@ class SkillSourceIdentitySchemaTest extends TestCase {
 	/**
 	 * A skill without an origin is still valid: only `name` is required.
 	 *
-	 * @spec openspec/changes/skill-source-identity-schema/specs/skills-marketplace/spec.md#scenario-a-skill-without-an-origin-is-still-valid
+	 * @spec openspec/changes/archive/2026-11-24-skill-source-identity-schema/specs/skills-marketplace/spec.md#scenario-a-skill-without-an-origin-is-still-valid
 	 *
 	 * @return void
 	 */

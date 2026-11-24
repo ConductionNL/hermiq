@@ -5,7 +5,8 @@
 - [x] Build the `companion` bundle and confirm `js/hermiq-companion.js` is produced
   - `npm run build` on development (2026-11-20) emits `js/hermiq-companion.js` (100,805 bytes) and the async `js/hermiq-companion-panel.js`.
 - [ ] Load an office editor page and confirm exactly one companion is present
-- [ ] Confirm a Hermiq page still has exactly one, not two
+- [x] Confirm a Hermiq page still has exactly one, not two
+  - 2026-11-24: `tests/e2e/spec-coverage/companion-everywhere.spec.ts`: on a Hermiq page exactly one `cn-ai-companion` and no global container; on the Files page exactly one, in its own container appended to body, with no console error. Written, runs in nightly (UNBLOCK rule 3); not run here, no instance.
 
 Acceptance criteria:
 - Nothing in this change may be described as working until it has been seen to mount on a third-party editor page. The code was written before the toolchain could build it.

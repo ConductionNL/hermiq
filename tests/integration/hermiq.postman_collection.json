@@ -3717,6 +3717,500 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "Engine schemas",
+			"description": "agent-engine-schemas 5.2/5.3: the repair-step import created the Conversation, Message and Feedback schemas on the live register; one valid object per schema persists, and an invalid Message.role or a Feedback without its required ids is refused.",
+			"item": [
+				{
+					"name": "Engine agent",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agent",
+						"description": "An agent the conversation belongs to.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"name\": \"Newman engine schemas agent\", \"description\": \"Agent for the engine schema checks.\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The agent is saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"    const body = pm.response.json();",
+									"    pm.collectionVariables.set('engine_agent', body.id || body.uuid || (body['@self'] || {}).id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Engine conversation",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/conversation",
+						"description": "Conversation requires agentId.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"agentId\": \"{{engine_agent}}\", \"title\": \"Newman engine schemas\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The conversation is saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"    const body = pm.response.json();",
+									"    pm.collectionVariables.set('engine_conversation', body.id || body.uuid || (body['@self'] || {}).id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Engine message",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/message",
+						"description": "Message requires conversationId and a role from the enum.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"conversationId\": \"{{engine_conversation}}\", \"role\": \"user\", \"content\": \"Hallo\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The message is saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"    const body = pm.response.json();",
+									"    pm.collectionVariables.set('engine_message', body.id || body.uuid || (body['@self'] || {}).id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Engine message with an unknown role",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/message",
+						"description": "role outside system/user/assistant/tool is refused.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"conversationId\": \"{{engine_conversation}}\", \"role\": \"robot\", \"content\": \"Hallo\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('A role outside the enum is refused', function () {",
+									"    pm.expect(pm.response.code).to.be.within(400, 499);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Engine feedback",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/feedback",
+						"description": "Feedback with every required id persists.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"messageId\": \"{{engine_message}}\", \"conversationId\": \"{{engine_conversation}}\", \"agentId\": \"{{engine_agent}}\", \"userId\": \"{{admin_user}}\", \"type\": \"positive\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The feedback is saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"    const body = pm.response.json();",
+									"    pm.collectionVariables.set('engine_feedback', body.id || body.uuid || (body['@self'] || {}).id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Engine feedback without a message id",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/feedback",
+						"description": "A Feedback missing a required uuid field is refused.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"conversationId\": \"{{engine_conversation}}\", \"agentId\": \"{{engine_agent}}\", \"userId\": \"{{admin_user}}\", \"type\": \"negative\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Feedback without messageId is refused', function () {",
+									"    pm.expect(pm.response.code).to.be.within(400, 499);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Engine cleanup feedback",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/feedback/{{engine_feedback}}",
+						"description": "Clean up."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 204, 404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Engine cleanup message",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/message/{{engine_message}}",
+						"description": "Clean up."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 204, 404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Engine cleanup conversation",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/conversation/{{engine_conversation}}",
+						"description": "Clean up."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 204, 404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Engine cleanup agent",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agent/{{engine_agent}}",
+						"description": "Clean up."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 204, 404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Skill source identity",
+			"description": "skill-source-identity-schema 2: a forced register reload applies the sourceUrl and sourceUpdatedAt properties to the live Skill schema without adding or losing a skill.",
+			"item": [
+				{
+					"name": "Skills before the reload",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agentskill?_limit=1",
+						"description": "The skill count before."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Skills are counted', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().total).to.be.a('number');",
+									"    pm.collectionVariables.set('skills_before', String(pm.response.json().total));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Force a register reload",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/settings/load",
+						"description": "occ maintenance:repair runs core steps only; this applies the app register.",
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The register reloads', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Skills after the reload",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agentskill?_limit=1",
+						"description": "The skill count is unchanged."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('No skill is added or lost by the reload', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().total).to.equal(Number(pm.collectionVariables.get('skills_before')));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The live Skill schema has both properties",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/schemas?_limit=500",
+						"description": "Readable from the live schema, not merely present in the JSON file."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const rows = pm.response.json().results || [];",
+									"const skill = rows.find(function (row) { return row.slug === 'agentskill'; });",
+									"pm.test('The live Skill schema has sourceUrl and sourceUpdatedAt, both optional', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(skill, 'agentskill schema').to.be.an('object');",
+									"    pm.expect(skill.properties).to.have.property('sourceUrl');",
+									"    pm.expect(skill.properties.sourceUrl.type).to.equal('string');",
+									"    pm.expect(skill.properties).to.have.property('sourceUpdatedAt');",
+									"    pm.expect(skill.properties.sourceUpdatedAt.format).to.equal('date-time');",
+									"    pm.expect(skill.required || []).to.not.include('sourceUrl');",
+									"    pm.expect(skill.required || []).to.not.include('sourceUpdatedAt');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
 		}
 	]
 }
