@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-domain-mcp-tools/specs/hermiq-domain-mcp-tools/spec.md
+ * @spec openspec/changes/archive/2026-11-24-hermiq-domain-mcp-tools/specs/hermiq-domain-mcp-tools/spec.md
  */
 
 declare(strict_types=1);
@@ -34,7 +34,7 @@ use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 /**
  * Descriptors of the domain tools.
  *
- * @spec openspec/changes/hermiq-domain-mcp-tools/specs/hermiq-domain-mcp-tools/spec.md
+ * @spec openspec/changes/archive/2026-11-24-hermiq-domain-mcp-tools/specs/hermiq-domain-mcp-tools/spec.md
  */
 final class DomainToolDescriptors {
 

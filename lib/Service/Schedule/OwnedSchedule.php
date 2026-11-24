@@ -18,7 +18,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-domain-mcp-tools/specs/hermiq-domain-mcp-tools/spec.md
+ * @spec openspec/changes/archive/2026-11-24-hermiq-domain-mcp-tools/specs/hermiq-domain-mcp-tools/spec.md
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use Throwable;
  * schedule that cannot be loaded, or that another user owns, is not the
  * caller's, and the caller cannot tell the two apart.
  *
- * @spec openspec/changes/hermiq-domain-mcp-tools/specs/hermiq-domain-mcp-tools/spec.md
+ * @spec openspec/changes/archive/2026-11-24-hermiq-domain-mcp-tools/specs/hermiq-domain-mcp-tools/spec.md
  */
 final class OwnedSchedule {
 
@@ -75,7 +75,7 @@ final class OwnedSchedule {
 	 *
 	 * @return ObjectEntity|null The owned schedule, or null.
 	 *
-	 * @spec openspec/changes/hermiq-domain-mcp-tools/specs/hermiq-domain-mcp-tools/spec.md
+	 * @spec openspec/changes/archive/2026-11-24-hermiq-domain-mcp-tools/specs/hermiq-domain-mcp-tools/spec.md
 	 */
 	public function load(string $scheduleId, string $uid): ?ObjectEntity {
 		try {
