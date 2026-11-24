@@ -48,8 +48,10 @@ Kind: code. Size M. Row `hermiq:ob-external-tracing`.
   - GIVEN the settings section WHEN it is opened THEN the copy notice is shown, and switching export off leaves the run list unchanged
 - [x] Implement
 - [ ] Test (Playwright under `tests/e2e/spec-coverage/trace-export.spec.ts`; a live check against a local OTLP collector)
+  - 2026-11-21: `tests/e2e/spec-coverage/trace-export.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, sidecar or Talk is needed); not run here, it needs a running Nextcloud.
 
 ## Verification
-- [ ] `openspec validate observability-export-traces --type change --strict` passes
+- [x] `openspec validate observability-export-traces --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit and the Playwright file run, exit codes read
 - [ ] A live check on the dev instance: a local Jaeger or Langfuse receives one run's trace with metadata only

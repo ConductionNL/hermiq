@@ -15,6 +15,7 @@ Rows: `op-setup-wizard`. Board: `hermiq/HmSetup`.
 - **GIVEN** a fresh install
 - **WHEN** an administrator opens hermiq, enters an Ollama endpoint in the wizard and runs the test step
 - **THEN** the wizard reports that the model answered and the setup is complete
+@e2e exclude Needs a fresh install with no provider and an answering Ollama endpoint, which the shared e2e instance is not; the wizard's presence is checked by dismissTour() in tests/e2e/spec-coverage/_fixtures.ts on every run.
 
 #### Scenario: A new user gets the walkthrough
 - **GIVEN** setup is complete

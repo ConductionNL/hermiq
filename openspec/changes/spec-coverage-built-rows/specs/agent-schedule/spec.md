@@ -15,11 +15,13 @@ Rows: `sc-interval`, `sc-once`. Board: `hermiq/HmPlanning`.
 - **GIVEN** a schedule of kind "Interval" with 30 minutes, last due at 09:00
 - **WHEN** the dispatcher runs at 09:30
 - **THEN** the agent runs, and the next run reads 10:00
+@e2e exclude The dispatcher runs on Nextcloud's background-job clock, which a browser test cannot advance; the next run per kind is covered by ScheduleServiceTest.
 
 #### Scenario: An agent runs once
 - **GIVEN** a schedule of kind "Once" set to 14 November 2026 at 16:00
 - **WHEN** that time has passed and the dispatcher has run
 - **THEN** the agent has run once, and the schedule shows no next run
+@e2e exclude The dispatcher runs on Nextcloud's background-job clock, which a browser test cannot advance; a one-time schedule clearing its next run is covered by ScheduleServiceTest.
 
 ### Requirement: A schedule keeps its local time across daylight saving changes (REQ-SPCOV-004)
 
@@ -34,11 +36,13 @@ Rows: `sc-timezone`. No screen: computed on the server at every run.
 - **GIVEN** an owner in `Europe/Amsterdam` with the cron rule `0 8 * * *`
 - **WHEN** the next run is computed on Saturday 24 October 2026, the day before summer time ends
 - **THEN** Sunday's run is at 08:00 Amsterdam time, which is 07:00 UTC
+@e2e exclude Computed on the server at every run, with no screen; the cron next run in the owner's Europe/Amsterdam zone is covered by ScheduleServiceTest.
 
 #### Scenario: The owner has no time zone set
 - **GIVEN** an owner without a time zone and an instance default of `Europe/Amsterdam`
 - **WHEN** the next run is computed
 - **THEN** it is computed in `Europe/Amsterdam`
+@e2e exclude Computed on the server at every run, with no screen; the zone resolution is covered by ScheduleServiceTest.
 
 ### Requirement: A schedule does not start a new run while its last run is still going (REQ-SPCOV-014)
 
@@ -53,3 +57,4 @@ Row: `sc-overlap`. Board: `hermiq/HmPlanning`.
 - **WHEN** the dispatcher's next ticks come due at 08:05 and 08:10
 - **THEN** no second run of that schedule starts before 08:12
 - **AND** run history shows one run starting at 08:00 and the next one after 08:12
+@e2e exclude Needs a run that outlasts two background-job ticks, which a browser test cannot drive; covered by ScheduleTaskTest (parallel runs off).

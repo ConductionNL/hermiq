@@ -49,6 +49,7 @@ Kind: code. Size M. Rows `hermiq:ch-search-history`, `dm-bulk-delete-chats`.
 - [ ] Test (Playwright under `tests/e2e/spec-coverage/session-search-and-bulk.spec.ts`, keyboard selection included: written, not yet run, it needs the live instance)
 
 ## Verification
-- [ ] `openspec validate chat-session-search-and-bulk-delete --type change --strict` passes
+- [x] `openspec validate chat-session-search-and-bulk-delete --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, Newman and the Playwright file run, exit codes read
 - [ ] A live check on the dev instance: search a word from last week's session and bulk archive three sessions

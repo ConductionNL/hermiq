@@ -60,6 +60,8 @@ use Throwable;
 
 /**
  * Merges bundle content onto an existing skill without destroying local state.
+ *
+ * @spec openspec/changes/skill-install-idempotency/specs/skills-marketplace/spec.md#requirement-curated-state-survives-an-update
  */
 class SkillUpsertPolicy {
 

@@ -36,6 +36,8 @@ use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
+use OCA\OpenRegister\Contract\ObjectFindOptions as PublishedObjectFindOptions;
+use OCA\OpenRegister\Contract\ObjectSaveOptions as PublishedObjectSaveOptions;
 
 /**
  * GuardrailPolicyService unit tests (agent-guardrails).
@@ -111,7 +113,7 @@ class GuardrailPolicyServiceTest extends TestCase {
 
 			public function find(
 				int|string $id,
-				?ObjectFindOptions $options = null,
+				ObjectFindOptions|PublishedObjectFindOptions|null $options = null,
 				bool $_rbac = true,
 				bool $_multitenancy = true
 			): ?ObjectEntity {
@@ -132,7 +134,7 @@ class GuardrailPolicyServiceTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				ObjectSaveOptions|PublishedObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
 				bool $_multitenancy = true
 			): ObjectEntity {
@@ -693,4 +695,33 @@ class GuardrailPolicyServiceTest extends TestCase {
 		$this->assertSame(['text' => '', 'blocked' => false, 'reason' => null], $this->service()->filterInput($policy, ''));
 		$this->assertFalse($this->service()->filterInput($policy, 'Wat is de status van mijn aanvraag?')['blocked']);
 	}//end testInjectionBlockingPassesHarmlessText()
+
+	/**
+	 * The package allowlist is saved, read leniently, kept when a save leaves it
+	 * out, and empty in the fully open fallback.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-installs-command-line-tools-only-from-an-allowlisted-registry-without-install-scripts-req-wksp-004
+	 */
+	public function testThePackageAllowlistIsSavedReadLenientlyAndKept(): void {
+		$this->assertSame(expected: [], actual: $this->service(policies: [])->effectivePolicyFor(organisation: 'org-a')['packageAllowlist']);
+
+		$saved = $this->service()->upsertForOrganisation(
+			organisation: 'org-a',
+			payload: ['packageAllowlist' => [' pip:csvkit ', 'npm:cowsay', 'pip:csvkit', 7, '']]
+		);
+		$this->assertSame(expected: ['pip:csvkit', 'npm:cowsay'], actual: $saved['packageAllowlist']);
+
+		$stored = $this->policy(uuid: 'p-1', organisation: 'org-a');
+		$stored->setObject($stored->getObject() + ['packageAllowlist' => ['pip:csvkit']]);
+		$kept = $this->service(policies: [$stored])->upsertForOrganisation(organisation: 'org-a', payload: ['enabled' => true]);
+		$this->assertSame(expected: ['pip:csvkit'], actual: $kept['packageAllowlist']);
+
+		$stored->setObject(['packageAllowlist' => 'pip:csvkit']);
+		$this->assertSame(expected: [], actual: $this->service(policies: [$stored])->effectivePolicyFor(organisation: 'org-a')['packageAllowlist']);
+
+		$this->expectException(exception: \InvalidArgumentException::class);
+		$this->service()->upsertForOrganisation(organisation: 'org-a', payload: ['packageAllowlist' => 'pip:csvkit']);
+	}//end testThePackageAllowlistIsSavedReadLenientlyAndKept()
 }//end class

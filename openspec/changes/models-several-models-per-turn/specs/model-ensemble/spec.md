@@ -33,6 +33,7 @@ In an ensemble turn hermiq MUST send the assembled prompt to each reference mode
 - GIVEN an ensemble agent with two reference models
 - WHEN a policy officer asks "Welke regels gelden voor een terrasvergunning?" in the chat
 - THEN the chat shows one reply, the run's steps show "Asked 2 models" before the answer, and the run holds both reference answers
+- @e2e exclude needs two live reference models and a merging model; covered by ReferenceAnswerRoundTest and EnsembleUsageTest with stubbed drivers
 
 #### Scenario: A reference model that fails is left out
 - GIVEN an ensemble agent whose second reference model answers HTTP 503

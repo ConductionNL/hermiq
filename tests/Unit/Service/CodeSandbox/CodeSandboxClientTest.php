@@ -411,4 +411,163 @@ class CodeSandboxClientTest extends TestCase {
 
 		$this->assertSame([], $appApi->calls);
 	}//end testAnUnknownLanguageIsRefusedBeforeDispatch()
+
+	/**
+	 * An install goes to the sandbox's /install with only manager, package and
+	 * version, and answers the layer, versions and binaries.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-installs-command-line-tools-only-from-an-allowlisted-registry-without-install-scripts-req-wksp-004
+	 */
+	public function testAnInstallGoesToTheInstallerAndAnswersTheLayer(): void {
+		$hash = hash('sha256', 'x');
+		$appApi = $this->appApi(
+			answer: $this->response(
+				status: 200,
+				body: (string)json_encode(
+					[
+						'manager' => 'pip', 'package' => 'csvkit', 'version' => '2.1.0',
+						'versions' => [['name' => 'csvkit', 'version' => '2.1.0'], 'junk'],
+						'binaries' => ['csvstat', 7],
+						'layer' => ['sha256' => $hash, 'size' => 1, 'archive' => base64_encode('x')],
+					]
+				)
+			)
+		);
+
+		$result = $this->client(appApi: $appApi)->install(manager: 'pip', package: 'csvkit', version: '2.1.0', uid: 'alice');
+
+		$this->assertSame(
+			expected: [
+				'hermiq-code-sandbox', '/install', 'alice', 'POST',
+				['manager' => 'pip', 'package' => 'csvkit', 'version' => '2.1.0'], ['timeout' => 600],
+			],
+			actual: $appApi->calls[0]
+		);
+		$this->assertSame(expected: [['name' => 'csvkit', 'version' => '2.1.0']], actual: $result['versions']);
+		$this->assertSame(expected: ['csvstat'], actual: $result['binaries']);
+		$this->assertSame(expected: ['sha256' => $hash, 'archive' => base64_encode('x')], actual: $result['layer']);
+	}//end testAnInstallGoesToTheInstallerAndAnswersTheLayer()
+
+	/**
+	 * A hosted backend refuses before anything is sent; a refusal carries the
+	 * installer's reason; an answer without a layer is malformed.
+	 *
+	 * @return void
+	 */
+	public function testAnInstallIsRefusedOnAHostedBackendAndCarriesTheInstallersReason(): void {
+		$appApi = $this->appApi(answer: $this->response(status: 400, body: '{"error":"npm is not an allowed registry on this instance."}'));
+		try {
+			$hosted = $this->client(appApi: $appApi, settings: $this->settings(stored: '{"backend":"hosted","hostedSource":"src-1"}'));
+			$hosted->install(manager: 'npm', package: 'cowsay', version: null, uid: 'alice');
+			$this->fail(message: 'A hosted backend took an install.');
+		} catch (CodeSandboxUnavailableException $e) {
+			$this->assertSame(expected: CodeSandboxUnavailableException::INSTALL_NEEDS_EXAPP, actual: $e->getMessage());
+		}
+
+		$this->assertSame(expected: [], actual: $appApi->calls);
+
+		try {
+			$this->client(appApi: $appApi)->install(manager: 'npm', package: 'cowsay', version: null, uid: 'alice');
+			$this->fail(message: 'A refused install answered.');
+		} catch (RuntimeException $e) {
+			$this->assertSame(expected: 'npm is not an allowed registry on this instance.', actual: $e->getMessage());
+		}
+
+		$this->expectException(exception: RuntimeException::class);
+		$this->expectExceptionMessage(message: 'The installer answered without a tool layer.');
+		$malformed = $this->appApi(answer: $this->response(status: 200, body: '{"layer":{"sha256":"nope","archive":""}}'));
+		$this->client(appApi: $malformed)->install(manager: 'pip', package: 'csvkit', version: null, uid: null);
+	}//end testAnInstallIsRefusedOnAHostedBackendAndCarriesTheInstallersReason()
+
+	/**
+	 * An installed tool runs by its layer's hash; on 409 the layer is sent once
+	 * with the same run.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-installed-tool-runs-with-an-argument-list-and-no-shell-req-wksp-005
+	 */
+	public function testAnInstalledToolRunSendsTheLayerOnlyWhenTheSandboxLacksIt(): void {
+		$answers = [
+			$this->response(status: 409, body: '{"error":"The sandbox does not hold this tool layer yet.","code":"layer_missing"}'),
+			$this->response(status: 200, body: '{"exitCode":0,"stdout":"ok\n","stderr":"","durationMs":9,"timedOut":false,"files":[]}'),
+		];
+		$appApi = new class($answers) {
+			/**
+			 * The recorded requests.
+			 *
+			 * @var array<int, array<int, mixed>>
+			 */
+			public array $calls = [];
+
+			/**
+			 * Constructor.
+			 *
+			 * @param array<int, object> $answers The answers, in order.
+			 */
+			public function __construct(private array $answers) {
+			}
+
+			/**
+			 * Record and answer the next.
+			 *
+			 * @param mixed ...$args The request.
+			 *
+			 * @return mixed
+			 */
+			public function exAppRequest(mixed ...$args): mixed {
+				$this->calls[] = $args;
+				return array_shift($this->answers);
+			}
+		};
+		$loads = 0;
+
+		$result = $this->client(appApi: $appApi)->runInstalled(
+			call: [
+				'sha256' => str_repeat(string: 'a', times: 64), 'tool' => 'csvstat',
+				'args' => ['x.csv; rm -rf .'], 'limits' => ['wallSeconds' => 10],
+			],
+			files: [['name' => 'x.csv', 'content' => "a\n"]],
+			layer: function () use (&$loads): string {
+				$loads++;
+				return 'bGF5ZXI=';
+			},
+			uid: 'alice'
+		);
+
+		$this->assertSame(expected: 0, actual: $result['exitCode']);
+		$this->assertSame(expected: 1, actual: $loads);
+		$this->assertCount(expectedCount: 2, haystack: $appApi->calls);
+		$this->assertArrayNotHasKey(key: 'layer', array: $appApi->calls[0][4]);
+		$this->assertSame(expected: 'bGF5ZXI=', actual: $appApi->calls[1][4]['layer']);
+		$this->assertSame(expected: ['x.csv; rm -rf .'], actual: $appApi->calls[1][4]['installed']['args']);
+		$this->assertSame(expected: ['wallSeconds' => 10, 'memoryMb' => 512], actual: $result['limits']);
+	}//end testAnInstalledToolRunSendsTheLayerOnlyWhenTheSandboxLacksIt()
+
+	/**
+	 * A hosted backend does not run installed tools, and a refusal carries the sandbox's reason.
+	 *
+	 * @return void
+	 */
+	public function testAnInstalledToolRunIsRefusedOnAHostedBackendAndCarriesTheSandboxesReason(): void {
+		$refused = $this->response(status: 404, body: '{"error":"The tool layer has no binary named csvjson.","code":"tool_missing"}');
+		$appApi = $this->appApi(answer: $refused);
+		$call = ['sha256' => str_repeat(string: 'a', times: 64), 'tool' => 'csvjson'];
+		$noLayer = static fn (): string => '';
+
+		try {
+			$hosted = $this->client(appApi: $appApi, settings: $this->settings(stored: '{"backend":"hosted","hostedSource":"src-1"}'));
+			$hosted->runInstalled(call: $call, files: [], layer: $noLayer, uid: 'alice');
+			$this->fail(message: 'A hosted backend ran an installed tool.');
+		} catch (CodeSandboxUnavailableException $e) {
+			$this->assertSame(expected: CodeSandboxUnavailableException::RUN_INSTALLED_NEEDS_EXAPP, actual: $e->getMessage());
+		}
+
+		$this->assertSame(expected: [], actual: $appApi->calls);
+		$this->expectException(exception: RuntimeException::class);
+		$this->expectExceptionMessage(message: 'The tool layer has no binary named csvjson.');
+		$this->client(appApi: $appApi)->runInstalled(call: $call, files: [], layer: $noLayer, uid: 'alice');
+	}//end testAnInstalledToolRunIsRefusedOnAHostedBackendAndCarriesTheSandboxesReason()
 }//end class

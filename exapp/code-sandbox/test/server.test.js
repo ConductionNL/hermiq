@@ -70,3 +70,18 @@ test('browser routes need the shared secret and answer 503 without a browser ser
 	assert.equal(res.status, 503)
 	assert.equal((await res.json()).code, 'browser_unavailable')
 })
+
+test('install needs the shared secret and answers 503 without an installer service', async () => {
+	const body = JSON.stringify({ manager: 'pip', package: 'csvkit' })
+	assert.equal((await fetch(base + '/install', { method: 'POST', body })).status, 401)
+	const res = await fetch(base + '/install', { method: 'POST', headers: authed, body })
+	assert.equal(res.status, 503)
+	assert.equal((await res.json()).code, 'installer_unavailable')
+})
+
+test('an installed tool whose layer the sandbox lacks answers 409 layer_missing', async () => {
+	const body = JSON.stringify({ installed: { sha256: 'c'.repeat(64), tool: 'csvstat', args: ['x.csv'] } })
+	const res = await fetch(base + '/run', { method: 'POST', headers: authed, body })
+	assert.equal(res.status, 409)
+	assert.equal((await res.json()).code, 'layer_missing')
+})

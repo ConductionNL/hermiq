@@ -84,8 +84,48 @@ final class FacadeToolInvokerCustomToolTest extends TestCase {
 
 		$invoker->{self::NAME}(adres: 'Markt 3', triggeredBy: 'root');
 
-		$this->assertSame(['adres' => 'Markt 3', 'triggeredBy' => 'alice'], $this->captured[0]);
+		$this->assertSame(
+			expected: ['adres' => 'Markt 3', 'triggeredBy' => 'alice', 'hermiqTurn' => ['agentId' => '', 'conversationId' => '']],
+			actual: $this->captured[0]
+		);
 	}//end testACustomToolCarriesTheRunOwner()
+
+	/**
+	 * A custom tool also carries the run's agent and conversation, so a tool that waits for
+	 * its workflow's result can open the handoff; a model-supplied turn is overwritten.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 */
+	public function testACustomToolCarriesTheRunsAgentAndConversation(): void {
+		$invoker = new FacadeToolInvoker(
+			facade: $this->facade(),
+			agentId: 'agent-1',
+			mcpIdByName: [self::NAME => self::TOOL_ID],
+			ownerUid: 'alice',
+			conversationId: 'conv-1'
+		);
+
+		$invoker->{self::NAME}(adres: 'Markt 3', hermiqTurn: ['agentId' => 'other', 'conversationId' => 'elsewhere']);
+
+		$this->assertSame(expected: ['agentId' => 'agent-1', 'conversationId' => 'conv-1'], actual: $this->captured[0]['hermiqTurn']);
+	}//end testACustomToolCarriesTheRunsAgentAndConversation()
+
+	/**
+	 * Without an owner a model-supplied turn is dropped too.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 */
+	public function testWithoutAnOwnerAModelSuppliedTurnIsDropped(): void {
+		$invoker = new FacadeToolInvoker(facade: $this->facade(), mcpIdByName: [self::NAME => self::TOOL_ID]);
+
+		$invoker->{self::NAME}(adres: 'Markt 3', hermiqTurn: ['agentId' => 'other', 'conversationId' => 'elsewhere']);
+
+		$this->assertSame(expected: [['adres' => 'Markt 3']], actual: $this->captured);
+	}//end testWithoutAnOwnerAModelSuppliedTurnIsDropped()
 
 	/**
 	 * Without an owner the call is dispatched, but never with a model-supplied owner;

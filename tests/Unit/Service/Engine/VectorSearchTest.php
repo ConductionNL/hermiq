@@ -84,7 +84,7 @@ final class VectorSearchTest extends TestCase {
 		$facade       = new VectorSearchFacadeStub();
 		$facade->rows = [['entity_id' => 7, 'entity_type' => 'object', 'chunk_text' => 'a', 'similarity' => 0.82, 'metadata' => []], 'not a row'];
 
-		$rows = $this->search(facade: $facade)->search(mode: 'semantic', query: 'parkeervergunning', limit: 6, views: ['v-1', 'v-2']);
+		$rows = $this->search(facade: $facade)->search(mode: 'semantic', query: 'parkeervergunning', limit: 6, scope: ['views' => ['v-1', 'v-2']]);
 
 		$this->assertSame(expected: [['searchSemantic', ['query' => 'parkeervergunning', 'limit' => 6, 'views' => ['v-1', 'v-2']]]], actual: $facade->calls);
 		$this->assertSame(expected: [$facade->rows[0]], actual: $rows);
@@ -98,7 +98,7 @@ final class VectorSearchTest extends TestCase {
 	public function testHybridRoutesToSearchHybrid(): void {
 		$facade = new VectorSearchFacadeStub();
 
-		$this->assertSame(expected: [], actual: $this->search(facade: $facade)->search(mode: 'hybrid', query: 'q', limit: 4, views: ['v-1']));
+		$this->assertSame(expected: [], actual: $this->search(facade: $facade)->search(mode: 'hybrid', query: 'q', limit: 4, scope: ['views' => ['v-1']]));
 		$this->assertSame(expected: 'searchHybrid', actual: $facade->calls[0][0]);
 	}//end testHybridRoutesToSearchHybrid()
 
@@ -113,7 +113,7 @@ final class VectorSearchTest extends TestCase {
 		$search = new VectorSearch(container: $container, logger: $this->logger(), facadeClass: 'OCA\\OpenRegister\\Service\\Search\\NoSuchFacade');
 
 		$this->assertSame(expected: ['tier' => 'keyword-degraded', 'reason' => 'facade-not-present'], actual: $search->tier());
-		$this->assertNull(actual: $search->search(mode: 'semantic', query: 'q', limit: 4, views: ['v-1']));
+		$this->assertNull(actual: $search->search(mode: 'semantic', query: 'q', limit: 4, scope: ['views' => ['v-1']]));
 		$this->assertNull(actual: $search->embedTexts(texts: ['a']));
 		$this->assertSame(expected: 'default', actual: $search->modelId());
 		$this->assertStringContainsString(needle: 'has no vector facade', haystack: $this->logs['info'][0]);
@@ -130,7 +130,7 @@ final class VectorSearchTest extends TestCase {
 		$search            = $this->search(facade: $facade);
 
 		$this->assertSame(expected: ['tier' => 'keyword-degraded', 'reason' => 'no-embedding-backend'], actual: $search->tier());
-		$this->assertNull(actual: $search->search(mode: 'hybrid', query: 'q', limit: 4, views: ['v-1']));
+		$this->assertNull(actual: $search->search(mode: 'hybrid', query: 'q', limit: 4, scope: ['views' => ['v-1']]));
 		$this->assertSame(expected: [], actual: $facade->calls);
 		$this->assertStringContainsString(needle: 'has no embedding backend', haystack: $this->logs['info'][0]);
 		$this->assertSame(expected: [], actual: $this->logs['warning']);
@@ -146,7 +146,7 @@ final class VectorSearchTest extends TestCase {
 		$facade->throw = 'index offline';
 		$search        = $this->search(facade: $facade);
 
-		$this->assertNull(actual: $search->search(mode: 'semantic', query: 'q', limit: 4, views: ['v-1']));
+		$this->assertNull(actual: $search->search(mode: 'semantic', query: 'q', limit: 4, scope: ['views' => ['v-1']]));
 		$this->assertNull(actual: $search->embedTexts(texts: ['a']));
 		$this->assertCount(expectedCount: 2, haystack: $this->logs['warning']);
 		$this->assertStringContainsString(needle: 'failed; degrading to keyword search', haystack: $this->logs['warning'][0]);

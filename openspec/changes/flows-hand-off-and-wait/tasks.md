@@ -44,9 +44,9 @@ Kind: code. Size L. Rows `hermiq:dm-async-flow-step`, `hermiq:dm-remote-agent`, 
 - **status**: partly built.
   - Done: the result route `POST /api/handoffs/{id}/result` (`HandoffResultController`, public, token in the `X-Hermiq-Result-Token` header or the `hermiqResultToken` body field, 404 for every refusal, 1 MB cap, documented in `openapi.json`).
   - Done: `WebhookHandoffs`. `open()` mints 32 random bytes and stores only their SHA-256 on the handoff as `resultTokenHash` (Handoff 0.2.0, register v0.56.0). It answers `hermiqResultUrl` and `hermiqResultToken`. `acceptResult()` accepts the token once, while the handoff is waiting.
-  - Left: the `waitForCallback` switch in `CustomToolInvoker` and the editor's n8n preset. Both live in `tools-custom-tools-without-code`, which is not on development yet, so this task's checkbox stays open. When that change lands, its invoker calls `WebhookHandoffs::open()` and adds the two fields to the payload it sends through integriq.
-- [ ] Implement
-- [ ] Test (Newman on the route; PHPUnit on the token; Playwright under tests/e2e/spec-coverage/ for the n8n preset). PHPUnit on the token and the route is done: `tests/Unit/Service/Handoff/WebhookHandoffsTest.php`.
+  - Done 2026-11-21: `waitForCallback` and `deadlineHours` (1 to 168) on an integriq custom tool target (CustomTool 0.2.0, register v0.82.0), checked by `CustomToolDefinition` (POST, PUT or PATCH only). `CustomToolInvoker` opens the webhook handoff through `WebhookHandoffs::open()` before the call and merges `hermiqResultUrl` and `hermiqResultToken` into the body it sends through integriq (a body that is not a JSON object goes under `payload`); the agent gets the handoff id and "Started", never the token. When the call fails, `WebhookHandoffs::abandon()` closes the handoff as failed. A waiting tool runs only in a conversation: `FacadeToolInvoker` hands a custom tool the run's agent and conversation (`hermiqTurn`) next to its owner, and overwrites any the model supplied. The editor (`CustomToolFormModal.vue`) has the "Fill in for an n8n workflow" preset (POST to `/webhook/<slug>`, waiting), the wait switch, the deadline, and the steps to add in n8n: "Respond to Webhook" after the trigger, an "HTTP Request" node at the end posting to `{{ $json.hermiqResultUrl }}` with the token header. PHPUnit: `CustomToolInvokerTest`, `CustomToolDefinitionTest`, `WebhookHandoffsTest`, `FacadeToolInvokerCustomToolTest`; vitest: `custom-tool-form.spec.js`.
+- [x] Implement
+- [ ] Test (Newman on the route; PHPUnit on the token; Playwright under tests/e2e/spec-coverage/ for the n8n preset). PHPUnit on the token and the route is done: `tests/Unit/Service/Handoff/WebhookHandoffsTest.php`; PHPUnit on the callback payload and vitest on the preset are in. Newman and Playwright need a running instance.
 
 ### Task 5: RemoteAgent and its admin screen
 - **spec_ref**: `openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001`
@@ -61,6 +61,7 @@ Kind: code. Size L. Rows `hermiq:dm-async-flow-step`, `hermiq:dm-remote-agent`, 
   - Admin screen built as an admin settings section rather than an app page, because every route is admin-only and app settings belong in admin: `src/components/settings/RemoteAgents.vue` (in `src/views/AdminRoot.vue`, "Remote agents") lists each remote agent with the card kept at registration and its skills, switches it on or off, edits and deletes it; `src/modals/RemoteAgentFormModal.vue` registers one through a chosen integriq source (name, handle, description) and later changes its name and description; `src/api/remoteAgents.js`. No manifest entry is needed. en/nl strings.
 - [x] Implement
 - [ ] Test (PHPUnit with a stubbed CallService; Playwright under tests/e2e/spec-coverage/). PHPUnit is done: `tests/Unit/Service/RemoteAgent/RemoteAgentTest.php` and `tests/Unit/Controller/RemoteAgentControllerTest.php`. Playwright waits for a live instance; vitest `remote-agents-settings.spec.js` covers the screen.
+  - 2026-11-21: the admin registering a remote agent is in `tests/e2e/spec-coverage/hand-off-and-wait.spec.ts`, with the integriq sources and the remote agent routes answered by page.route; not run here, it needs a running Nextcloud.
 
 ### Task 6: The askRemoteAgent tool and its polling job
 - **spec_ref**: `openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003`
@@ -87,8 +88,10 @@ Kind: code. Size L. Rows `hermiq:dm-async-flow-step`, `hermiq:dm-remote-agent`, 
   - `listHandoffs()` in `src/api/chat.js` reads the session's `agenthandoff` objects with the person's own session (the schema's read rule shows only their own). `src/utils/handoffLines.js` places each under the last message written at or before it was requested (a handoff records no message id) and words it: "Waiting for “X” (started 14:02)", or how it ended. `src/views/Chat.vue` reads them when a session opens and every time the thread reloads, so a closed handoff's line changes with the turn that brings its result. en/nl strings.
 - [ ] Test (Playwright under tests/e2e/spec-coverage/ on a seeded handoff)
   - vitest done: `handoff-lines.spec.js`. Playwright needs a live instance.
+  - 2026-11-21: `tests/e2e/spec-coverage/hand-off-and-wait.spec.ts` written for the waiting line and a finished handoff, with the session's messages and handoffs answered by page.route; not run here, it needs a running Nextcloud.
 
 ## Verification
-- [ ] `openspec validate flows-hand-off-and-wait --type change --strict` passes
+- [x] `openspec validate flows-hand-off-and-wait --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, Newman and Playwright run once before push, exit codes read
 - [ ] One live run: an agent starts a flow with a wait node of two minutes and answers on its result in the same conversation

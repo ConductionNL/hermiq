@@ -24,6 +24,7 @@ namespace OCA\Hermiq\Service\Engine;
 
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
+use ReflectionMethod;
 use Throwable;
 
 /**
@@ -76,11 +77,11 @@ class VectorSearch {
 	public const REASON_NO_BACKEND = 'no-embedding-backend';
 
 	/**
-	 * The resolved facade; false once resolution failed, null before it was tried.
+	 * Finds the facade once and says whether it has a backend.
 	 *
-	 * @var object|false|null
+	 * @var VectorFacadeLocator
 	 */
-	private object|false|null $facade = null;
+	private readonly VectorFacadeLocator $locator;
 
 	/**
 	 * Constructor.
@@ -96,6 +97,12 @@ class VectorSearch {
 		private readonly LoggerInterface $logger,
 		private readonly string $facadeClass=self::FACADE_CLASS,
 	) {
+		$this->locator = new VectorFacadeLocator(
+			container: $this->container,
+			logger: $this->logger,
+			facadeClass: $this->facadeClass,
+			caller: 'VectorSearch'
+		);
 	}//end __construct()
 
 	/**
@@ -123,17 +130,27 @@ class VectorSearch {
 	 *
 	 * The caller gates on views first: this is never asked with an empty view set.
 	 *
-	 * @param string                 $mode  `semantic` or `hybrid`.
-	 * @param string                 $query The question.
-	 * @param int                    $limit At most this many rows.
-	 * @param array<int, int|string> $views The resolved view filters, passed through.
+	 * A file set (memory-retrieval-scope) is handed to the facade as `fileIds` when its
+	 * search method takes that argument, so the facade searches only those files. A
+	 * facade without the argument is asked as before; the caller still drops file rows
+	 * outside the set, so the scope holds either way. An empty set is never passed: a
+	 * facade could read `fileIds: []` as "no restriction".
+	 *
+	 * `$scope` holds `views`, the resolved view filters passed through, and optionally
+	 * `fileIds`, the agent's file set (null or absent when unscoped).
+	 *
+	 * @param string                                                         $mode  `semantic` or `hybrid`.
+	 * @param string                                                         $query The question.
+	 * @param int                                                            $limit At most this many rows.
+	 * @param array{views: array<int, int|string>, fileIds?: list<int>|null} $scope The views and the file set.
 	 *
 	 * @return array<int, array<string, mixed>>|null The facade's rows, or null on the keyword tier.
 	 *
 	 * @spec openspec/changes/vector-rag/tasks.md#task-2-1
 	 * @spec openspec/changes/vector-rag/tasks.md#task-2-3
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-owner-can-limit-file-retrieval-by-owner-file-name-and-modified-date-req-rscope-001
 	 */
-	public function search(string $mode, string $query, int $limit, array $views): ?array {
+	public function search(string $mode, string $query, int $limit, array $scope): ?array {
 		$facade = $this->usableFacade(purpose: $mode . ' retrieval');
 		if ($facade === null) {
 			return null;
@@ -144,8 +161,14 @@ class VectorSearch {
 			$method = 'searchHybrid';
 		}
 
+		$arguments = ['query' => $query, 'limit' => $limit, 'views' => array_values($scope['views'])];
+		$fileIds   = ($scope['fileIds'] ?? null);
+		if ($fileIds !== null && $fileIds !== [] && self::takesFileIds(facade: $facade, method: $method) === true) {
+			$arguments['fileIds'] = array_values($fileIds);
+		}
+
 		try {
-			$rows = $facade->{$method}(query: $query, limit: $limit, views: array_values($views));
+			$rows = $facade->{$method}(...$arguments);
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				message: '[VectorSearch] the OpenRegister vector facade failed; degrading to keyword search',
@@ -222,6 +245,30 @@ class VectorSearch {
 	}//end modelId()
 
 	/**
+	 * Whether the facade's search method takes a `fileIds` argument.
+	 *
+	 * @param object $facade The facade.
+	 * @param string $method `searchSemantic` or `searchHybrid`.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-owner-can-limit-file-retrieval-by-owner-file-name-and-modified-date-req-rscope-001
+	 */
+	private static function takesFileIds(object $facade, string $method): bool {
+		if (method_exists($facade, $method) === false) {
+			return false;
+		}
+
+		foreach ((new ReflectionMethod($facade, $method))->getParameters() as $parameter) {
+			if ($parameter->getName() === 'fileIds') {
+				return true;
+			}
+		}
+
+		return false;
+	}//end takesFileIds()
+
+	/**
 	 * The facade when it is present and has a backend, logging which tier stops it otherwise.
 	 *
 	 * @param string $purpose What it was asked for, for the log line.
@@ -253,45 +300,12 @@ class VectorSearch {
 	 * The facade, resolved once.
 	 *
 	 * @return object|null The facade, or null when OpenRegister has none.
+	 *
+	 * @spec openspec/changes/vector-rag/tasks.md#task-1-1
 	 */
 	private function facade(): ?object {
-		if ($this->facade === null) {
-			$this->facade = $this->resolve();
-		}
-
-		if ($this->facade === false) {
-			return null;
-		}
-
-		return $this->facade;
+		return $this->locator->facade();
 	}//end facade()
-
-	/**
-	 * Resolve the facade behind a class probe.
-	 *
-	 * @return object|false The facade, or false.
-	 */
-	private function resolve(): object|false {
-		if (class_exists($this->facadeClass) === false) {
-			return false;
-		}
-
-		try {
-			$facade = $this->container->get($this->facadeClass);
-		} catch (Throwable $e) {
-			$this->logger->info(
-				message: '[VectorSearch] the OpenRegister vector facade could not be resolved',
-				context: ['error' => $e->getMessage()]
-			);
-			return false;
-		}
-
-		if (is_object($facade) === false) {
-			return false;
-		}
-
-		return $facade;
-	}//end resolve()
 
 	/**
 	 * Whether the facade reports an embedding backend.
@@ -299,12 +313,10 @@ class VectorSearch {
 	 * @param object $facade The facade.
 	 *
 	 * @return bool
+	 *
+	 * @spec openspec/changes/vector-rag/tasks.md#task-1-1
 	 */
 	private function isAvailable(object $facade): bool {
-		try {
-			return method_exists($facade, 'isAvailable') === true && $facade->isAvailable() === true;
-		} catch (Throwable) {
-			return false;
-		}
+		return $this->locator->hasBackend(facade: $facade);
 	}//end isAvailable()
 }//end class

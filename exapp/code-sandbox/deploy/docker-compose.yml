@@ -31,13 +31,20 @@ services:
     tmpfs:
       - /work:rw,noexec,nosuid,nodev,size=256m,mode=0711,uid=10000,gid=10000
       - /tmp:rw,noexec,nosuid,nodev,size=16m
+      # Installed tool layers (tools-agent-workspace-and-installed-tools D5):
+      # unpacked by the server, readable and runnable by the runner, never
+      # writable by it. Not noexec, because an installed binary runs from here.
+      - /layers:rw,nosuid,nodev,size=1g,mode=0755,uid=10000,gid=10000
     environment:
       APP_ID: hermiq-code-sandbox
       APP_PORT: "9000"
+      SANDBOX_LAYER_ROOT: /layers
       BROWSER_CONTROL_URL: "http://hermiq-code-sandbox-browser:9100"
+      INSTALLER_CONTROL_URL: "http://hermiq-code-sandbox-installer:9200"
     networks:
       - sandbox-internal
       - browser-control
+      - installer-control
 
   # The browser service (tools-browser-and-computer-use D1): its own container,
   # sharing no network with code runs' egress. It reaches the internet only
@@ -83,6 +90,60 @@ services:
       - browser-jail
       - browser-out
 
+  # The installer (tools-agent-workspace-and-installed-tools D4): its own
+  # container, the same image, as the unprivileged sandbox uid. It installs
+  # with pip (binary wheels only) or npm (--ignore-scripts) into an empty
+  # prefix and answers a tool layer; no package's own code runs. Its only way
+  # out is the installer egress proxy, which tunnels to the allowlisted
+  # registries and nothing else. Code runs never join installer-jail.
+  hermiq-code-sandbox-installer:
+    image: ghcr.io/conductionnl/hermiq-code-sandbox:latest
+    command: ["node", "src/installerServer.js"]
+    user: "10000:10000"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 1g
+    tmpfs:
+      - /work:rw,noexec,nosuid,nodev,size=512m,mode=0700,uid=10000,gid=10000
+      - /tmp:rw,noexec,nosuid,nodev,size=16m
+    environment:
+      APP_ID: hermiq-code-sandbox
+      INSTALLER_PORT: "9200"
+      INSTALLER_WORK_ROOT: /work
+      INSTALLER_PYTHON: /usr/local/bin/python3
+      INSTALLER_MANAGERS: ${INSTALLER_MANAGERS:-pip,npm}
+      HTTPS_PROXY: "http://installer-egress-proxy:3128"
+      HTTP_PROXY: "http://installer-egress-proxy:3128"
+    networks:
+      - installer-control
+      - installer-jail
+
+  # The installer's egress proxy: HTTPS CONNECT to an exact allowlisted host on
+  # port 443, nothing else. The admin narrows the registries here and in
+  # Hermiq's code sandbox settings.
+  installer-egress-proxy:
+    build: ./installer-egress-proxy
+    image: ghcr.io/conductionnl/hermiq-installer-egress-proxy:latest
+    user: "10000:10000"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 256m
+    environment:
+      PROXY_PORT: "3128"
+      EGRESS_ALLOWED_HOSTS: ${INSTALLER_REGISTRY_HOSTS:-pypi.org,files.pythonhosted.org,registry.npmjs.org}
+      EGRESS_ALLOWED_PORTS: "443"
+    networks:
+      - installer-jail
+      - installer-out
+
 networks:
   sandbox-internal:
     internal: true
@@ -91,3 +152,8 @@ networks:
   browser-jail:
     internal: true
   browser-out: {}
+  installer-control:
+    internal: true
+  installer-jail:
+    internal: true
+  installer-out: {}

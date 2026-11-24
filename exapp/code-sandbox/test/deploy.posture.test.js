@@ -59,8 +59,8 @@ function isInternal(name) {
 
 test('the sandbox joins internal networks only, and none with an egress route', () => {
 	const sandbox = service('hermiq-code-sandbox')
-	assert.deepEqual(networksOf(sandbox), ['browser-control', 'sandbox-internal'])
-	assert.ok(isInternal('sandbox-internal') && isInternal('browser-control'))
+	assert.deepEqual(networksOf(sandbox), ['browser-control', 'installer-control', 'sandbox-internal'])
+	assert.ok(isInternal('sandbox-internal') && isInternal('browser-control') && isInternal('installer-control'))
 	assert.doesNotMatch(sandbox, /egress|proxy/i)
 	assert.doesNotMatch(body, /network_mode|ports:/)
 })
@@ -73,6 +73,27 @@ test('the browser shares no network with the code runs except the control networ
 	assert.match(browser, /read_only: true/)
 	assert.match(browser, /cap_drop:\n\s+- ALL/)
 	assert.doesNotMatch(browser, /cap_add/)
+})
+
+test('the installer shares no network with the code runs except the control network, and leaves only through its allowlist proxy', () => {
+	const installer = service('hermiq-code-sandbox-installer')
+	assert.deepEqual(networksOf(installer), ['installer-control', 'installer-jail'])
+	assert.ok(isInternal('installer-jail'))
+	assert.ok(!networksOf(service('hermiq-code-sandbox')).includes('installer-jail'), 'code runs have no route to the installer\'s network')
+	assert.match(installer, /HTTPS_PROXY: "http:\/\/installer-egress-proxy:3128"/)
+	assert.match(installer, /user: "10000:10000"/)
+	assert.match(installer, /read_only: true/)
+	assert.match(installer, /cap_drop:\n\s+- ALL/)
+	assert.doesNotMatch(installer, /cap_add/)
+
+	const proxy = service('installer-egress-proxy')
+	assert.deepEqual(networksOf(proxy), ['installer-jail', 'installer-out'])
+	assert.equal(isInternal('installer-out'), false)
+	assert.match(proxy, /EGRESS_ALLOWED_HOSTS: \$\{INSTALLER_REGISTRY_HOSTS:-pypi\.org,files\.pythonhosted\.org,registry\.npmjs\.org\}/)
+	assert.match(proxy, /EGRESS_ALLOWED_PORTS: "443"/)
+	for (const name of ['hermiq-code-sandbox', 'hermiq-code-sandbox-browser', 'hermiq-code-sandbox-installer']) {
+		assert.ok(!networksOf(service(name)).includes('installer-out'), `${name} has no route out`)
+	}
 })
 
 test('only the egress proxy reaches a network with a route out', () => {
@@ -107,4 +128,12 @@ test('the image runs each program as the separate runner uid', () => {
 	assert.match(dockerfile, /SANDBOX_RUN_UID=10001/)
 	assert.match(dockerfile, /SANDBOX_WORK_ROOT=\/work/)
 	assert.match(dockerfile, /--reuid=sandbox/)
+})
+
+test('installed tool layers sit in their own tmpfs the runner can run from but not write', () => {
+	const sandbox = service('hermiq-code-sandbox')
+	assert.match(sandbox, /- \/layers:rw,nosuid,nodev,size=\d+[mg],mode=0755,uid=10000,gid=10000/)
+	assert.match(sandbox, /SANDBOX_LAYER_ROOT: \/layers/)
+	const dockerfile = fs.readFileSync(path.join(__dirname, '..', 'Dockerfile'), 'utf8')
+	assert.match(dockerfile, /SANDBOX_LAYER_ROOT=\/layers/)
 })

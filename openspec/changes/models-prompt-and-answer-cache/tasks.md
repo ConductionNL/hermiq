@@ -41,6 +41,7 @@ Kind: code. Size M. Rows `hermiq:dm-prompt-cache`, `integriq:gw-ai-cache`.
 - [x] Implement
 - [ ] Test (register validation test; Playwright under tests/e2e/spec-coverage/)
   > 2026-11-14: the register validation test is done (`tests/Unit/Settings/AnswerCacheSchemaTest.php`) and the form's setting is covered by `tests/vitest/answer-cache-form.spec.js`; the Playwright check needs a live instance and stays open. The similarity choice is disabled with its note until OpenRegister exposes the vector facade.
+  > 2026-11-21: `tests/e2e/spec-coverage/answer-cache.spec.ts` written for the setting (saved for real) and the disabled similarity choice; not run here, it needs a running Nextcloud. The agent's Configuration card now shows "Answer cache: on, 7 days" (`answerCacheSummary()` in `src/utils/answerCache.js`, the `agentAnswerCache` formatter in `App.vue`, the `answerCache` override in `src/manifest.json`; vitest in `answer-cache-form.spec.js`).
 
 ### Task 5: Exact lookup and store
 - **spec_ref**: `openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-an-exact-repeat-within-one-organisation-gets-the-stored-answer-req-acache-002`
@@ -78,8 +79,10 @@ Kind: code. Size M. Rows `hermiq:dm-prompt-cache`, `integriq:gw-ai-cache`.
   > 2026-11-15: the thumbs-down hook: an answer served from the cache is stored with `answerCache: {layer, entryId}` (`SessionTurn` schema 0.6.0, `MessageHistoryHandler::storeMessage(answerCache:)`, passed by `Engine::storeAnswer()`), and `ChatController::sendFeedback()` deletes that entry on a `negative` rating (`ChatFeedbackAnswerCacheTest`, `MessageAnswerCacheRecordTest`, `EngineTest::testACachedAnswerIsStoredWithItsServingEntry`). Left: the note with "Ask the model again" in `Chat.vue` and the Clear button on the agent page.
   > 2026-11-15: the chat note and the Clear button. A session's messages say `fromCache` for an answer the cache served (`SessionController`, without exposing the entry); `Chat.vue` shows "Answered from cache" under it with "Ask the model again", which resends the question before it with `answerCacheBypass: true` over the stream or the send path (`src/utils/answerCache.js::questionBefore()`, `src/api/chat.js`). Both endpoints pass the flag to `Engine::processMessage(answerCacheBypass:)`, which sets `ResponseTurnRun::$answerCacheBypass`, so the cache is neither read nor written for that turn. The agent page has a "Clear cached answers" header action opening `AgentAnswerCacheClearDialog` over `DELETE /api/agents/{id}/answer-cache`. Tests: `ResponseAnswerCacheTest`, `EngineTest::testProcessMessageThreadsTheAnswerCacheBypass`, `ChatControllerTest`, `ChatStreamControllerTest`, `SessionControllerUncoveredPathsTest`, `tests/vitest/answer-cache-clear.spec.js`, `chat-page.spec.js`, `api-chat.spec.js`, `answer-cache-form.spec.js`.
 - [ ] Test (PHPUnit on the job and the feedback hook; Playwright under tests/e2e/spec-coverage/ for the note and the button)
+  > 2026-11-21: `tests/e2e/spec-coverage/answer-cache.spec.ts` written for the "Answered from cache" note, "Ask the model again" (sends `answerCacheBypass: true`) and the thumbs down, with the session's messages answered by page.route; not run here, it needs a running Nextcloud.
 
 ## Verification
-- [ ] `openspec validate models-prompt-and-answer-cache --type change --strict` passes
+- [x] `openspec validate models-prompt-and-answer-cache --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, Newman and Playwright run once before push, exit codes read
 - [ ] One live Anthropic session shows cache read tokens on its second turn

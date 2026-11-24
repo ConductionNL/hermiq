@@ -38,6 +38,8 @@ use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IGroupManager;
 use PHPUnit\Framework\TestCase;
+use OCA\OpenRegister\Contract\ObjectFindOptions as PublishedObjectFindOptions;
+use OCA\OpenRegister\Contract\ObjectSaveOptions as PublishedObjectSaveOptions;
 
 /**
  * @covers \OCA\Hermiq\Service\Eval\EvalScheduleEditor
@@ -85,16 +87,16 @@ class EvalScheduleEditorTest extends TestCase {
 			/**
 			 * The object, or a not-found.
 			 *
-			 * @param string|int             $id            The uuid.
-			 * @param ObjectFindOptions|null $options       Ignored.
-			 * @param bool                   $_rbac         Ignored.
-			 * @param bool                   $_multitenancy Ignored.
+			 * @param string|int                                        $id            The uuid.
+			 * @param ObjectFindOptions|PublishedObjectFindOptions|null $options       Ignored.
+			 * @param bool                                              $_rbac         Ignored.
+			 * @param bool                                              $_multitenancy Ignored.
 			 *
 			 * @return ObjectEntity|null
 			 */
 			public function find(
 				string|int $id,
-				?ObjectFindOptions $options = null,
+				ObjectFindOptions|PublishedObjectFindOptions|null $options = null,
 				bool $_rbac = true,
 				bool $_multitenancy = true
 			): ?ObjectEntity {
@@ -152,7 +154,7 @@ class EvalScheduleEditorTest extends TestCase {
 			 */
 			public function saveObject(
 				array|ObjectEntity $object,
-				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				ObjectSaveOptions|PublishedObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
 				bool $_multitenancy = true
 			): ObjectEntity {

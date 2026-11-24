@@ -35,4 +35,14 @@ class CodeSandboxUnavailableException extends RuntimeException {
 	 * The message the tool and the admin section show.
 	 */
 	public const NOT_INSTALLED = 'No code sandbox is installed on this instance.';
+
+	/**
+	 * Installed tools run only in the own sandbox, which holds their layers.
+	 */
+	public const RUN_INSTALLED_NEEDS_EXAPP = 'Installed tools run only in the code sandbox installed on this instance.';
+
+	/**
+	 * Tools install only into the own sandbox: a hosted one keeps no layers.
+	 */
+	public const INSTALL_NEEDS_EXAPP = 'Installing tools needs the code sandbox installed on this instance; a hosted sandbox does not take installs.';
 }//end class

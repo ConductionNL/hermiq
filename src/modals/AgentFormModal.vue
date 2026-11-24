@@ -346,8 +346,14 @@
 				<div class="agent-form__row">
 					<NcTextField
 						v-model="form.temperature"
+						data-testid="agent-form-temperature"
 						type="number"
+						min="0"
+						max="2"
+						step="0.1"
 						:label="t('hermiq', 'Temperature (0–2)')"
+						:error="!temperatureValid"
+						:helperText="temperatureValid ? '' : t('hermiq', 'The temperature must be between 0 and 2.')"
 						placeholder="0.7" />
 					<NcTextField
 						v-model="form.maxTokens"
@@ -782,6 +788,7 @@ import {
 } from '../utils/agentCredentials.js'
 import { ensembleOf, ensemblePayload, sendsEnsemble } from '../utils/agentEnsemble.js'
 import { sharingFields, sharingOf } from '../utils/agentSharing.js'
+import { temperatureInRange } from '../utils/agentTemperature.js'
 import { answerCacheFields, answerCachePayload, organisationScopeAllowed } from '../utils/answerCache.js'
 import { providerReturnsReasoning } from '../utils/contextUsage.js'
 import { insertPlaceholder, startFieldsOf } from '../utils/instructionVariables.js'
@@ -1123,6 +1130,16 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * Whether the typed temperature may be saved (blank, or 0 to 2).
+		 *
+		 * @return {boolean}
+		 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
+		 */
+		temperatureValid() {
+			return temperatureInRange(this.form.temperature)
+		},
+
 		/**
 		 * Whether the agent's provider returns reasoning; an agent on the app's
 		 * default provider is not refused here, since that provider is not known.
@@ -2328,8 +2345,13 @@ export default {
 		 *
 		 * @return {Promise<void>}
 		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
 		 */
 		async save() {
+			if (!this.temperatureValid) {
+				this.error = this.t('hermiq', 'The temperature must be between 0 and 2.')
+				return
+			}
 			if (this.violatesPolicy()) {
 				this.error = this.t(
 					'hermiq',

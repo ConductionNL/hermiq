@@ -123,6 +123,7 @@ final class ListenerRegistrar {
 	 * @return void
 	 *
 	 * @spec openspec/specs/agent-capability-reach/spec.md#requirement-waiving-approval-is-recorded-as-a-distinct-audited-event
+	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
 	 */
 	private function registerAgentObjectListeners(IRegistrationContext $context): void {
 		$context->registerEventListener(event: ObjectCreatedEvent::class, listener: AgentBotLifecycleListener::class);
@@ -153,6 +154,9 @@ final class ListenerRegistrar {
 		// write path (models-several-models-per-turn, REQ-MENS-001).
 		$context->registerEventListener(event: ObjectCreatingEvent::class, listener: AgentEnsembleGuardListener::class);
 		$context->registerEventListener(event: ObjectUpdatingEvent::class, listener: AgentEnsembleGuardListener::class);
+		// An agent's temperature stays within 0 to 2 (spec-coverage-built-rows, REQ-SPCOV-002).
+		$context->registerEventListener(event: ObjectCreatingEvent::class, listener: AgentTemperatureGuardListener::class);
+		$context->registerEventListener(event: ObjectUpdatingEvent::class, listener: AgentTemperatureGuardListener::class);
 	}//end registerAgentObjectListeners()
 
 	/**

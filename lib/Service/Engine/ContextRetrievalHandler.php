@@ -539,7 +539,10 @@ class ContextRetrievalHandler {
 	 * The empty-views gate holds here too: without a resolved view set the facade is
 	 * not asked, and {@see searchScoped()} decides (the app's registers, or nothing).
 	 *
-	 * @param array<string, mixed> $run        The query and the resolved view filters.
+	 * The agent's file set goes along, so a facade with a file scope searches only those
+	 * files; {@see withinFileScope()} still drops file rows outside it afterwards.
+	 *
+	 * @param array<string, mixed> $run        The query, the resolved view filters and the file set.
 	 * @param string               $searchMode `semantic` or `hybrid`.
 	 * @param int                  $limit      At most this many rows.
 	 *
@@ -547,6 +550,7 @@ class ContextRetrievalHandler {
 	 *
 	 * @spec openspec/changes/vector-rag/tasks.md#task-2-1
 	 * @spec openspec/changes/vector-rag/tasks.md#task-2-2
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-owner-can-limit-file-retrieval-by-owner-file-name-and-modified-date-req-rscope-001
 	 */
 	private function vectorRows(array $run, string $searchMode, int $limit): ?array {
 		if (empty($run['viewFilters']) === true) {
@@ -565,7 +569,7 @@ class ContextRetrievalHandler {
 			mode: $searchMode,
 			query: (string)$run['query'],
 			limit: $limit,
-			views: array_values($run['viewFilters'])
+			scope: ['views' => array_values($run['viewFilters']), 'fileIds' => ($run['fileIds'] ?? null)]
 		);
 	}//end vectorRows()
 

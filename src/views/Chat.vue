@@ -953,6 +953,25 @@
 							</NcButton>
 						</li>
 					</ul>
+					<!-- Deep research (tools-deep-research-report task 6): a running run's
+					     progress and its stop button, read from the session's research handoff. -->
+					<div
+						v-if="activeResearch"
+						class="chat-page__research"
+						role="status"
+						data-testid="chat-research-progress">
+						<span>{{ researchProgress }}</span>
+						<NcButton
+							variant="secondary"
+							data-testid="chat-research-stop"
+							:disabled="stoppingResearch || activeResearch.stopRequested === true"
+							@click="onStopResearch">
+							<template #icon>
+								<StopCircleOutline :size="20" />
+							</template>
+							{{ t('hermiq', 'Stop research') }}
+						</NcButton>
+					</div>
 					<div class="chat-page__composer-row">
 						<!-- Attach (chat-attachments-and-images): an upload lands in the
 						     person's own Files; a file chosen from Files is sent by id. -->
@@ -1025,6 +1044,15 @@
 							:disabled="sending"
 							@transcript="insertTranscript"
 							@error="sendError = $event" />
+						<!-- Shown when the agent holds hermiq.webSearch and hermiq.webFetch. -->
+						<NcCheckboxRadioSwitch
+							v-if="canDeepResearch"
+							v-model="deepResearch"
+							type="switch"
+							data-testid="chat-deep-research"
+							:disabled="sending || Boolean(activeResearch)">
+							{{ t('hermiq', 'Deep research') }}
+						</NcCheckboxRadioSwitch>
 						<NcButton
 							variant="primary"
 							:disabled="
@@ -1272,6 +1300,7 @@ import { canForkSession, forkedSessionToOpen } from '../utils/sessionFork.js'
 import { canShareSession } from '../utils/sessionShare.js'
 import { sessionStartErrorMessage } from '../utils/sessionStartError.js'
 import { appendTranscript, speechControls } from '../utils/speech.js'
+import { deepResearchControls } from './chatDeepResearch.js'
 import { goalLine as describeGoal } from './chatGoalLine.js'
 import { headedSessionGroups, partitionSessions } from './chatSessionGroups.js'
 import { chatToolSteps } from './chatToolSteps.js'
@@ -1377,6 +1406,8 @@ export default {
 	// directly over the composer's Send button, swallowing the click. Declaring
 	// the page kind here is the contract's intended opt-out, and it also stops
 	// hermiq offering an "Open AI chat" shortcut on top of the chat itself.
+	mixins: [deepResearchControls],
+
 	inject: {
 		cnAiContext: { default: null },
 	},
@@ -2691,6 +2722,10 @@ export default {
 		async handleSend() {
 			const text = this.currentMessage.trim()
 			if (!this.mayStartTurn(text) || !(await this.startAnswersSaved())) {
+				return
+			}
+			if (this.deepResearch && this.canDeepResearch) {
+				await this.sendAsResearch(text)
 				return
 			}
 			const attached = this.takeComposerAttachments()
@@ -4179,6 +4214,15 @@ export default {
 .chat-page__context-warning {
 	display: block;
 	color: var(--color-warning-text, var(--color-main-text));
+}
+
+.chat-page__research {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 4px 0;
+	color: var(--color-text-maxcontrast);
 }
 
 .chat-page__handoffs {

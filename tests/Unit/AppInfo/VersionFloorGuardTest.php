@@ -25,7 +25,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/raise-nc-minversion-taskprocessing/tasks.md#2-regression-guard
+ * @spec openspec/changes/archive/2026-11-21-raise-nc-minversion-taskprocessing/tasks.md#2-regression-guard
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Asserts the info.xml Nextcloud floor never drifts below a bootstrap API's @since.
  *
- * @spec openspec/changes/raise-nc-minversion-taskprocessing/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-11-21-raise-nc-minversion-taskprocessing/tasks.md#task-2-1
  */
 class VersionFloorGuardTest extends TestCase {
 
@@ -133,7 +133,7 @@ class VersionFloorGuardTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/raise-nc-minversion-taskprocessing/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-11-21-raise-nc-minversion-taskprocessing/tasks.md#task-2-1
 	 */
 	public function testDeclaredFloorCoversEveryUnconditionalNcApi(): void {
 		$minVersion = $this->declaredMinVersion();
@@ -167,7 +167,7 @@ class VersionFloorGuardTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/raise-nc-minversion-taskprocessing/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-11-21-raise-nc-minversion-taskprocessing/tasks.md#task-2-1
 	 */
 	public function testDeclaredFloorIsAtLeast30(): void {
 		$this->assertGreaterThanOrEqual(
@@ -183,7 +183,7 @@ class VersionFloorGuardTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/raise-nc-minversion-taskprocessing/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-11-21-raise-nc-minversion-taskprocessing/tasks.md#task-2-1
 	 */
 	public function testGuardFailsWhenFloorLoweredBelowApiSince(): void {
 		$offenders = self::violations(29, ['registerTaskProcessingProvider'], self::API_SINCE_MAJOR);
@@ -201,7 +201,7 @@ class VersionFloorGuardTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/raise-nc-minversion-taskprocessing/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-11-21-raise-nc-minversion-taskprocessing/tasks.md#task-2-1
 	 */
 	public function testGuardFailsWhenNewerApiAddedWithoutRaisingFloor(): void {
 		$offenders = self::violations(
@@ -223,7 +223,7 @@ class VersionFloorGuardTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/raise-nc-minversion-taskprocessing/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-11-21-raise-nc-minversion-taskprocessing/tasks.md#task-2-1
 	 */
 	public function testGuardPassesAtFloor30WithCurrentCalls(): void {
 		$offenders = self::violations(30, ['registerTaskProcessingProvider'], self::API_SINCE_MAJOR);

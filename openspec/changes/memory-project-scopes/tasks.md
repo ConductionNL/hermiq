@@ -37,6 +37,7 @@ Kind: code. Size M. Row `hermiq:dm-project-memory`.
   - GIVEN an agent with projects WHEN a person starts a session THEN they can pick a project, start a new one or choose none, and the header shows the project
 - [x] Implement
 - [ ] Test (Playwright under `tests/e2e/spec-coverage/memory-project-scopes.spec.ts`)
+  - 2026-11-21: `tests/e2e/spec-coverage/memory-project-scopes.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, sidecar or Talk is needed); not run here, it needs a running Nextcloud.
 
 ### Task 5: Layers and moves on the Memory page
 - **spec_ref**: `openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004`
@@ -47,6 +48,7 @@ Kind: code. Size M. Row `hermiq:dm-project-memory`.
 - [ ] Test (PHPUnit on the move; Playwright for the tabs and the move)
 
 ## Verification
-- [ ] `openspec validate memory-project-scopes --type change --strict` passes
+- [x] `openspec validate memory-project-scopes --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit and the Playwright file run, exit codes read
 - [ ] A live check on the dev instance: two project sessions with one agent, a fact remembered in one does not come back in the other

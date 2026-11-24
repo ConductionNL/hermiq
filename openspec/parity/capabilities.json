@@ -4787,7 +4787,7 @@
 				"evidence": "lib/AppInfo/Application.php:350-352 registers Text2TextProvider, Text2TextSummaryProvider, Text2TextHeadlineProvider via $context->registerTaskProcessingProvider(); lib/TaskProcessing/Text2TextProvider.php implements the provider.",
 				"change": [
 					"openspec/changes/taskprocessing-provide-text2text",
-					"openspec/changes/raise-nc-minversion-taskprocessing"
+					"openspec/changes/archive/2026-11-21-raise-nc-minversion-taskprocessing"
 				],
 				"requirement": "openspec/changes/taskprocessing-provide-text2text/specs/taskprocessing-provide-text2text :: Hermiq provides the text2text task-type family to the whole instance"
 			},

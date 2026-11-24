@@ -57,6 +57,16 @@ class CodeSandboxClient {
 	public const RUN_ROUTE = '/run';
 
 	/**
+	 * The sandbox's install route, forwarded to its installer service.
+	 */
+	public const INSTALL_ROUTE = '/install';
+
+	/**
+	 * Seconds an install may take, resolution and packing included.
+	 */
+	public const INSTALL_TIMEOUT_SECONDS = 600;
+
+	/**
 	 * The languages the sandbox image carries.
 	 */
 	public const LANGUAGES = ['python', 'node'];
@@ -175,6 +185,105 @@ class CodeSandboxClient {
 	}//end runOnWorkspace()
 
 	/**
+	 * Install one tool in the sandbox's installer and answer its layer.
+	 *
+	 * Only the own sandbox installs: its installer reaches the allowlisted
+	 * registries through its own egress proxy. A hosted backend refuses before
+	 * anything is sent.
+	 *
+	 * @param string      $manager The package manager: `pip` or `npm`.
+	 * @param string      $package The package.
+	 * @param string|null $version One exact version, or null for the latest.
+	 * @param string|null $uid     The acting user, passed to AppAPI.
+	 *
+	 * @return array{manager: string, package: string, version: string, versions: array<int, array{name: string, version: string}>,
+	 *   binaries: array<int, string>, layer: array{sha256: string, archive: string}} The installer's answer, the archive base64.
+	 *
+	 * @throws CodeSandboxUnavailableException When the own sandbox is not there; nothing was sent.
+	 * @throws RuntimeException               When the installer refused the install or answered malformed.
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-installs-command-line-tools-only-from-an-allowlisted-registry-without-install-scripts-req-wksp-004
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) SandboxAnswers is a stateless reader of the sandbox's answers.
+	 */
+	public function install(string $manager, string $package, ?string $version, ?string $uid): array {
+		if ($this->settings->backend() === CodeSandboxSettings::BACKEND_HOSTED) {
+			throw new CodeSandboxUnavailableException(CodeSandboxUnavailableException::INSTALL_NEEDS_EXAPP);
+		}
+
+		$result = $this->exAppCall(
+			route: self::INSTALL_ROUTE,
+			uid: $uid,
+			payload: ['manager' => $manager, 'package' => $package, 'version' => $version],
+			timeoutSeconds: self::INSTALL_TIMEOUT_SECONDS
+		);
+
+		$status = (int)$result->getStatusCode();
+		if ($status < 200 || $status > 299) {
+			$this->logger->warning('[CodeSandboxClient] the installer refused the install', ['status' => $status]);
+			$fallback = 'The installer could not install the tool (HTTP ' . $status . ').';
+			throw new RuntimeException(SandboxAnswers::refusalOf(body: (string)$result->getBody(), fallback: $fallback));
+		}
+
+		return SandboxAnswers::install(decoded: json_decode((string)$result->getBody(), true));
+	}//end install()
+
+	/**
+	 * Run an installed tool on a workspace copy in the own sandbox.
+	 *
+	 * The run names the tool layer by its hash. When the sandbox answers 409
+	 * `layer_missing`, the layer's bytes are sent with the run once more; the
+	 * sandbox checks them against the hash before it unpacks anything.
+	 *
+	 * @param array<string, mixed>                             $call  `sha256`, `tool`, `args`, `stdin` and `limits`.
+	 * @param array<int, array{name: string, content: string}> $files The workspace files.
+	 * @param callable(): string                               $layer Reads the layer, base64, on a miss.
+	 * @param string|null                                      $uid   The acting user, passed to AppAPI.
+	 *
+	 * @return array<string, mixed> The run result and the limits it ran under.
+	 *
+	 * @throws CodeSandboxUnavailableException When the own sandbox is not there; nothing was sent.
+	 * @throws RuntimeException               When the sandbox refused the run or answered malformed.
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-installed-tool-runs-with-an-argument-list-and-no-shell-req-wksp-005
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) SandboxAnswers is a stateless reader of the sandbox's answers.
+	 */
+	public function runInstalled(array $call, array $files, callable $layer, ?string $uid): array {
+		if ($this->settings->backend() === CodeSandboxSettings::BACKEND_HOSTED) {
+			throw new CodeSandboxUnavailableException(CodeSandboxUnavailableException::RUN_INSTALLED_NEEDS_EXAPP);
+		}
+
+		$limits = self::clampLimits(limits: (array)($call['limits'] ?? []));
+		$payload = [
+			'installed' => [
+				'sha256' => (string)$call['sha256'],
+				'tool' => (string)$call['tool'],
+				'args' => array_values((array)($call['args'] ?? [])),
+			],
+			'stdin' => (string)($call['stdin'] ?? ''),
+			'files' => array_values($files),
+			'limits' => $limits,
+		];
+		$timeout = ($limits['wallSeconds'] + self::TRANSPORT_SLACK_SECONDS);
+
+		$result = $this->exAppCall(route: self::RUN_ROUTE, uid: $uid, payload: $payload, timeoutSeconds: $timeout);
+		if ((int)$result->getStatusCode() === 409) {
+			$payload['layer'] = $layer();
+			$result = $this->exAppCall(route: self::RUN_ROUTE, uid: $uid, payload: $payload, timeoutSeconds: $timeout);
+		}
+
+		$status = (int)$result->getStatusCode();
+		if ($status < 200 || $status > 299) {
+			$this->logger->warning('[CodeSandboxClient] the sandbox refused the installed tool run', ['status' => $status]);
+			$fallback = 'The code sandbox could not run the tool (HTTP ' . $status . ').';
+			throw new RuntimeException(SandboxAnswers::refusalOf(body: (string)$result->getBody(), fallback: $fallback));
+		}
+
+		return self::mapResult(body: (string)$result->getBody()) + ['limits' => $limits];
+	}//end runInstalled()
+
+	/**
 	 * The run contract's request, its limits clamped.
 	 *
 	 * @param string                                           $language `python` or `node`.
@@ -233,19 +342,41 @@ class CodeSandboxClient {
 	 */
 	private function runOnExApp(array $payload, ?string $uid): array {
 		$clamped = $payload['limits'];
+		$result = $this->exAppCall(
+			route: self::RUN_ROUTE,
+			uid: $uid,
+			payload: $payload,
+			timeoutSeconds: ($clamped['wallSeconds'] + self::TRANSPORT_SLACK_SECONDS)
+		);
+
+		$status = (int)$result->getStatusCode();
+		if ($status < 200 || $status > 299) {
+			$this->logger->warning('[CodeSandboxClient] the sandbox refused the run', ['status' => $status]);
+			throw new RuntimeException('The code sandbox could not run the code (HTTP ' . $status . ').');
+		}
+
+		return self::mapResult(body: (string)$result->getBody()) + ['limits' => $clamped];
+	}//end runOnExApp()
+
+	/**
+	 * One request to the sandbox ExApp through AppAPI.
+	 *
+	 * @param string               $route          The ExApp route.
+	 * @param string|null          $uid            The acting user, passed to AppAPI.
+	 * @param array<string, mixed> $payload        The request body.
+	 * @param int                  $timeoutSeconds The transport timeout.
+	 *
+	 * @return object The response: `getStatusCode()` and `getBody()`.
+	 *
+	 * @throws CodeSandboxUnavailableException When the ExApp is not there or cannot be reached.
+	 */
+	private function exAppCall(string $route, ?string $uid, array $payload, int $timeoutSeconds): object {
 		$appApi = $this->appApi();
 		if ($appApi === null) {
 			throw new CodeSandboxUnavailableException(CodeSandboxUnavailableException::NOT_INSTALLED);
 		}
 
-		$result = $appApi->exAppRequest(
-			self::EXAPP_ID,
-			self::RUN_ROUTE,
-			$uid,
-			'POST',
-			$payload,
-			['timeout' => ($clamped['wallSeconds'] + self::TRANSPORT_SLACK_SECONDS)]
-		);
+		$result = $appApi->exAppRequest(self::EXAPP_ID, $route, $uid, 'POST', $payload, ['timeout' => $timeoutSeconds]);
 
 		// AppAPI never throws: an array answer is its failure channel.
 		if (is_array($result) === true) {
@@ -256,14 +387,8 @@ class CodeSandboxClient {
 			throw new CodeSandboxUnavailableException(CodeSandboxUnavailableException::NOT_INSTALLED);
 		}
 
-		$status = (int)$result->getStatusCode();
-		if ($status < 200 || $status > 299) {
-			$this->logger->warning('[CodeSandboxClient] the sandbox refused the run', ['status' => $status]);
-			throw new RuntimeException('The code sandbox could not run the code (HTTP ' . $status . ').');
-		}
-
-		return self::mapResult(body: (string)$result->getBody()) + ['limits' => $clamped];
-	}//end runOnExApp()
+		return $result;
+	}//end exAppCall()
 
 	/**
 	 * Run at the hosted sandbox through integriq.

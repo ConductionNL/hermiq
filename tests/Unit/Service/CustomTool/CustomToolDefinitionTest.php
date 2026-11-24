@@ -62,6 +62,32 @@ final class CustomToolDefinitionTest extends TestCase {
 	}//end testAValidFlowToolIsNormalised()
 
 	/**
+	 * A waiting integriq target keeps its wait and a deadline from 1 to 168 hours; a
+	 * deadline outside that, or no wait at all, stores nothing extra.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 */
+	public function testAWaitingIntegriqTargetKeepsItsWaitAndDeadline(): void {
+		$target  = ['type' => 'integriq', 'source' => 'n8n', 'method' => 'post', 'path' => '/webhook/subsidie'];
+		$stored  = ['type' => 'integriq', 'source' => 'n8n', 'method' => 'POST', 'path' => '/webhook/subsidie'];
+		$payload = self::vergunningcheck();
+
+		$payload['target'] = $target + ['waitForCallback' => true, 'deadlineHours' => '48'];
+		$this->assertSame(
+			expected: $stored + ['waitForCallback' => true, 'deadlineHours' => 48],
+			actual: CustomToolDefinition::normalise(payload: $payload)['target']
+		);
+
+		$payload['target'] = $target + ['waitForCallback' => true, 'deadlineHours' => 500];
+		$this->assertSame(expected: $stored + ['waitForCallback' => true], actual: CustomToolDefinition::normalise(payload: $payload)['target']);
+
+		$payload['target'] = $target + ['waitForCallback' => 'yes', 'deadlineHours' => 48];
+		$this->assertSame(expected: $stored, actual: CustomToolDefinition::normalise(payload: $payload)['target']);
+	}//end testAWaitingIntegriqTargetKeepsItsWaitAndDeadline()
+
+	/**
 	 * An integriq target keeps its method, path and body template.
 	 *
 	 * @return void
@@ -109,6 +135,10 @@ final class CustomToolDefinitionTest extends TestCase {
 			'a method outside the list' => [$with(['target' => ['type' => 'integriq', 'source' => 's', 'method' => 'TRACE', 'path' => '/x']]), 'target.method'],
 			'a body template that is not JSON' => [$with(['target' => ['type' => 'integriq', 'source' => 's', 'method' => 'POST', 'path' => '/x', 'bodyTemplate' => 'adres={{input.adres}}']]), 'target.bodyTemplate'],
 			'no description' => [$with(['description' => '  ']), 'description'],
+			'a waiting tool called with GET' => [
+				$with(['target' => ['type' => 'integriq', 'source' => 's', 'method' => 'GET', 'path' => '/x', 'waitForCallback' => true]]),
+				'target.waitForCallback',
+			],
 		];
 	}//end refused()
 

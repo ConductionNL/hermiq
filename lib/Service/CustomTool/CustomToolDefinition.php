@@ -57,6 +57,18 @@ final class CustomToolDefinition {
 	public const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 
 	/**
+	 * The methods that carry a body, and so can hand a workflow its result address.
+	 *
+	 * @var list<string>
+	 */
+	public const BODY_METHODS = ['POST', 'PUT', 'PATCH'];
+
+	/**
+	 * The longest deadline a waiting tool may set, in hours (HandoffService::MAX_DEADLINE_HOURS).
+	 */
+	public const MAX_DEADLINE_HOURS = 168;
+
+	/**
 	 * Check a payload and return the stored fields.
 	 *
 	 * @param array<string, mixed> $payload What the admin sent.
@@ -250,13 +262,16 @@ final class CustomToolDefinition {
 	}//end flowTarget()
 
 	/**
-	 * An integriq target: a source, a method, a path and an optional JSON body template.
+	 * An integriq target: a source, a method, a path and an optional JSON body template,
+	 * and optionally whether it waits for its workflow to post the result back.
 	 *
 	 * @param array<string, mixed> $raw The target as sent.
 	 *
-	 * @return array<string, string>
+	 * @return array<string, mixed>
 	 *
 	 * @throws InvalidArgumentException When it is incomplete.
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 */
 	private static function integriqTarget(array $raw): array {
 		$source = self::text(payload: $raw, field: 'source');
@@ -280,8 +295,42 @@ final class CustomToolDefinition {
 			$target['bodyTemplate'] = $body;
 		}
 
-		return $target;
+		return $target + self::callback(raw: $raw, method: $method);
 	}//end integriqTarget()
+
+	/**
+	 * Whether the tool waits for its workflow to post the result back, and how long.
+	 *
+	 * Only a method with a body can hand the workflow its result address. A deadline
+	 * that is not a whole number of hours from 1 to 168 is left out, so the handoff's
+	 * default of 24 hours applies.
+	 *
+	 * @param array<string, mixed> $raw    The target as sent.
+	 * @param string               $method The checked method.
+	 *
+	 * @return array<string, mixed> `waitForCallback` and `deadlineHours`, or nothing.
+	 *
+	 * @throws InvalidArgumentException When a waiting tool uses a method without a body.
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 */
+	private static function callback(array $raw, string $method): array {
+		if (($raw['waitForCallback'] ?? false) !== true) {
+			return [];
+		}
+
+		if (in_array($method, self::BODY_METHODS, true) === false) {
+			throw new InvalidArgumentException('target.waitForCallback: a workflow that posts its result back is called with POST, PUT or PATCH');
+		}
+
+		$range = ['options' => ['min_range' => 1, 'max_range' => self::MAX_DEADLINE_HOURS]];
+		$hours = filter_var(($raw['deadlineHours'] ?? null), FILTER_VALIDATE_INT, $range);
+		if ($hours === false) {
+			return ['waitForCallback' => true];
+		}
+
+		return ['waitForCallback' => true, 'deadlineHours' => $hours];
+	}//end callback()
 
 	/**
 	 * The body template of an integriq target, or an empty string when there is none.

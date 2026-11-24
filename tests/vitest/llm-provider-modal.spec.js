@@ -164,7 +164,7 @@ describe('LlmProviderModal save', () => {
 		await wrapper.vm.save()
 
 		expect(JSON.stringify(api.patchLlmSettings.mock.calls[0][0])).toBe(JSON.stringify(expected))
-		expect(wrapper.emitted('saved')).toEqual([[provider]])
+		expect(wrapper.emitted('saved')).toEqual([[provider, '']])
 		expect(wrapper.emitted('close')).toEqual([[]])
 		expect(wrapper.vm.saving).toBe(false)
 	})
@@ -241,6 +241,8 @@ describe('LlmProviderModal OpenAI-compatible endpoint and OpenAI base URL', () =
 			modelCapabilities: { 'openai-compatible/mistral-small-3.2': [] },
 			modelContextWindows: { 'openai-compatible/mistral-small-3.2': null },
 		})
+		// The page names the endpoint by the label it was saved with.
+		expect(wrapper.emitted('saved')).toEqual([['openai-compatible', 'vLLM Rekencentrum']])
 	})
 
 	it('sends a chosen key through the broker and never claims its own network for it', async () => {

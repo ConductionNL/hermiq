@@ -14,8 +14,10 @@ Rows: `dl-target-pref`. Board: `hermiq/HmMijnInstellingen`.
 - **GIVEN** a person who set "Team vergunningen" as their default delivery room
 - **WHEN** their schedule with Talk delivery and no room completes a run
 - **THEN** the output is posted in "Team vergunningen"
+@e2e exclude Needs Talk and a completed scheduled run, which the shared e2e instance does not provide; covered by DeliveryServiceTest (an empty target uses the stored default room).
 
 #### Scenario: No default is set
 - **GIVEN** a person without a default delivery room
 - **WHEN** their schedule with Talk delivery and no room completes a run
 - **THEN** the output is posted to their Note-to-self
+@e2e exclude Needs Talk and a completed scheduled run, which the shared e2e instance does not provide; covered by DeliveryServiceTest (an empty target uses Note-to-self).

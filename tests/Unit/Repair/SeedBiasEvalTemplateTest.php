@@ -31,6 +31,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\OpenRegister\Contract\ObjectSaveOptions as PublishedObjectSaveOptions;
 
 /**
  * @covers \OCA\Hermiq\Repair\SeedBiasEvalTemplate
@@ -140,16 +141,16 @@ class SeedBiasEvalTemplateTest extends TestCase {
 			/**
 			 * Record the save, or fail it.
 			 *
-			 * @param array|ObjectEntity $object        The payload.
-			 * @param ObjectSaveOptions  $options       The target.
-			 * @param bool               $_rbac         Ignored.
-			 * @param bool               $_multitenancy Ignored.
+			 * @param array|ObjectEntity                           $object        The payload.
+			 * @param ObjectSaveOptions|PublishedObjectSaveOptions $options       The target.
+			 * @param bool                                         $_rbac         Ignored.
+			 * @param bool                                         $_multitenancy Ignored.
 			 *
 			 * @return ObjectEntity
 			 */
 			public function saveObject(
 				array|ObjectEntity $object,
-				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				ObjectSaveOptions|PublishedObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
 				bool $_multitenancy = true
 			): ObjectEntity {

@@ -70,9 +70,22 @@
       in hybrid mode and confirm facade-sourced results (similarity < 1.0 present);
       then unset the backend and confirm the same agent still answers on the keyword
       tier with the degradation visible in settings.
-- [ ] 5.4 (PARTLY: phpcs, psalm and phpstan clean on the changed files, zero `OCA\OpenRegister\Service\Vectorization` hits in `lib/`; `openspec validate` and the hydra gates were not run here) `openspec validate vector-rag --strict`; phpcs/psalm/phpstan clean; hydra
+- [x] 5.4 `openspec validate vector-rag --strict`; phpcs/psalm/phpstan clean; hydra
       gates diff-scoped vs `origin/development` — report results. Explicitly grep
       for `OCA\OpenRegister\Service\Vectorization` in `lib/` and report zero hits.
+  - 2026-11-22: `openspec validate vector-rag --strict` valid (openspec 1.2.0); phpcs,
+    psalm and phpstan report no errors on the changed lib files; zero
+    `OCA\OpenRegister\Service\Vectorization` hits in `lib/`.
+  - Hydra diff-check of the build PR (#1852, its merge against its first parent):
+    php -l, phpstan, phpmd, eslint and stylelint pass. NEW findings: gate 122 flagged
+    `VectorSearch` lines 249-310 as a copy of `VectorFacadeProbe` (fixed: both, and the answer cache's
+    `SimilarQuestionSearch`, now use `VectorFacadeLocator`, `VectorFacadeLocatorTest`); the constructors of
+    `ContextRetrievalHandler` (9 parameters) and `SettingsService` (7) grew by one each;
+    the unit-complexity rating went 4.55 to 4.53; 23 phpcs findings sit in the test files,
+    which the app's `composer phpcs` (lib only) does not check; gate 23 counts the
+    app-local Tenant classes, which this change does not touch; one PHPUnit failure was
+    the register version assertion of that day (0.64.0 against 0.82.0), green on
+    development now.
 
 ## Acceptance criteria
 

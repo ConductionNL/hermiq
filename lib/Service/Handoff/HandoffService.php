@@ -60,9 +60,25 @@ class HandoffService {
 	public const SCHEMA_SLUG = 'agenthandoff';
 
 	/**
-	 * What an agent can wait on.
+	 * What an agent can wait on. `research` is a deep research run (tools-deep-research-report),
+	 * which posts its own messages, so HandoffDelivery never runs a follow-up turn for it.
 	 */
-	public const KINDS = ['flow', 'webhook', 'a2a'];
+	public const KINDS = ['flow', 'webhook', 'a2a', 'research'];
+
+	/**
+	 * The kind of a deep research run.
+	 */
+	public const RESEARCH = 'research';
+
+	/**
+	 * The fields a research run keeps on its handoff, and the only ones update() writes.
+	 */
+	public const RESEARCH_FIELDS = ['depth', 'organisation', 'plan', 'ledger', 'caps', 'progress', 'stopRequested'];
+
+	/**
+	 * The fields of its own each kind keeps on its handoff; a kind not listed keeps none.
+	 */
+	private const KIND_FIELDS = [self::RESEARCH => self::RESEARCH_FIELDS];
 
 	/**
 	 * The one open status.
@@ -118,6 +134,7 @@ class HandoffService {
 	 * @throws InvalidArgumentException When a required field is missing or the kind is unknown.
 	 *
 	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-user-can-start-deep-research-and-sees-the-plan-req-research-001
 	 */
 	public function open(array $handoff): array {
 		$this->assertOpenable(handoff: $handoff);
@@ -142,6 +159,8 @@ class HandoffService {
 		if (is_string($handoff['resultTokenHash'] ?? null) === true && $handoff['resultTokenHash'] !== '') {
 			$data['resultTokenHash'] = $handoff['resultTokenHash'];
 		}
+
+		$data = array_merge($data, array_intersect_key($handoff, array_flip(self::KIND_FIELDS[$handoff['kind']] ?? [])));
 
 		$saved = $this->objectService->saveObject(
 			object: $data,
@@ -212,6 +231,30 @@ class HandoffService {
 
 		return true;
 	}//end close()
+
+	/**
+	 * Write a research run's own fields onto its handoff while it is still waiting.
+	 *
+	 * Only the fields in RESEARCH_FIELDS are written; every other key is ignored,
+	 * so a run can never reopen, close or re-address its handoff through here.
+	 *
+	 * @param string               $handoffId The handoff's uuid.
+	 * @param array<string, mixed> $fields    The research fields to set.
+	 *
+	 * @return bool True when the handoff was waiting and is now updated.
+	 *
+	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-user-can-start-deep-research-and-sees-the-plan-req-research-001
+	 */
+	public function update(string $handoffId, array $fields): bool {
+		$handoff = $this->waiting(handoffId: $handoffId);
+		if ($handoff === null) {
+			return false;
+		}
+
+		$this->store(handoffId: $handoffId, handoff: array_merge($handoff, array_intersect_key($fields, array_flip(self::RESEARCH_FIELDS))));
+
+		return true;
+	}//end update()
 
 	/**
 	 * The result in the shape the schema stores: a JSON object.

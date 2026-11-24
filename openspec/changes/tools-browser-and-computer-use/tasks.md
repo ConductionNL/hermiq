@@ -79,6 +79,7 @@ Kind: code. Size L. Rows `hermiq:dm-browser-use`, `hermiq:dm-computer-use`.
   - `ComputerActionRecordTest`, `FacadeToolInvokerComputerTest` (approval id and coordinates on the step, no image in the trace or the stream).
 
 ## Verification
-- [ ] `openspec validate tools-browser-and-computer-use --type change --strict` passes
+- [x] `openspec validate tools-browser-and-computer-use --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, the ExApp tests, Newman and Playwright run once before push, exit codes read
 - [ ] One live browser session against a public test form, and one approved click on a test Windows machine through an integriq source

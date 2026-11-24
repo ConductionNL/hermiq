@@ -29,6 +29,7 @@ Rows: `dm-temperature`. Board: `hermiq/HmAgentBewerken`.
 - **GIVEN** an agent whose owner set the temperature to 0.2 and saved
 - **WHEN** a person sends that agent a message
 - **THEN** the provider request carries the temperature 0.2
+@e2e exclude The provider request is built on the server and is not visible in the browser; covered by ProviderFactoryDriverOptionsTest (the agent's temperature on the driver options).
 
 #### Scenario: A value out of range is refused
 - **WHEN** the owner enters 3 as the temperature and saves

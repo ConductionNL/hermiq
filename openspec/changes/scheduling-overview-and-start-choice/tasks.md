@@ -11,6 +11,7 @@ Kind: code. Size M. Rows `hermiq:sc-list`, `sc-manual-event-choice`, `sc-nl`.
   - GIVEN a user and an admin WHEN they list THEN each sees exactly the schedules the rule allows, with filters working
 - [x] Implement
 - [ ] Test (PHPUnit on access; Newman; Playwright for the page and the failed filter)
+  - 2026-11-22: `tests/e2e/spec-coverage/scheduling-overview.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, a flow or a sent mail would be needed); not run here, it needs a running Nextcloud.
 
 ### Task 2: Run by hand without a schedule
 - **spec_ref**: `openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002`
@@ -27,6 +28,7 @@ Kind: code. Size M. Rows `hermiq:sc-list`, `sc-manual-event-choice`, `sc-nl`.
   - GIVEN an agent with a schedule, a flow step and a webhook WHEN the page loads THEN all three rows show as active; "Add event" creates an inactive draft flow
 - [x] Implement
 - [ ] Test (Playwright; check the flow draft shape against openregister's flow schema)
+  - 2026-11-22: `tests/e2e/spec-coverage/scheduling-overview.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, a flow or a sent mail would be needed); not run here, it needs a running Nextcloud.
 
 ### Task 4: Plain words to a rule
 - **spec_ref**: `openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003`
@@ -35,7 +37,9 @@ Kind: code. Size M. Rows `hermiq:sc-list`, `sc-manual-event-choice`, `sc-nl`.
   - GIVEN the phrase table in English and Dutch WHEN parsed THEN each gives the expected rule; an unreadable text gives 422 with an example
 - [x] Implement
 - [ ] Test (PHPUnit table test of at least 30 phrases; the model fallback with a stubbed provider; Playwright for the readback)
+  - 2026-11-22: `tests/e2e/spec-coverage/scheduling-overview.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, a flow or a sent mail would be needed); not run here, it needs a running Nextcloud.
 
 ## Verification
-- [ ] `openspec validate scheduling-overview-and-start-choice --type change --strict` passes
+- [x] `openspec validate scheduling-overview-and-start-choice --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, Newman and Playwright run, exit codes read

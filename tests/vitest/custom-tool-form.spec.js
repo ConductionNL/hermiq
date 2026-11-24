@@ -9,7 +9,7 @@
 
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { inputSchemaFrom, inputsFrom, sampleArguments } from '../../src/api/customTools.js'
+import { inputSchemaFrom, inputsFrom, integriqTargetFrom, sampleArguments } from '../../src/api/customTools.js'
 
 const api = vi.hoisted(() => ({ createCustomTool: vi.fn(), updateCustomTool: vi.fn(), tryCustomTool: vi.fn() }))
 vi.mock('../../src/api/customTools.js', async (importOriginal) => ({ ...(await importOriginal()), ...api }))
@@ -19,7 +19,7 @@ vi.mock('../../src/api/flowRuns.js', () => ({
 
 const { default: CustomToolFormModal } = await import('../../src/modals/CustomToolFormModal.vue')
 
-const t = (app, text) => text
+const t = (app, text, vars) => (vars ? text.replace(/{(\w+)}/g, (match, key) => vars[key] ?? match) : text)
 
 const STORED = {
 	id: 'tool-1',
@@ -165,5 +165,55 @@ describe('CustomToolFormModal', () => {
 	it('offers no Try it before the tool is saved', async () => {
 		const w = await open(null)
 		expect(w.text()).not.toContain('This really runs the flow or calls the system.')
+	})
+})
+
+describe('a custom tool that waits for its workflow (flows-hand-off-and-wait D4)', () => {
+	const FORM = { source: ' n8n ', method: 'POST', path: ' /webhook/subsidie ', bodyTemplate: '', waitForCallback: false, deadlineHours: '' }
+
+	it('stores the wait and a whole deadline only when the tool waits', () => {
+		expect(integriqTargetFrom(FORM)).toEqual({ type: 'integriq', source: 'n8n', method: 'POST', path: '/webhook/subsidie', bodyTemplate: '' })
+		expect(integriqTargetFrom({ ...FORM, waitForCallback: true, deadlineHours: ' 48 ' }))
+			.toEqual({ type: 'integriq', source: 'n8n', method: 'POST', path: '/webhook/subsidie', bodyTemplate: '', waitForCallback: true, deadlineHours: 48 })
+		expect(integriqTargetFrom({ ...FORM, waitForCallback: true, deadlineHours: '500' })).not.toHaveProperty('deadlineHours')
+		expect(integriqTargetFrom({ ...FORM, waitForCallback: true, deadlineHours: '' })).not.toHaveProperty('deadlineHours')
+		expect(integriqTargetFrom({ ...FORM, deadlineHours: '48' })).not.toHaveProperty('waitForCallback')
+	})
+
+	it('fills the target in for an n8n workflow and shows what to add to it', async () => {
+		api.createCustomTool.mockResolvedValue({ id: 'new' })
+		const w = await open(null)
+		w.vm.form.slug = 'subsidie'
+		w.vm.form.targetType = 'integriq'
+		w.vm.form.source = 'n8n'
+		await w.vm.$nextTick()
+
+		const preset = w.findAllComponents({ name: 'NcButton' }).find((button) => button.text() === 'Fill in for an n8n workflow')
+		expect(preset).toBeTruthy()
+		await preset.vm.$emit('click')
+		await w.vm.$nextTick()
+
+		expect(w.vm.form.method).toBe('POST')
+		expect(w.vm.form.path).toBe('/webhook/subsidie')
+		expect(w.vm.form.waitForCallback).toBe(true)
+		expect(w.text()).toContain('Respond to Webhook')
+		expect(w.text()).toContain('{{ $json.hermiqResultUrl }}')
+		expect(w.text()).toContain('{{ $json.hermiqResultToken }}')
+
+		w.vm.form.deadlineHours = '24'
+		await w.vm.save()
+
+		expect(api.createCustomTool).toHaveBeenCalledWith(expect.objectContaining({
+			target: { type: 'integriq', source: 'n8n', method: 'POST', path: '/webhook/subsidie', bodyTemplate: '', waitForCallback: true, deadlineHours: 24 },
+		}))
+	})
+
+	it('reads a stored waiting tool back into the form', async () => {
+		const w = await open({ ...STORED, target: { type: 'integriq', source: 'n8n', method: 'POST', path: '/webhook/x', waitForCallback: true, deadlineHours: 48 } })
+
+		expect(w.vm.form.waitForCallback).toBe(true)
+		expect(w.vm.form.deadlineHours).toBe('48')
+		const labels = w.findAllComponents({ name: 'NcTextField' }).map((field) => field.vm.$attrs.label ?? field.attributes('data-label'))
+		expect(labels).toContain('Deadline in hours')
 	})
 })

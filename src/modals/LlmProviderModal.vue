@@ -974,6 +974,7 @@ export default {
 		 * @return {Promise<void>}
 		 *
 		 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-2-2
+		 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-an-admin-can-connect-an-openai-compatible-endpoint-by-name-req-pconn-001
 		 */
 		async save() {
 			if (!this.providerValue) {
@@ -992,7 +993,7 @@ export default {
 				await patchLlmSettings(payload)
 				// The residency and data-use statements are saved with the provider.
 				await this.$refs.declarations?.save()
-				this.$emit('saved', this.providerValue)
+				this.$emit('saved', this.providerValue, payload.openaiCompatibleConfig?.label || '')
 				this.$emit('close')
 			} catch (e) {
 				this.error = this.t(

@@ -5,7 +5,10 @@
 //
 //   GET  /heartbeat  AppAPI's health probe; no auth, runs nothing.
 //   PUT  /enabled    AppAPI's enable/disable call; AppAPI auth.
-//   POST /run        One run of code; AppAPI auth before anything else.
+//   POST /run        One run of code, or of an installed tool; AppAPI auth before anything else.
+//   POST /install    One tool install, forwarded to the installer service, which
+//                    runs in its own container on its own network
+//                    (tools-agent-workspace-and-installed-tools D4).
 //
 // There is no /init handler on purpose: AppAPI reads a 404 there as "nothing
 // to initialise" (see exapp/llm-runner/src/server.js). Runs are taken one at a
@@ -21,78 +24,22 @@
 
 const http = require('http')
 const auth = require('./auth.js')
+const { sendJson, log, lowerHeaders, readBody, failure } = require('./http.js')
 const { run, LIMITS } = require('./run.js')
+const { runInstalled, LIMITS: INSTALLED_LIMITS } = require('./installedTool.js')
 
-// Code, stdin and files together; the files' own cap is 10 MB.
-const MAX_BODY_BYTES = LIMITS.maxFilesBytes * 2
+// Code, stdin and files together (the files' own cap is 10 MB), plus a tool
+// layer of at most 64 MB as base64 when an installed tool's layer is sent.
+const MAX_BODY_BYTES = LIMITS.maxFilesBytes * 2 + Math.ceil(INSTALLED_LIMITS.maxLayerBytes * 4 / 3)
 const CONCURRENCY = Math.max(1, parseInt(process.env.SANDBOX_CONCURRENCY || '2', 10) || 2)
 
 let running = 0
 
-/**
- * Send a JSON answer.
- *
- * @param {http.ServerResponse} res The response.
- * @param {number} status The status.
- * @param {object} body The body.
- * @return {void}
- */
-function sendJson(res, status, body) {
-	const text = JSON.stringify(body)
-	res.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(text) })
-	res.end(text)
-}
-
-/**
- * One log line, without anything a run carries.
- *
- * @param {string} level The level.
- * @param {string} message The message.
- * @return {void}
- */
-function log(level, message) {
-	process.stdout.write(JSON.stringify({ level, message, time: new Date().toISOString() }) + '\n')
-}
-
-/**
- * The request headers, lower-cased.
- *
- * @param {object} headers The raw headers.
- * @return {object}
- */
-function lowerHeaders(headers) {
-	const out = {}
-	for (const [key, value] of Object.entries(headers || {})) {
-		out[key.toLowerCase()] = Array.isArray(value) ? value[0] : value
-	}
-	return out
-}
-
-/**
- * Read the body, refusing one over the cap.
- *
- * @param {http.IncomingMessage} req The request.
- * @return {Promise<string>}
- */
-function readBody(req) {
-	return new Promise((resolve, reject) => {
-		const chunks = []
-		let size = 0
-		req.on('data', (chunk) => {
-			size += chunk.length
-			if (size > MAX_BODY_BYTES) {
-				const error = new Error('The request is larger than the sandbox takes.')
-				error.status = 413
-				reject(error)
-				req.destroy()
-				return
-			}
-			chunks.push(chunk)
-		})
-		req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
-		req.on('error', reject)
-	})
-}
+// The sibling services a request is forwarded to, each in its own container.
+const SERVICES = Object.freeze({
+	browser: { env: 'BROWSER_CONTROL_URL', name: 'browser service', code: 'browser_unavailable' },
+	installer: { env: 'INSTALLER_CONTROL_URL', name: 'installer', code: 'installer_unavailable' },
+})
 
 /**
  * Handle POST /run.
@@ -115,14 +62,14 @@ async function handleRun(req, res) {
 	running += 1
 	const started = Date.now()
 	try {
-		const request = JSON.parse(await readBody(req))
-		const result = await run(request)
+		const request = JSON.parse(await readBody(req, MAX_BODY_BYTES, 'The request is larger than the sandbox takes.'))
+		// An installed tool (tools-agent-workspace-and-installed-tools D5) or code.
+		const result = await (request && request.installed !== undefined ? runInstalled(request) : run(request))
 		sendJson(res, 200, result)
 		log('info', `/run 200 in ${Date.now() - started} ms`)
 	} catch (error) {
-		const status = error.status || (error instanceof SyntaxError ? 400 : 500)
-		const message = status === 500 ? 'The sandbox could not run the code.' : error.message
-		sendJson(res, status, { error: message })
+		const { status, message } = failure(error, 'The sandbox could not run the code.')
+		sendJson(res, status, error.code ? { error: message, code: error.code } : { error: message })
 		log('warn', `/run ${status} in ${Date.now() - started} ms`)
 	} finally {
 		running -= 1
@@ -147,17 +94,19 @@ function handleEnabled(req, res) {
 }
 
 /**
- * Forward a browser action to the browser service, which runs in its own
- * container (tools-browser-and-computer-use D1). The AppAPI headers travel with
- * it and the browser service checks them itself; this server only refuses
- * early, and answers 503 when no browser service is configured.
+ * Forward a request to a sibling service in its own container: the browser
+ * service (tools-browser-and-computer-use D1) or the installer
+ * (tools-agent-workspace-and-installed-tools D4). The AppAPI headers travel
+ * with it and the service checks them itself; this server only refuses early,
+ * and answers 503 when the service is not configured or cannot be reached.
  *
  * @param {http.IncomingMessage} req The request.
  * @param {http.ServerResponse} res The response.
  * @param {string} path The request path.
+ * @param {{env: string, name: string, code: string}} service The service.
  * @return {void}
  */
-function handleBrowser(req, res, path) {
+function forward(req, res, path, service) {
 	const verdict = auth.verify(lowerHeaders(req.headers), '')
 	if (!verdict.ok) {
 		req.resume()
@@ -166,18 +115,42 @@ function handleBrowser(req, res, path) {
 	}
 	let target
 	try {
-		target = new URL(path, process.env.BROWSER_CONTROL_URL || '')
+		target = new URL(path, process.env[service.env] || '')
 	} catch (e) {
 		req.resume()
-		sendJson(res, 503, { error: 'The browser service is not configured.', code: 'browser_unavailable' })
+		sendJson(res, 503, { error: 'The ' + service.name + ' is not configured.', code: service.code })
 		return
 	}
 	const upstream = http.request(target, { method: 'POST', headers: req.headers }, (answer) => {
 		res.writeHead(answer.statusCode || 502, { 'Content-Type': 'application/json' })
 		answer.pipe(res)
 	})
-	upstream.on('error', () => sendJson(res, 503, { error: 'The browser service could not be reached.', code: 'browser_unavailable' }))
+	upstream.on('error', () => sendJson(res, 503, { error: 'The ' + service.name + ' could not be reached.', code: service.code }))
 	req.pipe(upstream)
+}
+
+/**
+ * The handler for a method and path, or null.
+ *
+ * @param {string} method The method.
+ * @param {string} path The path.
+ * @return {function|null} `(req, res) => void`.
+ */
+function handlerFor(method, path) {
+	const routes = {
+		'GET /heartbeat': (req, res) => sendJson(res, 200, { status: 'ok', running }),
+		'PUT /enabled': handleEnabled,
+		'POST /run': handleRun,
+		'POST /install': (req, res) => forward(req, res, '/install', SERVICES.installer),
+	}
+	const key = method + ' ' + path
+	if (Object.prototype.hasOwnProperty.call(routes, key)) {
+		return routes[key]
+	}
+	if (method === 'POST' && /^\/browser\/(open|read|click|fill|close)$/.test(path)) {
+		return (req, res) => forward(req, res, path, SERVICES.browser)
+	}
+	return null
 }
 
 /**
@@ -188,25 +161,13 @@ function handleBrowser(req, res, path) {
  * @return {void}
  */
 function route(req, res) {
-	const path = new URL(req.url, 'http://localhost').pathname
-	if (req.method === 'GET' && path === '/heartbeat') {
-		sendJson(res, 200, { status: 'ok', running })
+	const handler = handlerFor(req.method, new URL(req.url, 'http://localhost').pathname)
+	if (handler === null) {
+		req.resume()
+		sendJson(res, 404, { error: 'not found' })
 		return
 	}
-	if (req.method === 'PUT' && path === '/enabled') {
-		handleEnabled(req, res)
-		return
-	}
-	if (req.method === 'POST' && path === '/run') {
-		handleRun(req, res)
-		return
-	}
-	if (req.method === 'POST' && /^\/browser\/(open|read|click|fill|close)$/.test(path)) {
-		handleBrowser(req, res, path)
-		return
-	}
-	req.resume()
-	sendJson(res, 404, { error: 'not found' })
+	handler(req, res)
 }
 
 /**

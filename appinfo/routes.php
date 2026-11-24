@@ -223,6 +223,11 @@ $routes = [
             'verb'         => 'POST',
             'requirements' => ['id' => '[^/]+'],
         ],
+        // Deep research (tools-deep-research-report, REQ-RESEARCH-001 and REQ-RESEARCH-005): start a run
+        // from the chat, read its plan and progress, stop it. The caller's own runs only.
+        ['name' => 'research#create', 'url' => '/api/research',           'verb' => 'POST'],
+        ['name' => 'research#show',   'url' => '/api/research/{id}',      'verb' => 'GET',  'requirements' => ['id' => '[^/]+']],
+        ['name' => 'research#stop',   'url' => '/api/research/{id}/stop', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
 
         // Public web chat (delivery-public-web-chat): a visitor who has not signed in
         // asks a website channel, named by its token. PublicChatController carries

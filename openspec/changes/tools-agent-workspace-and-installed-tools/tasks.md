@@ -34,6 +34,7 @@ Kind: code. Size L. Rows `hermiq:dm-agent-workspace`, `hermiq:dm-install-cli-too
 - [x] Implement
 - [ ] Test (Newman on the routes including another user; Playwright under tests/e2e/spec-coverage/ on the panel)
   > 2026-11-14: `WorkspaceFiles` lists, opens (through `WorkspacePathGuard`) and saves a session workspace file into the person's Files under "Hermiq" with the agent-authored tag, deleting the copy when the tag fails. `WorkspaceFilesController` keys the workspace by the session's agent, the session and the signed-in user and answers 404 to anyone who takes no part in the session; three routes, documented in `openapi.json`. `WorkspaceFilesPanel.vue` sits under the chat header. Covered by PHPUnit (`WorkspaceFilesTest`, `WorkspaceFilesControllerTest`, including another user) and Vitest (`workspace-files-panel.spec.js`); Newman and Playwright need a live instance and were not run. `WorkspaceToolsetReadTest` still refuses every other route naming the workspace; the Files panel's three routes are the stated exception.
+  > 2026-11-21: `tests/e2e/spec-coverage/agent-workspace-and-builds.spec.ts` written for the Files panel (listing, download link, "Save to my Files"), with the workspace routes answered by page.route; not run here, it needs a running Nextcloud. Newman stays open.
 
 ### Task 4: The installer and installTool
 - **spec_ref**: `openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-installs-command-line-tools-only-from-an-allowlisted-registry-without-install-scripts-req-wksp-004`
@@ -42,8 +43,9 @@ Kind: code. Size L. Rows `hermiq:dm-agent-workspace`, `hermiq:dm-install-cli-too
   - GIVEN an allowlisted registry WHEN a package is installed THEN no install script runs and a layer with hash and versions is stored
   - GIVEN a registry or package outside the allowlists WHEN install is asked THEN the installer is not called
   - GIVEN a code run WHEN it tries the installer's network THEN it has no route
-- [ ] Implement
-- [ ] Test (the ExApp tests for scripts, egress and isolation; PHPUnit on the tool)
+- [x] Implement
+- [x] Test (the ExApp tests for scripts, egress and isolation; PHPUnit on the tool)
+  > 2026-11-23: the ExApp gains the installer service (`src/installer.js`, `src/installerServer.js`), run from the same image in its own container as the unprivileged sandbox uid; the sandbox server forwards `POST /install` to it like the browser routes. pip resolves with a `--dry-run --report` and then installs each resolved requirement with `--only-binary=:all: --no-deps --target`, npm installs with `--ignore-scripts`, every step spawned with an argument list and no shell; the prefix is packed as a gzipped tar with fixed owners and times, answered with its SHA-256, the resolved versions and the binaries. Its only way out is `installer-egress-proxy` (`src/egressAllowlistProxy.js`, `deploy/installer-egress-proxy/Dockerfile`): HTTPS CONNECT to an exact allowlisted host on 443, default PyPI and npm. In `deploy/docker-compose.yml` the code runs' container joins `installer-control` only, never `installer-jail` or `installer-out`. Hermiq: `hermiq.installTool` (reach `external`, `scope: create`, `destructiveHint: true`) served by `InstallToolService`: `InstallPolicy` checks the AI feature, the arguments, the admin's registries (`CodeSandboxSettings::installManagers()`, `installManagers` on the settings PATCH) and the organisation's `GuardrailPolicy.packageAllowlist` (register 0.83.0) before `CodeSandboxClient::install()` is called; `ToolLayerKeeper` checks the layer against its hash, stores it by hash beside the workspaces and records the tool on the conversation's workspace, so `AgentBuildService::publish()` now pins the installed tools. The trace step records manager, package, version and the layer hash (`ToolInstallTrace`). Tests: node `test/installer.test.js`, `test/installerServer.test.js`, the installer cases in `test/deploy.posture.test.js` and `test/server.test.js`; PHPUnit `InstallToolServiceTest` and cases in `CodeSandboxClientTest`, `CodeSandboxSettingsTest`, `GuardrailPolicyServiceTest`, `ServerSideWorkspaceProviderSessionTest`, `AgentBuildServiceTest` and `FacadeToolInvokerTest`. Not done here: a real install against PyPI through the proxy (needs the deployed containers), and a field for the registries in the admin's code sandbox section.
 
 ### Task 5: runInstalledTool
 - **spec_ref**: `openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-installed-tool-runs-with-an-argument-list-and-no-shell-req-wksp-005`
@@ -51,8 +53,9 @@ Kind: code. Size L. Rows `hermiq:dm-agent-workspace`, `hermiq:dm-install-cli-too
 - **acceptance_criteria**:
   - GIVEN an argument with shell syntax WHEN the tool runs THEN it reaches the binary as one argument and nothing else runs
   - GIVEN a layer hash the sandbox lacks WHEN it runs THEN hermiq sends the bytes and the sandbox verifies the hash
-- [ ] Implement
-- [ ] Test (the ExApp tests; PHPUnit on the dispatch)
+- [x] Implement
+- [x] Test (the ExApp tests; PHPUnit on the dispatch)
+  > 2026-11-23: the sandbox's `POST /run` takes `{installed: {sha256, tool, args}, layer?, files, stdin, limits}` (`src/installedTool.js`). A layer the cache (`SANDBOX_LAYER_ROOT`, a `/layers` tmpfs the runner can read and run from but not write) lacks is answered 409 `layer_missing`; sent bytes are checked against the hash before they are unpacked. The binary is resolved inside the layer (`bin/` for pip, `node_modules/.bin/` for npm, a symlink out of the layer is refused) and runs with an argument list through the same `prlimit`/runner-uid command as code (`limitedCommand()`, `executeCommand()` in `src/run.js`), on the workspace copy, answering what it created or changed. Hermiq: `hermiq.runInstalledTool` (descriptor as `hermiq.runCode`, reach at least `user`) served by `RunInstalledToolService`: the AI feature, a plain binary name and a list of at most 64 strings, the installed tool offering that binary (`ToolLayerKeeper::toolOffering()`), the workspace packed through `WorkspaceTransfer`, `CodeSandboxClient::runInstalled()` resending once with the kept layer (`ToolLayerKeeper::layer()`, re-checked against its hash) on 409, and the changes written back. Tests: node `test/installedTool.test.js` (shell syntax stays one argument, the cache and its hash check, a binary outside the layer), the layer cases in `test/deploy.posture.test.js` and `test/server.test.js`; PHPUnit `RunInstalledToolServiceTest` and two cases in `CodeSandboxClientTest`. Not done here: a run of a real wheel's console script in the deployed containers.
 
 ### Task 6: AgentBuild, publishing and runs from the build
 - **spec_ref**: `openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning/spec.md#requirement-runs-of-a-published-agent-start-from-its-pinned-build-req-build-002`
@@ -74,8 +77,10 @@ Kind: code. Size L. Rows `hermiq:dm-agent-workspace`, `hermiq:dm-install-cli-too
 - [x] Implement
 - [ ] Test (Playwright under tests/e2e/spec-coverage/)
   > 2026-11-14: `AgentBuildsPanel.vue` is the `agent-builds` widget on AgentDetail (manifest widget, layout row and slot, registry entry): build number, publisher's name, date, note, file and tool counts, the pinned build marked, "Unpublished changes since build N", and "Publish build" only when the server says the caller may modify the agent. `PublishBuildModal.vue` (src/modals) offers the caller's own conversations with this agent and a note, and names the reason when the conversation has no workspace. en and nl strings, including the new register fields. Covered by Vitest (`agent-builds-panel.spec.js`); Playwright needs a live instance and was not run.
+  > 2026-11-21: `tests/e2e/spec-coverage/agent-workspace-and-builds.spec.ts` written for the builds panel (build 3 pinned with its counts, the unpublished changes note, publishing with a note from a real conversation), with the build routes answered by page.route; not run here, it needs a running Nextcloud.
 
 ## Verification
-- [ ] `openspec validate tools-agent-workspace-and-installed-tools --type change --strict` passes
+- [x] `openspec validate tools-agent-workspace-and-installed-tools --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, the ExApp tests, Newman and Playwright run once before push, exit codes read
 - [ ] One live conversation that installs a tool, runs it on a workspace file, publishes a build, and a second user's new conversation starting from that build

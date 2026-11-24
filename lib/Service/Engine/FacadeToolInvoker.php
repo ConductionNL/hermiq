@@ -144,10 +144,12 @@ use OCA\Hermiq\Service\Approval\DraftRelease;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Mcp\CodeSandboxToolDescriptors;
 use OCA\Hermiq\Service\CodeSandbox\CodeRunTrace;
+use OCA\Hermiq\Service\CodeSandbox\ToolInstallTrace;
 use OCA\Hermiq\Service\Handoff\FlowTurn;
 use OCA\Hermiq\Service\Handoff\TurnHandoffs;
 use OCA\Hermiq\Service\ComputerUse\ComputerActionRecord;
 use OCA\Hermiq\Service\RedactionService;
+use OCA\Hermiq\Service\Research\ResearchTool;
 use OCA\Hermiq\Service\ToolClassificationService;
 use OCA\Hermiq\Service\ToolSearchService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -326,6 +328,13 @@ class FacadeToolInvoker {
 	 * @var string
 	 */
 	private const FLOW_OWNER_ARGUMENT = 'triggeredBy';
+
+	/**
+	 * The argument a custom tool receives this run's agent and conversation in
+	 * (CustomToolInvoker::TURN_ARGUMENT), so a tool that waits for its workflow's
+	 * result can open the handoff the result comes back to (flows-hand-off-and-wait D4).
+	 */
+	private const CUSTOM_TOOL_TURN_ARGUMENT = 'hermiqTurn';
 
 	/**
 	 * The stop rule of this turn (agents-switch-off-and-stop).
@@ -936,9 +945,11 @@ class FacadeToolInvoker {
 	 * @param string $name The LLPhant-side function name.
 	 * @param array<string, mixed> $arguments Decoded arguments object.
 	 *
-	 * @return array<string, mixed> Arguments, with the owner set when applicable.
+	 * @return array<string, mixed> Arguments, with the owner set when applicable, and for a
+	 *                              custom tool also the run's agent and conversation.
 	 *
 	 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#scenario-an-agent-queued-flow-run-names-the-acting-owner
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) CustomToolDescriptors is used through its static API (a pure
 	 * helper or named constructor) with no state to inject.
@@ -952,13 +963,16 @@ class FacadeToolInvoker {
 		}
 
 		$owner = trim((string)$this->ownerUid);
+		// Never let a model-supplied owner or turn stand in for the run's own.
+		unset($arguments[self::FLOW_OWNER_ARGUMENT], $arguments[self::CUSTOM_TOOL_TURN_ARGUMENT]);
 		if ($owner === '') {
-			// Never let a model-supplied owner stand in for a missing one.
-			unset($arguments[self::FLOW_OWNER_ARGUMENT]);
 			return $arguments;
 		}
 
 		$arguments[self::FLOW_OWNER_ARGUMENT] = $owner;
+		if ($custom === true) {
+			$arguments[self::CUSTOM_TOOL_TURN_ARGUMENT] = ['agentId' => (string)$this->agentId, 'conversationId' => $this->conversationId];
+		}
 
 		return $arguments;
 	}//end withFlowOwner()
@@ -1430,6 +1444,7 @@ class FacadeToolInvoker {
 	 * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-5
 	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
 	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-passes-the-acting-agent-to-integriqs-agent-tools-req-apver-003
+	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-user-can-start-deep-research-and-sees-the-plan-req-research-001
 	 */
 	private function withAgentId(string $name, array $arguments): array {
 		if ($this->agentId === null) {
@@ -1444,7 +1459,9 @@ class FacadeToolInvoker {
 
 		// A browser tool also gets its conversation: each conversation has its own
 		// browser context (tools-browser-and-computer-use D1).
-		if (in_array($this->resolveToolId(name: $name), BrowserToolDescriptors::IDS, true) === true) {
+		// A research run also gets its conversation: its plan and report are posted
+		// there (tools-deep-research-report D6).
+		if (in_array($this->resolveToolId(name: $name), [...BrowserToolDescriptors::IDS, ResearchTool::ID], true) === true) {
 			$arguments['conversationId'] = $this->conversationId;
 		}
 
@@ -1486,13 +1503,15 @@ class FacadeToolInvoker {
 	 * @param string $toolId The registry tool id.
 	 *
 	 * @return bool True when the tool receives the agent id.
+	 *
+	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-user-can-start-deep-research-and-sees-the-plan-req-research-001
 	 */
 	private function needsAgentId(string $toolId): bool {
 		$agentTools = array_merge(
 			self::MEMORY_TOOL_IDS,
 			self::ARTEFACT_WRITE_TOOL_IDS,
 			self::INTEGRIQ_AGENT_TOOL_IDS,
-			[self::DELEGATE_AGENT_TOOL_ID, self::DELEGATE_AGENTS_TOOL_ID],
+			[self::DELEGATE_AGENT_TOOL_ID, self::DELEGATE_AGENTS_TOOL_ID, ResearchTool::ID],
 			BrowserToolDescriptors::IDS
 		);
 
@@ -1664,6 +1683,7 @@ class FacadeToolInvoker {
 	 *
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
 	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-the-run-records-actions-and-never-stores-screenshots-req-computer-004
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#scenario-an-agent-installs-csvkit
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) CustomToolDescriptors is used through its static API (a pure
 	 * helper or named constructor) with no state to inject.
@@ -1706,6 +1726,12 @@ class FacadeToolInvoker {
 		// The tools-code-sandbox D6 record: the code, its limits and outcome, outputs capped and redacted.
 		if ($toolId === CodeSandboxToolDescriptors::RUN_CODE) {
 			return array_merge($artefact, CodeRunTrace::extra(arguments: $arguments, result: $result, redaction: $this->redactionService));
+		}
+
+		// An install records the package, its version and the layer's hash
+		// (tools-agent-workspace-and-installed-tools D4).
+		if ($toolId === CodeSandboxToolDescriptors::INSTALL_TOOL) {
+			return array_merge($artefact, ToolInstallTrace::extra(result: $result));
 		}
 
 		return $this->withWebResearchTarget(toolId: $toolId, arguments: $arguments, artefact: $artefact);

@@ -43,6 +43,7 @@ Kind: code. Size L. Row `hermiq:dl-embed-web`.
   - GIVEN the iframe page WHEN opened THEN the disclosure shows before the input and answers show sources as links
 - [x] Implement (`GET /public/{channelToken}` renders `templates/public-chat.php`, framed only by the channel's origins; `src/public-chat/window.js` shows the disclosure before the input and sources as links; `js/public-chat.js` is the embed script; both self-contained webpack entries; en/nl strings)
 - [ ] Test (vitest done: `tests/vitest/public-chat.spec.js`, and `PublicChatControllerTest` for the page; Playwright logged out and axe need a running instance)
+  - 2026-11-22: `tests/e2e/spec-coverage/public-web-chat.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, a flow or a sent mail would be needed); not run here, it needs a running Nextcloud.
 
 ### Task 6: The Public chat settings page
 - **spec_ref**: `openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-an-organisation-admin-declares-a-public-chat-channel-req-pubchat-001`
@@ -53,5 +54,6 @@ Kind: code. Size L. Row `hermiq:dl-embed-web`.
 - [ ] Test (PHPUnit `PublicChannelGuardListenerTest` and vitest `public-channel-settings.spec.js` done; Playwright needs a running instance. Entry point for the portaliq lane: `OCA\Hermiq\PublicChat\PublicChatEntryPoint::ask(string $channelKey, string $question, string $locale, array $sourceScope, ?string $conversationToken): PublicAnswer`, channel key `app:portaliq:<portal-slug>`)
 
 ## Verification
-- [ ] `openspec validate delivery-public-web-chat --type change --strict` passes
+- [x] `openspec validate delivery-public-web-chat --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, Newman and Playwright run, exit codes read
