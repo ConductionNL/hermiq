@@ -5515,6 +5515,368 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "Held drafts: release and discard",
+			"description": "oversight-ask-and-hold task 5 (REQ-ASKHOLD-003): a held draft is released as edited with both texts recorded, a changed recipient is refused with 422, and a discarded draft is denied with its reason and can no longer be released.",
+			"item": [
+				{
+					"name": "Held delivery draft",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/approval",
+						"description": "A run's output held for review: a delivery draft on channel none, reviewed by admin.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"status\": \"pending\", \"sourceType\": \"draft\", \"requestedAt\": \"2026-11-24T00:00:00+00:00\", \"reviewer\": \"admin\", \"reviewerType\": \"user\", \"draftPayload\": {\"kind\": \"delivery\", \"channel\": \"none\", \"output\": \"Newman: the weekly digest as the agent wrote it.\"}}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The draft is saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"    const body = pm.response.json();",
+									"    pm.collectionVariables.set('hold_delivery', body.id || body.uuid || (body['@self'] || {}).id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Held mail tool draft",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/approval",
+						"description": "An outbound mail tool call held for review; only subject and body may be edited.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"status\": \"pending\", \"sourceType\": \"draft\", \"requestedAt\": \"2026-11-24T00:00:00+00:00\", \"reviewer\": \"admin\", \"reviewerType\": \"user\", \"toolId\": \"hermiq.sendMail\", \"draftPayload\": {\"kind\": \"tool\", \"toolId\": \"hermiq.sendMail\", \"arguments\": {\"to\": \"newman@example.invalid\", \"subject\": \"Newman digest\", \"body\": \"Newman: held mail body.\"}, \"editable\": [\"subject\", \"body\"]}}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The draft is saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"    const body = pm.response.json();",
+									"    pm.collectionVariables.set('hold_tool', body.id || body.uuid || (body['@self'] || {}).id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Changing the recipient is refused",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/approvals/{{hold_tool}}/release",
+						"description": "A release that changes a fixed field (the recipient) answers 422 and sends nothing.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"edits\": {\"to\": \"someone-else@example.invalid\"}}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('A changed recipient is refused with 422', function () {",
+									"    pm.response.to.have.status(422);",
+									"    pm.expect(pm.response.json().error).to.be.a('string');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Edit and release the delivery draft",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/approvals/{{hold_delivery}}/release",
+						"description": "The reviewer edits the text and releases it.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"edits\": {\"output\": \"Newman: the weekly digest as the reviewer edited it.\"}}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The draft is released', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().status).to.equal('approved');",
+									"    pm.expect(pm.response.json()).to.have.property('ran');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The release records both texts",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/approval/{{hold_delivery}}",
+						"description": "The approval keeps the original and the sent text."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const body = pm.response.json();",
+									"const data = body.object || body;",
+									"pm.test('Approved by the reviewer', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(data.status).to.equal('approved');",
+									"    pm.expect(data.decidedBy).to.equal(pm.collectionVariables.get('admin_user') || 'admin');",
+									"});",
+									"pm.test('editedOutput holds the original and the sent text', function () {",
+									"    pm.expect(data.editedOutput.original).to.equal('Newman: the weekly digest as the agent wrote it.');",
+									"    pm.expect(data.editedOutput.sent).to.equal('Newman: the weekly digest as the reviewer edited it.');",
+									"    pm.expect(data.draftPayload.output).to.equal('Newman: the weekly digest as the reviewer edited it.');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Discard the mail draft",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/approvals/{{hold_tool}}/deny",
+						"description": "Discarding is a deny with a reason; nothing is sent.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"reason\": \"Newman: not this week.\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The draft is discarded', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().status).to.equal('denied');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A discarded draft cannot be released",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/approvals/{{hold_tool}}/release",
+						"description": "Once discarded, a release answers 409 (already decided).",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"edits\": {}}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Already decided', function () {",
+									"    pm.response.to.have.status(409);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The discard keeps its reason",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/approval/{{hold_tool}}",
+						"description": "The denied draft records who discarded it and why."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const body = pm.response.json();",
+									"const data = body.object || body;",
+									"pm.test('Denied with the reason, nothing edited', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(data.status).to.equal('denied');",
+									"    pm.expect(data.reason).to.equal('Newman: not this week.');",
+									"    pm.expect(data.editedOutput || null).to.equal(null);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Remove the delivery draft",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/approval/{{hold_delivery}}",
+						"description": "Clean up."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 204, 404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Remove the mail draft",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/approval/{{hold_tool}}",
+						"description": "Clean up."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 204, 404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
 		}
 	]
 }
