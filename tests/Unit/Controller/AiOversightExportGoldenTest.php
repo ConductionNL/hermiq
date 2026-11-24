@@ -14,7 +14,7 @@
  * @license   EUPL-1.2
  * @link      https://github.com/ConductionNL/hermiq
  *
- * @spec openspec/changes/ai-oversight-subject-export/specs/ai-oversight/spec.md
+ * @spec openspec/specs/ai-oversight/spec.md
  */
 
 declare(strict_types=1);
@@ -35,7 +35,7 @@ use RuntimeException;
 /**
  * Golden tests for the subject export.
  *
- * @spec openspec/changes/ai-oversight-subject-export/specs/ai-oversight/spec.md
+ * @spec openspec/specs/ai-oversight/spec.md
  */
 class AiOversightExportGoldenTest extends TestCase {
 
