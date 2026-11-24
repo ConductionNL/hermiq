@@ -39,7 +39,8 @@ Kind: code. Size M. Rows `hermiq:td-explain`, `dm-show-reasoning`, `dm-context-m
   - GIVEN a streamed answer with reasoning WHEN the frames are read THEN no `token` event carries reasoning and `final.reasoning` does
   - GIVEN the agent form WHEN the owner picks a Fireworks model THEN the setting says "This provider does not return reasoning"
 - [x] Implement
-- [ ] Test (PHPUnit on the SSE frames; Playwright for the folded section)
+- [x] Test (PHPUnit on the SSE frames; Playwright for the folded section)
+  - 2026-11-24: PHPUnit `ChatStreamFinalReasoningTest` in; Playwright "a folded "Model reasoning" section shows the model's text and says it can be wrong" in `tests/e2e/spec-coverage/answer-transparency.spec.ts` written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
   - `final.reasoning` / `final.reasoningWithheld` (never a token or a new event type), the send response carries the engine envelope, the turn serializer returns both; folded "Model reasoning" section on the Chat page and the withheld line; "Show the model's reasoning" switch on the agent form, disabled with "This provider does not return reasoning" for openai/fireworks/nextcloud. PHPUnit: ChatStreamFinalReasoningTest; vitest: chat-template-wiring. Left: the Playwright check of the folded section (needs a live instance).
 
 ### Task 5: Context usage readout
