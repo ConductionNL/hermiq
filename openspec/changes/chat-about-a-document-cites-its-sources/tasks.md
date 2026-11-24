@@ -38,15 +38,18 @@ Kind: code. Size M. Rows `filinq:wk-ai-chat`, `ch-citations` (hermiq).
 - **acceptance_criteria**:
   - GIVEN a context with a `fileId` WHEN the panel opens THEN the chip reads "Over dit document" and the next send carries the scope
   - GIVEN an answer with sources WHEN it renders THEN each source is a link with the file name and page
-- [ ] Implement (PR in ConductionNL/nextcloud-vue, release, bump the hermiq and filinq locks)
-- [ ] Test
+- [x] Implement (PR in ConductionNL/nextcloud-vue, release, bump the hermiq and filinq locks)
+  - 2026-11-24: nextcloud-vue#2333 (released in 2.215.0): `src/utils/aiChatScope.js` (`turnScopeOf()`), the scope chip in `CnAiChatPanel.vue`, `body.scope` and kept `sources` in `useAiChatStream.js`, the source list in `CnAiMessageList.vue`, nl/en strings. hermiq raised to ^2.215.0 here; filinq in ConductionNL/filinq#2318.
+- [x] Test
+  - nextcloud-vue `tests/components/CnAiChatPanelScope.spec.js`, `tests/components/CnAiMessageListSources.spec.js`, `tests/composables/useAiChatStreamScope.spec.js`, `tests/utils/aiChatScope.spec.js`.
 
 ### Task 5: filinq passes the open document or folder to the companion
 - **spec_ref**: `openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-the-companion-shows-the-scope-and-the-sources-req-dchat-004`
 - **files**: ConductionNL/filinq `src/App.vue` (companion page context) and the document and dossier views that know the open file id
 - **acceptance_criteria**:
   - GIVEN a filinq document page WHEN the companion opens THEN its context carries that document's `fileId` and `pageKind: "document"`; on a dossier, the dossier folder's id and `pageKind: "folder"`
-- [ ] Implement (PR in ConductionNL/filinq)
+- [x] Implement (PR in ConductionNL/filinq)
+  - 2026-11-24: ConductionNL/filinq#2318 (filinq change `companion-knows-the-open-document`): the file viewer sets `pageKind: "document"` and the open file id, a dossier `pageKind: "folder"` and its home folder id (new `folderId` on the dossier detail), both released on leaving; vitest `tests/vitest/companionContext.spec.js`, PHPUnit `testDetailNamesTheHomeFolder`.
 
 ### Task 6: The chat page links every answer's sources
 - **spec_ref**: `openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-the-chat-page-lists-the-sources-of-every-answer-as-links-req-dchat-005`
