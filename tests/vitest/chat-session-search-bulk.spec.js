@@ -6,8 +6,8 @@
  * the current tab and its results, opening a result at its turn, and archiving,
  * restoring or deleting several sessions in one action.
  *
- * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
- * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+ * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+ * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
  */
 
 import { flushPromises, shallowMount } from '@vue/test-utils'

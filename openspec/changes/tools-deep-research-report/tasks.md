@@ -72,5 +72,6 @@ Kind: code. Size M. Row `hermiq:dm-deep-research`.
 ## Verification
 - [x] `openspec validate tools-deep-research-report --type change --strict` passes
   - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
-- [ ] PHPUnit, Newman and Playwright run once before push, exit codes read
+- [x] PHPUnit, Newman and Playwright run once before push, exit codes read
+  - 2026-11-24: run on development 671a9f6e: the change's PHPUnit tests 144 pass, vitest 25/25 exit 0 (PHPUnit exits 1 only for the missing coverage driver; the full suite fails only on the 3 inherited `ToolAccessRequestPropertyRulesTest` errors). Newman and Playwright written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 - [ ] One live research run on a public question, with the report opened in Files and its citations spot-checked by hand

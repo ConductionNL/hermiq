@@ -4,7 +4,7 @@
  *
  * "Fork from here": who is offered it, and which session opens afterwards.
  *
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
  */
 
 /**
@@ -13,7 +13,7 @@
  *
  * @param {object|null} session The open session.
  * @return {boolean} True to offer "Fork from here".
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
  */
 export function canForkSession(session) {
 	if (!session || !session.uuid) {
@@ -29,7 +29,7 @@ export function canForkSession(session) {
  * @param {Array<object>} sessions The listed sessions.
  * @param {object} fork The fork response.
  * @return {object} The session to open.
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
  */
 export function forkedSessionToOpen(sessions, fork) {
 	const listed = (sessions || []).find((session) => session.uuid === fork.uuid)

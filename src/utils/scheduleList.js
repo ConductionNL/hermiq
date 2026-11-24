@@ -11,7 +11,7 @@
  *
  * @param {Function} t The app's translate function, `t('hermiq', text)`.
  * @return {object} Formatter id to function.
- * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-every-schedule-a-person-may-see-is-on-one-page-req-sched-001
+ * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-every-schedule-a-person-may-see-is-on-one-page-req-sched-001
  */
 export function scheduleListFormatters(t) {
 	return {

@@ -690,7 +690,7 @@ class SessionControllerTest extends TestCase {
 	 * @return void
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
-	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-deleting-a-session-removes-everything-that-belongs-to-it-req-ssrch-003
+	 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-deleting-a-session-removes-everything-that-belongs-to-it-req-ssrch-003
 	 */
 	public function testDestroyPermanentDeletesFeedbackThenMessagesThenConversation(): void {
 		$this->request->method('getParams')->willReturn([]);

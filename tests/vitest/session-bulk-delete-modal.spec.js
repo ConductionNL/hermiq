@@ -6,7 +6,7 @@
  * in one bulk request, hands the per-session answer to the page, and keeps the
  * modal open with the reason when the request fails.
  *
- * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+ * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
  */
 
 import { flushPromises, mount } from '@vue/test-utils'

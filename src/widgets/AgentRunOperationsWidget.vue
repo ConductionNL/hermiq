@@ -496,7 +496,7 @@ export default {
 		 * The agent's schedules that are on.
 		 *
 		 * @return {Array<object>}
-		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+		 * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
 		 */
 		activeSchedules() {
 			return this.agentSchedules.filter((row) => row.enabled !== false)
@@ -506,7 +506,7 @@ export default {
 		 * Whether the webhook start exists at all, on or revoked.
 		 *
 		 * @return {boolean}
-		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+		 * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
 		 */
 		webhookConfigured() {
 			return Boolean(this.webhookStatus && this.webhookStatus.configured)
@@ -516,7 +516,7 @@ export default {
 		 * Whether an event starts this agent: a flow that is on, or a webhook that is.
 		 *
 		 * @return {boolean}
-		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+		 * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
 		 */
 		eventActive() {
 			return this.agentFlows.some((flow) => flow.enabled === true)
@@ -580,7 +580,7 @@ export default {
 		 * Either list failing leaves that row empty, never the whole widget.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+		 * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
 		 */
 		async loadStarts() {
 			const [schedules, flows] = await Promise.all([
@@ -596,7 +596,7 @@ export default {
 		 * run says which gate held it; a finished one refreshes run history.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+		 * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
 		 */
 		async runByHand() {
 			const prompt = this.manualPrompt.trim()
@@ -623,7 +623,7 @@ export default {
 		 *
 		 * @param {string} status The gate status the server answered.
 		 * @return {string} The message, or '' for no gate.
-		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+		 * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
 		 */
 		heldMessage(status) {
 			const messages = {
@@ -638,7 +638,7 @@ export default {
 		 * Open the schedule form for a new schedule.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+		 * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
 		 */
 		addSchedule() {
 			this.addingSchedule = true
@@ -649,7 +649,7 @@ export default {
 		 * Close the schedule form, back to editing the current schedule next time.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+		 * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
 		 */
 		closeScheduleForm() {
 			this.showScheduleForm = false
@@ -661,7 +661,7 @@ export default {
 		 * until the person switches it on, and open it on the canvas.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+		 * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
 		 */
 		async addObjectEvent() {
 			this.draftBusy = true
@@ -683,7 +683,7 @@ export default {
 		 *
 		 * @param {object} flow The flow.
 		 * @return {void}
-		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+		 * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
 		 */
 		openFlow(flow) {
 			const id = flow?.uuid || flow?.id
@@ -696,7 +696,7 @@ export default {
 		 * Bring the webhook panel into view, the other way an event starts the agent.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+		 * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
 		 */
 		showWebhookPanel() {
 			this.$refs.webhookPanel?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })

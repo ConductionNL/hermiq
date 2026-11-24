@@ -386,7 +386,7 @@ interface ScheduleServiceInterface {
 	 *
 	 * @return string|null `skipped_agent_off`, `skipped_killswitch`, `skipped_budget`, or null.
 	 *
-	 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+	 * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
 	 */
 	public function gateFor(string $organisation, string $agentId): ?string;
 
@@ -395,7 +395,7 @@ interface ScheduleServiceInterface {
 	 *
 	 * @return array<string, mixed> The usage.
 	 *
-	 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+	 * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
 	 */
 	public function getLastRunUsage(): array;
 }//end interface

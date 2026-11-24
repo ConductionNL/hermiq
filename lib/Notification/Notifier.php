@@ -400,7 +400,7 @@ class Notifier implements INotifier {
 	 *
 	 * @return array{0:string,1:string} The [subject, message] pair.
 	 *
-	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
 	 */
 	private function sessionSharedText(string $owner, string $name, IL10N $l): array {
 		$subject = $l->t('A chat session was shared with you');

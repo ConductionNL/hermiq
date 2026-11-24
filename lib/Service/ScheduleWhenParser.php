@@ -17,7 +17,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003
+ * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
@@ -39,7 +39,7 @@ use DateTimeZone;
  * it returns is what is stored; the readback is what the person confirms.
  * Anything else answers null, and the caller may ask a model instead.
  *
- * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003
+ * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003
  *
  * @SuppressWarnings(PHPMD.TooManyMethods) carried in with this batch's feature work; splitting it is follow-
  * up work, not part of this merge.
@@ -119,7 +119,7 @@ class ScheduleWhenParser {
 	 *
 	 * @return array{kind: string, cronExpr?: string, intervalMinutes?: int, runAt?: string, readback: string}|null
 	 *
-	 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003
+	 * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003
 	 */
 	public function parse(string $text, string $locale, DateTimeImmutable $now, DateTimeZone $timezone): ?array {
 		$phrase = $this->normalise(text: $text);
@@ -151,7 +151,7 @@ class ScheduleWhenParser {
 	 *
 	 * @return string The readback, without the timezone.
 	 *
-	 * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003
+	 * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003
 	 */
 	public function readback(array $rule, string $lang): string {
 		$dutch = ($lang === 'nl');

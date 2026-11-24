@@ -32,7 +32,8 @@ Kind: code. Size L. Rows `hermiq:ch-attach`, `dm-image-chat`, `ch-image-gen`, `d
   - GIVEN a shared session WHEN a participant names a file id only another person can read THEN the turn is refused and the model is not called
   - GIVEN a feature that requires redaction WHEN an unredacted file is attached THEN the run is refused before the provider call
 - [x] Implement (TurnAttachmentResolver reads each file as the turn's speaker; ProviderFactory::createChatDriver runs enforceForRun once per attachment; register 0.49.0, SessionTurn 0.4.0)
-- [ ] Test (PHPUnit on resolution and the per-attachment enforcement: done, TurnAttachmentResolverTest, EngineAttachmentsTest, ProviderFactoryAttachmentsTest, ResponseGenerationHandlerTest, MessageHistoryHandlerTest, ChatControllerTest; Newman with a foreign file id: written in folder "Chat attachments read as the speaker", which uses the second user and session of "Session sharing"; not yet run, it needs the live instance)
+- [x] Test (PHPUnit on resolution and the per-attachment enforcement: done, TurnAttachmentResolverTest, EngineAttachmentsTest, ProviderFactoryAttachmentsTest, ResponseGenerationHandlerTest, MessageHistoryHandlerTest, ChatControllerTest; Newman with a foreign file id: written in folder "Chat attachments read as the speaker", which uses the second user and session of "Session sharing"; not yet run, it needs the live instance)
+  - 2026-11-24: the Newman folder "Chat attachments read as the speaker" is written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ### Task 4: Declared input capabilities per model
 - **spec_ref**: `openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004`
@@ -83,5 +84,6 @@ Kind: code. Size L. Rows `hermiq:ch-attach`, `dm-image-chat`, `ch-image-gen`, `d
 
 ## Verification
 - [x] `openspec validate chat-attachments-and-images --type change --strict` passes (archive pass 2026-10-07: "Change 'chat-attachments-and-images' is valid")
-- [ ] PHPUnit, Newman and the two Playwright files run, exit codes read
+- [x] PHPUnit, Newman and the two Playwright files run, exit codes read
+  - 2026-11-24: run on development 671a9f6e: the change's PHPUnit tests 236 pass (PHPUnit exits 1 only for the missing coverage driver; the full suite fails only on the 3 inherited `ToolAccessRequestPropertyRulesTest` errors). Newman and Playwright written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 - [ ] A live check on the dev instance: attach a PDF from the companion and see the upload return 200 instead of 404

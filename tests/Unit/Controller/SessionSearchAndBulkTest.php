@@ -15,7 +15,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md
+ * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md
  */
 
 declare(strict_types=1);
@@ -50,7 +50,7 @@ use RuntimeException;
  * @uses   \OCA\Hermiq\Service\Chat\SessionSubject
  * @uses   \OCA\Hermiq\Service\Talk\ConversationParticipation
  *
- * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md
+ * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md
  */
 class SessionSearchAndBulkTest extends TestCase {
 
@@ -195,7 +195,7 @@ class SessionSearchAndBulkTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+	 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
 	 */
 	public function testASearchFindsOwnSessionsByTurnAndByTitle(): void {
 		$searches = [];
@@ -228,7 +228,7 @@ class SessionSearchAndBulkTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+	 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
 	 */
 	public function testAColleaguesSessionNeverAnswers(): void {
 		$searches = [];
@@ -249,7 +249,7 @@ class SessionSearchAndBulkTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+	 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
 	 */
 	public function testWithoutATermTheListIsUnchanged(): void {
 		foreach ([[], ['search' => 'm']] as $params) {
@@ -290,8 +290,8 @@ class SessionSearchAndBulkTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
-	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-deleting-a-session-removes-everything-that-belongs-to-it-req-ssrch-003
+	 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+	 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-deleting-a-session-removes-everything-that-belongs-to-it-req-ssrch-003
 	 */
 	public function testBulkDeleteSkipsAForeignSession(): void {
 		$this->stored = [
@@ -335,7 +335,7 @@ class SessionSearchAndBulkTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+	 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 	 */
 	public function testBulkArchiveAndRestore(): void {
 		$archived = ['deletedAt' => '2026-10-01T00:00:00+00:00', 'deletedBy' => 'alice'];
@@ -365,7 +365,7 @@ class SessionSearchAndBulkTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+	 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 	 */
 	public function testAFailedWriteIsRefused(): void {
 		$this->objectService = $this->createMock(ObjectService::class);
@@ -382,7 +382,7 @@ class SessionSearchAndBulkTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+	 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 	 */
 	public function testAnOutOfBoundsRequestChangesNothing(): void {
 		$this->stored = ['s1' => $this->session(uuid: 's1', payload: ['userId' => 'alice'])];
@@ -410,7 +410,7 @@ class SessionSearchAndBulkTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+	 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
 	 */
 	public function testASignedOutCallerIsRefused(): void {
 		$userSession = $this->createMock(IUserSession::class);

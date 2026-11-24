@@ -15,7 +15,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
  */
 
 declare(strict_types=1);
@@ -27,7 +27,7 @@ use RuntimeException;
 /**
  * The code is the HTTP status the controller answers with (400 or 404).
  *
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
  */
 class SessionForkException extends RuntimeException {
 }//end class

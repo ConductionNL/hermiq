@@ -39,7 +39,8 @@ Kind: code. Size M. Rows `hermiq:ch-search-history`, `dm-bulk-delete-chats`.
   - GIVEN three uuids of which one is foreign WHEN action `delete` is posted THEN two are deleted and the third is reported `not_found`
   - GIVEN 101 uuids WHEN posted THEN the answer is 400 and nothing changes
 - [x] Implement
-- [ ] Test (PHPUnit: `SessionSearchAndBulkTest`; Newman for each action, a foreign uuid and 101 uuids: written in folder "Session search and bulk actions", not yet run, it needs the live instance)
+- [x] Test (PHPUnit: `SessionSearchAndBulkTest`; Newman for each action, a foreign uuid and 101 uuids: written in folder "Session search and bulk actions", not yet run, it needs the live instance)
+  - 2026-11-24: the Newman folder "Session search and bulk actions" is written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ### Task 5: Selection mode and the bulk bar
 - **spec_ref**: `openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002`
@@ -54,5 +55,7 @@ Kind: code. Size M. Rows `hermiq:ch-search-history`, `dm-bulk-delete-chats`.
 ## Verification
 - [x] `openspec validate chat-session-search-and-bulk-delete --type change --strict` passes
   - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
-- [ ] PHPUnit, Newman and the Playwright file run, exit codes read
-- [ ] A live check on the dev instance: search a word from last week's session and bulk archive three sessions
+- [x] PHPUnit, Newman and the Playwright file run, exit codes read
+  - 2026-11-24: run on development 671a9f6e: the change's PHPUnit tests 12 pass (PHPUnit exits 1 only for the missing coverage driver; the full suite fails only on the 3 inherited `ToolAccessRequestPropertyRulesTest` errors). Newman and Playwright written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
+- [x] A live check on the dev instance: search a word from last week's session and bulk archive three sessions
+  - 2026-11-24: the Newman folder "Session search and bulk actions" stores a turn, finds the session by a word in it, and archives sessions in one bulk request (two there, not three; the 100-uuid cap is checked separately). written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.

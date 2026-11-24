@@ -8,7 +8,7 @@
  * and "Add event" creating an inactive draft flow with an object trigger and
  * this agent's step, opened on the canvas.
  *
- * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+ * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
  */
 
 import axios from '@nextcloud/axios'

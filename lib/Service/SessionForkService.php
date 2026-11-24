@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
  */
 
 declare(strict_types=1);
@@ -40,7 +40,7 @@ use OCA\OpenRegister\Service\ObjectService;
 /**
  * Forks a session at an assistant turn; the owner only.
  *
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
  */
 class SessionForkService implements SessionForkServiceInterface {
 	use SanitizesForSaveTrait;
@@ -87,7 +87,7 @@ class SessionForkService implements SessionForkServiceInterface {
 	 * @param TalkSessionRoomInterface|null $sessionRoom   Gives the new session its Talk room, like any new session;
 	 *                                                     null leaves it without one.
 	 *
-	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
@@ -107,7 +107,7 @@ class SessionForkService implements SessionForkServiceInterface {
 	 * @throws SessionForkException 404 when the caller does not own the session, 400 when the
 	 *                              turn is not an answer in it.
 	 *
-	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
 	 */
 	public function fork(string $uuid, string $turnUuid, string $callerUid): array {
 		$source = $this->ownedSession(uuid: $uuid, callerUid: $callerUid);

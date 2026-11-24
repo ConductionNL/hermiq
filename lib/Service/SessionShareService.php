@@ -28,7 +28,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
  */
 
 declare(strict_types=1);
@@ -55,7 +55,7 @@ use Throwable;
 /**
  * Read-only shares on a session.
  *
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
  */
 class SessionShareService implements SessionShareServiceInterface {
 	use SanitizesForSaveTrait;
@@ -109,7 +109,7 @@ class SessionShareService implements SessionShareServiceInterface {
 	 *
 	 * @return list<array<string, mixed>> The shares with display names.
 	 *
-	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
 	 */
 	public function list(string $uuid, string $callerUid): array {
 		$session = $this->ownedSession(uuid: $uuid, callerUid: $callerUid);
@@ -129,7 +129,7 @@ class SessionShareService implements SessionShareServiceInterface {
 	 *
 	 * @throws SessionShareException 404, 400 or 403.
 	 *
-	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
 	 */
 	public function add(string $uuid, string $callerUid, string $type, string $id): array {
 		$session = $this->ownedSession(uuid: $uuid, callerUid: $callerUid);
@@ -171,7 +171,7 @@ class SessionShareService implements SessionShareServiceInterface {
 	 *
 	 * @throws SessionShareException 404 when the caller does not own the session.
 	 *
-	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-revoke-a-share-at-once-req-sshare-003
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-revoke-a-share-at-once-req-sshare-003
 	 */
 	public function remove(string $uuid, string $callerUid, string $type, string $id): array {
 		$session = $this->ownedSession(uuid: $uuid, callerUid: $callerUid);
@@ -196,7 +196,7 @@ class SessionShareService implements SessionShareServiceInterface {
 	 *
 	 * @return array<string, mixed>|null The share entry.
 	 *
-	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
 	 */
 	public function shareFor(array $sessionData, string $uid): ?array {
 		if ($uid === '' || ($sessionData['userId'] ?? null) === $uid) {
@@ -258,7 +258,7 @@ class SessionShareService implements SessionShareServiceInterface {
 	 *
 	 * @return ObjectEntity|null
 	 *
-	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
 	 */
 	public function sharedSession(string $uuid, string $uid): ?ObjectEntity {
 		if ($uid === '') {
@@ -299,7 +299,7 @@ class SessionShareService implements SessionShareServiceInterface {
 	 *
 	 * @return list<ObjectEntity>
 	 *
-	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
 	 */
 	public function sharedWith(string $uid): array {
 		if ($uid === '') {
@@ -363,7 +363,7 @@ class SessionShareService implements SessionShareServiceInterface {
 	 *
 	 * @return list<array{type: string, id: string, sharedBy: string, sharedAt: string}>
 	 *
-	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
 	 */
 	public static function shares(array $sessionData): array {
 		$stored = ($sessionData['sharedWith'] ?? []);
@@ -432,7 +432,7 @@ class SessionShareService implements SessionShareServiceInterface {
 	 *
 	 * @throws SessionShareException 400 for an unknown recipient, 403 for a refused share.
 	 *
-	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
 	 */
 	private function assertMayShare(string $callerUid, string $type, string $id): void {
 		if ($this->shareManager->shareApiEnabled() === false || $this->shareManager->sharingDisabledForUser($callerUid) === true) {
@@ -593,7 +593,7 @@ class SessionShareService implements SessionShareServiceInterface {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
 	 */
 	private function notifyRecipients(string $type, string $id, string $callerUid, string $uuid, string $title): void {
 		$uids = [$id];

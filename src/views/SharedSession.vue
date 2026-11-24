@@ -7,7 +7,7 @@
   session is not shared with, and a share that was taken back, sees
   "This session is not available", without the title.
 
-  @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+  @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
 -->
 <template>
 	<div class="shared-session" data-testid="shared-session">
@@ -98,7 +98,7 @@ export default {
 		 * The "Shared by" line's parts.
 		 *
 		 * @return {{name: string, date: string}|null}
-		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
 		 */
 		sharedBy() {
 			return sharedByParts(this.session?.share ?? null, document.documentElement.lang || undefined)
@@ -109,7 +109,7 @@ export default {
 		/**
 		 * Load again when the address names another session.
 		 *
-		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-copy-a-link-to-a-shared-session-req-sshare-004
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-copy-a-link-to-a-shared-session-req-sshare-004
 		 */
 		'$route.params.id': function() {
 			this.load()
@@ -127,7 +127,7 @@ export default {
 		 * Read the session and its turns; any refusal shows "not available".
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-revoke-a-share-at-once-req-sshare-003
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-revoke-a-share-at-once-req-sshare-003
 		 */
 		async load() {
 			const uuid = this.$route?.params?.id

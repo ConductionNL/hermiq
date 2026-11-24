@@ -50,7 +50,7 @@ interface SessionShareServiceInterface {
 	 *
 	 * @throws SessionShareException 404 when the caller does not own the session.
 	 *
-	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
 	 */
 	public function list(string $uuid, string $callerUid): array;
 
@@ -66,7 +66,7 @@ interface SessionShareServiceInterface {
 	 *
 	 * @throws SessionShareException 404, 400 or 403.
 	 *
-	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
 	 */
 	public function add(string $uuid, string $callerUid, string $type, string $id): array;
 
@@ -82,7 +82,7 @@ interface SessionShareServiceInterface {
 	 *
 	 * @throws SessionShareException 404 when the caller does not own the session.
 	 *
-	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-revoke-a-share-at-once-req-sshare-003
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-revoke-a-share-at-once-req-sshare-003
 	 */
 	public function remove(string $uuid, string $callerUid, string $type, string $id): array;
 
@@ -94,7 +94,7 @@ interface SessionShareServiceInterface {
 	 *
 	 * @return array<string, mixed>|null The share entry.
 	 *
-	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
 	 */
 	public function shareFor(array $sessionData, string $uid): ?array;
 
@@ -106,7 +106,7 @@ interface SessionShareServiceInterface {
 	 *
 	 * @return ObjectEntity|null
 	 *
-	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
 	 */
 	public function sharedSession(string $uuid, string $uid): ?ObjectEntity;
 
@@ -117,7 +117,7 @@ interface SessionShareServiceInterface {
 	 *
 	 * @return list<ObjectEntity>
 	 *
-	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
 	 */
 	public function sharedWith(string $uid): array;
 }//end interface

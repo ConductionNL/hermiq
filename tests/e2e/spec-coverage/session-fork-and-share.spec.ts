@@ -13,8 +13,8 @@
  * needed; a group with one member, and an outsider. The member and the
  * outsider are not admins and sign in with an empty storage state.
  *
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md
- * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-fork/spec.md
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md
  */
 
 import type { Browser, BrowserContext, Page } from '@playwright/test'

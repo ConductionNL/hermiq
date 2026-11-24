@@ -15,7 +15,7 @@
  *     NEXTCLOUD_URL=http://nextcloud.local NC_USER=admin NC_PASS=admin \
  *       npx playwright test -c tests/e2e/spec-coverage session-search-and-bulk
  *
- * Covers openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md
+ * Covers openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md
  * (REQ-SSRCH-001, REQ-SSRCH-002, REQ-SSRCH-003).
  */
 

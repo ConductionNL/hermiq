@@ -6,7 +6,7 @@
  * D1): a failed last result names its error, a run that never ran says so, a
  * next run reads as a date and an off schedule reads as paused.
  *
- * @spec openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-every-schedule-a-person-may-see-is-on-one-page-req-sched-001
+ * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-every-schedule-a-person-may-see-is-on-one-page-req-sched-001
  */
 
 import { t } from '@nextcloud/l10n'

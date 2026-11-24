@@ -2,9 +2,7 @@
 
 ## Purpose
 The session surface is hermiq's Chat page: the list of a user's sessions with agents, the thread of the open session, and the start-a-session screen. This spec fixes its vocabulary (one word, session), how sessions are listed and grouped, what each row shows and offers, and how a UI claim about the page is verified.
-
 ## Requirements
-
 ### Requirement: The application MUST use one word for a session
 
 Every user-visible string, component name, store, route name and API call on the session surface (the Chat page and its rename and delete modals) MUST say "session". "Conversation" survives in the frontend only where it names something else or something deprecated: the Talk bridge, where it is Nextcloud Talk's own word for a room; the wire keys the chat and stream endpoints read; the `hermiq-skill-conversational-authoring` spec name; and the comments that explain the deprecated `/api/conversations/*` aliases.
@@ -124,3 +122,46 @@ A session SHALL be able to carry its subject in `metadata.subject` (`objectUuid`
 - **GIVEN** a session whose agent waits on one approval by the owner
 - **WHEN** the owner reads the session's messages
 - **THEN** the answer SHALL carry that approval in `pendingApprovals`
+
+### Requirement: A person can search their own sessions by title and content (REQ-SSRCH-001)
+
+Hermiq MUST accept a `search` term on `GET /api/sessions` and MUST return only the caller's own sessions whose title or turn text matches it, within the tab asked for. Each result MUST carry an excerpt and the uuid of the first matching turn. Without a `search` term the list MUST behave as before.
+
+#### Scenario: A tax officer finds the session about a WOZ objection
+- GIVEN a municipal tax officer with 40 sessions, one of which contains the turn "Hoe beoordeel ik een WOZ-bezwaar over een monument?"
+- WHEN they type "monument" in the search field on `/chat`
+- THEN the list shows that one session with the excerpt, and opening it scrolls to the matching turn
+- e2e: `tests/e2e/spec-coverage/session-search-and-bulk.spec.ts`
+
+#### Scenario: Another person's words never appear
+- GIVEN a shared session owned by a colleague in which the officer took part
+- WHEN the officer searches for a word only that session contains
+- THEN the search returns no result
+- @e2e exclude needs two identities and a shared session; covered by PHPUnit and a Newman call
+
+### Requirement: A person can archive, restore or delete several sessions in one action (REQ-SSRCH-002)
+
+Hermiq MUST offer `POST /api/sessions/bulk` with an action of `archive`, `restore` or `delete` and 1 to 100 session uuids. It MUST check each uuid as the caller's own and MUST answer per uuid. A uuid that is not the caller's MUST be reported the same way as a missing one.
+
+#### Scenario: A team lead clears out last year's test sessions
+- GIVEN a team lead on the Archive tab of `/chat` with 12 archived test sessions
+- WHEN they choose "Select", tick all 12 and choose Delete, then confirm "Delete 12 sessions? This cannot be undone."
+- THEN all 12 sessions leave the list, and a reload does not bring them back
+- e2e: `tests/e2e/spec-coverage/session-search-and-bulk.spec.ts`
+
+#### Scenario: A foreign uuid in the batch changes nothing
+- GIVEN a bulk request that names two of the caller's sessions and one of a colleague's
+- WHEN the caller sends it with action `delete`
+- THEN the two own sessions are deleted, the colleague's session is untouched, and its entry in the answer says `not_found`
+- @e2e exclude a crafted request body; covered by PHPUnit and Newman
+
+### Requirement: Deleting a session removes everything that belongs to it (REQ-SSRCH-003)
+
+Every permanent delete of a session, single or bulk, MUST remove its feedback, then its turns, then the session itself.
+
+#### Scenario: No feedback is left behind
+- GIVEN a session with two turns that carry thumbs-up feedback
+- WHEN its owner deletes it permanently
+- THEN no feedback object with that session's id remains
+- @e2e exclude orphan objects are not visible in the page; covered by PHPUnit on the shared routine
+

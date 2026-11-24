@@ -72,7 +72,7 @@
  *     PLAYWRIGHT_BASE_URL=<your rig> NC_USER=admin NC_PASS=admin \
  *       npx playwright test -c tests/e2e/spec-coverage/playwright.config.ts scheduling-overview
  *
- * Covers openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md
+ * Covers openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md
  */
 
 import type { APIRequestContext, Page } from '@playwright/test'
