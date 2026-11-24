@@ -22,8 +22,9 @@ Kind: code. Size L. Rows `hermiq:me-kb-upload`, `me-external-kb`.
   - GIVEN a non-owner WHEN they upload THEN the answer is 404
 - [x] Implement
   - `POST /api/knowledge-bases/{id}/documents` (`KnowledgeBaseController::upload`, multipart `files[]` or `file`): `KnowledgeBaseService` opens the knowledge base as the caller, answers 404 to anyone but its owner, writes each document into `folderPath` (default `Hermiq/Knowledge bases/<name>`, created when missing, `..` and empty segments dropped) in the owner's Files under a free name, and adds each as a `file` source. At most 20 documents of up to 100 MB per request. Documented in `openapi.json`.
-- [ ] Test (PHPUnit; Newman upload as owner and non-owner)
+- [x] Test (PHPUnit; Newman upload as owner and non-owner)
   - PHPUnit done: `KnowledgeBaseServiceTest` (6), `KnowledgeBaseControllerTest` (5). Newman written: folder "Knowledge base upload" in `tests/integration/hermiq.postman_collection.json` (the owner uploads two PDFs into the default folder, reads them back as file sources; a second user gets 404 on upload and sources and adds nothing). Not run yet: it needs a live instance, so the box stays open.
+  - 2026-11-24: written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ### Task 3: Retrieval scoped to the knowledge bases
 - **spec_ref**: `openspec/changes/memory-knowledge-bases/specs/knowledge-bases/spec.md#requirement-an-agent-answers-from-its-attached-knowledge-bases-req-kb-002`

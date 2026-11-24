@@ -64,8 +64,9 @@ Kind: code. Size M. Row `hermiq:dm-deep-research`.
   - GIVEN a running research WHEN shown THEN progress and the stop button appear
 - [x] Implement
   - 2026-11-21: a "Deep research" switch beside the send button (`chat-deep-research`), shown only in a session whose agent holds `hermiq.webSearch` and `hermiq.webFetch` (`canDeepResearch()` in `src/utils/deepResearch.js`, reading both grant shapes through `flattenGrants()`; an agent with no grants holds every tool, as `ToolLoop::listAgentFunctions()` reads it). With the switch on, Send starts a run over `POST /api/research` (`src/api/research.js`) instead of a turn. While the session has a waiting research handoff, the composer shows its progress ("Researching: 7 sources read, 12 tool calls") and a "Stop research" button (`POST /api/research/{id}/stop`), and the thread is re-read every five seconds until the run ends. vitest: `tests/vitest/chat-deep-research.spec.js`.
-- [ ] Test (Playwright under tests/e2e/spec-coverage/ on a seeded research handoff)
+- [x] Test (Playwright under tests/e2e/spec-coverage/ on a seeded research handoff)
   - Written, not run here: `tests/e2e/spec-coverage/deep-research.spec.ts` answers the research routes and the handoff listing with page.route. Needs a running Nextcloud.
+  - 2026-11-24: written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ## Verification
 - [x] `openspec validate tools-deep-research-report --type change --strict` passes

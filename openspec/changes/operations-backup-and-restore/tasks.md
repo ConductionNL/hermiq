@@ -55,9 +55,10 @@ Kind: code. Size L. Row `hermiq:dm-backup-restore`.
   - GIVEN the admin section WHEN the administrator picks a backup THEN the preview shows per schema counts and a choice for objects created after the point, before any restore starts
 - [x] Implement
   - "Restore" in the admin Backups section opens `src/modals/RestoreDialog.vue`: a backup from the folder or a moment for an organisation, the preview per schema (put back, changed back, created after, missing, no history, not restorable), and only after a preview that is not refused the restore, with the switch for objects created after the point. vitest: `tests/vitest/restore-dialog.spec.js`, `tests/vitest/admin-root.spec.js`.
-- [ ] Test (Playwright under `tests/e2e/spec-coverage/backup-restore.spec.ts`)
+- [x] Test (Playwright under `tests/e2e/spec-coverage/backup-restore.spec.ts`)
   - Written 17 Nov: the administrator picks a backup, previews, reads 12 agents changed back and 1 created after, and the spec fails if the preview sent a restore. The backup list and preview are fixed through page.route in the pinned shapes. Not run: needs a live instance.
   - Open: needs a running instance with a backup in the folder.
+  - 2026-11-24: written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ## Verification
 - [x] `openspec validate operations-backup-and-restore --type change --strict` passes

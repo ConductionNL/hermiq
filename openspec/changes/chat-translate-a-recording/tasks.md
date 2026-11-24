@@ -45,8 +45,9 @@ Kind: code. Size M. Row `hermiq:dm-speech-translate`.
 - **acceptance_criteria**:
   - GIVEN a session on `/chat` WHEN a person translates a file from Files THEN two turns appear with transcript, translation, player and the languages line
 - [x] Implement
-- [ ] Test (Playwright under `tests/e2e/spec-coverage/speech-translate.spec.ts` with the sidecar stubbed)
+- [x] Test (Playwright under `tests/e2e/spec-coverage/speech-translate.spec.ts` with the sidecar stubbed)
   - 2026-11-21: `tests/e2e/spec-coverage/speech-translate.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, sidecar or Talk is needed); not run here, it needs a running Nextcloud.
+  - 2026-11-24: written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ### Task 6: The TaskProcessing provider behind a class check
 - **spec_ref**: `openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-other-apps-can-use-the-chain-through-taskprocessing-where-nextcloud-defines-it-req-strn-004`
