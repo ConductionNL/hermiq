@@ -1,0 +1,413 @@
+{
+  "name": "hydra-record-stage",
+  "description": "Compose one cycles[].stages[] entry from a stage result and commit it into hydra.json. The record composer for hydra-flows-first-port task 5.2.",
+  "trigger": "manual",
+  "enabled": true,
+  "$comment": [
+    "WHAT THIS IS. The supervisor wrote hydra.json by appending to it in shell after each",
+    "stage returned. That writer is the last piece of the record path still living outside a",
+    "flow: task 2.1 proved a commit can be created entirely over REST (hydra-commit-by-api),",
+    "and task 5.1 made a stage result carry its own attribution. This joins them — it takes a",
+    "stage result off the item, turns it into the one object hydra's record stores per stage,",
+    "and hands it to the commit flow.",
+    "",
+    "WHY EVERY FIELD IS A VALUE AND NEVER A LOOKUP KEY. Task 5.3's guard",
+    "(scripts/test-run-reconstructible.sh) fails if any value in the record defers to a",
+    "register, flow state or the console — because sequencing state, slot tables and the",
+    "console's view are all CACHES, and the moment one of them quietly becomes the only place",
+    "a fact lives, the pipeline stops being reconstructible and nobody finds out until a",
+    "register is rebuilt. So `owner` is a name, not a user id to resolve; `verdict` is a word,",
+    "not a status object to fetch; `exit_code` is the number itself.",
+    "",
+    "WHY THE VERDICT IS COMPUTED HERE AND NOT IN THE NODE. hydra's gate runner uses its exit",
+    "code as a failure COUNT, so the workload step returns the number verbatim and refuses to",
+    "collapse it. Turning that number into pass/fail is hydra's convention, so it belongs in",
+    "hydra's flow — which is also where it stays readable to someone following the pipeline on",
+    "a canvas.",
+    "",
+    "WHY THE OUTPUT IS TRUNCATED. A gate run's full output is megabytes and hydra.json is a",
+    "committed file. The record keeps the tail, which is where the gate runner prints its",
+    "summary line; the full log belongs on the issue comment, which is a different artefact",
+    "with a different lifetime.",
+    "",
+    "🔑 WHAT WAS WRONG (REVALIDATION-2026-08-02 D2). `write-record` handed the commit",
+    "sub-flow a `config.input` map. `SubFlowNode` has no `input` key and no `output` key —",
+    "it reads `flow`/`flowId` and `wait`, and the child is seeded with the parent's ITEMS",
+    "(`$this->runs->execute(..., seedItems: $items)`). So the whole map was dead config: the",
+    "child never saw `content` or `expectedFiles`, `make-blob` POSTed `{\"content\": null}`",
+    "and GitHub answered 422. The branch tip was byte-identical before and after — the run",
+    "'failed' at the very last step, which is the one shape that looks like an outage rather",
+    "than a config error.",
+    "",
+    "So the fix is not to pass a map, it is to put the fields ON THE ITEM. Everything",
+    "`hydra-commit-by-api` reads — `repo`, `branch`, `path`, `content`, `message`,",
+    "`expectedFiles` — is composed here and travels as the item.",
+    "",
+    "⚠️ `read-record` asks for `Accept: application/vnd.github.raw`. The contents API's",
+    "  default representation is a WRAPPER whose `content` is base64, and the expression",
+    "  language has no base64 decode (`FlowExpression` ships `toJson`/`fromJson` and no",
+    "  codec). With the raw media type GitHub returns the file itself, and",
+    "  `SourceCallNode::decodeBody()` json-decodes any UTF-8 body regardless of content",
+    "  type — so `record.body` IS the record document.",
+    "",
+    "⚠️ ONE CYCLE ENTRY PER STAGE, and this is a deliberate, documented deviation.",
+    "  Appending into the LAST element of `cycles[]` cannot be expressed: `SetFieldsNode`",
+    "  builds objects from DOTTED PATHS and the path is a literal config key, never",
+    "  templated, so no step can write to `cycles.<n>.stages` for an `n` that depends on the",
+    "  run; and `compute` is JsonLogic, which evaluates expressions and cannot construct an",
+    "  object at all. What IS expressible is `merge` — so each stage appends a fresh cycle",
+    "  entry carrying its own `cycle` number and its one stage. `.cycles[].stages[]` still",
+    "  enumerates every stage in order, which is exactly what test-run-reconstructible.sh",
+    "  asks the record, and a reader groups by `cycle` to recover the cycles. Nothing is",
+    "  lost; the grouping is simply not pre-applied. Closing this properly needs a templated",
+    "  `set` path or an array-append node in OpenRegister.",
+    "",
+    "⚠️ `refuse-unattributed` used to be `unattributed → unattributed`. A `StopNode` that",
+    "  receives ZERO items passes through by design (or#2232), so on the ordinary attributed",
+    "  path the token would land back on its own place and the transition would stay enabled",
+    "  — the same unbounded-loop shape that killed hydra-analyze-verdicts. It never surfaced",
+    "  only because the run always died earlier at `write-record`. It now ends on `refused`."
+  ],
+  "$bindings": {
+    "read-record.source": "hydra-forge",
+    "write-record.flow": "hydra-commit-by-api"
+  },
+  "nodes": [
+    {
+      "id": "start",
+      "type": "openregister.trigger-manual",
+      "config": {},
+      "position": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": "attribution-gate",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "decide-verdict",
+            "condition": {
+              "!!": [
+                {
+                  "var": "json.stage.owner"
+                }
+              ]
+            }
+          }
+        ],
+        "default": "refuse-unattributed",
+        "$comment": "The workload step refuses to run unattributed, so this should never fire. It is here because a record entry with no owner is unfixable AFTER the fact — the run is durable and there is no second chance to ask who ran it. A guard on the last writable moment costs one edge."
+      }
+    },
+    {
+      "id": "decide-verdict",
+      "type": "openregister.set-fields",
+      "config": {
+        "compute": {
+          "outcome": {
+            "if": [
+              {
+                "===": [
+                  {
+                    "var": "json.stage.exitCode"
+                  },
+                  0
+                ]
+              },
+              "passed",
+              "failed"
+            ]
+          },
+          "verdict": {
+            "if": [
+              {
+                "===": [
+                  {
+                    "var": "json.stage.exitCode"
+                  },
+                  0
+                ]
+              },
+              "pass",
+              "fail"
+            ]
+          },
+          "failures": {
+            "var": "json.stage.exitCode"
+          },
+          "startedAt": {
+            "now": []
+          },
+          "outcomeReason": {
+            "cat": [
+              {
+                "var": "json.stageName"
+              },
+              ": ",
+              {
+                "if": [
+                  {
+                    "===": [
+                      {
+                        "var": "json.stage.exitCode"
+                      },
+                      0
+                    ]
+                  },
+                  "every gate passed",
+                  {
+                    "cat": [
+                      {
+                        "var": "json.stage.exitCode"
+                      },
+                      " gate(s) failed"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "$comment": "`outcome`, `outcome_reason` and `started_at` are CYCLE-level and are computed here because `set` runs before `compute` within a step — the step that builds the cycle object can only template values another step already put on the item. test-run-reconstructible.sh asks the record how the run ENDED and WHEN, and refuses an outcome with no reason: 'an outcome with no reason is a fact you cannot act on'. ⚠️ The three exit-code tests are `===`, not `==`. Under json-logic-php's loose `==` an ABSENT `stage.exitCode` evaluated `null == 0` → TRUE, so a stage that produced no exit code at all was RECORDED as `verdict: pass` / `outcome: passed` / 'every gate passed'. Record-or-die exists so a verdict label cannot advance without a record; a record that invents a pass is worse than none."
+      }
+    },
+    {
+      "id": "compose-entry",
+      "type": "openregister.set-fields",
+      "config": {
+        "set": {
+          "stageEntry.ref": "{{stage.ref}}",
+          "stageEntry.owner": "{{stage.owner}}",
+          "stageEntry.stage": "{{stageName}}",
+          "stageEntry.verdict": "{{verdict}}",
+          "stageEntry.failures": "{{failures}}",
+          "stageEntry.exit_code": "{{stage.exitCode}}",
+          "stageEntry.output_tail": "{{stage.output}}",
+          "stageEntry.credential_name": "{{stage.credential_name}}",
+          "stageEntry.credential_owner": "{{stage.credential_owner}}"
+        },
+        "$comment": "One object per stage, every field a VALUE. Dotted keys nest (openregister#2244); `compute` cannot build an object because JsonLogic evaluates expressions rather than constructing them. `failures` is the gate runner's own count, kept beside the verdict because 'fail' alone loses how badly."
+      }
+    },
+    {
+      "id": "read-record",
+      "type": "openconnector.source-call",
+      "config": {
+        "method": "GET",
+        "output": "record",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "headers": {
+          "Accept": "application/vnd.github.raw"
+        },
+        "onError": "continue",
+        "$comment": "Read the CURRENT record before writing, so a stage appends to the cycle rather than replacing it. The commit flow's own tip-moved rail catches a concurrent write; this catches the ordinary case of a second stage in the same cycle. The raw media type is what makes the body usable — see the ⚠️ note at the top of this file.\n\n🔴 `onError` IS `continue` BECAUSE THE FIRST RECORD HAS NOTHING TO READ. On\n`stop` this node made the flow able to APPEND to a record and unable to\nCREATE one: `openspec/changes/<slug>/hydra.json` does not exist until\nsomething writes it, and a 404 here ended the run before anything did. The\nfleet's 398 existing records were all written by the shell hydra, which is\nexactly why the gap survived — every path this flow was tried on already had\none.\n\n🔑 A 404 IS THE NORMAL FIRST CASE, not a failure, and everything downstream\nalready handles it. `append-cycle` guards a null `cycles` (`merge` on null\nwould write a first cycle that is a hole), and `hydra-commit-by-api` builds\na tree from `base_tree` rather than patching a known blob, so it creates a\nnew path as readily as it replaces one. This node was the only thing\ninsisting the file be there.\n\n⚠️ The identity fields in `package-commit` are what a missing record leaves\nempty — they used to be copied straight off `record.body`, so a created\nrecord would have carried an empty `app`, `repo`, `issue` and `spec_slug`.\nThey now coalesce onto the caller's values, which the appending case does\nnot notice and the creating case depends on entirely.",
+        "endpoint": "/repos/{{repo}}/contents/{{recordPath}}?ref={{branch}}"
+      }
+    },
+    {
+      "id": "number-cycle",
+      "type": "openregister.set-fields",
+      "config": {
+        "compute": {
+          "cycleNumber": {
+            "+": [
+              {
+                "length": [
+                  {
+                    "var": "json.record.body.cycles"
+                  }
+                ]
+              },
+              1
+            ]
+          }
+        },
+        "$comment": "THE CYCLE NUMBER COMES FROM THE RECORD, NOT FROM THE CALLER.\n\n`append-cycle` used to take `{{cycle}}` off the item, which made the number\nwhatever the invoking flow happened to pass. The sequencer has no way to know\nit — the record is the only thing that knows how many cycles it already holds,\nand it has just been read one node earlier. A caller-supplied number would\nmean every build claiming to be cycle 1, and the record losing the ordering it\nexists to keep.\n\n🔑 IT MUST BE ITS OWN NODE, because `set` runs before `compute` WITHIN a\nstep. Computing this inside `append-cycle` would evaluate it after the `set`\nthat consumes it, and `{{cycleNumber}}` would render empty — the same ordering\ntrap documented on that node and on `package-commit`.\n\n⚠️ `length` on an ABSENT key answers 0, not an error: `is_array(null)` is\nfalse so it falls to `mb_strlen('')`. So a record with no `cycles` yet — the\nfirst build of a change — correctly numbers its first cycle 1 without needing\na guard."
+      }
+    },
+    {
+      "id": "append-cycle",
+      "type": "openregister.set-fields",
+      "config": {
+        "set": {
+          "cycleEntry.cycle": "{{cycleNumber}}",
+          "cycleEntry.outcome": "{{outcome}}",
+          "cycleEntry.stages.0": "{{stageEntry}}",
+          "cycleEntry.started_at": "{{startedAt}}",
+          "cycleEntry.outcome_reason": "{{outcomeReason}}"
+        },
+        "compute": {
+          "allCycles": {
+            "merge": [
+              {
+                "if": [
+                  {
+                    "var": "json.record.body.cycles"
+                  },
+                  {
+                    "var": "json.record.body.cycles"
+                  },
+                  []
+                ]
+              },
+              [
+                {
+                  "var": "json.cycleEntry"
+                }
+              ]
+            ]
+          },
+          "recordApp": {
+            "coalesce": [
+              {
+                "var": "json.record.body.app"
+              },
+              {
+                "var": "json.app"
+              }
+            ]
+          },
+          "recordRepo": {
+            "coalesce": [
+              {
+                "var": "json.record.body.repo"
+              },
+              {
+                "var": "json.repo"
+              }
+            ]
+          },
+          "recordIssue": {
+            "coalesce": [
+              {
+                "var": "json.record.body.issue"
+              },
+              {
+                "var": "json.issueNumber"
+              }
+            ]
+          },
+          "recordSpecSlug": {
+            "coalesce": [
+              {
+                "var": "json.record.body.spec_slug"
+              },
+              {
+                "var": "json.change"
+              }
+            ]
+          }
+        },
+        "$comment": "`set` runs before `compute` inside one step, so the cycle entry is built first (dotted paths; `stages.0` becomes a real JSON array because PHP normalises the numeric key) and then merged onto whatever the record already held. The `if` guard matters: `merge` on a null `cycles` would produce `[null]` and write a record whose first cycle is a hole.\n\n🔑 THE FOUR IDENTITY FIELDS ARE RESOLVED HERE RATHER THAN IN\n`package-commit`, and the reason is the same ordering rule stated above,\nread the other way. Inside one step `set` runs BEFORE `compute`, so a\ncoalesce written next to the `set` that consumes it would be evaluated too\nlate — `package-commit` would render `{{recordApp}}` against a key that did\nnot exist yet and write an empty string. Resolving them in the PREVIOUS\nstep's `compute` puts the whole thing in front of that `set` with no\nintra-step ordering to get wrong.\n\nThey coalesce onto values supplied by the CALLER because the record being\nread may not exist: `read-record` is `onError: continue` so that a first\nrecord can be created, and on that path `record.body` is absent entirely.\nAppending does not notice — the existing record wins every time — and\ncreating depends on it completely. The sequencer supplies `repoName`,\n`repo`, `issueNumber` and `change` under the names read here."
+      }
+    },
+    {
+      "id": "package-commit",
+      "type": "openregister.set-fields",
+      "config": {
+        "set": {
+          "path": "{{recordPath}}",
+          "message": "chore(hydra): record {{stageName}} = {{verdict}} for cycle {{cycleNumber}}",
+          "expectedFiles": 1,
+          "newRecord.schema_version": 2,
+          "newRecord.app": "{{recordApp}}",
+          "newRecord.repo": "{{recordRepo}}",
+          "newRecord.issue": "{{recordIssue}}",
+          "newRecord.cycles": "{{allCycles}}",
+          "newRecord.spec_slug": "{{recordSpecSlug}}"
+        },
+        "compute": {
+          "content": {
+            "toJson": [
+              {
+                "var": "json.newRecord"
+              }
+            ]
+          }
+        },
+        "$comment": "Everything hydra-commit-by-api reads, on the item, because that is the only channel a sub-flow has. `expectedFiles` is 1 and is not a formality: it is the assertion the child's diff-gate checks, and it is the only thing standing between 'my one file landed' and 'my tree quietly reverted four others' (base_tree OVERWRITES). The record identity fields are carried from the record that was just read, so this step never invents them.\n\n⚠️ THEY USED TO READ `record.body` DIRECTLY, which was correct for the only\ncase this flow could reach: a record that already existed. Now that\n`read-record` tolerates a 404 so a FIRST record can be created, `record.body`\nis absent on exactly that path — and a template rendering an absent key\nyields an empty string rather than failing, so the created record would have\nbeen written with an empty `app`, `repo`, `issue` and `spec_slug`. A record\nthat exists and identifies nothing is worse than no record: the whole point\nof 'the repo is the record' is that it can be READ BACK.\n\nThe coalesce happens in `append-cycle`'s `compute`, one step earlier, because\n`set` runs before `compute` WITHIN a step — see the note there."
+      }
+    },
+    {
+      "id": "write-record",
+      "type": "openregister.sub-flow",
+      "config": {
+        "flow": "d5b163cf-c13a-43d4-b341-438c818a45df",
+        "wait": true,
+        "$comment": "The proved writer (task 2.1): blob -> tree -> commit -> ref, with the tip-moved and compare rails. It is seeded with THIS item, which is why the step above exists."
+      },
+      "exit": true
+    },
+    {
+      "id": "refuse-unattributed",
+      "type": "openregister.end",
+      "config": {
+        "error": true,
+        "message": "A stage result with no owner cannot be recorded: the record answers 'who ran this, on whose credential', and that answer is not recoverable after the run."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-attribution-gate",
+      "from": "start",
+      "to": "attribution-gate"
+    },
+    {
+      "id": "write-record-refuse-unattributed",
+      "from": "write-record",
+      "to": "refuse-unattributed"
+    },
+    {
+      "id": "attribution-gate-decide-verdict",
+      "from": "attribution-gate",
+      "to": "decide-verdict",
+      "title": "Verdict decided"
+    },
+    {
+      "id": "decide-verdict-compose-entry",
+      "from": "decide-verdict",
+      "to": "compose-entry",
+      "title": "Stage entry composed"
+    },
+    {
+      "id": "compose-entry-read-record",
+      "from": "compose-entry",
+      "to": "read-record",
+      "title": "Record read"
+    },
+    {
+      "id": "append-cycle-package-commit",
+      "from": "append-cycle",
+      "to": "package-commit",
+      "title": "Cycle entry merged"
+    },
+    {
+      "id": "package-commit-write-record",
+      "from": "package-commit",
+      "to": "write-record",
+      "title": "Commit payload built"
+    },
+    {
+      "id": "attribution-gate-refuse-unattributed",
+      "from": "attribution-gate",
+      "to": "refuse-unattributed",
+      "title": "Refused — no attribution"
+    },
+    {
+      "id": "read-record-number-cycle",
+      "from": "read-record",
+      "to": "number-cycle",
+      "title": "record read"
+    },
+    {
+      "id": "number-cycle-append-cycle",
+      "from": "number-cycle",
+      "to": "append-cycle",
+      "title": "cycle numbered"
+    }
+  ]
+}

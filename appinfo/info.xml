@@ -133,6 +133,9 @@
             <step>OCA\Hermiq\Repair\SeedHydraTriageFlow</step>
             <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-6-seed-the-hydra-triage-agent -->
             <step>OCA\Hermiq\Repair\SeedHydraTriageAgent</step>
+            <!-- @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md -->
+            <!-- hydra's pipeline flows from lib/Settings/flows, disabled and ownerless, once each by name. -->
+            <step>OCA\Hermiq\Repair\SeedBundledFlows</step>
             <!-- @spec openspec/changes/hermiq-agent-application-slug/specs/hermiq-agent-application-slug/spec.md#requirement-the-four-hydra-console-agents-are-backfilled-with-their-application-slug -->
             <!-- Runs AFTER SeedHydraTriageAgent so a first-upgrade install's seeded
                  "Hydra Triage" (which now sets applicationSlug at creation time) is
@@ -237,6 +240,9 @@
             <step>OCA\Hermiq\Repair\SeedHydraTriageFlow</step>
             <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-6-seed-the-hydra-triage-agent -->
             <step>OCA\Hermiq\Repair\SeedHydraTriageAgent</step>
+            <!-- @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md -->
+            <!-- hydra's pipeline flows from lib/Settings/flows, disabled and ownerless, once each by name. -->
+            <step>OCA\Hermiq\Repair\SeedBundledFlows</step>
             <!-- @spec openspec/changes/talk-chat-bridge/tasks.md#1-bot-registration-and-lifecycle -->
             <step>OCA\Hermiq\Repair\InstallTalkBot</step>
             <!-- @spec openspec/changes/instant-talk/tasks.md#4-multi-agent-rooms -->
