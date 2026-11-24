@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/session-entity-links/tasks.md
+ * @spec openspec/specs/session-entity-links/spec.md
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
@@ -47,7 +47,7 @@ use Throwable;
 /**
  * Records, lists and removes the links of a session.
  *
- * @spec openspec/changes/session-entity-links/tasks.md
+ * @spec openspec/specs/session-entity-links/spec.md
  *
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) carried in with session-entity-links; splitting it is
  * follow-up work, not part of this merge.
@@ -126,7 +126,7 @@ class SessionLinks {
 	 *
 	 * @return array<int, array<string, mixed>> The session's links after recording, [] when nothing was recorded.
 	 *
-	 * @spec openspec/changes/session-entity-links/tasks.md
+	 * @spec openspec/specs/session-entity-links/spec.md
 	 */
 	public function recordTurn(string $sessionUuid, array $context, string $userId): array {
 		try {
@@ -170,7 +170,7 @@ class SessionLinks {
 	 *
 	 * @return array<int, array<string, string>> `type`, `id`, `label` and, for an object, `schema`.
 	 *
-	 * @spec openspec/changes/session-entity-links/tasks.md
+	 * @spec openspec/specs/session-entity-links/spec.md
 	 */
 	public function fromContext(array $context, string $userId): array {
 		$links  = [];
@@ -208,7 +208,7 @@ class SessionLinks {
 	 *
 	 * @return array<int, array<string, mixed>>
 	 *
-	 * @spec openspec/changes/session-entity-links/tasks.md
+	 * @spec openspec/specs/session-entity-links/spec.md
 	 */
 	public static function merge(array $stored, array $found, string $now): array {
 		$links = $stored;
@@ -232,7 +232,7 @@ class SessionLinks {
 	 *
 	 * @return array<int, array<string, mixed>>
 	 *
-	 * @spec openspec/changes/session-entity-links/tasks.md
+	 * @spec openspec/specs/session-entity-links/spec.md
 	 */
 	public static function linksOf(array $sessionData): array {
 		$links = [];
@@ -269,7 +269,7 @@ class SessionLinks {
 	 *
 	 * @return array<string, mixed>|null
 	 *
-	 * @spec openspec/changes/session-entity-links/tasks.md
+	 * @spec openspec/specs/session-entity-links/spec.md
 	 */
 	public static function linkTo(array $sessionData, string $type, string $id): ?array {
 		$links = self::linksOf(sessionData: $sessionData);
@@ -291,7 +291,7 @@ class SessionLinks {
 	 *
 	 * @return array<int, ObjectEntity>
 	 *
-	 * @spec openspec/changes/session-entity-links/tasks.md
+	 * @spec openspec/specs/session-entity-links/spec.md
 	 */
 	public static function about(array $sessions, string $type, string $id): array {
 		if ($type === '' || $id === '') {
@@ -321,7 +321,7 @@ class SessionLinks {
 	 *
 	 * @return ObjectEntity|null The saved session, or null when it had no such link.
 	 *
-	 * @spec openspec/changes/session-entity-links/tasks.md
+	 * @spec openspec/specs/session-entity-links/spec.md
 	 */
 	public function remove(ObjectEntity $session, string $type, string $id): ?ObjectEntity {
 		$data  = $session->getObject();

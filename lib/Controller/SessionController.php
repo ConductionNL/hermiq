@@ -344,7 +344,7 @@ class SessionController extends Controller {
 	 *
 	 * @return array{type: string, id: string}
 	 *
-	 * @spec openspec/changes/session-entity-links/tasks.md
+	 * @spec openspec/specs/session-entity-links/spec.md
 	 */
 	private static function linkScope(array $params): array {
 		$scope = ['type' => '', 'id' => ''];
@@ -367,7 +367,7 @@ class SessionController extends Controller {
 	 *
 	 * @return array{type: string, id: string, label: string|null}
 	 *
-	 * @spec openspec/changes/session-entity-links/tasks.md
+	 * @spec openspec/specs/session-entity-links/spec.md
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) SessionLinks is a set of pure functions over session data; it
 	 * holds no state to inject.
@@ -400,7 +400,7 @@ class SessionController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 *
-	 * @spec openspec/changes/session-entity-links/tasks.md
+	 * @spec openspec/specs/session-entity-links/spec.md
 	 */
 	public function removeLink(string $uuid): JSONResponse {
 		try {
