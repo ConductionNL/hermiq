@@ -819,7 +819,7 @@ class ChatController extends Controller {
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength)
 	 *
-	 * @spec openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port/spec.md#requirement-a-person-rates-an-answer-up-or-down-with-an-optional-comment-req-chfb-001
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-a-person-rates-an-answer-up-or-down-with-an-optional-comment-req-chfb-001
 	 */
 	public function sendFeedback(string $conversationUuid, string $messageId): JSONResponse {
 		try {

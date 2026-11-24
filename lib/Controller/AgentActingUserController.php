@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
+ * @spec openspec/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
  */
 
 declare(strict_types=1);
@@ -40,7 +40,7 @@ use OCP\IUserSession;
 /**
  * Whether an agent's declared acting user still resolves.
  *
- * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
+ * @spec openspec/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
  */
 class AgentActingUserController extends Controller {
 
@@ -52,7 +52,7 @@ class AgentActingUserController extends Controller {
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IUserManager $userManager Looks up the named account.
 	 *
-	 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
+	 * @spec openspec/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
 	 */
 	public function __construct(
 		IRequest $request,
@@ -77,7 +77,7 @@ class AgentActingUserController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 *
-	 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
+	 * @spec openspec/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
 	 */
 	public function show(string $id): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -102,7 +102,7 @@ class AgentActingUserController extends Controller {
 	 *
 	 * @return bool True when the agent can run as declared.
 	 *
-	 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
+	 * @spec openspec/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
 	 */
 	private function resolves(string $uid): bool {
 		if ($uid === '') {
@@ -121,7 +121,7 @@ class AgentActingUserController extends Controller {
 	 *
 	 * @return string The declared user id.
 	 *
-	 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
+	 * @spec openspec/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
 	 */
 	private static function actingUserOf(array $data): string {
 		$value = ($data['actingUser'] ?? null);

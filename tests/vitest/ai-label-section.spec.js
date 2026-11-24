@@ -6,7 +6,7 @@
  * the label shown as "Gemaakt met AI" and never as the stored tag name, and the
  * Files link filtered on the stored tag.
  *
- * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-hermiq-shows-the-ai-label-as-gemaakt-met-ai-req-ailbl-004
+ * @spec openspec/specs/nc-native-tools/spec.md#requirement-hermiq-shows-the-ai-label-as-gemaakt-met-ai-req-ailbl-004
  */
 
 import { flushPromises, mount } from '@vue/test-utils'

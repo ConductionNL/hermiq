@@ -15,7 +15,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
+ * @spec openspec/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests for whether an agent's declared acting user still resolves.
  *
- * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
+ * @spec openspec/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
  */
 #[CoversClass(AgentActingUserController::class)]
 class AgentActingUserControllerTest extends TestCase {

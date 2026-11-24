@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
+ * @spec openspec/specs/agent-management-ui/spec.md#REQ-SPCOV-002
  */
 
 declare(strict_types=1);
@@ -36,7 +36,7 @@ use OCP\EventDispatcher\Event;
 /**
  * Reads the new value of one agent field on a pending write, when the write changes it.
  *
- * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
+ * @spec openspec/specs/agent-management-ui/spec.md#REQ-SPCOV-002
  */
 class AgentFieldChanges {
 
@@ -61,7 +61,7 @@ class AgentFieldChanges {
 	 *
 	 * @return array{agentUuid: string, value: mixed}|null
 	 *
-	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
+	 * @spec openspec/specs/agent-management-ui/spec.md#REQ-SPCOV-002
 	 */
 	public function changedValue(Event $event, string $field): ?array {
 		if (($event instanceof ObjectUpdatingEvent) === false && ($event instanceof ObjectCreatingEvent) === false) {
@@ -99,7 +99,7 @@ class AgentFieldChanges {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
+	 * @spec openspec/specs/agent-management-ui/spec.md#REQ-SPCOV-002
 	 */
 	public function refuse(Event $event, string $field, string $message): void {
 		if (($event instanceof ObjectUpdatingEvent) === false && ($event instanceof ObjectCreatingEvent) === false) {

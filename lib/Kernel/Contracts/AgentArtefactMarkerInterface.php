@@ -64,7 +64,7 @@ interface AgentArtefactMarkerInterface {
 	 *
 	 * @return bool True when the mark is present.
 	 *
-	 * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored-req-ailbl-001
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored-req-ailbl-001
 	 */
 	public function isFileMarked(int $fileId): bool;
 
@@ -80,7 +80,7 @@ interface AgentArtefactMarkerInterface {
 	 *
 	 * @throws \OCA\Hermiq\Service\NcNative\ArtefactMarkingFailedException When the reviewed tag cannot be resolved or assigned.
 	 *
-	 * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
 	 */
 	public function markReviewed(int $fileId): void;
 }//end interface

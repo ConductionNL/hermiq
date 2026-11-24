@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+ * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
  */
 
 declare(strict_types=1);
@@ -39,7 +39,7 @@ use Throwable;
 /**
  * Counts the viewer's contacts and calendar items that carry one property.
  *
- * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+ * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
  */
 class MarkedObjectCounter {
 
@@ -57,7 +57,7 @@ class MarkedObjectCounter {
 	 * @param ICalendarManager $calendarManager The calendars of a principal.
 	 * @param LoggerInterface  $logger          Notes an address book or calendar that could not be read.
 	 *
-	 * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
 	 */
 	public function __construct(
 		private readonly IContactsManager $contactsManager,
@@ -76,7 +76,7 @@ class MarkedObjectCounter {
 	 *
 	 * @return array{count: int, truncated: bool} `truncated` says more contacts exist than were read.
 	 *
-	 * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
 	 */
 	public function contacts(string $property): array {
 		$batches = [];
@@ -103,7 +103,7 @@ class MarkedObjectCounter {
 	 *
 	 * @return array{count: int, truncated: bool} `truncated` says more items exist than were read.
 	 *
-	 * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
 	 */
 	public function calendarItems(string $uid, string $property): array {
 		if ($uid === '') {

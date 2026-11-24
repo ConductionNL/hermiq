@@ -8,9 +8,10 @@
       the acting user's folder and default-denied like the other write tools (REQ-SPCOV-005).
       Verify: a unit test refuses a path outside `getUserFolder($uid)`.
       (`Service/NcNative/FilesWriteService`; `FilesWriteServiceTest`, `NcNativeWriteServiceFilesTest`.)
-- [ ] 1.3 Add e2e coverage for the REQ-SPCOV scenarios that have a screen, or a reasoned
+- [x] 1.3 Add e2e coverage for the REQ-SPCOV scenarios that have a screen, or a reasoned
       `@e2e exclude` for the server-side ones (gate 19).
       - 2026-11-21: `tests/e2e/spec-coverage/spec-coverage-built-rows.spec.ts` written for the ten scenarios with a screen or an endpoint, and a reason-bearing `@e2e exclude` naming the covering unit test added to the nineteen server-side ones; not run here, it needs a running Nextcloud.
+      - 2026-11-24: written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 - [x] 1.4 Cover REQ-SPCOV-014 and REQ-SPCOV-015, added in the closing round of 12 November: a
       unit test that `ScheduleTask` keeps parallel runs off, and a test that a register update
       without a write grant is refused while a granted one goes through. Verify: both tests

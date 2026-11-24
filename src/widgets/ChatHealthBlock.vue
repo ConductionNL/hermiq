@@ -12,7 +12,7 @@
   `app_connection` rows for app=hermiq. src/services/chatHealth.js picks the
   fields it shows, so no URL, credential or key reaches the page.
 
-  @spec openspec/changes/spec-coverage-built-rows/specs/observability/spec.md#REQ-SPCOV-012
+  @spec openspec/specs/observability/spec.md#REQ-SPCOV-012
 -->
 <template>
 	<section class="chat-health" :aria-label="t('hermiq', 'Chat health')">
@@ -75,7 +75,7 @@ export default {
 		 * The one sentence that says whether chat works, and if not, why.
 		 *
 		 * @return {string} The headline.
-		 * @spec openspec/changes/spec-coverage-built-rows/specs/observability/spec.md#REQ-SPCOV-012
+		 * @spec openspec/specs/observability/spec.md#REQ-SPCOV-012
 		 */
 		headline() {
 			if (this.view.chatStatus === 'ok') {
@@ -91,7 +91,7 @@ export default {
 		 * The note card's tone: success when chat works, warning when no provider is chosen, else error.
 		 *
 		 * @return {string} `success`, `warning` or `error`.
-		 * @spec openspec/changes/spec-coverage-built-rows/specs/observability/spec.md#REQ-SPCOV-012
+		 * @spec openspec/specs/observability/spec.md#REQ-SPCOV-012
 		 */
 		noteType() {
 			if (this.view.chatStatus === 'ok') {
@@ -113,7 +113,7 @@ export default {
 		 *
 		 * @param {string} state `yes`, `no` or `off`.
 		 * @return {string} The label.
-		 * @spec openspec/changes/spec-coverage-built-rows/specs/observability/spec.md#REQ-SPCOV-012
+		 * @spec openspec/specs/observability/spec.md#REQ-SPCOV-012
 		 */
 		stateLabel(state) {
 			if (state === 'yes') {
@@ -129,7 +129,7 @@ export default {
 		 * Read the three sources; one that fails leaves its part empty.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/spec-coverage-built-rows/specs/observability/spec.md#REQ-SPCOV-012
+		 * @spec openspec/specs/observability/spec.md#REQ-SPCOV-012
 		 */
 		async load() {
 			const [health, llm, connections] = await Promise.all([

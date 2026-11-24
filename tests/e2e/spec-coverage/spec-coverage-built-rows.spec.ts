@@ -29,7 +29,7 @@
  *     NEXTCLOUD_URL=http://localhost:8080 NC_USER=admin NC_PASS=admin \
  *       npx playwright test --project=chromium spec-coverage-built-rows
  *
- * @spec openspec/changes/spec-coverage-built-rows/tasks.md
+ * @spec openspec/changes/archive/2026-11-24-spec-coverage-built-rows/tasks.md
  */
 
 import type { APIRequestContext, Browser, BrowserContext } from '@playwright/test'

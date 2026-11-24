@@ -25,7 +25,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/spec-coverage-built-rows/tasks.md
+ * @spec openspec/changes/archive/2026-11-24-spec-coverage-built-rows/tasks.md
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use Throwable;
  * @category Service
  * @package  OCA\Hermiq\Service\NcNative
  *
- * @spec openspec/changes/spec-coverage-built-rows/tasks.md
+ * @spec openspec/changes/archive/2026-11-24-spec-coverage-built-rows/tasks.md
  */
 class FilesWriteService {
 
@@ -78,8 +78,8 @@ class FilesWriteService {
 	 *
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
-	 * @spec openspec/changes/spec-coverage-built-rows/tasks.md
-	 * @spec openspec/changes/spec-coverage-built-rows/specs/nc-native-tools/spec.md#REQ-SPCOV-005
+	 * @spec openspec/changes/archive/2026-11-24-spec-coverage-built-rows/tasks.md
+	 * @spec openspec/specs/nc-native-tools/spec.md#REQ-SPCOV-005
 	 */
 	public function createFile(string $uid, array $arguments): array {
 		$path = $this->confinedPath(path: ($arguments['path'] ?? null));
@@ -185,8 +185,8 @@ class FilesWriteService {
 	 *
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
-	 * @spec openspec/changes/spec-coverage-built-rows/tasks.md
-	 * @spec openspec/changes/spec-coverage-built-rows/specs/nc-native-tools/spec.md#REQ-SPCOV-005
+	 * @spec openspec/changes/archive/2026-11-24-spec-coverage-built-rows/tasks.md
+	 * @spec openspec/specs/nc-native-tools/spec.md#REQ-SPCOV-005
 	 */
 	public function moveFile(string $uid, array $arguments): array {
 		$from = $this->confinedPath(path: $arguments['from'] ?? null);
@@ -302,7 +302,7 @@ class FilesWriteService {
 	 *
 	 * @return string|null The normalised path, without leading or trailing slashes.
 	 *
-	 * @spec openspec/changes/spec-coverage-built-rows/tasks.md
+	 * @spec openspec/changes/archive/2026-11-24-spec-coverage-built-rows/tasks.md
 	 */
 	public function confinedPath(mixed $path): ?string {
 		if (self::isPlainPath(path: $path) === false) {

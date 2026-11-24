@@ -18,7 +18,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+ * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
  */
 
 declare(strict_types=1);
@@ -41,7 +41,7 @@ use Throwable;
 /**
  * Marks a labelled file as reviewed, and reports the label counts.
  *
- * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+ * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
  */
 class AiLabelController extends Controller {
 	/**
@@ -53,7 +53,7 @@ class AiLabelController extends Controller {
 	 * @param IRootFolder                  $rootFolder  Opens the caller's own Files.
 	 * @param IUserSession                 $userSession Resolves the caller.
 	 *
-	 * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
 	 */
 	public function __construct(
 		IRequest $request,
@@ -76,7 +76,7 @@ class AiLabelController extends Controller {
 	 *
 	 * @return JSONResponse The file id and its reviewed state, or an error.
 	 *
-	 * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
 	 */
 	#[NoAdminRequired]
 	public function markReviewed(int $fileId): JSONResponse {
@@ -107,7 +107,7 @@ class AiLabelController extends Controller {
 	 *
 	 * @return JSONResponse files, reviewed, reviewedShare, tagId and truncated.
 	 *
-	 * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
 	 */
 	#[NoAdminRequired]
 	public function stats(): JSONResponse {

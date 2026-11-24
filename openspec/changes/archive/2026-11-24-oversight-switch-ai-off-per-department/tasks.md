@@ -12,6 +12,7 @@
 
 ## 2. Hand-over
 
-- [ ] 2.1 `@spec` tags and an e2e test or a reason-bearing `@e2e exclude` per scenario.
+- [x] 2.1 `@spec` tags and an e2e test or a reason-bearing `@e2e exclude` per scenario.
   - `@spec` tags are on every new method. The e2e tests need a running Nextcloud and are left open.
   - 2026-11-21: `tests/e2e/spec-coverage/oversight-switch-ai-off-per-department.spec.ts` written from the five scenarios (two seeded departments with an agent and a schedule each, runs started through run-now, a second non-admin user, the organisation kill-switch); not run here, it needs a running Nextcloud.
+  - 2026-11-24: written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.

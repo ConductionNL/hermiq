@@ -28,6 +28,7 @@
 
 ## 4. Verification
 
-- [ ] 4.1 `@spec` tags on every new method (gate 16), an e2e test or a reason-bearing `@e2e exclude`
+- [x] 4.1 `@spec` tags on every new method (gate 16), an e2e test or a reason-bearing `@e2e exclude`
       per scenario (gate 19).
       - 2026-11-21: `tests/e2e/spec-coverage/agent-authored-marking.spec.ts` written for the two scenarios without an exclude (the Dutch oversight section and its Files link, and who wrote a chat answer); not run here, it needs a running Nextcloud.
+      - 2026-11-24: written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.

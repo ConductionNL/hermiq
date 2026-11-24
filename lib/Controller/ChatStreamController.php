@@ -203,7 +203,7 @@ class ChatStreamController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 *
-	 * @spec openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port/spec.md#requirement-the-chat-page-streams-the-answer-as-the-agent-writes-it-req-chstrm-001
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-chat-page-streams-the-answer-as-the-agent-writes-it-req-chstrm-001
 	 */
 	public function stream(): Response {
 		// Clear every output buffer layer (PHP, NC framework, any plugin) so the

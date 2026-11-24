@@ -17,7 +17,7 @@ export const ACTING_AS_SERVICE_ACCOUNT = 'service-account'
  *
  * @param {object} data The agent payload.
  * @return {string} The user id.
- * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-agent-edit-page-sets-whose-rights-the-agent-works-with-req-agid-001
+ * @spec openspec/specs/agent-identity/spec.md#requirement-the-agent-edit-page-sets-whose-rights-the-agent-works-with-req-agid-001
  */
 export function actingUserOf(data) {
 	const value = data ? data.actingUser : undefined
@@ -29,7 +29,7 @@ export function actingUserOf(data) {
  *
  * @param {object} data The agent payload.
  * @return {string} ACTING_AS_PERSON or ACTING_AS_SERVICE_ACCOUNT.
- * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-agent-edit-page-sets-whose-rights-the-agent-works-with-req-agid-001
+ * @spec openspec/specs/agent-identity/spec.md#requirement-the-agent-edit-page-sets-whose-rights-the-agent-works-with-req-agid-001
  */
 export function actingChoiceOf(data) {
 	return actingUserOf(data) === '' ? ACTING_AS_PERSON : ACTING_AS_SERVICE_ACCOUNT
@@ -42,7 +42,7 @@ export function actingChoiceOf(data) {
  * @param {string} choice ACTING_AS_PERSON or ACTING_AS_SERVICE_ACCOUNT.
  * @param {{value: string}|string|null} account The picked user, as a picker option or an id.
  * @return {{actingUser: string}} The field.
- * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-agent-edit-page-sets-whose-rights-the-agent-works-with-req-agid-001
+ * @spec openspec/specs/agent-identity/spec.md#requirement-the-agent-edit-page-sets-whose-rights-the-agent-works-with-req-agid-001
  */
 export function actingUserField(choice, account) {
 	if (choice !== ACTING_AS_SERVICE_ACCOUNT) {

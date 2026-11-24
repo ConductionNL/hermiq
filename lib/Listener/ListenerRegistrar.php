@@ -123,7 +123,7 @@ final class ListenerRegistrar {
 	 * @return void
 	 *
 	 * @spec openspec/specs/agent-capability-reach/spec.md#requirement-waiving-approval-is-recorded-as-a-distinct-audited-event
-	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
+	 * @spec openspec/specs/agent-management-ui/spec.md#REQ-SPCOV-002
 	 */
 	private function registerAgentObjectListeners(IRegistrationContext $context): void {
 		$context->registerEventListener(event: ObjectCreatedEvent::class, listener: AgentBotLifecycleListener::class);

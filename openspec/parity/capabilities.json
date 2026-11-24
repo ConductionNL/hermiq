@@ -1534,7 +1534,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "openspec/specs/agent-capability-profile/spec.md (status active, DONE 12/12 tasks); src/manifest.json:203-527 AgentDetail page combines agent-skills (skillInstalls), agent-tool-governance (tools grant matrix) and agent-core (data incl. model/provider) widgets on the one page; registry.js:280-343 registers both widgets.",
 				"spec": "openspec/specs/agent-capability-profile",
-				"requirement": "openspec/changes/spec-coverage-built-rows/specs/agent-management-ui :: The agent page shows what an agent may use (REQ-SPCOV-001)"
+				"requirement": "openspec/changes/archive/2026-11-24-spec-coverage-built-rows/specs/agent-management-ui :: The agent page shows what an agent may use (REQ-SPCOV-001)"
 			},
 			"reachedOn": "/agents/:id AgentDetail",
 			"note": "Skills, tool grants and core config are three widgets on the same AgentDetail page rather than one merged panel, but they are all visible together without navigating away.",
@@ -1656,7 +1656,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/manifest.json:9-14 Chat page type:custom component Chat; src/views/Chat.vue composer (textarea :422) + sendViaPost/sendViaStream (:1141-1230); src/api/chat.js:233 CHAT_BASE/send; routes.php:520 chat#sendMessage POST /api/chat/send.",
 				"spec": "openspec/specs/agent-engine-port",
-				"requirement": "openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port :: The chat page streams the answer as the agent writes it (REQ-CHSTRM-001)",
+				"requirement": "openspec/changes/archive/2026-11-24-chat-streaming-and-feedback/specs/agent-engine-port :: The chat page streams the answer as the agent writes it (REQ-CHSTRM-001)",
 				"change": "openspec/changes/agent-engine-schemas"
 			},
 			"reachedOn": "/chat Chat page",
@@ -1693,8 +1693,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/views/Chat.vue:1173-1200 sendViaStream() calls streamChatMessage with onToken appending to streamingText live; src/api/chat.js:313-364 streamChatMessage() parses the SSE frames; routes.php:551 chatStream#stream POST /api/chat/stream.",
-				"spec": "openspec/changes/chat-streaming-and-feedback",
-				"requirement": "openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port :: The chat page streams the answer as the agent writes it (REQ-CHSTRM-001)"
+				"spec": "openspec/changes/archive/2026-11-24-chat-streaming-and-feedback",
+				"requirement": "openspec/changes/archive/2026-11-24-chat-streaming-and-feedback/specs/agent-engine-port :: The chat page streams the answer as the agent writes it (REQ-CHSTRM-001)"
 			},
 			"reachedOn": "/chat Chat page, streamed by default with a POST /send fallback on transport failure",
 			"provider": "hermiq",
@@ -1885,8 +1885,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/views/Chat.vue:299-365 thumbs up/down buttons + optional comment box, :1271 sendFeedback(message, type); routes.php:527-532 chat#sendFeedback POST /api/conversations/{uuid}/messages/{id}/feedback.",
-				"spec": "openspec/changes/chat-streaming-and-feedback",
-				"requirement": "openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port :: A person rates an answer up or down, with an optional comment (REQ-CHFB-001)"
+				"spec": "openspec/changes/archive/2026-11-24-chat-streaming-and-feedback",
+				"requirement": "openspec/changes/archive/2026-11-24-chat-streaming-and-feedback/specs/agent-engine-port :: A person rates an answer up or down, with an optional comment (REQ-CHFB-001)"
 			},
 			"reachedOn": "/chat Chat page, per assistant message",
 			"provider": "hermiq",
@@ -2436,7 +2436,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/modals/ScheduleFormModal.vue:88-89 intervalMinutes field when kind==='interval', :303 'Interval' option; lib/Settings/hermiq_register.json Schedule.intervalMinutes.",
 				"spec": "openspec/specs/agent-schedule",
-				"requirement": "openspec/changes/spec-coverage-built-rows/specs/agent-schedule :: A schedule can repeat on an interval or run once (REQ-SPCOV-003)"
+				"requirement": "openspec/changes/archive/2026-11-24-spec-coverage-built-rows/specs/agent-schedule :: A schedule can repeat on an interval or run once (REQ-SPCOV-003)"
 			},
 			"reachedOn": "/agents/:id AgentDetail -> agent-run-operations widget -> Attach/Edit schedule (ScheduleFormModal.vue)",
 			"provider": "hermiq",
@@ -2473,7 +2473,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/modals/ScheduleFormModal.vue:95-96 runAt datetime field when kind==='once', :302 'Once' option; ScheduleService.php nextRun-from-runAt path (one-shots do not recur, per computeNextRun() docblock at :2039-2043).",
 				"spec": "openspec/specs/agent-schedule",
-				"requirement": "openspec/changes/spec-coverage-built-rows/specs/agent-schedule :: A schedule can repeat on an interval or run once (REQ-SPCOV-003)"
+				"requirement": "openspec/changes/archive/2026-11-24-spec-coverage-built-rows/specs/agent-schedule :: A schedule can repeat on an interval or run once (REQ-SPCOV-003)"
 			},
 			"reachedOn": "/agents/:id AgentDetail -> agent-run-operations widget -> Attach/Edit schedule (ScheduleFormModal.vue)",
 			"provider": "hermiq",
@@ -2547,7 +2547,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Service/ScheduleService.php:2039-2071 computeNextRun() anchors the cron/interval computation to resolveTimezone($owner) then converts back to UTC; :3317-3328 resolveTimezone() reads the owner's Nextcloud core.timezone user config, falling back to the instance default_timezone, then UTC.",
 				"spec": "openspec/specs/agent-schedule",
-				"requirement": "openspec/changes/spec-coverage-built-rows/specs/agent-schedule :: A schedule keeps its local time across daylight saving changes (REQ-SPCOV-004)"
+				"requirement": "openspec/changes/archive/2026-11-24-spec-coverage-built-rows/specs/agent-schedule :: A schedule keeps its local time across daylight saving changes (REQ-SPCOV-004)"
 			},
 			"reachedOn": "n/a (server-side computation, no dedicated screen; timezone is inherited from the schedule owner's Nextcloud profile setting)",
 			"provider": "hermiq",
@@ -2891,7 +2891,7 @@
 				"spec": "openspec/specs/agent-schedule",
 				"requirement": [
 					"openspec/specs/agent-schedule :: Fire due schedules and run the agent [MVP]",
-					"openspec/changes/spec-coverage-built-rows/specs/agent-schedule :: A schedule does not start a new run while its last run is still going (REQ-SPCOV-014)"
+					"openspec/changes/archive/2026-11-24-spec-coverage-built-rows/specs/agent-schedule :: A schedule does not start a new run while its last run is still going (REQ-SPCOV-014)"
 				]
 			},
 			"reachedOn": "n/a (server-side dispatcher invariant, no screen)",
@@ -2968,8 +2968,8 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "Not built: agents can only list and read files; no createFile or moveFile tool exists in lib/ (task 1.2 of spec-coverage-built-rows, decision 389). (12 Nov) Was: lib/Mcp/HermiqToolProvider.php:166-201 (listFiles/readFile descriptors) and :775-850 (implementation) scope strictly to IRootFolder::getUserFolder(uid), the acting user's own folder.",
 				"spec": "openspec/specs/nc-native-tools",
-				"requirement": "openspec/changes/spec-coverage-built-rows/specs/nc-native-tools :: An agent can read, create and move files in the acting user's Files (REQ-SPCOV-005)",
-				"plan": "openspec/changes/spec-coverage-built-rows"
+				"requirement": "openspec/changes/archive/2026-11-24-spec-coverage-built-rows/specs/nc-native-tools :: An agent can read, create and move files in the acting user's Files (REQ-SPCOV-005)",
+				"plan": "openspec/changes/archive/2026-11-24-spec-coverage-built-rows"
 			},
 			"reachedOn": "Agent tool grant (ToolGrantMatrix) -> chat/schedule run -> hermiq.listFiles / hermiq.readFile via FacadeToolInvoker",
 			"provider": "hermiq",
@@ -3006,7 +3006,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Mcp/HermiqToolProvider.php:226-241,890-906 (listCalendarEvents) and lib/Mcp/NcNativeWriteToolDescriptors.php:56-95 (createCalendarEvent descriptor), dispatched at HermiqToolProvider.php:700-701 to NcNativeWriteService::createCalendarEvent.",
 				"spec": "openspec/specs/nc-native-tools",
-				"requirement": "openspec/changes/spec-coverage-built-rows/specs/nc-native-tools :: An agent can read the calendar and create events (REQ-SPCOV-006)"
+				"requirement": "openspec/changes/archive/2026-11-24-spec-coverage-built-rows/specs/nc-native-tools :: An agent can read the calendar and create events (REQ-SPCOV-006)"
 			},
 			"reachedOn": "Agent tool grant -> hermiq.listCalendarEvents / hermiq.createCalendarEvent",
 			"provider": "hermiq",
@@ -3304,7 +3304,7 @@
 				"spec": "openspec/specs/agent-tool-governance",
 				"requirement": [
 					"openspec/specs/agent-tool-governance :: Schema-scoped whitelist grants with default-deny for write/destructive tools",
-					"openspec/changes/spec-coverage-built-rows/specs/agent-tool-governance :: An agent reads and updates register records within its grant (REQ-SPCOV-015)"
+					"openspec/changes/archive/2026-11-24-spec-coverage-built-rows/specs/agent-tool-governance :: An agent reads and updates register records within its grant (REQ-SPCOV-015)"
 				]
 			},
 			"reachedOn": "Agent tool grant (any OR object/schema tool) -> chat or scheduled run -> ToolRegistryFacade",
@@ -3415,7 +3415,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/views/McpTools.vue:1-75 lists tools from GET /api/agents/tools (appinfo/routes.php:504 agents#tools), grouped by source app, with an empty state when none are installed.",
 				"spec": "openspec/specs/agent-engine-port",
-				"requirement": "openspec/changes/spec-coverage-built-rows/specs/agent-tool-governance :: The tool catalogue lists every installed app's tools (REQ-SPCOV-007)"
+				"requirement": "openspec/changes/archive/2026-11-24-spec-coverage-built-rows/specs/agent-tool-governance :: The tool catalogue lists every installed app's tools (REQ-SPCOV-007)"
 			},
 			"reachedOn": "/mcp-tools McpTools nav page",
 			"provider": "hermiq",
@@ -3455,7 +3455,7 @@
 				"requirement": "openspec/specs/agent-tool-governance :: Schema-scoped whitelist grants with default-deny for write/destructive tools",
 				"change": [
 					"openspec/changes/tool-scope-security-default",
-					"openspec/changes/structured-tool-grants"
+					"openspec/changes/archive/2026-11-24-structured-tool-grants"
 				]
 			},
 			"reachedOn": "Agent editor (AgentFormModal) -> tool grant matrix -> PUT /api/agents/{agentId}/tool-grants",
@@ -3848,7 +3848,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:205-210 memory#consolidate; lib/Controller/MemoryController.php:223-266; src/components/AgentMemoryPanel.vue:59-68 renders the needsConsolidation nudge with a Consolidate button.",
 				"spec": "openspec/specs/agent-memory",
-				"requirement": "openspec/changes/spec-coverage-built-rows/specs/agent-memory :: An owner can have an agent tidy its memory (REQ-SPCOV-008)"
+				"requirement": "openspec/changes/archive/2026-11-24-spec-coverage-built-rows/specs/agent-memory :: An owner can have an agent tidy its memory (REQ-SPCOV-008)"
 			},
 			"reachedOn": "/memory page -> over-budget nudge -> Consolidate button -> POST /api/agents/{agentId}/memory/consolidate",
 			"provider": "hermiq",
@@ -3958,7 +3958,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Service/Engine/ConversationManagementHandler.php:77-91 (token threshold + keep-count constants), :265-352 checkAndSummarize() generates and stores a running summary; called automatically from lib/Service/Engine/Engine.php:402 on every chat turn.",
 				"spec": "openspec/specs/agent-engine-port",
-				"requirement": "openspec/changes/spec-coverage-built-rows/specs/agent-engine-port :: A long conversation is summarised so it can continue (REQ-SPCOV-009)"
+				"requirement": "openspec/changes/archive/2026-11-24-spec-coverage-built-rows/specs/agent-engine-port :: A long conversation is summarised so it can continue (REQ-SPCOV-009)"
 			},
 			"reachedOn": "Any chat/session turn -> Engine::processMessage -> ConversationManagementHandler::checkAndSummarize (automatic, no user action)",
 			"provider": "hermiq",
@@ -4514,7 +4514,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:324 skill#export GET /api/skills/{id}/export; src/widgets/SkillRowActions.vue:141,277 calls exportSkill(this.skillId()) and offers the resulting package for download.",
 				"spec": "openspec/specs/skills-catalog",
-				"requirement": "openspec/changes/spec-coverage-built-rows/specs/skills-catalog :: A person can export a skill to a file (REQ-SPCOV-010)"
+				"requirement": "openspec/changes/archive/2026-11-24-spec-coverage-built-rows/specs/skills-catalog :: A person can export a skill to a file (REQ-SPCOV-010)"
 			},
 			"reachedOn": "SkillsCatalog row actions -> Export",
 			"provider": "hermiq",
@@ -5417,7 +5417,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/components/TalkDeliverySettings.vue mounted in src/App.vue; lib/Service/DeliveryService.php:1429-1483 reads the owner's 'delivertarget' preference (DELIVER_TARGET_PREF constant at line 163) set from Personal settings, used by resolveDefaultRoom() at line 1441; src/api/talk.js:56-68 getDeliveryTarget/setDeliveryTarget hit /apps/hermiq/api/preferences/delivertarget.",
 				"spec": "openspec/specs/talk-delivery",
-				"requirement": "openspec/changes/spec-coverage-built-rows/specs/talk-delivery :: A person chooses where their agents deliver by default (REQ-SPCOV-011)"
+				"requirement": "openspec/changes/archive/2026-11-24-spec-coverage-built-rows/specs/talk-delivery :: A person chooses where their agents deliver by default (REQ-SPCOV-011)"
 			},
 			"reachedOn": "In-app Hermiq settings (src/App.vue) -> Talk delivery default room picker",
 			"provider": "hermiq",
@@ -6806,11 +6806,11 @@
 				"evidence": "Not built: the kill-switch (OrganisationControlController show()/toggle()) switches a whole OpenRegister organisation; there is no department, no per-department switch and no evidence download, as HmGoedkeuringen draws (decision 406). (13 Nov) Was: appinfo/routes.php OrganisationControlController routes (approvals.js TENANT_CONTROL_BASE '/apps/hermiq/api/tenant-control'); lib/Controller/OrganisationControlController.php show()/toggle() halt every agent run for an OpenRegister organisation (Art. 14 stop mechanism), guarded to instance admin or the organisation's owner; src/components/KillSwitchToggle.vue reads/toggles via src/api/approvals.js, mounted in src/views/ApprovalInbox.vue:28.",
 				"spec": "openspec/specs/human-approval-gate",
 				"requirement": [
-					"openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate :: An admin SHALL be able to switch AI off for one department",
-					"openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate :: An admin SHALL be able to download evidence that AI was off for a department",
+					"openspec/changes/archive/2026-11-24-oversight-switch-ai-off-per-department/specs/human-approval-gate :: An admin SHALL be able to switch AI off for one department",
+					"openspec/changes/archive/2026-11-24-oversight-switch-ai-off-per-department/specs/human-approval-gate :: An admin SHALL be able to download evidence that AI was off for a department",
 					"openspec/specs/human-approval-gate :: Org-level kill-switch halts all runs"
 				],
-				"plan": "openspec/changes/oversight-switch-ai-off-per-department"
+				"plan": "openspec/changes/archive/2026-11-24-oversight-switch-ai-off-per-department"
 			},
 			"reachedOn": "/approvals page -> KillSwitchToggle in the header",
 			"note": "Board canon (decision 406): HmGoedkeuringen draws a switch per department next to the organisation-wide emergency stop, with who switched it off, when, the refused runs, and \"Bewijs downloaden\". Built today: only the organisation-wide kill-switch, whose show() reports the engaged state.",
@@ -8574,7 +8574,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/manifest.json 'setup' block (enabled:true, steps: welcome -> demo-data choice -> load-demo-data -> llm-endpoint config-fields (Ollama) -> test-llm run-action) and a separate 'walkthrough' block (tour 'hermiq:getting-started', trigger 'first-visit', steps guiding Dashboard -> Agents -> Skills etc.).",
 				"spec": "openspec/specs/app-manifest",
-				"requirement": "openspec/changes/spec-coverage-built-rows/specs/first-time-setup :: The setup wizard guides an administrator to a first working provider and agent (REQ-SPCOV-013)"
+				"requirement": "openspec/changes/archive/2026-11-24-spec-coverage-built-rows/specs/first-time-setup :: The setup wizard guides an administrator to a first working provider and agent (REQ-SPCOV-013)"
 			},
 			"reachedOn": "First-run setup wizard + the 'Getting started' walkthrough tour triggered on first visit",
 			"provider": "hermiq",
@@ -8612,11 +8612,11 @@
 				"evidence": "Not built: GET /api/chat/health exists, but no page shows chat health with its dependencies (task 1.5 of spec-coverage-built-rows) (decision 389, verify 12 Nov). Was: appinfo/routes.php:529 chatHealth#health GET /api/chat/health (#[PublicPage] per lib/Controller/ChatHealthController.php docblock); the controller reads hermiq.llm app-config to report whether the chat backend is configured and reachable, 'ported route-for-route from OpenRegister's ChatHealthController' for the shared nextcloud-vue AI companion widget to probe at mount. The one page is the Integrations page: lib/Settings/connections.json declares the AI provider, web search and other connections, and hermiq reports their state (tl-integrations-page).",
 				"spec": "openspec/specs/observability",
 				"requirement": [
-					"openspec/changes/spec-coverage-built-rows/specs/observability :: Chat reports whether its model provider is ready (REQ-SPCOV-012)",
+					"openspec/changes/archive/2026-11-24-spec-coverage-built-rows/specs/observability :: Chat reports whether its model provider is ready (REQ-SPCOV-012)",
 					"openspec/changes/adopt-connection-registry/specs/app-connections :: Hermiq declares its outside connections in one static file (REQ-HERMIQ-CONN-001)",
 					"openspec/changes/adopt-connection-registry/specs/app-connections :: Hermiq reports what only it can observe (REQ-HERMIQ-CONN-003)"
 				],
-				"plan": "openspec/changes/spec-coverage-built-rows"
+				"plan": "openspec/changes/archive/2026-11-24-spec-coverage-built-rows"
 			},
 			"reachedOn": "The shared nextcloud-vue AI companion widget probes GET /apps/hermiq/api/chat/health at mount time on any Nextcloud page",
 			"note": "Did not find hermiq's own src/companion.js calling this route explicitly; the route and its documented purpose (probed by the shared companion widget) are confirmed, but the exact call site in the companion bundle was not located.",
@@ -9273,7 +9273,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/modals/AgentFormModal.vue:161-165 Temperature (0-2) field, mounted via src/customComponents.js:28,114 as the agents index form-dialog; lib/Service/Engine/ResponseGenerationHandler.php:237-239,286 reads agent.temperature and applies it to the provider call",
 				"spec": "openspec/specs/agent-management-ui",
-				"requirement": "openspec/changes/spec-coverage-built-rows/specs/agent-management-ui :: An agent answers with the temperature its owner sets (REQ-SPCOV-002)"
+				"requirement": "openspec/changes/archive/2026-11-24-spec-coverage-built-rows/specs/agent-management-ui :: An agent answers with the temperature its owner sets (REQ-SPCOV-002)"
 			},
 			"feature": "agent-builder",
 			"reachedOn": "/agents -> New or Edit agent (AgentFormModal, form-dialog slot) -> Temperature field",
@@ -10376,7 +10376,7 @@
 				"spec": "openspec/specs/agent-tool-governance",
 				"requirement": [
 					"openspec/specs/agent-tool-governance :: Schema-scoped whitelist grants with default-deny for write/destructive tools",
-					"openspec/changes/spec-coverage-built-rows/specs/agent-tool-governance :: An agent reads and updates register records within its grant (REQ-SPCOV-015)"
+					"openspec/changes/archive/2026-11-24-spec-coverage-built-rows/specs/agent-tool-governance :: An agent reads and updates register records within its grant (REQ-SPCOV-015)"
 				]
 			},
 			"feature": "knowledge-bases",
@@ -10487,8 +10487,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Service/NcNative/AgentArtefactMarker.php:75 system tag 'Agent authored' on files, :82 X-HERMIQ-AGENT-AUTHORED on vCard and iCalendar objects, applied in the same write (NotesWriteService.php:228, ContactWriteService.php:137, CalendarWriteService.php:236) behind the agent tools in lib/Mcp/NcNativeWriteToolDescriptors.php:66,106,155; searched 'AI-generated|generated by AI' in src/: chat answers carry no label",
-				"spec": "openspec/changes/agent-authored-marking",
-				"requirement": "openspec/changes/agent-authored-marking/specs/nc-native-tools :: Every object an agent writes is marked as agent-authored (REQ-AILBL-001)"
+				"spec": "openspec/changes/archive/2026-11-24-agent-authored-marking",
+				"requirement": "openspec/changes/archive/2026-11-24-agent-authored-marking/specs/nc-native-tools :: Every object an agent writes is marked as agent-authored (REQ-AILBL-001)"
 			},
 			"feature": "explainable-ai",
 			"reachedOn": "Files tag on notes the agent wrote; Contacts and Calendar objects",
@@ -10555,7 +10555,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/views/McpTools.vue:6-12,25-28 lists tools from 'every app that registers an IMcpToolProvider', read from src/api/agents.js:67 -> appinfo/routes.php:504 agents#tools; lib/Service/Engine/ToolLoop.php:195 listAgentFunctions takes them from OpenRegister's ToolRegistryFacade and lib/Service/Engine/FacadeToolInvoker.php:1238 invokes them, so an installed app's tools reach the agent with no hermiq change",
 				"spec": "openspec/specs/agent-tool-governance",
-				"requirement": "openspec/changes/spec-coverage-built-rows/specs/agent-tool-governance :: The tool catalogue lists every installed app's tools (REQ-SPCOV-007)"
+				"requirement": "openspec/changes/archive/2026-11-24-spec-coverage-built-rows/specs/agent-tool-governance :: The tool catalogue lists every installed app's tools (REQ-SPCOV-007)"
 			},
 			"feature": "nextcloud-tools",
 			"reachedOn": "/mcp-tools; /agents -> Edit agent tool picker; /agents/:id -> Tool governance",
@@ -11164,9 +11164,9 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Settings/hermiq_register.json:2599 Agent.actingUser property; lib/Service/ScheduleService.php:582-589 resolves actingUser, :2231,:2578 refuses the run when a declared actingUser no longer resolves (agent-identity-narrows), falls back to schedule owner when unset; lib/Service/Engine/Engine.php:329 and ContextAssembler.php:180 thread actingUserId through the turn. No component sets actingUser: src/modals/AgentFormModal.vue has no such field; it only appears read-only in src/dialogs/AgentFactsheetDialog.vue and src/components/ToolInvocationTable.vue.",
-				"spec": "openspec/changes/agent-acting-identity-picker/specs/agent-identity",
-				"requirement": "openspec/changes/agent-acting-identity-picker/specs/agent-identity :: The agent edit page sets whose rights the agent works with (REQ-AGID-001)",
-				"change": "openspec/changes/agent-acting-identity-picker"
+				"spec": "openspec/changes/archive/2026-11-24-agent-acting-identity-picker/specs/agent-identity",
+				"requirement": "openspec/changes/archive/2026-11-24-agent-acting-identity-picker/specs/agent-identity :: The agent edit page sets whose rights the agent works with (REQ-AGID-001)",
+				"change": "openspec/changes/archive/2026-11-24-agent-acting-identity-picker"
 			},
 			"reachedOn": "nothing",
 			"note": "The choose-owner-vs-actingUser-vs-refuse logic is fully implemented server-side and openspec/specs/agent-identity/spec.md is marked DONE, but no screen lets a user pick actingUser; it is only settable via a direct object write and only viewable, not editable, in the UI. Moved from pending 2026-10-30: Built server-side (actingUser resolved, a run refused when it no longer resolves); HmAgentBewerken draws the picker 'Namens wie werkt de agent', which no change plans yet.",

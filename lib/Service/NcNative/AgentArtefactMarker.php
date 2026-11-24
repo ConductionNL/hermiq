@@ -222,7 +222,7 @@ class AgentArtefactMarker implements AgentArtefactMarkerInterface {
 	 *
 	 * @throws ArtefactMarkingFailedException When the reviewed tag cannot be resolved or assigned.
 	 *
-	 * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
 	 */
 	public function markReviewed(int $fileId): void {
 		try {
@@ -247,7 +247,7 @@ class AgentArtefactMarker implements AgentArtefactMarkerInterface {
 	 * @return array{tagId: string|null, fileIds: list<string>} The tag id (null when it was never
 	 *                                                         created) and the tagged file ids.
 	 *
-	 * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
 	 */
 	public function taggedFiles(string $name): array {
 		try {

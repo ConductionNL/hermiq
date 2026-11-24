@@ -778,7 +778,7 @@ class ToolLoopTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-tool-governance/spec.md#requirement-an-agent-reads-and-updates-register-records-within-its-grant-req-spcov-015
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-agent-reads-and-updates-register-records-within-its-grant-req-spcov-015
 	 */
 	public function testARegisterUpdateNeedsTheSchemasWriteGrant(): void {
 		$catalog = [

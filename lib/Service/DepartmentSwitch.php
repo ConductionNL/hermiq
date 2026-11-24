@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use Throwable;
 /**
  * Which departments have AI switched off, and switching one.
  *
- * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
  */
 final class DepartmentSwitch {
 
@@ -114,7 +114,7 @@ final class DepartmentSwitch {
 	 *
 	 * @return array<int,string>
 	 *
-	 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
 	 */
 	public function offDepartments(): array {
 		return self::offGroups(departments: $this->departments());
@@ -154,7 +154,7 @@ final class DepartmentSwitch {
 	 *
 	 * @return string|null The department's group id (or UNREADABLE), or null when the agent may run.
 	 *
-	 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
 	 */
 	public function offDepartmentOf(string $agentId): ?string {
 		if ($agentId === '') {
@@ -244,7 +244,7 @@ final class DepartmentSwitch {
 	 *
 	 * @return array<string,mixed>|null The department as stored, or null when the group is not a department.
 	 *
-	 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
 	 */
 	public function switch(string $group, bool $off, string $userId, string $reason = ''): ?array {
 		$department = $this->department(group: $group);
@@ -282,7 +282,7 @@ final class DepartmentSwitch {
 	 *
 	 * @return array<int,ObjectEntity>
 	 *
-	 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
 	 */
 	public function marked(): array {
 		return $this->departments();
@@ -295,7 +295,7 @@ final class DepartmentSwitch {
 	 *
 	 * @return ObjectEntity|null
 	 *
-	 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
 	 */
 	public function markedFor(string $group): ?ObjectEntity {
 		return $this->department(group: $group);

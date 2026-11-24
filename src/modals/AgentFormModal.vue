@@ -1134,7 +1134,7 @@ export default {
 		 * Whether the typed temperature may be saved (blank, or 0 to 2).
 		 *
 		 * @return {boolean}
-		 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
+		 * @spec openspec/specs/agent-management-ui/spec.md#REQ-SPCOV-002
 		 */
 		temperatureValid() {
 			return temperatureInRange(this.form.temperature)
@@ -1211,7 +1211,7 @@ export default {
 		 * still the one chosen: the server's answer, never a guess here.
 		 *
 		 * @return {boolean} True when the warning shows.
-		 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
+		 * @spec openspec/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
 		 */
 		actingUserUnresolved() {
 			const status = this.actingUserStatus
@@ -1786,7 +1786,7 @@ export default {
 		 *
 		 * @param {string} search The typed text.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-agent-edit-page-sets-whose-rights-the-agent-works-with-req-agid-001
+		 * @spec openspec/specs/agent-identity/spec.md#requirement-the-agent-edit-page-sets-whose-rights-the-agent-works-with-req-agid-001
 		 */
 		async onSearchActingUsers(search) {
 			if (!search) {
@@ -1808,7 +1808,7 @@ export default {
 		 * unanswered question shows no warning: the run's own refusal stays.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
+		 * @spec openspec/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
 		 */
 		async loadActingUserStatus() {
 			this.actingUserStatus = null
@@ -2287,7 +2287,7 @@ export default {
 		 * Whether the selection differs from the grants the form was seeded with.
 		 *
 		 * @return {boolean} True when a grant was added or removed.
-		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-an-untouched-save-loses-nothing
+		 * @spec openspec/specs/structured-tool-grants/spec.md#scenario-an-untouched-save-loses-nothing
 		 */
 		grantsChanged() {
 			return !sameGrants(this.selectedGrants(), this.readGrants)
@@ -2303,7 +2303,7 @@ export default {
 		 * of choosing between the two.
 		 *
 		 * @return {Promise<Array|null>} The grants to write back, or null (with `error` set) to stop the save.
-		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-an-untouched-save-loses-nothing
+		 * @spec openspec/specs/structured-tool-grants/spec.md#scenario-an-untouched-save-loses-nothing
 		 */
 		async currentStoredTools() {
 			// The read that seeded a routed form, so an admin who may read the
@@ -2345,7 +2345,7 @@ export default {
 		 *
 		 * @return {Promise<void>}
 		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
-		 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-management-ui/spec.md#REQ-SPCOV-002
+		 * @spec openspec/specs/agent-management-ui/spec.md#REQ-SPCOV-002
 		 */
 		async save() {
 			if (!this.temperatureValid) {

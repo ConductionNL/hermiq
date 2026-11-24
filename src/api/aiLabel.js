@@ -15,7 +15,7 @@ const AI_LABEL_BASE = '/apps/hermiq/api/ai-label'
  * The label counts for the signed-in person, limited to the files they can read.
  *
  * @return {Promise<{files: number, reviewed: number, reviewedShare: number, tagId: string|null, truncated: boolean}>} The counts.
- * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+ * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
  */
 export async function getAiLabelStats() {
 	const response = await axios.get(generateUrl(`${AI_LABEL_BASE}/stats`))
@@ -27,7 +27,7 @@ export async function getAiLabelStats() {
  *
  * @param {number} fileId The Nextcloud file id.
  * @return {Promise<{fileId: number, reviewed: boolean}>} The result.
- * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+ * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
  */
 export async function markAiLabelReviewed(fileId) {
 	const response = await axios.post(generateUrl(`${AI_LABEL_BASE}/files/${fileId}/reviewed`))
@@ -39,7 +39,7 @@ export async function markAiLabelReviewed(fileId) {
  *
  * @param {string|null} tagId The system tag id from the counts.
  * @return {string} The Files URL, or '' when the tag was never created.
- * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-hermiq-shows-the-ai-label-as-gemaakt-met-ai-req-ailbl-004
+ * @spec openspec/specs/nc-native-tools/spec.md#requirement-hermiq-shows-the-ai-label-as-gemaakt-met-ai-req-ailbl-004
  */
 export function aiLabelFilesUrl(tagId) {
 	if (!tagId) {

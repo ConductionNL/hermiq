@@ -4,7 +4,7 @@
  *
  * agent-acting-identity-picker, in a browser (gate 19).
  *
- * Covers the scenarios of openspec/changes/agent-acting-identity-picker without
+ * Covers the scenarios of openspec/changes/archive/2026-11-24-agent-acting-identity-picker without
  * an `@e2e exclude`:
  *
  * - an administrator gives an agent its own service account: the agent form's

@@ -14,7 +14,7 @@ import { generateUrl } from '@nextcloud/router'
  *
  * @param {string} agentId The Agent UUID.
  * @return {Promise<{actingUser: string, resolves: boolean}>} The answer.
- * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
+ * @spec openspec/specs/agent-identity/spec.md#requirement-the-edit-page-shows-a-declared-account-that-no-longer-resolves-req-agid-003
  */
 export async function getActingUserStatus(agentId) {
 	const response = await axios.get(

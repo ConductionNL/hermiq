@@ -171,7 +171,7 @@ class DashboardPageState {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-acting-identity-picker/specs/agent-identity/spec.md#requirement-naming-a-service-account-is-a-governance-action-checked-on-every-write-req-agid-002
+	 * @spec openspec/specs/agent-identity/spec.md#requirement-naming-a-service-account-is-a-governance-action-checked-on-every-write-req-agid-002
 	 */
 	private function provideActingUserCapability(): void {
 		$user = $this->userSession->getUser();

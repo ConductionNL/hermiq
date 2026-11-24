@@ -106,7 +106,7 @@ interface NcNativeWriteServiceInterface {
 	 *
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
-	 * @spec openspec/changes/spec-coverage-built-rows/tasks.md
+	 * @spec openspec/changes/archive/2026-11-24-spec-coverage-built-rows/tasks.md
 	 */
 	public function createFile(string $uid, array $arguments): array;
 
@@ -118,7 +118,7 @@ interface NcNativeWriteServiceInterface {
 	 *
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
-	 * @spec openspec/changes/spec-coverage-built-rows/tasks.md
+	 * @spec openspec/changes/archive/2026-11-24-spec-coverage-built-rows/tasks.md
 	 */
 	public function moveFile(string $uid, array $arguments): array;
 }//end interface

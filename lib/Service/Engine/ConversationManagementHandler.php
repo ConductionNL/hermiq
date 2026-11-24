@@ -349,7 +349,7 @@ class ConversationManagementHandler {
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-2
-	 * @spec openspec/changes/spec-coverage-built-rows/specs/agent-engine-port/spec.md#REQ-SPCOV-009
+	 * @spec openspec/specs/agent-engine-port/spec.md#REQ-SPCOV-009
 	 */
 	public function checkAndSummarize(ObjectEntity $conversation): void {
 		$data = $conversation->getObject();

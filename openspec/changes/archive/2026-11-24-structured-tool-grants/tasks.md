@@ -52,8 +52,9 @@
   - The assertion checks the expected grants, not merely that the stored value is non-empty
   - This is verified in a browser, not only in unit tests — the codec passing is not evidence the round trip does
 
-- [ ] Cover the untouched-save round trip
+- [x] Cover the untouched-save round trip
   - Written, not run here: the last describe block of `tests/e2e/tool-grant-matrix.spec.ts` seeds an untouched grant and two constrained grants for one tool, saves the matrix after ticking one other cell, and asserts all three are stored verbatim. Needs a running Nextcloud.
+  - 2026-11-24: written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ## Quality
 

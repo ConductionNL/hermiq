@@ -68,7 +68,7 @@ class PreferencesController extends Controller {
 	 *
 	 * @return JSONResponse `{value: string|null}`.
 	 *
-	 * @spec openspec/changes/spec-coverage-built-rows/specs/talk-delivery/spec.md#REQ-SPCOV-011
+	 * @spec openspec/specs/talk-delivery/spec.md#REQ-SPCOV-011
 	 *
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
@@ -102,7 +102,7 @@ class PreferencesController extends Controller {
 	 *
 	 * @return JSONResponse `{value: string|null}`.
 	 *
-	 * @spec openspec/changes/spec-coverage-built-rows/specs/talk-delivery/spec.md#REQ-SPCOV-011
+	 * @spec openspec/specs/talk-delivery/spec.md#REQ-SPCOV-011
 	 *
 	 * @NoAdminRequired
 	 * @NoCSRFRequired

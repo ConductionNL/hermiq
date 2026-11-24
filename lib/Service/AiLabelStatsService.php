@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+ * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
  */
 
 declare(strict_types=1);
@@ -40,7 +40,7 @@ use Throwable;
  * Counts the agent-authored files a viewer can read, how many are reviewed, and the
  * agent-authored contacts and calendar items the viewer can see.
  *
- * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+ * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
  */
 class AiLabelStatsService implements AiLabelStatsServiceInterface {
 
@@ -58,7 +58,7 @@ class AiLabelStatsService implements AiLabelStatsServiceInterface {
 	 * @param IRootFolder         $rootFolder Opens the viewer's own Files.
 	 * @param MarkedObjectCounter $objects    Counts the marked contacts and calendar items.
 	 *
-	 * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
 	 */
 	public function __construct(
 		private readonly AgentArtefactMarker $marker,
@@ -79,7 +79,7 @@ class AiLabelStatsService implements AiLabelStatsServiceInterface {
 	 *         files exist than were checked; `objectsTruncated` says more contacts or calendar
 	 *         items exist than were read.
 	 *
-	 * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
 	 */
 	public function stats(string $uid): array {
 		$authored = $this->marker->taggedFiles(name: AgentArtefactMarker::TAG_NAME);
