@@ -3584,6 +3584,139 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "Run analytics",
+			"description": "analytics-unbounded-audit-scan 3.2: the bounded audit read keeps the analytics response unchanged in shape and correct for the calling tenant. The metrics, the per-agent rows and the run list count the same set of runs.",
+			"item": [
+				{
+					"name": "Run analytics for the organisation",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/analytics",
+						"description": "REQ: tenant-scoped run metrics. Shape unchanged after bounding the audit read; totals agree with the per-agent rows."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var body = pm.response.json();",
+									"pm.test('Analytics answers 200 with the organisation scope', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(body.scope).to.equal('organisation');",
+									"});",
+									"pm.test('The response keeps its shape', function () {",
+									"    ['totalRuns', 'successRuns', 'successRate', 'statusBreakdown', 'latency', 'perAgent', 'feedback', 'tokens'].forEach(function (key) {",
+									"        pm.expect(body).to.have.property(key);",
+									"    });",
+									"    pm.expect(body.totalRuns).to.be.a('number');",
+									"    pm.expect(body.successRuns).to.be.at.most(body.totalRuns);",
+									"    pm.expect(body.perAgent).to.be.an('array');",
+									"});",
+									"pm.test('Per-agent rows and the status breakdown add up to the totals', function () {",
+									"    var runs = 0, success = 0, statuses = 0;",
+									"    body.perAgent.forEach(function (row) { runs += row.runs; success += row.success; });",
+									"    Object.keys(body.statusBreakdown || {}).forEach(function (key) { statuses += body.statusBreakdown[key]; });",
+									"    pm.expect(runs).to.equal(body.totalRuns);",
+									"    pm.expect(success).to.equal(body.successRuns);",
+									"    pm.expect(statuses).to.equal(body.totalRuns);",
+									"});",
+									"pm.collectionVariables.set('analytics_total_runs', String(body.totalRuns));",
+									"var first = body.perAgent.length > 0 ? body.perAgent[0] : null;",
+									"pm.collectionVariables.set('analytics_agent_id', first ? first.agentId : '');",
+									"pm.collectionVariables.set('analytics_agent_runs', first ? String(first.runs) : '0');"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Run list counts the same runs",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/runs?limit=1",
+						"description": "The run list shares the analytics tenant boundary: its unpaged total equals the metrics' totalRuns."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var body = pm.response.json();",
+									"pm.test('The run list total equals the analytics total', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(body.total).to.equal(Number(pm.collectionVariables.get('analytics_total_runs')));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Run analytics for one agent",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/analytics?agentId={{analytics_agent_id}}",
+						"description": "Scoped to the first agent with runs, the totals equal that agent's row in the organisation view. Without runs in the tenant there is nothing to scope to; the organisation figures above already hold."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var agentId = pm.collectionVariables.get('analytics_agent_id');",
+									"var body = pm.response.json();",
+									"pm.test('Analytics answers 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"if (agentId) {",
+									"    pm.test('The agent scope counts exactly that agent\\'s runs', function () {",
+									"        pm.expect(body.scope).to.equal('agent');",
+									"        pm.expect(body.agentId).to.equal(agentId);",
+									"        pm.expect(body.totalRuns).to.equal(Number(pm.collectionVariables.get('analytics_agent_runs')));",
+									"        body.perAgent.forEach(function (row) { pm.expect(row.agentId).to.equal(agentId); });",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
 		}
 	]
 }

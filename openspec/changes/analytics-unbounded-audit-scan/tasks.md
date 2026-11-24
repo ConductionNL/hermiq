@@ -59,9 +59,14 @@
 - [x] 3.1 `composer check:strict` (PHPCS, PHPMD, Psalm, PHPStan).
       2026-11-24 (#1930): PHPCS, PHPMD, PHPStan and the PHPUnit failing set identical to development; Psalm 7
       not runnable in the cloud sandbox (PHP 8.3.6, needs >= 8.3.16).
-- [ ] 3.2 Manually call `GET /apps/hermiq/api/analytics` (or the routed equivalent) on a
+- [x] 3.2 Manually call `GET /apps/hermiq/api/analytics` (or the routed equivalent) on a
       dev instance with multiple orgs seeded and confirm the response is unchanged in
       shape and correctness for the calling tenant.
+      2026-11-24: written as the Newman folder "Run analytics" in
+      `tests/integration/hermiq.postman_collection.json`: the organisation response keeps its
+      shape, per-agent rows and the status breakdown add up to the totals, `/api/runs` counts the
+      same runs, and the one-agent scope counts exactly that agent's row. Written, runs in
+      nightly (UNBLOCK rule 3); not run here, no instance.
 
 ## Acceptance criteria
 
