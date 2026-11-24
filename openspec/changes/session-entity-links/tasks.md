@@ -16,8 +16,8 @@ Acceptance criteria:
 ## 2. Scope the session list
 
 - [x] Filter the session list server-side by linked entity (`GET /api/sessions?linkedType=&linkedId=` over every readable session, most recently used link first, with `scope` and its label in the response; `SessionControllerLinksTest`)
-- [ ] Head the scoped list with the entity's label, and keep "view all sessions" (built in nextcloud-vue, ConductionNL/nextcloud-vue#2316 `CnAiChatPanel` with `CnAiChatPanelSessionLinks.spec.js`; ticks when a release carrying it is in hermiq's lock)
-- [ ] Fall back to the unscoped list when no context is present (same PR; also with no sessions about the page, or a failed request)
+- [x] Head the scoped list with the entity's label, and keep "view all sessions" (nextcloud-vue 2.213.0, ConductionNL/nextcloud-vue#2316: `CnAiChatPanel` asks `GET /api/conversations?linkedType=&linkedId=` and heads the menu "Sessions about {label}" from the response's `scope`; `CnAiChatPanelSessionLinks.spec.js`; in hermiq's lock)
+- [x] Fall back to the unscoped list when no context is present (same PR; also with no sessions about the page, or a failed request)
 
 Acceptance criteria:
 - ⚠️ Seed a linked session BEYOND the first page and assert it is FOUND. OpenRegister's `filters` addresses JSON properties: a filter naming a non-property matches nothing, for every value, and logs nothing — so a broken filter and a genuinely empty result are the same screen.
@@ -27,8 +27,8 @@ Acceptance criteria:
 
 > Backend done: `DELETE /api/sessions/{uuid}/links?type=&id=` (owner only) removes a link, and every session in the list carries its `links`. The titlebar entry and the list itself are `@conduction/nextcloud-vue` work (`CnAiChatPanel`), as are the scoped heading of 2 and the speech control of 4.
 
-- [ ] Add a session-settings entry to the chat window's titlebar (same PR: "Session settings", shown while a session is open)
-- [ ] List the session's links there and allow removing one (same PR, over `DELETE /api/sessions/{uuid}/links`; e2e `tests/e2e/spec-coverage/session-entity-links.spec.ts` written, runs in nightly)
+- [x] Add a session-settings entry to the chat window's titlebar (same PR: "Session settings", shown while a session is open)
+- [x] List the session's links there and allow removing one (same PR, over `DELETE /api/sessions/{uuid}/links`; e2e `tests/e2e/spec-coverage/session-entity-links.spec.ts` written, runs in nightly)
 
 Acceptance criteria:
 - A link recorded automatically and removable only automatically is a tracker.
