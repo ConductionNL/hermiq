@@ -18,7 +18,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md
+ * @spec openspec/specs/action-authorization/spec.md
  */
 
 declare(strict_types=1);
@@ -30,7 +30,7 @@ use OCP\IL10N;
 /**
  * The seeded actions and their labels.
  *
- * @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md
+ * @spec openspec/specs/action-authorization/spec.md
  */
 class ActionSeed {
 	/**
@@ -72,7 +72,7 @@ class ActionSeed {
 	 *
 	 * @return self
 	 *
-	 * @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md
+	 * @spec openspec/specs/action-authorization/spec.md
 	 */
 	public static function fromFile(string $path, ?IL10N $l10n=null): self {
 		$seed = new self(l10n: $l10n);
@@ -86,7 +86,7 @@ class ActionSeed {
 	 *
 	 * @return array<string, list<string>>
 	 *
-	 * @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
+	 * @spec openspec/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
 	 */
 	public function actions(): array {
 		$actions = [];
@@ -106,7 +106,7 @@ class ActionSeed {
 	 *
 	 * @return array{label: string, description: string}
 	 *
-	 * @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
+	 * @spec openspec/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
 	 */
 	public function label(string $action): array {
 		$entry = ((array)($this->seed()['labels'] ?? []))[$action] ?? null;
@@ -136,7 +136,7 @@ class ActionSeed {
 	 *
 	 * @return array{label: string, description: string}
 	 *
-	 * @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
+	 * @spec openspec/specs/action-authorization/spec.md#requirement-an-administrator-edits-the-action-matrix-on-the-tenant-management-page-req-actmx-001
 	 */
 	public function displayLabel(string $action): array {
 		$label = $this->label(action: $action);

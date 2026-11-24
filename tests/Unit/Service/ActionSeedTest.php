@@ -15,7 +15,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md
+ * @spec openspec/specs/action-authorization/spec.md
  */
 
 declare(strict_types=1);

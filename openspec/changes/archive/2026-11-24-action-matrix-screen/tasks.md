@@ -21,8 +21,9 @@
 
 ## 3. Verification
 
-- [ ] 3.1 `@spec` tags on every new method (gate 16) and an e2e test in
+- [x] 3.1 `@spec` tags on every new method (gate 16) and an e2e test in
       `tests/e2e/action-matrix.spec.ts` for the scenarios without an `@e2e exclude` (gate 19).
       - `tests/e2e/action-matrix.spec.ts` written for the two scenarios without an exclude; not run here (needs a running Nextcloud).
-- [ ] 3.2 When this change is archived, the `## Purpose` of `openspec/specs/action-authorization`
+      - 2026-11-24: written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
+- [x] 3.2 When this change is archived, the `## Purpose` of `openspec/specs/action-authorization`
       drops "No screen edits the action matrix yet".

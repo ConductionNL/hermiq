@@ -4,7 +4,7 @@
  *
  * action-matrix-screen, in a browser (gate 19).
  *
- * Covers the scenarios of openspec/changes/action-matrix-screen without an
+ * Covers the scenarios of openspec/changes/archive/2026-11-24-action-matrix-screen without an
  * `@e2e exclude`:
  *
  * - an administrator gives a group one action on the tenant management page,

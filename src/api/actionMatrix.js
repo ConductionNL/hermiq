@@ -4,7 +4,7 @@
 // The ADR-023 action matrix endpoints (action-matrix-screen), administrators
 // only. axios from @nextcloud/axios adds the CSRF requesttoken.
 //
-// @spec openspec/changes/action-matrix-screen/specs/action-authorization/spec.md
+// @spec openspec/specs/action-authorization/spec.md
 
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
