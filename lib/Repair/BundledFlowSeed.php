@@ -26,7 +26,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
+use OCA\OpenRegister\Db\Flow\FlowSelection;
 use OCA\OpenRegister\Db\FlowMapper;
+use OCA\OpenRegister\Kernel\Contracts\ListQuery;
 use OCA\OpenRegister\Service\Flow\FlowNodePreflight;
 
 /**
@@ -37,11 +39,25 @@ use OCA\OpenRegister\Service\Flow\FlowNodePreflight;
 final class BundledFlowSeed {
 
 	/**
-	 * The run.
+	 * How many existing flows the by-name check reads.
+	 *
+	 * @var integer
+	 */
+	private const EXISTING_LIMIT = 1000;
+
+	/**
+	 * Names of the flows already in the store, whichever app or organisation holds them,
+	 * so a hand-imported flow is never seeded a second time.
+	 *
+	 * @var array<string, true>
+	 */
+	public readonly array $existing;
+
+	/**
+	 * The run over the store as it is now.
 	 *
 	 * @param FlowMapper             $mapper       The flow store.
 	 * @param string                 $organisation The default organisation's UUID.
-	 * @param array<string, true>    $existing     Names of the flows already present.
 	 * @param FlowNodePreflight|null $preflight    The preflight, or null when unavailable.
 	 *
 	 * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
@@ -49,8 +65,13 @@ final class BundledFlowSeed {
 	public function __construct(
 		public readonly FlowMapper $mapper,
 		public readonly string $organisation,
-		public readonly array $existing,
 		public readonly ?FlowNodePreflight $preflight,
 	) {
+		$names = [];
+		foreach ($mapper->findAllFlows(selection: new FlowSelection(), query: new ListQuery(limit: self::EXISTING_LIMIT, offset: 0)) as $flow) {
+			$names[trim((string)$flow->getName())] = true;
+		}
+
+		$this->existing = $names;
 	}//end __construct()
 }//end class

@@ -48,12 +48,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use DateTime;
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\OpenRegister\Db\Flow;
-use OCA\OpenRegister\Db\Flow\FlowSelection;
 use OCA\OpenRegister\Db\FlowMapper;
-use OCA\OpenRegister\Kernel\Contracts\ListQuery;
 use OCA\OpenRegister\Service\Flow\FlowNodePreflight;
 use OCP\IAppConfig;
 use OCP\Migration\IOutput;
@@ -83,13 +79,6 @@ class SeedBundledFlows implements IRepairStep {
 	 * @var string
 	 */
 	public const APPLICATION_SLUG = 'hydra-console';
-
-	/**
-	 * How many existing flows the by-name check reads.
-	 *
-	 * @var integer
-	 */
-	private const EXISTING_LIMIT = 1000;
 
 	/**
 	 * Constructor.
@@ -147,12 +136,7 @@ class SeedBundledFlows implements IRepairStep {
 			return;
 		}
 
-		$seed = new BundledFlowSeed(
-			mapper: $mapper,
-			organisation: $organisation,
-			existing: $this->existingNames(mapper: $mapper),
-			preflight: $this->preflight()
-		);
+		$seed = new BundledFlowSeed(mapper: $mapper, organisation: $organisation, preflight: $this->preflight());
 
 		$outcomes = [];
 		$failures = [];
@@ -199,7 +183,9 @@ class SeedBundledFlows implements IRepairStep {
 		}
 
 		try {
-			$seed->mapper->insert($this->flowFrom(data: $data, name: $name, organisation: $seed->organisation));
+			$flow = (new SeededFlowRow())->from(data: $data, name: $name, applicationSlug: self::APPLICATION_SLUG);
+			$flow->setOrganisation($seed->organisation);
+			$seed->mapper->insert($flow);
 		} catch (Throwable $e) {
 			$this->logger->error(
 				'[hermiq] Bundled flow seed failed for "' . $name . '": ' . $e::class . ': ' . $e->getMessage(),
@@ -234,59 +220,6 @@ class SeedBundledFlows implements IRepairStep {
 
 		return $seed->preflight->describe(flow: $name, blocking: $report['blocking']);
 	}//end refusal()
-
-	/**
-	 * The flow row for a definition: disabled, ownerless, on the default organisation.
-	 *
-	 * @param array<string, mixed> $data         The definition.
-	 * @param string               $name         Its name.
-	 * @param string               $organisation The default organisation's UUID.
-	 *
-	 * @return Flow
-	 *
-	 * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
-	 */
-	public function flowFrom(array $data, string $name, string $organisation): Flow {
-		$flow = new Flow();
-		$flow->setUuid(self::newUuid());
-		$flow->setApp(AppIdentity::APP_ID);
-		$flow->setName($name);
-		$flow->setDescription((string)($data['description'] ?? ''));
-		$flow->setTrigger((string)($data['trigger'] ?? ''));
-		$flow->setTriggerRegister(($data['triggerRegister'] ?? null));
-		$flow->setTriggerSchema(($data['triggerSchema'] ?? null));
-		$flow->setCron(($data['cron'] ?? null));
-		$flow->setNodes((array)($data['nodes'] ?? []));
-		$flow->setEdges((array)($data['edges'] ?? []));
-		$flow->setLimits((array)($data['limits'] ?? []));
-		$flow->setApplicationSlug(self::APPLICATION_SLUG);
-		$flow->setOrganisation($organisation);
-		$flow->setCreated(new DateTime());
-		$flow->setUpdated(new DateTime());
-		// Whatever the definition says: enabling is the human act that supplies the owner.
-		$flow->setEnabled(false);
-		$flow->setOwner(null);
-
-		return $flow;
-	}//end flowFrom()
-
-	/**
-	 * The names of every flow already in the store, whichever app or organisation holds it.
-	 *
-	 * @param FlowMapper $mapper The flow store.
-	 *
-	 * @return array<string, true> The names.
-	 *
-	 * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
-	 */
-	private function existingNames(FlowMapper $mapper): array {
-		$names = [];
-		foreach ($mapper->findAllFlows(selection: new FlowSelection(), query: new ListQuery(limit: self::EXISTING_LIMIT, offset: 0)) as $flow) {
-			$names[trim((string)$flow->getName())] = true;
-		}
-
-		return $names;
-	}//end existingNames()
 
 	/**
 	 * OpenRegister's preflight, or null on a version that does not have it.
@@ -349,18 +282,4 @@ class SeedBundledFlows implements IRepairStep {
 		}
 	}//end record()
 
-	/**
-	 * A v4 uuid.
-	 *
-	 * @return string
-	 *
-	 * @spec openspec/changes/hermiq-seed-hydra-flows/tasks.md
-	 */
-	private static function newUuid(): string {
-		$data = random_bytes(16);
-		$data[6] = chr((ord($data[6]) & 0x0f) | 0x40);
-		$data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
-
-		return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
-	}//end newUuid()
 }//end class

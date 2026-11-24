@@ -63,7 +63,10 @@ class SeedBundledFlowsTest extends TestCase {
 	 */
 	protected function tearDown(): void {
 		foreach ($this->tempDirs as $dir) {
-			array_map('unlink', (glob($dir . '/*') ?: []));
+			foreach ((array)glob($dir . '/*') as $file) {
+				unlink((string)$file);
+			}
+
 			rmdir($dir);
 		}
 
@@ -265,18 +268,23 @@ class SeedBundledFlowsTest extends TestCase {
 	 */
 	public function testAFlowThePreflightRefusesIsReportedNotSeeded(): void {
 		$preflight = $this->createMock(originalClassName: FlowNodePreflight::class);
+		$refused = ['step' => 'x', 'type' => 'openconnector.source-call', 'reason' => 'owner-not-installed'];
 		$preflight->method('inspect')->willReturnCallback(
-			static fn (array $flow): array => [
-				'blocking' => ($flow['name'] === 'Flow A') ? [['step' => 'x', 'type' => 'openconnector.source-call', 'reason' => 'owner-not-installed']] : [],
-				'warnings' => [],
-			]
+			static function (array $flow) use ($refused): array {
+				$blocking = [];
+				if ($flow['name'] === 'Flow A') {
+					$blocking = [$refused];
+				}
+
+				return ['blocking' => $blocking, 'warnings' => []];
+			}
 		);
 		$preflight->method('describe')->willReturn('openconnector is not installed');
 
 		$inserted = new \ArrayObject();
 		$recorded = new \ArrayObject();
 		$output   = $this->createMock(originalClassName: IOutput::class);
-		$output->expects($this->once())->method('warning')->with($this->stringContains('openconnector is not installed'));
+		$output->expects($this->once())->method('warning')->with($this->stringContains(string: 'openconnector is not installed'));
 
 		$step = new SeedBundledFlows(
 			container: $this->container(mapper: $this->mapper(names: [], inserted: $inserted), preflight: $preflight),
@@ -330,8 +338,8 @@ class SeedBundledFlowsTest extends TestCase {
 			definitions: $this->definitions(files: ['broken.flow.json' => '{not json'])
 		);
 
-		$this->expectException(RuntimeException::class);
-		$this->expectExceptionMessage('broken.flow.json');
+		$this->expectException(exception: RuntimeException::class);
+		$this->expectExceptionMessage(message: 'broken.flow.json');
 		$step->run($this->createMock(originalClassName: IOutput::class));
 	}//end testABrokenDefinitionFileFailsTheStep()
 
@@ -345,11 +353,13 @@ class SeedBundledFlowsTest extends TestCase {
 		$definitions = $this->definitions(files: ['a.flow.json' => self::flowJson(name: 'Flow A')]);
 		$logger      = $this->createMock(originalClassName: LoggerInterface::class);
 
-		foreach ([$this->container(mapper: null), $this->container(mapper: $this->mapper(names: [], inserted: $inserted), orgUuid: null)] as $container) {
+		$containers = [$this->container(mapper: null), $this->container(mapper: $this->mapper(names: [], inserted: $inserted), orgUuid: null)];
+		foreach ($containers as $container) {
 			$recorded = new \ArrayObject();
 			$output   = $this->createMock(originalClassName: IOutput::class);
 			$output->expects($this->once())->method('warning');
-			(new SeedBundledFlows(container: $container, logger: $logger, appConfig: $this->appConfig(recorded: $recorded), definitions: $definitions))->run($output);
+			$step = new SeedBundledFlows(container: $container, logger: $logger, appConfig: $this->appConfig(recorded: $recorded), definitions: $definitions);
+			$step->run($output);
 			$this->assertStringContainsString(needle: 'unavailable', haystack: (string)$recorded[SeedBundledFlows::OUTCOME_KEY]);
 		}
 

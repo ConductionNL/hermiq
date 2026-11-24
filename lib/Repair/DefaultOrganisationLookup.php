@@ -66,7 +66,7 @@ class DefaultOrganisationLookup {
 		try {
 			$organisations = $this->container->get(OrganisationService::class);
 		} catch (Throwable $e) {
-			$this->logger->warning('[hermiq] OrganisationService unavailable for a flow seed: ' . $e->getMessage());
+			$this->logger->warning('[hermiq] OrganisationService unavailable for the flow seed: ' . $e->getMessage());
 			return null;
 		}
 
