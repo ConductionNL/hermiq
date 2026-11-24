@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
  */
 
 declare(strict_types=1);
@@ -38,7 +38,7 @@ use OCP\IUserSession;
 /**
  * List, add and remove the read-only shares of a session; the owner check is in the service.
  *
- * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
  */
 class SessionShareController extends Controller {
 
@@ -66,7 +66,7 @@ class SessionShareController extends Controller {
 	 *
 	 * @return JSONResponse `{results}`, 401 or 404.
 	 *
-	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
 	 */
 	#[NoAdminRequired]
 	public function index(string $uuid): JSONResponse {
@@ -80,7 +80,7 @@ class SessionShareController extends Controller {
 	 *
 	 * @return JSONResponse `{results}`, 400, 401, 403 or 404.
 	 *
-	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
 	 */
 	#[NoAdminRequired]
 	public function create(string $uuid): JSONResponse {
@@ -101,7 +101,7 @@ class SessionShareController extends Controller {
 	 *
 	 * @return JSONResponse `{results}`, 401 or 404.
 	 *
-	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-revoke-a-share-at-once-req-sshare-003
+	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-revoke-a-share-at-once-req-sshare-003
 	 */
 	#[NoAdminRequired]
 	public function destroy(string $uuid, string $type, string $id): JSONResponse {
