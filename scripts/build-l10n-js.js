@@ -133,6 +133,9 @@ function renderJs(id, translations, pluralForm) {
 	].join('\n')
 }
 
+/**
+ *
+ */
 function main() {
 	const check = process.argv.includes('--check')
 	const id = appId()

@@ -10,8 +10,8 @@
  */
 
 import fs from 'fs'
-import path from 'path'
 import { createRequire } from 'module'
+import path from 'path'
 import { describe, expect, it } from 'vitest'
 
 const require = createRequire(import.meta.url)
