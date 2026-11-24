@@ -26,6 +26,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Service\Chat\AttachmentTextSource;
+use OCA\Hermiq\Service\Chat\OpenRegisterAttachmentTextSource;
 use OCA\Hermiq\Service\Llm\DatabaseRunTokenStore;
 use OCA\Hermiq\Service\Llm\RunTokenStore;
 use OCA\Hermiq\Service\Workspace\ServerSideWorkspaceProvider;
@@ -48,6 +50,7 @@ final class ServiceRegistrar {
 	 * @return void
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
 	 */
 	public function register(IRegistrationContext $context): void {
 		(new ContractBindings())->register(context: $context);
@@ -67,6 +70,15 @@ final class ServiceRegistrar {
 		$context->registerServiceAlias(
 			RunTokenStore::class,
 			DatabaseRunTokenStore::class
+		);
+
+		// A PDF or office attachment becomes text through OpenRegister's
+		// FileTextFacade (chat-attachments-and-images D6). The adapter probes the
+		// facade lazily, so an OpenRegister without it keeps the reader's
+		// "could not read" notice.
+		$context->registerServiceAlias(
+			AttachmentTextSource::class,
+			OpenRegisterAttachmentTextSource::class
 		);
 
 		// The register-slug resolver, published by OpenRegister (ADR-084's shape:
