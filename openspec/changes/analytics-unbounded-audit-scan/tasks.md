@@ -56,7 +56,9 @@
 
 ## 3. Verify
 
-- [ ] 3.1 `composer check:strict` (PHPCS, PHPMD, Psalm, PHPStan).
+- [x] 3.1 `composer check:strict` (PHPCS, PHPMD, Psalm, PHPStan).
+      2026-11-24 (#1930): PHPCS, PHPMD, PHPStan and the PHPUnit failing set identical to development; Psalm 7
+      not runnable in the cloud sandbox (PHP 8.3.6, needs >= 8.3.16).
 - [ ] 3.2 Manually call `GET /apps/hermiq/api/analytics` (or the routed equivalent) on a
       dev instance with multiple orgs seeded and confirm the response is unchanged in
       shape and correctness for the calling tenant.
