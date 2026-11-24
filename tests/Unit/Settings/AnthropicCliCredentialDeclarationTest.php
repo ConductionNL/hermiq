@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/cli-runner-credential-declaration/specs/agent-credentials/spec.md
+ * @spec openspec/changes/archive/2026-11-24-cli-runner-credential-declaration/specs/agent-credentials/spec.md
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
