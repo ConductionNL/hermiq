@@ -24,7 +24,7 @@
  * @e2e session-entity-links::a-user-removes-a-link
  * @e2e session-entity-links::the-speech-control-sits-left-of-the-attachment-control
  *
- * @spec openspec/changes/session-entity-links/specs/session-entity-links/spec.md
+ * @spec openspec/specs/session-entity-links/spec.md
  */
 
 import type { APIRequestContext, Page } from '@playwright/test'
