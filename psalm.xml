@@ -22,6 +22,10 @@
         <file name="vendor/nextcloud/ocp/OCP/Capabilities/ICapability.php" preloadClasses="true" />
     </stubs>
     <issueHandlers>
+        <!-- psalm 7 style rules on existing code: the #[\Override] attribute and final classes are not
+             part of this codebase's conventions (DI-mocked services are extended in tests). -->
+        <MissingOverrideAttribute errorLevel="suppress"/>
+        <ClassMustBeFinal errorLevel="suppress"/>
         <UndefinedDocblockClass errorLevel="suppress"/>
         <UndefinedClass>
             <errorLevel type="suppress">
