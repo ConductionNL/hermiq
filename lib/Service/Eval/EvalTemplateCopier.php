@@ -28,7 +28,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
+ * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use InvalidArgumentException;
 /**
  * Copies an eval dataset template into an editable dataset for one agent.
  *
- * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
+ * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
  */
 class EvalTemplateCopier {
 
@@ -70,7 +70,7 @@ class EvalTemplateCopier {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
@@ -85,7 +85,7 @@ class EvalTemplateCopier {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
 	 */
 	public static function isTemplate(ObjectEntity $dataset): bool {
 		return ($dataset->getObject()['template'] ?? false) === true;
@@ -101,7 +101,7 @@ class EvalTemplateCopier {
 	 *
 	 * @return array<string, mixed> The new dataset's data.
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
 	 */
 	public static function copyOf(array $template, string $agentId, string $agentName): array {
 		// "Bias check: public services (template)" becomes "Bias check: public services — Permit intake helper".
@@ -135,7 +135,7 @@ class EvalTemplateCopier {
 	 *
 	 * @throws InvalidArgumentException When the dataset is not a template.
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
 	 */
 	public function copyForOwner(string $datasetId, string $agentId, string $uid): ?ObjectEntity {
 		$template = $this->ownership->readable(schema: self::SCHEMA, id: $datasetId);
@@ -158,7 +158,7 @@ class EvalTemplateCopier {
 	 *
 	 * @throws InvalidArgumentException When the dataset is not a template.
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
 	 */
 	public function copy(ObjectEntity $template, string $agentId, string $agentName): ObjectEntity {
 		if (self::isTemplate(dataset: $template) === false) {

@@ -120,7 +120,7 @@
             <step>OCA\Hermiq\Repair\SeedAgentBuilder</step>
             <step>OCA\Hermiq\Repair\SeedMaturityExampleSkills</step>
             <step>OCA\Hermiq\Repair\SeedPairedEvalDataset</step>
-            <!-- @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002 -->
+            <!-- @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002 -->
             <step>OCA\Hermiq\Repair\SeedBiasEvalTemplate</step>
             <!-- @spec openspec/changes/memory-knowledge-bases/tasks.md#task-1-the-schema-and-the-agent-reference (dev mode only) -->
             <step>OCA\Hermiq\Repair\SeedKnowledgeBases</step>
@@ -227,7 +227,7 @@
             <step>OCA\Hermiq\Repair\SeedAgentBuilder</step>
             <step>OCA\Hermiq\Repair\SeedMaturityExampleSkills</step>
             <step>OCA\Hermiq\Repair\SeedPairedEvalDataset</step>
-            <!-- @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002 -->
+            <!-- @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002 -->
             <step>OCA\Hermiq\Repair\SeedBiasEvalTemplate</step>
             <!-- @spec openspec/changes/memory-knowledge-bases/tasks.md#task-1-the-schema-and-the-agent-reference (dev mode only) -->
             <step>OCA\Hermiq\Repair\SeedKnowledgeBases</step>

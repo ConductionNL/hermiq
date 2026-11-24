@@ -1193,7 +1193,7 @@ class EvalRunService implements EvalRunServiceInterface {
 	 *
 	 * @return array<string,mixed>
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-test-case-can-compare-two-requests-that-differ-in-one-attribute-req-biaseval-001
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-test-case-can-compare-two-requests-that-differ-in-one-attribute-req-biaseval-001
 	 */
 	private function executePairCase(EvalCaseRun $run, array $case, array $record): array {
 		$inputA = (string)($case['inputA'] ?? $record['prompt']);

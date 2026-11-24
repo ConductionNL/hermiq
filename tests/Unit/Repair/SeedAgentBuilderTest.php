@@ -14,7 +14,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
+ * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
  */
 
 declare(strict_types=1);
@@ -36,7 +36,7 @@ use OCA\OpenRegister\Contract\ObjectSaveOptions as PublishedObjectSaveOptions;
 /**
  * Tests for SeedAgentBuilder.
  *
- * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
+ * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
  */
 class SeedAgentBuilderTest extends TestCase {
 
@@ -126,7 +126,7 @@ class SeedAgentBuilderTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
+	 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
 	 */
 	public function testTwoRunsSeedOneSkillAndOneAgent(): void {
 		$store = $this->store();
@@ -200,7 +200,7 @@ class SeedAgentBuilderTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
+	 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
 	 */
 	public function testNoToolWritesAHermiqSchema(): void {
 		$register = json_decode((string)file_get_contents(__DIR__ . '/../../../lib/Settings/hermiq_register.json'), true);

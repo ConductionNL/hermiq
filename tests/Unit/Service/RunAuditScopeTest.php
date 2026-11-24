@@ -18,7 +18,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/analytics-unbounded-audit-scan/tasks.md#2-tests-make-the-phantom-green-mock-assert-the-query-shape
+ * @spec openspec/changes/archive/2026-11-24-analytics-unbounded-audit-scan/tasks.md#2-tests-make-the-phantom-green-mock-assert-the-query-shape
  */
 
 declare(strict_types=1);
@@ -34,7 +34,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests for RunAuditScope.
  *
- * @spec openspec/changes/analytics-unbounded-audit-scan/tasks.md#2-tests-make-the-phantom-green-mock-assert-the-query-shape
+ * @spec openspec/changes/archive/2026-11-24-analytics-unbounded-audit-scan/tasks.md#2-tests-make-the-phantom-green-mock-assert-the-query-shape
  */
 class RunAuditScopeTest extends TestCase {
 

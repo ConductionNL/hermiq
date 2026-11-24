@@ -258,7 +258,7 @@ class AnalyticsService implements AnalyticsServiceInterface
      *
      * @return array<int, array{log: AuditTrail, context: array<string, mixed>, agentId: string}> The visible runs.
      *
-     * @spec openspec/changes/analytics-unbounded-audit-scan/tasks.md#1-backend-bound-the-audit-trail-read
+     * @spec openspec/changes/archive/2026-11-24-analytics-unbounded-audit-scan/tasks.md#1-backend-bound-the-audit-trail-read
      */
     private function visibleRuns(array $visibleAgents): array
     {

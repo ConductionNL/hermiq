@@ -25,7 +25,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
+ * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
  */
 
 declare(strict_types=1);
@@ -46,7 +46,7 @@ use Throwable;
 /**
  * Seed the agent-builder skill and the Agent builder agent.
  *
- * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
+ * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
  */
 class SeedAgentBuilder implements IRepairStep {
 	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
@@ -95,7 +95,7 @@ class SeedAgentBuilder implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
+	 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
 	 */
 	public function getName(): string {
 		return 'Seed the Agent builder agent and its skill (agents-plain-language-builder)';
@@ -108,7 +108,7 @@ class SeedAgentBuilder implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
+	 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
 	 */
 	public function run(IOutput $output): void {
 		try {
@@ -136,7 +136,7 @@ class SeedAgentBuilder implements IRepairStep {
 	 *
 	 * @return array<string, mixed>
 	 *
-	 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
+	 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
 	 */
 	public function agentObject(string $skillUuid): array {
 		return [

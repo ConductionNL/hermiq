@@ -3,7 +3,7 @@
 Bounds the AuditTrail read `AnalyticsService::computeAnalytics()` issues so it scans only
 the calling tenant's own data, not every organisation's `action='run'` rows instance-wide.
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Analytics computation MUST NOT read audit-trail rows outside the caller's tenant scope
 The system's `AnalyticsService::computeAnalytics()` MUST issue an `AuditTrailMapper`

@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+ * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use Throwable;
 /**
  * Due eval schedules, run one by one.
  *
- * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+ * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
  */
 class EvalScheduleRunner {
 
@@ -51,7 +51,7 @@ class EvalScheduleRunner {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
 	 */
 	public function __construct(
 		private readonly EvalSchedules $schedules,
@@ -68,7 +68,7 @@ class EvalScheduleRunner {
 	 *
 	 * @return array<string, string> Why each failed schedule failed, by schedule uuid.
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
 	 */
 	public function runDue(DateTimeImmutable $now): array {
 		$failures = [];
@@ -91,7 +91,7 @@ class EvalScheduleRunner {
 	 *
 	 * @return array<string, mixed>|null The run result, or null when nothing ran.
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
 	 */
 	public function runIfDue(ObjectEntity $schedule, DateTimeImmutable $now): ?array {
 		if ($this->clock->isDue(schedule: $schedule->getObject(), now: $now) === false) {
@@ -170,7 +170,7 @@ class EvalScheduleRunner {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#scenario-the-monthly-bias-check-drops-and-the-owner-is-told
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#scenario-the-monthly-bias-check-drops-and-the-owner-is-told
 	 */
 	private function warnOnRegression(ObjectEntity $schedule, array $targets, array $result): void {
 		if ($result['regressionGateResult'] !== 'failed') {

@@ -7,7 +7,7 @@
   many points the pass rate may drop before the owner is told. Own file per
   ADR-004 modal-isolation; the panel saves through src/api/evals.js.
 
-  @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+  @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
 -->
 <template>
 	<NcModal
@@ -127,7 +127,7 @@ export default {
 		 * The frequencies offered; a custom expression is offered only when the schedule has one.
 		 *
 		 * @return {Array<object>} { value, label } options.
-		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
 		 */
 		frequencyOptions() {
 			const options = [
@@ -147,7 +147,7 @@ export default {
 		 * Hand the request body to the panel.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
 		 */
 		submit() {
 			if (!this.agent) {

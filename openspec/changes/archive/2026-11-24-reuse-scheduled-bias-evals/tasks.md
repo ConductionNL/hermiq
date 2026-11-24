@@ -58,4 +58,5 @@ Kind: code. Size M. Row `hermiq:td-bias-test`.
 ## Verification
 - [x] `openspec validate reuse-scheduled-bias-evals --type change --strict` passes
   - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
-- [ ] PHPUnit and Playwright run, exit codes read
+- [x] PHPUnit and Playwright run, exit codes read
+  - 2026-11-24, development d777f3e8: the change's PHPUnit tests (`--filter 'EvalSchedule|BiasEval|BiasCheck'` 45 tests, `ComplianceServiceTest` and `SeedComplianceControlsTest` in the 36-test run) pass, exit 1 only for the missing coverage driver; the full suite's 6769 tests fail only on the 3 inherited `ToolAccessRequestPropertyRulesTest` errors. vitest `eval-schedules.spec.js` and `factsheet-bias-check.spec.js` 12/12, exit 0. Playwright `tests/e2e/spec-coverage/bias-evals.spec.ts`: written, runs in nightly (UNBLOCK rule 3); not run here, no instance.

@@ -49,7 +49,7 @@ interface AgentDraftServiceInterface {
 	 *
 	 * @throws AgentDraftUnreadableException When the text is not a JSON object with a name.
 	 *
-	 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+	 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 	 */
 	public function check(string $text, string $uid): array;
 }//end interface

@@ -121,7 +121,7 @@ class ComplianceService implements ComplianceServiceInterface {
 	 * @param EvidenceReports $evidenceReports The report-backed evidence: AI literacy (article 4) and
 	 *                                         bias checks (reuse-scheduled-bias-evals).
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator (one per evidence seam), not a logic-bearing argument list.
@@ -231,7 +231,7 @@ class ComplianceService implements ComplianceServiceInterface {
 	 * @return array<string, mixed>|null The factsheet, or null when the agent does not exist.
 	 *
 	 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-4-complianceservice-dashboard-export-and-factsheet-aggregation
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
 	 */
 	public function factsheet(string $agentId): ?array {
 		$agent = $this->findAgent(agentId: $agentId);
@@ -301,7 +301,7 @@ class ComplianceService implements ComplianceServiceInterface {
 	 * @return array{status: string, detail: string} The computed status + explanation.
 	 *
 	 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-3-complianceservice-computed-evidence-mapping
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
 	 */
 	private function computeControlStatus(array $control, string $organisation): array {
 		return match ($control['evidenceSource'] ?? '') {

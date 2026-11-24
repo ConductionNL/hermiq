@@ -15,7 +15,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+ * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
  */
 
 declare(strict_types=1);
@@ -31,7 +31,7 @@ use Throwable;
 /**
  * Due selection and next-run computation for eval schedules.
  *
- * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+ * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
  */
 class EvalScheduleClock {
 
@@ -52,7 +52,7 @@ class EvalScheduleClock {
 	 *
 	 * @return bool True when the schedule should run now.
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
 	 */
 	public function isDue(array $schedule, DateTimeImmutable $now): bool {
 		if (($schedule['enabled'] ?? false) !== true) {
@@ -85,7 +85,7 @@ class EvalScheduleClock {
 	 *
 	 * @return DateTimeImmutable|null The next run, or null when the expression is not valid cron.
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
 	 */
 	public function nextRun(string $cronExpr, DateTimeImmutable $now): ?DateTimeImmutable {
 		$expression = trim(string: $cronExpr);

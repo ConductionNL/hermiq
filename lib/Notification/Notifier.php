@@ -519,7 +519,7 @@ class Notifier implements INotifier {
 	 *
 	 * @return array{0:string,1:string} The [subject, message] pair.
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#scenario-the-monthly-bias-check-drops-and-the-owner-is-told
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#scenario-the-monthly-bias-check-drops-and-the-owner-is-told
 	 */
 	private function evalRegressionText(array $subjectRaw, IL10N $l): array {
 		$dataset  = (string)($subjectRaw['dataset'] ?? '');
@@ -543,7 +543,7 @@ class Notifier implements INotifier {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#scenario-the-monthly-bias-check-drops-and-the-owner-is-told
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#scenario-the-monthly-bias-check-drops-and-the-owner-is-told
 	 */
 	private function linkEvalRegression(INotification $notification, array $subjectRaw): void {
 		$datasetId = (string)($subjectRaw['datasetId'] ?? '');

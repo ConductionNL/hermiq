@@ -6,7 +6,7 @@
  * REQ-BIASEVAL-002): a template offers the copy instead of a run, and a copy
  * opens the new dataset.
  *
- * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
+ * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'

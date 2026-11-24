@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+ * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
  */
 
 declare(strict_types=1);
@@ -41,7 +41,7 @@ use InvalidArgumentException;
 /**
  * Lists, adds and changes a dataset's eval schedules for its owner.
  *
- * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+ * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
  */
 class EvalScheduleController extends Controller {
 
@@ -54,7 +54,7 @@ class EvalScheduleController extends Controller {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
 	 */
 	public function __construct(
 		IRequest $request,
@@ -71,7 +71,7 @@ class EvalScheduleController extends Controller {
 	 *
 	 * @return JSONResponse 200 with the schedules; 401 or 404 otherwise.
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
 	 */
 	#[NoAdminRequired]
 	public function index(string $datasetId): JSONResponse {
@@ -95,7 +95,7 @@ class EvalScheduleController extends Controller {
 	 *
 	 * @return JSONResponse 201 with the schedule; 400, 401 or 404 otherwise.
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
 	 */
 	#[NoAdminRequired]
 	public function create(string $datasetId): JSONResponse {
@@ -110,7 +110,7 @@ class EvalScheduleController extends Controller {
 	 *
 	 * @return JSONResponse 200 with the schedule; 400, 401 or 404 otherwise.
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
 	 */
 	#[NoAdminRequired]
 	public function update(string $datasetId, string $id): JSONResponse {
