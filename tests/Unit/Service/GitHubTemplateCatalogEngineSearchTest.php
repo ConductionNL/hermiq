@@ -70,7 +70,12 @@ final class GitHubTemplateCatalogEngineSearchTest extends TestCase {
 	public function testASearchGoesThroughTheEngineAsHermiq(): void {
 		$engine = $this->engine(answer: ['outcome' => 'ok', 'cards' => [], 'brokerUsed' => true, 'rateLimited' => false, 'status' => 200]);
 
-		$answer = $this->service(engine: $engine)->search(query: ' meeting notes ', actingUserId: 'alice', credentialId: 'cred-1', kind: GitHubTemplateCatalogService::KIND_SKILL);
+		$answer = $this->service(engine: $engine)->search(
+			query: ' meeting notes ',
+			actingUserId: 'alice',
+			credentialId: 'cred-1',
+			kind: GitHubTemplateCatalogService::KIND_SKILL
+		);
 
 		self::assertCount(expectedCount: 1, haystack: $engine->calls);
 		[$topic, $term, $credentialId, $identity] = $engine->calls[0];
@@ -93,7 +98,17 @@ final class GitHubTemplateCatalogEngineSearchTest extends TestCase {
 	public function testAnEngineHitBecomesACard(): void {
 		$engine = $this->engine(answer: [
 			'outcome' => 'ok',
-			'cards' => [['repo' => 'acme/triage', 'name' => 'triage', 'description' => 'x', 'url' => 'https://github.com/acme/triage', 'stars' => 4, 'updated' => '', 'topics' => []]],
+			'cards' => [
+				[
+					'repo' => 'acme/triage',
+					'name' => 'triage',
+					'description' => 'x',
+					'url' => 'https://github.com/acme/triage',
+					'stars' => 4,
+					'updated' => '',
+					'topics' => [],
+				],
+			],
 			'brokerUsed' => false,
 			'rateLimited' => false,
 			'status' => 200,

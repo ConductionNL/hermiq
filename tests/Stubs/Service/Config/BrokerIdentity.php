@@ -43,6 +43,15 @@ final class BrokerIdentity {
 		$app = trim((string)$appId);
 		$user = trim((string)$actingUserId);
 
-		return new self(appId: ($app === '' ? 'openregister' : $app), actingUserId: ($user === '' ? null : $user));
+		if ($app === '') {
+			$app = 'openregister';
+		}
+
+		$actingUser = null;
+		if ($user !== '') {
+			$actingUser = $user;
+		}
+
+		return new self(appId: $app, actingUserId: $actingUser);
 	}//end of()
 }//end class

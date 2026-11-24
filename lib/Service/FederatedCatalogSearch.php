@@ -117,7 +117,6 @@ final class FederatedCatalogSearch {
 		if ($this->container === null
 			|| class_exists(self::ENGINE_CLASS) === false
 			|| class_exists(self::IDENTITY_CLASS) === false
-			|| method_exists(self::ENGINE_CLASS, 'discoverOutcome') === false
 			|| $this->container->has(self::ENGINE_CLASS) === false
 		) {
 			return null;
@@ -129,7 +128,12 @@ final class FederatedCatalogSearch {
 			return null;
 		}
 
-		return is_object($engine) === true ? $engine : null;
+		// An older OpenRegister has the engine without the search that says how it went.
+		if (is_object($engine) === false || is_callable([$engine, 'discoverOutcome']) === false) {
+			return null;
+		}
+
+		return $engine;
 	}//end engine()
 
 	/**
@@ -138,6 +142,8 @@ final class FederatedCatalogSearch {
 	 * @param string $topic The topic.
 	 *
 	 * @return string The bare topic.
+	 *
+	 * @spec openspec/changes/store-through-federated-config/tasks.md#task-3-3
 	 */
 	public static function bareTopic(string $topic): string {
 		$topic = trim($topic);
