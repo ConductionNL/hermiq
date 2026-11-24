@@ -25,6 +25,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service;
 
+use OCA\Hermiq\Service\Chat\AttachmentTextSource;
+use OCA\Hermiq\Service\Chat\OpenRegisterAttachmentTextSource;
 use OCA\Hermiq\Service\ContractBindings;
 use OCA\Hermiq\Service\Llm\DatabaseRunTokenStore;
 use OCA\Hermiq\Service\Llm\RunTokenStore;
@@ -67,25 +69,26 @@ class ServiceRegistrarTest extends TestCase {
 	}//end record()
 
 	/**
-	 * The contract bindings come first, followed by exactly the three seam aliases.
+	 * The contract bindings come first, followed by exactly the four seam aliases.
 	 *
 	 * @return void
 	 */
-	public function testRegistersContractBindingsThenTheThreeSeams(): void {
+	public function testRegistersContractBindingsThenTheFourSeams(): void {
 		$contracts = $this->record(new ContractBindings());
 		$all       = $this->record(new ServiceRegistrar());
 
-		$this->assertCount(count($contracts) + 3, $all);
+		$this->assertCount(expectedCount: count($contracts) + 4, haystack: $all);
 		$this->assertSame($contracts, array_slice($all, 0, count($contracts)));
 		$this->assertSame(
 			[
 				[WorkspaceProvider::class, ServerSideWorkspaceProvider::class],
 				[RunTokenStore::class, DatabaseRunTokenStore::class],
+				[AttachmentTextSource::class, OpenRegisterAttachmentTextSource::class],
 				[RegisterSlugResolverInterface::class, 'OCA\\OpenRegister\\Service\\RegisterSlugResolver'],
 			],
 			array_slice($all, count($contracts))
 		);
-	}//end testRegistersContractBindingsThenTheThreeSeams()
+	}//end testRegistersContractBindingsThenTheFourSeams()
 
 	/**
 	 * The seam targets are real implementations of their seams.

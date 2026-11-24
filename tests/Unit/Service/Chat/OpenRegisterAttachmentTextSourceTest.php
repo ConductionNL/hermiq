@@ -23,10 +23,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\Chat;
 
-use OCA\Hermiq\Service\Chat\AttachmentTextSource;
 use OCA\Hermiq\Service\Chat\OpenRegisterAttachmentTextSource;
-use OCA\Hermiq\Service\ServiceRegistrar;
-use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
@@ -195,23 +192,4 @@ final class OpenRegisterAttachmentTextSourceTest extends TestCase {
 		$this->assertNull(actual: $this->source(facade: new FileTextFacadeStub(text: null))->extractText(fileId: 42, userId: 'alice'));
 		$this->assertNull(actual: $this->source(facade: new FileTextFacadeStub(text: '   '))->extractText(fileId: 42, userId: 'alice'));
 	}//end testAFailingOrEmptyFacadeYieldsNull()
-
-	/**
-	 * The registrar binds the AttachmentTextSource seam to this adapter.
-	 *
-	 * @return void
-	 */
-	public function testTheSeamIsBoundToTheAdapter(): void {
-		$aliases = [];
-		$context = $this->createMock(originalClassName: IRegistrationContext::class);
-		$context->method('registerServiceAlias')->willReturnCallback(
-			function (string $alias, string $target) use (&$aliases): void {
-				$aliases[$alias] = $target;
-			}
-		);
-
-		(new ServiceRegistrar())->register(context: $context);
-
-		$this->assertSame(expected: OpenRegisterAttachmentTextSource::class, actual: $aliases[AttachmentTextSource::class] ?? null);
-	}//end testTheSeamIsBoundToTheAdapter()
 }//end class

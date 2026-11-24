@@ -28,6 +28,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Chat;
 
+use OCA\Hermiq\Service\Engine\VectorFacadeLocator;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -45,11 +46,11 @@ class OpenRegisterAttachmentTextSource implements AttachmentTextSource {
 	public const FACADE_CLASS = 'OCA\\OpenRegister\\Files\\Service\\FileTextFacade';
 
 	/**
-	 * The resolved facade; false once resolution failed, null before it was tried.
+	 * Finds the facade once, behind a class probe and the container; built on first use.
 	 *
-	 * @var object|false|null
+	 * @var VectorFacadeLocator|null
 	 */
-	private object|false|null $facade = null;
+	private ?VectorFacadeLocator $locator = null;
 
 	/**
 	 * Constructor.
@@ -75,16 +76,7 @@ class OpenRegisterAttachmentTextSource implements AttachmentTextSource {
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
 	 */
 	public function isAvailable(): bool {
-		$facade = $this->facade();
-		if ($facade === null || method_exists($facade, 'extractText') === false) {
-			return false;
-		}
-
-		try {
-			return method_exists($facade, 'isAvailable') === false || $facade->isAvailable() === true;
-		} catch (Throwable) {
-			return false;
-		}
+		return $this->readyFacade() !== null;
 	}//end isAvailable()
 
 	/**
@@ -98,18 +90,17 @@ class OpenRegisterAttachmentTextSource implements AttachmentTextSource {
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
 	 */
 	public function extractText(int $fileId, string $userId): ?string {
-		if ($this->isAvailable() === false) {
-			return null;
-		}
-
-		try {
-			$text = $this->facade()?->extractText($fileId, $userId);
-		} catch (Throwable $e) {
-			$this->logger->info(
-				message: '[OpenRegisterAttachmentTextSource] the file text facade failed',
-				context: ['fileId' => $fileId, 'error' => $e->getMessage()]
-			);
-			return null;
+		$facade = $this->readyFacade();
+		$text   = null;
+		if ($facade !== null) {
+			try {
+				$text = $facade->extractText($fileId, $userId);
+			} catch (Throwable $e) {
+				$this->logger->info(
+					message: '[OpenRegisterAttachmentTextSource] the file text facade failed',
+					context: ['fileId' => $fileId, 'error' => $e->getMessage()]
+				);
+			}
 		}
 
 		if (is_string($text) === false || trim($text) === '') {
@@ -120,46 +111,39 @@ class OpenRegisterAttachmentTextSource implements AttachmentTextSource {
 	}//end extractText()
 
 	/**
-	 * The facade, resolved once.
+	 * The facade when it exists, can extract and reports itself available.
 	 *
-	 * @return object|null The facade, or null when OpenRegister has none.
+	 * @return object|null The facade, or null.
 	 */
-	private function facade(): ?object {
-		if ($this->facade === null) {
-			$this->facade = $this->resolve();
-		}
-
-		if ($this->facade === false) {
+	private function readyFacade(): ?object {
+		$facade = $this->locator()->facade();
+		if ($facade === null || method_exists($facade, 'extractText') === false) {
 			return null;
 		}
 
-		return $this->facade;
-	}//end facade()
-
-	/**
-	 * Resolve the facade behind a class probe.
-	 *
-	 * @return object|false The facade, or false.
-	 */
-	private function resolve(): object|false {
-		if (class_exists($this->facadeClass) === false) {
-			return false;
-		}
-
-		try {
-			$facade = $this->container->get($this->facadeClass);
-		} catch (Throwable $e) {
-			$this->logger->info(
-				message: '[OpenRegisterAttachmentTextSource] the OpenRegister file text facade could not be resolved',
-				context: ['error' => $e->getMessage()]
-			);
-			return false;
-		}
-
-		if (is_object($facade) === false) {
-			return false;
+		if ($this->locator()->hasBackend(facade: $facade) === false) {
+			return null;
 		}
 
 		return $facade;
-	}//end resolve()
+	}//end readyFacade()
+
+	/**
+	 * The locator, generic over OpenRegister facades: a class probe, one container
+	 * lookup, and an isAvailable() read that never throws.
+	 *
+	 * @return VectorFacadeLocator
+	 */
+	private function locator(): VectorFacadeLocator {
+		if ($this->locator === null) {
+			$this->locator = new VectorFacadeLocator(
+				container: $this->container,
+				logger: $this->logger,
+				facadeClass: $this->facadeClass,
+				caller: 'AttachmentText'
+			);
+		}
+
+		return $this->locator;
+	}//end locator()
 }//end class
