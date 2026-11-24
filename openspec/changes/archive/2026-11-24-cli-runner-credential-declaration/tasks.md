@@ -52,8 +52,9 @@ is already covered. Task 3 verifies the existing behaviour against the new entry
 - [x] Implement
   - 2026-11-23, read against openregister `main` (4588c723): `anthropic-cli` is `inject_only: true` with no `baseUrl` and no `allowRules` (catalogue 1.12.0); `anthropic-oauth` carries no `inject_only`, so `resolveInjectableFor()` refuses it (`CredentialBrokerService.php:490`). The inject-only branch denies a proxied request (`:260`), and the owner (`:1149`) and `allowedApps` (`:1330-1332`) guards run before a secret is returned. The line numbers in the criteria above predate these moves; the guards are unchanged. No gap.
   - `tests/Unit/Settings/AnthropicCliCredentialDeclarationTest.php` pins the declaration in `src/credentials.json` and, with an OpenRegister checkout next to this one, that the identifier resolves to that inject-only entry. Breaking `inject_only` in the catalogue fails it.
-- [ ] Test
+- [x] Test
   - Open: the Credentials tab check (the row offered with its reason, a save that succeeds) needs a running Nextcloud with OpenRegister.
+  - 2026-11-24: written as `tests/e2e/spec-coverage/cli-runner-credential-declaration.spec.ts` against the installed broker: `anthropic-cli` is among the offered providers, a personal credential allowing `hermiq` saves (201) with a dummy secret that neither the create answer nor the list ever returns, and the broker's proxy path answers 403 for it. Written, runs in nightly (UNBLOCK rule 3); not run here, no instance.
 
 ## Quality checklist
 
