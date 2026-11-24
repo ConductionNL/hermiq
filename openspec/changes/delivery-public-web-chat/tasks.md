@@ -52,7 +52,8 @@ Kind: code. Size L. Row `hermiq:dl-embed-web`.
 - **acceptance_criteria**:
   - GIVEN an admin WHEN they create a channel THEN both snippets show; an agent with tools is refused
 - [x] Implement (the `PublicChat` settings page is manifest configuration, an index page over `agentpublicchannel` with `slots.form-dialog` -> `PublicChannelFormModal`, rather than a hand-built `PublicChatSettings.vue`; `PublicChannelGuardListener` refuses an agent with tools with "A public assistant cannot use tools. Pick an agent without tools.", refuses an origin with a path, and gives a new channel its token; the form shows the script and iframe snippets once a website channel is saved)
-- [ ] Test (PHPUnit `PublicChannelGuardListenerTest` and vitest `public-channel-settings.spec.js` done; Playwright needs a running instance. Entry point for the portaliq lane: `OCA\Hermiq\PublicChat\PublicChatEntryPoint::ask(string $channelKey, string $question, string $locale, array $sourceScope, ?string $conversationToken): PublicAnswer`, channel key `app:portaliq:<portal-slug>`)
+- [x] Test (PHPUnit `PublicChannelGuardListenerTest` and vitest `public-channel-settings.spec.js` done; Playwright needs a running instance. Entry point for the portaliq lane: `OCA\Hermiq\PublicChat\PublicChatEntryPoint::ask(string $channelKey, string $question, string $locale, array $sourceScope, ?string $conversationToken): PublicAnswer`, channel key `app:portaliq:<portal-slug>`)
+  - 2026-11-24: Playwright "a communications advisor puts the assistant on the municipal website" and "an agent with tools cannot be public" in `tests/e2e/spec-coverage/public-web-chat.spec.ts` written, run in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ## Verification
 - [x] `openspec validate delivery-public-web-chat --type change --strict` passes
