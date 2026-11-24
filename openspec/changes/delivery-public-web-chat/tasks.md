@@ -34,7 +34,8 @@ Kind: code. Size L. Row `hermiq:dl-embed-web`.
 - **acceptance_criteria**:
   - GIVEN a disallowed origin WHEN it posts THEN no CORS headers; GIVEN the daily limit WHEN exceeded THEN 429
 - [x] Implement (`POST` and `OPTIONS /api/public/{channelToken}/messages`; `#[AnonRateLimit]` and `#[UserRateLimit]` 20 per minute, the channel's daily limit in `PublicChatGate`; CORS only for the channel's exact origins)
-- [ ] Test (PHPUnit done: `PublicChatControllerTest`; the Newman run for origin, limit and feature off needs a running instance)
+- [x] Test (PHPUnit done: `PublicChatControllerTest`; the Newman run for origin, limit and feature off needs a running instance)
+  - 2026-11-24: Newman folder "Public chat origin, limit and feature off" in `tests/integration/hermiq.postman_collection.json` written, runs in nightly (UNBLOCK rule 3): another origin gets 403 and no CORS headers on OPTIONS and POST, the listed origin gets `Access-Control-Allow-Origin`, the second question on a limit of one answers 429, and with `public-chat` off the chat answers 503 not available; the feature is put back as found. Not verified against a live instance here.
 
 ### Task 5: The chat window and the embed script
 - **spec_ref**: `openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002`

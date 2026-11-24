@@ -6129,6 +6129,551 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "Public chat origin, limit and feature off",
+			"description": "delivery-public-web-chat task 4 (REQ-PUBCHAT-003): an origin the channel does not list gets 403 and no CORS headers, the listed origin gets them, the question past the daily limit answers 429, and with the public-chat feature off the chat is not available (503).",
+			"item": [
+				{
+					"name": "Find the public-chat feature",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/ai-features",
+						"description": "Remember the feature and its state, so the last step puts it back."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const feature = (pm.response.json().results || []).find(f => f.slug === 'public-chat');",
+									"pm.test('The public-chat feature exists', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(feature).to.be.an('object');",
+									"});",
+									"pm.collectionVariables.set('pubchat_feature', feature.uuid || feature.id);",
+									"pm.collectionVariables.set('pubchat_feature_restore', feature.lifecycle === 'enabled' ? 'enable' : 'disable');"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Acknowledge the feature",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/ai-features/public-chat/acknowledge",
+						"description": "The DPO acknowledgement an enable needs; a second one is harmless.",
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Acknowledged', function () {",
+									"    pm.expect([200, 409, 422]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Switch the feature on",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/ai-features/{{pubchat_feature}}/enable",
+						"description": "On, or already on (422 from an enabled state).",
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The feature is on', function () {",
+									"    pm.expect([200, 422]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Public agent",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agent",
+						"description": "An agent without tools, as a public channel requires.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"name\": \"Newman public agent\", \"description\": \"Agent for the public chat checks.\", \"tools\": []}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const body = pm.response.json();",
+									"pm.test('The agent is saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"});",
+									"pm.collectionVariables.set('pubchat_agent', body.id || body.uuid || (body['@self'] || {}).id);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Website channel with a limit of one",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agentpublicchannel",
+						"description": "A website channel for one origin that answers one question a day.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"name\": \"Newman website\", \"kind\": \"website\", \"agentId\": \"{{pubchat_agent}}\", \"allowedOrigins\": [\"https://newman-site.example.org\"], \"dailyQuestionLimit\": 1, \"enabled\": true, \"channelToken\": \"NewmanPublicChat0000000000000001\", \"disclosureText\": \"Newman: you are talking to an AI.\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const body = pm.response.json();",
+									"pm.test('The channel is saved with its token', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"    pm.expect(body.channelToken).to.equal('NewmanPublicChat0000000000000001');",
+									"});",
+									"pm.collectionVariables.set('pubchat_channel', body.id || body.uuid || (body['@self'] || {}).id);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Preflight from another website is refused",
+					"request": {
+						"method": "OPTIONS",
+						"header": [
+							{
+								"key": "Origin",
+								"value": "https://elsewhere.example.org"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/public/NewmanPublicChat0000000000000001/messages",
+						"description": "An origin the channel does not list gets 403 and no CORS headers.",
+						"auth": {
+							"type": "noauth"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('403 without CORS headers', function () {",
+									"    pm.response.to.have.status(403);",
+									"    pm.expect(pm.response.headers.has('Access-Control-Allow-Origin')).to.equal(false);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A post from another website is refused",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Origin",
+								"value": "https://elsewhere.example.org"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/public/NewmanPublicChat0000000000000001/messages",
+						"description": "Not answered, and no CORS headers.",
+						"auth": {
+							"type": "noauth"
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\"question\": \"Wat zijn de openingstijden?\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('403 without CORS headers', function () {",
+									"    pm.response.to.have.status(403);",
+									"    pm.expect(pm.response.headers.has('Access-Control-Allow-Origin')).to.equal(false);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Preflight from the listed website",
+					"request": {
+						"method": "OPTIONS",
+						"header": [
+							{
+								"key": "Origin",
+								"value": "https://newman-site.example.org"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/public/NewmanPublicChat0000000000000001/messages",
+						"description": "The listed origin is told it may post.",
+						"auth": {
+							"type": "noauth"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('204 with CORS for that origin', function () {",
+									"    pm.response.to.have.status(204);",
+									"    pm.expect(pm.response.headers.get('Access-Control-Allow-Origin')).to.equal('https://newman-site.example.org');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The first question of the day",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Origin",
+								"value": "https://newman-site.example.org"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/public/NewmanPublicChat0000000000000001/messages",
+						"description": "Answered (200), or 503 when no model answers on this instance; either way it counts.",
+						"auth": {
+							"type": "noauth"
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\"question\": \"Wat zijn de openingstijden?\", \"locale\": \"nl\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Taken, with CORS for the listed origin', function () {",
+									"    pm.expect([200, 503]).to.include(pm.response.code);",
+									"    pm.expect(pm.response.headers.get('Access-Control-Allow-Origin')).to.equal('https://newman-site.example.org');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Past the daily limit",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Origin",
+								"value": "https://newman-site.example.org"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/public/NewmanPublicChat0000000000000001/messages",
+						"description": "The second question on a limit of one answers 429.",
+						"auth": {
+							"type": "noauth"
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\"question\": \"En op zaterdag?\", \"locale\": \"nl\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('429 with the limit message', function () {",
+									"    pm.response.to.have.status(429);",
+									"    pm.expect(pm.response.json().message).to.equal('This assistant has answered all the questions it can today. Try again tomorrow.');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Switch the feature off",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/ai-features/{{pubchat_feature}}/disable",
+						"description": "With the feature off the channel stops answering.",
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The feature is off', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "With the feature off the chat is not available",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Origin",
+								"value": "https://newman-site.example.org"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/public/NewmanPublicChat0000000000000001/messages",
+						"description": "503 and not available, before any limit is counted.",
+						"auth": {
+							"type": "noauth"
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\"question\": \"Wat zijn de openingstijden?\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('503, not available', function () {",
+									"    pm.response.to.have.status(503);",
+									"    pm.expect(pm.response.json().available).to.equal(false);",
+									"    pm.expect(pm.response.json().message).to.equal('This assistant is not available right now.');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Put the feature back",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/ai-features/{{pubchat_feature}}/{{pubchat_feature_restore}}",
+						"description": "Back to the state the first step found.",
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Restored', function () {",
+									"    pm.expect([200, 409, 422]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Remove the channel",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agentpublicchannel/{{pubchat_channel}}",
+						"description": "Clean up."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 204, 404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Remove the public agent",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agent/{{pubchat_agent}}",
+						"description": "Clean up."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 204, 404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
 		}
 	]
 }
