@@ -3225,7 +3225,7 @@ export default {
 		 *
 		 * @param {object} message The message.
 		 * @return {boolean}
-		 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+		 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 		 */
 		hasAgentDraft(message) {
 			return (
@@ -3238,7 +3238,7 @@ export default {
 		 *
 		 * @param {object} message The message.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+		 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 		 */
 		async openAgentDraft(message) {
 			this.checkingDraft = true
@@ -3262,7 +3262,7 @@ export default {
 		 * The agent form closed: drop the draft.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+		 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 		 */
 		closeAgentDraft() {
 			this.draftAgent = null
@@ -3274,7 +3274,7 @@ export default {
 		 *
 		 * @param {object} saved The saved agent.
 		 * @return {void}
-		 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+		 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 		 */
 		onDraftAgentSaved(saved) {
 			const agentId = saved?.['@self']?.id || saved?.id || saved?.uuid || ''

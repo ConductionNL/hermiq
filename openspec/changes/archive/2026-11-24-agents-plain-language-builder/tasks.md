@@ -1,6 +1,6 @@
 # Tasks: agents-plain-language-builder
 
-> Archive pass 2026-10-07: code done; open: task 1 live chat with the builder, task 2 Newman run (live check).
+> Archive pass 2026-10-07: code done; open: task 1 live chat with the builder, task 2 Newman run (live check). 2026-11-24: both written (Newman live-run 2026-11-17; live chat as a nightly Playwright spec).
 
 Kind: code. Size M. Rows `hermiq:ag-nl-builder`, `hermiq:dm-builder-upgrade`.
 
@@ -13,7 +13,8 @@ Kind: code. Size M. Rows `hermiq:ag-nl-builder`, `hermiq:dm-builder-upgrade`.
   - GIVEN a fresh install and an upgrade WHEN the step runs twice THEN one skill and one agent exist, with no write tools granted
 - [x] Implement (`lib/Repair/SeedAgentBuilder.php`, both repair lists in `appinfo/info.xml`)
 - [x] Test: PHPUnit idempotency, existing builder left alone, seeds pass the real Skill and Agent fragments with Opis (negative control), `tests/Unit/Repair/SeedAgentBuilderTest.php`
-- [ ] Test: a live chat with the builder, answer in the PR body (needs the live instance)
+- [x] Test: a live chat with the builder, answer in the PR body (needs the live instance)
+  - 2026-11-24: written as `tests/e2e/spec-coverage/agents-plain-language-builder-live.spec.ts`: the scenario's own request sent to the seeded Agent builder through `POST /api/chat/send` against the real model, the answer must carry a `hermiq-agent-draft` block that `POST /api/agents/draft-check` reads (200), and the agent count is unchanged. Skipped only when chat health is not `ok`. Written, runs in nightly (UNBLOCK rule 3); not run here, no instance, so no answer is quoted.
 
 ### Task 2: The draft check endpoint
 - **spec_ref**: `openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002`
