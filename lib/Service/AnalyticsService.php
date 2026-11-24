@@ -96,17 +96,6 @@ class AnalyticsService implements AnalyticsServiceInterface
     private const AGENT_SCHEMA = 'agent';
 
     /**
-     * The audit actions that represent an agent run, as ONE comma-joined filter value.
-     *
-     * AuditTrailMapper::findAll() turns a comma-bearing filter value into a SQL `IN`
-     * (see its filter loop), so every run channel (schedule, flow, by hand) comes back from a single query rather
-     * than two passes that would then need merging and re-sorting.
-     *
-     * @var string
-     */
-    private const RUN_ACTIONS = 'run,agent-run,manual-run';
-
-    /**
      * The trigger a run row shows per audit action; any other action is a flow run.
      *
      * @var array<string, string>
@@ -274,7 +263,7 @@ class AnalyticsService implements AnalyticsServiceInterface
     private function visibleRuns(array $visibleAgents): array
     {
         $runs = [];
-        foreach ($this->visibleRunLogs(visibleAgents: $visibleAgents) as $log) {
+        foreach ((new RunAuditScope(auditTrailMapper: $this->auditTrailMapper))->logsOf(agentIds: array_keys($visibleAgents)) as $log) {
             $context = ($log->getChanged() ?? []);
 
             // TENANT BOUNDARY. The run's agent — not the object the entry hangs on —
@@ -302,97 +291,6 @@ class AnalyticsService implements AnalyticsServiceInterface
         return $runs;
 
     }//end visibleRuns()
-
-    /**
-     * The run audit entries that mention one of the visible agents, each once, newest first.
-     *
-     * BOUNDED READ (analytics-unbounded-audit-scan). The audit trail has no column for
-     * the agent a run belongs to: `agentId` lives inside the `changed` JSON, and the
-     * object an entry hangs on differs per writer (a schedule, a skill draft, a flow's
-     * triggering object, the agent). So the read is narrowed per visible agent through
-     * the mapper's `search` term, a LIKE on `changed`: OpenRegister only hands back rows
-     * whose context mentions that agent's UUID, and another tenant's runs never enter
-     * this process. With no visible agent there is no query at all.
-     *
-     * The LIKE is a superset (the UUID may also appear elsewhere in a context), which is
-     * why visibleRuns() still checks `changed.agentId` per row, and why entries are
-     * de-duplicated: a run whose context names two visible agents comes back twice.
-     *
-     * No `limit`: a truncating limit would turn every metric on the page into a floor,
-     * silently indistinguishable from a total. The bound is the tenant scope itself.
-     *
-     * @param array<string, string> $visibleAgents Map of visible agent UUID to display name.
-     *
-     * @return array<int, AuditTrail> The entries, newest first.
-     *
-     * @spec openspec/changes/analytics-unbounded-audit-scan/tasks.md#1-backend-bound-the-audit-trail-read
-     */
-    private function visibleRunLogs(array $visibleAgents): array
-    {
-        $logs = [];
-        foreach (array_keys($visibleAgents) as $agentId) {
-            $agentId = trim((string) $agentId);
-            if ($agentId === '') {
-                continue;
-            }
-
-            $found = $this->auditTrailMapper->findAll(
-                filters: ['action' => self::RUN_ACTIONS],
-                search: $agentId
-            );
-            foreach ($found as $log) {
-                $logs[$this->logKey(log: $log)] = $log;
-            }
-        }
-
-        $logs = array_values($logs);
-        usort(
-            $logs,
-            static fn (AuditTrail $left, AuditTrail $right): int => self::createdEpoch(log: $right) <=> self::createdEpoch(log: $left)
-        );
-
-        return $logs;
-
-    }//end visibleRunLogs()
-
-    /**
-     * The identity an audit entry is de-duplicated on: its UUID, else the instance.
-     *
-     * @param AuditTrail $log The entry.
-     *
-     * @return string The key.
-     *
-     * @spec openspec/changes/analytics-unbounded-audit-scan/tasks.md#1-backend-bound-the-audit-trail-read
-     */
-    private function logKey(AuditTrail $log): string
-    {
-        if (($log->getUuid() ?? '') !== '') {
-            return 'uuid:'.$log->getUuid();
-        }
-
-        return 'object:'.spl_object_id($log);
-
-    }//end logKey()
-
-    /**
-     * When an audit entry was written, as a Unix timestamp; 0 when it carries no date.
-     *
-     * @param AuditTrail $log The entry.
-     *
-     * @return int The timestamp.
-     *
-     * @spec openspec/changes/analytics-unbounded-audit-scan/tasks.md#1-backend-bound-the-audit-trail-read
-     */
-    private static function createdEpoch(AuditTrail $log): int
-    {
-        $created = $log->getCreated();
-        if ($created instanceof \DateTimeInterface) {
-            return $created->getTimestamp();
-        }
-
-        return 0;
-
-    }//end createdEpoch()
 
     /**
      * Add one counted run to the status, latency and token totals.
