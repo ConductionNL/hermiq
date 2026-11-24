@@ -38,8 +38,10 @@ Kind: code. Size M. Rows `filinq:wk-ai-chat`, `ch-citations` (hermiq).
 - **acceptance_criteria**:
   - GIVEN a context with a `fileId` WHEN the panel opens THEN the chip reads "Over dit document" and the next send carries the scope
   - GIVEN an answer with sources WHEN it renders THEN each source is a link with the file name and page
-- [ ] Implement (PR in ConductionNL/nextcloud-vue, release, bump the hermiq and filinq locks)
-- [ ] Test
+- [x] Implement (PR in ConductionNL/nextcloud-vue, release, bump the hermiq and filinq locks)
+  - 2026-11-24: nextcloud-vue#2333 (released in 2.215.0): `src/utils/aiChatScope.js` (`turnScopeOf()`), the scope chip in `CnAiChatPanel.vue`, `body.scope` and kept `sources` in `useAiChatStream.js`, the source list in `CnAiMessageList.vue`, nl/en strings. hermiq raised to ^2.215.0 here; filinq in ConductionNL/filinq#2318.
+- [x] Test
+  - nextcloud-vue `tests/components/CnAiChatPanelScope.spec.js`, `tests/components/CnAiMessageListSources.spec.js`, `tests/composables/useAiChatStreamScope.spec.js`, `tests/utils/aiChatScope.spec.js`.
 
 ### Task 5: filinq passes the open document or folder to the companion
 - **spec_ref**: `openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-the-companion-shows-the-scope-and-the-sources-req-dchat-004`
