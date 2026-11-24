@@ -96,17 +96,6 @@ class AnalyticsService implements AnalyticsServiceInterface
     private const AGENT_SCHEMA = 'agent';
 
     /**
-     * The audit actions that represent an agent run, as ONE comma-joined filter value.
-     *
-     * AuditTrailMapper::findAll() turns a comma-bearing filter value into a SQL `IN`
-     * (see its filter loop), so every run channel (schedule, flow, by hand) comes back from a single query rather
-     * than two passes that would then need merging and re-sorting.
-     *
-     * @var string
-     */
-    private const RUN_ACTIONS = 'run,agent-run,manual-run';
-
-    /**
      * The trigger a run row shows per audit action; any other action is a flow run.
      *
      * @var array<string, string>
@@ -268,17 +257,13 @@ class AnalyticsService implements AnalyticsServiceInterface
      * @param array<string, string> $visibleAgents Map of visible agent UUID to display name.
      *
      * @return array<int, array{log: AuditTrail, context: array<string, mixed>, agentId: string}> The visible runs.
+     *
+     * @spec openspec/changes/analytics-unbounded-audit-scan/tasks.md#1-backend-bound-the-audit-trail-read
      */
     private function visibleRuns(array $visibleAgents): array
     {
-        // Deliberately unlimited: a truncating limit would turn every metric on the
-        // page into a floor silently indistinguishable from a total, and a limit
-        // applied BEFORE the per-row tenant check below would page over rows the
-        // caller cannot see. The filter is already narrow (two actions).
-        $logs = $this->auditTrailMapper->findAll(filters: ['action' => self::RUN_ACTIONS]);
-
         $runs = [];
-        foreach ($logs as $log) {
+        foreach ((new RunAuditScope(auditTrailMapper: $this->auditTrailMapper))->logsOf(agentIds: array_keys($visibleAgents)) as $log) {
             $context = ($log->getChanged() ?? []);
 
             // TENANT BOUNDARY. The run's agent — not the object the entry hangs on —
