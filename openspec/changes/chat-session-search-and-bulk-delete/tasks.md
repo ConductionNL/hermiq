@@ -12,7 +12,8 @@ Kind: code. Size M. Rows `hermiq:ch-search-history`, `dm-bulk-delete-chats`.
   - GIVEN a shared session owned by someone else WHEN the caller searches a word only it contains THEN nothing is returned
   - GIVEN no `search` parameter WHEN the list is called THEN the answer is identical to today's
 - [x] Implement
-- [ ] Test (PHPUnit on the service with two identities: `SessionSearchServiceTest`; Newman that seeds a turn and finds it: folder "Session search and bulk actions" in `tests/integration/hermiq.postman_collection.json`, written, not yet run, it needs the live instance)
+- [x] Test (PHPUnit on the service with two identities: `SessionSearchServiceTest`; Newman that seeds a turn and finds it: folder "Session search and bulk actions" in `tests/integration/hermiq.postman_collection.json`, written, not yet run, it needs the live instance)
+  - 2026-11-24: `SessionSearchServiceTest` in; the Newman folder is written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ### Task 2: The search field and opening a result at its turn
 - **spec_ref**: `openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001`

@@ -4903,6 +4903,472 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "Schedules overview and manual run",
+			"description": "scheduling-overview-and-start-choice tasks 1 and 2: the schedule list shows each person exactly the schedules they may see, with the failed filter working (REQ-SCHED-001); a run by hand needs a prompt and an agent the caller may use (REQ-SCHED-002).",
+			"item": [
+				{
+					"name": "Create the second user",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/ocs/v2.php/cloud/users?format=json",
+						"description": "A second, non-admin user. An existing user is fine.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"userid\": \"{{share_user}}\", \"password\": \"{{share_password}}\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.variables.get('share_user')) { pm.collectionVariables.set('share_user', 'hermiq-newman-reader'); }",
+									"if (!pm.variables.get('share_password')) { pm.collectionVariables.set('share_password', 'Newman-reader-' + Date.now()); }"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The second user exists', function () {",
+									"    pm.expect([200, 400]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Overview agent",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agent",
+						"description": "A private agent of the admin.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"name\": \"Newman overview agent\", \"description\": \"Agent for the schedule overview checks.\", \"isPrivate\": true}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The agent is saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"    const body = pm.response.json();",
+									"    pm.collectionVariables.set('overview_agent', body.id || body.uuid || (body['@self'] || {}).id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Overview schedule that failed",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/schedule",
+						"description": "A switched-off weekly schedule whose last run failed.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"name\": \"Newman weekly summary\", \"agentId\": \"{{overview_agent}}\", \"kind\": \"cron\", \"cronExpr\": \"0 8 * * 1\", \"deliver\": \"none\", \"enabled\": false, \"lastStatus\": \"error\", \"prompt\": \"Summarise the week.\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The schedule is saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"    const body = pm.response.json();",
+									"    pm.collectionVariables.set('overview_schedule', body.id || body.uuid || (body['@self'] || {}).id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The admin sees the schedule",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/schedules",
+						"description": "The owner's own schedule is on the page."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const rows = pm.response.json().results || [];",
+									"pm.test('The list holds the admin's schedule', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().total).to.equal(rows.length);",
+									"    pm.expect(rows.map(function (row) { return row.id; })).to.include(pm.collectionVariables.get('overview_schedule'));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The failed filter keeps it",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/schedules?failed=true",
+						"description": "Only schedules whose last result failed."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const rows = pm.response.json().results || [];",
+									"pm.test('The failed filter keeps the failed schedule', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().total).to.equal(rows.length);",
+									"    pm.expect(rows.map(function (row) { return row.id; })).to.include(pm.collectionVariables.get('overview_schedule'));",
+									"});",
+									"pm.test('Every row in the failed filter failed', function () {",
+									"    rows.forEach(function (row) { pm.expect(row.failed).to.equal(true); });",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The not-failed filter drops it",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/schedules?failed=false",
+						"description": "The rest."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const rows = pm.response.json().results || [];",
+									"pm.test('The not-failed filter drops the failed schedule', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().total).to.equal(rows.length);",
+									"    pm.expect(rows.map(function (row) { return row.id; })).to.not.include(pm.collectionVariables.get('overview_schedule'));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The second user does not see it",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/schedules",
+						"description": "A schedule of someone else's private agent is not on another person's page."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const rows = pm.response.json().results || [];",
+									"pm.test('The second user's list leaves the admin's schedule out', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().total).to.equal(rows.length);",
+									"    pm.expect(rows.map(function (row) { return row.id; })).to.not.include(pm.collectionVariables.get('overview_schedule'));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A run by hand without a prompt is refused",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/agents/{{overview_agent}}/run",
+						"description": "A prompt is required.",
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('400 without a prompt', function () {",
+									"    pm.expect([400]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The second user cannot run the admin's private agent",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "{{share_user}}",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "{{share_password}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/agents/{{overview_agent}}/run",
+						"description": "Only someone who may use the agent runs it.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"prompt\": \"Summarise the week.\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('404 for an agent the caller may not use', function () {",
+									"    pm.expect([404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The owner runs it by hand",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/agents/{{overview_agent}}/run",
+						"description": "Through the scheduled-run gates; the history records trigger manual.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"prompt\": \"Summarise the week.\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The run answers with its outcome or a named gate', function () {",
+									"    pm.expect([200, 402, 409, 423, 502]).to.include(pm.response.code);",
+									"});",
+									"if (pm.response.code === 200) {",
+									"    pm.test('A run by hand is recorded as manual', function () {",
+									"        pm.expect(pm.response.json().trigger).to.equal('manual');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Remove the overview schedule",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/schedule/{{overview_schedule}}",
+						"description": "Clean up."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 204, 404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Remove the overview agent",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agent/{{overview_agent}}",
+						"description": "Clean up."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 204, 404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
 		}
 	]
 }

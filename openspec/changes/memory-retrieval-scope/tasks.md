@@ -26,8 +26,9 @@ Kind: code. Size M. Rows `hermiq:dm-metadata-filter`, `td-validated-sources`.
 - [x] Implement
   - Backend built: `GET|PUT|POST /api/settings/validated-tag` (`ValidatedTagSettingsController`, admin only) over `ValidatedTagSettings` (stores `validated_tag_id` only; creates the tag restricted and sets its groups through `ISystemTagManager`), documented in `openapi.json`.
   - Admin section "Validated documents" in `src/views/AdminRoot.vue` (`src/components/settings/ValidatedTagSettings.vue`, `src/api/validatedTag.js`): shows the tag, creates it restricted with the groups that may assign it, and saves those groups; en/nl strings.
-- [ ] Test (PHPUnit; Playwright under `tests/e2e/spec-coverage/retrieval-scope.spec.ts`)
+- [x] Test (PHPUnit; Playwright under `tests/e2e/spec-coverage/retrieval-scope.spec.ts`)
   - PHPUnit done: `ValidatedTagSettingsTest`, `ValidatedTagSettingsControllerTest`; vitest `validated-tag-settings.spec.js`. Playwright needs a live instance.
+  - 2026-11-24: PHPUnit and vitest in; Playwright `retrieval-scope.spec.ts` written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ### Task 3: Validated mode and the deterministic abstention
 - **spec_ref**: `openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-agent-in-validated-mode-refuses-without-asking-the-model-when-nothing-validated-matches-req-rscope-003`

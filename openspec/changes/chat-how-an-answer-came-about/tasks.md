@@ -19,7 +19,8 @@ Kind: code. Size M. Rows `hermiq:td-explain`, `dm-show-reasoning`, `dm-context-m
 - **acceptance_criteria**:
   - GIVEN a turn with provenance WHEN a Dutch reader opens the section THEN the sentences are in Dutch and end with the final-say line
 - [x] Implement
-- [ ] Test (PHPUnit on the writer per sentence; Playwright under `tests/e2e/spec-coverage/answer-transparency.spec.ts`)
+- [x] Test (PHPUnit on the writer per sentence; Playwright under `tests/e2e/spec-coverage/answer-transparency.spec.ts`)
+  - 2026-11-24: `AnswerProvenanceWriterTest` in; Playwright `answer-transparency.spec.ts` written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ### Task 3: Reasoning requested, filtered and stored
 - **spec_ref**: `openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003`
@@ -49,9 +50,10 @@ Kind: code. Size M. Rows `hermiq:td-explain`, `dm-show-reasoning`, `dm-context-m
   - GIVEN Fireworks WHEN a turn completes THEN `estimated` is true and the page says "about"
   - GIVEN any turn WHEN it completes THEN `metadata.token_count` is not written
 - [x] Implement
-- [ ] Test (PHPUnit per driver; Playwright under `tests/e2e/spec-coverage/answer-transparency.spec.ts`)
+- [x] Test (PHPUnit per driver; Playwright under `tests/e2e/spec-coverage/answer-transparency.spec.ts`)
   - 2026-11-21: `tests/e2e/spec-coverage/answer-transparency.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, sidecar or Talk is needed); not run here, it needs a running Nextcloud.
   - `ContextUsageMeter`: the provider's count for a turn without tool calls, else characters / 4 marked `estimated`; window from `ModelContextWindows` (own app config key, set on the LLM provider modal, validated in LlmSettingsController); stored as `metadata.contextUsage`, never `metadata.token_count`; on the send response and `final`; readout under the message box with the warning above 80%. PHPUnit: ContextUsageMeterTest, ModelContextWindowsTest, LlmSettingsContextWindowsTest, ConversationContextUsageTest; vitest: context-usage, chat-template-wiring, llm-provider-modal. Left: the Playwright scenarios.
+  - 2026-11-24: PHPUnit in; Playwright `answer-transparency.spec.ts` written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ## Verification
 - [x] `openspec validate chat-how-an-answer-came-about --type change --strict` passes

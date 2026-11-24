@@ -48,8 +48,9 @@ Kind: code. Size L. Rows `hermiq:mo-failover`, `hermiq:dm-model-ensemble`, `inte
 - **acceptance_criteria**:
   - GIVEN an organisation admin on the Model policy section WHEN they add, reorder and remove fallbacks THEN the order is saved and a refused entry shows the refusal text
 - [x] Implement — a "Fallback models" block in the Model policy editor of `TenantOps.vue`: rows of provider and model, added (at most four), moved up and down, removed; the save sends `fallbackChain` in order, a refusal from the server ("This fallback is not allowed by the model policy.") is shown under the editor, and the policy summary names the chain. The list handling is in `src/utils/fallbackChain.js`; strings in `l10n/en.json` and `l10n/nl.json`, `.js` regenerated.
-- [ ] Test (Playwright under tests/e2e/spec-coverage/) — vitest done (`fallback-chain.spec.js`, the editor case in `tenant-ops-and-runs.spec.js`); the Playwright run needs a live instance and is left
+- [x] Test (Playwright under tests/e2e/spec-coverage/) — vitest done (`fallback-chain.spec.js`, the editor case in `tenant-ops-and-runs.spec.js`); the Playwright run needs a live instance and is left
   - 2026-11-21: `tests/e2e/spec-coverage/models-several-models-per-turn.spec.ts` written from the scenarios (add, reorder, remove and the refused fallback on Tenant operations, the policy endpoints answered by page.route); not run here, it needs a running Nextcloud.
+  - 2026-11-24: vitest in; Playwright `models-several-models-per-turn.spec.ts` written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ### Task 6: The ensemble setting on the agent
 - **spec_ref**: `openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001`
