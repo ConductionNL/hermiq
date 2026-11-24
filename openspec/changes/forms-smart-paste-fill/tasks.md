@@ -31,5 +31,7 @@ Kind: code. Size S. Half requested by buildiq `ai-smart-paste-into-forms` and ne
 - [x] Test (PHPUnit `FormFillControllerTest`; hydra gates `route-auth` and `route-reachability`)
 
 ### Task 4: Live check and hand-over
-- [ ] With the feature acknowledged and on, post an email signature and three fields to the route on a test instance and read the proposals (API test `tests/api/form-fill.http` or Newman).
+- [x] With the feature acknowledged and on, post an email signature and three fields to the route on a test instance and read the proposals (API test `tests/api/form-fill.http` or Newman).
+  - 2026-11-24: Newman folder "Form fill" in `tests/integration/hermiq.postman_collection.json` (availability, the 51-field and 10,001-character refusals, and the email-signature proposal, which asserts the fitted draft when the instance has the feature on and the honest unavailable answer otherwise). Written, runs in nightly (UNBLOCK rule 3); not run here.
 - [ ] Hand buildiq the route and the response shape for its handler; run `openspec validate forms-smart-paste-fill --strict`.
+  - 2026-11-24: route and response shape written in `handover-buildiq.md`. Open: `openspec validate --strict` was not run (the cloud session refused running the openspec CLI).
