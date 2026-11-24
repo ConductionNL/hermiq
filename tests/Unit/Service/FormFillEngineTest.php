@@ -16,7 +16,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/forms-smart-paste-fill/specs/form-fill/spec.md#requirement-proposals-fit-the-allowed-fields-req-ffill-003
+ * @spec openspec/changes/archive/2026-11-24-forms-smart-paste-fill/specs/form-fill/spec.md#requirement-proposals-fit-the-allowed-fields-req-ffill-003
  */
 
 declare(strict_types=1);

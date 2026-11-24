@@ -16,7 +16,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/forms-smart-paste-fill/specs/form-fill/spec.md#requirement-a-signed-in-user-asks-for-proposals-req-ffill-002
+ * @spec openspec/changes/archive/2026-11-24-forms-smart-paste-fill/specs/form-fill/spec.md#requirement-a-signed-in-user-asks-for-proposals-req-ffill-002
  */
 
 declare(strict_types=1);

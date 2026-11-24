@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/forms-smart-paste-fill/specs/form-fill/spec.md#requirement-proposals-fit-the-allowed-fields-req-ffill-003
+ * @spec openspec/changes/archive/2026-11-24-forms-smart-paste-fill/specs/form-fill/spec.md#requirement-proposals-fit-the-allowed-fields-req-ffill-003
  */
 
 declare(strict_types=1);
@@ -36,7 +36,7 @@ use Throwable;
 /**
  * Gate, prompt, model call, checks and log for form fill.
  *
- * @spec openspec/changes/forms-smart-paste-fill/specs/form-fill/spec.md#requirement-proposals-fit-the-allowed-fields-req-ffill-003
+ * @spec openspec/changes/archive/2026-11-24-forms-smart-paste-fill/specs/form-fill/spec.md#requirement-proposals-fit-the-allowed-fields-req-ffill-003
  */
 class FormFillEngine implements FormFillEngineInterface {
 
@@ -81,7 +81,7 @@ class FormFillEngine implements FormFillEngineInterface {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/forms-smart-paste-fill/specs/form-fill/spec.md#requirement-form-fill-is-off-until-an-admin-acknowledges-it-req-ffill-001
+	 * @spec openspec/changes/archive/2026-11-24-forms-smart-paste-fill/specs/form-fill/spec.md#requirement-form-fill-is-off-until-an-admin-acknowledges-it-req-ffill-001
 	 */
 	public function isAvailable(): bool {
 		$feature = $this->aiFeatureService->findBySlug(slug: self::FEATURE_SLUG);
@@ -99,9 +99,9 @@ class FormFillEngine implements FormFillEngineInterface {
 	 *
 	 * @return array<string, mixed> The proposal envelope, or the unavailable envelope.
 	 *
-	 * @spec openspec/changes/forms-smart-paste-fill/specs/form-fill/spec.md#requirement-form-fill-is-off-until-an-admin-acknowledges-it-req-ffill-001
-	 * @spec openspec/changes/forms-smart-paste-fill/specs/form-fill/spec.md#requirement-a-signed-in-user-asks-for-proposals-req-ffill-002
-	 * @spec openspec/changes/forms-smart-paste-fill/specs/form-fill/spec.md#requirement-proposals-fit-the-allowed-fields-req-ffill-003
+	 * @spec openspec/changes/archive/2026-11-24-forms-smart-paste-fill/specs/form-fill/spec.md#requirement-form-fill-is-off-until-an-admin-acknowledges-it-req-ffill-001
+	 * @spec openspec/changes/archive/2026-11-24-forms-smart-paste-fill/specs/form-fill/spec.md#requirement-a-signed-in-user-asks-for-proposals-req-ffill-002
+	 * @spec openspec/changes/archive/2026-11-24-forms-smart-paste-fill/specs/form-fill/spec.md#requirement-proposals-fit-the-allowed-fields-req-ffill-003
 	 */
 	public function fill(string $text, array $fields, string $language, string $userId): array {
 		$sizes = ['textLength' => mb_strlen($text), 'fieldCount' => count($fields)];
@@ -194,7 +194,7 @@ class FormFillEngine implements FormFillEngineInterface {
 	 *
 	 * @return array<string, mixed>
 	 *
-	 * @spec openspec/changes/forms-smart-paste-fill/specs/form-fill/spec.md#requirement-proposals-fit-the-allowed-fields-req-ffill-003
+	 * @spec openspec/changes/archive/2026-11-24-forms-smart-paste-fill/specs/form-fill/spec.md#requirement-proposals-fit-the-allowed-fields-req-ffill-003
 	 */
 	private static function fitting(array $proposed, array $fields): array {
 		$values = [];
@@ -353,7 +353,7 @@ class FormFillEngine implements FormFillEngineInterface {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/forms-smart-paste-fill/specs/form-fill/spec.md#requirement-a-signed-in-user-asks-for-proposals-req-ffill-002
+	 * @spec openspec/changes/archive/2026-11-24-forms-smart-paste-fill/specs/form-fill/spec.md#requirement-a-signed-in-user-asks-for-proposals-req-ffill-002
 	 */
 	private function logCall(string $outcome, string $userId, string $provider, array $sizes): void {
 		$this->logger->info(

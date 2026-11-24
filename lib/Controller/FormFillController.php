@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/forms-smart-paste-fill/specs/form-fill/spec.md#requirement-a-signed-in-user-asks-for-proposals-req-ffill-002
+ * @spec openspec/changes/archive/2026-11-24-forms-smart-paste-fill/specs/form-fill/spec.md#requirement-a-signed-in-user-asks-for-proposals-req-ffill-002
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use Throwable;
 /**
  * Form fill endpoints: proposals and availability.
  *
- * @spec openspec/changes/forms-smart-paste-fill/specs/form-fill/spec.md#requirement-a-signed-in-user-asks-for-proposals-req-ffill-002
+ * @spec openspec/changes/archive/2026-11-24-forms-smart-paste-fill/specs/form-fill/spec.md#requirement-a-signed-in-user-asks-for-proposals-req-ffill-002
  */
 class FormFillController extends Controller {
 
@@ -128,7 +128,7 @@ class FormFillController extends Controller {
 	 *
 	 * @no-admin-idor-exempt Looks up no caller-supplied id: pasted text in, proposals out, no object to authorise.
 	 *
-	 * @spec openspec/changes/forms-smart-paste-fill/specs/form-fill/spec.md#requirement-a-signed-in-user-asks-for-proposals-req-ffill-002
+	 * @spec openspec/changes/archive/2026-11-24-forms-smart-paste-fill/specs/form-fill/spec.md#requirement-a-signed-in-user-asks-for-proposals-req-ffill-002
 	 */
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 30, period: 60)]
@@ -164,7 +164,7 @@ class FormFillController extends Controller {
 	 *
 	 * @no-admin-idor-exempt Looks up no caller-supplied id: answers one feature flag.
 	 *
-	 * @spec openspec/changes/forms-smart-paste-fill/specs/form-fill/spec.md#requirement-form-fill-is-off-until-an-admin-acknowledges-it-req-ffill-001
+	 * @spec openspec/changes/archive/2026-11-24-forms-smart-paste-fill/specs/form-fill/spec.md#requirement-form-fill-is-off-until-an-admin-acknowledges-it-req-ffill-001
 	 */
 	#[NoAdminRequired]
 	public function available(): JSONResponse {
