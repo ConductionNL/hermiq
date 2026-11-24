@@ -5369,6 +5369,152 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "Validated mode cannot be widened",
+			"description": "memory-retrieval-scope task 4 (REQ-RSCOPE-003): a turn for a validated-mode agent that asks for objects and files anyway gets neither; with nothing validated above the floor the agent abstains with its own message, without asking the model.",
+			"item": [
+				{
+					"name": "Validated agent",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agent",
+						"description": "An agent that answers only from validated documents, with a floor nothing reaches.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"name\": \"Newman validated agent\", \"description\": \"Agent for the widening check.\", \"answerOnlyFromValidated\": true, \"ragMinSimilarity\": 0.99, \"abstentionMessage\": \"Newman: ik antwoord alleen vanuit gevalideerde documenten.\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The agent is saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"    const body = pm.response.json();",
+									"    pm.collectionVariables.set('scope_agent', body.id || body.uuid || (body['@self'] || {}).id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A widening turn still abstains",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/chat/send",
+						"description": "includeObjects, includeFiles and more sources are asked for; none takes effect.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"message\": \"Welke openingstijden heeft het stadhuis?\", \"agentUuid\": \"{{scope_agent}}\", \"ragSettings\": {\"includeObjects\": true, \"includeFiles\": true, \"numSourcesObjects\": 10, \"numSourcesFiles\": 10}}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const body = pm.response.json();",
+									"pm.test('The turn answers', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('The agent abstains with its own message, so the widening did not take effect', function () {",
+									"    pm.expect(body.message).to.equal(\"Newman: ik antwoord alleen vanuit gevalideerde documenten.\");",
+									"    pm.expect(body.sources || []).to.have.length(0);",
+									"});",
+									"pm.collectionVariables.set('scope_session', (body.session && (body.session.uuid || body.session.id)) || body.sessionUuid || '');"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Remove the validated session",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/sessions/{{scope_session}}",
+						"description": "Clean up."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 204, 404, 405]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Remove the validated agent",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agent/{{scope_agent}}",
+						"description": "Clean up."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 204, 404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
 		}
 	]
 }
