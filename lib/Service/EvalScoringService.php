@@ -134,7 +134,7 @@ class EvalScoringService {
 	 *
 	 * @return array{passed:bool,errorMessage:?string,score:?float,judgeRationale:?string}
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-test-case-can-compare-two-requests-that-differ-in-one-attribute-req-biaseval-001
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-test-case-can-compare-two-requests-that-differ-in-one-attribute-req-biaseval-001
 	 */
 	public function scorePair(array $case, string $outputA, string $outputB, ?string $organisation = null): array {
 		$attribute = trim((string)($case['attribute'] ?? ''));

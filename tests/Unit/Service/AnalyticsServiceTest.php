@@ -146,7 +146,7 @@ class AnalyticsServiceTest extends TestCase {
 	 *
 	 * @return AuditTrailMapper
 	 *
-	 * @spec openspec/changes/analytics-unbounded-audit-scan/tasks.md#2-tests-make-the-phantom-green-mock-assert-the-query-shape
+	 * @spec openspec/changes/archive/2026-11-24-analytics-unbounded-audit-scan/tasks.md#2-tests-make-the-phantom-green-mock-assert-the-query-shape
 	 */
 	private function boundedMapper(array $runs, \ArrayObject $calls): AuditTrailMapper {
 		$mapper = $this->createMock(AuditTrailMapper::class);
@@ -173,7 +173,7 @@ class AnalyticsServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/analytics-unbounded-audit-scan/tasks.md#2-tests-make-the-phantom-green-mock-assert-the-query-shape
+	 * @spec openspec/changes/archive/2026-11-24-analytics-unbounded-audit-scan/tasks.md#2-tests-make-the-phantom-green-mock-assert-the-query-shape
 	 */
 	public function testTheAuditReadIsBoundedByTheCallersAgents(): void {
 		$runs = [
@@ -205,7 +205,7 @@ class AnalyticsServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/analytics-unbounded-audit-scan/tasks.md#2-tests-make-the-phantom-green-mock-assert-the-query-shape
+	 * @spec openspec/changes/archive/2026-11-24-analytics-unbounded-audit-scan/tasks.md#2-tests-make-the-phantom-green-mock-assert-the-query-shape
 	 */
 	public function testNoVisibleAgentIssuesNoAuditRead(): void {
 		$foreign = $this->runEntry(objectUuid: 's3-foreign', status: 'ok', durationMs: 100, agentId: 'agentX');
@@ -218,7 +218,7 @@ class AnalyticsServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/analytics-unbounded-audit-scan/tasks.md#1-backend-bound-the-audit-trail-read
+	 * @spec openspec/changes/archive/2026-11-24-analytics-unbounded-audit-scan/tasks.md#1-backend-bound-the-audit-trail-read
 	 */
 	public function testARunMentioningTwoVisibleAgentsIsCountedOnce(): void {
 		$run = $this->runEntry(objectUuid: 's1', status: 'ok', durationMs: 100, agentId: 'agentA');

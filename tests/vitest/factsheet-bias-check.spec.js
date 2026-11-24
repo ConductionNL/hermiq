@@ -4,7 +4,7 @@
  *
  * The factsheet's bias check line (reuse-scheduled-bias-evals, REQ-BIASEVAL-004).
  *
- * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
+ * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
  */
 
 import { describe, expect, it, vi } from 'vitest'

@@ -132,7 +132,7 @@ class SeedComplianceControls implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
 	 */
 	private function seedPacks(object $objectService, IOutput $output): void {
 		$frameworksSeeded = 0;
@@ -363,7 +363,7 @@ class SeedComplianceControls implements IRepairStep {
 	 *
 	 * @return array<int, array<string, mixed>> The seed objects.
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
 	 */
 	private function biasTestingControls(): array {
 		$evidence = 'Satisfied when every agent with a scheduled bias check had a completed bias check in the last 45 days.';

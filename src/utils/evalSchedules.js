@@ -18,7 +18,7 @@ export const FREQUENCY_CRONS = {
  *
  * @param {string} cronExpr The stored cron expression; empty means monthly.
  * @return {string} monthly, weekly, daily or custom.
- * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+ * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
  */
 export function frequencyOf(cronExpr) {
 	const expression = String(cronExpr || '').trim() || FREQUENCY_CRONS.monthly
@@ -32,7 +32,7 @@ export function frequencyOf(cronExpr) {
  * @param {function(string, string, object=): string} t The translate function.
  * @param {string} cronExpr The stored cron expression.
  * @return {string} The label.
- * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+ * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
  */
 export function frequencyLabel(t, cronExpr) {
 	const labels = {
@@ -49,7 +49,7 @@ export function frequencyLabel(t, cronExpr) {
  * @param {object} values { agentId, frequency, enabled, threshold }.
  * @param {string} [currentCron] The schedule's own expression, kept when the frequency is custom.
  * @return {object} { agentId, cronExpr, enabled, regressionThresholdPercent }.
- * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+ * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
  */
 export function scheduleBody(values, currentCron = '') {
 	const threshold = values.threshold === '' || values.threshold === null || values.threshold === undefined ? null : Number(values.threshold)

@@ -30,7 +30,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/analytics-unbounded-audit-scan/tasks.md#1-backend-bound-the-audit-trail-read
+ * @spec openspec/changes/archive/2026-11-24-analytics-unbounded-audit-scan/tasks.md#1-backend-bound-the-audit-trail-read
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use OCA\OpenRegister\Db\AuditTrailMapper;
 /**
  * The run audit entries of a set of agents, read with a tenant bound.
  *
- * @spec openspec/changes/analytics-unbounded-audit-scan/tasks.md#1-backend-bound-the-audit-trail-read
+ * @spec openspec/changes/archive/2026-11-24-analytics-unbounded-audit-scan/tasks.md#1-backend-bound-the-audit-trail-read
  */
 class RunAuditScope
 {
@@ -62,7 +62,7 @@ class RunAuditScope
      *
      * @param AuditTrailMapper $auditTrailMapper OpenRegister audit read (run entries).
      *
-     * @spec openspec/changes/analytics-unbounded-audit-scan/tasks.md#1-backend-bound-the-audit-trail-read
+     * @spec openspec/changes/archive/2026-11-24-analytics-unbounded-audit-scan/tasks.md#1-backend-bound-the-audit-trail-read
      */
     public function __construct(
         private readonly AuditTrailMapper $auditTrailMapper,
@@ -77,7 +77,7 @@ class RunAuditScope
      *
      * @return array<int, AuditTrail> The entries, newest first.
      *
-     * @spec openspec/changes/analytics-unbounded-audit-scan/tasks.md#1-backend-bound-the-audit-trail-read
+     * @spec openspec/changes/archive/2026-11-24-analytics-unbounded-audit-scan/tasks.md#1-backend-bound-the-audit-trail-read
      */
     public function logsOf(array $agentIds): array
     {
@@ -114,7 +114,7 @@ class RunAuditScope
      *
      * @return string The key.
      *
-     * @spec openspec/changes/analytics-unbounded-audit-scan/tasks.md#1-backend-bound-the-audit-trail-read
+     * @spec openspec/changes/archive/2026-11-24-analytics-unbounded-audit-scan/tasks.md#1-backend-bound-the-audit-trail-read
      */
     private static function logKey(AuditTrail $log): string
     {
@@ -134,7 +134,7 @@ class RunAuditScope
      *
      * @return int The timestamp.
      *
-     * @spec openspec/changes/analytics-unbounded-audit-scan/tasks.md#1-backend-bound-the-audit-trail-read
+     * @spec openspec/changes/archive/2026-11-24-analytics-unbounded-audit-scan/tasks.md#1-backend-bound-the-audit-trail-read
      */
     private static function createdEpoch(AuditTrail $log): int
     {

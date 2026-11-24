@@ -22,7 +22,7 @@
  * @e2e agent-evals::an-owner-adds-the-bias-check-to-an-agent
  * @e2e agent-evals::a-compliance-officer-reads-the-factsheet
  *
- * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md
+ * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md
  */
 
 import { expect, test } from '@playwright/test'
@@ -53,7 +53,7 @@ test.describe('Bias test set template and factsheet bias check', () => {
 	})
 
 	/**
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
 	 */
 	test('an owner adds the bias check to an agent @spec agent-evals', async ({ page, request }) => {
 		await page.goto(`${await appRoot(page)}/evals`, { waitUntil: 'domcontentloaded' })
@@ -88,7 +88,7 @@ test.describe('Bias test set template and factsheet bias check', () => {
 	 * schedule list of a dataset the caller does not own is a 404 (EvalScheduleControllerTest
 	 * pins the guard; this shows the page and the route together).
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
 	 */
 	test('an owner sets a monthly schedule and sees its next run @spec agent-evals', async ({ page, request }) => {
 		const dataset = await seedObject(request, token, 'evaldataset', { name: `${TEST_PREFIX}-scheduled`, cases: [] })
@@ -119,7 +119,7 @@ test.describe('Bias test set template and factsheet bias check', () => {
 	})
 
 	/**
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
 	 */
 	test('a compliance officer reads the bias check on the factsheet @spec agent-evals', async ({ page, request }) => {
 		const dataset = await seedObject(request, token, 'evaldataset', {

@@ -594,7 +594,7 @@ class ComplianceServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
 	 */
 	public function testTheBiasTestingControlReadsTheBiasCheckEvidence(): void {
 		$evidence = $this->createMock(originalClassName: BiasCheckEvidence::class);
@@ -626,7 +626,7 @@ class ComplianceServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
 	 */
 	public function testTheFactsheetCarriesTheLatestBiasCheck(): void {
 		$check    = ['runId' => 'run-1', 'datasetId' => 'bias-1', 'passRate' => 0.95, 'date' => '2026-09-01', 'startedAt' => '2026-09-01T06:00:00+00:00'];

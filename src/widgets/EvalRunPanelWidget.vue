@@ -393,7 +393,7 @@ export default {
 		 * Whether this dataset is a seeded, read-only template.
 		 *
 		 * @return {boolean} True for a template.
-		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
+		 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
 		 */
 		isTemplate() {
 			return this.dataset?.template === true
@@ -518,7 +518,7 @@ export default {
 		/**
 		 * Load this dataset's schedules; none when the read fails (a template has none).
 		 *
-		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
 		 * @return {Promise<void>}
 		 */
 		async loadSchedules() {
@@ -532,7 +532,7 @@ export default {
 		/**
 		 * Open the schedule form, for a new schedule or to change one.
 		 *
-		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
 		 * @param {object|null} schedule The schedule to change, or null.
 		 * @return {void}
 		 */
@@ -543,7 +543,7 @@ export default {
 		/**
 		 * Save the schedule from the form and show it with its next run.
 		 *
-		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
 		 * @param {object} body The request body from the form.
 		 * @return {Promise<void>}
 		 */
@@ -563,7 +563,7 @@ export default {
 		/**
 		 * An agent's name for the schedule list.
 		 *
-		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
 		 * @param {string} agentId The agent's uuid.
 		 * @return {string} The name, or the uuid when the agent is not among the caller's.
 		 */
@@ -575,7 +575,7 @@ export default {
 		/**
 		 * How a schedule's frequency reads.
 		 *
-		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
 		 * @param {string} cronExpr The stored cron expression.
 		 * @return {string} The label.
 		 */
@@ -586,7 +586,7 @@ export default {
 		/**
 		 * A schedule's next run, or that it is off.
 		 *
-		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
 		 * @param {object} schedule The schedule.
 		 * @return {string} The label.
 		 */
@@ -600,7 +600,7 @@ export default {
 		/**
 		 * Copy this template for the selected agent and open the copy.
 		 *
-		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
+		 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
 		 * @return {Promise<void>}
 		 */
 		async useForAgent() {

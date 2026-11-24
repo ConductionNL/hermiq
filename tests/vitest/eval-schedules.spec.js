@@ -5,7 +5,7 @@
  * "Run on a schedule" on the eval run panel (reuse-scheduled-bias-evals,
  * REQ-BIASEVAL-003): the frequencies, the request body, the form and the panel.
  *
- * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+ * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
