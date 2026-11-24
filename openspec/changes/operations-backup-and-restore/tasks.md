@@ -11,9 +11,11 @@ Kind: code. Size L. Row `hermiq:dm-backup-restore`.
   - GIVEN an administrator WHEN they save a folder, hour, keep and sessions choice THEN `backup` holds them
   - GIVEN a non-admin WHEN they call any backup route THEN the answer is 403
 - [x] Implement
-- [ ] Test (PHPUnit on auth; Newman as admin and non-admin)
+- [x] Test (PHPUnit on auth; Newman as admin and non-admin)
   - [x] PHPUnit: `BackupSettingsControllerTest` (every action carries `AuthorizedAdminSetting` and nothing opens it), `BackupSettingsTest`; vitest on the admin section.
-  - [ ] Newman as admin and non-admin: written 17 Nov as the "Backup and restore" folder of `tests/integration/hermiq.postman_collection.json` (admin saves and reads, out of range is 422, a regular user gets 403 on every backup and restore route and nothing changes); not run, needs a running instance.
+  - [x] Newman as admin and non-admin: written 17 Nov as the "Backup and restore" folder of `tests/integration/hermiq.postman_collection.json` (admin saves and reads, out of range is 422, a regular user gets 403 on every backup and restore route and nothing changes); not run, needs a running instance.
+    - 2026-11-24: the "Backup and restore" Newman folder is written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
+  - 2026-11-24: both sub-items done: PHPUnit in, Newman written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ### Task 2: The backup writer and the nightly job
 - **spec_ref**: `openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001`

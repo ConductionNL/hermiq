@@ -10,8 +10,9 @@ Kind: code. Size M. Rows `hermiq:sc-list`, `sc-manual-event-choice`, `sc-nl`.
 - **acceptance_criteria**:
   - GIVEN a user and an admin WHEN they list THEN each sees exactly the schedules the rule allows, with filters working
 - [x] Implement
-- [ ] Test (PHPUnit on access; Newman; Playwright for the page and the failed filter)
+- [x] Test (PHPUnit on access; Newman; Playwright for the page and the failed filter)
   - 2026-11-22: `tests/e2e/spec-coverage/scheduling-overview.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, a flow or a sent mail would be needed); not run here, it needs a running Nextcloud.
+  - 2026-11-24: `ScheduleListControllerTest` in; Newman folder "Schedules overview and manual run" (the owner sees the schedule, a second user does not, the failed filter keeps and drops it) and Playwright `scheduling-overview.spec.ts` written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ### Task 2: Run by hand without a schedule
 - **spec_ref**: `openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002`
@@ -19,7 +20,8 @@ Kind: code. Size M. Rows `hermiq:sc-list`, `sc-manual-event-choice`, `sc-nl`.
 - **acceptance_criteria**:
   - GIVEN a usable agent WHEN run by hand THEN the gates apply and history records trigger manual
 - [x] Implement
-- [ ] Test (PHPUnit for gates and access; Newman)
+- [x] Test (PHPUnit for gates and access; Newman)
+  - 2026-11-24: PHPUnit in; the same Newman folder: no prompt 400, a second user on a private agent 404, the owner's run 200 with trigger manual or a named gate status, written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ### Task 3: How this agent starts, on the agent page
 - **spec_ref**: `openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002`
@@ -37,8 +39,9 @@ Kind: code. Size M. Rows `hermiq:sc-list`, `sc-manual-event-choice`, `sc-nl`.
 - **acceptance_criteria**:
   - GIVEN the phrase table in English and Dutch WHEN parsed THEN each gives the expected rule; an unreadable text gives 422 with an example
 - [x] Implement
-- [ ] Test (PHPUnit table test of at least 30 phrases; the model fallback with a stubbed provider; Playwright for the readback)
+- [x] Test (PHPUnit table test of at least 30 phrases; the model fallback with a stubbed provider; Playwright for the readback)
   - 2026-11-22: `tests/e2e/spec-coverage/scheduling-overview.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, a flow or a sent mail would be needed); not run here, it needs a running Nextcloud.
+  - 2026-11-24: `ScheduleWhenParserTest` and `ScheduleWhenControllerTest` in; Playwright `scheduling-overview.spec.ts` written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ## Verification
 - [x] `openspec validate scheduling-overview-and-start-choice --type change --strict` passes

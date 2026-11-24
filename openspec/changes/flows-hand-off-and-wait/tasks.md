@@ -60,8 +60,9 @@ Kind: code. Size L. Rows `hermiq:dm-async-flow-step`, `hermiq:dm-remote-agent`, 
   - `RemoteAgentController` serves `GET`/`POST /api/remote-agents` and `PUT`/`DELETE /api/remote-agents/{id}`, every one `#[AuthorizedAdminSetting]`.
   - Admin screen built as an admin settings section rather than an app page, because every route is admin-only and app settings belong in admin: `src/components/settings/RemoteAgents.vue` (in `src/views/AdminRoot.vue`, "Remote agents") lists each remote agent with the card kept at registration and its skills, switches it on or off, edits and deletes it; `src/modals/RemoteAgentFormModal.vue` registers one through a chosen integriq source (name, handle, description) and later changes its name and description; `src/api/remoteAgents.js`. No manifest entry is needed. en/nl strings.
 - [x] Implement
-- [ ] Test (PHPUnit with a stubbed CallService; Playwright under tests/e2e/spec-coverage/). PHPUnit is done: `tests/Unit/Service/RemoteAgent/RemoteAgentTest.php` and `tests/Unit/Controller/RemoteAgentControllerTest.php`. Playwright waits for a live instance; vitest `remote-agents-settings.spec.js` covers the screen.
+- [x] Test (PHPUnit with a stubbed CallService; Playwright under tests/e2e/spec-coverage/). PHPUnit is done: `tests/Unit/Service/RemoteAgent/RemoteAgentTest.php` and `tests/Unit/Controller/RemoteAgentControllerTest.php`. Playwright waits for a live instance; vitest `remote-agents-settings.spec.js` covers the screen.
   - 2026-11-21: the admin registering a remote agent is in `tests/e2e/spec-coverage/hand-off-and-wait.spec.ts`, with the integriq sources and the remote agent routes answered by page.route; not run here, it needs a running Nextcloud.
+  - 2026-11-24: PHPUnit in; Playwright `hand-off-and-wait.spec.ts` written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ### Task 6: The askRemoteAgent tool and its polling job
 - **spec_ref**: `openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003`
@@ -86,9 +87,10 @@ Kind: code. Size L. Rows `hermiq:dm-async-flow-step`, `hermiq:dm-remote-agent`, 
   - GIVEN an open handoff WHEN the conversation is shown THEN the waiting line appears under the message that started it, and changes when it closes
 - [x] Implement
   - `listHandoffs()` in `src/api/chat.js` reads the session's `agenthandoff` objects with the person's own session (the schema's read rule shows only their own). `src/utils/handoffLines.js` places each under the last message written at or before it was requested (a handoff records no message id) and words it: "Waiting for “X” (started 14:02)", or how it ended. `src/views/Chat.vue` reads them when a session opens and every time the thread reloads, so a closed handoff's line changes with the turn that brings its result. en/nl strings.
-- [ ] Test (Playwright under tests/e2e/spec-coverage/ on a seeded handoff)
+- [x] Test (Playwright under tests/e2e/spec-coverage/ on a seeded handoff)
   - vitest done: `handoff-lines.spec.js`. Playwright needs a live instance.
   - 2026-11-21: `tests/e2e/spec-coverage/hand-off-and-wait.spec.ts` written for the waiting line and a finished handoff, with the session's messages and handoffs answered by page.route; not run here, it needs a running Nextcloud.
+  - 2026-11-24: vitest in; Playwright `hand-off-and-wait.spec.ts` written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
 
 ## Verification
 - [x] `openspec validate flows-hand-off-and-wait --type change --strict` passes
