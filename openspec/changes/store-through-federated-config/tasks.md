@@ -22,4 +22,5 @@ Built in openregister on branch `build/store-through-federated-config` (open PR 
 - [x] 3.1 G7: read both wire formats during the transition.
 - [x] 3.2 G8: contribute a hermiq-owned agent-template type that installs through `AgentTemplateService::importPackage`.
 - [ ] 3.3 Route search, install and publish through the engine one operation at a time, keeping section 1 green.
+  - 2026-11-24: search routed (`FederatedCatalogSearch` over `FederatedConfigService::discoverOutcome()`, OpenRegister main; the direct GitHub search stays as the fallback without the engine); tests `GitHubTemplateCatalogEngineSearchTest`, section 1 green. Install and publish next.
 - [ ] 3.4 Delete `GitHubTemplateCatalogService` and `GitHubTemplatePushService`.

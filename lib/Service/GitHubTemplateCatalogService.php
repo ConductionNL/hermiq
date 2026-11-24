@@ -252,6 +252,13 @@ class GitHubTemplateCatalogService implements GitHubTemplateCatalogServiceInterf
 	private readonly GitHubCatalogPayload $payload;
 
 	/**
+	 * The search through OpenRegister's shared engine, when the instance has it.
+	 *
+	 * @var FederatedCatalogSearch
+	 */
+	private readonly FederatedCatalogSearch $engineSearch;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param IClientService $clientService NC HTTP client factory (anonymous calls).
@@ -280,6 +287,7 @@ class GitHubTemplateCatalogService implements GitHubTemplateCatalogServiceInterf
 
 		$this->cache = $cache;
 		$this->payload = new GitHubCatalogPayload();
+		$this->engineSearch = new FederatedCatalogSearch(container: $container, logger: $logger, appId: self::APP_ID);
 	}//end __construct()
 
 	/**
@@ -358,6 +366,7 @@ class GitHubTemplateCatalogService implements GitHubTemplateCatalogServiceInterf
 	 *
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-degrade-gracefully-when-github-is-rate-limited-or-unreachable
+	 * @spec openspec/changes/store-through-federated-config/tasks.md#task-3-3
 	 */
 	private function searchCatalog(string $term, CatalogSearch $search): array {
 		$cacheKey = $this->searchCacheKey(term: $term, search: $search);
@@ -366,7 +375,17 @@ class GitHubTemplateCatalogService implements GitHubTemplateCatalogServiceInterf
 			return $cached;
 		}
 
-		$result = $this->get(path: $this->searchPath(kind: $search->kind, term: $term), caller: $search->caller);
+		// Through OpenRegister's shared engine when this instance has it; GitHub directly otherwise.
+		$result = $this->engineSearch->search(
+			topic: $this->topicFor(kind: $search->kind),
+			term: $term,
+			caller: $search->caller,
+			max: self::MAX_HITS
+		);
+		if ($result === null) {
+			$result = $this->get(path: $this->searchPath(kind: $search->kind, term: $term), caller: $search->caller);
+		}
+
 		// A live answer is the one moment hermiq meets GitHub; a cached one met nothing.
 		$this->reportSearchOutcome(result: $result);
 		if ($result['ok'] === false) {
@@ -396,14 +415,16 @@ class GitHubTemplateCatalogService implements GitHubTemplateCatalogServiceInterf
 	/**
 	 * The cards built from a search answer's hits (a hit that is not a list entry is skipped).
 	 *
-	 * @param array{ok:bool,status:int,body:string,rateLimited:bool,brokerUsed:bool} $result The GET result.
+	 * @param array{ok:bool,status:int,body:string,rateLimited:bool,brokerUsed:bool,items?:array<int,mixed>} $result The GET or engine result.
 	 * @param CatalogSearch $search The search.
 	 *
 	 * @return array<int,array<string,mixed>> The cards.
 	 */
 	private function searchCards(array $result, CatalogSearch $search): array {
 		$cards = [];
-		foreach ($this->payload->searchItems(body: $result['body'], max: self::MAX_HITS) as $item) {
+		// An engine answer brings its hits along; a GitHub answer brings the body they are in.
+		$items = $result['items'] ?? $this->payload->searchItems(body: $result['body'], max: self::MAX_HITS);
+		foreach ($items as $item) {
 			if (is_array($item) === false) {
 				continue;
 			}
