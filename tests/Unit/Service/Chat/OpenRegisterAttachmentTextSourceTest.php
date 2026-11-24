@@ -190,7 +190,8 @@ final class OpenRegisterAttachmentTextSourceTest extends TestCase {
 	 * @return void
 	 */
 	public function testAFailingOrEmptyFacadeYieldsNull(): void {
-		$this->assertNull(actual: $this->source(facade: new FileTextFacadeStub(text: new RuntimeException(message: 'broken')))->extractText(fileId: 42, userId: 'alice'));
+		$throwing = new FileTextFacadeStub(text: new RuntimeException(message: 'broken'));
+		$this->assertNull(actual: $this->source(facade: $throwing)->extractText(fileId: 42, userId: 'alice'));
 		$this->assertNull(actual: $this->source(facade: new FileTextFacadeStub(text: null))->extractText(fileId: 42, userId: 'alice'));
 		$this->assertNull(actual: $this->source(facade: new FileTextFacadeStub(text: '   '))->extractText(fileId: 42, userId: 'alice'));
 	}//end testAFailingOrEmptyFacadeYieldsNull()
