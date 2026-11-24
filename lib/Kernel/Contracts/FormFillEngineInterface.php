@@ -46,7 +46,7 @@ interface FormFillEngineInterface {
 	 *
 	 * @return bool True when the `form-fill` feature is enabled.
 	 *
-	 * @spec openspec/changes/forms-smart-paste-fill/specs/form-fill/spec.md#requirement-form-fill-is-off-until-an-admin-acknowledges-it-req-ffill-001
+	 * @spec openspec/changes/archive/2026-11-24-forms-smart-paste-fill/specs/form-fill/spec.md#requirement-form-fill-is-off-until-an-admin-acknowledges-it-req-ffill-001
 	 */
 	public function isAvailable(): bool;
 
@@ -60,7 +60,7 @@ interface FormFillEngineInterface {
 	 *
 	 * @return array<string, mixed> `{available: true, values, draft: true, notice, provider}` or `{available: false, reason}`.
 	 *
-	 * @spec openspec/changes/forms-smart-paste-fill/specs/form-fill/spec.md#requirement-proposals-fit-the-allowed-fields-req-ffill-003
+	 * @spec openspec/changes/archive/2026-11-24-forms-smart-paste-fill/specs/form-fill/spec.md#requirement-proposals-fit-the-allowed-fields-req-ffill-003
 	 */
 	public function fill(string $text, array $fields, string $language, string $userId): array;
 }//end interface
