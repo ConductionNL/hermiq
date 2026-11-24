@@ -184,7 +184,8 @@ final class GitHubCommitWriter {
 	 * @spec openspec/changes/store-through-federated-config/tasks.md#task-3-3
 	 */
 	public function commitTree(GitHubPublishRun $run, array $files): string {
-		$engineCommit = $this->engine?->commit(run: $run, files: $this->safeFiles(files: $files), message: self::BUNDLE_MESSAGE);
+		$files = $this->safeFiles(files: $files);
+		$engineCommit = $this->engine?->commit(run: $run, files: $files, message: self::BUNDLE_MESSAGE);
 		if ($engineCommit !== null) {
 			return $engineCommit;
 		}
