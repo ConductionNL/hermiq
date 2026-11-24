@@ -6674,6 +6674,412 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "Handoff result address",
+			"description": "flows-hand-off-and-wait task 2 (REQ-HANDOFF-004): POST /api/handoffs/{id}/result closes a waiting webhook handoff once with the right token; no token, a wrong token, a repeat, a closed or an unknown handoff all get 404.",
+			"item": [
+				{
+					"name": "A waiting webhook handoff",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agenthandoff",
+						"description": "Seeded with the hash of a known result token, as WebhookHandoffs::open() stores it.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"kind\": \"webhook\", \"agentId\": \"newman-agent\", \"conversationId\": \"newman-conversation\", \"requestedBy\": \"admin\", \"label\": \"Newman webhook\", \"target\": \"integriq:newman/webhook/permit\", \"status\": \"waiting\", \"requestedAt\": \"2026-11-24T00:00:00+00:00\", \"deadline\": \"2099-01-01T00:00:00+00:00\", \"resultTokenHash\": \"cc20706cf0a9936fbf575c347782e54858330112e873f265895320b2f3f9fc0e\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const body = pm.response.json();",
+									"pm.test('The handoff is saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"});",
+									"pm.collectionVariables.set('hres_waiting', body.id || body.uuid || (body['@self'] || {}).id);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "An expired webhook handoff",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agenthandoff",
+						"description": "The same token on a handoff that is no longer waiting.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"kind\": \"webhook\", \"agentId\": \"newman-agent\", \"conversationId\": \"newman-conversation\", \"requestedBy\": \"admin\", \"label\": \"Newman webhook\", \"target\": \"integriq:newman/webhook/permit\", \"status\": \"expired\", \"requestedAt\": \"2026-11-24T00:00:00+00:00\", \"deadline\": \"2099-01-01T00:00:00+00:00\", \"resultTokenHash\": \"cc20706cf0a9936fbf575c347782e54858330112e873f265895320b2f3f9fc0e\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const body = pm.response.json();",
+									"pm.test('The handoff is saved', function () {",
+									"    pm.expect([200, 201]).to.include(pm.response.code);",
+									"});",
+									"pm.collectionVariables.set('hres_closed', body.id || body.uuid || (body['@self'] || {}).id);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "No token is refused",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/handoffs/{{hres_waiting}}/result",
+						"description": "A post without the token.",
+						"auth": {
+							"type": "noauth"
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\"permit\": \"granted\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('No token: 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"    pm.expect(pm.response.json().error).to.equal('not_found');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A wrong token is refused",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-Hermiq-Result-Token",
+								"value": "not-the-token"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/handoffs/{{hres_waiting}}/result",
+						"description": "A token whose hash is not the stored one.",
+						"auth": {
+							"type": "noauth"
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\"permit\": \"granted\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Wrong token: 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"    pm.expect(pm.response.json().error).to.equal('not_found');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A closed handoff is refused",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-Hermiq-Result-Token",
+								"value": "newman-handoff-result-token-0000000000000000000001"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/handoffs/{{hres_closed}}/result",
+						"description": "The right token on an expired handoff.",
+						"auth": {
+							"type": "noauth"
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\"permit\": \"granted\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Closed handoff: 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"    pm.expect(pm.response.json().error).to.equal('not_found');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "An unknown handoff is refused",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-Hermiq-Result-Token",
+								"value": "newman-handoff-result-token-0000000000000000000001"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/handoffs/00000000-0000-4000-8000-0000000000ff/result",
+						"description": "Same 404 for a handoff that does not exist.",
+						"auth": {
+							"type": "noauth"
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\"permit\": \"granted\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Unknown handoff: 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"    pm.expect(pm.response.json().error).to.equal('not_found');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The right token once",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/handoffs/{{hres_waiting}}/result",
+						"description": "The workflow posts its result with the token in the body field.",
+						"auth": {
+							"type": "noauth"
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\"permit\": \"granted\", \"rule\": \"APV 2:10\", \"hermiqResultToken\": \"newman-handoff-result-token-0000000000000000000001\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Accepted', function () {",
+									"    pm.response.to.have.status(202);",
+									"    pm.expect(pm.response.json().accepted).to.equal(true);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A repeat is refused",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-Hermiq-Result-Token",
+								"value": "newman-handoff-result-token-0000000000000000000001"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/handoffs/{{hres_waiting}}/result",
+						"description": "The token works once.",
+						"auth": {
+							"type": "noauth"
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\"permit\": \"denied\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Repeat: 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"    pm.expect(pm.response.json().error).to.equal('not_found');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The handoff closed with the result",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agenthandoff/{{hres_waiting}}",
+						"description": "Done, with the posted result and never the token."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const body = pm.response.json();",
+									"const data = body.object || body;",
+									"pm.test('Done with the first result', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(data.status).to.equal('done');",
+									"    pm.expect(data.result.permit).to.equal('granted');",
+									"    pm.expect(data.result.rule).to.equal('APV 2:10');",
+									"    pm.expect(data.result).to.not.have.property('hermiqResultToken');",
+									"    pm.expect(data.closedAt).to.be.a('string');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Remove the waiting handoff",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agenthandoff/{{hres_waiting}}",
+						"description": "Clean up."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 204, 404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Remove the expired handoff",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agenthandoff/{{hres_closed}}",
+						"description": "Clean up."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 204, 404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
 		}
 	]
 }

@@ -383,4 +383,33 @@ test.describe('tools-custom-tools-without-code: the Custom tools page and editor
 		expect(tried[0].url).toContain(`/custom-tools/${tool.id}/try`)
 		expect(tried[0].body).toEqual({ arguments: { adres: 'Markt 3', activiteit: 'terras' } })
 	})
+
+	// @e2e flows-hand-off-and-wait::the-n8n-preset-fills-in-a-waiting-webhook-call
+	// flows-hand-off-and-wait Task 2 (REQ-HANDOFF-004): "Fill in for an n8n
+	// workflow" sets POST to /webhook/<slug> and switches on waiting, which shows
+	// the deadline and the steps to add in n8n. Nothing is saved.
+	test('the n8n preset fills in a waiting webhook call', async ({ page }) => {
+		const slug = `permit_flow_${RUN}`
+		const index = await openCustomTools(page)
+		await index.getByRole('button', { name: /^Add\b/ }).first().click()
+		const dialog = page.getByRole('dialog', { name: 'Add a custom tool' })
+		await expect(dialog).toBeVisible({ timeout: 15_000 })
+
+		await dialog.getByLabel('Slug').first().fill(slug)
+		await choose(page, dialog, 'Target type', 'A system connected through integriq')
+		const wait = dialog.getByText('Wait for the workflow to post its result back', { exact: true })
+		await expect(wait).toBeVisible()
+		await expect(dialog.getByLabel('Deadline in hours')).toHaveCount(0)
+
+		await dialog.getByRole('button', { name: 'Fill in for an n8n workflow', exact: true }).click()
+
+		await expect(dialog.getByLabel('Path', { exact: true })).toHaveValue(`/webhook/${slug}`)
+		await expect(dialog.locator('.vs__selected', { hasText: /^\s*POST\s*$/ })).toBeVisible()
+		await expect(dialog.getByRole('checkbox', { name: 'Wait for the workflow to post its result back' })).toBeChecked()
+		await expect(dialog.getByLabel('Deadline in hours')).toBeVisible()
+		const help = dialog.locator('.custom-tool-form__callback-help')
+		await expect(help).toContainText('hermiqResultUrl and hermiqResultToken')
+		await expect(help).toContainText('Respond to Webhook')
+		await expect(help).toContainText('X-Hermiq-Result-Token')
+	})
 })
