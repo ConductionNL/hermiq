@@ -876,6 +876,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Service\\Chat\\AttachmentTextSource",
+            "OCA\\Hermiq\\Service\\Chat\\OpenRegisterAttachmentTextSource"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\OpenRegister\\Contract\\RegisterSlugResolverInterface",
             "OCA\\OpenRegister\\Service\\RegisterSlugResolver"
         ],
