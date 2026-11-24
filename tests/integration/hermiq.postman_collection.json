@@ -8048,6 +8048,529 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "Code sandbox settings",
+			"description": "tools-code-sandbox task 2 (REQ-SANDBOX-004): an admin reads and sets where code runs; an unknown backend, a hosted one without its integriq source and an unknown install manager are refused with 422; a test run on a missing hosted source is refused with 503; the own sandbox passes print(1 + 1) when installed; a member who is not an admin is refused; the choice is put back.",
+			"item": [
+				{
+					"name": "Read where code runs",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/settings/code-sandbox",
+						"description": "Remember the stored choice, so the last step puts it back."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const body = pm.response.json();",
+									"pm.test('The choice and whether it can take runs', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(['exapp', 'hosted']).to.include(body.backend);",
+									"    pm.expect(body.available).to.be.a('boolean');",
+									"    pm.expect(body.installManagers).to.be.an('array');",
+									"});",
+									"pm.collectionVariables.set('cs_original', JSON.stringify({backend: body.backend, hostedSource: body.hostedSource, installManagers: body.installManagers}));"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "An unknown backend is refused",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/settings/code-sandbox",
+						"description": "Only exapp or hosted.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"backend\": \"docker\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('422 with the reason', function () {",
+									"    pm.response.to.have.status(422);",
+									"    pm.expect(pm.response.json().error).to.equal(\"Choose where code runs: exapp or hosted.\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A hosted backend without its source is refused",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/settings/code-sandbox",
+						"description": "Hosted needs the integriq source.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"backend\": \"hosted\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('422 with the reason', function () {",
+									"    pm.response.to.have.status(422);",
+									"    pm.expect(pm.response.json().error).to.equal(\"A hosted sandbox needs the integriq source it is reached through.\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "An unknown install manager is refused",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/settings/code-sandbox",
+						"description": "Tools come from pip or npm only.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"backend\": \"exapp\", \"installManagers\": [\"apt\"]}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('422 with the reason', function () {",
+									"    pm.response.to.have.status(422);",
+									"    pm.expect(pm.response.json().error).to.equal(\"Tools are installed from pip or npm.\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Choose a hosted sandbox",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/settings/code-sandbox",
+						"description": "Hosted through an integriq source.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"backend\": \"hosted\", \"hostedSource\": \"newman-sandbox-source\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const body = pm.response.json();",
+									"pm.test('Stored as hosted with its source', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(body.backend).to.equal('hosted');",
+									"    pm.expect(body.hostedSource).to.equal('newman-sandbox-source');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "The hosted choice is kept",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/settings/code-sandbox",
+						"description": "Read back."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Still hosted', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().backend).to.equal('hosted');",
+									"    pm.expect(pm.response.json().hostedSource).to.equal('newman-sandbox-source');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Run a test on a source that is not there",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/settings/code-sandbox/test",
+						"description": "The integriq source does not exist, so the test run is refused and nothing is sent.",
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const body = pm.response.json();",
+									"pm.test('503 with the reason and the live backend', function () {",
+									"    pm.response.to.have.status(503);",
+									"    pm.expect(body.error).to.be.a('string');",
+									"    pm.expect(body.backend).to.equal('hosted');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Choose the own sandbox",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/settings/code-sandbox",
+						"description": "Back to the ExApp; a hosted source is no longer shown.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"backend\": \"exapp\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const body = pm.response.json();",
+									"pm.test('Stored as exapp without a source', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(body.backend).to.equal('exapp');",
+									"    pm.expect(body.hostedSource).to.equal(null);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Run a test on the own sandbox",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/settings/code-sandbox/test",
+						"description": "print(1 + 1): passes when the ExApp is installed, else 503 with the reason.",
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const body = pm.response.json();",
+									"pm.test('Passed, or refused because no sandbox is installed', function () {",
+									"    pm.expect([200, 503]).to.include(pm.response.code);",
+									"    pm.expect(body.backend).to.equal('exapp');",
+									"    if (pm.response.code === 200) {",
+									"        pm.expect(body.passed).to.equal(true);",
+									"        pm.expect(body.output).to.equal('2');",
+									"        pm.expect(body.exitCode).to.equal(0);",
+									"    } else {",
+									"        pm.expect(body.error).to.be.a('string');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A member who is not an admin",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/ocs/v2.php/cloud/users?format=json",
+						"description": "For the admin-only check.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"userid\": \"newman-cs-member\", \"password\": \"Newman-Member-2026-cs!\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The user exists', function () {",
+									"    pm.expect([200, 400]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A member cannot read the choice",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/settings/code-sandbox",
+						"description": "Admin only.",
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "newman-cs-member",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "Newman-Member-2026-cs!",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Refused', function () {",
+									"    pm.expect([401, 403]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "A member cannot change the choice",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/settings/code-sandbox",
+						"description": "Admin only.",
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "newman-cs-member",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "Newman-Member-2026-cs!",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\"backend\": \"hosted\", \"hostedSource\": \"member-source\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Refused', function () {",
+									"    pm.expect([401, 403]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Put the choice back",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/settings/code-sandbox",
+						"description": "As the first step found it.",
+						"body": {
+							"mode": "raw",
+							"raw": "{{cs_original}}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Restored', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().backend).to.equal(JSON.parse(pm.collectionVariables.get('cs_original')).backend);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Remove the member",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/ocs/v2.php/cloud/users/newman-cs-member?format=json",
+						"description": "Clean up."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Removed', function () {",
+									"    pm.expect([200, 404]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
 		}
 	]
 }
