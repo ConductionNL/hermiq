@@ -38,6 +38,8 @@ use Throwable;
 
 /**
  * Search the store through OpenRegister's federated config engine.
+ *
+ * @spec openspec/changes/store-through-federated-config/tasks.md#task-3-3
  */
 final class FederatedCatalogSearch {
 
