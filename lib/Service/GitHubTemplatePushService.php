@@ -118,9 +118,18 @@ class GitHubTemplatePushService implements GitHubTemplatePushServiceInterface {
 	 * The Git-Data commit writer over this service's broker client.
 	 *
 	 * @return GitHubCommitWriter The writer.
+	 *
+	 * @spec openspec/changes/store-through-federated-config/tasks.md#task-3-3
 	 */
 	private function commitWriter(): GitHubCommitWriter {
-		return new GitHubCommitWriter(broker: $this->brokerClient(), logger: $this->logger);
+		return new GitHubCommitWriter(
+			broker: $this->brokerClient(),
+			logger: $this->logger,
+			engine: new FederatedPackagePublish(
+				locator: new FederatedEngineLocator(container: $this->container, appId: 'hermiq'),
+				logger: $this->logger
+			)
+		);
 	}//end commitWriter()
 
 	/**

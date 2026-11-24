@@ -38,6 +38,13 @@ use RuntimeException;
 final class GitHubCommitWriter {
 
 	/**
+	 * The commit message of a bundle publish.
+	 *
+	 * @var string
+	 */
+	private const BUNDLE_MESSAGE = 'chore: publish agent skill bundle from Hermiq';
+
+	/**
 	 * Per-kind repo-root file name the committed package is written to (mirrors
 	 * `GitHubTemplateCatalogService::PACKAGE_FILES` — the same convention on both
 	 * sides of the publish/install round-trip).
@@ -54,10 +61,12 @@ final class GitHubCommitWriter {
 	 *
 	 * @param GitHubBrokerClient $broker The brokered GitHub API.
 	 * @param LoggerInterface $logger Where a skipped unsafe path is logged.
+	 * @param FederatedPackagePublish|null $engine The commit through OpenRegister's shared engine, when there is one.
 	 */
 	public function __construct(
 		private readonly GitHubBrokerClient $broker,
 		private readonly LoggerInterface $logger,
+		private readonly ?FederatedPackagePublish $engine = null,
 	) {
 	}//end __construct()
 
@@ -74,8 +83,29 @@ final class GitHubCommitWriter {
 	 * @throws RuntimeException On API failure.
 	 *
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-let-a-template-owner-publish-it-to-a-new-tagged-github-repository
+	 * @spec openspec/changes/store-through-federated-config/tasks.md#task-3-3
 	 */
 	public function commitPackage(GitHubPublishRun $run, PackagePayload $payload): string {
+		// Through OpenRegister's shared engine when this instance has it; the Git Data calls otherwise.
+		$files = $this->packageFiles(run: $run, payload: $payload);
+
+		return $this->engine?->commit(run: $run, files: $files, message: $this->commitMessageFor(kind: $run->kind))
+			?? $this->commitPackageDirect(run: $run, payload: $payload);
+	}//end commitPackage()
+
+	/**
+	 * Commit the package and its auxiliary files through the Git Data API.
+	 *
+	 * @param GitHubPublishRun $run     The publish.
+	 * @param PackagePayload   $payload The package and its auxiliary files.
+	 *
+	 * @return string The new commit SHA.
+	 *
+	 * @throws RuntimeException On API failure.
+	 *
+	 * @spec openspec/changes/store-through-federated-config/tasks.md#task-3-3
+	 */
+	private function commitPackageDirect(GitHubPublishRun $run, PackagePayload $payload): string {
 		$this->resolveBaseCommit(run: $run);
 		$treeEntries = $this->packageEntries(run: $run, payload: $payload);
 
@@ -83,7 +113,33 @@ final class GitHubCommitWriter {
 			run: $run,
 			draft: new CommitDraft(entries: $treeEntries, message: $this->commitMessageFor(kind: $run->kind))
 		);
-	}//end commitPackage()
+	}//end commitPackageDirect()
+
+	/**
+	 * The package and its safely named auxiliary files as one `path => contents` map.
+	 *
+	 * @param GitHubPublishRun $run     The publish.
+	 * @param PackagePayload   $payload The package and its auxiliary files.
+	 *
+	 * @return array<string, string> The files to commit.
+	 *
+	 * @spec openspec/changes/store-through-federated-config/tasks.md#task-3-3
+	 */
+	private function packageFiles(GitHubPublishRun $run, PackagePayload $payload): array {
+		$files = [$this->packageFileFor(kind: $run->kind) => $payload->package];
+		foreach ($payload->auxFiles as $auxFile) {
+			$auxName = '';
+			if (is_array($auxFile) === true) {
+				$auxName = (string)($auxFile['name'] ?? '');
+			}
+
+			if ($auxName !== '' && $this->isSafeRepoPath(path: $auxName) === true) {
+				$files[$auxName] = (string)($auxFile['content'] ?? '');
+			}
+		}
+
+		return $files;
+	}//end packageFiles()
 
 	/**
 	 * Upload the package and its auxiliary files as blobs and return their tree entries.
@@ -134,8 +190,29 @@ final class GitHubCommitWriter {
 	 * @throws RuntimeException On API failure.
 	 *
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-let-a-template-owner-publish-it-to-a-new-tagged-github-repository
+	 *
+	 * @spec openspec/changes/store-through-federated-config/tasks.md#task-3-3
 	 */
 	public function commitTree(GitHubPublishRun $run, array $files): string {
+		$files = $this->safeFiles(files: $files);
+
+		return $this->engine?->commit(run: $run, files: $files, message: self::BUNDLE_MESSAGE)
+			?? $this->commitTreeDirect(run: $run, files: $files);
+	}//end commitTree()
+
+	/**
+	 * Commit an already path-checked tree through the Git Data API.
+	 *
+	 * @param GitHubPublishRun     $run   The bundle publish.
+	 * @param array<string,string> $files The safe tree to commit.
+	 *
+	 * @return string The new commit SHA.
+	 *
+	 * @throws RuntimeException On API failure, or when no file is left.
+	 *
+	 * @spec openspec/changes/store-through-federated-config/tasks.md#task-3-3
+	 */
+	private function commitTreeDirect(GitHubPublishRun $run, array $files): string {
 		$this->resolveBaseCommit(run: $run);
 
 		$treeEntries = $this->uploadBlobs(run: $run, files: $files);
@@ -145,9 +222,33 @@ final class GitHubCommitWriter {
 
 		return $this->finishCommit(
 			run: $run,
-			draft: new CommitDraft(entries: $treeEntries, message: 'chore: publish agent skill bundle from Hermiq')
+			draft: new CommitDraft(entries: $treeEntries, message: self::BUNDLE_MESSAGE)
 		);
-	}//end commitTree()
+	}//end commitTreeDirect()
+
+	/**
+	 * The files whose paths are safe to commit; the others are skipped with a warning.
+	 *
+	 * @param array<string,string> $files The `path => contents` tree.
+	 *
+	 * @return array<string,string> The safe files.
+	 *
+	 * @spec openspec/changes/store-through-federated-config/tasks.md#task-3-3
+	 */
+	private function safeFiles(array $files): array {
+		$safe = [];
+		foreach ($files as $path => $contents) {
+			$path = (string)$path;
+			if ($path === '' || $this->isSafeRepoPath(path: $path) === false) {
+				$this->logger->warning('Hermiq bundle publish: skipped unsafe path.', ['path' => $path]);
+				continue;
+			}
+
+			$safe[$path] = (string)$contents;
+		}
+
+		return $safe;
+	}//end safeFiles()
 
 	/**
 	 * Upload every file as a blob and return the resulting tree entries.
@@ -165,14 +266,8 @@ final class GitHubCommitWriter {
 	private function uploadBlobs(GitHubPublishRun $run, array $files): array {
 		$treeEntries = [];
 
-		foreach ($files as $path => $contents) {
-			$path = (string)$path;
-			if ($path === '' || $this->isSafeRepoPath(path: $path) === false) {
-				$this->logger->warning('Hermiq bundle publish: skipped unsafe path.', ['path' => $path]);
-				continue;
-			}
-
-			$treeEntries[] = $this->treeEntry(path: $path, sha: $this->requiredBlobSha(run: $run, file: [$path, (string)$contents]));
+		foreach ($this->safeFiles(files: $files) as $path => $contents) {
+			$treeEntries[] = $this->treeEntry(path: $path, sha: $this->requiredBlobSha(run: $run, file: [$path, $contents]));
 		}
 
 		return $treeEntries;

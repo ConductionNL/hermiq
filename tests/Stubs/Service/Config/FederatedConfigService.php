@@ -55,4 +55,15 @@ class FederatedConfigService {
 	): array {
 		return ['files' => [], 'truncated' => false, 'source' => 'none'];
 	}//end fetchPackage()
+
+	/**
+	 * Publish many files into a GitHub repository as one Git Data commit.
+	 *
+	 * @param RepoFilesPublish $request The files, the message, the target and the broker credential.
+	 *
+	 * @return array{published: true, repo: string, branch: string, commit: string, files: int}
+	 */
+	public function publishFiles(RepoFilesPublish $request): array {
+		return ['published' => true, 'repo' => $request->target->repo, 'branch' => $request->target->branch, 'commit' => '', 'files' => 0];
+	}//end publishFiles()
 }//end class
