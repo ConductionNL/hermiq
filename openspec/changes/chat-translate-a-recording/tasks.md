@@ -29,7 +29,8 @@ Kind: code. Size M. Row `hermiq:dm-speech-translate`.
   - GIVEN a `fileId` the caller can read WHEN posted with a target THEN a WAV tagged "Agent authored" is saved under `Hermiq/Translations`
   - GIVEN a `fileId` the caller cannot read WHEN posted THEN the answer is 404
 - [x] Implement
-- [ ] Test (PHPUnit; Newman with an upload and with a Files id)
+- [x] Test (PHPUnit; Newman with an upload and with a Files id)
+  - 2026-11-24: PHPUnit `SpeechTranslationControllerTest` in; Newman folder "Translate a recording" in `tests/integration/hermiq.postman_collection.json` (fixture `tests/integration/fixtures/opname-newman.wav`) written, runs in nightly (UNBLOCK rule 3): no recording answers 400, a Files id the caller cannot read 404; an upload and a Files id are taken, and with the speech sidecar a spoken result lands under `Hermiq/Translations` (without it the service's 409/422/502 refusal is accepted). Not verified against a live instance here.
 
 ### Task 4: The voice map in admin settings
 - **spec_ref**: `openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-a-person-can-translate-a-recording-and-hear-the-result-req-strn-001`
