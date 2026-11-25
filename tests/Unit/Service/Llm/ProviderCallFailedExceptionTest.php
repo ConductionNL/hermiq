@@ -172,6 +172,15 @@ class ProviderCallFailedExceptionTest extends TestCase {
 			'refused' => ['Connection refused', ProviderCallFailedException::CONNECTION, null],
 			'curl 7' => ['cURL error 7 while connecting', ProviderCallFailedException::CONNECTION, null],
 			'other' => ['Something odd', ProviderCallFailedException::UNKNOWN, null],
+			// Seen live: the openai-php transporter's message ends in the request URL,
+			// whose `http://127...` must not read as HTTP status 127.
+			'refused, with the URL' => [
+				'cURL error 7: Failed to connect to 127.0.0.1 port 9 after 0 ms: Couldn\'t connect to server (see https://curl.se/libcurl/c/libcurl-errors.html) for http://127.0.0.1:9/v1/chat/completions',
+				ProviderCallFailedException::CONNECTION,
+				null,
+			],
+			'url with a 3-digit host part' => ['Something odd at http://203.0.113.7/v1', ProviderCallFailedException::UNKNOWN, null],
+			'HTTP/1.1 status line' => ['HTTP/1.1 503 Service Unavailable', ProviderCallFailedException::SERVER, 503],
 		];
 	}//end messages()
 
@@ -210,6 +219,24 @@ class ProviderCallFailedExceptionTest extends TestCase {
 		$this->assertSame('Broker call failed', $failure->getMessage());
 		$this->assertSame($wrapped, $failure->getPrevious());
 	}//end testFromThrowableReadsTheCauseChain()
+
+	/**
+	 * A refused connection wrapped by the OpenAI client moves the turn to its fallback.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 */
+	public function testARefusedConnectionWrappedByTheClientMovesTheTurn(): void {
+		$message = 'cURL error 7: Failed to connect to 127.0.0.1 port 9 after 0 ms: Couldn\'t connect to server for http://127.0.0.1:9/v1/chat/completions';
+		$wrapped = new RuntimeException(message: 'Failed to generate response: ' . $message, previous: new RuntimeException(message: $message));
+
+		$failure = ProviderCallFailedException::fromThrowable(failure: $wrapped);
+
+		$this->assertSame(expected: ProviderCallFailedException::CONNECTION, actual: $failure->kind);
+		$this->assertNull(actual: $failure->httpStatus);
+		$this->assertTrue(condition: $failure->movesTurn());
+	}//end testARefusedConnectionWrappedByTheClientMovesTheTurn()
 
 	/**
 	 * A class named like a connect exception is a connection failure whatever its message.
