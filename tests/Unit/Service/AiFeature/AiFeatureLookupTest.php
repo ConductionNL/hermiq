@@ -185,25 +185,25 @@ final class AiFeatureLookupTest extends TestCase {
 	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
 	 */
 	public function testFindBySlugForOrganisationKeepsOnlyThatOrganisation(): void {
-		$other = $this->entity(['slug' => 'public-chat', 'lifecycle' => 'enabled']);
+		$other = $this->entity(payload: ['slug' => 'public-chat', 'lifecycle' => 'enabled']);
 		$other->setOrganisation('org-2');
-		$own = $this->entity(['slug' => 'public-chat', 'lifecycle' => 'disabled']);
+		$own = $this->entity(payload: ['slug' => 'public-chat', 'lifecycle' => 'disabled']);
 		$own->setOrganisation('org-1');
-		$lookup = $this->lookup([$other, $own]);
+		$lookup = $this->lookup(objects: [$other, $own]);
 
 		$this->assertSame(expected: $own, actual: $lookup->findBySlugForOrganisation('public-chat', 'org-1'));
 		$this->assertSame(
-			[
+			expected: [
 				['setRegister', 'hermiq'],
 				['setSchema', 'agentaifeature'],
 				['findAll', ['filters' => ['slug' => 'public-chat'], 'limit' => 200], false, false],
 			],
-			$this->calls
+			actual: $this->calls
 		);
 
-		$this->assertNull(actual: $this->lookup([$other])->findBySlugForOrganisation('public-chat', 'org-1'));
-		$this->assertNull(actual: $this->lookup([$own])->findBySlugForOrganisation('public-chat', ''));
-		$this->assertNull(actual: $this->lookup([$own])->findBySlugForOrganisation('', 'org-1'));
+		$this->assertNull(actual: $this->lookup(objects: [$other])->findBySlugForOrganisation('public-chat', 'org-1'));
+		$this->assertNull(actual: $this->lookup(objects: [$own])->findBySlugForOrganisation('public-chat', ''));
+		$this->assertNull(actual: $this->lookup(objects: [$own])->findBySlugForOrganisation('', 'org-1'));
 		$this->assertSame(expected: [], actual: $this->calls);
 	}//end testFindBySlugForOrganisationKeepsOnlyThatOrganisation()
 

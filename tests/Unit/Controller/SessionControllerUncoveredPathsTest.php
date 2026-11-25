@@ -376,10 +376,10 @@ final class SessionControllerUncoveredPathsTest extends TestCase {
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	public function testANotFoundExceptionFromOpenRegisterIsNotFound(): void {
-		$this->objectService->method('find')->willThrowException(new DoesNotExistException('Object with identifier \'s-gone\' not found in any magic table'));
+		$this->objectService->method('find')->willThrowException(new DoesNotExistException('s-gone not found in any magic table'));
 		$this->objectService->expects(self::never())->method('saveObject');
 
-		$controller = $this->controller(['title' => 'New']);
+		$controller = $this->controller(params: ['title' => 'New']);
 		foreach (['show', 'messages', 'update', 'destroy', 'restore', 'destroyPermanent', 'removeLink'] as $route) {
 			$response = $controller->$route('s-gone');
 			self::assertSame(expected: 404, actual: $response->getStatus(), message: $route);

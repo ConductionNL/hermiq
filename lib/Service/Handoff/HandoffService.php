@@ -291,15 +291,11 @@ class HandoffService {
 	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
 	 */
 	public function find(string $handoffId): ?array {
-		if ($handoffId === '') {
-			return null;
-		}
-
 		return $this->storedHandoff(handoffId: $handoffId)?->getObject();
 	}//end find()
 
 	/**
-	 * The stored handoff object, or null when there is none with that id.
+	 * The stored handoff object, or null when the id is empty or there is none with it.
 	 *
 	 * OpenRegister's find answers an unknown id either with null or with a
 	 * DoesNotExistException; both mean the handoff is not there.
@@ -311,6 +307,10 @@ class HandoffService {
 	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
 	 */
 	private function storedHandoff(string $handoffId): ?ObjectEntity {
+		if ($handoffId === '') {
+			return null;
+		}
+
 		try {
 			return $this->objectService->find(
 				id: $handoffId,
@@ -471,10 +471,6 @@ class HandoffService {
 	 * @return array<string, mixed>|null
 	 */
 	private function waiting(string $handoffId): ?array {
-		if ($handoffId === '') {
-			return null;
-		}
-
 		$object = $this->storedHandoff(handoffId: $handoffId);
 		if (($object instanceof ObjectEntity) === false) {
 			return null;

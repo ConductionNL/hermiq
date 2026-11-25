@@ -468,7 +468,7 @@ class SessionShareServiceTest extends TestCase {
 	 */
 	public function testANotFoundExceptionIsNotFound(): void {
 		try {
-			$this->service(null, [], true)->list(uuid: 'sess-gone', callerUid: 'anne');
+			$this->service(payload: null, listed: [], notFoundException: true)->list(uuid: 'sess-gone', callerUid: 'anne');
 			$this->fail(message: 'not refused');
 		} catch (SessionShareException $e) {
 			$this->assertSame(expected: 404, actual: $e->getCode());
