@@ -28,7 +28,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Schedule;
 
+use DateTimeZone;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Flow\Nodes\TriggerScheduleNode;
 use OCP\IConfig;
 
 /**
@@ -52,8 +54,9 @@ class ScheduleCadenceMapper {
 	/**
 	 * The cron expression the engine should fire this schedule on, or null.
 	 *
-	 * `kind=cron` passes through when it has 5 fields AND the timezone
-	 * difference between the owner and the server cannot change its meaning.
+	 * `kind=cron` passes through when it has 5 fields AND either the timezone
+	 * difference between the owner and the server cannot change its meaning,
+	 * or the engine reads the cron in the owner's zone (see mirrorTimezone()).
 	 * `kind=interval` derives a pure-cadence expression when the minutes
 	 * divide an hour, or whole hours divide a day; a cadence survives any
 	 * fixed offset, so it needs no timezone check. `kind=once` never maps:
@@ -103,7 +106,7 @@ class ScheduleCadenceMapper {
 			return 'this interval has no 5-field cron form; it stays local (staged phase 2)';
 		}
 
-		return 'this cron is not a 5-field timezone-safe expression the engine can evaluate; it stays local (staged phase 2)';
+		return 'this cron is not a 5-field expression the engine can evaluate in its owner\'s timezone; it stays local (staged phase 2)';
 	}//end gapReason()
 
 	/**
@@ -122,12 +125,93 @@ class ScheduleCadenceMapper {
 			return null;
 		}
 
-		if ($this->timezoneSafe(fields: $fields, owner: $owner) === false) {
-			return null;
+		if ($this->timezoneSafe(fields: $fields, owner: $owner) === true) {
+			return $cron;
 		}
 
-		return $cron;
+		if ($this->engineTimezoneFor(owner: $owner) !== '') {
+			// The engine reads the cron in the owner's timezone itself, so the
+			// expression travels unchanged with the zone on the trigger node.
+			return $cron;
+		}
+
+		return null;
 	}//end passthroughCron()
+
+	/**
+	 * The timezone the mirror's trigger node must carry, or '' when none is needed.
+	 *
+	 * Only a timezone-SENSITIVE 5-field `kind=cron` needs one: a safe cron
+	 * (same zone, or a pure minute cadence) and every interval mirror without
+	 * it, so mirrors made before the engine read timezones stay untouched.
+	 * A sensitive cron gets the owner's zone when the engine reads the key;
+	 * otherwise '' (and mappedCron() keeps it local).
+	 *
+	 * @param ObjectEntity $schedule The schedule.
+	 *
+	 * @return string The timezone identifier, or ''.
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-2-2
+	 */
+	public function mirrorTimezone(ObjectEntity $schedule): string {
+		$data = $schedule->getObject();
+		if ((string)($data['kind'] ?? '') !== 'cron') {
+			return '';
+		}
+
+		$fields = preg_split('/\s+/', trim((string)($data['cronExpr'] ?? '')));
+		if (is_array($fields) === false || count($fields) !== 5) {
+			return '';
+		}
+
+		$owner = (string)($schedule->getOwner() ?? '');
+		if ($this->timezoneSafe(fields: $fields, owner: $owner) === true) {
+			return '';
+		}
+
+		return $this->engineTimezoneFor(owner: $owner);
+	}//end mirrorTimezone()
+
+	/**
+	 * The owner's zone when the engine can read a cron in it, else ''.
+	 *
+	 * '' when the installed OpenRegister does not read the trigger's
+	 * `timezone` key, and '' for a zone PHP does not know: the engine would
+	 * silently read such a cron in the server's zone, which is exactly the
+	 * shift this check exists to prevent.
+	 *
+	 * @param string $owner The owner uid.
+	 *
+	 * @return string The timezone identifier, or ''.
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-2-2
+	 */
+	private function engineTimezoneFor(string $owner): string {
+		if ($this->engineReadsTimezone() === false) {
+			return '';
+		}
+
+		$zone = $this->ownerTimezoneName(owner: $owner);
+		if (in_array(needle: $zone, haystack: DateTimeZone::listIdentifiers(), strict: true) === false) {
+			return '';
+		}
+
+		return $zone;
+	}//end engineTimezoneFor()
+
+	/**
+	 * Whether the installed OpenRegister reads a schedule trigger's `timezone` key.
+	 *
+	 * The probe OpenRegister documents on `TriggerScheduleNode::CONFIG_TIMEZONE`.
+	 * Protected so a test can pin either engine.
+	 *
+	 * @return boolean True when the engine reads the cron in a named timezone.
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-2-2
+	 */
+	protected function engineReadsTimezone(): bool {
+		return defined(TriggerScheduleNode::class . '::CONFIG_TIMEZONE');
+	}//end engineReadsTimezone()
 
 	/**
 	 * Whether owner-vs-server timezone difference can change this cron's meaning.

@@ -14,8 +14,10 @@
  * audit) is untouched because the dispatch node re-enters
  * `ScheduleService::runNow()`.
  *
- * Shapes the engine cannot time yet (once, inexpressible intervals,
- * timezone-sensitive crons) are left on the local dispatcher on purpose;
+ * A timezone-sensitive cron mirrors with its owner's zone on the trigger
+ * node when the installed OpenRegister reads that key. Shapes the engine
+ * cannot time yet (once, inexpressible intervals, and timezone-sensitive
+ * crons on an engine without the key) stay on the local dispatcher on purpose;
  * the change's design.md carries the full map and the staged phases.
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
@@ -521,7 +523,14 @@ class ScheduleFlowBridge implements ScheduleFlowBridgeInterface {
 		$flow->setTriggerRegister(null);
 		$flow->setTriggerSchema(null);
 		$flow->setCron($cron);
-		$flow->setNodes($this->definition->nodes(scheduleUuid: (string)$schedule->getUuid(), cron: $cron, runAs: $runAs));
+		$flow->setNodes(
+			$this->definition->nodes(
+				scheduleUuid: (string)$schedule->getUuid(),
+				cron: $cron,
+				runAs: $runAs,
+				timezone: $this->cadenceMapper->mirrorTimezone(schedule: $schedule)
+			)
+		);
 		$flow->setEdges($this->definition->edges());
 		$flow->setLimits(['maxNodes' => 5, 'maxIterations' => 5]);
 		$flow->setApplicationSlug(self::APPLICATION_SLUG);
@@ -607,32 +616,41 @@ class ScheduleFlowBridge implements ScheduleFlowBridgeInterface {
 	}//end reclaimFromMissingFlow()
 
 	/**
-	 * The mirror a schedule wants: its mapped cron, run-as identity and enabled state.
+	 * The mirror a schedule wants: its mapped cron, run-as identity, timezone and enabled state.
+	 *
+	 * The timezone is part of it so an owner who moves zones gets a refreshed
+	 * mirror instead of a cron still read in the old zone.
 	 *
 	 * @param ObjectEntity $schedule The schedule.
 	 *
-	 * @return array{cron: string, runAs: string, enabled: bool} The wanted mirror.
+	 * @return array{cron: string, runAs: string, timezone: string, enabled: bool} The wanted mirror.
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-2-2
 	 */
 	private function wantedMirror(ObjectEntity $schedule): array {
 		return [
 			'cron' => (string)$this->mappedCron(schedule: $schedule),
 			'runAs' => (string)$this->resolveRunAs(schedule: $schedule),
+			'timezone' => $this->cadenceMapper->mirrorTimezone(schedule: $schedule),
 			'enabled' => (($schedule->getObject()['enabled'] ?? false) === true),
 		];
 
 	}//end wantedMirror()
 
 	/**
-	 * The mirror a flow holds: its cron, its trigger's run-as identity and enabled state.
+	 * The mirror a flow holds: its cron, its trigger's run-as identity and timezone, and enabled state.
 	 *
 	 * @param Flow $flow The mirror flow.
 	 *
-	 * @return array{cron: string, runAs: string, enabled: bool} The stored mirror.
+	 * @return array{cron: string, runAs: string, timezone: string, enabled: bool} The stored mirror.
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-2-2
 	 */
 	private function storedMirror(Flow $flow): array {
 		return [
 			'cron' => trim((string)($flow->getCron() ?? '')),
 			'runAs' => $this->definition->triggerRunAs(nodes: $flow->getNodes()),
+			'timezone' => $this->definition->triggerTimezone(nodes: $flow->getNodes()),
 			'enabled' => ($flow->getEnabled() === true),
 		];
 
@@ -671,15 +689,24 @@ class ScheduleFlowBridge implements ScheduleFlowBridgeInterface {
 	 * version keeps serving in between.
 	 *
 	 * @param Flow $flow The mirror flow.
-	 * @param array{cron: string, runAs: string, enabled: bool, scheduleUuid: string} $mirror The wanted mirror.
+	 * @param array{cron: string, runAs: string, timezone: string, enabled: bool, scheduleUuid: string} $mirror The wanted mirror.
 	 *
 	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-2-2
 	 */
 	private function redefineMirror(Flow $flow, array $mirror): void {
 		$this->publisher->draftForRedefinition(flow: $flow);
 
 		$flow->setCron($mirror['cron']);
-		$flow->setNodes($this->definition->nodes(scheduleUuid: $mirror['scheduleUuid'], cron: $mirror['cron'], runAs: $mirror['runAs']));
+		$flow->setNodes(
+			$this->definition->nodes(
+				scheduleUuid: $mirror['scheduleUuid'],
+				cron: $mirror['cron'],
+				runAs: $mirror['runAs'],
+				timezone: $mirror['timezone']
+			)
+		);
 		$flow->setEdges($this->definition->edges());
 		$flow->setEnabled($mirror['enabled']);
 		$flow->setUpdated(new DateTime());
