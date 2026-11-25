@@ -75,9 +75,8 @@ const TURN_SCHEMA = 'agentsessionturn'
 const FAB = '[data-testid="cn-ai-fab"]'
 const COMPOSER = '[data-testid="cn-ai-input-textarea"]'
 
-/** The chip the companion shows for a file or folder scope (REQ-DCHAT-004). */
+/** The chip the companion shows for a document scope (REQ-DCHAT-004). */
 const DOCUMENT_CHIP = /Over dit document|About this document/
-const FOLDER_CHIP = /Over deze map|About this folder/
 
 
 /** The two files the unscoped answer rests on. */
@@ -450,23 +449,22 @@ test.describe('chat-about-a-document-cites-its-sources: scoped turns and linked 
 	test('on a filinq document page the chip reads "Over dit document" and the answer links its sources', async ({
 		page,
 	}) => {
-		test.fixme(true, `${NO_SCOPE_SCREEN} filinq does not pass the open document to the companion yet (tasks.md Task 5).`)
 		test.skip(
 			!(await appEnabled(page.request, token, 'filinq')),
 			'filinq is not installed on this instance',
 		)
 
-		// filinq's document route is not in this repository; confirm the path when
-		// Task 5 lands. The file id is the document the page shows.
-		await page.goto(`/index.php/apps/filinq/documents/${fileA}`)
+		// filinq's My Documents opens a file in its in-app viewer from `?file=`
+		// (fileDeepLink.js); the viewer points the companion at that document.
+		await page.goto(`/index.php/apps/filinq/my-documents?file=${docA}`)
 		await openCompanion(page)
-		await expect(page.getByText(DOCUMENT_CHIP).first()).toBeVisible()
+		await expect(page.getByText(DOCUMENT_CHIP).first()).toBeVisible({ timeout: 30_000 })
 
 		const body = await askCompanion(page, 'Wat is de beslistermijn?')
-		expect(body.scope).toEqual({ type: 'file', fileId: fileA })
+		expect(body.scope).toEqual({ type: 'file', fileId: docA })
 
-		const link = page.getByRole('link', { name: FILE_A }).first()
+		const link = page.getByRole('link', { name: DOC_A }).first()
 		await expect(link).toBeVisible({ timeout: 90_000 })
-		await expect(link).toHaveAttribute('href', new RegExp(`/f/${fileA}\\b`))
+		await expect(link).toHaveAttribute('href', new RegExp(`/f/${docA}\\b`))
 	})
 })
