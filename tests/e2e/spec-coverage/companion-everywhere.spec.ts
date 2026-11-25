@@ -20,7 +20,7 @@
  * @e2e companion-everywhere::a-page-with-no-file-passes-none-without-error
  * @e2e companion-everywhere::the-host-pages-dom-is-untouched
  *
- * @spec openspec/changes/companion-everywhere/specs/companion-everywhere/spec.md
+ * @spec openspec/specs/companion-everywhere/spec.md
  */
 
 import { expect, test } from '@playwright/test'

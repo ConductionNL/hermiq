@@ -1,5 +1,8 @@
-## ADDED Requirements
+# companion-everywhere Specification
 
+## Purpose
+TBD - created by archiving change companion-everywhere. Update Purpose after archive.
+## Requirements
 ### Requirement: The companion MUST be available on every page, including third-party apps
 
 The AI companion MUST be reachable from any Nextcloud page without navigating away,
@@ -14,6 +17,13 @@ template of ours on those pages to add one to.
 - **GIVEN** a document open in any of the four supported office suites
 - **WHEN** the page has loaded
 - **THEN** the companion MUST be present without leaving the editor
+
+#### Scenario: The companion stays reachable over the file viewer
+
+- **GIVEN** a document open in an office editor that Files shows in Nextcloud's Viewer
+- **WHEN** the person clicks the companion's button
+- **THEN** the companion panel MUST open above the editor
+- **AND** when the Viewer closes the companion MUST drop back below other modals
 
 #### Scenario: Nothing suite-specific is added
 
@@ -76,3 +86,4 @@ the host.
 - **GIVEN** any page the companion attaches to
 - **WHEN** the DOM is compared before and after mounting
 - **THEN** the only addition MUST be the companion's own container
+
