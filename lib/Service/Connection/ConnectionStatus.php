@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+ * @spec openspec/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
  */
 
 declare(strict_types=1);
@@ -29,7 +29,7 @@ namespace OCA\Hermiq\Service\Connection;
 /**
  * A connection report.
  *
- * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+ * @spec openspec/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
  */
 final class ConnectionStatus {
 
@@ -40,7 +40,7 @@ final class ConnectionStatus {
 	 * @param string $status  The status.
 	 * @param string $message What hermiq observed.
 	 *
-	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+	 * @spec openspec/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 */
 	public function __construct(
 		public readonly string $key,

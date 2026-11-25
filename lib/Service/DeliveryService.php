@@ -1199,7 +1199,7 @@ class DeliveryService {
 	 * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-a-signed-outbound-webhook-mvp
 	 * @spec openspec/specs/talk-delivery/spec.md#requirement-webhook-delivery-retries-with-bounded-exponential-backoff-mvp
 	 * @spec openspec/specs/talk-delivery/spec.md#requirement-webhook-payload-is-size-capped-before-it-is-signed-and-sent-mvp
-	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+	 * @spec openspec/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 */
 	private function deliverWebhook(ScheduleDelivery $delivery): DeliveryResult {
 		$url = $delivery->target();
@@ -1334,7 +1334,7 @@ class DeliveryService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+	 * @spec openspec/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 */
 	private function reportWebhookOutcome(WebhookDelivery $webhook, bool $delivered): void {
 		if ($this->connectionReporter === null) {
