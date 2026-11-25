@@ -176,4 +176,35 @@ final class AiFeatureLookupTest extends TestCase {
 		$this->assertNull($this->lookup($objects)->findBySlug('summarise'));
 		$this->assertNull($this->lookup([])->findBySlugForGate('summarise'));
 	}//end testNoMatchReturnsNull()
+	/**
+	 * The organisation read skips RBAC and the session's tenant filter, and keeps only
+	 * that organisation's row; an empty slug or organisation queries nothing.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
+	 */
+	public function testFindBySlugForOrganisationKeepsOnlyThatOrganisation(): void {
+		$other = $this->entity(['slug' => 'public-chat', 'lifecycle' => 'enabled']);
+		$other->setOrganisation('org-2');
+		$own = $this->entity(['slug' => 'public-chat', 'lifecycle' => 'disabled']);
+		$own->setOrganisation('org-1');
+		$lookup = $this->lookup([$other, $own]);
+
+		$this->assertSame($own, $lookup->findBySlugForOrganisation('public-chat', 'org-1'));
+		$this->assertSame(
+			[
+				['setRegister', 'hermiq'],
+				['setSchema', 'agentaifeature'],
+				['findAll', ['filters' => ['slug' => 'public-chat'], 'limit' => 200], false, false],
+			],
+			$this->calls
+		);
+
+		$this->assertNull($this->lookup([$other])->findBySlugForOrganisation('public-chat', 'org-1'));
+		$this->assertNull($this->lookup([$own])->findBySlugForOrganisation('public-chat', ''));
+		$this->assertNull($this->lookup([$own])->findBySlugForOrganisation('', 'org-1'));
+		$this->assertSame([], $this->calls);
+	}//end testFindBySlugForOrganisationKeepsOnlyThatOrganisation()
+
 }//end class

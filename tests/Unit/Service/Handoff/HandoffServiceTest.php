@@ -31,6 +31,7 @@ use OCP\BackgroundJob\IJobList;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use OCP\AppFramework\Db\DoesNotExistException;
 
 /**
  * The handoff record: what it opens with, and its one-way trip out of `waiting`.
@@ -520,4 +521,19 @@ class HandoffServiceTest extends TestCase {
 
 		return $entity;
 	}//end entity()
+	/**
+	 * A not-found exception from OpenRegister reads as a missing handoff: nothing to find, nothing closed.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+	 */
+	public function testANotFoundExceptionReadsAsMissing(): void {
+		$this->objects->method('find')->willThrowException(new DoesNotExistException('not found in any magic table'));
+		$this->objects->expects($this->never())->method('saveObject');
+
+		$this->assertNull($this->service->find(handoffId: 'gone'));
+		$this->assertFalse($this->service->close(handoffId: 'gone', status: 'done', result: null));
+	}//end testANotFoundExceptionReadsAsMissing()
+
 }//end class

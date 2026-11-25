@@ -173,6 +173,20 @@ class AiFeatureService implements AiFeatureServiceInterface {
 	}//end findBySlugForGate()
 
 	/**
+	 * One organisation's AiFeature by slug, read for a caller without a session.
+	 *
+	 * @param string $slug         The feature slug.
+	 * @param string $organisation The organisation uuid whose feature counts.
+	 *
+	 * @return ObjectEntity|null The AiFeature object, or null.
+	 *
+	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
+	 */
+	public function findBySlugForOrganisation(string $slug, string $organisation): ?ObjectEntity {
+		return $this->lookup->findBySlugForOrganisation(slug: $slug, organisation: $organisation);
+	}//end findBySlugForOrganisation()
+
+	/**
 	 * Record the DPO acknowledgement for a feature and stamp the object.
 	 *
 	 * Writes the authoritative acknowledgement to `IAppConfig`

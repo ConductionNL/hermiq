@@ -6725,7 +6725,7 @@
 						"description": "Seeded with the hash of a known result token, as WebhookHandoffs::open() stores it.",
 						"body": {
 							"mode": "raw",
-							"raw": "{\"kind\": \"webhook\", \"agentId\": \"newman-agent\", \"conversationId\": \"newman-conversation\", \"requestedBy\": \"admin\", \"label\": \"Newman webhook\", \"target\": \"integriq:newman/webhook/permit\", \"status\": \"waiting\", \"requestedAt\": \"2026-11-24T00:00:00+00:00\", \"deadline\": \"2099-01-01T00:00:00+00:00\", \"resultTokenHash\": \"cc20706cf0a9936fbf575c347782e54858330112e873f265895320b2f3f9fc0e\"}"
+							"raw": "{\"kind\": \"webhook\", \"agentId\": \"00000000-0000-4000-8000-00000000a6e1\", \"conversationId\": \"newman-conversation\", \"requestedBy\": \"admin\", \"label\": \"Newman webhook\", \"target\": \"integriq:newman/webhook/permit\", \"status\": \"waiting\", \"requestedAt\": \"2026-11-24T00:00:00+00:00\", \"deadline\": \"2099-01-01T00:00:00+00:00\", \"resultTokenHash\": \"cc20706cf0a9936fbf575c347782e54858330112e873f265895320b2f3f9fc0e\"}"
 						}
 					},
 					"event": [
@@ -6764,7 +6764,7 @@
 						"description": "The same token on a handoff that is no longer waiting.",
 						"body": {
 							"mode": "raw",
-							"raw": "{\"kind\": \"webhook\", \"agentId\": \"newman-agent\", \"conversationId\": \"newman-conversation\", \"requestedBy\": \"admin\", \"label\": \"Newman webhook\", \"target\": \"integriq:newman/webhook/permit\", \"status\": \"expired\", \"requestedAt\": \"2026-11-24T00:00:00+00:00\", \"deadline\": \"2099-01-01T00:00:00+00:00\", \"resultTokenHash\": \"cc20706cf0a9936fbf575c347782e54858330112e873f265895320b2f3f9fc0e\"}"
+							"raw": "{\"kind\": \"webhook\", \"agentId\": \"00000000-0000-4000-8000-00000000a6e1\", \"conversationId\": \"newman-conversation\", \"requestedBy\": \"admin\", \"label\": \"Newman webhook\", \"target\": \"integriq:newman/webhook/permit\", \"status\": \"expired\", \"requestedAt\": \"2026-11-24T00:00:00+00:00\", \"deadline\": \"2099-01-01T00:00:00+00:00\", \"resultTokenHash\": \"cc20706cf0a9936fbf575c347782e54858330112e873f265895320b2f3f9fc0e\"}"
 						}
 					},
 					"event": [
