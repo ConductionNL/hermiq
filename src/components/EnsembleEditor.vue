@@ -9,7 +9,7 @@
   The server refuses a reference model the organisation's policy does not
   allow; the form shows that refusal.
 
-  @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+  @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
 -->
 <template>
 	<fieldset class="ensemble-editor" data-testid="agent-form-ensemble">
@@ -127,7 +127,7 @@ export default {
 		/**
 		 * @return {number} The most reference models an ensemble names.
 		 *
-		 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+		 * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
 		 */
 		maxReferences() {
 			return MAX_REFERENCES
@@ -136,7 +136,7 @@ export default {
 		/**
 		 * @return {number} The fewest reference models an enabled ensemble names.
 		 *
-		 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+		 * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
 		 */
 		minReferences() {
 			return MIN_REFERENCES
@@ -154,7 +154,7 @@ export default {
 		 *
 		 * @param {object} ensemble The new ensemble.
 		 * @return {void}
-		 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+		 * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
 		 */
 		emitChange(ensemble) {
 			this.$emit('update:modelValue', ensemble)
@@ -165,7 +165,7 @@ export default {
 		 *
 		 * @param {string} provider The provider.
 		 * @return {object|null}
-		 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+		 * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
 		 */
 		providerOption(provider) {
 			if (!provider) {
@@ -182,7 +182,7 @@ export default {
 		 *
 		 * @param {string} model The model.
 		 * @return {object|null}
-		 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+		 * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
 		 */
 		modelOption(model) {
 			return model ? { label: model, value: model } : null
@@ -193,7 +193,7 @@ export default {
 		 *
 		 * @param {string} provider The provider.
 		 * @return {Array<{label: string, value: string}>}
-		 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+		 * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
 		 */
 		modelOptionsFor(provider) {
 			return (this.modelsFor(provider) || []).map((model) => ({ label: model, value: model }))

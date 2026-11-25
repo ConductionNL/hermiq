@@ -24,8 +24,8 @@
  *
  * Written from the change's scenarios; not run here, it needs a running Nextcloud.
  *
- * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md
- * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md
+ * @spec openspec/specs/tenant-model-policy/spec.md
+ * @spec openspec/specs/model-ensemble/spec.md
  */
 
 import type { Page, Route } from '@playwright/test'

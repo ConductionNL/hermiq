@@ -320,7 +320,7 @@ class EffectiveModelPolicyTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-3-the-fallback-loop-with-the-same-gates-per-hop
+	 * @spec openspec/changes/archive/2026-11-25-models-several-models-per-turn/tasks.md#task-3-the-fallback-loop-with-the-same-gates-per-hop
 	 */
 	public function testTheServiceHandsTheEffectiveChainToTheTurn(): void {
 		$objects = $this->objectService(

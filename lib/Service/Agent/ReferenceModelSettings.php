@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+ * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
  */
 
 declare(strict_types=1);
@@ -35,7 +35,7 @@ use OCA\OpenRegister\Db\OrganisationMapper;
 /**
  * Validate and normalise an agent's reference models.
  *
- * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+ * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
  */
 class ReferenceModelSettings {
 
@@ -73,7 +73,7 @@ class ReferenceModelSettings {
 	 *
 	 * @return string The organisation identifier, or ''.
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+	 * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
 	 */
 	public function organisationOf(string $uid): string {
 		if ($uid === '') {
@@ -97,7 +97,7 @@ class ReferenceModelSettings {
 	 *
 	 * @throws InvalidArgumentException When it is malformed, has the wrong number of entries, or names a model the policy does not allow.
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+	 * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
 	 */
 	public function normalise(mixed $raw, string $organisation): array {
 		if ($raw === null) {

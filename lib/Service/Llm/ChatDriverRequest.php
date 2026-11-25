@@ -103,7 +103,7 @@ final class ChatDriverRequest {
 	 *
 	 * @var string|null
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
 	 */
 	public ?string $providerOverride = null;
 
@@ -112,7 +112,7 @@ final class ChatDriverRequest {
 	 *
 	 * @var string|null
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
 	 */
 	public ?string $modelOverride = null;
 

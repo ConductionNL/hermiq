@@ -7,7 +7,7 @@
  * pair against the organisation's model policy and refuses one it does not
  * allow; these helpers only shape the setting.
  *
- * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+ * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
  */
 
 /** The fewest reference models an enabled ensemble names, as the server enforces. */
@@ -21,7 +21,7 @@ export const MAX_REFERENCES = 3
  *
  * @param {object|undefined} ensemble The agent's `ensemble`.
  * @return {{enabled: boolean, referenceModels: Array<{provider: string, model: string}>}} Fresh rows.
- * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+ * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
  */
 export function ensembleOf(ensemble) {
 	const references = Array.isArray(ensemble?.referenceModels) ? ensemble.referenceModels : []
@@ -41,7 +41,7 @@ export function ensembleOf(ensemble) {
  * @param {object} ensemble The form's ensemble.
  * @param {boolean} enabled The new switch position.
  * @return {object} A new ensemble.
- * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+ * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
  */
 export function switchEnsemble(ensemble, enabled) {
 	const references = [...ensemble.referenceModels]
@@ -56,7 +56,7 @@ export function switchEnsemble(ensemble, enabled) {
  *
  * @param {object} ensemble The form's ensemble.
  * @return {object} A new ensemble.
- * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+ * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
  */
 export function addReference(ensemble) {
 	if (ensemble.referenceModels.length >= MAX_REFERENCES) {
@@ -71,7 +71,7 @@ export function addReference(ensemble) {
  * @param {object} ensemble The form's ensemble.
  * @param {number} index The row to remove.
  * @return {object} A new ensemble.
- * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+ * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
  */
 export function removeReference(ensemble, index) {
 	return { ...ensemble, referenceModels: ensemble.referenceModels.filter((row, at) => at !== index) }
@@ -86,7 +86,7 @@ export function removeReference(ensemble, index) {
  * @param {string} field `provider` or `model`.
  * @param {string} value The new value.
  * @return {object} A new ensemble.
- * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+ * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
  */
 export function setReference(ensemble, index, field, value) {
 	return {
@@ -109,7 +109,7 @@ export function setReference(ensemble, index, field, value) {
  *
  * @param {object} ensemble The form's ensemble.
  * @return {{enabled: boolean, referenceModels: Array<{provider: string, model: string}>}} The `ensemble` payload.
- * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+ * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
  */
 export function ensemblePayload(ensemble) {
 	return {
@@ -131,7 +131,7 @@ export function ensemblePayload(ensemble) {
  * @param {object} ensemble The form's ensemble.
  * @param {object|undefined} stored The stored `ensemble`, if any.
  * @return {boolean} True when the payload carries it.
- * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+ * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
  */
 export function sendsEnsemble(ensemble, stored) {
 	return ensemble.enabled === true || (stored !== undefined && stored !== null)
@@ -144,7 +144,7 @@ export function sendsEnsemble(ensemble, stored) {
  * @param {function(string, string, string, number, object): string} n The app's plural function, `n('hermiq', ...)`.
  * @param {function(string, string): string} t The app's translate function, `t('hermiq', text)`.
  * @return {string} "Ensemble: 2 reference models", or "Off".
- * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+ * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
  */
 export function ensembleSummary(ensemble, n, t) {
 	const setting = ensembleOf(ensemble)

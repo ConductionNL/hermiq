@@ -372,12 +372,15 @@
 							],
 							"overrides": {
 								"ensemble": {
+									"_note": "An object property is left out of the card unless its override names a widget (nextcloud-vue fieldsFromSchema). json is a structured widget, never edited inline; the formatter shows the summary.",
 									"label": "Answer with several models",
+									"widget": "json",
 									"formatter": "agentEnsemble",
 									"editable": false
 								},
 								"answerCache": {
 									"label": "Reuse answers to repeated questions",
+									"widget": "json",
 									"formatter": "agentAnswerCache",
 									"editable": false
 								}

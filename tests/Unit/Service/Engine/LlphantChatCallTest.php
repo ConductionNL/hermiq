@@ -351,7 +351,7 @@ class LlphantChatCallTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-refusal-or-a-configuration-error-never-triggers-a-fallback-req-mfail-003
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-refusal-or-a-configuration-error-never-triggers-a-fallback-req-mfail-003
 	 */
 	public function testAClientFailureIsTypedByItsStatusOrTransport(): void {
 		$cases = [
@@ -384,7 +384,7 @@ class LlphantChatCallTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-2
+	 * @spec openspec/changes/archive/2026-11-25-models-several-models-per-turn/tasks.md#task-2
 	 */
 	public function testHermiqsOwnExceptionsKeepTheirClass(): void {
 		$unavailable = new ProviderUnavailableException('The credential broker is down');

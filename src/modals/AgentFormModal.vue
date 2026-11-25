@@ -2059,7 +2059,7 @@ export default {
 		 *
 		 * @param {string} provider The reference model's provider.
 		 * @return {Array<string>} The model ids.
-		 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+		 * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
 		 */
 		ensembleModelsFor(provider) {
 			const entry = (this.policy?.allowed || []).find(

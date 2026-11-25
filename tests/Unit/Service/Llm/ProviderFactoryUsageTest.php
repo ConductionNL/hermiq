@@ -24,7 +24,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-7-the-ensemble-turn-and-its-budget
+ * @spec openspec/changes/archive/2026-11-25-models-several-models-per-turn/tasks.md#task-7-the-ensemble-turn-and-its-budget
  */
 
 declare(strict_types=1);
@@ -46,7 +46,7 @@ use Psr\Log\NullLogger;
 /**
  * Usage reported by ProviderFactory::lastCallUsage() after a hosted call.
  *
- * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-7-the-ensemble-turn-and-its-budget
+ * @spec openspec/changes/archive/2026-11-25-models-several-models-per-turn/tasks.md#task-7-the-ensemble-turn-and-its-budget
  */
 class ProviderFactoryUsageTest extends TestCase {
 

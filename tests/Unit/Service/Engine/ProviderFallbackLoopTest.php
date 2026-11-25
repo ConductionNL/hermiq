@@ -20,7 +20,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-3-the-fallback-loop-with-the-same-gates-per-hop
+ * @spec openspec/changes/archive/2026-11-25-models-several-models-per-turn/tasks.md#task-3-the-fallback-loop-with-the-same-gates-per-hop
  */
 
 declare(strict_types=1);

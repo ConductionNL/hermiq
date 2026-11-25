@@ -221,7 +221,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @var array<int, array<string, mixed>>
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
 	 */
 	private array $lastRunProviderAttempts = [];
 
@@ -2645,7 +2645,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @return array<int, array{provider: string, model: string, text: string}>
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 * @spec openspec/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
 	 */
 	private function redactedReferenceAnswers(): array {
 		return array_map(
