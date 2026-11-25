@@ -42,9 +42,16 @@
 - [ ] 2.1 `kind=once` onto `FlowTimerService`: arm a one-shot timer at
       `runAt` whose expiry queues the mirror flow; cancel on schedule
       disable/delete. Needs a subject contract for ownerless timers.
-- [ ] 2.2 Timezone-sensitive crons: either a `timezone` config key on
+- [x] 2.2 Timezone-sensitive crons: either a `timezone` config key on
       `openregister.trigger-schedule` (OpenRegister change) or per-firing
       evaluation in the owner's timezone; until then they stay local.
+      - 2026-11-25: OpenRegister main reads the key (`TriggerScheduleNode::CONFIG_TIMEZONE`,
+        `FlowScheduleService::timezoneOf()`). `ScheduleCadenceMapper` mirrors a sensitive
+        5-field cron when that constant is defined and the owner's zone is a known
+        identifier (`mirrorTimezone()`); `ScheduleMirrorDefinition::nodes()` writes it on
+        the trigger, the bridge compares it so a zone change refreshes the mirror. Tests:
+        `ScheduleCadenceMapperTest`, `ScheduleFlowBridgeTest::testASensitiveCronMirrorsWithTheOwnersZone`,
+        `testAZoneDriftRedefinesTheMirror`.
 - [ ] 2.3 Inexpressible intervals via timer re-arm chains.
 - [ ] 2.4 Retry re-arming through the engine, so a delegated schedule's
       backoff no longer needs the local tick.

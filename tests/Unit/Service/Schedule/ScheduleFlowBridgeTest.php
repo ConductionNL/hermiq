@@ -129,6 +129,13 @@ class ScheduleFlowBridgeTest extends TestCase {
 	 */
 	private ?LoggerInterface $loggerOverride = null;
 
+	/**
+	 * Whether the pinned engine reads the schedule trigger's `timezone` key.
+	 *
+	 * @var boolean
+	 */
+	private bool $engineReadsZones = false;
+
 	protected function setUp(): void {
 		parent::setUp();
 		$this->objectService = $this->createMock(ObjectService::class);
@@ -179,6 +186,30 @@ class ScheduleFlowBridgeTest extends TestCase {
 	}//end setUp()
 
 	/**
+	 * The cadence mapper, with the engine's timezone support pinned by the test.
+	 *
+	 * @return ScheduleCadenceMapper
+	 */
+	private function cadenceMapper(): ScheduleCadenceMapper {
+		return new class(config: $this->config, engineReadsZones: $this->engineReadsZones) extends ScheduleCadenceMapper {
+			/**
+			 * @param IConfig $config           The config mock.
+			 * @param boolean $engineReadsZones The pinned engine answer.
+			 */
+			public function __construct(IConfig $config, private readonly bool $engineReadsZones) {
+				parent::__construct(config: $config);
+			}
+
+			/**
+			 * @return boolean The pinned engine answer.
+			 */
+			protected function engineReadsTimezone(): bool {
+				return $this->engineReadsZones;
+			}
+		};
+	}//end cadenceMapper()
+
+	/**
 	 * Build the bridge with the current mocks.
 	 *
 	 * @return ScheduleFlowBridge
@@ -198,7 +229,7 @@ class ScheduleFlowBridgeTest extends TestCase {
 		return new ScheduleFlowBridge(
 			objectService: $this->objectService,
 			scheduleService: $this->scheduleService,
-			cadenceMapper: new ScheduleCadenceMapper(config: $this->config),
+			cadenceMapper: $this->cadenceMapper(),
 			container: $container,
 			publisher: new ScheduleFlowPublisher(container: $container),
 			definition: new ScheduleMirrorDefinition(),
@@ -306,6 +337,88 @@ class ScheduleFlowBridgeTest extends TestCase {
 		);
 
 	}//end testTimezoneSensitiveCronStaysLocal()
+
+	/**
+	 * On an engine that reads the trigger's timezone, an hour-anchored cron of
+	 * an owner in another zone mirrors, and its trigger carries that zone.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-2-2
+	 */
+	public function testASensitiveCronMirrorsWithTheOwnersZone(): void {
+		$other = 'Pacific/Chatham';
+		if (date_default_timezone_get() === $other) {
+			$other = 'Europe/Amsterdam';
+		}
+
+		$this->config = $this->createMock(originalClassName: IConfig::class);
+		$this->config->method('getUserValue')->willReturn($other);
+		$this->config->method('getSystemValueString')->willReturn('UTC');
+		$this->engineReadsZones = true;
+
+		$schedule = $this->schedule(payload: ['kind' => 'cron', 'cronExpr' => '0 9 * * *', 'name' => 'Morning', 'agentId' => '', 'enabled' => true]);
+		$this->objectService->method('findAll')->willReturn([$schedule]);
+		$inserted = null;
+		$this->flowMapper->method('insert')->willReturnCallback(
+			function (Flow $flow) use (&$inserted): Flow {
+				$inserted = $flow;
+				return $flow;
+			}
+		);
+
+		$this->assertSame(expected: 1, actual: $this->bridge()->syncAll()['mirrored']);
+		$this->assertSame(expected: '0 9 * * *', actual: $inserted->getCron(), message: 'The expression travels unchanged.');
+		$this->assertSame(
+			expected: ['cron' => '0 9 * * *', 'runAs' => 'alice', 'timezone' => $other],
+			actual: $inserted->getNodes()[0]['config'],
+			message: 'The engine reads the cron in the owner\'s zone.'
+		);
+	}//end testASensitiveCronMirrorsWithTheOwnersZone()
+
+	/**
+	 * A mirror whose trigger names another zone than the owner's now is
+	 * redefined with the owner's zone.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-2-2
+	 */
+	public function testAZoneDriftRedefinesTheMirror(): void {
+		$this->config = $this->createMock(originalClassName: IConfig::class);
+		$this->config->method('getUserValue')->willReturn('Asia/Tokyo');
+		$this->config->method('getSystemValueString')->willReturn('UTC');
+		$this->engineReadsZones = true;
+		if (date_default_timezone_get() === 'Asia/Tokyo') {
+			$this->markTestSkipped(message: 'The server zone must differ from the owner zone.');
+		}
+
+		$schedule = $this->schedule(
+			payload: ['kind' => 'cron', 'cronExpr' => '0 8 * * *', 'agentId' => '', 'engineFlowId' => 'flow-1', 'enabled' => true]
+		);
+		$this->objectService->method('findAll')->willReturn([$schedule]);
+		$stored = $this->mirrorFlow(cron: '0 8 * * *', runAs: 'alice', enabled: true);
+		$stored->setNodes(
+			[
+				[
+					'id' => 'trigger',
+					'type' => 'openregister.trigger-schedule',
+					'config' => ['cron' => '0 8 * * *', 'runAs' => 'alice', 'timezone' => 'Europe/Amsterdam'],
+				],
+			]
+		);
+		$this->flowMapper->method('findByUuid')->willReturn($stored);
+		$zones = [];
+		$this->flowMapper->method('update')->willReturnCallback(
+			function (Flow $flow) use (&$zones): Flow {
+				$zones[] = $flow->getNodes()[0]['config']['timezone'] ?? null;
+				return $flow;
+			}
+		);
+
+		$this->assertSame(expected: 1, actual: $this->bridge()->syncAll()['refreshed']);
+		$this->assertSame(expected: ['Asia/Tokyo'], actual: $zones);
+	}//end testAZoneDriftRedefinesTheMirror()
 
 	/**
 	 * runAs is the resolved acting identity: the agent's live actingUser

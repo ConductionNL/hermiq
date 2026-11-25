@@ -34,22 +34,54 @@ class ScheduleCadenceMapperTest extends TestCase {
 	/**
 	 * A mapper whose owner lives in the server's timezone, or in another one.
 	 *
-	 * @param boolean $sameZone Whether the owner's zone equals the server default.
+	 * @param boolean     $sameZone         Whether the owner's zone equals the server default.
+	 * @param boolean     $engineReadsZones Whether the pinned engine reads the trigger's `timezone` key.
+	 * @param string|null $zone             An explicit owner zone, overriding $sameZone.
 	 *
 	 * @return ScheduleCadenceMapper The mapper.
 	 */
-	private function mapper(bool $sameZone): ScheduleCadenceMapper {
-		$zone = date_default_timezone_get();
-		if ($sameZone === false) {
-			$zone = ($zone === 'Pacific/Kiritimati') ? 'America/Adak' : 'Pacific/Kiritimati';
+	private function mapper(bool $sameZone, bool $engineReadsZones = false, ?string $zone = null): ScheduleCadenceMapper {
+		if ($zone === null) {
+			$zone = date_default_timezone_get();
+			if ($sameZone === false) {
+				$zone = $this->otherZone();
+			}
 		}
 
 		$config = $this->createMock(IConfig::class);
 		$config->method('getUserValue')->willReturn($zone);
 		$config->method('getSystemValueString')->willReturn(date_default_timezone_get());
 
-		return new ScheduleCadenceMapper($config);
+		return new class(config: $config, engineReadsZones: $engineReadsZones) extends ScheduleCadenceMapper {
+			/**
+			 * @param IConfig $config           The config mock.
+			 * @param boolean $engineReadsZones The pinned engine answer.
+			 */
+			public function __construct(IConfig $config, private readonly bool $engineReadsZones) {
+				parent::__construct(config: $config);
+			}
+
+			/**
+			 * @return boolean The pinned engine answer.
+			 */
+			protected function engineReadsTimezone(): bool {
+				return $this->engineReadsZones;
+			}
+		};
 	}//end mapper()
+
+	/**
+	 * A valid zone that is not the server default.
+	 *
+	 * @return string The zone.
+	 */
+	private function otherZone(): string {
+		if (date_default_timezone_get() === 'Pacific/Kiritimati') {
+			return 'America/Adak';
+		}
+
+		return 'Pacific/Kiritimati';
+	}//end otherZone()
 
 	/**
 	 * A schedule entity with the given payload.
@@ -112,4 +144,67 @@ class ScheduleCadenceMapperTest extends TestCase {
 		$this->assertSame($sameZone, $this->mapper(sameZone: true)->mappedCron($this->schedule($payload)));
 		$this->assertSame($otherZone, $this->mapper(sameZone: false)->mappedCron($this->schedule($payload)));
 	}//end testEachShapeMapsToItsCron()
+
+	/**
+	 * On an engine that reads the trigger's timezone, every 5-field cron
+	 * mirrors in any zone; only a sensitive one carries the owner's zone.
+	 *
+	 * @param array       $payload   The schedule payload.
+	 * @param string|null $sameZone  The cron when the owner shares the server's zone.
+	 * @param string|null $otherZone The cron on an engine without zones.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-2-2
+	 */
+	#[DataProvider('shapes')]
+	public function testAZoneReadingEngineTakesSensitiveCronsWithTheOwnersZone(array $payload, ?string $sameZone, ?string $otherZone): void {
+		$mapper = $this->mapper(sameZone: false, engineReadsZones: true);
+		$schedule = $this->schedule(payload: $payload);
+
+		$this->assertSame(
+			expected: $sameZone,
+			actual: $mapper->mappedCron(schedule: $schedule),
+			message: 'Same cron as for an owner in the server zone.'
+		);
+
+		$wantedZone = '';
+		if ($sameZone !== null && $otherZone === null) {
+			$wantedZone = $this->otherZone();
+		}
+
+		$this->assertSame(expected: $wantedZone, actual: $mapper->mirrorTimezone(schedule: $schedule));
+		$this->assertSame(
+			expected: '',
+			actual: $this->mapper(sameZone: true, engineReadsZones: true)->mirrorTimezone(schedule: $schedule),
+			message: 'A same-zone owner needs no zone.'
+		);
+		$this->assertSame(
+			expected: '',
+			actual: $this->mapper(sameZone: false)->mirrorTimezone(schedule: $schedule),
+			message: 'An engine without zones never gets one.'
+		);
+	}//end testAZoneReadingEngineTakesSensitiveCronsWithTheOwnersZone()
+
+	/**
+	 * A zone PHP does not know would be read as the server's by the engine,
+	 * so a sensitive cron of such an owner stays local.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-2-2
+	 */
+	public function testAnUnknownOwnerZoneKeepsASensitiveCronLocal(): void {
+		$mapper = $this->mapper(sameZone: false, engineReadsZones: true, zone: 'Mars/Olympus_Mons');
+		$schedule = $this->schedule(payload: ['kind' => 'cron', 'cronExpr' => '0 8 * * *']);
+		$cadence = $this->schedule(payload: ['kind' => 'cron', 'cronExpr' => '*/10 * * * *']);
+
+		$this->assertNull(actual: $mapper->mappedCron(schedule: $schedule));
+		$this->assertSame(expected: '', actual: $mapper->mirrorTimezone(schedule: $schedule));
+		$this->assertSame(
+			expected: '*/10 * * * *',
+			actual: $mapper->mappedCron(schedule: $cadence),
+			message: 'A pure cadence needs no zone.'
+		);
+	}//end testAnUnknownOwnerZoneKeepsASensitiveCronLocal()
 }//end class
