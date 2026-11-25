@@ -18,7 +18,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
  */
 
 declare(strict_types=1);
@@ -138,7 +138,7 @@ class AttachmentTextReaderTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#scenario-a-pdf-is-read-as-text-by-a-model-without-pdf-support
+	 * @spec openspec/specs/chat-attachments/spec.md#scenario-a-pdf-is-read-as-text-by-a-model-without-pdf-support
 	 */
 	public function testAPdfIsSentAsItsTextAndThePersonIsTold(): void {
 		$result = $this->reader($this->source(true, 'Totale kosten: EUR 412.000'))->read(
@@ -193,7 +193,7 @@ class AttachmentTextReaderTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#scenario-an-image-is-not-silently-dropped
+	 * @spec openspec/specs/chat-attachments/spec.md#scenario-an-image-is-not-silently-dropped
 	 */
 	public function testAnImageIsNotSilentlyDropped(): void {
 		$result = $this->reader($this->source(true, 'never read'))->read(

@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
  */
 
 declare(strict_types=1);
@@ -143,7 +143,7 @@ class ResponseGenerationTextFallbackTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#scenario-a-pdf-is-read-as-text-by-a-model-without-pdf-support
+	 * @spec openspec/specs/chat-attachments/spec.md#scenario-a-pdf-is-read-as-text-by-a-model-without-pdf-support
 	 */
 	public function testAModelWithoutPdfGetsTheTextAndTheNoticeIsKept(): void {
 		$handler = $this->handler('');

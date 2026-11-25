@@ -495,7 +495,7 @@ class ChatControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#scenario-a-participant-cannot-attach-a-colleagues-private-file-by-id
+	 * @spec openspec/specs/chat-attachments/spec.md#scenario-a-participant-cannot-attach-a-colleagues-private-file-by-id
 	 */
 	public function testARefusedAttachmentTellsThePersonWhy(): void {
 		$this->stubParams(['conversation' => 'conv-1', 'message' => 'Wat staat hierin?', 'attachments' => [['fileId' => 48213]]]);

@@ -32,7 +32,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
  */
 
 declare(strict_types=1);
@@ -51,7 +51,7 @@ use Throwable;
 /**
  * Decides, per attachment, whether it goes to the model as a native part.
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
  */
 class AttachmentPartBuilder {
 
@@ -120,7 +120,7 @@ class AttachmentPartBuilder {
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) LLPhant's Message role factory is the library's public API.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
 	 */
 	public function compose(string $text, ChatDriver $driver, array $attachments, string $speaker): array {
 		if ($attachments === []) {
@@ -150,7 +150,7 @@ class AttachmentPartBuilder {
 	 *
 	 * @return array{parts: list<array{kind: string, name: string, mimeType: string, base64: string}>, fallback: list<array<string, mixed>>}
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
 	 */
 	public function forDriver(ChatDriver $driver, array $attachments, string $speaker): array {
 		$provider = $driver->provider;
@@ -171,7 +171,7 @@ class AttachmentPartBuilder {
 	 *
 	 * @return array{parts: list<array{kind: string, name: string, mimeType: string, base64: string}>, fallback: list<array<string, mixed>>}
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	public function build(string $provider, string $model, array $attachments, string $speaker): array {
 		$parts = [];

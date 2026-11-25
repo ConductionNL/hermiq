@@ -116,7 +116,7 @@ export default {
 		 * Start from an empty description each time the modal opens.
 		 *
 		 * @param {boolean} open Whether the modal is now shown.
-		 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+		 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
 		 */
 		show(open) {
 			if (open) {
@@ -131,7 +131,7 @@ export default {
 		 * Create the image and hand the two turns to the parent.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-a-communications-advisor-asks-for-an-illustration
+		 * @spec openspec/specs/image-generation/spec.md#scenario-a-communications-advisor-asks-for-an-illustration
 		 */
 		async create() {
 			const prompt = this.prompt.trim()

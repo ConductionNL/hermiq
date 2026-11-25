@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use Throwable;
 /**
  * Reads the attachments a model cannot take natively as text, with a notice per file.
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
  */
 class AttachmentTextReader {
 
@@ -94,7 +94,7 @@ class AttachmentTextReader {
 	 *
 	 * @return array{text: string, notices: list<string>} The text block and the notices.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
 	 */
 	public function read(array $attachments, string $speaker): array {
 		$text = '';
@@ -144,7 +144,7 @@ class AttachmentTextReader {
 	 *
 	 * @return array{text: string|null, notices: list<string>}
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
 	 */
 	private function readAs(string $mimeType, AttachmentRef $ref): array {
 		if (str_starts_with($mimeType, 'text/') === true || in_array($mimeType, self::TEXT_TYPES, true) === true) {
@@ -265,7 +265,7 @@ class AttachmentTextReader {
 	 *
 	 * @return File|null
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
 	 */
 	private function readableFile(int $fileId, string $speaker): ?File {
 		$node = ($this->rootFolder->getUserFolder($speaker)->getById($fileId)[0] ?? null);

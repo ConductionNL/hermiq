@@ -17,7 +17,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use Psr\Log\NullLogger;
 /**
  * Tests the per-attachment enforcement in ProviderFactory::createChatDriver().
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
  */
 class ProviderFactoryAttachmentsTest extends TestCase {
 
@@ -130,7 +130,7 @@ class ProviderFactoryAttachmentsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	public function testRedactedOrAbsentAttachmentsRun(): void {
 		$this->assertSame('ollama', $this->driverFor([]));
@@ -144,7 +144,7 @@ class ProviderFactoryAttachmentsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#scenario-a-feature-that-requires-redaction-refuses-an-unredacted-attachment
+	 * @spec openspec/specs/chat-attachments/spec.md#scenario-a-feature-that-requires-redaction-refuses-an-unredacted-attachment
 	 */
 	public function testEachAttachmentIsCheckedOnItsOwn(): void {
 		try {

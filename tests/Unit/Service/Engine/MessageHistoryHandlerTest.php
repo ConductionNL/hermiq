@@ -279,7 +279,7 @@ class MessageHistoryHandlerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	public function testAttachmentsAreStoredAndNamedInTheHistory(): void {
 		$attached = [['fileId' => 48213, 'name' => 'offerte-2026.pdf', 'mimeType' => 'application/pdf', 'size' => 10, 'origin' => 'files']];

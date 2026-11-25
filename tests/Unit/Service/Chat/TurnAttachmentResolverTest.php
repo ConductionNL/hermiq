@@ -14,7 +14,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
  */
 
 declare(strict_types=1);
@@ -34,7 +34,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests for TurnAttachmentResolver.
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
  */
 class TurnAttachmentResolverTest extends TestCase {
 
@@ -116,7 +116,7 @@ class TurnAttachmentResolverTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	public function testAReadableFileBecomesAReference(): void {
 		$resolver = $this->resolver(['anne' => [48213 => $this->file(48213, 'offerte-dakrenovatie-2026.pdf')]]);
@@ -138,7 +138,7 @@ class TurnAttachmentResolverTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#scenario-a-participant-cannot-attach-a-colleagues-private-file-by-id
+	 * @spec openspec/specs/chat-attachments/spec.md#scenario-a-participant-cannot-attach-a-colleagues-private-file-by-id
 	 */
 	public function testAColleaguesPrivateFileIsNotAvailable(): void {
 		$resolver = $this->resolver(['anne' => [48213 => $this->file(48213, 'prive.pdf')], 'bram' => []]);
@@ -168,7 +168,7 @@ class TurnAttachmentResolverTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	public function testUnreadableFoldersAndBadIdsAreRefused(): void {
 		$folder = $this->createMock(Folder::class);
@@ -193,7 +193,7 @@ class TurnAttachmentResolverTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	public function testACompanionUploadIsFoundByItsPath(): void {
 		$file = $this->file(501, 'foto-dak.jpg', 'image/jpeg', 2048);
@@ -217,7 +217,7 @@ class TurnAttachmentResolverTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	public function testTheOriginOfEachAttachment(): void {
 		$byPath = $this->file(id: 501, name: 'a.jpg', mime: 'image/jpeg', size: 1);
@@ -244,7 +244,7 @@ class TurnAttachmentResolverTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	public function testEmptyCapAndDuplicates(): void {
 		$resolver = $this->resolver(['anne' => [5 => $this->file(5, 'a.pdf')]]);
@@ -271,7 +271,7 @@ class TurnAttachmentResolverTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#scenario-a-feature-that-requires-redaction-refuses-an-unredacted-attachment
+	 * @spec openspec/specs/chat-attachments/spec.md#scenario-a-feature-that-requires-redaction-refuses-an-unredacted-attachment
 	 */
 	public function testARedactionRefusalNamesTheFile(): void {
 		$resolver = $this->resolver([]);

@@ -178,7 +178,7 @@ class SessionControllerParticipantTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 	 */
 	public function testATurnsAttachmentsComeBackWithIt(): void {
 		[$controller] = $this->controllerAs('bram');

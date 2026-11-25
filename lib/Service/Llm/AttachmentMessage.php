@@ -30,7 +30,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use LLPhant\Chat\Vision\VisionMessage;
 /**
  * A user message with native image and document parts.
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
  */
 class AttachmentMessage extends VisionMessage {
 
@@ -63,7 +63,7 @@ class AttachmentMessage extends VisionMessage {
 	 *
 	 * @return self The message.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	public static function withParts(string $text, array $parts): self {
 		$message = new self();
@@ -88,7 +88,7 @@ class AttachmentMessage extends VisionMessage {
 	 *
 	 * @return list<array<string, mixed>> The content parts.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	public function openAiContent(): array {
 		$content = [['type' => 'text', 'text' => $this->content]];
@@ -112,7 +112,7 @@ class AttachmentMessage extends VisionMessage {
 	 *
 	 * @return list<array<string, mixed>> The content blocks.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	public function anthropicContent(): array {
 		$blocks = [];
@@ -142,7 +142,7 @@ class AttachmentMessage extends VisionMessage {
 	 *
 	 * @return array<string, mixed> The serialised message.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	public function jsonSerialize(): array {
 		return [

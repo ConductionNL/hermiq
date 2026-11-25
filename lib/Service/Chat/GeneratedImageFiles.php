@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
+ * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
  */
 
 declare(strict_types=1);
@@ -33,7 +33,7 @@ use OCP\Files\IRootFolder;
 /**
  * Reads the task output and writes the created PNG to the person's Files.
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
+ * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
  */
 class GeneratedImageFiles {
 
@@ -61,7 +61,7 @@ class GeneratedImageFiles {
 	 *
 	 * @return string|null The bytes.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
+	 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
 	 */
 	public function outputBytes(mixed $output): ?string {
 		if (is_string($output) === true) {
@@ -88,7 +88,7 @@ class GeneratedImageFiles {
 	 *
 	 * @return File The new file.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
+	 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) UserFolders is used through its static API (a pure helper or
 	 * named constructor) with no state to inject.

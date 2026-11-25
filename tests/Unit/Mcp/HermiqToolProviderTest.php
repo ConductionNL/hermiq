@@ -183,7 +183,7 @@ class HermiqToolProviderTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-no-provider-no-button
+	 * @spec openspec/specs/image-generation/spec.md#scenario-no-provider-no-button
 	 */
 	public function testTheImageToolIsAbsentWithoutAProvider(): void {
 		$images = $this->createMock(ImageGenerationService::class);
@@ -201,7 +201,7 @@ class HermiqToolProviderTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-an-agent-can-create-an-image-only-with-a-grant-req-cimg-003
+	 * @spec openspec/specs/image-generation/spec.md#requirement-an-agent-can-create-an-image-only-with-a-grant-req-cimg-003
 	 */
 	public function testTheImageToolIsListedAndRoutedAsTheSessionUser(): void {
 		$calls = [];

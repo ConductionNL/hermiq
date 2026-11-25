@@ -18,7 +18,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
  */
 
 declare(strict_types=1);
@@ -50,7 +50,7 @@ use Psr\Log\NullLogger;
 /**
  * Tests the attachment step of Engine::processMessage().
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
  */
 class EngineAttachmentsTest extends TestCase {
 
@@ -200,7 +200,7 @@ class EngineAttachmentsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#scenario-a-participant-cannot-attach-a-colleagues-private-file-by-id
+	 * @spec openspec/specs/chat-attachments/spec.md#scenario-a-participant-cannot-attach-a-colleagues-private-file-by-id
 	 */
 	public function testAParticipantCannotAttachAColleaguesFile(): void {
 		$engine = $this->engine();
@@ -228,7 +228,7 @@ class EngineAttachmentsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	public function testTheAuthorIsTheSpeakerNotTheRunningUser(): void {
 		$engine = $this->engine();
@@ -250,7 +250,7 @@ class EngineAttachmentsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	public function testAReadableFileIsStoredOnTheTurnAndHandedOn(): void {
 		$engine = $this->engine();
@@ -279,7 +279,7 @@ class EngineAttachmentsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#scenario-a-feature-that-requires-redaction-refuses-an-unredacted-attachment
+	 * @spec openspec/specs/chat-attachments/spec.md#scenario-a-feature-that-requires-redaction-refuses-an-unredacted-attachment
 	 */
 	public function testAnUnredactedAttachmentIsRefusedByName(): void {
 		// ResponseGenerationHandler wraps whatever the factory throws, keeping it as
@@ -312,7 +312,7 @@ class EngineAttachmentsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
 	 */
 	public function testTheAttachmentNoticesTravelOnTheResult(): void {
 		$notice = 'This model cannot see images. plattegrond.png was not sent.';
@@ -333,7 +333,7 @@ class EngineAttachmentsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	public function testATurnWithoutAttachmentsIsUnchanged(): void {
 		$engine = $this->engine();
@@ -349,7 +349,7 @@ class EngineAttachmentsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+	 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
 	 */
 	public function testAnImageTheAgentCreatedIsStoredOnTheAnswer(): void {
 		$image = ['fileId' => 902, 'name' => 'image-1.png', 'mimeType' => 'image/png', 'size' => 2048, 'origin' => 'generated'];

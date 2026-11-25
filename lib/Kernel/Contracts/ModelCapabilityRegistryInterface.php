@@ -46,7 +46,7 @@ interface ModelCapabilityRegistryInterface {
 	 *
 	 * @return array<string, list<string>> The declared map.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	public function all(): array;
 
@@ -61,7 +61,7 @@ interface ModelCapabilityRegistryInterface {
 	 *
 	 * @throws InvalidArgumentException When any entry is not valid; nothing is written then.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	public function declareMany(array $declarations): array;
 
@@ -74,7 +74,7 @@ interface ModelCapabilityRegistryInterface {
 	 *
 	 * @throws InvalidArgumentException When a key or a capability is not valid.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	public function normalizeDeclarations(array $declarations): array;
 }//end interface

@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
  */
 
 declare(strict_types=1);
@@ -40,7 +40,7 @@ use RuntimeException;
 /**
  * Stores chat attachments in the person's Files.
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
  */
 class AttachmentStore implements AttachmentStoreInterface {
 
@@ -107,7 +107,7 @@ class AttachmentStore implements AttachmentStoreInterface {
 	 * @throws AttachmentRefusedException For a refused type or a file over the cap; nothing is written.
 	 * @throws RuntimeException           When the file could not be read or written.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
 	 */
 	public function store(string $uid, array $upload): array {
 		$name = $this->cleanName(name: (string)($upload['name'] ?? ''));
@@ -141,7 +141,7 @@ class AttachmentStore implements AttachmentStoreInterface {
 	 *
 	 * @throws AttachmentRefusedException When the file is too large (checked first) or of a refused type.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
 	 */
 	private function acceptedType(string $name, int $size): string {
 		$capMb = max(1, $this->appConfig->getValueInt('hermiq', self::CAP_KEY, self::DEFAULT_CAP_MB));
@@ -164,7 +164,7 @@ class AttachmentStore implements AttachmentStoreInterface {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
 	 */
 	public static function isAllowedType(string $mimeType): bool {
 		$mimeType = strtolower(trim($mimeType));

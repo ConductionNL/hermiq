@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
  */
 
 declare(strict_types=1);
@@ -36,7 +36,7 @@ use Throwable;
 /**
  * Reads an attachment's text through OpenRegister's FileTextFacade, as the person.
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
  */
 class OpenRegisterAttachmentTextSource implements AttachmentTextSource {
 
@@ -59,7 +59,7 @@ class OpenRegisterAttachmentTextSource implements AttachmentTextSource {
 	 * @param LoggerInterface    $logger      Notes a facade that could not be resolved or failed.
 	 * @param string             $facadeClass The facade class; tests point it at a stub.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
 	 */
 	public function __construct(
 		private readonly ContainerInterface $container,
@@ -73,7 +73,7 @@ class OpenRegisterAttachmentTextSource implements AttachmentTextSource {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
 	 */
 	public function isAvailable(): bool {
 		return $this->readyFacade() !== null;
@@ -87,7 +87,7 @@ class OpenRegisterAttachmentTextSource implements AttachmentTextSource {
 	 *
 	 * @return string|null The text, or null.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
 	 */
 	public function extractText(int $fileId, string $userId): ?string {
 		$facade = $this->readyFacade();
