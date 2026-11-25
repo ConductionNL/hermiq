@@ -63,6 +63,7 @@ use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use OCP\IUserSession;
@@ -405,10 +406,7 @@ class SessionController extends Controller {
 	public function removeLink(string $uuid): JSONResponse {
 		try {
 			$userId = $this->requireUserId();
-			$session = $this->objectService->find(
-				id: $uuid,
-				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
-			);
+			$session = $this->findSession(uuid: $uuid);
 			if ($session === null) {
 				return $this->notFoundResponse();
 			}
@@ -514,10 +512,7 @@ class SessionController extends Controller {
 				return $sharedResponse;
 			}
 
-			$conversation = $this->objectService->find(
-				id: $uuid,
-				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
-			);
+			$conversation = $this->findSession(uuid: $uuid);
 			if ($conversation === null) {
 				return $this->notFoundResponse();
 			}
@@ -576,10 +571,7 @@ class SessionController extends Controller {
 				return $sharedResponse;
 			}
 
-			$conversation = $this->objectService->find(
-				id: $uuid,
-				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
-			);
+			$conversation = $this->findSession(uuid: $uuid);
 			if ($conversation === null) {
 				return $this->notFoundResponse();
 			}
@@ -980,10 +972,7 @@ class SessionController extends Controller {
 	public function update(string $uuid): JSONResponse {
 		try {
 			$userId = $this->requireUserId();
-			$conversation = $this->objectService->find(
-				id: $uuid,
-				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
-			);
+			$conversation = $this->findSession(uuid: $uuid);
 			if ($conversation === null) {
 				return $this->notFoundResponse();
 			}
@@ -1058,10 +1047,7 @@ class SessionController extends Controller {
 	public function destroy(string $uuid): JSONResponse {
 		try {
 			$userId = $this->requireUserId();
-			$conversation = $this->objectService->find(
-				id: $uuid,
-				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
-			);
+			$conversation = $this->findSession(uuid: $uuid);
 			if ($conversation === null) {
 				return $this->notFoundResponse();
 			}
@@ -1125,10 +1111,7 @@ class SessionController extends Controller {
 	public function restore(string $uuid): JSONResponse {
 		try {
 			$userId = $this->requireUserId();
-			$conversation = $this->objectService->find(
-				id: $uuid,
-				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
-			);
+			$conversation = $this->findSession(uuid: $uuid);
 			if ($conversation === null) {
 				return $this->notFoundResponse();
 			}
@@ -1284,10 +1267,7 @@ class SessionController extends Controller {
 	 */
 	private function bulkOne(string $action, string $uuid, string $userId): string {
 		try {
-			$conversation = $this->objectService->find(
-				id: $uuid,
-				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
-			);
+			$conversation = $this->findSession(uuid: $uuid);
 		} catch (Exception $e) {
 			return 'not_found';
 		}
@@ -1364,10 +1344,7 @@ class SessionController extends Controller {
 	public function destroyPermanent(string $uuid): JSONResponse {
 		try {
 			$userId = $this->requireUserId();
-			$conversation = $this->objectService->find(
-				id: $uuid,
-				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
-			);
+			$conversation = $this->findSession(uuid: $uuid);
 			if ($conversation === null) {
 				return $this->notFoundResponse();
 			}
@@ -1760,6 +1737,29 @@ class SessionController extends Controller {
 
 		return ['refused', null];
 	}//end readThroughShare()
+
+	/**
+	 * The session as the caller may read it, or null when there is none with that id.
+	 *
+	 * OpenRegister's find answers an unknown or unreadable id either with null or with a
+	 * DoesNotExistException; both read as not found, never as a server error.
+	 *
+	 * @param string $uuid The session uuid.
+	 *
+	 * @return ObjectEntity|null
+	 *
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
+	 */
+	private function findSession(string $uuid): ?ObjectEntity {
+		try {
+			return $this->objectService->find(
+				id: $uuid,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
+			);
+		} catch (DoesNotExistException) {
+			return null;
+		}
+	}//end findSession()
 
 	/**
 	 * The session read past the caller's rights; null when absent or the read fails.

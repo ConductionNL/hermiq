@@ -28,6 +28,7 @@ use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJobList;
 use Psr\Log\LoggerInterface;
@@ -294,18 +295,38 @@ class HandoffService {
 			return null;
 		}
 
-		$object = $this->objectService->find(
-			id: $handoffId,
-			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
-			_rbac: false,
-			_multitenancy: false
-		);
+		$object = $this->storedHandoff(handoffId: $handoffId);
 		if (($object instanceof ObjectEntity) === false) {
 			return null;
 		}
 
 		return $object->getObject();
 	}//end find()
+
+	/**
+	 * The stored handoff object, or null when there is none with that id.
+	 *
+	 * OpenRegister's find answers an unknown id either with null or with a
+	 * DoesNotExistException; both mean the handoff is not there.
+	 *
+	 * @param string $handoffId The handoff's uuid.
+	 *
+	 * @return ObjectEntity|null
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+	 */
+	private function storedHandoff(string $handoffId): ?ObjectEntity {
+		try {
+			return $this->objectService->find(
+				id: $handoffId,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
+				_rbac: false,
+				_multitenancy: false
+			);
+		} catch (DoesNotExistException) {
+			return null;
+		}
+	}//end storedHandoff()
 
 	/**
 	 * Every waiting handoff, by id.
@@ -459,12 +480,7 @@ class HandoffService {
 			return null;
 		}
 
-		$object = $this->objectService->find(
-			id: $handoffId,
-			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
-			_rbac: false,
-			_multitenancy: false
-		);
+		$object = $this->storedHandoff(handoffId: $handoffId);
 		if (($object instanceof ObjectEntity) === false) {
 			return null;
 		}

@@ -55,9 +55,7 @@
             }
           ]
         },
-        "url": {
-          "raw": "{{base_url}}/ocs/v2.php/cloud/users?format=json"
-        }
+        "url": "{{base_url}}/ocs/v2.php/cloud/users?format=json"
       },
       "event": [
         {
@@ -108,9 +106,7 @@
             "value": "application/json"
           }
         ],
-        "url": {
-          "raw": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets"
-        }
+        "url": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets"
       },
       "event": [
         {
@@ -160,9 +156,7 @@
             "value": "application/json"
           }
         ],
-        "url": {
-          "raw": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets"
-        },
+        "url": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets",
         "body": {
           "mode": "raw",
           "raw": "{\n  \"name\": \"Newman werkplek\",\n  \"source\": \"\",\n  \"os\": \"windows\",\n  \"enabled\": true\n}",
@@ -219,9 +213,7 @@
             "value": "application/json"
           }
         ],
-        "url": {
-          "raw": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets"
-        },
+        "url": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets",
         "body": {
           "mode": "raw",
           "raw": "{\n  \"name\": \"\",\n  \"source\": \"00000000-0000-0000-0000-000000000000\"\n}",
@@ -278,9 +270,7 @@
             "value": "application/json"
           }
         ],
-        "url": {
-          "raw": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets"
-        }
+        "url": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets"
       },
       "event": [
         {
@@ -327,9 +317,7 @@
             "value": "application/json"
           }
         ],
-        "url": {
-          "raw": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets"
-        },
+        "url": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets",
         "body": {
           "mode": "raw",
           "raw": "{\n  \"name\": \"x\",\n  \"source\": \"y\"\n}",
@@ -385,9 +373,7 @@
             "value": "application/json"
           }
         ],
-        "url": {
-          "raw": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets/00000000-0000-0000-0000-000000000000/screenshot"
-        },
+        "url": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets/00000000-0000-0000-0000-000000000000/screenshot",
         "body": {
           "mode": "raw",
           "raw": "{}",
@@ -443,9 +429,7 @@
             "value": "application/json"
           }
         ],
-        "url": {
-          "raw": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets/00000000-0000-0000-0000-000000000000"
-        }
+        "url": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets/00000000-0000-0000-0000-000000000000"
       },
       "event": [
         {
@@ -492,9 +476,7 @@
             "value": "application/json"
           }
         ],
-        "url": {
-          "raw": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets/00000000-0000-0000-0000-000000000000"
-        }
+        "url": "{{base_url}}/index.php/apps/hermiq/api/settings/computer-targets/00000000-0000-0000-0000-000000000000"
       },
       "event": [
         {
@@ -537,9 +519,7 @@
             "value": "application/json"
           }
         ],
-        "url": {
-          "raw": "{{base_url}}/ocs/v2.php/cloud/users/{{member_user}}?format=json"
-        }
+        "url": "{{base_url}}/ocs/v2.php/cloud/users/{{member_user}}?format=json"
       },
       "event": [
         {
@@ -575,5 +555,8 @@
       "key": "member_password",
       "value": "CHANGE_ME_newman_pw_0000"
     }
-  ]
+  ],
+  "protocolProfileBehavior": {
+    "disableCookies": true
+  }
 }
