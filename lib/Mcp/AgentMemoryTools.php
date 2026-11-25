@@ -95,7 +95,7 @@ final class AgentMemoryTools {
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
 	 * @spec openspec/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
 	private function rememberMemory(string $uid, array $arguments): array {
 		$agentId = trim((string)($arguments['agentId'] ?? ''));
@@ -133,7 +133,7 @@ final class AgentMemoryTools {
 	 *
 	 * @return array<string, mixed> The remembered result with the layer written to.
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
 	private function rememberInMemory(string $agentId, string $content, string $scope, array $arguments): array {
 		$projectKey = null;
@@ -157,7 +157,7 @@ final class AgentMemoryTools {
 	 * endpoint overwrite it from the run.
 	 * @param array<string, mixed> $arguments The tool arguments.
 	 * @return string|null The project key, or null.
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
 	public static function projectKeyOf(array $arguments): ?string {
 		$key = trim((string)($arguments['projectKey'] ?? ''));
@@ -210,7 +210,7 @@ final class AgentMemoryTools {
 	 * @return array<string, mixed> The combined result, or an error envelope.
 	 *
 	 * @spec openspec/specs/agent-memory/spec.md#requirement-agent-self-service-memory-recall-tool
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
 	 */
 	private function recallMemory(string $uid, array $arguments): array {
 		$agentId = trim((string)($arguments['agentId'] ?? ''));
@@ -259,7 +259,7 @@ final class AgentMemoryTools {
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
 	 * @spec openspec/specs/agent-memory/spec.md#requirement-agent-self-service-memory-forget-tool-soft-delete-only
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
 	private function forgetMemory(string $uid, array $arguments): array {
 		$agentId = trim((string)($arguments['agentId'] ?? ''));

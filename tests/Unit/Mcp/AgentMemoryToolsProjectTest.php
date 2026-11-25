@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+ * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
  */
 
 declare(strict_types=1);
@@ -40,7 +40,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Which memory layer the remember, recall and forget tools reach.
  *
- * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+ * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
  */
 #[CoversClass(AgentMemoryTools::class)]
 #[UsesClass(NativeToolCall::class)]
@@ -190,7 +190,7 @@ class AgentMemoryToolsProjectTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
 	 */
 	public function testRecallPassesTheProjectKey(): void {
 		$this->memory->expects(self::once())

@@ -12,7 +12,7 @@
  * @param {string} newName The typed name of a new project.
  * @param {{NEW: string, NONE: string}} markers The values of "New project" and "No project".
  * @return {{projectKey: string}|{projectName: string}|null} The project, or null for none.
- * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+ * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
  */
 export function projectChoice(choice, newName, markers) {
 	if (!choice || choice === markers.NONE) {
@@ -32,7 +32,7 @@ export function projectChoice(choice, newName, markers) {
  * @param {string} projectKey The project key.
  * @param {Array<{projectKey: string, projectName: string}>} projects The agent's projects.
  * @return {string} The name, or '' without a key.
- * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+ * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
  */
 export function projectNameOf(projectKey, projects) {
 	if (!projectKey) {

@@ -686,7 +686,7 @@ class SessionController extends Controller {
 	 * @NoAdminRequired
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 */
 	public function create(): JSONResponse {
 		try {
@@ -818,7 +818,7 @@ class SessionController extends Controller {
 	 *
 	 * @return array{agentId: string, title: mixed, metadata: mixed, projectKey?: string}
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 */
 	private function inProject(array $start, ?array $project): array {
 		if ($project === null) {
@@ -839,7 +839,7 @@ class SessionController extends Controller {
 	 *
 	 * @return JSONResponse
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 */
 	private static function invalidProjectResponse(): JSONResponse {
 		return new JSONResponse(
@@ -860,7 +860,7 @@ class SessionController extends Controller {
 	 *
 	 * @return array{projectKey: string, projectName: string}|false|null
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) MemoryService is used through its static API (a pure helper or
 	 * named constructor) with no state to inject.
@@ -891,7 +891,7 @@ class SessionController extends Controller {
 	 *
 	 * @return string The key; '' when the name has no letter or digit.
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 */
 	public static function projectKeyFromName(string $name): string {
 		$ascii = $name;

@@ -15,7 +15,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+ * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
  */
 
 declare(strict_types=1);
@@ -38,7 +38,7 @@ use RuntimeException;
 /**
  * Listing projects, reading a project's memory and moving an entry between layers.
  *
- * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+ * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
  */
 #[CoversClass(MemoryController::class)]
 class MemoryControllerProjectsTest extends TestCase {

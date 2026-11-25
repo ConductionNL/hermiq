@@ -175,7 +175,7 @@ export async function listMessages(uuid, { limit = 50, offset = 0 } = {}) {
  *        session works in (memory-project-scopes): an existing key, or a name for a new
  *        project. Fixed for the life of the session.
  * @return {Promise<object>} The created session.
- * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+ * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
  */
 export async function createSession(agentUuid, title, project = null) {
 	const payload = { agentUuid }

@@ -42,7 +42,7 @@ import { NcButton, NcDialog, NcSelect } from '@nextcloud/vue'
  * (memory-project-scopes). Emits `confirm` with the project key, or `close`;
  * the caller does the request.
  *
- * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+ * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
  */
 export default {
 	name: 'MoveMemoryEntryDialog',
@@ -86,7 +86,7 @@ export default {
 		 * The projects as NcSelect options.
 		 *
 		 * @return {Array<{label: string, value: string}>} The options.
-		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
 		 */
 		options() {
 			return this.projects.map((project) => ({

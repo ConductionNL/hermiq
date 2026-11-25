@@ -161,7 +161,7 @@ class RunTokenService implements RunTokenServiceInterface {
 	 * @return string The plaintext bearer token.
 	 *
 	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
 	public function mint(
 		string $runId,
@@ -304,7 +304,7 @@ class RunTokenService implements RunTokenServiceInterface {
 	 *
 	 * @return array{runId: string, agentId: string, userId: string, conversationId: string, projectKey?: string, egressHosts?: list<string>}
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
 	private static function bindingOf(array $record): array {
 		$binding = [

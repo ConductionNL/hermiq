@@ -36,7 +36,7 @@
  *     PLAYWRIGHT_BASE_URL=<your rig> NC_USER=admin NC_PASS=admin \
  *       npx playwright test -c tests/e2e/spec-coverage/playwright.config.ts memory-project-scopes
  *
- * Covers openspec/changes/memory-project-scopes/specs/agent-memory/spec.md
+ * Covers openspec/specs/agent-memory/spec.md
  */
 
 import type { APIRequestContext } from '@playwright/test'
