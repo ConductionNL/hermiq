@@ -136,6 +136,9 @@ test.describe('flows-hand-off-and-wait: the waiting line in the chat', () => {
 		await page.goto(`${await appRoot(page)}/chat`, {
 			waitUntil: 'domcontentloaded',
 		})
+		// The setup wizard can open after the first check, over the session
+		// list: wait for the list, then dismiss what is on top of it.
+		await page.getByText(sessionTitle).first().waitFor({ timeout: 20_000 })
 		await dismissTour(page)
 		await page.getByText(sessionTitle).first().click()
 		await expect(
@@ -161,7 +164,8 @@ test.describe('flows-hand-off-and-wait: the waiting line in the chat', () => {
 		const lines = page.getByTestId('chat-handoffs')
 		await expect(lines).toHaveCount(1)
 		await expect(lines.locator('.chat-page__handoff--waiting')).toContainText(
-			/Waiting for “Vergunningcheck” \(started \d{1,2}[:.]\d{2}\)/,
+			// The time is in the browser's locale: 14:02 in nl, 02:02 PM in en-US.
+			/Waiting for “Vergunningcheck” \(started \d{1,2}[:.]\d{2}(\s?[AP]M)?\)/,
 		)
 	})
 
@@ -239,6 +243,9 @@ test.describe('flows-hand-off-and-wait: remote agents', () => {
 			waitUntil: 'domcontentloaded',
 		})
 		const section = page.getByTestId('remote-agents')
+		// The admin settings bundle mounts after load; scroll only once the
+		// section exists, or the scroll's own action timeout runs out first.
+		await section.waitFor({ state: 'attached', timeout: 60_000 })
 		await section.scrollIntoViewIfNeeded()
 		await expect(section).toBeVisible({ timeout: 20_000 })
 
