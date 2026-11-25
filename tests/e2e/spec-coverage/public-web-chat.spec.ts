@@ -70,7 +70,7 @@
  *     PLAYWRIGHT_BASE_URL=<your rig> NC_USER=admin NC_PASS=admin \
  *       npx playwright test -c tests/e2e/spec-coverage/playwright.config.ts public-web-chat
  *
- * Covers openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md
+ * Covers openspec/specs/public-chat-channel/spec.md
  */
 
 import type { APIRequestContext, Locator, Page } from '@playwright/test'

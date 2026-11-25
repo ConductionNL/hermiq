@@ -24,7 +24,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-sibling-apps-reach-the-same-channel-in-process-without-an-identity-req-pubchat-004
+ * @spec openspec/specs/public-chat-channel/spec.md#requirement-sibling-apps-reach-the-same-channel-in-process-without-an-identity-req-pubchat-004
  */
 
 declare(strict_types=1);
@@ -46,7 +46,7 @@ use Throwable;
  * sibling app is serving. The scope the app passes only narrows the channel's
  * declared scope.
  *
- * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-sibling-apps-reach-the-same-channel-in-process-without-an-identity-req-pubchat-004
+ * @spec openspec/specs/public-chat-channel/spec.md#requirement-sibling-apps-reach-the-same-channel-in-process-without-an-identity-req-pubchat-004
  */
 class PublicChatEntryPoint {
 
@@ -59,7 +59,7 @@ class PublicChatEntryPoint {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-sibling-apps-reach-the-same-channel-in-process-without-an-identity-req-pubchat-004
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-sibling-apps-reach-the-same-channel-in-process-without-an-identity-req-pubchat-004
 	 */
 	public function __construct(
 		private readonly PublicChannelStore $store,
@@ -84,7 +84,7 @@ class PublicChatEntryPoint {
 	 *
 	 * @return PublicAnswer
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-sibling-apps-reach-the-same-channel-in-process-without-an-identity-req-pubchat-004
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-sibling-apps-reach-the-same-channel-in-process-without-an-identity-req-pubchat-004
 	 */
 	public function ask(string $channelKey, string $question, string $locale, array $sourceScope, ?string $conversationToken): PublicAnswer {
 		$channel = $this->store->channelByKey(key: $channelKey);

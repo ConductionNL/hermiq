@@ -182,7 +182,7 @@ final class AiFeatureLookupTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
 	 */
 	public function testFindBySlugForOrganisationKeepsOnlyThatOrganisation(): void {
 		$other = $this->entity(payload: ['slug' => 'public-chat', 'lifecycle' => 'enabled']);

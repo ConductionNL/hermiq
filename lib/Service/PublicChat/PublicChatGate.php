@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
+ * @spec openspec/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use Throwable;
  * never says why, so a visitor learns nothing about the organisation's
  * settings; the reason is logged.
  *
- * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
+ * @spec openspec/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
  */
 class PublicChatGate {
 
@@ -71,7 +71,7 @@ class PublicChatGate {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
 	 */
 	public function __construct(
 		private readonly PublicChannelStore $store,
@@ -93,7 +93,7 @@ class PublicChatGate {
 	 *
 	 * @throws PublicChatRefusedException 503 when the channel, the feature, the kill switch or the agent stops it.
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
 	 */
 	public function runnableAgent(array $channel): ObjectEntity {
 		$agent  = null;
@@ -123,7 +123,7 @@ class PublicChatGate {
 	 *
 	 * @throws PublicChatRefusedException 429 when the limit is reached.
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
 	 */
 	public function countQuestion(array $channel): void {
 		$limit = (int)($channel['dailyQuestionLimit'] ?? self::DEFAULT_DAILY_LIMIT);
@@ -151,7 +151,7 @@ class PublicChatGate {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-an-organisation-admin-declares-a-public-chat-channel-req-pubchat-001
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-an-organisation-admin-declares-a-public-chat-channel-req-pubchat-001
 	 */
 	public function agentHasTools(ObjectEntity|array|null $agent): bool {
 		if ($agent === null) {
@@ -227,7 +227,7 @@ class PublicChatGate {
 	 *
 	 * @return bool False also when the feature cannot be read.
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
 	 */
 	private function featureEnabled(string $organisation): bool {
 		try {

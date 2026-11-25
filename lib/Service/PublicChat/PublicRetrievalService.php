@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
+ * @spec openspec/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use Throwable;
  * OpenRegister cannot run a read as anonymous, nothing is read at all: the
  * turn answers from no sources rather than from the session's.
  *
- * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
+ * @spec openspec/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
  */
 class PublicRetrievalService {
 
@@ -74,21 +74,31 @@ class PublicRetrievalService {
 	private const URL_FIELDS = ['url', 'link', 'href'];
 
 	/**
+	 * Splits a visitor's question into search words; holds no state.
+	 *
+	 * @var QuestionTerms
+	 */
+	private readonly QuestionTerms $terms;
+
+	/**
 	 * Constructor.
 	 *
-	 * @param ObjectService   $objectService OpenRegister objects, read as anonymous only.
-	 * @param IURLGenerator   $urls          Builds a source's link when it carries none.
-	 * @param LoggerInterface $logger        Records why nothing was read.
+	 * @param ObjectService       $objectService OpenRegister objects, read as anonymous only.
+	 * @param IURLGenerator       $urls          Builds a source's link when it carries none.
+	 * @param LoggerInterface     $logger        Records why nothing was read.
+	 * @param ScopeSchemas|null   $scopeSchemas  Lists a register's schemas for a whole-register scope.
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
 		private readonly IURLGenerator $urls,
 		private readonly LoggerInterface $logger,
+		private readonly ?ScopeSchemas $scopeSchemas=null,
 	) {
+		$this->terms = new QuestionTerms();
 	}//end __construct()
 
 	/**
@@ -101,7 +111,7 @@ class PublicRetrievalService {
 	 *
 	 * @return list<array{register: string, schema: string}>
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
 	 */
 	public static function normaliseScope(mixed $scope): array {
 		$pairs = [];
@@ -140,7 +150,7 @@ class PublicRetrievalService {
 	 *
 	 * @return list<array{register: string, schema: string}>
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-sibling-apps-reach-the-same-channel-in-process-without-an-identity-req-pubchat-004
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-sibling-apps-reach-the-same-channel-in-process-without-an-identity-req-pubchat-004
 	 */
 	public static function intersectScope(mixed $channelScope, ?array $requested): array {
 		$declared = self::normaliseScope(scope: $channelScope);
@@ -169,7 +179,7 @@ class PublicRetrievalService {
 	 *
 	 * @return list<array{register: string, schema: string}>
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-sibling-apps-reach-the-same-channel-in-process-without-an-identity-req-pubchat-004
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-sibling-apps-reach-the-same-channel-in-process-without-an-identity-req-pubchat-004
 	 */
 	public function scopeFor(array $channel, ?array $requested): array {
 		return self::intersectScope(channelScope: ($channel['sourceScope'] ?? []), requested: $requested);
@@ -178,6 +188,11 @@ class PublicRetrievalService {
 	/**
 	 * The objects an anonymous caller may read that match the question, inside the scope.
 	 *
+	 * The question is searched word by word (QuestionTerms::termsOf()), because
+	 * OpenRegister's `_search` asks for every word it is given. An object found
+	 * by more of the words ranks first. A whole-register scope names the
+	 * register's schemas, because a search without a schema finds nothing.
+	 *
 	 * @param array<int, array{register: string, schema: string}> $scope        The scope, already intersected.
 	 * @param string                                              $question     The visitor's question.
 	 * @param string                                              $organisation The channel's organisation, '' for none.
@@ -185,7 +200,7 @@ class PublicRetrievalService {
 	 *
 	 * @return list<array{id: string, register: string, schema: string, title: string, url: string, excerpt: string}>
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
 	 */
 	public function retrieve(array $scope, string $question, string $organisation='', int $limit=self::MAX_SOURCES): array {
 		$question = trim($question);
@@ -195,35 +210,39 @@ class PublicRetrievalService {
 		}
 
 		$sources = [];
+		$hits    = [];
 		foreach ($scope as $pair) {
-			$schema = null;
+			$query = ['_limit' => $limit, '_register' => $pair['register'], '_schema' => null];
 			if ($pair['schema'] !== '') {
-				$schema = $pair['schema'];
+				$query['_schema'] = $pair['schema'];
 			}
 
-			$rows = $this->anonymously(
-				organisation: $organisation,
-				operation: fn (): mixed => $this->objectService->searchObjectsPaginated(
-					query: [
-						'_search'   => $question,
-						'_limit'    => $limit,
-						'_register' => $pair['register'],
-						'_schema'   => $schema,
-					],
-					_rbac: true,
-					_multitenancy: true
-				)
-			);
+			$schemas = ($this->scopeSchemas?->schemasOf(pair: $pair) ?? []);
+			if ($schemas !== []) {
+				$query['_schemas'] = $schemas;
+			}
 
-			foreach ($this->rowsOf(result: $rows) as $row) {
-				$source = $this->sourceOf(row: $row, pair: $pair);
-				if ($source !== null) {
-					$sources[$source['id']] = $source;
+			foreach ($this->terms->termsOf(question: $question) as $term) {
+				$rows = $this->anonymously(
+					organisation: $organisation,
+					operation: fn (): mixed => $this->objectService->searchObjectsPaginated(
+						query: array_merge(['_search' => $term], $query),
+						_rbac: true,
+						_multitenancy: true
+					)
+				);
+
+				foreach ($this->rowsOf(result: $rows) as $row) {
+					$source = $this->sourceOf(row: $row, pair: $pair);
+					if ($source !== null) {
+						$sources[$source['id']] ??= $source;
+						$hits[$source['id']] = (($hits[$source['id']] ?? 0) + 1);
+					}
 				}
 			}
-		}
+		}//end foreach
 
-		return array_slice(array_values($sources), 0, $limit);
+		return array_slice($this->terms->rankByHits(items: $sources, hits: $hits), 0, $limit);
 	}//end retrieve()
 
 	/**
