@@ -800,6 +800,9 @@ class Engine implements EngineInterface {
 				'prompt' => (string)($turn['userMessage'] ?? ''),
 				'message' => (string)($envelope['message'] ?? ''),
 				'usage' => (array)($envelope['usage'] ?? []),
+				// The model that answered (provider, model, residency, feature), so the
+				// model span carries gen_ai.system and gen_ai.request.model.
+				'providerDisclosure' => (array)($envelope['provenance']['model'] ?? []),
 				'steps' => (array)($envelope['steps'] ?? []),
 				'startedAt' => ($endedAt - (float)array_sum($timings)),
 				'endedAt' => $endedAt,

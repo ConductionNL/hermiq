@@ -306,15 +306,23 @@ class TraceExporter {
 	 * @param array<string, mixed> $root The root span, whose start stands in for a missing time.
 	 *
 	 * @return array<string, mixed> The span.
+	 *
+	 * @spec openspec/changes/observability-export-traces/specs/trace-export/spec.md#requirement-traces-carry-metadata-by-default-and-never-tool-arguments-or-results-req-trex-002
 	 */
 	private function stepSpan(array $step, array $root): array {
 		$start = $this->nanos(value: ($step['startedAt'] ?? null), fallback: $root['start']);
 		$type = (string)($step['type'] ?? 'step');
+		$end = max($start, $this->nanos(value: ($step['endedAt'] ?? null), fallback: $start));
+		// The step timeline records its times to the second; its durationMs is exact.
+		// Without it a 141 ms tool call exported as 0 µs and a 363 ms model call as 1 s.
+		if (is_numeric($step['durationMs'] ?? null) === true) {
+			$end = $start + (int)round((float)$step['durationMs'] * 1000000);
+		}
 
 		return [
 			'name' => (string)($step['name'] ?? $type),
 			'start' => $start,
-			'end' => max($start, $this->nanos(value: ($step['endedAt'] ?? null), fallback: $start)),
+			'end' => $end,
 			'status' => $this->statusOf(status: (string)($step['outcome'] ?? 'ok')),
 			'attributes' => $this->stepAttributes(step: $step, type: $type),
 		];
