@@ -3,8 +3,9 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  *
  * The CnIndexPage `#form-dialog` scoped-slot contract (agent-form-slot parity)
- * the form modals share: the `item`, `close` and `schema` bindings the slot
- * passes (`{ show, item, schema, close }`), and closing through both.
+ * the form modals share: the `item`, `close`, `refresh` and `schema` bindings
+ * the slot passes (`{ show, item, schema, close, refresh }`), closing through
+ * both, and re-reading the list after a save.
  */
 
 export const formDialogSlot = {
@@ -23,6 +24,18 @@ export const formDialogSlot = {
 		 * `#form-dialog` scoped slot. Called in ADDITION to `$emit('close')`.
 		 */
 		close: {
+			type: Function,
+			default: null,
+		},
+
+		/**
+		 * Re-reads the host list: the `refresh` binding from CnIndexPage's
+		 * `#form-dialog` scoped slot. A dialog mounted from the manifest gets
+		 * props only, so its `saved` event reaches no listener; without this
+		 * call a record saved in the dialog did not appear in the list until
+		 * the page was reloaded (seen live on Public chat, 25 Nov 2026).
+		 */
+		refresh: {
 			type: Function,
 			default: null,
 		},
@@ -50,6 +63,19 @@ export const formDialogSlot = {
 		handleClose() {
 			this.$emit('close')
 			this.close?.()
+		},
+
+		/**
+		 * Announce a save: emits `saved` and ADDITIONALLY re-reads the host list
+		 * through the `refresh` prop when supplied.
+		 *
+		 * @param {object} saved The saved record.
+		 * @return {void}
+		 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-an-organisation-admin-declares-a-public-chat-channel-req-pubchat-001
+		 */
+		announceSaved(saved) {
+			this.$emit('saved', saved)
+			this.refresh?.()
 		},
 	},
 }

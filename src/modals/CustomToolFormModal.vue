@@ -546,7 +546,7 @@ export default {
 				const saved = this.item?.id
 					? await updateCustomTool(this.item.id, payload)
 					: await createCustomTool(payload)
-				this.$emit('saved', saved)
+				this.announceSaved(saved)
 				this.handleClose()
 			} catch (e) {
 				this.error = errorMessage(e, this.t('hermiq', 'The server did not accept the custom tool.'))
