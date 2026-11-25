@@ -15,7 +15,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-about-a-document-cites-its-sources/tasks.md#task-1-a-turn-carries-a-scope
+ * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/tasks.md#task-1-a-turn-carries-a-scope
  */
 
 declare(strict_types=1);

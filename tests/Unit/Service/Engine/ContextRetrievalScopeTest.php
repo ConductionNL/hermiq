@@ -18,7 +18,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-about-a-document-cites-its-sources/tasks.md#task-2-retrieval-honours-a-file-or-folder-scope
+ * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/tasks.md#task-2-retrieval-honours-a-file-or-folder-scope
  */
 
 declare(strict_types=1);
@@ -155,6 +155,8 @@ class ContextRetrievalScopeTest extends TestCase {
 		$this->assertCount(1, $context['sources']);
 		$source = $context['sources'][0];
 		$this->assertSame(42, $source['file_id']);
+		// The stored turn's schema types `id` as a string (REQ-DCHAT-003: the answer is stored with its sources).
+		$this->assertSame(expected: '42', actual: $source['id']);
 		$this->assertSame('file', $source['type']);
 		$this->assertSame('besluit-2026-0042.txt', $source['name']);
 		$this->assertSame('/Dossiers/besluit-2026-0042.txt', $source['file_path']);
