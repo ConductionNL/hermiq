@@ -551,14 +551,25 @@ class MemoryService implements MemoryServiceInterface {
 	/**
 	 * The live entries matching the read's search term in every object the read finds.
 	 *
+	 * The objects are found by the read's FILTERS only; the term is matched on
+	 * the entries here. OpenRegister's search reads only a schema's searchable
+	 * properties (title-like ones), never the text inside `entries`, so asking
+	 * it for the term found an entry by its content in no layer at all. A layer
+	 * is one Memory (or one UserProfile) object, bounded by its character
+	 * budget, so reading it whole costs one small read.
+	 *
 	 * @param string       $schema The schema slug.
 	 * @param MemoryLookup $lookup The read.
 	 *
 	 * @return array<int, array<string, string>>
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
 	 */
 	private function recalledEntries(string $schema, MemoryLookup $lookup): array {
+		$objectLookup = new MemoryLookup(filters: $lookup->filters, limit: $lookup->limit);
+
 		$entries = [];
-		foreach ($this->findMany(schema: $schema, lookup: $lookup) as $object) {
+		foreach ($this->findMany(schema: $schema, lookup: $objectLookup) as $object) {
 			$entries = array_merge($entries, $this->matchingEntries(object: $object, query: (string)$lookup->search));
 		}
 
@@ -963,7 +974,7 @@ class MemoryService implements MemoryServiceInterface {
 				continue;
 			}
 
-			if ($query !== '' && stripos($entry['text'], $query) === false) {
+			if (self::entryMatches(text: (string)$entry['text'], query: $query) === false) {
 				continue;
 			}
 
@@ -972,6 +983,33 @@ class MemoryService implements MemoryServiceInterface {
 
 		return $out;
 	}//end matchingEntries()
+
+	/**
+	 * Whether an entry's text answers a recall query: every word of the query
+	 * appears in it, in any order and case. An empty query matches every entry.
+	 *
+	 * @param string $text  The entry's text.
+	 * @param string $query The recall query.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
+	 */
+	public static function entryMatches(string $text, string $query): bool {
+		$words = preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($query), -1, PREG_SPLIT_NO_EMPTY);
+		if (is_array($words) === false) {
+			return true;
+		}
+
+		$haystack = mb_strtolower($text);
+		foreach ($words as $word) {
+			if (mb_strpos($haystack, $word) === false) {
+				return false;
+			}
+		}
+
+		return true;
+	}//end entryMatches()
 
 	/**
 	 * Total character count across all NON-SOFT-DELETED entry texts.

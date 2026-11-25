@@ -667,12 +667,32 @@ class MemoryServiceTest extends TestCase {
 		$result = $memory->recallEntries(agentId: 'agent-1', subjectUid: null, query: 'budget');
 
 		$this->assertSame('agent-1', $capturedConfig['filters']['agentId']);
-		$this->assertSame('budget', $capturedConfig['search']);
+		// The layer's object is found by its filters; the term is matched on the entries,
+		// because OpenRegister's search never reads the text inside `entries`.
+		$this->assertArrayNotHasKey('search', $capturedConfig);
 		$this->assertCount(1, $result['memoryEntries'], 'The soft-deleted entry must be excluded from the result.');
 		$this->assertSame('e1', $result['memoryEntries'][0]['id']);
 		$this->assertSame([], $result['userProfileEntries'], 'No subjectUid was supplied — userprofile is never searched.');
 
 	}//end testRecallEntriesReusesSearchSubstrateAndExcludesSoftDeleted()
+
+	/**
+	 * An entry answers a recall when every word of the query is in it, in any order and case.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
+	 */
+	public function testAnEntryMatchesWhenEveryWordOfTheQueryIsInIt(): void {
+		$text = 'De sleutelkast van project Alpha heeft code KIWI-7731.';
+
+		$this->assertTrue(MemoryService::entryMatches(text: $text, query: 'sleutelkast'));
+		$this->assertTrue(MemoryService::entryMatches(text: $text, query: 'Code Sleutelkast'));
+		$this->assertTrue(MemoryService::entryMatches(text: $text, query: 'kiwi-7731'));
+		$this->assertTrue(MemoryService::entryMatches(text: $text, query: ''));
+		$this->assertFalse(MemoryService::entryMatches(text: $text, query: 'sleutelkast Beta'));
+		$this->assertFalse(MemoryService::entryMatches(text: $text, query: 'fietsenstalling'));
+	}//end testAnEntryMatchesWhenEveryWordOfTheQueryIsInIt()
 	/**
 	 * Golden: every read path (sessions, profiles, turn recall, entry recall, the
 	 * memory lookup) asks OpenRegister with exactly the recorded schema, filters,
