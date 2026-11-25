@@ -5,7 +5,7 @@
  * The sources under a chat answer: a file source links to its file, with the
  * page cited; any other source shows its name only.
  *
- * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-the-chat-page-lists-the-sources-of-every-answer-as-links-req-dchat-005
+ * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-the-chat-page-lists-the-sources-of-every-answer-as-links-req-dchat-005
  */
 
 import { describe, expect, it } from 'vitest'

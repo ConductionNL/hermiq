@@ -1059,7 +1059,7 @@ class ChatController extends Controller {
 	 *
 	 * @throws TurnScopeException With code 400 when the scope has any other shape.
 	 *
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
 	 */
 	private function ragSettingsParam(): array {
 		$settings = [

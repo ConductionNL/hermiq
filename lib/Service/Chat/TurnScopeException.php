@@ -18,7 +18,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-about-a-document-cites-its-sources/tasks.md#task-1-a-turn-carries-a-scope
+ * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/tasks.md#task-1-a-turn-carries-a-scope
  */
 
 declare(strict_types=1);
@@ -30,7 +30,7 @@ use Exception;
 /**
  * Refuses a turn for its scope, before anything is stored or any model is called.
  *
- * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+ * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
  */
 class TurnScopeException extends Exception {
 
@@ -56,7 +56,7 @@ class TurnScopeException extends Exception {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
 	 */
 	public function __construct(int $status) {
 		$message = 'The scope must be {type: "file" or "folder", fileId}';
@@ -72,7 +72,7 @@ class TurnScopeException extends Exception {
 	 *
 	 * @return string scope_invalid or scope_not_found.
 	 *
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
 	 */
 	public function errorCode(): string {
 		if ($this->getCode() === 404) {

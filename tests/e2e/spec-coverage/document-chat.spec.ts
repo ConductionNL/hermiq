@@ -45,7 +45,7 @@
  *     PLAYWRIGHT_BASE_URL=<your rig> NC_USER=admin NC_PASS=admin \
  *       npx playwright test -c tests/e2e/spec-coverage/playwright.config.ts document-chat
  *
- * Covers openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md
+ * Covers openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md
  */
 
 import type { APIRequestContext, Page } from '@playwright/test'

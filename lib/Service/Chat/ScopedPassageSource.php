@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-about-a-document-cites-its-sources/tasks.md#task-2-retrieval-honours-a-file-or-folder-scope
+ * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/tasks.md#task-2-retrieval-honours-a-file-or-folder-scope
  */
 
 declare(strict_types=1);
@@ -40,7 +40,7 @@ use Throwable;
 /**
  * Reads a turn's scope as the speaker and returns the passages that match the question.
  *
- * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+ * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
  */
 class ScopedPassageSource {
 
@@ -77,7 +77,7 @@ class ScopedPassageSource {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
 	 */
 	public function __construct(
 		private readonly IRootFolder $rootFolder,
@@ -98,7 +98,7 @@ class ScopedPassageSource {
 	 *
 	 * @throws TurnScopeException With code 404 when the speaker cannot open it.
 	 *
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
 	 */
 	public function assertReadable(array $scope, string $speaker): void {
 		if ($this->scopeNode(scope: $scope, speaker: $speaker) === null) {
@@ -117,8 +117,8 @@ class ScopedPassageSource {
 	 *
 	 * @return list<array<string, mixed>> The passages: number, file_id, name, file_path, page, text, score.
 	 *
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-a-collection-req-dchat-002
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-a-collection-req-dchat-002
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
 	 */
 	public function matching(array $scope, string $query, string $speaker, int $limit): array {
 		$terms = $this->passageText->terms(text: $query);
@@ -170,7 +170,7 @@ class ScopedPassageSource {
 	 *
 	 * @return list<array{file_id: int, name: string, file_path: string, page: int|null, text: string}>
 	 *
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
 	 */
 	public function passages(array $scope, string $speaker): array {
 		$passages = [];
@@ -193,7 +193,7 @@ class ScopedPassageSource {
 	 *
 	 * @return string The reply.
 	 *
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
 	 */
 	public function noMatchReply(array $scope): string {
 		if ($scope['type'] === 'folder') {

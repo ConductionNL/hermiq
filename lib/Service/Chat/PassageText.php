@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-about-a-document-cites-its-sources/tasks.md#task-2-retrieval-honours-a-file-or-folder-scope
+ * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/tasks.md#task-2-retrieval-honours-a-file-or-folder-scope
  */
 
 declare(strict_types=1);
@@ -29,7 +29,7 @@ namespace OCA\Hermiq\Service\Chat;
 /**
  * Splits text into passages and scores them against a question.
  *
- * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+ * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
  */
 final class PassageText {
 
@@ -55,7 +55,7 @@ final class PassageText {
 	 *
 	 * @return list<string> The chunks.
 	 *
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
 	 */
 	public function chunks(string $text): array {
 		$chunks = [];
@@ -105,7 +105,7 @@ final class PassageText {
 	 *
 	 * @return list<string> The terms.
 	 *
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
 	 */
 	public function terms(string $text): array {
 		$words = $this->splitOn(pattern: '/[^\p{L}\p{N}]+/u', text: mb_strtolower($text));
@@ -139,7 +139,7 @@ final class PassageText {
 	 *
 	 * @return float The score.
 	 *
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
 	 */
 	public function score(string $text, array $terms): float {
 		$haystack = mb_strtolower($text);

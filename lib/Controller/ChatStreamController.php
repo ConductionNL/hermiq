@@ -361,7 +361,7 @@ class ChatStreamController extends Controller {
 	 *
 	 * @return array<string, mixed> The RAG settings, with `scope` when one was given.
 	 *
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
 	 */
 	private function readScope(array $body): array {
 		$ragSettings = [];
