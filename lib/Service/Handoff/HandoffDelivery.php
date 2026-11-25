@@ -25,6 +25,7 @@ use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\Notification\IManager as INotificationManager;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -298,21 +299,32 @@ class HandoffDelivery {
 	/**
 	 * The stored handoff, an empty array when it is gone.
 	 *
+	 * OpenRegister throws for a deleted object; the result job of a handoff
+	 * removed in the meantime then skips instead of failing.
+	 *
 	 * @param string $handoffId The handoff's uuid.
 	 *
 	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002
 	 */
 	private function handoff(string $handoffId): array {
 		if ($handoffId === '') {
 			return [];
 		}
 
-		$object = $this->objectService->find(
-			id: $handoffId,
-			options: new ObjectFindOptions(register: HandoffService::REGISTER_SLUG, schema: HandoffService::SCHEMA_SLUG),
-			_rbac: false,
-			_multitenancy: false
-		);
+		try {
+			$object = $this->objectService->find(
+				id: $handoffId,
+				options: new ObjectFindOptions(register: HandoffService::REGISTER_SLUG, schema: HandoffService::SCHEMA_SLUG),
+				_rbac: false,
+				_multitenancy: false
+			);
+		} catch (DoesNotExistException) {
+			// Deleted after its result job was queued: nothing left to deliver.
+			return [];
+		}
+
 		if (($object instanceof ObjectEntity) === false) {
 			return [];
 		}

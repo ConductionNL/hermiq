@@ -27,6 +27,7 @@ use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Notification\IManager as INotificationManager;
 use OCP\Notification\INotification;
+use OCP\AppFramework\Db\DoesNotExistException;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -98,6 +99,11 @@ class HandoffDeliveryTest extends TestCase {
 		parent::setUp();
 		$this->objects = $this->createMock(ObjectService::class);
 		$this->objects->method('find')->willReturnCallback(function (string $id): ?ObjectEntity {
+			if ($id === 'deleted') {
+				// OpenRegister throws for an object that was deleted.
+				throw new DoesNotExistException('Object with identifier \'deleted\' not found in any magic table');
+			}
+
 			if (isset($this->store[$id]) === false) {
 				return null;
 			}
@@ -281,6 +287,8 @@ class HandoffDeliveryTest extends TestCase {
 		$this->assertSame('skipped', $this->delivery->deliver(handoffId: 'gone'));
 		$this->assertSame('skipped', $this->delivery->deliver(handoffId: 'h-2'));
 		$this->assertSame('skipped', $this->delivery->deliver(handoffId: ''));
+		// Deleted after its result job was queued (seen live: the job failed with "not found").
+		$this->assertSame('skipped', $this->delivery->deliver(handoffId: 'deleted'));
 	}//end testAMissingOrWaitingHandoffIsSkipped()
 
 	/**
