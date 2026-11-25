@@ -55,6 +55,7 @@ Kind: code. Size M. Rows `hermiq:dm-prompt-cache`, `integriq:gw-ai-cache`.
   > 2026-11-14: `AnswerCacheService` (eligibility, the SHA-256 key over organisation, agent, version, provider, model, temperature and the assembled input, the re-checked lookup, the store) runs in `ResponseGenerationHandler::runTurn()` right before the model call; a hit returns the stored answer with zero model tokens and sets `lastCache`, which the Engine returns as `cache` and the stream's `final` frame as `fromCache`.
 - [ ] Test (PHPUnit on eligibility, key and policy re-check; Newman that a second organisation reads no entry)
   > PHPUnit is done (`AnswerCacheServiceTest`, `ResponseAnswerCacheTest`); the Newman check needs a live instance with two organisations and stays open.
+  - 2026-11-25, live (sandbox Nextcloud 34 on PostgreSQL 16, OpenRegister main, a stub model; one agent with the cache on, the same question, the active organisation switched between two): before the fix, organisation B was served A's answer (`fromCache: true` on B's first ask): the key and the re-check used the agent's organisation, not the one the person acts in. Fixed (`AnswerCacheService::organisationOf()`, `testThePersonsActiveOrganisationDecidesNotTheAgents`); after: A miss, A hit, B miss, B hit, A hit. Still open: the Newman part. Through the object API the collection's admin sees every organisation's entries (OpenRegister's admin override) and only admins may read entries at all, so an object-API Newman check cannot show the boundary; it needs a non-admin member of a second organisation in the collection's fixtures.
 
 ### Task 6: The similarity layer through the vector facade
 - **spec_ref**: `openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-similar-questions-match-only-through-openregisters-vector-facade-req-acache-003`
@@ -87,4 +88,5 @@ Kind: code. Size M. Rows `hermiq:dm-prompt-cache`, `integriq:gw-ai-cache`.
 - [x] `openspec validate models-prompt-and-answer-cache --type change --strict` passes
   - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
 - [ ] PHPUnit, Newman and Playwright run once before push, exit codes read
+  - 2026-11-25: Playwright `answer-cache.spec.ts` 5/5 live (twice; the shared `dismissTour` now waits for a setup wizard that opens late); PHPUnit `tests/Unit/Service/AnswerCache/` 32/32 and the full suite's failing set equals development's. Newman: see Task 5. Left unticked until the Newman part and the live Anthropic check (needs a key) are done.
 - [ ] One live Anthropic session shows cache read tokens on its second turn
