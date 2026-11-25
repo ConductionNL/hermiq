@@ -14,7 +14,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-is-offered-under-a-two-segment-id-and-only-by-exact-grant-req-custool-002
+ * @spec openspec/specs/custom-tools/spec.md#requirement-a-custom-tool-is-offered-under-a-two-segment-id-and-only-by-exact-grant-req-custool-002
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
@@ -36,7 +36,7 @@ use OCA\OpenRegister\Service\Capability\ToolReachResolver;
  * the admin declared; reach is `external` for every target, the fallback the
  * reach spec names, so a custom tool is default-denied until granted by its id.
  *
- * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-is-offered-under-a-two-segment-id-and-only-by-exact-grant-req-custool-002
+ * @spec openspec/specs/custom-tools/spec.md#requirement-a-custom-tool-is-offered-under-a-two-segment-id-and-only-by-exact-grant-req-custool-002
  */
 final class CustomToolDescriptors {
 
@@ -52,7 +52,7 @@ final class CustomToolDescriptors {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-is-offered-under-a-two-segment-id-and-only-by-exact-grant-req-custool-002
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-a-custom-tool-is-offered-under-a-two-segment-id-and-only-by-exact-grant-req-custool-002
 	 */
 	public static function idOf(string $slug): string {
 		return AppIdentity::APP_ID . '.' . self::PREFIX . $slug;
@@ -65,7 +65,7 @@ final class CustomToolDescriptors {
 	 *
 	 * @return string|null The slug, or null for any other id.
 	 *
-	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-is-offered-under-a-two-segment-id-and-only-by-exact-grant-req-custool-002
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-a-custom-tool-is-offered-under-a-two-segment-id-and-only-by-exact-grant-req-custool-002
 	 */
 	public static function slugOf(string $toolId): ?string {
 		$prefix = AppIdentity::APP_ID . '.' . self::PREFIX;
@@ -88,7 +88,7 @@ final class CustomToolDescriptors {
 	 *
 	 * @return array<string, mixed>|null
 	 *
-	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-is-offered-under-a-two-segment-id-and-only-by-exact-grant-req-custool-002
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-a-custom-tool-is-offered-under-a-two-segment-id-and-only-by-exact-grant-req-custool-002
 	 */
 	public static function describe(array $tool): ?array {
 		$slug = (string)($tool['slug'] ?? '');

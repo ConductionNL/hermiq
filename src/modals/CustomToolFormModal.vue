@@ -16,7 +16,7 @@
   organisation admin or instance admin passes. Every NcSelect carries an
   `inputLabel` (WCAG 2.1 AA).
 
-  @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+  @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 -->
 <template>
 	<NcModal :show="show" size="large" :name="heading" @close="handleClose">
@@ -228,7 +228,7 @@ let keySeed = 0
  *
  * @param {object} target The stored target, or an empty object.
  * @return {object}
- * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+ * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
  */
 function targetFormFrom(target) {
 	return {
@@ -300,7 +300,7 @@ export default {
 		/**
 		 * The dialog title.
 		 *
-		 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+		 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 		 */
 		heading() {
 			return this.item?.id
@@ -311,7 +311,7 @@ export default {
 		/**
 		 * The simple input types.
 		 *
-		 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+		 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 		 */
 		typeOptions() {
 			return [
@@ -325,7 +325,7 @@ export default {
 		/**
 		 * What a tool may change.
 		 *
-		 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+		 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 		 */
 		changeOptions() {
 			return [
@@ -338,7 +338,7 @@ export default {
 		/**
 		 * The two target kinds.
 		 *
-		 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+		 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 		 */
 		targetOptions() {
 			return [
@@ -350,7 +350,7 @@ export default {
 		/**
 		 * The HTTP methods of an integriq target.
 		 *
-		 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+		 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 		 */
 		methodOptions() {
 			return ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((method) => ({ value: method, label: method }))
@@ -359,7 +359,7 @@ export default {
 		/**
 		 * The flows the admin may read, plus the stored one when it is not among them.
 		 *
-		 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+		 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 		 */
 		flowOptions() {
 			const options = this.flows.map((flow) => ({
@@ -375,7 +375,7 @@ export default {
 		/**
 		 * The inputs that have a name, for the sample fields of "Try it".
 		 *
-		 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+		 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 		 */
 		namedInputs() {
 			return this.form.inputs.filter((input) => input.name.trim() !== '')
@@ -384,7 +384,7 @@ export default {
 		/**
 		 * Whether the required fields are filled in.
 		 *
-		 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+		 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 		 */
 		canSave() {
 			return this.form.name.trim() !== '' && this.form.slug.trim() !== '' && this.form.description.trim() !== ''
@@ -396,7 +396,7 @@ export default {
 		 * Reset the form and load the flows each time the dialog opens.
 		 *
 		 * @param {boolean} open Whether the dialog is open.
-		 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+		 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 		 */
 		show(open) {
 			if (open) {
@@ -412,7 +412,7 @@ export default {
 		 * Reload the form when the edited tool changes.
 		 *
 		 * @param {object|null} value The edited tool.
-		 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+		 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 		 */
 		item(value) {
 			this.form = this.formFrom(value)
@@ -422,7 +422,7 @@ export default {
 	/**
 	 * Load the flows a tool can target when the modal is mounted open.
 	 *
-	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 	 */
 	mounted() {
 		if (this.show) {
@@ -447,7 +447,7 @@ export default {
 		 * A fresh key for a list row.
 		 *
 		 * @return {number}
-		 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+		 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 		 */
 		nextKey() {
 			keySeed += 1
@@ -460,7 +460,7 @@ export default {
 		 * @param {Array<{value: string}>} options The options.
 		 * @param {string} value The value.
 		 * @return {object|null}
-		 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+		 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 		 */
 		optionFor(options, value) {
 			return options.find((option) => option.value === value) || null
@@ -471,7 +471,7 @@ export default {
 		 *
 		 * @param {object|null} source The stored tool.
 		 * @return {object}
-		 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+		 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 		 */
 		formFrom(source) {
 			return {
@@ -488,7 +488,7 @@ export default {
 		/**
 		 * Add an empty input row.
 		 *
-		 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+		 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 		 */
 		addInput() {
 			this.form.inputs.push({ key: this.nextKey(), name: '', type: 'string', required: false, description: '', enumText: '' })
@@ -498,7 +498,7 @@ export default {
 		 * Load the flows for the target picker; a failure leaves the list empty.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+		 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 		 */
 		async loadFlows() {
 			this.flowsLoading = true
@@ -515,7 +515,7 @@ export default {
 		 * The payload the API stores.
 		 *
 		 * @return {object}
-		 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+		 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 		 */
 		buildPayload() {
 			const target = this.form.targetType === 'flow'
@@ -536,7 +536,7 @@ export default {
 		 * Save through the custom tools API.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+		 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 		 */
 		async save() {
 			this.saving = true
@@ -559,7 +559,7 @@ export default {
 		 * Run the saved tool once with the sample inputs and show the answer.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+		 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 		 */
 		async tryIt() {
 			this.trying = true
