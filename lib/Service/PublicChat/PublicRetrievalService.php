@@ -27,6 +27,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\PublicChat;
 
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Db\RegisterMapper;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IURLGenerator;
 use Psr\Log\LoggerInterface;
@@ -59,6 +60,32 @@ class PublicRetrievalService {
 	public const MAX_EXCERPT = 1200;
 
 	/**
+	 * The most words of a question searched, longest first.
+	 */
+	public const MAX_TERMS = 4;
+
+	/**
+	 * Words shorter than this are not searched on their own.
+	 */
+	private const MIN_TERM_LENGTH = 3;
+
+	/**
+	 * Question words that carry no subject, Dutch and English. OpenRegister's
+	 * `_search` asks for EVERY word it is given, so a visitor's whole sentence
+	 * ("Wat staat er over de afvalkalender?") would match nothing.
+	 */
+	private const STOP_WORDS = [
+		'aan', 'als', 'ben', 'bent', 'bij', 'dan', 'dat', 'den', 'der', 'deze', 'die', 'dit', 'een', 'geen', 'graag', 'heb', 'hebben',
+		'heeft', 'het', 'hij', 'hoe', 'ik', 'jij', 'kan', 'kun', 'kunt', 'maar', 'mag', 'met', 'mijn', 'moet', 'naar',
+		'niet', 'nog', 'ons', 'onze', 'ook', 'over', 'staan', 'staat', 'tot', 'uit', 'van', 'voor', 'waar', 'wanneer', 'waarom', 'was',
+		'wat', 'waren', 'welk', 'welke', 'wel', 'wie', 'wij', 'wil', 'wordt', 'worden', 'zij', 'zijn',
+		'about', 'also', 'and', 'any', 'are', 'been', 'can', 'could', 'did', 'does', 'for', 'from', 'had', 'has', 'have',
+		'how', 'may', 'might', 'must', 'not', 'our', 'please', 'should', 'some', 'tell', 'that', 'the', 'there', 'these',
+		'they', 'this', 'those', 'was', 'were', 'what', 'when', 'where', 'which', 'who', 'why', 'will', 'with', 'would',
+		'you', 'your',
+	];
+
+	/**
 	 * Fields read as a source's title, first match wins.
 	 */
 	private const TITLE_FIELDS = ['title', 'name', 'subject', 'label'];
@@ -76,9 +103,10 @@ class PublicRetrievalService {
 	/**
 	 * Constructor.
 	 *
-	 * @param ObjectService   $objectService OpenRegister objects, read as anonymous only.
-	 * @param IURLGenerator   $urls          Builds a source's link when it carries none.
-	 * @param LoggerInterface $logger        Records why nothing was read.
+	 * @param ObjectService       $objectService OpenRegister objects, read as anonymous only.
+	 * @param IURLGenerator       $urls          Builds a source's link when it carries none.
+	 * @param LoggerInterface     $logger        Records why nothing was read.
+	 * @param RegisterMapper|null $registers     Lists a register's schemas for a whole-register scope.
 	 *
 	 * @return void
 	 *
@@ -88,6 +116,7 @@ class PublicRetrievalService {
 		private readonly ObjectService $objectService,
 		private readonly IURLGenerator $urls,
 		private readonly LoggerInterface $logger,
+		private readonly ?RegisterMapper $registers=null,
 	) {
 	}//end __construct()
 
@@ -178,6 +207,11 @@ class PublicRetrievalService {
 	/**
 	 * The objects an anonymous caller may read that match the question, inside the scope.
 	 *
+	 * The question is searched word by word (searchTermsOf()), because
+	 * OpenRegister's `_search` asks for every word it is given. An object found
+	 * by more of the words ranks first. A whole-register scope names the
+	 * register's schemas, because a search without a schema finds nothing.
+	 *
 	 * @param array<int, array{register: string, schema: string}> $scope        The scope, already intersected.
 	 * @param string                                              $question     The visitor's question.
 	 * @param string                                              $organisation The channel's organisation, '' for none.
@@ -195,36 +229,115 @@ class PublicRetrievalService {
 		}
 
 		$sources = [];
+		$hits    = [];
 		foreach ($scope as $pair) {
-			$schema = null;
+			$query = ['_limit' => $limit, '_register' => $pair['register'], '_schema' => null];
 			if ($pair['schema'] !== '') {
-				$schema = $pair['schema'];
+				$query['_schema'] = $pair['schema'];
 			}
 
-			$rows = $this->anonymously(
-				organisation: $organisation,
-				operation: fn (): mixed => $this->objectService->searchObjectsPaginated(
-					query: [
-						'_search'   => $question,
-						'_limit'    => $limit,
-						'_register' => $pair['register'],
-						'_schema'   => $schema,
-					],
-					_rbac: true,
-					_multitenancy: true
-				)
-			);
+			$schemas = $this->schemasOf(pair: $pair);
+			if ($schemas !== []) {
+				$query['_schemas'] = $schemas;
+			}
 
-			foreach ($this->rowsOf(result: $rows) as $row) {
-				$source = $this->sourceOf(row: $row, pair: $pair);
-				if ($source !== null) {
-					$sources[$source['id']] = $source;
+			foreach (self::searchTermsOf(question: $question) as $term) {
+				$rows = $this->anonymously(
+					organisation: $organisation,
+					operation: fn (): mixed => $this->objectService->searchObjectsPaginated(
+						query: array_merge(['_search' => $term], $query),
+						_rbac: true,
+						_multitenancy: true
+					)
+				);
+
+				foreach ($this->rowsOf(result: $rows) as $row) {
+					$source = $this->sourceOf(row: $row, pair: $pair);
+					if ($source !== null) {
+						$sources[$source['id']] ??= $source;
+						$hits[$source['id']] = (($hits[$source['id']] ?? 0) + 1);
+					}
 				}
 			}
-		}
+		}//end foreach
+
+		// Most words matched first; ties keep the order they were found in.
+		$order = array_flip(array_keys($sources));
+		uksort(
+			$sources,
+			static fn (string $a, string $b): int => [$hits[$b], $order[$a]] <=> [$hits[$a], $order[$b]]
+		);
 
 		return array_slice(array_values($sources), 0, $limit);
 	}//end retrieve()
+
+	/**
+	 * The words of a question worth searching on their own, longest first.
+	 *
+	 * Lower-cased, split on anything that is not a letter or digit, without
+	 * short words and question words, at most MAX_TERMS. A question of only
+	 * such words is searched as it was asked.
+	 *
+	 * @param string $question The visitor's question.
+	 *
+	 * @return list<string>
+	 *
+	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
+	 */
+	public static function searchTermsOf(string $question): array {
+		$words = preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower(trim($question)), -1, PREG_SPLIT_NO_EMPTY);
+		if (is_array($words) === false) {
+			$words = [];
+		}
+
+		$terms = [];
+		foreach ($words as $word) {
+			if (mb_strlen($word) >= self::MIN_TERM_LENGTH && in_array($word, self::STOP_WORDS, true) === false) {
+				$terms[$word] = mb_strlen($word);
+			}
+		}
+
+		if ($terms === []) {
+			return [trim($question)];
+		}
+
+		// Longest first: a long word says most about what is asked. Stable for equal lengths.
+		$order = array_flip(array_keys($terms));
+		uksort($terms, static fn (string $a, string $b): int => [$terms[$b], $order[$a]] <=> [$terms[$a], $order[$b]]);
+
+		return array_slice(array_map('strval', array_keys($terms)), 0, self::MAX_TERMS);
+	}//end searchTermsOf()
+
+	/**
+	 * The schemas of a whole-register scope pair, or [] for a pair that names its schema.
+	 *
+	 * Read as the system: the register's schema list is configuration the
+	 * channel's administrator declared, not content. Which OBJECTS come back is
+	 * still decided by the anonymous read. [] when the register cannot be read.
+	 *
+	 * @param array{register: string, schema: string} $pair The scope pair.
+	 *
+	 * @return list<int|string>
+	 *
+	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
+	 */
+	private function schemasOf(array $pair): array {
+		if ($pair['schema'] !== '' || $this->registers === null) {
+			return [];
+		}
+
+		try {
+			$schemas = $this->registers->find($pair['register'], _rbac: false, _multitenancy: false)->getSchemas();
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				message: '[PublicRetrievalService] The schemas of a register in a public scope could not be read',
+				context: ['file' => __FILE__, 'line' => __LINE__, 'register' => $pair['register'], 'error' => $e->getMessage()]
+			);
+			return [];
+		}
+
+		return array_values(array_filter((array)$schemas, static fn (mixed $id): bool => is_int($id) === true || is_string($id) === true));
+	}//end schemasOf()
 
 	/**
 	 * The narrower of a requested pair and a declared one, or null when they do not overlap.
