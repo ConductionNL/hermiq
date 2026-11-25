@@ -36,7 +36,7 @@ use OCP\IAppConfig;
  * per organisation. The time-to-live of a claim is fixed here as well, because
  * the claim, the sweep and the limit count must agree on it.
  *
- * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+ * @spec openspec/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
  */
 class RunConcurrencySettings {
 
@@ -90,7 +90,7 @@ class RunConcurrencySettings {
 	 *
 	 * @return array{maxParallel: int, maxParallelPerOrganisation: int}
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
 	 */
 	public function limits(): array {
 		$stored = json_decode($this->appConfig->getValueString(AppIdentity::APP_ID, self::CONFIG_KEY, ''), true);
@@ -118,7 +118,7 @@ class RunConcurrencySettings {
 	 * @throws InvalidArgumentException When a limit is not a whole number from 1 to 64, or the
 	 *                                  organisation limit is above the instance limit.
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
 	 *
 	 * @SuppressWarnings(PHPMD.LongVariable) callers pass this argument by name; shortening it would rename
 	 * the call contract.
@@ -148,7 +148,7 @@ class RunConcurrencySettings {
 	 *
 	 * @return bool True when the run may start.
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
 	 *
 	 * @SuppressWarnings(PHPMD.LongVariable) callers pass this argument by name; shortening it would rename
 	 * the call contract.

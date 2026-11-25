@@ -38,7 +38,7 @@ use Throwable;
  * it. The claim, the gates and the limits are ScheduleService::runQueued()'s,
  * so this job stays a wrapper (hermiq ADR-002, hydra ADR-069).
  *
- * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
+ * @spec openspec/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
  */
 class ScheduleRunJob extends QueuedJob {
 
@@ -64,7 +64,7 @@ class ScheduleRunJob extends QueuedJob {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
 	 */
 	protected function run($argument): void {
 		$scheduleId = '';

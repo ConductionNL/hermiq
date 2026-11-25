@@ -1577,7 +1577,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) carried in with operations-parallel-run-workers;
 	 * splitting it is follow-up work, not part of this merge.
@@ -1698,7 +1698,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
 	 * stored data; it holds no state to inject.
@@ -1735,7 +1735,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
 	 * stored data; it holds no state to inject.
@@ -1774,7 +1774,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
 	 */
 	private function runClaimed(ObjectEntity $schedule, DateTimeImmutable $now): void {
 		$data = $schedule->getObject();
@@ -1802,8 +1802,8 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @return string `ran`, `stale`, `claimed_elsewhere`, `deferred` or `gone`.
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
 	 * stored data; it holds no state to inject.
@@ -1873,7 +1873,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @return bool True when the run may start.
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
 	 * stored data; it holds no state to inject.
@@ -1926,7 +1926,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-a-lost-worker-is-recorded-as-a-failed-run-req-prun-002
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-a-lost-worker-is-recorded-as-a-failed-run-req-prun-002
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) OccurrenceClaim is a set of pure functions over a schedule's
 	 * stored data; it holds no state to inject.
@@ -1973,7 +1973,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-a-lost-worker-is-recorded-as-a-failed-run-req-prun-002
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-a-lost-worker-is-recorded-as-a-failed-run-req-prun-002
 	 */
 	private function recordLostOccurrence(ObjectEntity $schedule, DateTimeImmutable $now): void {
 		$data = $schedule->getObject();
@@ -2027,7 +2027,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @return bool True when occurrences are claimed and queued.
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
 	 */
 	private function claimsOccurrences(): bool {
 		return $this->occurrenceClaim !== null && $this->occurrenceClaim->isAvailable() === true;
@@ -2099,7 +2099,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @return array{data: array<string, mixed>, attemptNumber: int, deferDisable: bool, limitReached: bool, retryEnabled: bool}
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
 	 */
 	private function committedOccurrence(array $data): array {
 		$retryEnabled = (($data['retryEnabled'] ?? false) === true);
