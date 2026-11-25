@@ -669,7 +669,7 @@ class MemoryServiceTest extends TestCase {
 		$this->assertSame('agent-1', $capturedConfig['filters']['agentId']);
 		// The layer's object is found by its filters; the term is matched on the entries,
 		// because OpenRegister's search never reads the text inside `entries`.
-		$this->assertArrayNotHasKey('search', $capturedConfig);
+		$this->assertArrayNotHasKey(key: 'search', array: $capturedConfig);
 		$this->assertCount(1, $result['memoryEntries'], 'The soft-deleted entry must be excluded from the result.');
 		$this->assertSame('e1', $result['memoryEntries'][0]['id']);
 		$this->assertSame([], $result['userProfileEntries'], 'No subjectUid was supplied — userprofile is never searched.');
@@ -686,12 +686,12 @@ class MemoryServiceTest extends TestCase {
 	public function testAnEntryMatchesWhenEveryWordOfTheQueryIsInIt(): void {
 		$text = 'De sleutelkast van project Alpha heeft code KIWI-7731.';
 
-		$this->assertTrue(MemoryService::entryMatches(text: $text, query: 'sleutelkast'));
-		$this->assertTrue(MemoryService::entryMatches(text: $text, query: 'Code Sleutelkast'));
-		$this->assertTrue(MemoryService::entryMatches(text: $text, query: 'kiwi-7731'));
-		$this->assertTrue(MemoryService::entryMatches(text: $text, query: ''));
-		$this->assertFalse(MemoryService::entryMatches(text: $text, query: 'sleutelkast Beta'));
-		$this->assertFalse(MemoryService::entryMatches(text: $text, query: 'fietsenstalling'));
+		$this->assertTrue(condition: MemoryService::entryMatches(text: $text, query: 'sleutelkast'));
+		$this->assertTrue(condition: MemoryService::entryMatches(text: $text, query: 'Code Sleutelkast'));
+		$this->assertTrue(condition: MemoryService::entryMatches(text: $text, query: 'kiwi-7731'));
+		$this->assertTrue(condition: MemoryService::entryMatches(text: $text, query: ''));
+		$this->assertFalse(condition: MemoryService::entryMatches(text: $text, query: 'sleutelkast Beta'));
+		$this->assertFalse(condition: MemoryService::entryMatches(text: $text, query: 'fietsenstalling'));
 	}//end testAnEntryMatchesWhenEveryWordOfTheQueryIsInIt()
 	/**
 	 * Golden: every read path (sessions, profiles, turn recall, entry recall, the
