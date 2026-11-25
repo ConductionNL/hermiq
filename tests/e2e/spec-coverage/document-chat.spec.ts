@@ -243,7 +243,8 @@ function sourceFileIds(stream: string): number[] {
  * @return Nothing.
  */
 async function closeFirstVisitDialogs(page: Page): Promise<void> {
-	await page.waitForLoadState('networkidle').catch(() => undefined)
+	// The first-visit dialogs open a moment after load; wait for one, briefly.
+	await page.getByRole('dialog').first().waitFor({ timeout: 10_000 }).catch(() => undefined)
 	for (let round = 0; round < 5; round++) {
 		const dialogs = page.getByRole('dialog')
 		const open = await dialogs.count()
