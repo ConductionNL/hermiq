@@ -97,7 +97,7 @@ class AiFeatureLookup {
 	 *
 	 * @return ObjectEntity|null The AiFeature object, or null.
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
 	 */
 	public function findBySlugForOrganisation(string $slug, string $organisation): ?ObjectEntity {
 		if ($slug === '' || $organisation === '') {

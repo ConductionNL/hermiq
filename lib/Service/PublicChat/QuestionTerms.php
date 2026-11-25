@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
+ * @spec openspec/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
  */
 
 declare(strict_types=1);
@@ -68,7 +68,7 @@ final class QuestionTerms {
 	 *
 	 * @return list<string>
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
 	 */
 	public function termsOf(string $question): array {
 		$words = preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower(trim($question)), -1, PREG_SPLIT_NO_EMPTY);
@@ -102,7 +102,7 @@ final class QuestionTerms {
 	 *
 	 * @return list<array<string, mixed>>
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
 	 */
 	public function rankByHits(array $items, array $hits): array {
 		$order = array_flip(array_keys($items));

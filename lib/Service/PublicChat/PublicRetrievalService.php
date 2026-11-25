@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
+ * @spec openspec/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use Throwable;
  * OpenRegister cannot run a read as anonymous, nothing is read at all: the
  * turn answers from no sources rather than from the session's.
  *
- * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
+ * @spec openspec/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
  */
 class PublicRetrievalService {
 
@@ -90,7 +90,7 @@ class PublicRetrievalService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
@@ -111,7 +111,7 @@ class PublicRetrievalService {
 	 *
 	 * @return list<array{register: string, schema: string}>
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
 	 */
 	public static function normaliseScope(mixed $scope): array {
 		$pairs = [];
@@ -150,7 +150,7 @@ class PublicRetrievalService {
 	 *
 	 * @return list<array{register: string, schema: string}>
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-sibling-apps-reach-the-same-channel-in-process-without-an-identity-req-pubchat-004
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-sibling-apps-reach-the-same-channel-in-process-without-an-identity-req-pubchat-004
 	 */
 	public static function intersectScope(mixed $channelScope, ?array $requested): array {
 		$declared = self::normaliseScope(scope: $channelScope);
@@ -179,7 +179,7 @@ class PublicRetrievalService {
 	 *
 	 * @return list<array{register: string, schema: string}>
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-sibling-apps-reach-the-same-channel-in-process-without-an-identity-req-pubchat-004
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-sibling-apps-reach-the-same-channel-in-process-without-an-identity-req-pubchat-004
 	 */
 	public function scopeFor(array $channel, ?array $requested): array {
 		return self::intersectScope(channelScope: ($channel['sourceScope'] ?? []), requested: $requested);
@@ -200,7 +200,7 @@ class PublicRetrievalService {
 	 *
 	 * @return list<array{id: string, register: string, schema: string, title: string, url: string, excerpt: string}>
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
 	 */
 	public function retrieve(array $scope, string $question, string $organisation='', int $limit=self::MAX_SOURCES): array {
 		$question = trim($question);

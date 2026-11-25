@@ -6,7 +6,7 @@
  * host list through the slot's `refresh` binding, because a dialog mounted from
  * the manifest gets props only and its `saved` event reaches no listener.
  *
- * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-an-organisation-admin-declares-a-public-chat-channel-req-pubchat-001
+ * @spec openspec/specs/public-chat-channel/spec.md#requirement-an-organisation-admin-declares-a-public-chat-channel-req-pubchat-001
  */
 
 import { mount } from '@vue/test-utils'

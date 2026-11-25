@@ -17,7 +17,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
+ * @spec openspec/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
  */
 
 declare(strict_types=1);
@@ -32,7 +32,7 @@ use RuntimeException;
  * The message is always one a visitor may read: it never says why a channel
  * is stopped (feature off, kill switch, agent off), only that it is.
  *
- * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
+ * @spec openspec/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
  */
 class PublicChatRefusedException extends RuntimeException {
 
@@ -54,7 +54,7 @@ class PublicChatRefusedException extends RuntimeException {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
 	 */
 	public function __construct(string $message=self::NOT_AVAILABLE, private readonly int $status=503) {
 		parent::__construct(message: $message, code: $status);
@@ -65,7 +65,7 @@ class PublicChatRefusedException extends RuntimeException {
 	 *
 	 * @return int
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
 	 */
 	public function getStatus(): int {
 		return $this->status;
@@ -76,7 +76,7 @@ class PublicChatRefusedException extends RuntimeException {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
 	 */
 	public function isUnavailable(): bool {
 		return in_array($this->status, [429, 503], true);
