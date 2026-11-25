@@ -160,7 +160,7 @@ class LlmSettingsController extends Controller {
 	 *                      an unsupported provider.
 	 *
 	 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-1-3
-	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+	 * @spec openspec/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
@@ -224,7 +224,7 @@ class LlmSettingsController extends Controller {
 	 *
 	 * @return JSONResponse
 	 *
-	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+	 * @spec openspec/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 */
 	private function save(array $patch, ?array $capabilities): JSONResponse {
 		$merged = $this->persist(patch: $patch);

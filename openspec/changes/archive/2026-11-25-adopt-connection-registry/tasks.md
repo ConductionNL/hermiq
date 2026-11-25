@@ -26,4 +26,5 @@
 
 ## 5. After integriq ships hydra#674
 
-- [ ] 5.1 Run the e2e spec against an instance with both apps, then archive this change.
+- [x] 5.1 Run the e2e spec against an instance with both apps, then archive this change.
+  - 2026-11-25, sandbox Nextcloud 34 (PostgreSQL 16), OpenRegister main + #11225, hermiq development, integriq development 4d194f2 (its repair step synced hermiq's rows): `tests/e2e/connections-page.spec.ts` 5/5, exit 0. Three spec fixes first: the declaration now has seven connections (`trace-export` came later), the web-research settings read carries the request token (the route is not CSRF-exempt), rows are matched by a cell holding exactly the title (the LLM runner row's text names the AI provider), and the setup wizard is closed when it opens over the page.

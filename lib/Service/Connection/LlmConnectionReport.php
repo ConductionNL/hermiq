@@ -23,7 +23,7 @@
  * SPDX-License-Identifier: EUPL-1.2
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  *
- * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-the-runner-and-the-speech-sidecar-read-honestly-req-hermiq-conn-004
+ * @spec openspec/specs/app-connections/spec.md#requirement-the-runner-and-the-speech-sidecar-read-honestly-req-hermiq-conn-004
  */
 
 declare(strict_types=1);
@@ -38,7 +38,7 @@ use Throwable;
 /**
  * Reports the AI provider and the LLM runner after an AI provider save.
  *
- * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-the-runner-and-the-speech-sidecar-read-honestly-req-hermiq-conn-004
+ * @spec openspec/specs/app-connections/spec.md#requirement-the-runner-and-the-speech-sidecar-read-honestly-req-hermiq-conn-004
  */
 class LlmConnectionReport {
 
@@ -75,7 +75,7 @@ class LlmConnectionReport {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-the-runner-and-the-speech-sidecar-read-honestly-req-hermiq-conn-004
+	 * @spec openspec/specs/app-connections/spec.md#requirement-the-runner-and-the-speech-sidecar-read-honestly-req-hermiq-conn-004
 	 */
 	public function reportSaved(array $config): void {
 		[$status, $message] = $this->describeProvider(config: $config);
