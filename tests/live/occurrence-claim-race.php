@@ -33,6 +33,7 @@ if (($argv[2] ?? '') === '--worker') {
 	$rounds = (int)$argv[5];
 	$name = (string)$argv[6];
 	require_once $ncRoot . '/lib/base.php';
+	// phpcs:ignore CustomSniffs.Nextcloud.NoServiceLocator.GlobalContainerLookup -- a standalone script has no constructor to inject into; Nextcloud is booted by base.php above.
 	$claim = \OCP\Server::get(\OCA\Hermiq\Service\Run\OccurrenceClaim::class);
 	if ($claim->isAvailable() === false) {
 		fwrite(STDERR, "OpenRegister offers no advisory lock\n");
@@ -47,7 +48,12 @@ if (($argv[2] ?? '') === '--worker') {
 		}
 
 		$held = $claim->claim(scheduleUuid: "race-$runId-$i", occurrenceKey: "$name-$i", ttlSeconds: 60);
-		echo $i . ' ' . ($held === true ? '1' : '0') . "\n";
+		$won = '0';
+		if ($held === true) {
+			$won = '1';
+		}
+
+		echo $i . ' ' . $won . "\n";
 	}
 
 	exit(0);
@@ -96,4 +102,8 @@ for ($i = 0; $i < $rounds; $i++) {
 }
 
 echo "rounds=$rounds one-winner=" . ($rounds - $bad) . " wrong=$bad won-by-a={$wins['a']} won-by-b={$wins['b']}\n";
-exit(($failed === true || $bad > 0) ? 1 : 0);
+if ($failed === true || $bad > 0) {
+	exit(1);
+}
+
+exit(0);
