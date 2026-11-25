@@ -36,6 +36,7 @@ use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\AppFramework\Db\DoesNotExistException;
 
 /**
  * Forks a session at an assistant turn; the owner only.
@@ -152,7 +153,13 @@ class SessionForkService implements SessionForkServiceInterface {
 	 * @throws SessionForkException 404.
 	 */
 	private function ownedSession(string $uuid, string $callerUid): ObjectEntity {
-		$session = $this->objectService->find(id: $uuid, options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA));
+		try {
+			$session = $this->objectService->find(id: $uuid, options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA));
+		} catch (DoesNotExistException) {
+			// OpenRegister answers an unknown or unreadable id with this exception as well as with null.
+			throw new SessionForkException('Session not found.', 404);
+		}
+
 		if ($session === null || $callerUid === '' || ($session->getObject()['userId'] ?? null) !== $callerUid) {
 			throw new SessionForkException('Session not found.', 404);
 		}

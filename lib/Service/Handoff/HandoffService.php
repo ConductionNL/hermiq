@@ -28,6 +28,7 @@ use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJobList;
 use Psr\Log\LoggerInterface;
@@ -294,17 +295,19 @@ class HandoffService {
 			return null;
 		}
 
-		$object = $this->objectService->find(
-			id: $handoffId,
-			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
-			_rbac: false,
-			_multitenancy: false
-		);
-		if (($object instanceof ObjectEntity) === false) {
+		try {
+			$object = $this->objectService->find(
+				id: $handoffId,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
+				_rbac: false,
+				_multitenancy: false
+			);
+		} catch (DoesNotExistException) {
+			// OpenRegister answers an unknown id with this exception as well as with null.
 			return null;
 		}
 
-		return $object->getObject();
+		return $object?->getObject();
 	}//end find()
 
 	/**
@@ -455,21 +458,11 @@ class HandoffService {
 	 * @return array<string, mixed>|null
 	 */
 	private function waiting(string $handoffId): ?array {
-		if ($handoffId === '') {
+		$handoff = $this->find(handoffId: $handoffId);
+		if ($handoff === null) {
 			return null;
 		}
 
-		$object = $this->objectService->find(
-			id: $handoffId,
-			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
-			_rbac: false,
-			_multitenancy: false
-		);
-		if (($object instanceof ObjectEntity) === false) {
-			return null;
-		}
-
-		$handoff = $object->getObject();
 		if (($handoff['status'] ?? null) !== self::WAITING) {
 			$this->logger->info(
 				'[HandoffService] A handoff that is no longer waiting was left as it is',

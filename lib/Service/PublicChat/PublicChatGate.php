@@ -183,7 +183,7 @@ class PublicChatGate {
 			return 'channel off';
 		}
 
-		if ($this->featureEnabled() === false) {
+		if ($this->featureEnabled(organisation: (string)($channel['tenantId'] ?? '')) === false) {
 			return 'feature off';
 		}
 
@@ -218,13 +218,23 @@ class PublicChatGate {
 	}//end agentRefusal()
 
 	/**
-	 * Whether the `public-chat` AI feature is enabled.
+	 * Whether the `public-chat` AI feature is enabled for the channel's organisation.
+	 *
+	 * A visitor has no session, so the feature is read for the organisation the
+	 * channel belongs to; a channel without one falls back to the session-scoped read.
+	 *
+	 * @param string $organisation The channel's organisation uuid, empty when unknown.
 	 *
 	 * @return bool False also when the feature cannot be read.
+	 *
+	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
 	 */
-	private function featureEnabled(): bool {
+	private function featureEnabled(string $organisation): bool {
 		try {
-			$feature = $this->features->findBySlugForGate(slug: self::FEATURE_SLUG);
+			$feature = $this->features->findBySlugForOrganisation(slug: self::FEATURE_SLUG, organisation: $organisation);
+			if ($organisation === '') {
+				$feature = $this->features->findBySlugForGate(slug: self::FEATURE_SLUG);
+			}
 		} catch (Throwable $e) {
 			return false;
 		}

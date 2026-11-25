@@ -49,6 +49,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
+use OCP\AppFramework\Db\DoesNotExistException;
 
 /**
  * Failure answers and fallbacks of SessionController.
@@ -366,4 +367,23 @@ final class SessionControllerUncoveredPathsTest extends TestCase {
 		self::assertSame($scope, $results[0]['retrievalScope']);
 		self::assertNull($results[1]['retrievalScope']);
 	}//end testMessagesReturnTheRetrievalScope()
+	/**
+	 * OpenRegister may answer an unknown id with DoesNotExistException instead of null;
+	 * every session route reads that as 404, never as a server error.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
+	 */
+	public function testANotFoundExceptionFromOpenRegisterIsNotFound(): void {
+		$this->objectService->method('find')->willThrowException(new DoesNotExistException('s-gone not found in any magic table'));
+		$this->objectService->expects(self::never())->method('saveObject');
+
+		$controller = $this->controller(params: ['title' => 'New']);
+		foreach (['show', 'messages', 'update', 'destroy', 'restore', 'destroyPermanent', 'removeLink'] as $route) {
+			$response = $controller->$route('s-gone');
+			self::assertSame(expected: 404, actual: $response->getStatus(), message: $route);
+		}
+	}//end testANotFoundExceptionFromOpenRegisterIsNotFound()
+
 }//end class

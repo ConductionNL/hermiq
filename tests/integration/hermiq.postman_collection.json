@@ -4192,6 +4192,7 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const rows = pm.response.json().results || [];",
 									"const skill = rows.find(function (row) { return row.slug === 'agentskill'; });",
 									"pm.test('The live Skill schema has sourceUrl and sourceUpdatedAt, both optional', function () {",
@@ -4203,7 +4204,8 @@
 									"    pm.expect(skill.properties.sourceUpdatedAt.format).to.equal('date-time');",
 									"    pm.expect(skill.required || []).to.not.include('sourceUrl');",
 									"    pm.expect(skill.required || []).to.not.include('sourceUpdatedAt');",
-									"});"
+									"});",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -5049,12 +5051,14 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const rows = pm.response.json().results || [];",
-									"pm.test('The list holds the admin's schedule', function () {",
+									"pm.test(\"The list holds the admin's schedule\", function () {",
 									"    pm.response.to.have.status(200);",
 									"    pm.expect(pm.response.json().total).to.equal(rows.length);",
 									"    pm.expect(rows.map(function (row) { return row.id; })).to.include(pm.collectionVariables.get('overview_schedule'));",
-									"});"
+									"});",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -5083,6 +5087,7 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const rows = pm.response.json().results || [];",
 									"pm.test('The failed filter keeps the failed schedule', function () {",
 									"    pm.response.to.have.status(200);",
@@ -5091,7 +5096,8 @@
 									"});",
 									"pm.test('Every row in the failed filter failed', function () {",
 									"    rows.forEach(function (row) { pm.expect(row.failed).to.equal(true); });",
-									"});"
+									"});",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -5120,12 +5126,14 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const rows = pm.response.json().results || [];",
 									"pm.test('The not-failed filter drops the failed schedule', function () {",
 									"    pm.response.to.have.status(200);",
 									"    pm.expect(pm.response.json().total).to.equal(rows.length);",
 									"    pm.expect(rows.map(function (row) { return row.id; })).to.not.include(pm.collectionVariables.get('overview_schedule'));",
-									"});"
+									"});",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -5169,12 +5177,14 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const rows = pm.response.json().results || [];",
-									"pm.test('The second user's list leaves the admin's schedule out', function () {",
+									"pm.test(\"The second user's list leaves the admin's schedule out\", function () {",
 									"    pm.response.to.have.status(200);",
 									"    pm.expect(pm.response.json().total).to.equal(rows.length);",
 									"    pm.expect(rows.map(function (row) { return row.id; })).to.not.include(pm.collectionVariables.get('overview_schedule'));",
-									"});"
+									"});",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -5437,6 +5447,7 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const body = pm.response.json();",
 									"pm.test('The turn answers', function () {",
 									"    pm.response.to.have.status(200);",
@@ -5445,7 +5456,8 @@
 									"    pm.expect(body.message).to.equal(\"Newman: ik antwoord alleen vanuit gevalideerde documenten.\");",
 									"    pm.expect(body.sources || []).to.have.length(0);",
 									"});",
-									"pm.collectionVariables.set('scope_session', (body.session && (body.session.uuid || body.session.id)) || body.sessionUuid || '');"
+									"pm.collectionVariables.set('scope_session', (body.session && (body.session.uuid || body.session.id)) || body.sessionUuid || '');",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -5689,6 +5701,7 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const body = pm.response.json();",
 									"const data = body.object || body;",
 									"pm.test('Approved by the reviewer', function () {",
@@ -5700,7 +5713,8 @@
 									"    pm.expect(data.editedOutput.original).to.equal('Newman: the weekly digest as the agent wrote it.');",
 									"    pm.expect(data.editedOutput.sent).to.equal('Newman: the weekly digest as the reviewer edited it.');",
 									"    pm.expect(data.draftPayload.output).to.equal('Newman: the weekly digest as the reviewer edited it.');",
-									"});"
+									"});",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -5800,6 +5814,7 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const body = pm.response.json();",
 									"const data = body.object || body;",
 									"pm.test('Denied with the reason, nothing edited', function () {",
@@ -5807,7 +5822,8 @@
 									"    pm.expect(data.status).to.equal('denied');",
 									"    pm.expect(data.reason).to.equal('Newman: not this week.');",
 									"    pm.expect(data.editedOutput || null).to.equal(null);",
-									"});"
+									"});",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -5908,12 +5924,14 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const body = pm.response.json();",
 									"pm.test('The policy is saved with its fallback chain', function () {",
 									"    pm.response.to.have.status(200);",
 									"    pm.expect(body.fallbackChain).to.eql([{provider: 'ollama', model: 'llama3.1'}]);",
 									"});",
-									"pm.collectionVariables.set('fallback_policy', body.id);"
+									"pm.collectionVariables.set('fallback_policy', body.id);",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -5942,13 +5960,15 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const policy = (pm.response.json().policies || []).find(p => p.id === pm.collectionVariables.get('fallback_policy'));",
 									"pm.test('The organisation policy carries the ollama fallback', function () {",
 									"    pm.response.to.have.status(200);",
 									"    pm.expect(policy).to.be.an('object');",
 									"    pm.expect(policy.source).to.equal('organisation');",
 									"    pm.expect(policy.fallbackChain).to.eql([{provider: 'ollama', model: 'llama3.1'}]);",
-									"});"
+									"});",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -6013,12 +6033,14 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const policy = (pm.response.json().policies || []).find(p => p.id === pm.collectionVariables.get('fallback_policy'));",
 									"pm.test('Allowed list and chain are unchanged', function () {",
 									"    pm.expect(policy.allowed.map(a => a.provider)).to.include('anthropic');",
 									"    pm.expect(policy.defaultModel).to.eql({provider: 'anthropic', model: 'claude-sonnet-newman'});",
 									"    pm.expect(policy.fallbackChain).to.eql([{provider: 'ollama', model: 'llama3.1'}]);",
-									"});"
+									"});",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -6156,13 +6178,15 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const feature = (pm.response.json().results || []).find(f => f.slug === 'public-chat');",
 									"pm.test('The public-chat feature exists', function () {",
 									"    pm.response.to.have.status(200);",
 									"    pm.expect(feature).to.be.an('object');",
 									"});",
 									"pm.collectionVariables.set('pubchat_feature', feature.uuid || feature.id);",
-									"pm.collectionVariables.set('pubchat_feature_restore', feature.lifecycle === 'enabled' ? 'enable' : 'disable');"
+									"pm.collectionVariables.set('pubchat_feature_restore', feature.lifecycle === 'enabled' ? 'enable' : 'disable');",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -6265,11 +6289,13 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const body = pm.response.json();",
 									"pm.test('The agent is saved', function () {",
 									"    pm.expect([200, 201]).to.include(pm.response.code);",
 									"});",
-									"pm.collectionVariables.set('pubchat_agent', body.id || body.uuid || (body['@self'] || {}).id);"
+									"pm.collectionVariables.set('pubchat_agent', body.id || body.uuid || (body['@self'] || {}).id);",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -6302,12 +6328,14 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const body = pm.response.json();",
 									"pm.test('The channel is saved with its token', function () {",
 									"    pm.expect([200, 201]).to.include(pm.response.code);",
 									"    pm.expect(body.channelToken).to.equal('NewmanPublicChat0000000000000001');",
 									"});",
-									"pm.collectionVariables.set('pubchat_channel', body.id || body.uuid || (body['@self'] || {}).id);"
+									"pm.collectionVariables.set('pubchat_channel', body.id || body.uuid || (body['@self'] || {}).id);",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -6697,7 +6725,7 @@
 						"description": "Seeded with the hash of a known result token, as WebhookHandoffs::open() stores it.",
 						"body": {
 							"mode": "raw",
-							"raw": "{\"kind\": \"webhook\", \"agentId\": \"newman-agent\", \"conversationId\": \"newman-conversation\", \"requestedBy\": \"admin\", \"label\": \"Newman webhook\", \"target\": \"integriq:newman/webhook/permit\", \"status\": \"waiting\", \"requestedAt\": \"2026-11-24T00:00:00+00:00\", \"deadline\": \"2099-01-01T00:00:00+00:00\", \"resultTokenHash\": \"cc20706cf0a9936fbf575c347782e54858330112e873f265895320b2f3f9fc0e\"}"
+							"raw": "{\"kind\": \"webhook\", \"agentId\": \"00000000-0000-4000-8000-00000000a6e1\", \"conversationId\": \"newman-conversation\", \"requestedBy\": \"admin\", \"label\": \"Newman webhook\", \"target\": \"integriq:newman/webhook/permit\", \"status\": \"waiting\", \"requestedAt\": \"2026-11-24T00:00:00+00:00\", \"deadline\": \"2099-01-01T00:00:00+00:00\", \"resultTokenHash\": \"cc20706cf0a9936fbf575c347782e54858330112e873f265895320b2f3f9fc0e\"}"
 						}
 					},
 					"event": [
@@ -6705,11 +6733,13 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const body = pm.response.json();",
 									"pm.test('The handoff is saved', function () {",
 									"    pm.expect([200, 201]).to.include(pm.response.code);",
 									"});",
-									"pm.collectionVariables.set('hres_waiting', body.id || body.uuid || (body['@self'] || {}).id);"
+									"pm.collectionVariables.set('hres_waiting', body.id || body.uuid || (body['@self'] || {}).id);",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -6734,7 +6764,7 @@
 						"description": "The same token on a handoff that is no longer waiting.",
 						"body": {
 							"mode": "raw",
-							"raw": "{\"kind\": \"webhook\", \"agentId\": \"newman-agent\", \"conversationId\": \"newman-conversation\", \"requestedBy\": \"admin\", \"label\": \"Newman webhook\", \"target\": \"integriq:newman/webhook/permit\", \"status\": \"expired\", \"requestedAt\": \"2026-11-24T00:00:00+00:00\", \"deadline\": \"2099-01-01T00:00:00+00:00\", \"resultTokenHash\": \"cc20706cf0a9936fbf575c347782e54858330112e873f265895320b2f3f9fc0e\"}"
+							"raw": "{\"kind\": \"webhook\", \"agentId\": \"00000000-0000-4000-8000-00000000a6e1\", \"conversationId\": \"newman-conversation\", \"requestedBy\": \"admin\", \"label\": \"Newman webhook\", \"target\": \"integriq:newman/webhook/permit\", \"status\": \"expired\", \"requestedAt\": \"2026-11-24T00:00:00+00:00\", \"deadline\": \"2099-01-01T00:00:00+00:00\", \"resultTokenHash\": \"cc20706cf0a9936fbf575c347782e54858330112e873f265895320b2f3f9fc0e\"}"
 						}
 					},
 					"event": [
@@ -6742,11 +6772,13 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const body = pm.response.json();",
 									"pm.test('The handoff is saved', function () {",
 									"    pm.expect([200, 201]).to.include(pm.response.code);",
 									"});",
-									"pm.collectionVariables.set('hres_closed', body.id || body.uuid || (body['@self'] || {}).id);"
+									"pm.collectionVariables.set('hres_closed', body.id || body.uuid || (body['@self'] || {}).id);",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -7001,6 +7033,7 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const body = pm.response.json();",
 									"const data = body.object || body;",
 									"pm.test('Done with the first result', function () {",
@@ -7010,7 +7043,8 @@
 									"    pm.expect(data.result.rule).to.equal('APV 2:10');",
 									"    pm.expect(data.result).to.not.have.property('hermiqResultToken');",
 									"    pm.expect(data.closedAt).to.be.a('string');",
-									"});"
+									"});",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -7190,6 +7224,7 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"pm.collectionVariables.set('trans_upload_path', 'Hermiq/Translations/newman-nothing-saved.wav');",
 									"const code = pm.response.code;",
 									"pm.test('The recording is taken: translated, or refused by the speech service, never as missing', function () {",
@@ -7219,6 +7254,7 @@
 									"    pm.test('A refusal names its code', function () {",
 									"        pm.expect(pm.response.json().error || pm.response.json().code || pm.response.json().message).to.be.a('string');",
 									"    });",
+									"}",
 									"}"
 								],
 								"type": "text/javascript"
@@ -7254,6 +7290,7 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"pm.test('Stored in Files', function () {",
 									"    pm.expect([201, 204]).to.include(pm.response.code);",
 									"});",
@@ -7261,7 +7298,8 @@
 									"pm.test('Files answers its id', function () {",
 									"    pm.expect(id).to.be.above(0);",
 									"});",
-									"pm.collectionVariables.set('trans_file_id', String(id));"
+									"pm.collectionVariables.set('trans_file_id', String(id));",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -7294,6 +7332,7 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"pm.collectionVariables.set('trans_file_path', 'Hermiq/Translations/newman-nothing-saved.wav');",
 									"const code = pm.response.code;",
 									"pm.test('The recording is taken: translated, or refused by the speech service, never as missing', function () {",
@@ -7323,6 +7362,7 @@
 									"    pm.test('A refusal names its code', function () {",
 									"        pm.expect(pm.response.json().error || pm.response.json().code || pm.response.json().message).to.be.a('string');",
 									"    });",
+									"}",
 									"}"
 								],
 								"type": "text/javascript"
@@ -7478,11 +7518,13 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const body = pm.response.json();",
 									"pm.test('The agent is saved', function () {",
 									"    pm.expect([200, 201]).to.include(pm.response.code);",
 									"});",
-									"pm.collectionVariables.set('ws_agent', body.id || body.uuid || (body['@self'] || {}).id);"
+									"pm.collectionVariables.set('ws_agent', body.id || body.uuid || (body['@self'] || {}).id);",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -7515,11 +7557,13 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const body = pm.response.json();",
 									"pm.test('The session is saved', function () {",
 									"    pm.expect([200, 201]).to.include(pm.response.code);",
 									"});",
-									"pm.collectionVariables.set('ws_session', body.id || body.uuid || (body['@self'] || {}).id);"
+									"pm.collectionVariables.set('ws_session', body.id || body.uuid || (body['@self'] || {}).id);",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -8071,6 +8115,7 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const body = pm.response.json();",
 									"pm.test('The choice and whether it can take runs', function () {",
 									"    pm.response.to.have.status(200);",
@@ -8078,7 +8123,8 @@
 									"    pm.expect(body.available).to.be.a('boolean');",
 									"    pm.expect(body.installManagers).to.be.an('array');",
 									"});",
-									"pm.collectionVariables.set('cs_original', JSON.stringify({backend: body.backend, hostedSource: body.hostedSource, installManagers: body.installManagers}));"
+									"pm.collectionVariables.set('cs_original', JSON.stringify({backend: body.backend, hostedSource: body.hostedSource, installManagers: body.installManagers}));",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -8219,12 +8265,14 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const body = pm.response.json();",
 									"pm.test('Stored as hosted with its source', function () {",
 									"    pm.response.to.have.status(200);",
 									"    pm.expect(body.backend).to.equal('hosted');",
 									"    pm.expect(body.hostedSource).to.equal('newman-sandbox-source');",
-									"});"
+									"});",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -8286,12 +8334,14 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const body = pm.response.json();",
 									"pm.test('503 with the reason and the live backend', function () {",
 									"    pm.response.to.have.status(503);",
 									"    pm.expect(body.error).to.be.a('string');",
 									"    pm.expect(body.backend).to.equal('hosted');",
-									"});"
+									"});",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -8324,12 +8374,14 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const body = pm.response.json();",
 									"pm.test('Stored as exapp without a source', function () {",
 									"    pm.response.to.have.status(200);",
 									"    pm.expect(body.backend).to.equal('exapp');",
 									"    pm.expect(body.hostedSource).to.equal(null);",
-									"});"
+									"});",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -8362,6 +8414,7 @@
 							"listen": "test",
 							"script": {
 								"exec": [
+									"{",
 									"const body = pm.response.json();",
 									"pm.test('Passed, or refused because no sandbox is installed', function () {",
 									"    pm.expect([200, 503]).to.include(pm.response.code);",
@@ -8373,7 +8426,8 @@
 									"    } else {",
 									"        pm.expect(body.error).to.be.a('string');",
 									"    }",
-									"});"
+									"});",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -8572,5 +8626,8 @@
 				}
 			]
 		}
-	]
+	],
+	"protocolProfileBehavior": {
+		"disableCookies": true
+	}
 }

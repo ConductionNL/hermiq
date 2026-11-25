@@ -41,6 +41,7 @@ use OCP\Share\IManager as IShareManager;
 use Opis\JsonSchema\Validator;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use OCP\AppFramework\Db\DoesNotExistException;
 
 /**
  * Owner-only share management, sharing rules, notifications and recipient reads.
@@ -90,7 +91,7 @@ class SessionShareServiceTest extends TestCase {
 	 *
 	 * @return SessionShareService
 	 */
-	private function service(?array $payload, array $listed = []): SessionShareService {
+	private function service(?array $payload, array $listed = [], bool $notFoundException = false): SessionShareService {
 		$objectService = $this->createMock(ObjectService::class);
 		$entity = null;
 		if ($payload !== null) {
@@ -99,7 +100,12 @@ class SessionShareServiceTest extends TestCase {
 			$entity->setObject($payload);
 		}
 
-		$objectService->method('find')->willReturn($entity);
+		if ($notFoundException === true) {
+			$objectService->method('find')->willThrowException(new DoesNotExistException('not found in any magic table'));
+		} else {
+			$objectService->method('find')->willReturn($entity);
+		}
+
 		$objectService->method('setRegister')->willReturnSelf();
 		$objectService->method('setSchema')->willReturnSelf();
 		$objectService->method('findAll')->willReturnCallback(
@@ -453,4 +459,21 @@ class SessionShareServiceTest extends TestCase {
 		);
 		$this->assertSame([], $this->service(null)->sharedWith(uid: ''));
 	}//end testSharedWithListsByKeyAndChecksTheShare()
+	/**
+	 * A not-found exception from OpenRegister reads as the same 404 as a missing session.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/tasks.md
+	 */
+	public function testANotFoundExceptionIsNotFound(): void {
+		try {
+			$this->service(payload: null, listed: [], notFoundException: true)->list(uuid: 'sess-gone', callerUid: 'anne');
+			$this->fail(message: 'not refused');
+		} catch (SessionShareException $e) {
+			$this->assertSame(expected: 404, actual: $e->getCode());
+			$this->assertSame(expected: 'Session not found.', actual: $e->getMessage());
+		}
+	}//end testANotFoundExceptionIsNotFound()
+
 }//end class

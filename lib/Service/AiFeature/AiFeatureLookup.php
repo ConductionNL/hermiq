@@ -83,6 +83,41 @@ class AiFeatureLookup {
 	}//end findBySlug()
 
 	/**
+	 * Find one organisation's AiFeature, for a caller that carries no session.
+	 *
+	 * A public chat visitor has no Nextcloud session and so no active organisation:
+	 * a tenant-scoped read answers nothing and the gate reads the feature as off even
+	 * after the DPO enabled it. The channel names its own organisation, so this read
+	 * skips RBAC and the session's tenant filter and keeps only that organisation's
+	 * row. Another organisation's row never answers. The row is never returned to a
+	 * client.
+	 *
+	 * @param string $slug         The feature slug.
+	 * @param string $organisation The organisation uuid whose feature counts.
+	 *
+	 * @return ObjectEntity|null The AiFeature object, or null.
+	 *
+	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
+	 */
+	public function findBySlugForOrganisation(string $slug, string $organisation): ?ObjectEntity {
+		if ($slug === '' || $organisation === '') {
+			return null;
+		}
+
+		$objects = $this->objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::AIFEATURE_SCHEMA)
+			->findAll(config: ['filters' => ['slug' => $slug], 'limit' => 200], _rbac: false, _multitenancy: false);
+
+		$ofOrganisation = array_filter(
+			$objects,
+			static fn (mixed $object): bool => $object instanceof ObjectEntity && (string)($object->getOrganisation() ?? '') === $organisation
+		);
+
+		return $this->firstWithSlug(objects: $ofOrganisation, slug: $slug);
+	}//end findBySlugForOrganisation()
+
+	/**
 	 * Find the AiFeature a delegate engine gates on, whoever the caller is.
 	 *
 	 * Whether a feature is enabled is instance configuration a DPO decided, not

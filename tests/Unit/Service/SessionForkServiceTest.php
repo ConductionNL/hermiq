@@ -33,6 +33,7 @@ use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
+use OCP\AppFramework\Db\DoesNotExistException;
 
 /**
  * Tests for forking a session.
@@ -222,4 +223,21 @@ class SessionForkServiceTest extends TestCase {
 
 		$this->assertSame('with-room', $fork['session']->getUuid());
 	}
+
+	/**
+	 * A not-found exception from OpenRegister reads as the same 404 as a missing session.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/tasks.md
+	 */
+	public function testANotFoundExceptionIsNotFound(): void {
+		$objects = $this->createMock(originalClassName: ObjectService::class);
+		$objects->method('find')->willThrowException(new DoesNotExistException('not found in any magic table'));
+		$objects->expects($this->never())->method('saveObject');
+
+		$this->expectException(exception: SessionForkException::class);
+		$this->expectExceptionCode(code: 404);
+		(new SessionForkService(objectService: $objects))->fork(uuid: 's-gone', turnUuid: 't-2', callerUid: 'alice');
+	}//end testANotFoundExceptionIsNotFound()
 }

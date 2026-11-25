@@ -150,6 +150,17 @@ class PublicChatServiceTest extends TestCase {
 		}
 
 		$features->method('findBySlugForGate')->with('public-chat')->willReturn($feature);
+		// A visitor has no session: the gate reads the feature of the channel's own organisation.
+		$featureOrganisation = ($options['featureOrganisation'] ?? 'org-1');
+		$features->method('findBySlugForOrganisation')->willReturnCallback(
+			static function (string $slug, string $organisation) use ($feature, $featureOrganisation): ?ObjectEntity {
+				if ($slug !== 'public-chat' || $organisation !== $featureOrganisation) {
+					return null;
+				}
+
+				return $feature;
+			}
+		);
 
 		$controls = $this->createMock(ObjectService::class);
 		$controls->method('setRegister')->willReturnSelf();
@@ -335,6 +346,28 @@ class PublicChatServiceTest extends TestCase {
 
 		self::assertTrue($answer->available);
 	}//end testAnotherOrganisationsKillSwitchDoesNotStopIt()
+
+	/**
+	 * The feature is read for the channel's organisation, not the visitor's session:
+	 * enabled there, the channel answers; enabled only in another organisation, it does not.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
+	 */
+	public function testTheFeatureIsReadForTheChannelsOrganisation(): void {
+		$answer = $this->service()->answer(channel: self::channel(), question: 'Hello?');
+		self::assertTrue(condition: $answer->available);
+
+		try {
+			$this->service(options: ['featureOrganisation' => 'org-2'])->answer(channel: self::channel(), question: 'Hello?');
+			self::fail(message: 'Expected a refusal');
+		} catch (PublicChatRefusedException $e) {
+			self::assertSame(expected: 503, actual: $e->getStatus());
+		}
+
+		self::assertCount(expectedCount: 1, haystack: $this->modelCalls);
+	}//end testTheFeatureIsReadForTheChannelsOrganisation()
 
 	/**
 	 * The daily limit is counted per channel per day and answers 429 once reached.

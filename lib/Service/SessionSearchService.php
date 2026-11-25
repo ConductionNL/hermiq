@@ -159,7 +159,7 @@ class SessionSearchService {
 			->setSchema(self::TURN_SCHEMA)
 			->findAll(
 				config: [
-					'filters' => ['@self.owner' => $userId],
+					'filters' => ['@self' => ['owner' => $userId]],
 					'search' => $term,
 					'sort' => ['created' => 'ASC'],
 					'limit' => self::MAX_TURN_SCAN,
