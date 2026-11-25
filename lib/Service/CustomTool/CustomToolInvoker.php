@@ -394,8 +394,33 @@ class CustomToolInvoker {
 			return self::error(code: 'tool_failed', message: 'The flow could not be run.');
 		}
 
-		return ['result' => ($envelope['result'] ?? [])];
+		// OpenRegister's flow tool reports a refused run (an unpublished flow, a
+		// missing right) inside an envelope that is not itself an error.
+		$result = ($envelope['result'] ?? []);
+		if (is_array($result) === true && ($result['isError'] ?? false) === true) {
+			return self::error(code: 'tool_failed', message: self::flowRefusal(result: $result));
+		}
+
+		return ['result' => $result];
 	}//end runFlow()
+
+	/**
+	 * The message for a flow run OpenRegister refused, with its own reason when it gave one.
+	 *
+	 * @param array<string, mixed> $result The flow tool's result.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+	 */
+	private static function flowRefusal(array $result): string {
+		$reason = trim((string)($result['message'] ?? ''));
+		if ($reason === '') {
+			return 'The flow could not be run.';
+		}
+
+		return 'The flow could not be run: ' . $reason;
+	}//end flowRefusal()
 
 	/**
 	 * Call an integriq target; a tool that waits for its workflow's result first opens
