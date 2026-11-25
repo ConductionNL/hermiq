@@ -74,6 +74,7 @@ const TURN_SCHEMA = 'agentsessionturn'
 /** The companion launcher and its composer (nextcloud-vue CnAiCompanion). */
 const FAB = '[data-testid="cn-ai-fab"]'
 const COMPOSER = '[data-testid="cn-ai-input-textarea"]'
+const SEND = '[data-testid="cn-ai-input-send"]'
 
 /** The chip the companion shows for a document scope (REQ-DCHAT-004). */
 const DOCUMENT_CHIP = /Over dit document|About this document/
@@ -182,7 +183,10 @@ async function askCompanion(
 		(r) => r.url().includes('/apps/hermiq/api/chat/stream') && r.method() === 'POST',
 	)
 	await page.locator(COMPOSER).fill(question)
-	await page.locator(COMPOSER).press('Enter')
+	// The send button, not Enter: right after the panel opens, an Enter can land
+	// before the composer's key handler is bound and the question then just sits there.
+	await expect(page.locator(SEND)).toBeEnabled()
+	await page.locator(SEND).click()
 	return (await sent).postDataJSON() as Record<string, unknown>
 }
 
@@ -229,6 +233,31 @@ function sourceFileIds(stream: string): number[] {
 		}
 	}
 	return ids
+}
+
+/**
+ * Close the dialogs another app opens on its first visit (filinq's support
+ * note and setup wizard) so they do not cover the companion launcher.
+ *
+ * @param page The page.
+ * @return Nothing.
+ */
+async function closeFirstVisitDialogs(page: Page): Promise<void> {
+	await page.waitForLoadState('networkidle').catch(() => undefined)
+	for (let round = 0; round < 5; round++) {
+		const dialogs = page.getByRole('dialog')
+		const open = await dialogs.count()
+		if (open === 0) {
+			return
+		}
+		const close = dialogs.last().getByRole('button', { name: /^(Close|Sluiten)$/i }).first()
+		if (await close.isVisible().catch(() => false)) {
+			await close.click()
+		} else {
+			await page.keyboard.press('Escape')
+		}
+		await page.waitForTimeout(500)
+	}
 }
 
 test.describe.configure({ mode: 'serial' })
@@ -457,6 +486,7 @@ test.describe('chat-about-a-document-cites-its-sources: scoped turns and linked 
 		// filinq's My Documents opens a file in its in-app viewer from `?file=`
 		// (fileDeepLink.js); the viewer points the companion at that document.
 		await page.goto(`/index.php/apps/filinq/my-documents?file=${docA}`)
+		await closeFirstVisitDialogs(page)
 		await openCompanion(page)
 		await expect(page.getByText(DOCUMENT_CHIP).first()).toBeVisible({ timeout: 30_000 })
 
