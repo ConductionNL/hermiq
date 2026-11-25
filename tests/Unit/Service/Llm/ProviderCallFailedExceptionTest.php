@@ -175,7 +175,8 @@ class ProviderCallFailedExceptionTest extends TestCase {
 			// Seen live: the openai-php transporter's message ends in the request URL,
 			// whose `http://127...` must not read as HTTP status 127.
 			'refused, with the URL' => [
-				'cURL error 7: Failed to connect to 127.0.0.1 port 9 after 0 ms: Couldn\'t connect to server (see https://curl.se/libcurl/c/libcurl-errors.html) for http://127.0.0.1:9/v1/chat/completions',
+				'cURL error 7: Failed to connect to 127.0.0.1 port 9 after 0 ms: Couldn\'t connect to server '
+				. '(see https://curl.se/libcurl/c/libcurl-errors.html) for http://127.0.0.1:9/v1/chat/completions',
 				ProviderCallFailedException::CONNECTION,
 				null,
 			],
