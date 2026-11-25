@@ -8,7 +8,7 @@
   D1). Own file per the modal-isolation gate. The server refuses a value out
   of range and the refusal is shown as it comes.
 
-  @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+  @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
 -->
 <template>
 	<NcModal
@@ -109,7 +109,7 @@ export default {
 		 *
 		 * @param {boolean} open Whether it is open now.
 		 *
-		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+		 * @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
 		 */
 		show(open) {
 			if (open) {
@@ -124,7 +124,7 @@ export default {
 		 * Save the settings; on a refusal, show the server's reason.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+		 * @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
 		 */
 		async save() {
 			this.saving = true

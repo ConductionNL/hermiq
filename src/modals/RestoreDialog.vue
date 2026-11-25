@@ -10,7 +10,7 @@
   the restore be queued, with the choice for objects created after the point.
   Own file per the modal-isolation gate; every NcSelect carries an inputLabel.
 
-  @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+  @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 -->
 <template>
 	<NcModal
@@ -232,7 +232,7 @@ export default {
 		 *
 		 * @return {Array<{value: string, label: string}>} The options.
 		 *
-		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+		 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 		 */
 		backupOptions() {
 			return this.backups.map((backup) => ({
@@ -248,7 +248,7 @@ export default {
 		 *
 		 * @return {Array<{value: string, label: string}>} The options.
 		 *
-		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+		 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 		 */
 		organisationOptions() {
 			return backupOrganisations(this.backups).map((name) => ({ value: name, label: name }))
@@ -259,7 +259,7 @@ export default {
 		 *
 		 * @return {object} The point.
 		 *
-		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+		 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 		 */
 		point() {
 			return restorePoint({
@@ -274,7 +274,7 @@ export default {
 		 *
 		 * @return {boolean} Whether it does.
 		 *
-		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+		 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 		 */
 		canPreview() {
 			if (this.point.kind === 'moment') {
@@ -288,7 +288,7 @@ export default {
 		 *
 		 * @return {boolean} Whether it may.
 		 *
-		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+		 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 		 */
 		canRestore() {
 			return this.preview !== null && !this.preview.refused && !this.queued
@@ -299,7 +299,7 @@ export default {
 		 *
 		 * @return {Array<object>} The rows.
 		 *
-		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+		 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 		 */
 		rows() {
 			return previewRows(this.preview)
@@ -312,7 +312,7 @@ export default {
 		 *
 		 * @param {boolean} open Whether it is open now.
 		 *
-		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+		 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 		 */
 		show(open) {
 			if (open) {
@@ -325,7 +325,7 @@ export default {
 	/**
 	 * Load the backups when the dialog mounts.
 	 *
-	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+	 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 	 */
 	mounted() {
 		if (this.show) {
@@ -339,7 +339,7 @@ export default {
 		 *
 		 * @return {void}
 		 *
-		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+		 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 		 */
 		reset() {
 			this.form = { kind: 'backup', file: '', organisation: '', at: '', removeCreatedAfter: false }
@@ -354,7 +354,7 @@ export default {
 		 *
 		 * @return {void}
 		 *
-		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+		 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 		 */
 		clearPreview() {
 			this.preview = null
@@ -365,7 +365,7 @@ export default {
 		 * Read the backups in the folder.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+		 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 		 */
 		async loadBackups() {
 			this.loadingBackups = true
@@ -383,7 +383,7 @@ export default {
 		 * Ask what the restore would change.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+		 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 		 */
 		async runPreview() {
 			this.previewing = true
@@ -402,7 +402,7 @@ export default {
 		 * Queue the restore of the previewed point.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003
+		 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003
 		 */
 		async runRestore() {
 			this.restoring = true
