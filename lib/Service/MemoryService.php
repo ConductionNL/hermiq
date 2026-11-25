@@ -367,8 +367,10 @@ class MemoryService implements MemoryServiceInterface {
 	 * List an agent's Sessions, scoped to the caller's tenant AND to the caller's OWN
 	 * Sessions — the `Session` schema carries no user/owner property, so `agentId` alone
 	 * would return every user's chat sessions for that agent (a cross-user disclosure).
-	 * `@self.owner` is OpenRegister's object-owner meta-filter (NEVER `_owner`, which is
-	 * silently ignored and returns unfiltered results — see MemoryServiceTest).
+	 * `@self` => ['owner' => …] is OpenRegister's object-owner meta-filter. NEVER `_owner`,
+	 * which is silently ignored and returns unfiltered results, and never a flat
+	 * `@self.owner` key, which OpenRegister reads as a schema field and so matches nothing
+	 * (see MemoryServiceTest).
 	 *
 	 * @param string $agentId The agent UUID.
 	 *
@@ -391,7 +393,7 @@ class MemoryService implements MemoryServiceInterface {
 			lookup: new MemoryLookup(
 				filters: [
 					'agentId' => $agentId,
-					'@self.owner' => $user->getUID(),
+					'@self' => ['owner' => $user->getUID()],
 				]
 			)
 		);
@@ -468,7 +470,7 @@ class MemoryService implements MemoryServiceInterface {
 		$lookup = new MemoryLookup(
 			filters: [
 				'agentId' => $agentId,
-				'@self.owner' => $user->getUID(),
+				'@self' => ['owner' => $user->getUID()],
 			],
 			limit: $limit
 		);

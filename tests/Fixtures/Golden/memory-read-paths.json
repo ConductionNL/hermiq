@@ -45,7 +45,9 @@
                 {
                     "filters": {
                         "agentId": "agent-1",
-                        "@self.owner": "alice"
+                        "@self": {
+                            "owner": "alice"
+                        }
                     },
                     "limit": 100
                 }
@@ -65,7 +67,9 @@
                 {
                     "filters": {
                         "agentId": "agent-1",
-                        "@self.owner": "alice"
+                        "@self": {
+                            "owner": "alice"
+                        }
                     },
                     "limit": 5,
                     "search": "tea"
@@ -76,7 +80,9 @@
                 {
                     "filters": {
                         "agentId": "agent-1",
-                        "@self.owner": "alice"
+                        "@self": {
+                            "owner": "alice"
+                        }
                     },
                     "limit": 20
                 }

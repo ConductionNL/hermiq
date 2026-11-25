@@ -289,12 +289,14 @@ class MemoryServiceTest extends TestCase {
 		$this->assertNotNull($capturedConfig);
 		$this->assertSame('agent-1', $capturedConfig['filters']['agentId']);
 		$this->assertArrayHasKey(
-			'@self.owner',
+			'@self',
 			$capturedConfig['filters'],
 			'listSessions() must scope by the OpenRegister object-owner meta-filter, never just agentId — '
 			. 'otherwise every authenticated user sees every other user\'s sessions for this agent.'
 		);
-		$this->assertSame('alice', $capturedConfig['filters']['@self.owner']);
+		// OpenRegister reads only the nested form; a flat `@self.owner` key is a schema field and matches nothing.
+		$this->assertSame(['owner' => 'alice'], $capturedConfig['filters']['@self']);
+		$this->assertArrayNotHasKey('@self.owner', $capturedConfig['filters']);
 
 	}//end testListSessionsScopesToCallerOwnedSessionsOnly()
 
@@ -356,12 +358,14 @@ class MemoryServiceTest extends TestCase {
 		$this->assertSame('agent-9', $capturedConfig['filters']['agentId']);
 		$this->assertSame('budget report', $capturedConfig['search']);
 		$this->assertArrayHasKey(
-			'@self.owner',
+			'@self',
 			$capturedConfig['filters'],
 			'recallSessions() must scope by the OpenRegister object-owner meta-filter, never just agentId — '
 			. 'otherwise any authenticated user can full-text search every other user\'s SessionTurns for this agent.'
 		);
-		$this->assertSame('admin', $capturedConfig['filters']['@self.owner']);
+		// OpenRegister reads only the nested form; a flat `@self.owner` key is a schema field and matches nothing.
+		$this->assertSame(['owner' => 'admin'], $capturedConfig['filters']['@self']);
+		$this->assertArrayNotHasKey('@self.owner', $capturedConfig['filters']);
 
 	}//end testRecallPassesAgentFilterAndSearch()
 
