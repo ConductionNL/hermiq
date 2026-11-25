@@ -604,7 +604,7 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.workspacePush' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
 			'hermiq.graphNeighbors' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.graphPath' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
-			// hermiq-domain-mcp-tools: four reads; no tool starts an agent run (hermiq-mcp-adoption).
+			// Domain tools (hermiq-domain-mcp-tools): four reads; no tool starts an agent run.
 			'hermiq.listAgents' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.getAgentStatus' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.listPendingApprovals' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],

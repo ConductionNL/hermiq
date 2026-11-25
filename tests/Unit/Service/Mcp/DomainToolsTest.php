@@ -135,25 +135,30 @@ final class DomainToolsTest extends TestCase {
 	/**
 	 * No domain tool starts an agent run: the old id is an unknown tool and nothing runs.
 	 *
+	 * @return void
+	 *
 	 * @spec openspec/specs/hermiq-domain-mcp-tools/spec.md#requirement-no-domain-tool-starts-an-agent-run
 	 */
 	public function testRunAgentNowIsAnUnknownToolAndRunsNothing(): void {
 		$this->objects->expects($this->never())->method('find');
 
-		$this->assertNotContains('hermiq.runAgentNow', DomainToolDescriptors::IDS);
-		$this->assertNotContains('hermiq.runAgentNow', array_column(DomainToolDescriptors::ALL, 'id'));
-		$this->assertSame('unknown_tool', $this->tools()->invoke('alice', 'hermiq.runAgentNow', ['scheduleId' => 's-1'])['error']['code']);
+		$this->assertNotContains(needle: 'hermiq.runAgentNow', haystack: DomainToolDescriptors::IDS);
+		$this->assertNotContains(needle: 'hermiq.runAgentNow', haystack: array_column(DomainToolDescriptors::ALL, 'id'));
+		$result = $this->tools()->invoke(uid: 'alice', toolId: 'hermiq.runAgentNow', arguments: ['scheduleId' => 's-1']);
+		$this->assertSame(expected: 'unknown_tool', actual: $result['error']['code']);
 	}
 
 	/**
 	 * Every domain tool that is left only reads.
 	 *
+	 * @return void
+	 *
 	 * @spec openspec/specs/hermiq-domain-mcp-tools/spec.md#requirement-no-domain-tool-starts-an-agent-run
 	 */
 	public function testEveryDomainToolIsReadOnly(): void {
 		foreach (DomainToolDescriptors::ALL as $descriptor) {
-			$this->assertTrue($descriptor['readOnlyHint'], $descriptor['id']);
-			$this->assertSame('read', $descriptor['scope'], $descriptor['id']);
+			$this->assertTrue(condition: $descriptor['readOnlyHint'], message: $descriptor['id']);
+			$this->assertSame(expected: 'read', actual: $descriptor['scope'], message: $descriptor['id']);
 		}
 	}
 
