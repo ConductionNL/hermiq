@@ -68,4 +68,5 @@ Kind: code. Size M. Rows `hermiq:dm-ask-mid-run`, `hermiq:ov-draft-hold`.
 ## Verification
 - [x] `openspec validate oversight-ask-and-hold --type change --strict` passes
   - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
-- [ ] PHPUnit, Newman and Playwright run, exit codes read
+- [x] PHPUnit, Newman and Playwright run, exit codes read
+  - 2026-11-25, sandbox instance (Nextcloud 34, PostgreSQL 16, OpenRegister main, hermiq development): PHPUnit ApprovalControllerTest, ApprovalInboxTest, ApprovalServiceAskAndHoldTest, DraftReleaseTest, FacadeToolInvokerAskPersonTest, FacadeToolInvokerHoldOutputTest, OutputHoldTest, QuestionAnswerTest, ScheduleServiceTest: 168 tests, exit 0. Vitest draft-review-modal + approval-inbox-rows 22/22. Newman folders "Held drafts: release and discard" (10 requests, 11 assertions) and "Agent draft check" (2 requests, 3 assertions), 0 failed. Playwright `ask-and-hold.spec.ts` 6/6, also run twice in a row (12/12); its first run had 1 red, because the setup wizard of a fresh instance opened after the inbox rendered and took the Discard click. openInbox now dismisses it again once the page settles.

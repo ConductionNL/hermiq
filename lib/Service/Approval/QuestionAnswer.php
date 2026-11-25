@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
  */
 
 declare(strict_types=1);
@@ -66,7 +66,7 @@ final class QuestionAnswer {
 	 *
 	 * @throws InvalidArgumentException When the answer is empty, too long or not allowed.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
 	 */
 	public static function validated(array $question, string $answer): string {
 		$answer = self::trimmed(answer: $answer);
@@ -91,7 +91,7 @@ final class QuestionAnswer {
 	 *
 	 * @throws InvalidArgumentException When the answer is empty or too long.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
 	 */
 	private static function trimmed(string $answer): string {
 		$answer = trim($answer);
@@ -115,7 +115,7 @@ final class QuestionAnswer {
 	 *
 	 * @return string The prompt for the new run.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
 	 */
 	public static function promptWithAnswer(string $prompt, string $question, string $answer): string {
 		$lines = [rtrim($prompt), ''];
@@ -139,7 +139,7 @@ final class QuestionAnswer {
 	 *
 	 * @return bool True when the question has expired.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
 	 */
 	public static function isExpired(string $requestedAt, DateTimeImmutable $now): bool {
 		if (trim($requestedAt) === '') {

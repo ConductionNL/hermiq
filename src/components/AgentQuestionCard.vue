@@ -8,7 +8,7 @@
   person's own. Choosing emits the answer; the chat sends it as the next
   message.
 
-  @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
+  @spec openspec/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
 -->
 <template>
 	<section
@@ -104,7 +104,7 @@ export default {
 		 * The buttons to show.
 		 *
 		 * @return {Array<string>}
-		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
 		 */
 		options() {
 			return questionOptions(this.question)
@@ -117,7 +117,7 @@ export default {
 		 *
 		 * @param {string} option The chosen answer.
 		 * @return {void}
-		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
 		 */
 		choose(option) {
 			if (this.disabled) {
@@ -130,7 +130,7 @@ export default {
 		 * Answer with the person's own text.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
 		 */
 		sendOther() {
 			const text = this.other.trim()

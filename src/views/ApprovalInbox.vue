@@ -272,7 +272,7 @@ export default {
 		 * The approvals the current filter shows.
 		 *
 		 * @return {Array<object>}
-		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 		 */
 		visibleApprovals() {
 			if (this.filter === 'drafts') {
@@ -285,7 +285,7 @@ export default {
 		 * How many held drafts wait.
 		 *
 		 * @return {number}
-		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 		 */
 		draftCount() {
 			return this.approvals.filter((approval) => approval.sourceType === 'draft').length
@@ -492,7 +492,7 @@ export default {
 		 * @param {object} approval The question approval.
 		 * @param {string} answer The chosen or typed answer.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
 		 */
 		async answer(approval, answer) {
 			this.actioningId = approval.id
@@ -512,7 +512,7 @@ export default {
 		 *
 		 * @param {object} approval The draft approval.
 		 * @return {string}
-		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 		 */
 		draftExcerpt(approval) {
 			const fields = draftFields(approval.draft)
@@ -524,7 +524,7 @@ export default {
 		 * A draft was released: close the review and reload.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 		 */
 		async onReleased() {
 			this.draftTarget = null
@@ -535,7 +535,7 @@ export default {
 		 * Discard from the review: ask for a reason in the deny dialog.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 		 */
 		discardFromReview() {
 			const approval = this.draftTarget

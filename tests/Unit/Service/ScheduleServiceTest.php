@@ -4359,7 +4359,7 @@ class ScheduleServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 	 */
 	public function testAHeldSchedulesOutputBecomesADraftInsteadOfAMail(): void {
 		$this->deliveryService = $this->createMock(DeliveryService::class);
@@ -4388,7 +4388,7 @@ class ScheduleServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 	 */
 	public function testAHoldThatCannotBeStoredSendsNothing(): void {
 		$this->deliveryService = $this->createMock(DeliveryService::class);
@@ -4416,7 +4416,7 @@ class ScheduleServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
 	 */
 	public function testARunThatAsksAQuestionSendsItToTheReviewer(): void {
 		$question = ['text' => 'Close the three duplicate reports?', 'options' => ['Yes, close them', 'No, keep them'], 'allowOther' => false];
@@ -4443,7 +4443,7 @@ class ScheduleServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
 	 */
 	public function testAnAnsweredRunUsesTheAnsweredPrompt(): void {
 		$prompts = [];
@@ -4467,7 +4467,7 @@ class ScheduleServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
 	 */
 	public function testATickExpiresUnansweredQuestions(): void {
 		$this->approvalService = $this->createMock(ApprovalService::class);

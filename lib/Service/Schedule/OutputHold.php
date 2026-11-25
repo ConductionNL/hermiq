@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
  */
 
 declare(strict_types=1);
@@ -43,7 +43,7 @@ final class OutputHold {
 	 *
 	 * @return bool True when the output is held.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 	 */
 	public static function holds(array $schedule, ?array $agent): bool {
 		if (is_bool($schedule['holdOutput'] ?? null) === true) {

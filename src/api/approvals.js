@@ -88,7 +88,7 @@ export async function denyApproval(approvalId, reason) {
  * @param {string} approvalId The question Approval's id.
  * @param {string} answer The chosen or typed answer.
  * @return {Promise<object>} `{approvalId, status, ran}`.
- * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
  */
 export async function answerApproval(approvalId, answer) {
 	const response = await axios.post(
@@ -105,7 +105,7 @@ export async function answerApproval(approvalId, answer) {
  * @param {string} approvalId The draft Approval's id.
  * @param {object} [edits] The edited fields: `output`, or `subject`/`body`.
  * @return {Promise<object>} `{approvalId, status, ran}`.
- * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
  */
 export async function releaseApproval(approvalId, edits = {}) {
 	const response = await axios.post(

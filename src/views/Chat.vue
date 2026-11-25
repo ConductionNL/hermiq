@@ -2977,7 +2977,7 @@ export default {
 		 *
 		 * @param {object|null|undefined} result The stream's final payload or the POST result.
 		 * @return {void}
-		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
 		 */
 		takeQuestion(result) {
 			const question = result?.question
@@ -2999,7 +2999,7 @@ export default {
 		 *
 		 * @param {string} answer The chosen or typed answer.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
 		 */
 		async answerQuestion(answer) {
 			const text = String(answer ?? '').trim()

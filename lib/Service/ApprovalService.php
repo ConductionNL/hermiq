@@ -1579,7 +1579,7 @@ class ApprovalService implements ApprovalServiceInterface {
 	 *
 	 * @return ObjectEntity The pending question Approval.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
 	 */
 	public function ensurePendingQuestion(ObjectEntity $schedule, array $question, string $runId = ''): ObjectEntity {
 		$scheduleId = (string)$schedule->getUuid();
@@ -1607,7 +1607,7 @@ class ApprovalService implements ApprovalServiceInterface {
 	 *
 	 * @return array<string, mixed> The draftPayload.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
 	 */
 	private static function questionDraft(array $question, string $runId): array {
 		return [
@@ -1634,7 +1634,7 @@ class ApprovalService implements ApprovalServiceInterface {
 	 *
 	 * @throws InvalidArgumentException When the approval is not a pending question or the answer is refused.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) QuestionAnswer is a set of pure functions over a question and its
 	 * answer; it holds no state to inject.
@@ -1671,7 +1671,7 @@ class ApprovalService implements ApprovalServiceInterface {
 	 *
 	 * @return array<string, mixed> The data as saved.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
 	 */
 	private function recordAnswer(ObjectEntity $approval, array $data, string $deciderUid): array {
 		$data['status'] = 'approved';
@@ -1689,7 +1689,7 @@ class ApprovalService implements ApprovalServiceInterface {
 	 *
 	 * @return string The prompt to run again with.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) QuestionAnswer is a set of pure functions over a question and its
 	 * answer; it holds no state to inject.
@@ -1711,7 +1711,7 @@ class ApprovalService implements ApprovalServiceInterface {
 	 *
 	 * @return int The number of questions expired.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) QuestionAnswer is a set of pure functions over a question and its
 	 * answer; it holds no state to inject.
@@ -1745,7 +1745,7 @@ class ApprovalService implements ApprovalServiceInterface {
 	 *
 	 * @return ObjectEntity The pending draft Approval.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 	 */
 	public function ensurePendingDraft(ObjectEntity $schedule, string $channel, string $output, ?string $conversationUuid = null): ObjectEntity {
 		$payload = $this->heldPayload(
@@ -1775,7 +1775,7 @@ class ApprovalService implements ApprovalServiceInterface {
 	 *
 	 * @return ObjectEntity The pending draft Approval.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 	 */
 	public function ensurePendingToolDraft(
 		string $agentId,
@@ -1817,7 +1817,7 @@ class ApprovalService implements ApprovalServiceInterface {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 	 */
 	private function notifyDraftReviewer(ObjectEntity $approval, string $owner): void {
 		try {
@@ -1846,7 +1846,7 @@ class ApprovalService implements ApprovalServiceInterface {
 	 * @throws DraftEditRefused When an edit changes a field that may not be edited.
 	 * @throws InvalidArgumentException When the approval is not a pending draft.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 	 */
 	public function releaseDraft(ObjectEntity $approval, string $deciderUid, array $edits = []): array {
 		$data = $approval->getObject();
@@ -2090,7 +2090,7 @@ class ApprovalService implements ApprovalServiceInterface {
 	 *
 	 * @return list<ObjectEntity> The approvals found.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
 	 */
 	private function pendingApprovals(array $filters): array {
 		$objects = $this->objectService
@@ -2109,7 +2109,7 @@ class ApprovalService implements ApprovalServiceInterface {
 	 *
 	 * @return bool True when all match.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
 	 */
 	private static function matches(array $data, array $expected): bool {
 		foreach ($expected as $field => $value) {

@@ -11,7 +11,7 @@
   Own file per ADR-004 modal-isolation. The parent ApprovalInbox opens it for
   one draft and reloads on `released`.
 
-  @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+  @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 -->
 <template>
 	<NcModal
@@ -187,7 +187,7 @@ export default {
 		 * Who the draft goes to, read-only: the mail's recipient, or the channel.
 		 *
 		 * @return {string}
-		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 		 */
 		recipients() {
 			const held = this.draft?.draft || {}
@@ -202,7 +202,7 @@ export default {
 		 * Whether the reviewer changed the text.
 		 *
 		 * @return {boolean}
-		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 		 */
 		edited() {
 			return Object.keys(draftEdits(this.draft?.draft, { subject: this.subject, text: this.text })).length > 0
@@ -217,7 +217,7 @@ export default {
 			 *
 			 * @param {boolean} open Whether the dialog opened.
 			 * @return {void}
-			 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+			 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 			 */
 			handler(open) {
 				if (open) {
@@ -236,7 +236,7 @@ export default {
 		 *
 		 * @param {boolean} withEdits Whether to send the edits.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 		 */
 		async release(withEdits) {
 			if (!this.draft) {
