@@ -280,7 +280,7 @@ class OrganisationModelPolicyWriteTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
 	 */
 	public function testAnAllowedFallbackChainIsSavedInOrder(): void {
 		$service = $this->service();
@@ -310,7 +310,7 @@ class OrganisationModelPolicyWriteTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
 	 */
 	public function testAFallbackOutsideThePolicyIsRefused(): void {
 		$ollamaOnly = [['provider' => 'ollama', 'models' => []]];

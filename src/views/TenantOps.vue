@@ -759,7 +759,7 @@ export default {
 		 * Add an empty fallback row to the draft (models-several-models-per-turn).
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
+		 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
 		 */
 		addDraftFallback() {
 			this.policyDraft.fallbacks = addFallback(this.policyDraft.fallbacks)
@@ -771,7 +771,7 @@ export default {
 		 * @param {number} index The row.
 		 * @param {number} delta -1 for up, 1 for down.
 		 * @return {void}
-		 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
+		 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
 		 */
 		moveDraftFallback(index, delta) {
 			this.policyDraft.fallbacks = moveFallback(this.policyDraft.fallbacks, index, delta)
@@ -782,7 +782,7 @@ export default {
 		 *
 		 * @param {number} index The row.
 		 * @return {void}
-		 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
+		 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
 		 */
 		removeDraftFallback(index) {
 			this.policyDraft.fallbacks = removeFallback(this.policyDraft.fallbacks, index)
@@ -1088,6 +1088,7 @@ export default {
 .tenant-ops__reassign-input {
 	max-width: 180px;
 }
+
 .tenant-ops__fallbacks {
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-large);

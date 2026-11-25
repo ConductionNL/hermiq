@@ -8,7 +8,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V.
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-refusal-or-a-configuration-error-never-triggers-a-fallback-req-mfail-003
+ * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-refusal-or-a-configuration-error-never-triggers-a-fallback-req-mfail-003
  */
 
 declare(strict_types=1);

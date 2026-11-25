@@ -16,7 +16,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+ * @spec openspec/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
  */
 
 declare(strict_types=1);

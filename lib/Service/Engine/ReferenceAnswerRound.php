@@ -24,7 +24,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+ * @spec openspec/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
  */
 
 declare(strict_types=1);
@@ -45,7 +45,7 @@ use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
 /**
  * Ask an ensemble's reference models, within the gates and the budget.
  *
- * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+ * @spec openspec/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
  */
 final class ReferenceAnswerRound {
 
@@ -76,7 +76,7 @@ final class ReferenceAnswerRound {
 	 * @param Closure            $answer    fn (ChatDriver $driver): array{text: string, usage: array<string, mixed>}, a call without tools.
 	 * @param BudgetHardCapInterface|null $budget    The budget's hard cap, checked before each call; null checks none.
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 * @spec openspec/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
 	 */
 	public function __construct(
 		private readonly Closure $driverFor,
@@ -92,7 +92,7 @@ final class ReferenceAnswerRound {
 	 *
 	 * @return array<int, array{provider: string, model: string}> The references, at most three.
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+	 * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
 	 */
 	public static function referencesOf(array $agentData): array {
 		$ensemble = ($agentData['ensemble'] ?? null);
@@ -139,7 +139,7 @@ final class ReferenceAnswerRound {
 	 *     usages: array<int, array{provider: string, model: string, usage: array<string, mixed>}>
 	 * } What arrived, and what each call cost.
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-ensemble-counts-every-call-against-the-budget-req-mens-004
+	 * @spec openspec/specs/model-ensemble/spec.md#requirement-an-ensemble-counts-every-call-against-the-budget-req-mens-004
 	 */
 	public function collect(ResponseTurnRun $run, array $references): array {
 		$answers = [];
@@ -202,7 +202,7 @@ final class ReferenceAnswerRound {
 	 *
 	 * @return ChatDriver|null
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-each-reference-model-passes-the-same-checks-as-the-agents-model-req-mens-003
+	 * @spec openspec/specs/model-ensemble/spec.md#requirement-each-reference-model-passes-the-same-checks-as-the-agents-model-req-mens-003
 	 */
 	private function resolve(ResponseTurnRun $run, array $reference): ?ChatDriver {
 		try {
@@ -230,7 +230,7 @@ final class ReferenceAnswerRound {
 	 *
 	 * @return array{text: string, usage: array<string, mixed>}|null The reply, or null when the call failed.
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 * @spec openspec/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
 	 */
 	private function ask(ResponseTurnRun $run, ChatDriver $driver): ?array {
 		$startedAt = microtime(true);
@@ -271,7 +271,7 @@ final class ReferenceAnswerRound {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-ensemble-counts-every-call-against-the-budget-req-mens-004
+	 * @spec openspec/specs/model-ensemble/spec.md#requirement-an-ensemble-counts-every-call-against-the-budget-req-mens-004
 	 */
 	private function noteRound(ResponseTurnRun $run, int $asked, int $answered, bool $budgetReached): void {
 		if ($asked > 0) {

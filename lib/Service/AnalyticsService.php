@@ -579,7 +579,7 @@ class AnalyticsService implements AnalyticsServiceInterface
      *
      * @return array<int, array<string, scalar>>
      *
-     * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+     * @spec openspec/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
      */
     private static function labelRows(mixed $rows, array $keys): array
     {

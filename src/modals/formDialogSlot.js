@@ -8,6 +8,14 @@
  * both, and re-reading the list after a save.
  */
 
+import { emit } from '@nextcloud/event-bus'
+
+/**
+ * The event-bus channel on which nextcloud-vue's pages (CnDetailPage, and the
+ * object-bound widgets) re-read their data.
+ */
+export const PAGE_REFRESH_CHANNEL = 'cn:page:refresh'
+
 export const formDialogSlot = {
 	props: {
 		/**
@@ -67,15 +75,25 @@ export const formDialogSlot = {
 
 		/**
 		 * Announce a save: emits `saved` and ADDITIONALLY re-reads the host list
-		 * through the `refresh` prop when supplied.
+		 * through the `refresh` prop when supplied. A dialog without that
+		 * binding was opened from a page's header action (CnAppRoot mounts it
+		 * with props only, so `saved` reaches no listener): it asks the page
+		 * to re-read on the shared `cn:page:refresh` channel instead. Without
+		 * it the agent page kept showing the values from before the edit until
+		 * it was reloaded (seen live, 25 Nov 2026).
 		 *
 		 * @param {object} saved The saved record.
 		 * @return {void}
 		 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-an-organisation-admin-declares-a-public-chat-channel-req-pubchat-001
+		 * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
 		 */
 		announceSaved(saved) {
 			this.$emit('saved', saved)
-			this.refresh?.()
+			if (typeof this.refresh === 'function') {
+				this.refresh()
+				return
+			}
+			emit(PAGE_REFRESH_CHANNEL, {})
 		},
 	},
 }

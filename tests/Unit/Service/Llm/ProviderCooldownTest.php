@@ -15,7 +15,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-4-cooldown-and-the-attempts-on-the-run-record
+ * @spec openspec/changes/archive/2026-11-25-models-several-models-per-turn/tasks.md#task-4-cooldown-and-the-attempts-on-the-run-record
  */
 
 declare(strict_types=1);

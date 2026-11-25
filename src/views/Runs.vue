@@ -610,7 +610,7 @@ export default {
 		 * @param {object} attempt The recorded attempt.
 		 * @return {string} The label.
 		 *
-		 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+		 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
 		 */
 		attemptLabel(attempt) {
 			switch (attemptOutcome(attempt)) {
@@ -639,7 +639,7 @@ export default {
 		 * @param {Array<object>} receivedBy The recorded list.
 		 * @return {string} "anthropic claude-opus-4-8, ollama qwen2.5"
 		 *
-		 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+		 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
 		 */
 		receivedByLabel(receivedBy) {
 			return receivedByList(receivedBy)

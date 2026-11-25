@@ -437,7 +437,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @return array<string, int> `promptTokens` and `completionTokens`, or `[]` when the
 	 *                            provider reported no usage.
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-7-the-ensemble-turn-and-its-budget
+	 * @spec openspec/changes/archive/2026-11-25-models-several-models-per-turn/tasks.md#task-7-the-ensemble-turn-and-its-budget
 	 */
 	public function lastCallUsage(): array {
 		return $this->lastCallUsage;
@@ -609,7 +609,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
 	 */
 	private function applyHopOverride(ChatDriverRequest $request): void {
 		if ($request->providerOverride === null || $request->providerOverride === '') {
@@ -627,7 +627,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 *
 	 * @return array<int, array{provider: string, model: string}> The hops in order; none without a policy service.
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
 	 */
 	public function fallbackChainFor(?string $organisation): array {
 		if ($this->modelPolicyService === null) {
@@ -694,7 +694,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
 	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
 	 * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
 	 */
 	public function createChatDriver(
 		array $llmConfig,
@@ -837,7 +837,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @throws \Exception If the HTTP call fails or the response is malformed.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
-	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-2
+	 * @spec openspec/changes/archive/2026-11-25-models-several-models-per-turn/tasks.md#task-2
 	 */
 	public function callFireworksChat(
 		string $credentialId,
@@ -1975,7 +1975,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @throws \Exception If the HTTP call fails or the response is malformed.
 	 *
 	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
-	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-2
+	 * @spec openspec/changes/archive/2026-11-25-models-several-models-per-turn/tasks.md#task-2
 	 */
 	private function postToAnthropic(AnthropicToolLoop $loop, array $payload): array {
 		$psrResponse = $this->sendToAnthropic(loop: $loop, payload: $payload);
@@ -2044,7 +2044,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 *
 	 * @return ProviderCallFailedException
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-2
+	 * @spec openspec/changes/archive/2026-11-25-models-several-models-per-turn/tasks.md#task-2
 	 */
 	private static function transportFailure(string $prefix, Throwable $failure): ProviderCallFailedException {
 		$typed = ProviderCallFailedException::fromThrowable(failure: $failure);
@@ -2065,7 +2065,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 *
 	 * @return string|null The auth kind for that case, else null (the status decides).
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-refusal-or-a-configuration-error-never-triggers-a-fallback-req-mfail-003
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-refusal-or-a-configuration-error-never-triggers-a-fallback-req-mfail-003
 	 */
 	private static function anthropicRefusedCredential(ResponseInterface $psrResponse): ?string {
 		if ($psrResponse->getStatusCode() !== 429

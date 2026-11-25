@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: EUPL-1.2
 // Copyright (C) 2026 Conduction B.V.
 //
-// @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+// @spec openspec/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
 
 import { describe, expect, it } from 'vitest'
 import { attemptOutcome, receivedByList } from '../../src/utils/providerAttempts.js'

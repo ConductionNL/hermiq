@@ -176,7 +176,7 @@ class OrganisationModelPolicyService implements OrganisationModelPolicyServiceIn
 	 *
 	 * @return array<int, array{provider: string, model: string}> The hops in order.
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
 	 */
 	public function fallbackChainFor(string $organisation): array {
 		$chain = ($this->effectivePolicy->effectivePolicyFor(organisation: $organisation)['fallbackChain'] ?? []);
@@ -416,7 +416,7 @@ class OrganisationModelPolicyService implements OrganisationModelPolicyServiceIn
 	 *
 	 * @throws InvalidArgumentException When the chain is malformed, too long, or names a pair the policy does not allow.
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
 	 */
 	private function normaliseFallbackChain(mixed $raw, array $allowed): array {
 		if ($raw === null) {

@@ -15,7 +15,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+ * @spec openspec/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
  */
 
 declare(strict_types=1);
