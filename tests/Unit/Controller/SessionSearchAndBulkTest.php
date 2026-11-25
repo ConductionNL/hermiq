@@ -219,7 +219,7 @@ class SessionSearchAndBulkTest extends TestCase {
 		$this->assertSame(2, $data['total']);
 		$this->assertSame('monument', $data['search']);
 		$this->assertFalse($data['truncated']);
-		$this->assertSame(['@self' => ['owner' => 'alice']], $searches[0]['filters']);
+		$this->assertSame(expected: ['@self' => ['owner' => 'alice']], actual: $searches[0]['filters']);
 		$this->assertSame('monument', $searches[0]['search']);
 	}//end testASearchFindsOwnSessionsByTurnAndByTitle()
 

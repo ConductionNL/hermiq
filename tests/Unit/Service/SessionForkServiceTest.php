@@ -237,7 +237,7 @@ class SessionForkServiceTest extends TestCase {
 		$objects->expects($this->never())->method('saveObject');
 
 		$this->expectException(SessionForkException::class);
-		$this->expectExceptionCode(404);
+		$this->expectExceptionCode(code: 404);
 		(new SessionForkService(objectService: $objects))->fork(uuid: 's-gone', turnUuid: 't-2', callerUid: 'alice');
 	}//end testANotFoundExceptionIsNotFound()
 }

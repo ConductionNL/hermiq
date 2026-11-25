@@ -295,8 +295,8 @@ class MemoryServiceTest extends TestCase {
 			. 'otherwise every authenticated user sees every other user\'s sessions for this agent.'
 		);
 		// OpenRegister reads only the nested form; a flat `@self.owner` key is a schema field and matches nothing.
-		$this->assertSame(['owner' => 'alice'], $capturedConfig['filters']['@self']);
-		$this->assertArrayNotHasKey('@self.owner', $capturedConfig['filters']);
+		$this->assertSame(expected: ['owner' => 'alice'], actual: $capturedConfig['filters']['@self']);
+		$this->assertArrayNotHasKey(key: '@self.owner', array: $capturedConfig['filters']);
 
 	}//end testListSessionsScopesToCallerOwnedSessionsOnly()
 
@@ -364,8 +364,8 @@ class MemoryServiceTest extends TestCase {
 			. 'otherwise any authenticated user can full-text search every other user\'s SessionTurns for this agent.'
 		);
 		// OpenRegister reads only the nested form; a flat `@self.owner` key is a schema field and matches nothing.
-		$this->assertSame(['owner' => 'admin'], $capturedConfig['filters']['@self']);
-		$this->assertArrayNotHasKey('@self.owner', $capturedConfig['filters']);
+		$this->assertSame(expected: ['owner' => 'admin'], actual: $capturedConfig['filters']['@self']);
+		$this->assertArrayNotHasKey(key: '@self.owner', array: $capturedConfig['filters']);
 
 	}//end testRecallPassesAgentFilterAndSearch()
 

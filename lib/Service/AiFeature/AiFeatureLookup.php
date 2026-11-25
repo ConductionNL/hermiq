@@ -110,7 +110,7 @@ class AiFeatureLookup {
 			->findAll(config: ['filters' => ['slug' => $slug], 'limit' => 200], _rbac: false, _multitenancy: false);
 
 		$ofOrganisation = array_filter(
-			is_array($objects) === true ? $objects : [],
+			$objects,
 			static fn (mixed $object): bool => $object instanceof ObjectEntity && (string)($object->getOrganisation() ?? '') === $organisation
 		);
 

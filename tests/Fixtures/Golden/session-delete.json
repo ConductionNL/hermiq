@@ -2430,10 +2430,10 @@
     {
         "method": "destroy",
         "caller": "alice",
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to delete conversation",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -2452,14 +2452,6 @@
                 {
                     "path": "\/apps\/hermiq\/api\/conversations\/s1",
                     "replacement": "\/apps\/hermiq\/api\/sessions\/s1"
-                }
-            ],
-            [
-                "error",
-                "[SessionController] Failed to delete conversation",
-                {
-                    "uuid": "s1",
-                    "error": "no such object"
                 }
             ]
         ]
@@ -4080,10 +4072,10 @@
     {
         "method": "destroy",
         "caller": "alice",
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to delete conversation",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -4103,24 +4095,16 @@
                     "path": "\/apps\/hermiq\/api\/conversations\/s1",
                     "replacement": "\/apps\/hermiq\/api\/sessions\/s1"
                 }
-            ],
-            [
-                "error",
-                "[SessionController] Failed to delete conversation",
-                {
-                    "uuid": "s1",
-                    "error": "no such object"
-                }
             ]
         ]
     },
     {
         "method": "destroyPermanent",
         "caller": "alice",
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to permanently delete conversation",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -4132,16 +4116,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to permanently delete conversation",
-                {
-                    "uuid": "s2",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "method": "destroy",
@@ -4424,10 +4399,10 @@
     {
         "method": "destroy",
         "caller": "alice",
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to delete conversation",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -4439,16 +4414,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to delete conversation",
-                {
-                    "uuid": "s1",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "method": "destroyPermanent",
@@ -4843,10 +4809,10 @@
     {
         "method": "destroyPermanent",
         "caller": "alice",
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to permanently delete conversation",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -4858,16 +4824,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to permanently delete conversation",
-                {
-                    "uuid": "s1",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "method": "destroy",
@@ -5457,10 +5414,10 @@
     {
         "method": "destroy",
         "caller": "alice",
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to delete conversation",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -5480,24 +5437,16 @@
                     "path": "\/apps\/hermiq\/api\/conversations\/s1",
                     "replacement": "\/apps\/hermiq\/api\/sessions\/s1"
                 }
-            ],
-            [
-                "error",
-                "[SessionController] Failed to delete conversation",
-                {
-                    "uuid": "s3",
-                    "error": "no such object"
-                }
             ]
         ]
     },
     {
         "method": "destroy",
         "caller": "alice",
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to delete conversation",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -5516,14 +5465,6 @@
                 {
                     "path": "\/apps\/hermiq\/api\/conversations\/s1",
                     "replacement": "\/apps\/hermiq\/api\/sessions\/s1"
-                }
-            ],
-            [
-                "error",
-                "[SessionController] Failed to delete conversation",
-                {
-                    "uuid": "s0",
-                    "error": "no such object"
                 }
             ]
         ]
@@ -6298,10 +6239,10 @@
     {
         "method": "destroy",
         "caller": "bob",
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to delete conversation",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -6313,16 +6254,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to delete conversation",
-                {
-                    "uuid": "s1",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "method": "destroy",
@@ -7355,10 +7287,10 @@
     {
         "method": "destroy",
         "caller": "alice",
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to delete conversation",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -7377,14 +7309,6 @@
                 {
                     "path": "\/apps\/hermiq\/api\/conversations\/s1",
                     "replacement": "\/apps\/hermiq\/api\/sessions\/s1"
-                }
-            ],
-            [
-                "error",
-                "[SessionController] Failed to delete conversation",
-                {
-                    "uuid": "s0",
-                    "error": "no such object"
                 }
             ]
         ]
@@ -7501,10 +7425,10 @@
     {
         "method": "destroy",
         "caller": "alice",
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to delete conversation",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -7523,14 +7447,6 @@
                 {
                     "path": "\/apps\/hermiq\/api\/conversations\/s1",
                     "replacement": "\/apps\/hermiq\/api\/sessions\/s1"
-                }
-            ],
-            [
-                "error",
-                "[SessionController] Failed to delete conversation",
-                {
-                    "uuid": "s3",
-                    "error": "no such object"
                 }
             ]
         ]
@@ -7558,10 +7474,10 @@
     {
         "method": "destroy",
         "caller": "alice",
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to delete conversation",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -7580,14 +7496,6 @@
                 {
                     "path": "\/apps\/hermiq\/api\/conversations\/s1",
                     "replacement": "\/apps\/hermiq\/api\/sessions\/s1"
-                }
-            ],
-            [
-                "error",
-                "[SessionController] Failed to delete conversation",
-                {
-                    "uuid": "s1",
-                    "error": "no such object"
                 }
             ]
         ]
@@ -7661,10 +7569,10 @@
     {
         "method": "destroy",
         "caller": "alice",
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to delete conversation",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -7676,16 +7584,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to delete conversation",
-                {
-                    "uuid": "s0",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "method": "destroy",
@@ -8829,10 +8728,10 @@
     {
         "method": "destroyPermanent",
         "caller": "alice",
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to permanently delete conversation",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -8851,14 +8750,6 @@
                 {
                     "path": "\/apps\/hermiq\/api\/conversations\/s1",
                     "replacement": "\/apps\/hermiq\/api\/sessions\/s1"
-                }
-            ],
-            [
-                "error",
-                "[SessionController] Failed to permanently delete conversation",
-                {
-                    "uuid": "s0",
-                    "error": "no such object"
                 }
             ]
         ]
@@ -9680,10 +9571,10 @@
     {
         "method": "destroyPermanent",
         "caller": "alice",
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to permanently delete conversation",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -9702,14 +9593,6 @@
                 {
                     "path": "\/apps\/hermiq\/api\/conversations\/s1",
                     "replacement": "\/apps\/hermiq\/api\/sessions\/s1"
-                }
-            ],
-            [
-                "error",
-                "[SessionController] Failed to permanently delete conversation",
-                {
-                    "uuid": "s2",
-                    "error": "no such object"
                 }
             ]
         ]
@@ -9858,10 +9741,10 @@
     {
         "method": "destroy",
         "caller": "alice",
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to delete conversation",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -9873,16 +9756,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to delete conversation",
-                {
-                    "uuid": "s2",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "method": "destroy",

@@ -382,7 +382,7 @@ final class SessionControllerUncoveredPathsTest extends TestCase {
 		$controller = $this->controller(['title' => 'New']);
 		foreach (['show', 'messages', 'update', 'destroy', 'restore', 'destroyPermanent', 'removeLink'] as $route) {
 			$response = $controller->$route('s-gone');
-			self::assertSame(404, $response->getStatus(), $route);
+			self::assertSame(expected: 404, actual: $response->getStatus(), message: $route);
 		}
 	}//end testANotFoundExceptionFromOpenRegisterIsNotFound()
 

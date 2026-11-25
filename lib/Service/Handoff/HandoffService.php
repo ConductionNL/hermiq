@@ -295,12 +295,7 @@ class HandoffService {
 			return null;
 		}
 
-		$object = $this->storedHandoff(handoffId: $handoffId);
-		if (($object instanceof ObjectEntity) === false) {
-			return null;
-		}
-
-		return $object->getObject();
+		return $this->storedHandoff(handoffId: $handoffId)?->getObject();
 	}//end find()
 
 	/**

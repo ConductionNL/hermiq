@@ -231,9 +231,8 @@ class PublicChatGate {
 	 */
 	private function featureEnabled(string $organisation): bool {
 		try {
-			if ($organisation !== '') {
-				$feature = $this->features->findBySlugForOrganisation(slug: self::FEATURE_SLUG, organisation: $organisation);
-			} else {
+			$feature = $this->features->findBySlugForOrganisation(slug: self::FEATURE_SLUG, organisation: $organisation);
+			if ($organisation === '') {
 				$feature = $this->features->findBySlugForGate(slug: self::FEATURE_SLUG);
 			}
 		} catch (Throwable $e) {

@@ -191,7 +191,7 @@ final class AiFeatureLookupTest extends TestCase {
 		$own->setOrganisation('org-1');
 		$lookup = $this->lookup([$other, $own]);
 
-		$this->assertSame($own, $lookup->findBySlugForOrganisation('public-chat', 'org-1'));
+		$this->assertSame(expected: $own, actual: $lookup->findBySlugForOrganisation('public-chat', 'org-1'));
 		$this->assertSame(
 			[
 				['setRegister', 'hermiq'],
@@ -201,10 +201,10 @@ final class AiFeatureLookupTest extends TestCase {
 			$this->calls
 		);
 
-		$this->assertNull($this->lookup([$other])->findBySlugForOrganisation('public-chat', 'org-1'));
-		$this->assertNull($this->lookup([$own])->findBySlugForOrganisation('public-chat', ''));
-		$this->assertNull($this->lookup([$own])->findBySlugForOrganisation('', 'org-1'));
-		$this->assertSame([], $this->calls);
+		$this->assertNull(actual: $this->lookup([$other])->findBySlugForOrganisation('public-chat', 'org-1'));
+		$this->assertNull(actual: $this->lookup([$own])->findBySlugForOrganisation('public-chat', ''));
+		$this->assertNull(actual: $this->lookup([$own])->findBySlugForOrganisation('', 'org-1'));
+		$this->assertSame(expected: [], actual: $this->calls);
 	}//end testFindBySlugForOrganisationKeepsOnlyThatOrganisation()
 
 }//end class

@@ -532,8 +532,8 @@ class HandoffServiceTest extends TestCase {
 		$this->objects->method('find')->willThrowException(new DoesNotExistException('not found in any magic table'));
 		$this->objects->expects($this->never())->method('saveObject');
 
-		$this->assertNull($this->service->find(handoffId: 'gone'));
-		$this->assertFalse($this->service->close(handoffId: 'gone', status: 'done', result: null));
+		$this->assertNull(actual: $this->service->find(handoffId: 'gone'));
+		$this->assertFalse(condition: $this->service->close(handoffId: 'gone', status: 'done', result: null));
 	}//end testANotFoundExceptionReadsAsMissing()
 
 }//end class

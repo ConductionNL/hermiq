@@ -111,10 +111,10 @@
             "_limit": null,
             "offset": 3
         },
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -126,16 +126,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s0",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": "bob",
@@ -238,10 +229,10 @@
             "offset": "2",
             "_offset": null
         },
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -253,16 +244,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s0",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": "alice",
@@ -271,10 +253,10 @@
             "_limit": null,
             "_offset": null
         },
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -286,16 +268,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s1",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": "carol",
@@ -305,10 +278,10 @@
             "offset": 3,
             "_offset": 1
         },
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -320,16 +293,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s2",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": "bob",
@@ -1826,10 +1790,10 @@
             "_limit": null,
             "_offset": null
         },
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -1841,16 +1805,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s1",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": "bob",
@@ -2585,10 +2540,10 @@
             "_limit": null,
             "offset": null
         },
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -2600,16 +2555,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s2",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": "bob",
@@ -3657,10 +3603,10 @@
             "_limit": null,
             "_offset": null
         },
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -3672,16 +3618,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s1",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": "alice",
@@ -4995,10 +4932,10 @@
             "offset": "2",
             "_offset": null
         },
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -5010,16 +4947,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s1",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": null,
@@ -5100,10 +5028,10 @@
             "offset": null,
             "_offset": 1
         },
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -5115,16 +5043,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s2",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": null,
@@ -5629,10 +5548,10 @@
             "offset": null,
             "_offset": null
         },
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -5644,16 +5563,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s1",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": "alice",
@@ -5802,10 +5712,10 @@
             "limit": "5",
             "_limit": 20
         },
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -5817,16 +5727,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s0",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": "alice",
@@ -6853,10 +6754,10 @@
             "offset": 3,
             "_offset": 1
         },
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -6868,16 +6769,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s0",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": null,
@@ -7376,10 +7268,10 @@
         "params": {
             "_limit": null
         },
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -7391,16 +7283,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s0",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": "alice",
@@ -8082,10 +7965,10 @@
             "_limit": null,
             "_offset": 1
         },
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -8097,16 +7980,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s2",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": "alice",
@@ -8667,10 +8541,10 @@
             "_limit": 20,
             "_offset": null
         },
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -8682,16 +8556,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s1",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": "carol",
@@ -8947,10 +8812,10 @@
     {
         "caller": "alice",
         "params": [],
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -8962,16 +8827,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s0",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": "alice",
@@ -9654,10 +9510,10 @@
             "_limit": 20,
             "offset": null
         },
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -9669,16 +9525,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s0",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": "alice",
@@ -9757,10 +9604,10 @@
         "params": {
             "limit": "5"
         },
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -9772,16 +9619,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s1",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": "alice",
@@ -9790,10 +9628,10 @@
             "offset": 3,
             "_offset": null
         },
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -9805,16 +9643,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s2",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": "alice",
@@ -10020,10 +9849,10 @@
             "_limit": null,
             "_offset": 1
         },
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -10035,16 +9864,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s0",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": "carol",
@@ -10196,10 +10016,10 @@
             "offset": "2",
             "_offset": null
         },
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -10211,16 +10031,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s2",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": null,
@@ -10531,10 +10342,10 @@
             "offset": 3,
             "_offset": null
         },
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -10546,16 +10357,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s2",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": "carol",
@@ -11251,10 +11053,10 @@
             "offset": 0,
             "_offset": null
         },
-        "status": 500,
+        "status": 404,
         "data": {
-            "error": "Failed to fetch messages",
-            "message": "no such object"
+            "error": "Conversation not found",
+            "message": "The requested conversation does not exist"
         },
         "calls": [
             [
@@ -11266,16 +11068,7 @@
                 }
             ]
         ],
-        "log": [
-            [
-                "error",
-                "[SessionController] Failed to get messages",
-                {
-                    "uuid": "s2",
-                    "error": "no such object"
-                }
-            ]
-        ]
+        "log": []
     },
     {
         "caller": "alice",

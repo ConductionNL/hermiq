@@ -153,7 +153,13 @@ class PublicChatServiceTest extends TestCase {
 		// A visitor has no session: the gate reads the feature of the channel's own organisation.
 		$featureOrganisation = ($options['featureOrganisation'] ?? 'org-1');
 		$features->method('findBySlugForOrganisation')->willReturnCallback(
-			fn (string $slug, string $organisation): ?ObjectEntity => ($slug === 'public-chat' && $organisation === $featureOrganisation ? $feature : null)
+			static function (string $slug, string $organisation) use ($feature, $featureOrganisation): ?ObjectEntity {
+				if ($slug !== 'public-chat' || $organisation !== $featureOrganisation) {
+					return null;
+				}
+
+				return $feature;
+			}
 		);
 
 		$controls = $this->createMock(ObjectService::class);
@@ -351,16 +357,16 @@ class PublicChatServiceTest extends TestCase {
 	 */
 	public function testTheFeatureIsReadForTheChannelsOrganisation(): void {
 		$answer = $this->service()->answer(channel: self::channel(), question: 'Hello?');
-		self::assertTrue($answer->available);
+		self::assertTrue(condition: $answer->available);
 
 		try {
 			$this->service(options: ['featureOrganisation' => 'org-2'])->answer(channel: self::channel(), question: 'Hello?');
-			self::fail('Expected a refusal');
+			self::fail(message: 'Expected a refusal');
 		} catch (PublicChatRefusedException $e) {
-			self::assertSame(503, $e->getStatus());
+			self::assertSame(expected: 503, actual: $e->getStatus());
 		}
 
-		self::assertCount(1, $this->modelCalls);
+		self::assertCount(expectedCount: 1, haystack: $this->modelCalls);
 	}//end testTheFeatureIsReadForTheChannelsOrganisation()
 
 	/**
