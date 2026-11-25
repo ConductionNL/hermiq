@@ -4,7 +4,7 @@
  *
  * The context readout under the message box, and which providers return reasoning.
  *
- * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+ * @spec openspec/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
  */
 
 import { describe, expect, it } from 'vitest'

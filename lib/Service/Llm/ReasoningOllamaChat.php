@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+ * @spec openspec/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
  */
 
 declare(strict_types=1);
@@ -40,7 +40,7 @@ use Psr\Http\Message\ResponseInterface;
  * Only a blocking `/chat` answer is read here; a streamed answer's reasoning
  * arrives in chunks the parent's stream decoder consumes, and is not kept.
  *
- * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+ * @spec openspec/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
  */
 class ReasoningOllamaChat extends OllamaChat {
 
@@ -64,7 +64,7 @@ class ReasoningOllamaChat extends OllamaChat {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+	 * @spec openspec/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
 	 */
 	public function askForReasoning(): void {
 		$this->asksForReasoning = true;
@@ -77,7 +77,7 @@ class ReasoningOllamaChat extends OllamaChat {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+	 * @spec openspec/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
 	 */
 	public function resetThinking(): void {
 		$this->lastThinking = '';
@@ -93,7 +93,7 @@ class ReasoningOllamaChat extends OllamaChat {
 	 *
 	 * @return ResponseInterface The response, with its body intact.
 	 *
-	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+	 * @spec openspec/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
 	 */
 	protected function sendRequest(string $method, string $path, array $json): ResponseInterface {
 		$response = parent::sendRequest(method: $method, path: $path, json: $json);

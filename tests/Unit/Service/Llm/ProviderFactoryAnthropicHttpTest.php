@@ -299,7 +299,7 @@ class ProviderFactoryAnthropicHttpTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+	 * @spec openspec/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
 	 */
 	public function testNoThinkingIsAskedForWhenReasoningIsOff(): void {
 		$factory = $this->factory([$this->ok(['content' => [['type' => 'thinking', 'thinking' => 'unasked'], ['type' => 'text', 'text' => 'Hi.']], 'stop_reason' => 'end_turn'])]);
@@ -322,7 +322,7 @@ class ProviderFactoryAnthropicHttpTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+	 * @spec openspec/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
 	 */
 	public function testThinkingIsAskedForWithAQuarterOfMaxTokens(): void {
 		$budgets = [8000 => 2000, 4096 => 1024, 2048 => 1024, 1024 => null, null => 1024];
@@ -355,7 +355,7 @@ class ProviderFactoryAnthropicHttpTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+	 * @spec openspec/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
 	 */
 	public function testTheReasoningOfEveryToolRoundIsKept(): void {
 		$thinking = ['type' => 'thinking', 'thinking' => 'I need the cases.', 'signature' => 'sig-1'];

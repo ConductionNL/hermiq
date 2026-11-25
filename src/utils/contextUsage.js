@@ -6,7 +6,7 @@
  * how many tokens the session uses, of the model's window when one is declared,
  * "about" when the number is an estimate, and a warning above 80% of the window.
  *
- * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+ * @spec openspec/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
  */
 
 /** The share of a declared window above which the readout warns. */
@@ -18,7 +18,7 @@ export const WARN_SHARE = 0.8
  *
  * @param {object|null|undefined} usage The record from the server.
  * @return {{usedTokens: number, windowTokens: number|null, estimated: boolean}|null} The record.
- * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+ * @spec openspec/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
  */
 export function readUsage(usage) {
 	if (!usage || typeof usage !== 'object') {
@@ -39,7 +39,7 @@ export function readUsage(usage) {
  * @param {(app: string, text: string, params?: object) => string} t The translate function.
  * @param {(value: number) => string} [formatNumber] Formats a token count for the reader's locale.
  * @return {{text: string, warning: string}|null} The readout, or null when there is no usage.
- * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+ * @spec openspec/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
  */
 export function contextReadout(usage, t, formatNumber = (value) => value.toLocaleString()) {
 	const record = readUsage(usage)
@@ -72,7 +72,7 @@ export function contextReadout(usage, t, formatNumber = (value) => value.toLocal
  *
  * @param {string|null|undefined} provider The agent's provider slug.
  * @return {boolean} True for anthropic and ollama.
- * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+ * @spec openspec/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
  */
 export function providerReturnsReasoning(provider) {
 	return provider === 'anthropic' || provider === 'ollama'

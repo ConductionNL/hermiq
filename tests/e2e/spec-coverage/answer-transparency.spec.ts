@@ -42,7 +42,7 @@
  *     PLAYWRIGHT_BASE_URL=<your rig> NC_USER=admin NC_PASS=admin \
  *       npx playwright test -c tests/e2e/spec-coverage/playwright.config.ts answer-transparency
  *
- * Covers openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md
+ * Covers openspec/specs/answer-transparency/spec.md
  */
 
 import type { Page } from '@playwright/test'

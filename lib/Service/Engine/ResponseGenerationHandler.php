@@ -886,7 +886,7 @@ class ResponseGenerationHandler {
 	 *
 	 * @return int The character count (multibyte-aware).
 	 *
-	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+	 * @spec openspec/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
 	 */
 	public static function promptCharacters(array $messageHistory): int {
 		$characters = 0;
@@ -906,7 +906,7 @@ class ResponseGenerationHandler {
 	 *
 	 * @return bool True only for a stored boolean true.
 	 *
-	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+	 * @spec openspec/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
 	 */
 	public static function showsReasoning(ResponseTurnRun $run): bool {
 		return ($run->agentData()['showReasoning'] ?? false) === true;

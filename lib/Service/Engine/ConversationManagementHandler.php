@@ -296,7 +296,7 @@ class ConversationManagementHandler {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+	 * @spec openspec/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
 	 */
 	public function recordContextUsage(string $conversationId, array $contextUsage): void {
 		try {

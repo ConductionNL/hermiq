@@ -818,7 +818,7 @@ class Engine implements EngineInterface {
 	 *
 	 * @return array{usedTokens: int, windowTokens: int|null, estimated: bool}
 	 *
-	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+	 * @spec openspec/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
 	 */
 	private function contextUsage(array $turn): array {
 		$prompt = $this->responseHandler->lastPrompt;
@@ -887,7 +887,7 @@ class Engine implements EngineInterface {
 	 * @return ObjectEntity The stored assistant Message.
 	 *
 	 * @spec openspec/specs/agent-engine-port/spec.md
-	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
+	 * @spec openspec/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
 	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
 	 */
 	private function storeAnswer(array $turn): ObjectEntity {

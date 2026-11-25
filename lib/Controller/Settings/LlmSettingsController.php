@@ -279,7 +279,7 @@ class LlmSettingsController extends Controller {
 	 *
 	 * @return array<string, int|null>|JSONResponse|null The declarations, or the 422 answer.
 	 *
-	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+	 * @spec openspec/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
 	 */
 	private function declaredContextWindows(array $data): array|JSONResponse|null {
 		if ($this->contextWindows === null || array_key_exists('modelContextWindows', $data) === false) {
@@ -302,7 +302,7 @@ class LlmSettingsController extends Controller {
 	 *
 	 * @return JSONResponse
 	 *
-	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+	 * @spec openspec/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
 	 */
 	private function withContextWindows(JSONResponse $response, ?array $windows): JSONResponse {
 		if ($this->contextWindows === null || $response->getStatus() !== Http::STATUS_OK) {

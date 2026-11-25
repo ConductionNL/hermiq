@@ -43,7 +43,7 @@ interface AnswerProvenanceWriterInterface {
 	 *
 	 * @return list<string> The sentences.
 	 *
-	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#scenario-a-legal-aid-worker-checks-what-an-answer-rests-on
+	 * @spec openspec/specs/answer-transparency/spec.md#scenario-a-legal-aid-worker-checks-what-an-answer-rests-on
 	 */
 	public function sentences(mixed $record): array;
 }//end interface
