@@ -43,7 +43,7 @@ use Throwable;
  * not an administrator (or delegated this settings section) before the method
  * runs.
  *
- * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+ * @spec openspec/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
  */
 class RunConcurrencySettingsController extends Controller {
 
@@ -68,7 +68,7 @@ class RunConcurrencySettingsController extends Controller {
 	 *
 	 * @return JSONResponse `{maxParallel, maxParallelPerOrganisation, maximum}`.
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function get(): JSONResponse {
@@ -89,7 +89,7 @@ class RunConcurrencySettingsController extends Controller {
 	 *
 	 * @return JSONResponse The limits stored, or 422 with the reason.
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function update(): JSONResponse {
