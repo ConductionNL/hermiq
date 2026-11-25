@@ -271,10 +271,10 @@ final class CustomToolInvokerTest extends TestCase {
 		);
 
 		$this->assertSame(
-			['code' => 'tool_failed', 'message' => 'The flow could not be run: This flow has no published version, so it cannot back a run.'],
-			$answer['error']
+			expected: ['code' => 'tool_failed', 'message' => 'The flow could not be run: This flow has no published version, so it cannot back a run.'],
+			actual: $answer['error']
 		);
-		$this->assertArrayNotHasKey('result', $answer);
+		$this->assertArrayNotHasKey(key: 'result', array: $answer);
 	}//end testAFlowOpenRegisterRefusesIsAFailedCall()
 
 	/**
